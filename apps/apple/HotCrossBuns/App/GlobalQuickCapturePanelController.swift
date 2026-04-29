@@ -60,7 +60,7 @@ final class GlobalQuickCapturePanelController: NSObject, NSWindowDelegate {
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         return NSRect(
             x: visible.midX - size.width / 2,
-            y: visible.maxY - size.height - 72,
+            y: visible.midY - size.height / 2,
             width: size.width,
             height: size.height
         )
