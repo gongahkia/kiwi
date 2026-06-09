@@ -7,11 +7,6 @@ local sqrt = math.sqrt
 local cos = math.cos
 local sin = math.sin
 local tan = math.tan
-local pi = math.pi
-
-local atan2 = math.atan2 or function(y, x)
-  return math.atan(y, x)
-end
 
 local function clamp(value, low, high)
   if value < low then
@@ -450,6 +445,8 @@ local function updateEnemy(dt)
     moveWithCollision(enemy, moveX, moveY)
   end
 
+  dx, dy = player.x - enemy.x, player.y - enemy.y
+  distance = sqrt(dx * dx + dy * dy)
   local caughtDistance = player.radius + enemy.radius + 0.12
 
   if distance < caughtDistance then
@@ -660,7 +657,7 @@ local function drawEnemySprite(width, height, depthBuffer)
   love.graphics.setColor(0.08, 0.008, 0.008, bodyAlpha)
   love.graphics.circle("fill", 0, headY, headRadius)
 
-  local eyeGlow = game.enemy.visible and 1 or 0.6
+  local eyeGlow = 0.6 + game.enemy.growl * 0.4
   love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow)
   love.graphics.circle("fill", -headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
   love.graphics.circle("fill", headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
