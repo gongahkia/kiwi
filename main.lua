@@ -53,6 +53,77 @@ local neighbors = {
   { 0, -1 },
 }
 
+local zoneStyles = {
+  ["atrium"] = { terrain = "flagstone", light = 0.78, ceiling = 4.2 },
+  ["upper nave"] = { terrain = "flagstone", light = 0.68, ceiling = 3.6 },
+  ["lower foundry"] = { terrain = "grate", light = 0.66, ceiling = 3.1 },
+  ["archive"] = { terrain = "dust", light = 0.54, ceiling = 3.0 },
+  ["observatory"] = { terrain = "glass", light = 0.72, ceiling = 3.8 },
+  ["cistern"] = { terrain = "water", light = 0.5, ceiling = 3.1 },
+  ["overgrown court"] = { terrain = "moss", light = 0.7, ceiling = 3.4 },
+  ["quarry"] = { terrain = "rubble", light = 0.58, ceiling = 3.6 },
+  ["machine shaft"] = { terrain = "grate", light = 0.62, ceiling = 3.4 },
+  ["bridgeworks"] = { terrain = "catwalk", light = 0.64, ceiling = 3.2 },
+  ["annex"] = { terrain = "stone", light = 0.58, ceiling = 3.0 },
+  ["chamber"] = { terrain = "stone", light = 0.56, ceiling = 2.8 },
+  ["hall"] = { terrain = "stone", light = 0.5, ceiling = 2.55 },
+  ["stairs"] = { terrain = "steps", light = 0.62, ceiling = 2.55 },
+  ["ladder"] = { terrain = "ladder", light = 0.68, ceiling = 3.0 },
+}
+
+local terrainSpeed = {
+  flagstone = 1,
+  stone = 1,
+  steps = 0.92,
+  dust = 0.95,
+  grate = 0.9,
+  catwalk = 0.88,
+  glass = 0.94,
+  moss = 0.84,
+  rubble = 0.74,
+  water = 0.66,
+  slag = 0.7,
+  ladder = 0.48,
+}
+
+local terrainLabels = {
+  flagstone = "FLAGSTONE",
+  stone = "STONE",
+  steps = "STAIRS",
+  dust = "DUST",
+  grate = "GRATE",
+  catwalk = "CATWALK",
+  glass = "GLASS",
+  moss = "MOSS",
+  rubble = "RUBBLE",
+  water = "WATER",
+  slag = "SLAG",
+  ladder = "LADDER",
+}
+
+local extraRoomKinds = {
+  "cistern",
+  "overgrown court",
+  "quarry",
+  "machine shaft",
+  "bridgeworks",
+  "archive",
+}
+
+local function sign(value)
+  if value < 0 then
+    return -1
+  elseif value > 0 then
+    return 1
+  end
+
+  return 0
+end
+
+local function zoneStyle(kind)
+  return zoneStyles[kind] or zoneStyles.chamber
+end
+
 local function makeWallCell()
   return {
     solid = true,
@@ -61,6 +132,9 @@ local function makeWallCell()
     kind = "wall",
     light = 0.3,
     stair = false,
+    ladder = false,
+    terrain = "stone",
+    zone = "outer",
   }
 end
 
@@ -81,6 +155,9 @@ local function makeLevel(width, height)
     rooms = {},
     start = { x = floor(width / 2), y = floor(height / 2) },
     stairCount = 0,
+    ladderCount = 0,
+    terrainCounts = {},
+    zoneCounts = {},
   }
 end
 
@@ -96,34 +173,38 @@ local function cellAtWorld(level, worldX, worldY)
   return cellAtCell(level, floor(worldX), floor(worldY))
 end
 
-local function carveCell(level, x, y, floorZ, kind, light, ceilingExtra)
+local function carveCell(level, x, y, floorZ, kind, light, ceilingExtra, terrain, zone)
   if x <= 1 or y <= 1 or x >= level.width or y >= level.height then
     return
   end
 
+  local style = zoneStyle(kind or zone or "hall")
   local cell = level.grid[y][x]
   cell.solid = false
   cell.floor = floorZ
-  cell.ceiling = floorZ + (ceilingExtra or 2.55)
+  cell.ceiling = floorZ + (ceilingExtra or style.ceiling or 2.55)
   cell.kind = kind or "hall"
-  cell.light = light or 0.55
+  cell.light = light or style.light or 0.55
   cell.stair = kind == "stairs"
+  cell.ladder = kind == "ladder"
+  cell.terrain = terrain or style.terrain or "stone"
+  cell.zone = zone or kind or "hall"
 end
 
-local function carveBrush(level, centerX, centerY, radius, floorZ, kind, light, ceilingExtra)
+local function carveBrush(level, centerX, centerY, radius, floorZ, kind, light, ceilingExtra, terrain, zone)
   for y = centerY - radius, centerY + radius do
     for x = centerX - radius, centerX + radius do
       if abs(x - centerX) + abs(y - centerY) <= radius + 1 then
-        carveCell(level, x, y, floorZ, kind, light, ceilingExtra)
+        carveCell(level, x, y, floorZ, kind, light, ceilingExtra, terrain, zone)
       end
     end
   end
 end
 
-local function carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra)
+local function carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra, terrain, zone)
   for yy = y, y + height - 1 do
     for xx = x, x + width - 1 do
-      carveCell(level, xx, yy, floorZ, kind, light, ceilingExtra)
+      carveCell(level, xx, yy, floorZ, kind, light, ceilingExtra, terrain, zone)
     end
   end
 end
@@ -131,10 +212,11 @@ end
 local function addRoom(level, centerX, centerY, width, height, floorZ, kind)
   local x = clamp(floor(centerX - width / 2), 2, level.width - width)
   local y = clamp(floor(centerY - height / 2), 2, level.height - height)
-  local light = kind == "atrium" and 0.78 or 0.48 + love.math.random() * 0.24
-  local ceilingExtra = kind == "atrium" and 4.2 or love.math.random(24, 36) / 10
+  local style = zoneStyle(kind)
+  local light = style.light or (0.48 + love.math.random() * 0.24)
+  local ceilingExtra = style.ceiling or love.math.random(24, 36) / 10
 
-  carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra)
+  carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra, style.terrain, kind)
 
   local room = {
     x = x,
@@ -145,6 +227,9 @@ local function addRoom(level, centerX, centerY, width, height, floorZ, kind)
     cy = y + floor(height / 2),
     floor = floorZ,
     kind = kind,
+    terrain = style.terrain,
+    light = light,
+    ceiling = ceilingExtra,
   }
 
   level.rooms[#level.rooms + 1] = room
@@ -190,9 +275,220 @@ local function connectRooms(level, a, b, width)
     local floorZ = mix(a.floor, b.floor, t)
     local kind = stairs and "stairs" or "hall"
     local light = stairs and 0.62 or 0.5
+    local terrain = stairs and "steps" or "stone"
 
-    carveBrush(level, point[1], point[2], width, floorZ, kind, light, 2.55)
+    carveBrush(level, point[1], point[2], width, floorZ, kind, light, 2.55, terrain, "passage")
   end
+end
+
+local function setTerrain(level, x, y, terrain, floorOffset, light, kind)
+  local cell = cellAtCell(level, x, y)
+
+  if not cell or cell.solid then
+    return
+  end
+
+  local offset = floorOffset or 0
+  cell.floor = cell.floor + offset
+  cell.ceiling = cell.ceiling + offset
+  cell.terrain = terrain or cell.terrain
+  cell.light = light or cell.light
+
+  if kind then
+    cell.kind = kind
+  end
+end
+
+local function setSolidFeature(level, x, y, floorZ, kind, light)
+  if x <= 1 or y <= 1 or x >= level.width or y >= level.height then
+    return
+  end
+
+  local cell = level.grid[y][x]
+  cell.solid = true
+  cell.floor = floorZ or cell.floor
+  cell.ceiling = cell.floor + 2.7
+  cell.kind = kind or "feature"
+  cell.light = light or 0.38
+  cell.stair = false
+  cell.ladder = false
+  cell.terrain = "stone"
+end
+
+local function preserveRoomSpine(room, x, y)
+  return abs(x - room.cx) <= 1 or abs(y - room.cy) <= 1
+end
+
+local function scatterTerrain(level, room, terrain, chance, floorOffsetMin, floorOffsetMax, light)
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      if not preserveRoomSpine(room, x, y) and love.math.random() < chance then
+        local offset = love.math.random(floorOffsetMin, floorOffsetMax) / 100
+        setTerrain(level, x, y, terrain, offset, light)
+      end
+    end
+  end
+end
+
+local function addFoundryFeatures(level, room)
+  for y = room.y + 2, room.y + room.height - 3 do
+    for x = room.x + 2, room.x + room.width - 3 do
+      if x % 4 == 0 then
+        setTerrain(level, x, y, "catwalk", 0.18, 0.7, "catwalk")
+      elseif y % 5 == 0 and love.math.random() < 0.45 then
+        setTerrain(level, x, y, "slag", -0.18, 0.82, "slag")
+      end
+    end
+  end
+end
+
+local function addArchiveFeatures(level, room)
+  for x = room.x + 3, room.x + room.width - 3, 4 do
+    for y = room.y + 2, room.y + room.height - 3 do
+      if abs(y - room.cy) > 1 and love.math.random() < 0.74 then
+        setSolidFeature(level, x, y, room.floor, "stacks", 0.35)
+      end
+    end
+  end
+
+  scatterTerrain(level, room, "dust", 0.35, -5, 2, 0.5)
+end
+
+local function addCisternFeatures(level, room)
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      if abs(x - room.cx) > 1 and abs(y - room.cy) > 1 then
+        setTerrain(level, x, y, "water", -0.32, 0.48, "cistern")
+      elseif x == room.cx or y == room.cy then
+        setTerrain(level, x, y, "catwalk", 0.16, 0.62, "catwalk")
+      end
+    end
+  end
+end
+
+local function addOvergrowthFeatures(level, room)
+  scatterTerrain(level, room, "moss", 0.58, -3, 8, 0.68)
+
+  for _ = 1, 8 do
+    local x = love.math.random(room.x + 2, room.x + room.width - 3)
+    local y = love.math.random(room.y + 2, room.y + room.height - 3)
+
+    if not preserveRoomSpine(room, x, y) then
+      setSolidFeature(level, x, y, room.floor, "root mass", 0.46)
+    end
+  end
+end
+
+local function addQuarryFeatures(level, room)
+  scatterTerrain(level, room, "rubble", 0.5, -18, 24, 0.55)
+
+  for y = room.y + 2, room.y + room.height - 3, 3 do
+    for x = room.x + 2, room.x + room.width - 3 do
+      if abs(x - room.cx) > 1 then
+        setTerrain(level, x, y, "rubble", 0.22, 0.58, "ledge")
+      end
+    end
+  end
+end
+
+local function addObservatoryFeatures(level, room)
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      local distance = sqrt((x - room.cx) ^ 2 + (y - room.cy) ^ 2)
+
+      if distance < min(room.width, room.height) * 0.22 then
+        setTerrain(level, x, y, "glass", 0.35, 0.76, "dais")
+      elseif distance > min(room.width, room.height) * 0.39 and love.math.random() < 0.35 then
+        setTerrain(level, x, y, "rubble", -0.12, 0.6, "broken rim")
+      end
+    end
+  end
+end
+
+local function addMachineFeatures(level, room)
+  for y = room.y + 2, room.y + room.height - 3 do
+    for x = room.x + 2, room.x + room.width - 3 do
+      if y % 4 == 0 then
+        setTerrain(level, x, y, "grate", 0.1, 0.68, "service deck")
+      elseif x % 5 == 0 and not preserveRoomSpine(room, x, y) then
+        setSolidFeature(level, x, y, room.floor, "machinery", 0.4)
+      end
+    end
+  end
+end
+
+local function addBridgeFeatures(level, room)
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      if abs(y - room.cy) <= 1 or abs(x - room.cx) <= 1 then
+        setTerrain(level, x, y, "catwalk", 0.22, 0.66, "bridge")
+      elseif love.math.random() < 0.58 then
+        setTerrain(level, x, y, "rubble", -0.26, 0.43, "drop floor")
+      end
+    end
+  end
+end
+
+local function decorateRoom(level, room)
+  if room.kind == "lower foundry" then
+    addFoundryFeatures(level, room)
+  elseif room.kind == "archive" then
+    addArchiveFeatures(level, room)
+  elseif room.kind == "cistern" then
+    addCisternFeatures(level, room)
+  elseif room.kind == "overgrown court" then
+    addOvergrowthFeatures(level, room)
+  elseif room.kind == "quarry" then
+    addQuarryFeatures(level, room)
+  elseif room.kind == "observatory" then
+    addObservatoryFeatures(level, room)
+  elseif room.kind == "machine shaft" then
+    addMachineFeatures(level, room)
+  elseif room.kind == "bridgeworks" then
+    addBridgeFeatures(level, room)
+  elseif room.kind == "annex" or room.kind == "chamber" then
+    scatterTerrain(level, room, "rubble", 0.18, -10, 14, 0.54)
+  end
+
+  local startCell = cellAtCell(level, room.cx, room.cy)
+  if startCell then
+    startCell.solid = false
+    startCell.floor = room.floor
+    startCell.ceiling = room.floor + room.ceiling
+    startCell.terrain = room.terrain or startCell.terrain
+    startCell.light = max(startCell.light or 0.5, room.light or 0.5)
+  end
+end
+
+local function addLadderLink(level, a, b)
+  if abs(a.floor - b.floor) < 0.72 then
+    return false
+  end
+
+  local horizontal = abs(b.cx - a.cx) > abs(b.cy - a.cy)
+  local lx = clamp(floor((a.cx + b.cx) / 2) + love.math.random(-3, 3), 4, level.width - 4)
+  local ly = clamp(floor((a.cy + b.cy) / 2) + love.math.random(-3, 3), 4, level.height - 4)
+  local ax, ay = lx, ly
+  local bx = lx + (horizontal and sign(b.cx - a.cx) or 0)
+  local by = ly + (horizontal and 0 or sign(b.cy - a.cy))
+
+  if bx == ax and by == ay then
+    bx = ax + 1
+  end
+
+  bx = clamp(bx, 3, level.width - 2)
+  by = clamp(by, 3, level.height - 2)
+
+  local low = { cx = ax, cy = ay, floor = a.floor }
+  local high = { cx = bx, cy = by, floor = b.floor }
+
+  connectRooms(level, a, low, 1)
+  connectRooms(level, high, b, 1)
+
+  carveCell(level, ax, ay, a.floor, "ladder", 0.72, 3.15, "ladder", "shaft")
+  carveCell(level, bx, by, b.floor, "ladder", 0.72, 3.15, "ladder", "shaft")
+
+  return true
 end
 
 local function addColumns(level)
@@ -217,19 +513,34 @@ local function addColumns(level)
   end
 end
 
-local function countStairs(level)
-  local count = 0
+local function countFeatures(level)
+  local stairCount = 0
+  local ladderCount = 0
+  local terrainCounts = {}
+  local zoneCounts = {}
 
   for y = 1, level.height do
     for x = 1, level.width do
       local cell = level.grid[y][x]
-      if not cell.solid and cell.stair then
-        count = count + 1
+      if not cell.solid then
+        terrainCounts[cell.terrain] = (terrainCounts[cell.terrain] or 0) + 1
+        zoneCounts[cell.zone] = (zoneCounts[cell.zone] or 0) + 1
+
+        if cell.stair then
+          stairCount = stairCount + 1
+        end
+
+        if cell.ladder then
+          ladderCount = ladderCount + 1
+        end
       end
     end
   end
 
-  level.stairCount = count
+  level.stairCount = stairCount
+  level.ladderCount = ladderCount
+  level.terrainCounts = terrainCounts
+  level.zoneCounts = zoneCounts
 end
 
 local function generateMegastructure(width, height)
@@ -279,6 +590,7 @@ local function generateMegastructure(width, height)
       local vy = wing.cy - center.cy
       local length = max(1, sqrt(vx * vx + vy * vy))
       local floorOffset = ({ -0.7, 0.0, 0.65, 1.05 })[love.math.random(4)]
+      local kind = extraRoomKinds[love.math.random(#extraRoomKinds)]
       local room = addRoom(
         level,
         wing.cx + floor(vx / length * love.math.random(10, 14)) + love.math.random(-2, 2),
@@ -286,7 +598,7 @@ local function generateMegastructure(width, height)
         love.math.random(8, 13),
         love.math.random(7, 11),
         wing.floor + floorOffset,
-        "annex"
+        kind
       )
 
       connectRooms(level, wing, room, 1)
@@ -297,6 +609,7 @@ local function generateMegastructure(width, height)
     local anchor = level.rooms[love.math.random(#level.rooms)]
     local direction = neighbors[love.math.random(#neighbors)]
     local floorZ = anchor.floor + love.math.random(-3, 3) * 0.25
+    local kind = love.math.random() < 0.55 and extraRoomKinds[love.math.random(#extraRoomKinds)] or "chamber"
     local room = addRoom(
       level,
       anchor.cx + direction[1] * love.math.random(9, 15) + love.math.random(-3, 3),
@@ -304,14 +617,26 @@ local function generateMegastructure(width, height)
       love.math.random(5, 9),
       love.math.random(5, 9),
       floorZ,
-      "chamber"
+      kind
     )
 
     connectRooms(level, anchor, room, love.math.random() < 0.35 and 2 or 1)
   end
 
+  for _, room in ipairs(level.rooms) do
+    decorateRoom(level, room)
+  end
+
+  for _ = 1, 6 do
+    local a = level.rooms[love.math.random(#level.rooms)]
+    local b = level.rooms[love.math.random(#level.rooms)]
+
+    if a ~= b then
+      addLadderLink(level, a, b)
+    end
+  end
+
   addColumns(level)
-  countStairs(level)
 
   local startCell = cellAtCell(level, level.start.x, level.start.y)
   if startCell then
@@ -321,8 +646,12 @@ local function generateMegastructure(width, height)
     startCell.ceiling = 4.2
     startCell.light = 0.78
     startCell.stair = false
+    startCell.ladder = false
+    startCell.terrain = "flagstone"
+    startCell.zone = "atrium"
   end
 
+  countFeatures(level)
   return level
 end
 
@@ -344,7 +673,7 @@ local function canTraverseCells(ax, ay, bx, by)
   end
 
   local heightDelta = abs(b.floor - a.floor)
-  return heightDelta <= maxStepHeight or a.stair or b.stair
+  return heightDelta <= maxStepHeight or a.stair or b.stair or (a.ladder and b.ladder)
 end
 
 local function wallAt(worldX, worldY)
@@ -355,6 +684,15 @@ end
 local function canOccupyFrom(entity, x, y, radius)
   local fromX = floor(entity.x)
   local fromY = floor(entity.y)
+  local centerX = floor(x)
+  local centerY = floor(y)
+  local fromCell = cellAtCell(game.level, fromX, fromY)
+  local centerCell = cellAtCell(game.level, centerX, centerY)
+  local ladderMove = fromCell
+    and centerCell
+    and fromCell.ladder
+    and centerCell.ladder
+    and canTraverseCells(fromX, fromY, centerX, centerY)
   local samples = {
     { x, y },
     { x - radius, y - radius },
@@ -367,12 +705,30 @@ local function canOccupyFrom(entity, x, y, radius)
     local targetX = floor(sample[1])
     local targetY = floor(sample[2])
 
-    if wallAt(sample[1], sample[2]) or not canTraverseCells(fromX, fromY, targetX, targetY) then
+    if wallAt(sample[1], sample[2]) then
+      return false
+    end
+
+    if not ladderMove and not canTraverseCells(fromX, fromY, targetX, targetY) then
       return false
     end
   end
 
   return true
+end
+
+local function movementMultiplier(actor)
+  local cell = cellAtWorld(game.level, actor.x, actor.y)
+
+  if not cell or cell.solid then
+    return 1
+  end
+
+  if cell.ladder then
+    return terrainSpeed.ladder
+  end
+
+  return terrainSpeed[cell.terrain] or 1
 end
 
 local function moveWithCollision(entity, dx, dy)
@@ -396,8 +752,12 @@ end
 
 local function updateActorHeight(actor, dt)
   local targetFloor = floorAt(actor.x, actor.y)
+  local cell = cellAtWorld(game.level, actor.x, actor.y)
   actor.floorZ = actor.floorZ or targetFloor
-  actor.floorZ = mix(actor.floorZ, targetFloor, clamp(dt * 12, 0, 1))
+  actor.climbing = cell and cell.ladder and abs((actor.floorZ or targetFloor) - targetFloor) > 0.04
+
+  local climbRate = actor.climbing and 3.35 or 12
+  actor.floorZ = mix(actor.floorZ, targetFloor, clamp(dt * climbRate, 0, 1))
   actor.eyeZ = actor.floorZ + (actor.eyeHeight or eyeHeight)
 end
 
@@ -501,7 +861,9 @@ local function findPath(startX, startY, goalX, goalY)
         if canTraverseCells(current.x, current.y, nx, ny) and not closed[neighborKey] then
           local fromCell = cellAtCell(game.level, current.x, current.y)
           local toCell = cellAtCell(game.level, nx, ny)
-          local stepCost = 1 + abs(toCell.floor - fromCell.floor) * 0.35
+          local terrainCost = 1 / max(0.35, terrainSpeed[toCell.terrain] or 1)
+          local ladderCost = toCell.ladder and 1.6 or 0
+          local stepCost = terrainCost + abs(toCell.floor - fromCell.floor) * 0.35 + ladderCost
           local tentativeG = current.g + stepCost
 
           if tentativeG < (gScore[neighborKey] or math.huge) then
@@ -633,7 +995,7 @@ local function updatePlayer(dt)
   end
 
   local sprinting = forward > 0 and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift"))
-  local speed = sprinting and player.sprintSpeed or player.speed
+  local speed = (sprinting and player.sprintSpeed or player.speed) * movementMultiplier(player)
   local dirX, dirY = cos(player.angle), sin(player.angle)
   local strafeX, strafeY = -dirY, dirX
   local dx = (dirX * forward + strafeX * strafe) * speed * dt
@@ -698,8 +1060,8 @@ local function updateEnemy(dt)
     local speed = enemy.visible and enemy.sightSpeed or enemy.baseSpeed
     local pressure = clamp(1 - distance / 18, 0, 0.35)
 
-    moveX = (moveX / moveLength) * (speed + pressure) * dt
-    moveY = (moveY / moveLength) * (speed + pressure) * dt
+    moveX = (moveX / moveLength) * (speed + pressure) * movementMultiplier(enemy) * dt
+    moveY = (moveY / moveLength) * (speed + pressure) * movementMultiplier(enemy) * dt
     moveWithCollision(enemy, moveX, moveY)
   end
 
@@ -808,6 +1170,7 @@ local function castRay(rayDirX, rayDirY)
 
     if previousCell then
       if nextCell.floor > previousCell.floor + 0.04 then
+        local kind = (nextCell.ladder or previousCell.ladder) and "ladder" or (nextCell.stair and "stair" or "riser")
         segments[#segments + 1] = {
           distance = distance,
           bottom = previousCell.floor,
@@ -816,10 +1179,11 @@ local function castRay(rayDirX, rayDirY)
           cell = nextCell,
           mapX = mapX,
           mapY = mapY,
-          kind = nextCell.stair and "stair" or "riser",
+          kind = kind,
           solid = false,
         }
       elseif nextCell.floor < previousCell.floor - 0.04 then
+        local kind = (nextCell.ladder or previousCell.ladder) and "ladder" or (nextCell.stair and "stair" or "drop")
         segments[#segments + 1] = {
           distance = distance,
           bottom = nextCell.floor,
@@ -828,7 +1192,7 @@ local function castRay(rayDirX, rayDirY)
           cell = previousCell,
           mapX = mapX,
           mapY = mapY,
-          kind = nextCell.stair and "stair" or "drop",
+          kind = kind,
           solid = false,
         }
       end
@@ -861,8 +1225,20 @@ local function segmentColor(segment, shade)
 
   if segment.kind == "stair" then
     red, green, blue = 0.62, 0.45, 0.27
+  elseif segment.kind == "ladder" then
+    red, green, blue = 0.74, 0.52, 0.25
   elseif segment.kind == "riser" or segment.kind == "drop" then
-    red, green, blue = 0.46, 0.42, 0.34
+    if cell.terrain == "water" then
+      red, green, blue = 0.18, 0.32, 0.38
+    elseif cell.terrain == "moss" then
+      red, green, blue = 0.25, 0.38, 0.22
+    elseif cell.terrain == "slag" then
+      red, green, blue = 0.62, 0.25, 0.1
+    elseif cell.terrain == "rubble" then
+      red, green, blue = 0.4, 0.36, 0.3
+    else
+      red, green, blue = 0.46, 0.42, 0.34
+    end
   elseif segment.kind == "lintel" then
     red, green, blue = 0.28, 0.30, 0.34
   elseif segment.kind == "column" then
@@ -902,6 +1278,11 @@ local function drawSegment(segment, width, height, screenX)
   if segment.kind == "stair" and distance < 10 then
     love.graphics.setColor(red * 1.22, green * 1.14, blue * 0.92, 0.18)
     love.graphics.rectangle("fill", screenX, drawStart, rayStep + 1, 2)
+  elseif segment.kind == "ladder" and distance < 14 then
+    love.graphics.setColor(0.12, 0.07, 0.035, 0.55)
+    for y = drawStart + 4, drawEnd - 2, max(4, floor(12 / distance)) do
+      love.graphics.rectangle("fill", screenX, y, rayStep + 1, 1)
+    end
   end
 end
 
@@ -1071,7 +1452,28 @@ local function drawTorch(width, height)
   love.graphics.circle("fill", width * 0.5, height * 0.55, max(width, height) * 0.42)
 end
 
-local function heightColor(floorZ)
+local function terrainColor(cell)
+  if cell.ladder then
+    return 0.96, 0.7, 0.24
+  elseif cell.stair then
+    return 0.78, 0.48, 0.18
+  elseif cell.terrain == "water" then
+    return 0.14, 0.32, 0.4
+  elseif cell.terrain == "moss" then
+    return 0.2, 0.42, 0.24
+  elseif cell.terrain == "rubble" then
+    return 0.42, 0.35, 0.27
+  elseif cell.terrain == "grate" or cell.terrain == "catwalk" then
+    return 0.34, 0.34, 0.32
+  elseif cell.terrain == "slag" then
+    return 0.6, 0.22, 0.08
+  elseif cell.terrain == "glass" then
+    return 0.42, 0.52, 0.58
+  elseif cell.terrain == "dust" then
+    return 0.42, 0.38, 0.28
+  end
+
+  local floorZ = cell.floor
   if floorZ < -0.45 then
     return 0.18, 0.27, 0.33
   elseif floorZ < 0.35 then
@@ -1104,10 +1506,8 @@ local function drawMinimap(width, height)
 
       if cell.solid then
         love.graphics.setColor(0.08, 0.075, 0.067, 0.9)
-      elseif cell.stair then
-        love.graphics.setColor(0.78, 0.48, 0.18, 0.88)
       else
-        local red, green, blue = heightColor(cell.floor)
+        local red, green, blue = terrainColor(cell)
         love.graphics.setColor(red, green, blue, 0.82)
       end
 
@@ -1144,10 +1544,19 @@ local function drawHud(width, height)
   local z = (enemy.floorZ or 0) - (player.floorZ or 0)
   local distance = sqrt(dx * dx + dy * dy + z * z * 0.35)
   local danger = clamp(1 - distance / 10, 0, 1)
+  local cell = cellAtWorld(game.level, player.x, player.y) or {}
+  local traversal = terrainLabels[cell.terrain] or "STONE"
+  local zone = string.upper(cell.zone or "UNKNOWN")
+
+  if cell.ladder or player.climbing then
+    traversal = player.climbing and "CLIMBING" or "LADDER"
+  elseif cell.stair then
+    traversal = "STAIRS"
+  end
 
   love.graphics.setFont(game.fonts.hud)
   love.graphics.setColor(0, 0, 0, 0.42)
-  love.graphics.rectangle("fill", 18, 18, 234, 92, 4, 4)
+  love.graphics.rectangle("fill", 18, 18, 292, 146, 4, 4)
 
   love.graphics.setColor(0.95, 0.88, 0.68)
   love.graphics.print(string.format("TIME   %05.1f", game.survivalTime), 30, 28)
@@ -1155,6 +1564,10 @@ local function drawHud(width, height)
   love.graphics.print(string.format("THREAT %02dM", floor(distance)), 30, 55)
   love.graphics.setColor(0.78, 0.72, 0.6)
   love.graphics.print(string.format("LEVEL  %+0.1f", player.floorZ or 0), 30, 82)
+  love.graphics.setColor(0.82, 0.76, 0.62)
+  love.graphics.print(traversal, 30, 109)
+  love.graphics.setColor(0.68, 0.64, 0.56)
+  love.graphics.print(zone, 30, 136)
 
   if danger > 0 then
     love.graphics.setColor(0.65, 0.02, 0.015, danger * 0.16)
