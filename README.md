@@ -11,7 +11,7 @@ Survive, activate every relay, then return to the atrium before the hunter catch
 ## Run
 
 ```sh
-love .
+make run
 ```
 
 ## Validate
