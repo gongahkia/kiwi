@@ -85,8 +85,6 @@ local function castRay(game, rayDirX, rayDirY)
   local sideDistX, sideDistY
   local side = 0
   local segments = {}
-  local spans = {}
-  local spanStart = 0
 
   if rayDirX < 0 then
     stepX = -1
@@ -122,26 +120,10 @@ local function castRay(game, rayDirX, rayDirY)
     distance = max(distance, 0.01)
 
     if distance >= Renderer.wallRenderDistance then
-      if previousCell and not Level.isBlocked(previousCell) and spanStart < Renderer.wallRenderDistance then
-        spans[#spans + 1] = {
-          near = spanStart,
-          far = Renderer.wallRenderDistance,
-          cell = previousCell,
-        }
-      end
-
-      return segments, Renderer.wallRenderDistance, spans
+      return segments, Renderer.wallRenderDistance
     end
 
     local nextCell = Level.cellAtCell(level, mapX, mapY)
-
-    if previousCell and not Level.isBlocked(previousCell) and distance > spanStart + 0.001 then
-      spans[#spans + 1] = {
-        near = spanStart,
-        far = min(distance, Renderer.wallRenderDistance),
-        cell = previousCell,
-      }
-    end
 
     if Level.isBlocked(nextCell) then
       if previousCell then
@@ -158,7 +140,7 @@ local function castRay(game, rayDirX, rayDirY)
         }
       end
 
-      return segments, distance, spans
+      return segments, distance
     end
 
     if previousCell then
@@ -206,18 +188,9 @@ local function castRay(game, rayDirX, rayDirY)
     end
 
     previousCell = nextCell
-    spanStart = distance
   end
 
-  if previousCell and not Level.isBlocked(previousCell) and spanStart < Renderer.wallRenderDistance then
-    spans[#spans + 1] = {
-      near = spanStart,
-      far = Renderer.wallRenderDistance,
-      cell = previousCell,
-    }
-  end
-
-  return segments, Renderer.wallRenderDistance, spans
+  return segments, Renderer.wallRenderDistance
 end
 
 local function segmentColor(segment, shade)
@@ -327,30 +300,70 @@ local function surfaceColor(cell, distance, ceiling)
   return red * shade * light, green * shade * light, blue * shade * light
 end
 
-local function drawVerticalSpan(screenX, y1, y2, height)
-  local top = max(0, floor(min(y1, y2)))
-  local bottom = min(height, ceil(max(y1, y2)))
+local function drawFloorCeiling(game, width, height)
+  local player = game.player
+  local level = game.level
+  local currentCell = Level.cellAtWorld(level, player.x, player.y)
 
-  if bottom > top then
-    love.graphics.rectangle("fill", screenX, top, Renderer.rayStep + 1, bottom - top)
+  if not currentCell or Level.isBlocked(currentCell) then
+    return
   end
-end
 
-local function drawSurfaceSpan(game, span, height, screenX)
-  local nearDistance = max(span.near, 0.045)
-  local farDistance = max(span.far, nearDistance + 0.01)
-  local cell = span.cell
-  local distance = (nearDistance + farDistance) * 0.5
-  local floorNear = projectWorldZ(game, cell.floor, nearDistance, height)
-  local floorFar = projectWorldZ(game, cell.floor, farDistance, height)
-  local ceilingNear = projectWorldZ(game, cell.ceiling, nearDistance, height)
-  local ceilingFar = projectWorldZ(game, cell.ceiling, farDistance, height)
+  local horizon = height * 0.54
+  local projectionScale = height * 0.86
+  local dirX, dirY = cos(player.angle), sin(player.angle)
+  local planeScale = tan(player.fov / 2)
+  local planeX, planeY = -dirY * planeScale, dirX * planeScale
+  local leftRayX, leftRayY = dirX - planeX, dirY - planeY
+  local rightRayX, rightRayY = dirX + planeX, dirY + planeY
+  local floorZ = currentCell.floor
+  local ceilingZ = currentCell.ceiling
 
-  love.graphics.setColor(surfaceColor(cell, distance, false))
-  drawVerticalSpan(screenX, floorNear, floorFar, height)
+  for y = ceil(horizon), height - 1, 2 do
+    local distance = (player.eyeZ - floorZ) * projectionScale / max(y - horizon, 0.001)
 
-  love.graphics.setColor(surfaceColor(cell, distance, true))
-  drawVerticalSpan(screenX, ceilingNear, ceilingFar, height)
+    if distance < Renderer.wallRenderDistance then
+      local stepX = (rightRayX - leftRayX) * distance / width
+      local stepY = (rightRayY - leftRayY) * distance / width
+      local worldX = player.x + leftRayX * distance
+      local worldY = player.y + leftRayY * distance
+
+      for x = 0, width - 1, Renderer.rayStep do
+        local cell = Level.cellAtWorld(level, worldX, worldY)
+
+        if cell and not Level.isBlocked(cell) then
+          love.graphics.setColor(surfaceColor(cell, distance, false))
+          love.graphics.rectangle("fill", x, y, Renderer.rayStep + 1, 2)
+        end
+
+        worldX = worldX + stepX * Renderer.rayStep
+        worldY = worldY + stepY * Renderer.rayStep
+      end
+    end
+  end
+
+  for y = floor(horizon), 0, -2 do
+    local distance = (ceilingZ - player.eyeZ) * projectionScale / max(horizon - y, 0.001)
+
+    if distance < Renderer.wallRenderDistance then
+      local stepX = (rightRayX - leftRayX) * distance / width
+      local stepY = (rightRayY - leftRayY) * distance / width
+      local worldX = player.x + leftRayX * distance
+      local worldY = player.y + leftRayY * distance
+
+      for x = 0, width - 1, Renderer.rayStep do
+        local cell = Level.cellAtWorld(level, worldX, worldY)
+
+        if cell and not Level.isBlocked(cell) then
+          love.graphics.setColor(surfaceColor(cell, distance, true))
+          love.graphics.rectangle("fill", x, y - 1, Renderer.rayStep + 1, 2)
+        end
+
+        worldX = worldX + stepX * Renderer.rayStep
+        worldY = worldY + stepY * Renderer.rayStep
+      end
+    end
+  end
 end
 
 local function drawRaycastWorld(game, width, height)
@@ -361,16 +374,13 @@ local function drawRaycastWorld(game, width, height)
   local planeX, planeY = -dirY * planeScale, dirX * planeScale
 
   drawBackground(width, height, game.torch.fuel)
+  drawFloorCeiling(game, width, height)
 
   for screenX = 0, width - 1, Renderer.rayStep do
     local cameraX = 2 * (screenX + 0.5) / width - 1
     local rayDirX = dirX + planeX * cameraX
     local rayDirY = dirY + planeY * cameraX
-    local segments, solidDistance, spans = castRay(game, rayDirX, rayDirY)
-
-    for i = #spans, 1, -1 do
-      drawSurfaceSpan(game, spans[i], height, screenX)
-    end
+    local segments, solidDistance = castRay(game, rayDirX, rayDirY)
 
     for i = #segments, 1, -1 do
       drawSegment(game, segments[i], width, height, screenX)
