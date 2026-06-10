@@ -783,40 +783,201 @@ local function ensureVerticalLinks(level)
   addLadderLink(level, lowest, highest)
 end
 
-local function validateLevel(level)
-  local farthest, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
-  local reachable = 0
-  local objectiveReachable = 0
+local function setGateState(level, locked)
+  local states = {}
 
+  for i, gate in ipairs(level.gates or {}) do
+    states[i] = gate.cell.gateLocked
+    gate.cell.gateLocked = locked
+  end
+
+  return states
+end
+
+local function restoreGateState(level, states)
+  for i, gate in ipairs(level.gates or {}) do
+    gate.cell.gateLocked = states[i]
+  end
+end
+
+local function reachableFromStart(level, gatesLocked)
+  local states = setGateState(level, gatesLocked)
+  local farthest, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  restoreGateState(level, states)
+
+  local reachable = 0
   for _ in pairs(visited) do
     reachable = reachable + 1
   end
 
-  for _, objective in ipairs(level.objectives) do
-    if visited[U.keyOf(objective.x, objective.y)] then
-      objectiveReachable = objectiveReachable + 1
+  return reachable, visited, farthest
+end
+
+local function countOpenCells(level, includeGates)
+  local count = 0
+
+  for y = 1, level.height do
+    for x = 1, level.width do
+      local cell = level.grid[y][x]
+      if not cell.solid and (includeGates or not cell.gate) then
+        count = count + 1
+      end
     end
   end
 
-  local valid = reachable >= 360
-    and #level.rooms >= 12
-    and #level.objectives >= 3
-    and objectiveReachable == #level.objectives
-    and level.stairCount > 0
-    and level.ladderCount >= 2
-    and farthest.distance >= 18
+  return count
+end
+
+local function countVisitedCells(level, visited, includeGates)
+  local count = 0
+
+  for y = 1, level.height do
+    for x = 1, level.width do
+      local cell = level.grid[y][x]
+      if not cell.solid and (includeGates or not cell.gate) and visited[U.keyOf(x, y)] then
+        count = count + 1
+      end
+    end
+  end
+
+  return count
+end
+
+local function countReachableObjectives(level, visited)
+  local count = 0
+
+  for _, objective in ipairs(level.objectives) do
+    if visited[U.keyOf(objective.x, objective.y)] then
+      count = count + 1
+    end
+  end
+
+  return count
+end
+
+local function gateDegree(level, gate)
+  local degree = 0
+
+  for _, neighbor in ipairs(U.neighbors) do
+    local nx, ny = gate.x + neighbor[1], gate.y + neighbor[2]
+    if Level.canTraverseCells(level, gate.x, gate.y, nx, ny) then
+      degree = degree + 1
+    end
+  end
+
+  return degree
+end
+
+local function countUsableGates(level, visited)
+  local reachable = 0
+  local usable = 0
+  local states = setGateState(level, false)
+
+  for _, gate in ipairs(level.gates or {}) do
+    if visited[U.keyOf(gate.x, gate.y)] then
+      reachable = reachable + 1
+    end
+    if (gate.required or math.huge) <= #level.objectives and gateDegree(level, gate) >= 2 then
+      usable = usable + 1
+    end
+  end
+
+  restoreGateState(level, states)
+  return reachable, usable
+end
+
+local function compactRefills(level)
+  local refills = {}
+
+  for _, refill in ipairs(level.refills or {}) do
+    if refill.cell and not refill.cell.solid and refill.cell.refill then
+      refills[#refills + 1] = refill
+    end
+  end
+
+  level.refills = refills
+end
+
+local function sealUnreachableCells(level)
+  local states = setGateState(level, true)
+  local _, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  restoreGateState(level, states)
+
+  for y = 1, level.height do
+    for x = 1, level.width do
+      local cell = level.grid[y][x]
+      if not cell.solid and not cell.gate and not cell.objective and not visited[U.keyOf(x, y)] then
+        cell.solid = true
+        cell.kind = "sealed void"
+        cell.light = 0.28
+        cell.stair = false
+        cell.ladder = false
+        cell.refill = false
+        cell.refillUsed = false
+        cell.landmark = nil
+      end
+    end
+  end
+
+  compactRefills(level)
+end
+
+function Level.validate(level)
+  local lockedReachable, lockedVisited, farthest = reachableFromStart(level, true)
+  local unlockedReachable, unlockedVisited = reachableFromStart(level, false)
+  local lockedOpenCells = countOpenCells(level, false)
+  local unlockedOpenCells = countOpenCells(level, true)
+  local lockedConnected = countVisitedCells(level, lockedVisited, false)
+  local unlockedConnected = countVisitedCells(level, unlockedVisited, true)
+  local objectiveReachable = countReachableObjectives(level, lockedVisited)
+  local atriumEscapeReachable = countReachableObjectives(level, unlockedVisited)
+  local gateReachable, gateUsable = countUsableGates(level, unlockedVisited)
+  local failures = {}
+
+  local function requireValid(condition, label)
+    if not condition then
+      failures[#failures + 1] = label
+    end
+  end
+
+  requireValid(lockedReachable >= 360, "min-reachable")
+  requireValid(lockedConnected == lockedOpenCells, "locked-connectivity")
+  requireValid(unlockedConnected == unlockedOpenCells, "unlocked-connectivity")
+  requireValid(#level.rooms >= 12, "rooms")
+  requireValid(#level.objectives >= 3, "objectives")
+  requireValid(objectiveReachable == #level.objectives, "objective-reachability")
+  requireValid(atriumEscapeReachable == #level.objectives, "atrium-escape")
+  requireValid(#level.gates >= 2, "gates")
+  requireValid(gateReachable == #level.gates, "gate-reachability")
+  requireValid(gateUsable == #level.gates, "gate-usability")
+  requireValid(level.stairCount > 0, "stairs")
+  requireValid(level.ladderCount >= 2, "ladders")
+  requireValid(farthest.distance >= 18, "farthest")
 
   level.validation = {
-    valid = valid,
-    reachable = reachable,
+    valid = #failures == 0,
+    failures = failures,
+    reachable = lockedReachable,
+    openCells = lockedOpenCells,
+    unlockedReachable = unlockedReachable,
+    unlockedOpenCells = unlockedOpenCells,
     objectiveReachable = objectiveReachable,
+    atriumEscapeReachable = atriumEscapeReachable,
+    gateReachable = gateReachable,
+    gateUsable = gateUsable,
     farthest = farthest.distance,
     rooms = #level.rooms,
+    objectives = #level.objectives,
+    gates = #level.gates,
     stairs = level.stairCount,
     ladders = level.ladderCount,
   }
 
-  return valid
+  return level.validation
+end
+
+local function validateLevel(level)
+  return Level.validate(level).valid
 end
 
 local function generateMegastructure(width, height)
@@ -925,6 +1086,7 @@ local function generateMegastructure(width, height)
     startCell.zone = "atrium"
   end
 
+  sealUnreachableCells(level)
   countFeatures(level)
   return level
 end
