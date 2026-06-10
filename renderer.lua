@@ -312,56 +312,26 @@ local function drawFloorCeiling(game, width, height)
   local horizon = height * 0.54
   local projectionScale = height * 0.86
   local dirX, dirY = cos(player.angle), sin(player.angle)
-  local planeScale = tan(player.fov / 2)
-  local planeX, planeY = -dirY * planeScale, dirX * planeScale
-  local leftRayX, leftRayY = dirX - planeX, dirY - planeY
-  local rightRayX, rightRayY = dirX + planeX, dirY + planeY
   local floorZ = currentCell.floor
   local ceilingZ = currentCell.ceiling
+  local floorDistanceScale = max(player.eyeZ - floorZ, 0.08) * projectionScale
+  local ceilingDistanceScale = max(ceilingZ - player.eyeZ, 0.08) * projectionScale
 
   for y = ceil(horizon), height - 1, 2 do
-    local distance = (player.eyeZ - floorZ) * projectionScale / max(y - horizon, 0.001)
+    local distance = floorDistanceScale / max(y - horizon, 0.001)
 
     if distance < Renderer.wallRenderDistance then
-      local stepX = (rightRayX - leftRayX) * distance / width
-      local stepY = (rightRayY - leftRayY) * distance / width
-      local worldX = player.x + leftRayX * distance
-      local worldY = player.y + leftRayY * distance
-
-      for x = 0, width - 1, Renderer.rayStep do
-        local cell = Level.cellAtWorld(level, worldX, worldY)
-
-        if cell and not Level.isBlocked(cell) then
-          love.graphics.setColor(surfaceColor(cell, distance, false))
-          love.graphics.rectangle("fill", x, y, Renderer.rayStep + 1, 2)
-        end
-
-        worldX = worldX + stepX * Renderer.rayStep
-        worldY = worldY + stepY * Renderer.rayStep
-      end
+      love.graphics.setColor(surfaceColor(currentCell, distance, false))
+      love.graphics.rectangle("fill", 0, y, width, 2)
     end
   end
 
   for y = floor(horizon), 0, -2 do
-    local distance = (ceilingZ - player.eyeZ) * projectionScale / max(horizon - y, 0.001)
+    local distance = ceilingDistanceScale / max(horizon - y, 0.001)
 
     if distance < Renderer.wallRenderDistance then
-      local stepX = (rightRayX - leftRayX) * distance / width
-      local stepY = (rightRayY - leftRayY) * distance / width
-      local worldX = player.x + leftRayX * distance
-      local worldY = player.y + leftRayY * distance
-
-      for x = 0, width - 1, Renderer.rayStep do
-        local cell = Level.cellAtWorld(level, worldX, worldY)
-
-        if cell and not Level.isBlocked(cell) then
-          love.graphics.setColor(surfaceColor(cell, distance, true))
-          love.graphics.rectangle("fill", x, y - 1, Renderer.rayStep + 1, 2)
-        end
-
-        worldX = worldX + stepX * Renderer.rayStep
-        worldY = worldY + stepY * Renderer.rayStep
-      end
+      love.graphics.setColor(surfaceColor(currentCell, distance, true))
+      love.graphics.rectangle("fill", 0, y - 1, width, 2)
     end
   end
 end
