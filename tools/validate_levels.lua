@@ -37,6 +37,10 @@ local metrics = {
   refills = {},
   stairs = {},
   ladders = {},
+  floorHeights = {},
+  heightTransitions = {},
+  steepTransitions = {},
+  ceilingTransitions = {},
   reachable = {},
   objectiveDistance = {},
   returnDistance = {},
@@ -151,6 +155,10 @@ local function appendCoreMetrics(level)
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
   metrics.ladders[#metrics.ladders + 1] = level.ladderCount
+  metrics.floorHeights[#metrics.floorHeights + 1] = validation.floorHeights
+  metrics.heightTransitions[#metrics.heightTransitions + 1] = validation.heightTransitions
+  metrics.steepTransitions[#metrics.steepTransitions + 1] = validation.steepTransitions
+  metrics.ceilingTransitions[#metrics.ceilingTransitions + 1] = validation.ceilingTransitions
   metrics.reachable[#metrics.reachable + 1] = validation.reachable
 end
 
@@ -210,6 +218,10 @@ if enabled.metrics then
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")
   io.write(Support.metricLine("ladders", metrics.ladders) .. "\n")
+  io.write(Support.metricLine("floor-heights", metrics.floorHeights) .. "\n")
+  io.write(Support.metricLine("height-transitions", metrics.heightTransitions) .. "\n")
+  io.write(Support.metricLine("steep-transitions", metrics.steepTransitions) .. "\n")
+  io.write(Support.metricLine("ceiling-transitions", metrics.ceilingTransitions) .. "\n")
   io.write(Support.metricLine("reachable", metrics.reachable) .. "\n")
   io.write(Support.percentileLine("objective-distance", metrics.objectiveDistance) .. "\n")
   io.write(Support.percentileLine("return-distance", metrics.returnDistance) .. "\n")

@@ -10,45 +10,45 @@ local Level = {
   width = 57,
   height = 57,
   maxStepHeight = 0.58,
+  floorHeight = 0,
+  ceilingHeight = 3.05,
 }
 
 local zoneStyles = {
-  ["atrium"] = { terrain = "flagstone", light = 0.78, ceiling = 4.2 },
-  ["upper nave"] = { terrain = "flagstone", light = 0.68, ceiling = 3.6 },
-  ["lower foundry"] = { terrain = "grate", light = 0.66, ceiling = 3.1 },
-  ["archive"] = { terrain = "dust", light = 0.54, ceiling = 3.0 },
-  ["observatory"] = { terrain = "glass", light = 0.72, ceiling = 3.8 },
-  ["cistern"] = { terrain = "water", light = 0.5, ceiling = 3.1 },
-  ["overgrown court"] = { terrain = "moss", light = 0.7, ceiling = 3.4 },
-  ["quarry"] = { terrain = "rubble", light = 0.58, ceiling = 3.6 },
-  ["machine shaft"] = { terrain = "grate", light = 0.62, ceiling = 3.4 },
-  ["bridgeworks"] = { terrain = "catwalk", light = 0.64, ceiling = 3.2 },
-  ["annex"] = { terrain = "stone", light = 0.58, ceiling = 3.0 },
-  ["chamber"] = { terrain = "stone", light = 0.56, ceiling = 2.8 },
-  ["hall"] = { terrain = "stone", light = 0.5, ceiling = 2.55 },
-  ["stairs"] = { terrain = "steps", light = 0.62, ceiling = 2.55 },
-  ["ladder"] = { terrain = "ladder", light = 0.68, ceiling = 3.0 },
+  ["atrium"] = { terrain = "flagstone", light = 0.78 },
+  ["archive"] = { terrain = "dust", light = 0.56 },
+  ["observatory"] = { terrain = "glass", light = 0.72 },
+  ["cistern"] = { terrain = "water", light = 0.52 },
+  ["lower foundry"] = { terrain = "grate", light = 0.64 },
+  ["overgrown court"] = { terrain = "moss", light = 0.68 },
+  ["quarry"] = { terrain = "rubble", light = 0.58 },
+  ["machine shaft"] = { terrain = "grate", light = 0.62 },
+  ["bridgeworks"] = { terrain = "catwalk", light = 0.64 },
+  ["annex"] = { terrain = "stone", light = 0.58 },
+  ["chamber"] = { terrain = "stone", light = 0.56 },
+  ["hall"] = { terrain = "stone", light = 0.5 },
+  ["ladder"] = { terrain = "ladder", light = 0.72 },
 }
 
 Level.terrainSpeed = {
   flagstone = 1,
   stone = 1,
-  steps = 0.92,
+  steps = 1,
   dust = 0.95,
   grate = 0.9,
-  catwalk = 0.88,
+  catwalk = 0.9,
   glass = 0.94,
   moss = 0.84,
-  rubble = 0.74,
-  water = 0.66,
-  slag = 0.7,
-  ladder = 0.48,
+  rubble = 0.76,
+  water = 0.72,
+  slag = 0.78,
+  ladder = 0.9,
 }
 
 Level.terrainLabels = {
   flagstone = "FLAGSTONE",
   stone = "STONE",
-  steps = "STAIRS",
+  steps = "STONE",
   dust = "DUST",
   grate = "GRATE",
   catwalk = "CATWALK",
@@ -60,32 +60,31 @@ Level.terrainLabels = {
   ladder = "LADDER",
 }
 
-local extraRoomKinds = {
-  "cistern",
-  "overgrown court",
-  "quarry",
-  "machine shaft",
-  "bridgeworks",
-  "archive",
-}
-
 local objectiveLabels = {
   "NORTH RELAY",
-  "WEST RELAY",
-  "SOUTH RELAY",
   "EAST RELAY",
-  "DEEP RELAY",
+  "SOUTH RELAY",
+  "WEST RELAY",
+}
+
+local metricNeighbors = {
+  { 1, 0 },
+  { 0, 1 },
 }
 
 local function zoneStyle(kind)
   return zoneStyles[kind] or zoneStyles.chamber
 end
 
+local function randomRange(range)
+  return love.math.random(range[1], range[2])
+end
+
 local function makeWallCell()
   return {
     solid = true,
-    floor = 0,
-    ceiling = 2.8,
+    floor = Level.floorHeight,
+    ceiling = Level.ceilingHeight,
     kind = "wall",
     light = 0.3,
     stair = false,
@@ -122,6 +121,10 @@ local function makeLevel(width, height)
     ladderCount = 0,
     terrainCounts = {},
     zoneCounts = {},
+    distinctFloorHeights = 0,
+    heightTransitionCount = 0,
+    steepTransitionCount = 0,
+    ceilingTransitionCount = 0,
     objectives = {},
     refills = {},
     gates = {},
@@ -144,7 +147,7 @@ function Level.isBlocked(cell)
   return cell == nil or cell.solid or cell.gateLocked
 end
 
-local function carveCell(level, x, y, floorZ, kind, light, ceilingExtra, terrain, zone)
+local function carveCell(level, x, y, kind, light, terrain, zone)
   if x <= 1 or y <= 1 or x >= level.width or y >= level.height then
     return
   end
@@ -152,42 +155,41 @@ local function carveCell(level, x, y, floorZ, kind, light, ceilingExtra, terrain
   local style = zoneStyle(kind or zone or "hall")
   local cell = level.grid[y][x]
   cell.solid = false
-  cell.floor = floorZ
-  cell.ceiling = floorZ + (ceilingExtra or style.ceiling or 2.55)
+  cell.floor = Level.floorHeight
+  cell.ceiling = Level.ceilingHeight
   cell.kind = kind or "hall"
   cell.light = light or style.light or 0.55
-  cell.stair = kind == "stairs"
-  cell.ladder = kind == "ladder"
+  cell.stair = false
+  cell.ladder = kind == "ladder" or terrain == "ladder"
   cell.terrain = terrain or style.terrain or "stone"
   cell.zone = zone or kind or "hall"
 end
 
-local function carveBrush(level, centerX, centerY, radius, floorZ, kind, light, ceilingExtra, terrain, zone)
+local function carveBrush(level, centerX, centerY, radius, kind, light, terrain, zone)
   for y = centerY - radius, centerY + radius do
     for x = centerX - radius, centerX + radius do
       if abs(x - centerX) + abs(y - centerY) <= radius + 1 then
-        carveCell(level, x, y, floorZ, kind, light, ceilingExtra, terrain, zone)
+        carveCell(level, x, y, kind, light, terrain, zone)
       end
     end
   end
 end
 
-local function carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra, terrain, zone)
+local function carveRect(level, x, y, width, height, kind, light, terrain, zone)
   for yy = y, y + height - 1 do
     for xx = x, x + width - 1 do
-      carveCell(level, xx, yy, floorZ, kind, light, ceilingExtra, terrain, zone)
+      carveCell(level, xx, yy, kind, light, terrain, zone)
     end
   end
 end
 
-local function addRoom(level, centerX, centerY, width, height, floorZ, kind, route)
+local function addRoom(level, centerX, centerY, width, height, kind, route)
   local x = U.clamp(floor(centerX - width / 2), 2, level.width - width)
   local y = U.clamp(floor(centerY - height / 2), 2, level.height - height)
   local style = zoneStyle(kind)
-  local light = style.light or (0.48 + love.math.random() * 0.24)
-  local ceilingExtra = style.ceiling or love.math.random(24, 36) / 10
+  local light = style.light or 0.55
 
-  carveRect(level, x, y, width, height, floorZ, kind, light, ceilingExtra, style.terrain, kind)
+  carveRect(level, x, y, width, height, kind, light, style.terrain, kind)
 
   local room = {
     x = x,
@@ -196,11 +198,11 @@ local function addRoom(level, centerX, centerY, width, height, floorZ, kind, rou
     height = height,
     cx = x + floor(width / 2),
     cy = y + floor(height / 2),
-    floor = floorZ,
+    floor = Level.floorHeight,
     kind = kind,
     terrain = style.terrain,
     light = light,
-    ceiling = ceilingExtra,
+    ceiling = Level.ceilingHeight,
     route = route or false,
   }
 
@@ -209,6 +211,18 @@ local function addRoom(level, centerX, centerY, width, height, floorZ, kind, rou
     level.routeRooms[#level.routeRooms + 1] = room
   end
   return room
+end
+
+local function addJitteredRoom(level, centerX, centerY, widthRange, heightRange, kind, route)
+  return addRoom(
+    level,
+    centerX + love.math.random(-2, 2),
+    centerY + love.math.random(-2, 2),
+    randomRange(widthRange),
+    randomRange(heightRange),
+    kind,
+    route
+  )
 end
 
 local function appendLine(points, x1, y1, x2, y2)
@@ -227,81 +241,85 @@ local function appendLine(points, x1, y1, x2, y2)
   end
 end
 
-local function connectRooms(level, a, b, width)
+local function carvePolyline(level, vertices, width, zone, terrain)
   local points = {}
-  local bendX
-  local bendY
 
-  if love.math.random() < 0.5 then
-    bendX = b.cx
-    bendY = a.cy
-  else
-    bendX = a.cx
-    bendY = b.cy
+  for i = 1, #vertices - 1 do
+    appendLine(points, vertices[i][1], vertices[i][2], vertices[i + 1][1], vertices[i + 1][2])
   end
 
-  appendLine(points, a.cx, a.cy, bendX, bendY)
-  appendLine(points, bendX, bendY, b.cx, b.cy)
-
-  local stairs = abs(a.floor - b.floor) > 0.16
-
-  for i, point in ipairs(points) do
-    local t = #points <= 1 and 0 or (i - 1) / (#points - 1)
-    local floorZ = U.mix(a.floor, b.floor, t)
-    local kind = stairs and "stairs" or "hall"
-    local light = stairs and 0.62 or 0.5
-    local terrain = stairs and "steps" or "stone"
-
-    carveBrush(level, point[1], point[2], width, floorZ, kind, light, 2.55, terrain, "passage")
+  for _, point in ipairs(points) do
+    carveBrush(level, point[1], point[2], width or 1, "hall", 0.52, terrain or "stone", zone or "passage")
   end
 
   return points
 end
 
-local function setTerrain(level, x, y, terrain, floorOffset, light, kind)
+local function connectRooms(level, a, b, width, zone, terrain)
+  local bend
+
+  if love.math.random() < 0.5 then
+    bend = { b.cx, a.cy }
+  else
+    bend = { a.cx, b.cy }
+  end
+
+  return carvePolyline(level, {
+    { a.cx, a.cy },
+    bend,
+    { b.cx, b.cy },
+  }, width or 1, zone or "passage", terrain or "stone")
+end
+
+local function setTerrain(level, x, y, terrain, light, kind, zone)
   local cell = Level.cellAtCell(level, x, y)
 
   if not cell or cell.solid then
     return
   end
 
-  local offset = floorOffset or 0
-  cell.floor = cell.floor + offset
-  cell.ceiling = cell.ceiling + offset
+  cell.floor = Level.floorHeight
+  cell.ceiling = Level.ceilingHeight
   cell.terrain = terrain or cell.terrain
   cell.light = light or cell.light
-
-  if kind then
-    cell.kind = kind
-  end
+  cell.kind = kind or cell.kind
+  cell.zone = zone or cell.zone
+  cell.stair = false
+  cell.ladder = terrain == "ladder" or kind == "ladder"
 end
 
-local function setSolidFeature(level, x, y, floorZ, kind, light)
+local function setSolidFeature(level, x, y, kind, light)
   if x <= 1 or y <= 1 or x >= level.width or y >= level.height then
     return
   end
 
   local cell = level.grid[y][x]
   cell.solid = true
-  cell.floor = floorZ or cell.floor
-  cell.ceiling = cell.floor + 2.7
+  cell.floor = Level.floorHeight
+  cell.ceiling = Level.ceilingHeight
   cell.kind = kind or "feature"
   cell.light = light or 0.38
   cell.stair = false
   cell.ladder = false
   cell.terrain = "stone"
+  cell.zone = "feature"
+  cell.gate = false
+  cell.gateLocked = false
+  cell.objective = nil
+  cell.refill = false
+  cell.refillUsed = false
+  cell.landmark = nil
 end
 
 local function preserveRoomSpine(room, x, y)
   return abs(x - room.cx) <= 1 or abs(y - room.cy) <= 1
 end
 
-local function scatterTerrain(level, room, terrain, chance, floorOffsetMin, floorOffsetMax, light)
+local function scatterTerrain(level, room, terrain, chance, light, kind)
   for y = room.y + 1, room.y + room.height - 2 do
     for x = room.x + 1, room.x + room.width - 2 do
       if not preserveRoomSpine(room, x, y) and love.math.random() < chance then
-        local offset = love.math.random(floorOffsetMin, floorOffsetMax) / 100
-        setTerrain(level, x, y, terrain, offset, light)
+        setTerrain(level, x, y, terrain, light, kind)
       end
     end
   end
@@ -311,9 +329,9 @@ local function addFoundryFeatures(level, room)
   for y = room.y + 2, room.y + room.height - 3 do
     for x = room.x + 2, room.x + room.width - 3 do
       if x % 4 == 0 then
-        setTerrain(level, x, y, "catwalk", 0.18, 0.7, "catwalk")
-      elseif y % 5 == 0 and love.math.random() < 0.45 then
-        setTerrain(level, x, y, "slag", -0.18, 0.82, "slag")
+        setTerrain(level, x, y, "catwalk", 0.68, "catwalk")
+      elseif y % 5 == 0 and love.math.random() < 0.42 then
+        setTerrain(level, x, y, "slag", 0.72, "slag")
       end
     end
   end
@@ -322,48 +340,49 @@ end
 local function addArchiveFeatures(level, room)
   for x = room.x + 3, room.x + room.width - 3, 4 do
     for y = room.y + 2, room.y + room.height - 3 do
-      if abs(y - room.cy) > 1 and love.math.random() < 0.74 then
-        setSolidFeature(level, x, y, room.floor, "stacks", 0.35)
+      if not preserveRoomSpine(room, x, y) and love.math.random() < 0.68 then
+        setSolidFeature(level, x, y, "stacks", 0.35)
       end
     end
   end
 
-  scatterTerrain(level, room, "dust", 0.35, -5, 2, 0.5)
+  scatterTerrain(level, room, "dust", 0.36, 0.5)
 end
 
 local function addCisternFeatures(level, room)
   for y = room.y + 1, room.y + room.height - 2 do
     for x = room.x + 1, room.x + room.width - 2 do
-      if abs(x - room.cx) > 1 and abs(y - room.cy) > 1 then
-        setTerrain(level, x, y, "water", -0.32, 0.48, "cistern")
-      elseif x == room.cx or y == room.cy then
-        setTerrain(level, x, y, "catwalk", 0.16, 0.62, "catwalk")
+      if preserveRoomSpine(room, x, y) then
+        setTerrain(level, x, y, "catwalk", 0.64, "catwalk")
+      elseif love.math.random() < 0.72 then
+        setTerrain(level, x, y, "water", 0.48, "cistern")
       end
     end
   end
 end
 
 local function addOvergrowthFeatures(level, room)
-  scatterTerrain(level, room, "moss", 0.58, -3, 8, 0.68)
+  scatterTerrain(level, room, "moss", 0.6, 0.68)
 
-  for _ = 1, 8 do
+  for _ = 1, 5 do
     local x = love.math.random(room.x + 2, room.x + room.width - 3)
     local y = love.math.random(room.y + 2, room.y + room.height - 3)
 
     if not preserveRoomSpine(room, x, y) then
-      setSolidFeature(level, x, y, room.floor, "root mass", 0.46)
+      setSolidFeature(level, x, y, "root mass", 0.46)
     end
   end
 end
 
 local function addQuarryFeatures(level, room)
-  scatterTerrain(level, room, "rubble", 0.5, -18, 24, 0.55)
+  scatterTerrain(level, room, "rubble", 0.54, 0.54, "rubble")
 
-  for y = room.y + 2, room.y + room.height - 3, 3 do
-    for x = room.x + 2, room.x + room.width - 3 do
-      if abs(x - room.cx) > 1 then
-        setTerrain(level, x, y, "rubble", 0.22, 0.58, "ledge")
-      end
+  for _ = 1, 5 do
+    local x = love.math.random(room.x + 2, room.x + room.width - 3)
+    local y = love.math.random(room.y + 2, room.y + room.height - 3)
+
+    if not preserveRoomSpine(room, x, y) then
+      setSolidFeature(level, x, y, "boulder", 0.4)
     end
   end
 end
@@ -373,10 +392,10 @@ local function addObservatoryFeatures(level, room)
     for x = room.x + 1, room.x + room.width - 2 do
       local distance = sqrt((x - room.cx) ^ 2 + (y - room.cy) ^ 2)
 
-      if distance < min(room.width, room.height) * 0.22 then
-        setTerrain(level, x, y, "glass", 0.35, 0.76, "dais")
-      elseif distance > min(room.width, room.height) * 0.39 and love.math.random() < 0.35 then
-        setTerrain(level, x, y, "rubble", -0.12, 0.6, "broken rim")
+      if distance < min(room.width, room.height) * 0.25 then
+        setTerrain(level, x, y, "glass", 0.76, "dais")
+      elseif distance > min(room.width, room.height) * 0.4 and love.math.random() < 0.28 then
+        setTerrain(level, x, y, "rubble", 0.58, "broken rim")
       end
     end
   end
@@ -386,9 +405,9 @@ local function addMachineFeatures(level, room)
   for y = room.y + 2, room.y + room.height - 3 do
     for x = room.x + 2, room.x + room.width - 3 do
       if y % 4 == 0 then
-        setTerrain(level, x, y, "grate", 0.1, 0.68, "service deck")
+        setTerrain(level, x, y, "grate", 0.66, "service deck")
       elseif x % 5 == 0 and not preserveRoomSpine(room, x, y) then
-        setSolidFeature(level, x, y, room.floor, "machinery", 0.4)
+        setSolidFeature(level, x, y, "machinery", 0.4)
       end
     end
   end
@@ -397,11 +416,21 @@ end
 local function addBridgeFeatures(level, room)
   for y = room.y + 1, room.y + room.height - 2 do
     for x = room.x + 1, room.x + room.width - 2 do
-      if abs(y - room.cy) <= 1 or abs(x - room.cx) <= 1 then
-        setTerrain(level, x, y, "catwalk", 0.22, 0.66, "bridge")
-      elseif love.math.random() < 0.58 then
-        setTerrain(level, x, y, "rubble", -0.26, 0.43, "drop floor")
+      if preserveRoomSpine(room, x, y) then
+        setTerrain(level, x, y, "catwalk", 0.66, "bridge")
+      elseif love.math.random() < 0.36 then
+        setTerrain(level, x, y, "rubble", 0.46, "rubble")
       end
+    end
+  end
+end
+
+local function restoreRoomCenter(level, room)
+  local style = zoneStyle(room.kind)
+
+  for y = room.cy - 1, room.cy + 1 do
+    for x = room.cx - 1, room.cx + 1 do
+      carveCell(level, x, y, room.kind, max(room.light or 0.55, 0.62), style.terrain, room.kind)
     end
   end
 end
@@ -424,65 +453,21 @@ local function decorateRoom(level, room)
   elseif room.kind == "bridgeworks" then
     addBridgeFeatures(level, room)
   elseif room.kind == "annex" or room.kind == "chamber" then
-    scatterTerrain(level, room, "rubble", 0.18, -10, 14, 0.54)
+    scatterTerrain(level, room, "rubble", 0.16, 0.54, "rubble")
   end
 
-  local startCell = Level.cellAtCell(level, room.cx, room.cy)
-  if startCell then
-    startCell.solid = false
-    startCell.floor = room.floor
-    startCell.ceiling = room.floor + room.ceiling
-    startCell.terrain = room.terrain or startCell.terrain
-    startCell.light = max(startCell.light or 0.5, room.light or 0.5)
-  end
-end
-
-local function addLadderLink(level, a, b)
-  if abs(a.floor - b.floor) < 0.72 then
-    return false
-  end
-
-  local horizontal = abs(b.cx - a.cx) > abs(b.cy - a.cy)
-  local lx = U.clamp(floor((a.cx + b.cx) / 2) + love.math.random(-3, 3), 4, level.width - 4)
-  local ly = U.clamp(floor((a.cy + b.cy) / 2) + love.math.random(-3, 3), 4, level.height - 4)
-  local ax, ay = lx, ly
-  local bx = lx + (horizontal and U.sign(b.cx - a.cx) or 0)
-  local by = ly + (horizontal and 0 or U.sign(b.cy - a.cy))
-
-  if bx == ax and by == ay then
-    bx = ax + 1
-  end
-
-  bx = U.clamp(bx, 3, level.width - 2)
-  by = U.clamp(by, 3, level.height - 2)
-
-  local low = { cx = ax, cy = ay, floor = a.floor }
-  local high = { cx = bx, cy = by, floor = b.floor }
-
-  connectRooms(level, a, low, 1)
-  connectRooms(level, high, b, 1)
-
-  carveCell(level, ax, ay, a.floor, "ladder", 0.72, 3.15, "ladder", "shaft")
-  carveCell(level, bx, by, b.floor, "ladder", 0.72, 3.15, "ladder", "shaft")
-
-  return true
+  restoreRoomCenter(level, room)
 end
 
 local function addColumns(level)
   for _, room in ipairs(level.rooms) do
-    if room.width >= 10 and room.height >= 9 then
+    if not room.route and room.width >= 8 and room.height >= 8 then
       for y = room.y + 3, room.y + room.height - 4, 4 do
         for x = room.x + 3, room.x + room.width - 4, 5 do
           local centerDistance = sqrt((x - room.cx) ^ 2 + (y - room.cy) ^ 2)
 
-          if centerDistance > 3.2 and love.math.random() < 0.38 then
-            local cell = level.grid[y][x]
-            cell.solid = true
-            cell.floor = room.floor
-            cell.ceiling = room.floor + 3.1
-            cell.kind = "column"
-            cell.light = 0.42
-            cell.stair = false
+          if centerDistance > 3.2 and love.math.random() < 0.28 then
+            setSolidFeature(level, x, y, "column", 0.42)
           end
         end
       end
@@ -495,6 +480,11 @@ local function countFeatures(level)
   local ladderCount = 0
   local terrainCounts = {}
   local zoneCounts = {}
+  local floorHeights = {}
+  local floorHeightCount = 0
+  local heightTransitions = 0
+  local steepTransitions = 0
+  local ceilingTransitions = 0
 
   for y = 1, level.height do
     for x = 1, level.width do
@@ -503,12 +493,33 @@ local function countFeatures(level)
         terrainCounts[cell.terrain] = (terrainCounts[cell.terrain] or 0) + 1
         zoneCounts[cell.zone] = (zoneCounts[cell.zone] or 0) + 1
 
+        local floorKey = string.format("%.2f", cell.floor or 0)
+        if not floorHeights[floorKey] then
+          floorHeights[floorKey] = true
+          floorHeightCount = floorHeightCount + 1
+        end
+
         if cell.stair then
           stairCount = stairCount + 1
         end
-
         if cell.ladder then
           ladderCount = ladderCount + 1
+        end
+
+        for _, neighbor in ipairs(metricNeighbors) do
+          local other = Level.cellAtCell(level, x + neighbor[1], y + neighbor[2])
+          if other and not other.solid then
+            local floorDelta = abs((other.floor or 0) - (cell.floor or 0))
+            if floorDelta > 0.04 then
+              heightTransitions = heightTransitions + 1
+            end
+            if floorDelta > Level.maxStepHeight then
+              steepTransitions = steepTransitions + 1
+            end
+            if abs((other.ceiling or 0) - (cell.ceiling or 0)) > 0.04 then
+              ceilingTransitions = ceilingTransitions + 1
+            end
+          end
         end
       end
     end
@@ -518,6 +529,10 @@ local function countFeatures(level)
   level.ladderCount = ladderCount
   level.terrainCounts = terrainCounts
   level.zoneCounts = zoneCounts
+  level.distinctFloorHeights = floorHeightCount
+  level.heightTransitionCount = heightTransitions
+  level.steepTransitionCount = steepTransitions
+  level.ceilingTransitionCount = ceilingTransitions
 end
 
 function Level.canTraverseCells(level, ax, ay, bx, by)
@@ -532,8 +547,8 @@ function Level.canTraverseCells(level, ax, ay, bx, by)
     return true
   end
 
-  local heightDelta = abs(b.floor - a.floor)
-  return heightDelta <= Level.maxStepHeight or a.stair or b.stair or (a.ladder and b.ladder)
+  local heightDelta = abs((b.floor or 0) - (a.floor or 0))
+  return heightDelta <= Level.maxStepHeight or (a.ladder and b.ladder)
 end
 
 function Level.isWalkableCell(level, x, y)
@@ -639,12 +654,10 @@ function Level.findPath(level, startX, startY, goalX, goalY)
         local neighborKey = U.keyOf(nx, ny)
 
         if Level.canTraverseCells(level, current.x, current.y, nx, ny) and not closed[neighborKey] then
-          local fromCell = Level.cellAtCell(level, current.x, current.y)
           local toCell = Level.cellAtCell(level, nx, ny)
           local terrainCost = 1 / max(0.35, Level.terrainSpeed[toCell.terrain] or 1)
-          local ladderCost = toCell.ladder and 1.6 or 0
-          local stepCost = terrainCost + abs(toCell.floor - fromCell.floor) * 0.35 + ladderCost
-          local tentativeG = current.g + stepCost
+          local ladderCost = toCell.ladder and 0.2 or 0
+          local tentativeG = current.g + terrainCost + ladderCost
 
           if tentativeG < (gScore[neighborKey] or math.huge) then
             cameFrom[neighborKey] = { x = current.x, y = current.y }
@@ -706,19 +719,58 @@ local function markObjective(level, room, id)
 end
 
 local function markRefill(level, room)
-  local x = U.clamp(room.cx + love.math.random(-2, 2), room.x + 1, room.x + room.width - 2)
-  local y = U.clamp(room.cy + love.math.random(-2, 2), room.y + 1, room.y + room.height - 2)
-  local cell = Level.cellAtCell(level, x, y)
+  for _ = 1, 16 do
+    local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
 
-  if not cell or cell.solid or cell.objective then
-    return
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill then
+      cell.refill = true
+      cell.refillUsed = false
+      cell.kind = "oil cache"
+      cell.light = max(cell.light or 0.5, 0.76)
+      level.refills[#level.refills + 1] = { x = x, y = y, cell = cell }
+      return true
+    end
   end
 
-  cell.refill = true
-  cell.refillUsed = false
-  cell.kind = "oil cache"
-  cell.light = max(cell.light or 0.5, 0.76)
-  level.refills[#level.refills + 1] = { x = x, y = y, cell = cell }
+  return false
+end
+
+local function markLadder(level, room)
+  local cell = Level.cellAtCell(level, room.cx, room.cy)
+
+  if not cell or cell.solid or cell.objective or cell.gate then
+    return false
+  end
+
+  cell.kind = "ladder"
+  cell.terrain = "ladder"
+  cell.ladder = true
+  cell.light = max(cell.light or 0.5, 0.78)
+  cell.zone = "shaft"
+  cell.landmark = "ladder"
+  return true
+end
+
+local function findGatePoint(level, points)
+  local mid = floor(#points / 2)
+
+  for offset = 0, mid do
+    for _, index in ipairs({ mid - offset, mid + offset }) do
+      local point = points[index]
+      if point then
+        local cell = Level.cellAtCell(level, point[1], point[2])
+        if cell and not cell.solid and not cell.objective and not cell.refill and not cell.ladder then
+          if not (point[1] == level.start.x and point[2] == level.start.y) then
+            return point
+          end
+        end
+      end
+    end
+  end
+
+  return nil
 end
 
 local function markShortcutGate(level, points, required)
@@ -726,12 +778,12 @@ local function markShortcutGate(level, points, required)
     return
   end
 
-  local point = points[floor(#points / 2)]
-  local cell = Level.cellAtCell(level, point[1], point[2])
-  if not cell or cell.solid or cell.objective then
+  local point = findGatePoint(level, points)
+  if not point then
     return
   end
 
+  local cell = Level.cellAtCell(level, point[1], point[2])
   cell.gate = true
   cell.gateLocked = true
   cell.kind = "sealed gate"
@@ -745,42 +797,6 @@ function Level.setGatesLocked(level, locked)
   for _, gate in ipairs(level.gates or {}) do
     gate.cell.gateLocked = locked
   end
-end
-
-local function placeObjectivesAndGates(level)
-  for i = 2, min(#level.routeRooms, 5) do
-    markObjective(level, level.routeRooms[i], i - 1)
-  end
-
-  local refillBudget = 7
-  for i = #level.rooms, 1, -1 do
-    local room = level.rooms[i]
-    if not room.route and refillBudget > 0 and love.math.random() < 0.72 then
-      markRefill(level, room)
-      refillBudget = refillBudget - 1
-    end
-  end
-
-  if #level.routeRooms >= 5 then
-    markShortcutGate(level, connectRooms(level, level.routeRooms[2], level.routeRooms[4], 1), 2)
-    markShortcutGate(level, connectRooms(level, level.routeRooms[3], level.routeRooms[5], 1), 3)
-  end
-end
-
-local function ensureVerticalLinks(level)
-  local lowest = level.rooms[1]
-  local highest = level.rooms[1]
-
-  for _, room in ipairs(level.rooms) do
-    if room.floor < lowest.floor then
-      lowest = room
-    end
-    if room.floor > highest.floor then
-      highest = room
-    end
-  end
-
-  addLadderLink(level, lowest, highest)
 end
 
 local function setGateState(level, locked)
@@ -923,6 +939,8 @@ local function sealUnreachableCells(level)
 end
 
 function Level.validate(level)
+  countFeatures(level)
+
   local lockedReachable, lockedVisited, farthest = reachableFromStart(level, true)
   local unlockedReachable, unlockedVisited = reachableFromStart(level, false)
   local lockedOpenCells = countOpenCells(level, false)
@@ -944,14 +962,19 @@ function Level.validate(level)
   requireValid(lockedConnected == lockedOpenCells, "locked-connectivity")
   requireValid(unlockedConnected == unlockedOpenCells, "unlocked-connectivity")
   requireValid(#level.rooms >= 12, "rooms")
-  requireValid(#level.objectives >= 3, "objectives")
+  requireValid(#level.objectives >= 4, "objectives")
+  requireValid(#level.refills >= 5, "refills")
   requireValid(objectiveReachable == #level.objectives, "objective-reachability")
   requireValid(atriumEscapeReachable == #level.objectives, "atrium-escape")
   requireValid(#level.gates >= 2, "gates")
   requireValid(gateReachable == #level.gates, "gate-reachability")
   requireValid(gateUsable == #level.gates, "gate-usability")
-  requireValid(level.stairCount > 0, "stairs")
+  requireValid(level.stairCount == 0, "no-stairs")
   requireValid(level.ladderCount >= 2, "ladders")
+  requireValid(level.distinctFloorHeights == 1, "flat-floor")
+  requireValid(level.heightTransitionCount == 0, "no-height-transitions")
+  requireValid(level.steepTransitionCount == 0, "no-steep-transitions")
+  requireValid(level.ceilingTransitionCount == 0, "no-ceiling-transitions")
   requireValid(farthest.distance >= 18, "farthest")
 
   level.validation = {
@@ -968,9 +991,14 @@ function Level.validate(level)
     farthest = farthest.distance,
     rooms = #level.rooms,
     objectives = #level.objectives,
+    refills = #level.refills,
     gates = #level.gates,
     stairs = level.stairCount,
     ladders = level.ladderCount,
+    floorHeights = level.distinctFloorHeights,
+    heightTransitions = level.heightTransitionCount,
+    steepTransitions = level.steepTransitionCount,
+    ceilingTransitions = level.ceilingTransitionCount,
   }
 
   return level.validation
@@ -980,114 +1008,105 @@ local function validateLevel(level)
   return Level.validate(level).valid
 end
 
+local function placeObjectives(level)
+  for i = 2, min(#level.routeRooms, 5) do
+    markObjective(level, level.routeRooms[i], i - 1)
+  end
+end
+
+local function placeRefills(level)
+  local refillBudget = 7
+
+  for i = #level.rooms, 1, -1 do
+    local room = level.rooms[i]
+    if not room.route and refillBudget > 0 and markRefill(level, room) then
+      refillBudget = refillBudget - 1
+    end
+  end
+end
+
+local function buildShortcutGates(level, nw, ne, se, sw)
+  local eastX = U.clamp(min(ne.cx, se.cx) - 3, 4, level.width - 4)
+  local westX = U.clamp(max(nw.cx, sw.cx) + 3, 4, level.width - 4)
+  local eastPoints = carvePolyline(level, {
+    { ne.cx, ne.cy },
+    { eastX, ne.cy },
+    { eastX, se.cy },
+    { se.cx, se.cy },
+  }, 1, "shortcut", "stone")
+  local westPoints = carvePolyline(level, {
+    { nw.cx, nw.cy },
+    { westX, nw.cy },
+    { westX, sw.cy },
+    { sw.cx, sw.cy },
+  }, 1, "shortcut", "stone")
+
+  markShortcutGate(level, eastPoints, 2)
+  markShortcutGate(level, westPoints, 3)
+end
+
 local function generateMegastructure(width, height)
   local level = makeLevel(width, height)
   local cx = floor(width / 2)
   local cy = floor(height / 2)
-  local center = addRoom(level, cx, cy, love.math.random(13, 17), love.math.random(11, 15), 0, "atrium", true)
+  local center = addJitteredRoom(level, cx, cy, { 13, 15 }, { 11, 13 }, "atrium", true)
+  local north = addJitteredRoom(level, cx, cy - 18, { 10, 13 }, { 8, 10 }, "archive", true)
+  local east = addJitteredRoom(level, cx + 18, cy, { 9, 11 }, { 10, 13 }, "machine shaft", true)
+  local south = addJitteredRoom(level, cx, cy + 18, { 10, 13 }, { 8, 10 }, "cistern", true)
+  local west = addJitteredRoom(level, cx - 18, cy, { 9, 11 }, { 10, 13 }, "observatory", true)
 
   level.start = { x = center.cx, y = center.cy }
 
-  local routeSpecs = {
-    { 0, -1, 1.15, "upper nave" },
-    { -1, 0, 1.75, "observatory" },
-    { 0, 1, 0.75, "archive" },
-    { 1, 0, -1.0, "lower foundry" },
-  }
+  connectRooms(level, center, north, 1)
+  connectRooms(level, center, east, 1)
+  connectRooms(level, center, south, 1)
+  connectRooms(level, center, west, 1)
+  connectRooms(level, north, east, 1)
+  connectRooms(level, east, south, 1)
+  connectRooms(level, south, west, 1)
+  connectRooms(level, west, north, 1)
 
-  local previous = center
+  local nw = addJitteredRoom(level, cx - 15, cy - 15, { 7, 9 }, { 7, 9 }, "overgrown court", false)
+  local ne = addJitteredRoom(level, cx + 15, cy - 15, { 7, 9 }, { 7, 9 }, "bridgeworks", false)
+  local se = addJitteredRoom(level, cx + 15, cy + 15, { 7, 9 }, { 7, 9 }, "quarry", false)
+  local sw = addJitteredRoom(level, cx - 15, cy + 15, { 7, 9 }, { 7, 9 }, "lower foundry", false)
+  local innerNw = addJitteredRoom(level, cx - 8, cy - 8, { 6, 8 }, { 6, 8 }, "annex", false)
+  local innerNe = addJitteredRoom(level, cx + 8, cy - 8, { 6, 8 }, { 6, 8 }, "chamber", false)
+  local innerSe = addJitteredRoom(level, cx + 8, cy + 8, { 6, 8 }, { 6, 8 }, "annex", false)
+  local innerSw = addJitteredRoom(level, cx - 8, cy + 8, { 6, 8 }, { 6, 8 }, "chamber", false)
 
-  for _, spec in ipairs(routeSpecs) do
-    local dx, dy, floorZ, kind = spec[1], spec[2], spec[3], spec[4]
-    local distance = love.math.random(15, 19)
-    local room = addRoom(
-      level,
-      cx + dx * distance + love.math.random(-3, 3),
-      cy + dy * distance + love.math.random(-3, 3),
-      love.math.random(10, 15),
-      love.math.random(9, 13),
-      floorZ,
-      kind,
-      true
-    )
-
-    connectRooms(level, previous, room, 1)
-    previous = room
-  end
-
-  for _, anchor in ipairs(level.routeRooms) do
-    if anchor ~= center and love.math.random() < 0.9 then
-      local vx = anchor.cx - center.cx
-      local vy = anchor.cy - center.cy
-      local length = max(1, sqrt(vx * vx + vy * vy))
-      local floorOffset = ({ -0.7, 0.0, 0.65, 1.05 })[love.math.random(4)]
-      local kind = extraRoomKinds[love.math.random(#extraRoomKinds)]
-      local room = addRoom(
-        level,
-        anchor.cx + floor(vx / length * love.math.random(9, 13)) + love.math.random(-2, 2),
-        anchor.cy + floor(vy / length * love.math.random(9, 13)) + love.math.random(-2, 2),
-        love.math.random(8, 13),
-        love.math.random(7, 11),
-        anchor.floor + floorOffset,
-        kind,
-        false
-      )
-
-      connectRooms(level, anchor, room, 1)
-    end
-  end
-
-  for _ = 1, 8 do
-    local anchor = level.rooms[love.math.random(#level.rooms)]
-    local direction = U.neighbors[love.math.random(#U.neighbors)]
-    local floorZ = anchor.floor + love.math.random(-3, 3) * 0.25
-    local kind = love.math.random() < 0.55 and extraRoomKinds[love.math.random(#extraRoomKinds)] or "chamber"
-    local room = addRoom(
-      level,
-      anchor.cx + direction[1] * love.math.random(9, 15) + love.math.random(-3, 3),
-      anchor.cy + direction[2] * love.math.random(9, 15) + love.math.random(-3, 3),
-      love.math.random(5, 9),
-      love.math.random(5, 9),
-      floorZ,
-      kind,
-      false
-    )
-
-    connectRooms(level, anchor, room, love.math.random() < 0.35 and 2 or 1)
-  end
+  connectRooms(level, nw, north, 1)
+  connectRooms(level, nw, west, 1)
+  connectRooms(level, ne, north, 1)
+  connectRooms(level, ne, east, 1)
+  connectRooms(level, se, east, 1)
+  connectRooms(level, se, south, 1)
+  connectRooms(level, sw, south, 1)
+  connectRooms(level, sw, west, 1)
+  connectRooms(level, innerNw, center, 1)
+  connectRooms(level, innerNe, center, 1)
+  connectRooms(level, innerSe, center, 1)
+  connectRooms(level, innerSw, center, 1)
 
   for _, room in ipairs(level.rooms) do
     decorateRoom(level, room)
   end
 
-  for _ = 1, 8 do
-    local a = level.rooms[love.math.random(#level.rooms)]
-    local b = level.rooms[love.math.random(#level.rooms)]
-
-    if a ~= b then
-      addLadderLink(level, a, b)
-    end
-  end
-
-  ensureVerticalLinks(level)
   addColumns(level)
-  placeObjectivesAndGates(level)
+  placeObjectives(level)
+  buildShortcutGates(level, nw, ne, se, sw)
+  markLadder(level, nw)
+  markLadder(level, ne)
+  markLadder(level, se)
+  markLadder(level, sw)
+  placeRefills(level)
 
   local startCell = Level.cellAtCell(level, level.start.x, level.start.y)
   if startCell then
-    startCell.solid = false
-    startCell.kind = "atrium"
-    startCell.floor = 0
-    startCell.ceiling = 4.2
-    startCell.light = 0.78
-    startCell.stair = false
-    startCell.ladder = false
-    startCell.terrain = "flagstone"
-    startCell.zone = "atrium"
+    carveCell(level, level.start.x, level.start.y, "atrium", 0.82, "flagstone", "atrium")
   end
 
   sealUnreachableCells(level)
-  countFeatures(level)
   return level
 end
 
