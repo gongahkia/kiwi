@@ -17,7 +17,8 @@ love .
 ## Validate
 
 ```sh
-lua tools/validate_levels.lua 1000 1
+make test
+lua tools/validate_levels.lua 1000 1 all
 ```
 
 ## Controls

@@ -1,7 +1,25 @@
 local Game = require("game")
 
+local function hasArg(value)
+  if not arg then
+    return false
+  end
+
+  for _, item in ipairs(arg) do
+    if item == value then
+      return true
+    end
+  end
+
+  return false
+end
+
 function love.load()
   Game.load()
+  if hasArg("--smoke") then
+    print("ok love smoke")
+    love.event.quit(0)
+  end
 end
 
 function love.update(dt)

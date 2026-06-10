@@ -1,33 +1,12 @@
-.PHONY: icons build build-chrome build-firefox package-firefox lint-firefox build-safari safari-project test verify clean
+.PHONY: syntax validate smoke test
 
-icons:
-	python3 scripts/generate-icons.py
+syntax:
+	luac -p *.lua tools/*.lua
 
-build: icons
-	npm run build
+validate:
+	lua tools/validate_levels.lua 1000 1 all
 
-build-chrome: icons
-	npm run build:chrome
+smoke:
+	@if command -v love >/dev/null 2>&1; then love . --smoke; else echo "skip smoke: love unavailable"; fi
 
-build-firefox: icons
-	npm run build:firefox
-
-package-firefox: icons
-	npm run package:firefox
-
-lint-firefox: package-firefox
-	npm run lint:firefox
-
-build-safari: icons
-	npm run build:safari
-
-safari-project: build-safari
-	npm run safari:project
-
-test:
-	npm test
-
-verify: build test
-
-clean:
-	rm -rf dist safari
+test: syntax validate smoke
