@@ -14,6 +14,12 @@ Survive, activate every relay, then return to the atrium before the hunter catch
 love .
 ```
 
+## Validate
+
+```sh
+lua tools/validate_levels.lua 1000 1
+```
+
 ## Controls
 
 - `WASD`: move and strafe
