@@ -37,6 +37,7 @@ local metrics = {
   keys = {},
   locks = {},
   hazards = {},
+  terminals = {},
   refills = {},
   stairs = {},
   ladders = {},
@@ -46,6 +47,7 @@ local metrics = {
   ceilingTransitions = {},
   reachable = {},
   objectiveDistance = {},
+  terminalDistance = {},
   exitDistance = {},
   pathLength = {},
   pathTimeMs = {},
@@ -105,6 +107,24 @@ local function checkGameplay(seed, level)
   end
 
   Level.setGatesLocked(level, false)
+  if level.liftRequired then
+    local liftTerminal
+    for _, terminal in ipairs(level.terminals or {}) do
+      if terminal.command == "LIFT" then
+        liftTerminal = terminal
+        break
+      end
+    end
+    if liftTerminal then
+      Support.pathOrFail(Level, level, currentX, currentY, liftTerminal.x, liftTerminal.y, "lift-terminal", failures)
+      level.liftAuthorized = true
+      currentX = liftTerminal.x
+      currentY = liftTerminal.y
+    else
+      failures[#failures + 1] = "lift-terminal-missing"
+    end
+  end
+
   if level.exit then
     Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "exit", failures)
   else
@@ -179,6 +199,7 @@ local function appendCoreMetrics(level)
   metrics.keys[#metrics.keys + 1] = #(level.keys or {})
   metrics.locks[#metrics.locks + 1] = #(level.locks or {})
   metrics.hazards[#metrics.hazards + 1] = #(level.hazards or {})
+  metrics.terminals[#metrics.terminals + 1] = #(level.terminals or {})
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
   metrics.ladders[#metrics.ladders + 1] = level.ladderCount
@@ -212,6 +233,20 @@ local function appendRouteMetrics(level)
   end
 
   Support.withGates(level, false, function()
+    if level.liftRequired then
+      for _, terminal in ipairs(level.terminals or {}) do
+        if terminal.command == "LIFT" then
+          local distance = Support.pathOrFail(Level, level, currentX, currentY, terminal.x, terminal.y, "metric-lift", {})
+          if distance then
+            metrics.terminalDistance[#metrics.terminalDistance + 1] = distance
+            currentX = terminal.x
+            currentY = terminal.y
+          end
+          break
+        end
+      end
+    end
+
     if level.exit then
       local distance = Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "metric-exit", {})
       if distance then
@@ -260,6 +295,7 @@ if enabled.metrics then
   io.write(Support.metricLine("keys", metrics.keys) .. "\n")
   io.write(Support.metricLine("locks", metrics.locks) .. "\n")
   io.write(Support.metricLine("hazards", metrics.hazards) .. "\n")
+  io.write(Support.metricLine("terminals", metrics.terminals) .. "\n")
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")
   io.write(Support.metricLine("ladders", metrics.ladders) .. "\n")
@@ -269,6 +305,7 @@ if enabled.metrics then
   io.write(Support.metricLine("ceiling-transitions", metrics.ceilingTransitions) .. "\n")
   io.write(Support.metricLine("reachable", metrics.reachable) .. "\n")
   io.write(Support.percentileLine("objective-distance", metrics.objectiveDistance) .. "\n")
+  io.write(Support.percentileLine("terminal-distance", metrics.terminalDistance) .. "\n")
   io.write(Support.percentileLine("exit-distance", metrics.exitDistance) .. "\n")
   if enabled.path then
     io.write(Support.percentileLine("path-length", metrics.pathLength) .. "\n")

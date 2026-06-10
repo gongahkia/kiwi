@@ -6,6 +6,7 @@ local UI = require("ui")
 local U = require("utils")
 
 local floor = math.floor
+local abs = math.abs
 local max = math.max
 
 local Game = {
@@ -28,6 +29,7 @@ local Game = {
   message = "",
   messageTimer = 0,
   hazardTimer = 0,
+  terminal = { active = false, input = "", current = nil, logs = {}, liftAuthorized = true },
   seedEntry = { active = false, text = "" },
 }
 
@@ -38,6 +40,17 @@ end
 local function setMessage(text, duration)
   Game.message = text
   Game.messageTimer = duration or 2
+end
+
+local function addTerminalLog(text)
+  local terminal = Game.terminal.current
+  local logs = terminal and terminal.logs or Game.terminal.logs
+
+  logs[#logs + 1] = text
+  while #logs > 6 do
+    table.remove(logs, 1)
+  end
+  Game.terminal.logs = logs
 end
 
 local function deckSeed(seed, deck)
@@ -54,6 +67,13 @@ local function startDeck(deck)
   Game.state = "playing"
   Game.objectives = { total = #Game.level.objectives, collected = 0 }
   Game.keys = { total = #Game.level.keys, collected = 0 }
+  Game.terminal = {
+    active = false,
+    input = "",
+    current = nil,
+    logs = {},
+    liftAuthorized = not Game.level.liftRequired,
+  }
   Game.noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 }
   Game.hazardTimer = 0
   Game.seedEntry.active = false
@@ -123,6 +143,122 @@ local function updateHazards(dt)
   end
 end
 
+local function terminalAtPlayer()
+  local px = floor(Game.player.x)
+  local py = floor(Game.player.y)
+
+  for _, terminal in ipairs(Game.level.terminals or {}) do
+    if abs(terminal.x - px) + abs(terminal.y - py) <= 1 then
+      return terminal
+    end
+  end
+
+  return nil
+end
+
+function Game.nearTerminal()
+  if not Game.level or not Game.player then
+    return nil
+  end
+
+  return terminalAtPlayer()
+end
+
+local function openTerminal()
+  local terminal = terminalAtPlayer()
+  if not terminal then
+    setMessage("NO TERMINAL", 0.8)
+    return
+  end
+
+  Game.terminal.active = true
+  Game.terminal.input = ""
+  Game.terminal.current = terminal.terminal
+  Game.terminal.logs = terminal.terminal.logs
+  addTerminalLog("SESSION OPEN")
+  love.mouse.setRelativeMode(false)
+end
+
+local function closeTerminal()
+  Game.terminal.active = false
+  Game.terminal.input = ""
+  Game.terminal.current = nil
+  Game.terminal.logs = {}
+  if Game.state == "playing" then
+    love.mouse.setRelativeMode(true)
+  end
+end
+
+local function terminalNoise()
+  local terminal = terminalAtPlayer()
+  local x = terminal and terminal.x + 0.5 or Game.player.x
+  local y = terminal and terminal.y + 0.5 or Game.player.y
+
+  Game.noise = {
+    x = x,
+    y = y,
+    intensity = 2.2,
+    ttl = 0.9,
+    radius = 8.5,
+  }
+end
+
+local function executeTerminalCommand()
+  local terminal = Game.terminal.current
+  local command = Game.terminal.input
+
+  Game.terminal.input = ""
+  if not terminal or command == "" then
+    return
+  end
+
+  addTerminalLog("> " .. command)
+  if command ~= terminal.command then
+    addTerminalLog("COMMAND REJECTED")
+    terminalNoise()
+    return
+  end
+
+  if command == "SCAN" then
+    if Game.level.scanRevealed then
+      addTerminalLog("SCAN CACHE READY")
+    else
+      Game.level.scanRevealed = true
+      Game.showMap = true
+      terminal.used = true
+      addTerminalLog("MAP NODES REVEALED")
+      Audio.relay()
+    end
+  elseif command == "UNLOCK" then
+    local ok, message = Level.unlockTerminalTarget(Game.level, terminal)
+    addTerminalLog(message)
+    if ok then
+      Audio.relay()
+    else
+      terminalNoise()
+    end
+  elseif command == "PURGE" then
+    local ok, message = Level.purgeTerminalHazards(Game.level, terminal)
+    addTerminalLog(message)
+    if ok then
+      Audio.relay()
+    else
+      terminalNoise()
+    end
+  elseif command == "LIFT" then
+    if Game.objectives.collected < Game.objectives.total then
+      addTerminalLog("RELAYS OFFLINE")
+      terminalNoise()
+    else
+      Game.level.liftAuthorized = true
+      Game.terminal.liftAuthorized = true
+      terminal.used = true
+      addTerminalLog("LIFT AUTHORIZED")
+      Audio.relay()
+    end
+  end
+end
+
 local function checkInteractions()
   local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
 
@@ -158,9 +294,12 @@ local function checkInteractions()
     setMessage("OIL CACHE", 1.8)
   end
 
-  if Game.objectives.collected >= Game.objectives.total
-    and cell.exit then
-    advanceDeck()
+  if Game.objectives.collected >= Game.objectives.total and cell.exit then
+    if Game.level.liftRequired and not Game.level.liftAuthorized then
+      setMessage("LIFT AUTH REQUIRED", 1.4)
+    else
+      advanceDeck()
+    end
   end
 end
 
@@ -185,7 +324,11 @@ function Game.update(dt)
   if Game.state == "playing" and not Game.seedEntry.active then
     Game.survivalTime = Game.survivalTime + dt
     updateNoise(dt)
-    Actor.updatePlayer(Game, dt, Audio)
+    if Game.terminal.active then
+      Game.enemy.grace = max(Game.enemy.grace or 0, 0.65)
+    else
+      Actor.updatePlayer(Game, dt, Audio)
+    end
     updateTorch(dt)
     updateHazards(dt)
     checkInteractions()
@@ -199,6 +342,17 @@ function Game.draw()
 end
 
 function Game.keypressed(key)
+  if Game.terminal.active then
+    if key == "return" or key == "kpenter" then
+      executeTerminalCommand()
+    elseif key == "escape" then
+      closeTerminal()
+    elseif key == "backspace" then
+      Game.terminal.input = Game.terminal.input:sub(1, -2)
+    end
+    return
+  end
+
   if Game.seedEntry.active then
     if key == "return" or key == "kpenter" then
       local seed = tonumber(Game.seedEntry.text)
@@ -227,12 +381,22 @@ function Game.keypressed(key)
     Game.seedEntry.active = true
     Game.seedEntry.text = tostring(Game.seed)
     love.mouse.setRelativeMode(false)
+  elseif key == "f" and Game.state == "playing" then
+    openTerminal()
   elseif key == "x" then
     Renderer.togglePost()
   end
 end
 
 function Game.textinput(text)
+  if Game.terminal.active then
+    text = string.upper(text)
+    if text:match("^[A-Z0-9]$") and #Game.terminal.input < 8 then
+      Game.terminal.input = Game.terminal.input .. text
+    end
+    return
+  end
+
   if not Game.seedEntry.active then
     return
   end
@@ -243,13 +407,13 @@ function Game.textinput(text)
 end
 
 function Game.mousepressed()
-  if Game.state == "playing" and not Game.seedEntry.active then
+  if Game.state == "playing" and not Game.seedEntry.active and not Game.terminal.active then
     love.mouse.setRelativeMode(true)
   end
 end
 
 function Game.mousemoved(_, _, dx)
-  if love.mouse.getRelativeMode() and Game.state == "playing" and not Game.seedEntry.active then
+  if love.mouse.getRelativeMode() and Game.state == "playing" and not Game.seedEntry.active and not Game.terminal.active then
     Game.player.angle = Game.player.angle + dx * 0.0024
   end
 end

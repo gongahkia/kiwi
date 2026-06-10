@@ -532,6 +532,25 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     end
   end
 
+  for _, terminal in ipairs(game.level.terminals or {}) do
+    local sprite = projectSprite(game, terminal.x + 0.5, terminal.y + 0.5, terminal.cell.floor + 0.08, 0.82, width, height)
+    if spriteVisible(sprite, width, depthBuffer) then
+      local alpha = U.clamp(1 - sprite.distance / 22, 0.26, 0.9)
+      love.graphics.push()
+      love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.38)
+      love.graphics.setColor(0.04, 0.14, 0.12, alpha * 0.92)
+      love.graphics.rectangle("fill", -sprite.width * 0.34, -sprite.height * 0.3, sprite.width * 0.68, sprite.height * 0.48, 3, 3)
+      love.graphics.setColor(0.18, 1, 0.74, alpha)
+      love.graphics.rectangle("line", -sprite.width * 0.34, -sprite.height * 0.3, sprite.width * 0.68, sprite.height * 0.48, 3, 3)
+      love.graphics.setColor(0.52, 1, 0.82, alpha)
+      love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.18, sprite.width * 0.44, max(2, sprite.height * 0.07), 1, 1)
+      love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.05, sprite.width * 0.3, max(2, sprite.height * 0.05), 1, 1)
+      love.graphics.setColor(0.08, 0.22, 0.18, alpha)
+      love.graphics.rectangle("fill", -sprite.width * 0.18, sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.18, 2, 2)
+      love.graphics.pop()
+    end
+  end
+
   if game.level.exit and game.objectives.collected >= game.objectives.total then
     local exit = game.level.exit
     local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)

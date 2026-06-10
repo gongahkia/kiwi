@@ -75,6 +75,8 @@ local objectiveLabels = {
   "LOWER RELAY",
 }
 
+local terminalCommands = { "SCAN", "UNLOCK", "PURGE", "LIFT" }
+
 local directions = {
   { name = "north", dx = 0, dy = -1, opposite = "south" },
   { name = "east", dx = 1, dy = 0, opposite = "west" },
@@ -150,6 +152,7 @@ local function makeWallCell()
     key = nil,
     lock = nil,
     hazard = nil,
+    terminal = nil,
     exit = false,
     dynamicGroup = nil,
     dynamicActive = false,
@@ -194,6 +197,10 @@ local function makeLevel(width, height, deck, config)
     keys = {},
     locks = {},
     hazards = {},
+    terminals = {},
+    liftRequired = (deck or 1) > 1,
+    liftAuthorized = (deck or 1) <= 1,
+    scanRevealed = false,
     validation = {},
   }
 end
@@ -446,6 +453,7 @@ local function setSolidFeature(level, x, y, kind, light)
   cell.key = nil
   cell.lock = nil
   cell.hazard = nil
+  cell.terminal = nil
   cell.exit = false
   cell.dynamicGroup = nil
   cell.dynamicActive = false
@@ -932,7 +940,7 @@ local function markRefill(level, room)
     local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
     local cell = Level.cellAtCell(level, x, y)
 
-    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill then
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.terminal then
       cell.refill = true
       cell.refillUsed = false
       cell.kind = "oil cache"
@@ -951,7 +959,7 @@ local function markKey(level, room, id)
     local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
     local cell = Level.cellAtCell(level, x, y)
 
-    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit then
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit then
       cell.key = {
         id = id,
         collected = false,
@@ -1014,17 +1022,122 @@ local function markHazard(level, room, id)
     local y = love.math.random(room.y + 1, room.y + room.height - 2)
     local cell = Level.cellAtCell(level, x, y)
 
-    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit and not cell.hazard then
+    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit and not cell.hazard then
       cell.hazard = { id = id, kind = spec.kind, active = true }
       cell.terrain = spec.terrain
       cell.kind = spec.kind
       cell.light = max(cell.light or 0.5, spec.light)
-      level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = id, kind = spec.kind }
+      level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = id, kind = spec.kind, room = room }
       return true
     end
   end
 
   return false
+end
+
+local function markTerminal(level, room, id, command, target)
+  for _ = 1, 20 do
+    local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.lock and not cell.hazard and not cell.terminal and not cell.exit then
+      local terminal = {
+        id = id,
+        label = string.format("T%02d", id),
+        command = command,
+        target = target,
+        used = false,
+        logs = { "LINK READY", "ACCEPTS " .. command },
+        room = room,
+      }
+
+      cell.terminal = terminal
+      cell.kind = "terminal"
+      cell.terrain = "glass"
+      cell.light = max(cell.light or 0.5, 0.84)
+      cell.landmark = "terminal"
+      level.terminals[#level.terminals + 1] = { x = x, y = y, cell = cell, room = room, terminal = terminal, id = id, command = command, target = target }
+      return true
+    end
+  end
+
+  return false
+end
+
+function Level.unlockTerminalTarget(level, terminal)
+  local target = terminal and terminal.target
+
+  if target and target.type == "lock" and level.locks[target.index] then
+    local lock = level.locks[target.index]
+    if lock.cell.lock.locked then
+      lock.cell.lock.locked = false
+      terminal.used = true
+      return true, "LOCK " .. lock.id .. " OPEN"
+    end
+    return false, "LOCK ALREADY OPEN"
+  end
+
+  if target and target.type == "gate" and level.gates[target.index] then
+    local gate = level.gates[target.index]
+    if gate.cell.gateLocked then
+      gate.cell.gateLocked = false
+      terminal.used = true
+      return true, "SEAL OPEN"
+    end
+    return false, "SEAL ALREADY OPEN"
+  end
+
+  for _, lock in ipairs(level.locks or {}) do
+    if lock.cell.lock.locked then
+      lock.cell.lock.locked = false
+      terminal.used = true
+      return true, "LOCK " .. lock.id .. " OPEN"
+    end
+  end
+
+  for _, gate in ipairs(level.gates or {}) do
+    if gate.cell.gateLocked then
+      gate.cell.gateLocked = false
+      terminal.used = true
+      return true, "SEAL OPEN"
+    end
+  end
+
+  return false, "NO LOCKED TARGET"
+end
+
+function Level.purgeTerminalHazards(level, terminal)
+  local purged = 0
+  local room = terminal and terminal.room
+
+  for _, hazard in ipairs(level.hazards or {}) do
+    if hazard.cell.hazard and hazard.cell.hazard.active and (hazard.room == room or hazard.cell.zone == (room and room.kind)) then
+      hazard.cell.hazard.active = false
+      hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
+      purged = purged + 1
+    end
+  end
+
+  if purged == 0 then
+    for _, hazard in ipairs(level.hazards or {}) do
+      if hazard.cell.hazard and hazard.cell.hazard.active then
+        hazard.cell.hazard.active = false
+        hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
+        purged = purged + 1
+        if purged >= 3 then
+          break
+        end
+      end
+    end
+  end
+
+  if purged > 0 then
+    terminal.used = true
+    return true, string.format("PURGED %02d HAZARDS", purged)
+  end
+
+  return false, "NO ACTIVE HAZARDS"
 end
 
 local function markDynamicCells(level, room)
@@ -1039,7 +1152,7 @@ local function markDynamicCells(level, room)
     local y = love.math.random(room.y + 1, room.y + room.height - 2)
     local cell = Level.cellAtCell(level, x, y)
 
-    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit then
+    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit then
       cell.dynamicGroup = "relays"
       cell.dynamicActive = false
       cell.light = min(cell.light or 0.5, 0.36)
@@ -1071,7 +1184,7 @@ local function findGatePoint(level, points)
       local point = points[index]
       if point then
         local cell = Level.cellAtCell(level, point[1], point[2])
-        if cell and not cell.solid and not cell.objective and not cell.refill and not cell.ladder and not cell.key and not cell.lock and not cell.hazard and not cell.exit then
+        if cell and not cell.solid and not cell.objective and not cell.refill and not cell.ladder and not cell.key and not cell.lock and not cell.hazard and not cell.terminal and not cell.exit then
           if not (point[1] == level.start.x and point[2] == level.start.y) then
             return point
           end
@@ -1242,6 +1355,22 @@ local function countReachableKeys(level, visited)
   return count
 end
 
+local function countReachableTerminals(level, visited)
+  local count = 0
+  local liftReachable = false
+
+  for _, terminal in ipairs(level.terminals or {}) do
+    if visited[U.keyOf(terminal.x, terminal.y)] then
+      count = count + 1
+      if terminal.command == "LIFT" then
+        liftReachable = true
+      end
+    end
+  end
+
+  return count, liftReachable
+end
+
 local function exitReachable(level, visited)
   return level.exit ~= nil and visited[U.keyOf(level.exit.x, level.exit.y)] == true
 end
@@ -1328,6 +1457,7 @@ local function sealUnreachableCells(level)
         cell.key = nil
         cell.lock = nil
         cell.hazard = nil
+        cell.terminal = nil
         cell.exit = false
         cell.dynamicGroup = nil
         cell.dynamicActive = false
@@ -1351,6 +1481,7 @@ function Level.validate(level)
   local unlockedConnected = countVisitedCells(level, unlockedVisited, true)
   local objectiveReachable = countReachableObjectives(level, lockedVisited)
   local keyReachable = countReachableKeys(level, lockedVisited)
+  local terminalReachable, liftTerminalReachable = countReachableTerminals(level, lockedVisited)
   local exitOpenReachable = exitReachable(level, lockedVisited)
   local gateReachable, gateUsable = countUsableGates(level, unlockedVisited)
   local lockReachable, lockUsable = countUsableLocks(level, unlockedVisited)
@@ -1379,6 +1510,9 @@ function Level.validate(level)
   requireValid(lockReachable == #level.locks, "lock-reachability")
   requireValid(lockUsable == #level.locks, "lock-usability")
   requireValid(#level.hazards >= max(0, (config.hazards or 0) - 2), "hazards")
+  requireValid(#level.terminals >= (config.terminals or 0), "terminals")
+  requireValid(terminalReachable == #level.terminals, "terminal-reachability")
+  requireValid((not level.liftRequired) or liftTerminalReachable, "lift-terminal")
   requireValid(level.stairCount == 0, "no-stairs")
   requireValid(level.ladderCount >= 2, "ladders")
   requireValid(level.distinctFloorHeights == 1, "flat-floor")
@@ -1396,6 +1530,8 @@ function Level.validate(level)
     unlockedOpenCells = unlockedOpenCells,
     objectiveReachable = objectiveReachable,
     keyReachable = keyReachable,
+    terminalReachable = terminalReachable,
+    liftTerminalReachable = liftTerminalReachable,
     exitReachable = exitOpenReachable,
     gateReachable = gateReachable,
     gateUsable = gateUsable,
@@ -1409,6 +1545,7 @@ function Level.validate(level)
     keys = #level.keys,
     locks = #level.locks,
     hazards = #level.hazards,
+    terminals = #level.terminals,
     stairs = level.stairCount,
     ladders = level.ladderCount,
     floorHeights = level.distinctFloorHeights,
@@ -1444,6 +1581,7 @@ local function deckConfig(deck, width, height)
     gates = base.gates,
     locks = base.locks,
     hazards = max(6, base.hazards + rooms - base.rooms),
+    terminals = min(4, (deck or 1) + 1),
     profile = profile,
     theme = themes[love.math.random(#themes)],
   }
@@ -1837,6 +1975,89 @@ local function placeDynamicRooms(level)
   end
 end
 
+local function unlockTarget(level)
+  if #level.gates > 0 then
+    return { type = "gate", index = love.math.random(#level.gates) }
+  end
+  if #level.locks > 0 then
+    return { type = "lock", index = love.math.random(#level.locks) }
+  end
+  return nil
+end
+
+local function hazardRoom(level)
+  if #level.hazards > 0 then
+    local hazard = level.hazards[love.math.random(#level.hazards)]
+    if hazard.room then
+      return hazard.room
+    end
+  end
+
+  return level.rooms[love.math.random(#level.rooms)]
+end
+
+local function terminalRoomForCommand(level, command)
+  if command == "SCAN" then
+    return level.routeRooms[min(2, #level.routeRooms)] or level.rooms[1]
+  elseif command == "LIFT" then
+    return level.routeRooms[max(2, #level.routeRooms - 1)] or level.rooms[#level.rooms]
+  elseif command == "PURGE" then
+    return hazardRoom(level)
+  end
+
+  return level.rooms[love.math.random(#level.rooms)]
+end
+
+local function terminalTarget(level, command)
+  if command == "UNLOCK" then
+    return unlockTarget(level)
+  end
+  return nil
+end
+
+local function terminalRoles(level, config)
+  if level.deck == 1 then
+    return { "SCAN", "UNLOCK" }
+  elseif level.deck == 2 then
+    return { "SCAN", "PURGE", "LIFT" }
+  end
+
+  return { "SCAN", "UNLOCK", "PURGE", "LIFT" }
+end
+
+local function placeTerminalAnywhere(level, id, command)
+  for _ = 1, 24 do
+    local room = terminalRoomForCommand(level, command)
+    if room and markTerminal(level, room, id, command, terminalTarget(level, command)) then
+      return true
+    end
+  end
+
+  for _, room in ipairs(level.rooms) do
+    if markTerminal(level, room, id, command, terminalTarget(level, command)) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function placeTerminals(level, config)
+  local roles = terminalRoles(level, config)
+  local target = config.terminals or #roles
+
+  for i = 1, min(target, #roles) do
+    placeTerminalAnywhere(level, i, roles[i])
+  end
+
+  while #level.terminals < target do
+    local command = terminalCommands[love.math.random(#terminalCommands - 1)]
+    if not placeTerminalAnywhere(level, #level.terminals + 1, command) then
+      return
+    end
+  end
+end
+
 local function finalizeGeneratedLevel(level, config)
   for _, room in ipairs(level.rooms) do
     mutateRoomShape(level, room)
@@ -1856,6 +2077,7 @@ local function finalizeGeneratedLevel(level, config)
   placeLandmarks(level)
   placeDynamicRooms(level)
   placeHazards(level, config)
+  placeTerminals(level, config)
   placeRefills(level, config)
 
   local startCell = Level.cellAtCell(level, level.start.x, level.start.y)

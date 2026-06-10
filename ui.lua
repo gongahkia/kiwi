@@ -17,6 +17,8 @@ local function terrainColor(cell)
     return 0.78, 0.52, 0.12
   elseif cell.exit then
     return 0.95, 0.72, 0.24
+  elseif cell.terminal then
+    return 0.25, 0.72, 0.68
   elseif cell.hazard and cell.hazard.active then
     if cell.hazard.kind == "ember" then
       return 0.72, 0.22, 0.08
@@ -140,6 +142,13 @@ local function drawMinimap(game, width, height)
     love.graphics.rectangle("fill", originX + (level.exit.x - 1) * size, originY + (level.exit.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
   end
 
+  if level.scanRevealed then
+    for _, terminal in ipairs(level.terminals or {}) do
+      love.graphics.setColor(0.18, 1, 0.78, terminal.terminal.used and 0.42 or 0.95)
+      love.graphics.rectangle("line", originX + (terminal.x - 1) * size, originY + (terminal.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
+    end
+  end
+
   for _, refill in ipairs(level.refills) do
     if not refill.cell.refillUsed then
       love.graphics.setColor(1, 0.6, 0.16, 0.9)
@@ -167,6 +176,19 @@ local function drawMinimap(game, width, height)
     local b = enemy.path[i + 1]
     love.graphics.line(originX + a.x * size - size, originY + a.y * size - size, originX + b.x * size - size, originY + b.y * size - size)
   end
+end
+
+local function nearTerminal(game)
+  local px = floor(game.player.x)
+  local py = floor(game.player.y)
+
+  for _, terminal in ipairs(game.level.terminals or {}) do
+    if math.abs(terminal.x - px) + math.abs(terminal.y - py) <= 1 then
+      return terminal
+    end
+  end
+
+  return nil
 end
 
 local function drawHud(game, width, height)
@@ -201,6 +223,10 @@ local function drawHud(game, width, height)
   if game.keys and game.keys.total > 0 then
     love.graphics.print(string.format("KEY %d/%d", game.keys.collected, game.keys.total), 206, 109)
   end
+  if game.level.liftRequired then
+    love.graphics.setColor(game.level.liftAuthorized and 0.42 or 0.86, game.level.liftAuthorized and 0.95 or 0.62, 0.58)
+    love.graphics.print(game.level.liftAuthorized and "TERM   LIFT OK" or "TERM   LIFT REQ", 206, 136)
+  end
   love.graphics.setColor(0.84, 0.64, 0.36)
   love.graphics.print(string.format("TORCH  %03d%%", floor(game.torch.fuel * 100)), 30, 136)
   love.graphics.setColor(0.68, 0.64, 0.56)
@@ -226,6 +252,57 @@ local function drawHud(game, width, height)
     love.graphics.setColor(0.65, 0.02, 0.015, danger * 0.16)
     love.graphics.rectangle("fill", 0, 0, width, height)
   end
+
+  local terminal = nearTerminal(game)
+  if terminal and not game.terminal.active then
+    love.graphics.setColor(0.1, 0.16, 0.14, 0.76)
+    love.graphics.rectangle("fill", width * 0.5 - 138, height - 120, 276, 34, 3, 3)
+    love.graphics.setColor(0.54, 1, 0.82)
+    love.graphics.printf("F  " .. terminal.terminal.label .. "  " .. terminal.command, width * 0.5 - 128, height - 113, 256, "center")
+  end
+end
+
+local function drawTerminalOverlay(game, width, height)
+  if not game.terminal or not game.terminal.active then
+    return
+  end
+
+  local terminal = game.terminal.current or { label = "T??", command = "SCAN", logs = {} }
+  local panelWidth = min(width - 80, 680)
+  local panelHeight = min(height - 80, 360)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+
+  love.graphics.setColor(0, 0, 0, 0.78)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.04, 0.09, 0.08, 0.96)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.2, 0.9, 0.7, 0.92)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.58, 1, 0.82)
+  love.graphics.print(string.format("%s  DECK %02d  ACCESS %s", terminal.label, game.deck or 1, terminal.command), x + 22, y + 18)
+  love.graphics.setColor(0.38, 0.78, 0.66)
+  love.graphics.print("COMMANDS SCAN UNLOCK PURGE LIFT", x + 22, y + 46)
+
+  love.graphics.setColor(0.12, 0.23, 0.2, 0.9)
+  love.graphics.rectangle("fill", x + 20, y + 78, panelWidth - 40, panelHeight - 144)
+
+  local logs = terminal.logs or {}
+  local logY = y + 90
+  love.graphics.setColor(0.72, 0.95, 0.82)
+  for i = max(1, #logs - 7), #logs do
+    love.graphics.print(logs[i], x + 34, logY)
+    logY = logY + 23
+  end
+
+  love.graphics.setColor(0.04, 0.08, 0.07, 0.96)
+  love.graphics.rectangle("fill", x + 20, y + panelHeight - 54, panelWidth - 40, 34)
+  love.graphics.setColor(0.58, 1, 0.82)
+  love.graphics.print("> " .. (game.terminal.input or ""), x + 34, y + panelHeight - 47)
+  love.graphics.setColor(0.38, 0.78, 0.66)
+  love.graphics.printf("ENTER RUN   ESC EXIT", x + 20, y + panelHeight - 47, panelWidth - 52, "right")
 end
 
 local function drawEndState(game, width, height)
@@ -254,6 +331,7 @@ function UI.draw(game)
   drawMinimap(game, width, height)
   drawHud(game, width, height)
   drawEndState(game, width, height)
+  drawTerminalOverlay(game, width, height)
 end
 
 return UI
