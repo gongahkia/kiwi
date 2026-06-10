@@ -1,4 +1,5 @@
 local Game = require("game")
+local smoke = false
 
 local function hasArg(value)
   if not arg then
@@ -15,19 +16,22 @@ local function hasArg(value)
 end
 
 function love.load()
+  smoke = hasArg("--smoke")
   Game.load()
-  if hasArg("--smoke") then
-    print("ok love smoke")
-    love.event.quit(0)
-  end
 end
 
 function love.update(dt)
-  Game.update(dt)
+  if not smoke then
+    Game.update(dt)
+  end
 end
 
 function love.draw()
   Game.draw()
+  if smoke then
+    print("ok love smoke")
+    love.event.quit(0)
+  end
 end
 
 function love.keypressed(key)

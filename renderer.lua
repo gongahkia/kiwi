@@ -85,6 +85,8 @@ local function castRay(game, rayDirX, rayDirY)
   local sideDistX, sideDistY
   local side = 0
   local segments = {}
+  local spans = {}
+  local spanStart = 0
 
   if rayDirX < 0 then
     stepX = -1
@@ -119,7 +121,27 @@ local function castRay(game, rayDirX, rayDirY)
 
     distance = max(distance, 0.01)
 
+    if distance >= Renderer.wallRenderDistance then
+      if previousCell and not Level.isBlocked(previousCell) and spanStart < Renderer.wallRenderDistance then
+        spans[#spans + 1] = {
+          near = spanStart,
+          far = Renderer.wallRenderDistance,
+          cell = previousCell,
+        }
+      end
+
+      return segments, Renderer.wallRenderDistance, spans
+    end
+
     local nextCell = Level.cellAtCell(level, mapX, mapY)
+
+    if previousCell and not Level.isBlocked(previousCell) and distance > spanStart + 0.001 then
+      spans[#spans + 1] = {
+        near = spanStart,
+        far = min(distance, Renderer.wallRenderDistance),
+        cell = previousCell,
+      }
+    end
 
     if Level.isBlocked(nextCell) then
       if previousCell then
@@ -136,7 +158,7 @@ local function castRay(game, rayDirX, rayDirY)
         }
       end
 
-      return segments, distance
+      return segments, distance, spans
     end
 
     if previousCell then
@@ -184,9 +206,18 @@ local function castRay(game, rayDirX, rayDirY)
     end
 
     previousCell = nextCell
+    spanStart = distance
   end
 
-  return segments, Renderer.wallRenderDistance
+  if previousCell and not Level.isBlocked(previousCell) and spanStart < Renderer.wallRenderDistance then
+    spans[#spans + 1] = {
+      near = spanStart,
+      far = Renderer.wallRenderDistance,
+      cell = previousCell,
+    }
+  end
+
+  return segments, Renderer.wallRenderDistance, spans
 end
 
 local function segmentColor(segment, shade)
@@ -265,6 +296,63 @@ local function drawSegment(game, segment, width, height, screenX)
   end
 end
 
+local function surfaceColor(cell, distance, ceiling)
+  local red, green, blue
+
+  if cell.terrain == "water" then
+    red, green, blue = 0.11, 0.22, 0.28
+  elseif cell.terrain == "moss" then
+    red, green, blue = 0.16, 0.27, 0.15
+  elseif cell.terrain == "rubble" then
+    red, green, blue = 0.28, 0.25, 0.20
+  elseif cell.terrain == "grate" or cell.terrain == "catwalk" then
+    red, green, blue = 0.23, 0.23, 0.21
+  elseif cell.terrain == "slag" then
+    red, green, blue = 0.36, 0.14, 0.06
+  elseif cell.terrain == "glass" then
+    red, green, blue = 0.25, 0.31, 0.34
+  elseif cell.terrain == "dust" then
+    red, green, blue = 0.28, 0.25, 0.18
+  else
+    red, green, blue = 0.24, 0.21, 0.16
+  end
+
+  if ceiling then
+    red, green, blue = red * 0.54, green * 0.56, blue * 0.62
+  end
+
+  local shade = U.clamp(1 - distance / Renderer.wallRenderDistance, 0.12, 1)
+  local light = 0.48 + (cell.light or 0.45) * 0.45
+
+  return red * shade * light, green * shade * light, blue * shade * light
+end
+
+local function drawVerticalSpan(screenX, y1, y2, height)
+  local top = max(0, floor(min(y1, y2)))
+  local bottom = min(height, ceil(max(y1, y2)))
+
+  if bottom > top then
+    love.graphics.rectangle("fill", screenX, top, Renderer.rayStep + 1, bottom - top)
+  end
+end
+
+local function drawSurfaceSpan(game, span, height, screenX)
+  local nearDistance = max(span.near, 0.045)
+  local farDistance = max(span.far, nearDistance + 0.01)
+  local cell = span.cell
+  local distance = (nearDistance + farDistance) * 0.5
+  local floorNear = projectWorldZ(game, cell.floor, nearDistance, height)
+  local floorFar = projectWorldZ(game, cell.floor, farDistance, height)
+  local ceilingNear = projectWorldZ(game, cell.ceiling, nearDistance, height)
+  local ceilingFar = projectWorldZ(game, cell.ceiling, farDistance, height)
+
+  love.graphics.setColor(surfaceColor(cell, distance, false))
+  drawVerticalSpan(screenX, floorNear, floorFar, height)
+
+  love.graphics.setColor(surfaceColor(cell, distance, true))
+  drawVerticalSpan(screenX, ceilingNear, ceilingFar, height)
+end
+
 local function drawRaycastWorld(game, width, height)
   local depthBuffer = {}
   local player = game.player
@@ -278,7 +366,11 @@ local function drawRaycastWorld(game, width, height)
     local cameraX = 2 * (screenX + 0.5) / width - 1
     local rayDirX = dirX + planeX * cameraX
     local rayDirY = dirY + planeY * cameraX
-    local segments, solidDistance = castRay(game, rayDirX, rayDirY)
+    local segments, solidDistance, spans = castRay(game, rayDirX, rayDirY)
+
+    for i = #spans, 1, -1 do
+      drawSurfaceSpan(game, spans[i], height, screenX)
+    end
 
     for i = #segments, 1, -1 do
       drawSegment(game, segments[i], width, height, screenX)

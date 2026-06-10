@@ -2,6 +2,7 @@ local Level = require("level")
 local U = require("utils")
 
 local floor = math.floor
+local ceil = math.ceil
 local abs = math.abs
 local max = math.max
 local min = math.min
@@ -24,6 +25,61 @@ local terrainNoise = {
   dust = 0.85,
 }
 
+local function canStandAt(level, x, y, radius)
+  local centerX = floor(x)
+  local centerY = floor(y)
+  local centerCell = Level.cellAtCell(level, centerX, centerY)
+  local margin = radius + 0.015
+  local samples = {
+    { x, y },
+    { x - margin, y },
+    { x + margin, y },
+    { x, y - margin },
+    { x, y + margin },
+    { x - margin, y - margin },
+    { x + margin, y - margin },
+    { x - margin, y + margin },
+    { x + margin, y + margin },
+  }
+
+  if Level.isBlocked(centerCell) then
+    return false
+  end
+
+  for _, sample in ipairs(samples) do
+    local targetX = floor(sample[1])
+    local targetY = floor(sample[2])
+
+    if Level.isBlocked(Level.cellAtWorld(level, sample[1], sample[2])) then
+      return false
+    end
+
+    if not Level.canTraverseCells(level, centerX, centerY, targetX, targetY) then
+      return false
+    end
+  end
+
+  return true
+end
+
+local function findSafeSpawn(level, startX, startY, radius)
+  if canStandAt(level, startX + 0.5, startY + 0.5, radius) then
+    return startX + 0.5, startY + 0.5
+  end
+
+  for range = 1, max(level.width, level.height) do
+    for y = max(2, startY - range), min(level.height - 1, startY + range) do
+      for x = max(2, startX - range), min(level.width - 1, startX + range) do
+        if abs(x - startX) + abs(y - startY) == range and canStandAt(level, x + 0.5, y + 0.5, radius) then
+          return x + 0.5, y + 0.5
+        end
+      end
+    end
+  end
+
+  return startX + 0.5, startY + 0.5
+end
+
 function Actor.floorAt(level, worldX, worldY)
   local cell = Level.cellAtWorld(level, worldX, worldY)
   if cell and not Level.isBlocked(cell) then
@@ -39,6 +95,7 @@ local function canOccupyFrom(level, entity, x, y, radius)
   local centerY = floor(y)
   local fromCell = Level.cellAtCell(level, fromX, fromY)
   local centerCell = Level.cellAtCell(level, centerX, centerY)
+  local margin = radius + 0.015
   local ladderMove = fromCell
     and centerCell
     and fromCell.ladder
@@ -46,11 +103,23 @@ local function canOccupyFrom(level, entity, x, y, radius)
     and Level.canTraverseCells(level, fromX, fromY, centerX, centerY)
   local samples = {
     { x, y },
-    { x - radius, y - radius },
-    { x + radius, y - radius },
-    { x - radius, y + radius },
-    { x + radius, y + radius },
+    { x - margin, y },
+    { x + margin, y },
+    { x, y - margin },
+    { x, y + margin },
+    { x - margin, y - margin },
+    { x + margin, y - margin },
+    { x - margin, y + margin },
+    { x + margin, y + margin },
   }
+
+  if Level.isBlocked(fromCell) or Level.isBlocked(centerCell) then
+    return false
+  end
+
+  if not ladderMove and not Level.canTraverseCells(level, fromX, fromY, centerX, centerY) then
+    return false
+  end
 
   for _, sample in ipairs(samples) do
     local targetX = floor(sample[1])
@@ -60,12 +129,16 @@ local function canOccupyFrom(level, entity, x, y, radius)
       return false
     end
 
-    if not ladderMove and not Level.canTraverseCells(level, fromX, fromY, targetX, targetY) then
+    if not Level.canTraverseCells(level, centerX, centerY, targetX, targetY) then
       return false
     end
   end
 
   return true
+end
+
+function Actor.canOccupy(level, entity, x, y)
+  return canOccupyFrom(level, entity, x or entity.x, y or entity.y, entity.radius)
 end
 
 function Actor.movementMultiplier(level, actor)
@@ -83,12 +156,18 @@ function Actor.movementMultiplier(level, actor)
 end
 
 local function moveWithCollision(level, entity, dx, dy)
-  if canOccupyFrom(level, entity, entity.x + dx, entity.y, entity.radius) then
-    entity.x = entity.x + dx
-  end
+  local steps = max(1, ceil(max(abs(dx), abs(dy)) / 0.08))
+  local stepX = dx / steps
+  local stepY = dy / steps
 
-  if canOccupyFrom(level, entity, entity.x, entity.y + dy, entity.radius) then
-    entity.y = entity.y + dy
+  for _ = 1, steps do
+    if canOccupyFrom(level, entity, entity.x + stepX, entity.y, entity.radius) then
+      entity.x = entity.x + stepX
+    end
+
+    if canOccupyFrom(level, entity, entity.x, entity.y + stepY, entity.radius) then
+      entity.y = entity.y + stepY
+    end
   end
 end
 
@@ -104,9 +183,10 @@ local function updateActorHeight(level, actor, dt)
 end
 
 function Actor.createPlayer(level)
+  local x, y = findSafeSpawn(level, level.start.x, level.start.y, 0.18)
   local player = {
-    x = level.start.x + 0.5,
-    y = level.start.y + 0.5,
+    x = x,
+    y = y,
     angle = 0,
     fov = math.rad(66),
     radius = 0.18,
@@ -128,10 +208,11 @@ end
 
 function Actor.createEnemy(level)
   local spawn = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  local x, y = findSafeSpawn(level, spawn.x, spawn.y, 0.2)
 
   return {
-    x = spawn.x + 0.5,
-    y = spawn.y + 0.5,
+    x = x,
+    y = y,
     radius = 0.2,
     baseSpeed = 1.18,
     sightSpeed = 1.68,
@@ -141,8 +222,8 @@ function Actor.createEnemy(level)
     visible = false,
     growl = 0,
     eyeHeight = 0.82,
-    floorZ = Actor.floorAt(level, spawn.x + 0.5, spawn.y + 0.5),
-    eyeZ = Actor.floorAt(level, spawn.x + 0.5, spawn.y + 0.5) + 0.82,
+    floorZ = Actor.floorAt(level, x, y),
+    eyeZ = Actor.floorAt(level, x, y) + 0.82,
     state = "wander",
     stateTimer = 0,
     grace = 5.5,

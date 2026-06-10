@@ -30,6 +30,6 @@ lua tools/validate_levels.lua 1000 1 all
 - `M`: toggle minimap
 - `N`: generate a new structure
 - `R`: replay current seed
-- `S`: enter/replay a seed
+- `F2`: enter/replay a seed
 - `X`: toggle post-process shader
 - `Esc`: toggle mouse capture

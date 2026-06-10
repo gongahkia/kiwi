@@ -172,7 +172,7 @@ function Game.keypressed(key)
     startGame(Game.lastSeed)
   elseif key == "n" then
     startGame()
-  elseif key == "s" then
+  elseif key == "f2" then
     Game.seedEntry.active = true
     Game.seedEntry.text = tostring(Game.seed)
     love.mouse.setRelativeMode(false)

@@ -9,6 +9,7 @@ package.path = root .. "/?.lua;" .. root .. "/tools/?.lua;" .. package.path
 local Support = require("cli_support")
 Support.installLoveShim()
 
+local Actor = require("actor")
 local Level = require("level")
 
 local count = tonumber(arg[1]) or 100
@@ -20,11 +21,12 @@ local enabled = {
   graph = mode == "graph" or mode == "all",
   gameplay = mode == "gameplay" or mode == "all",
   path = mode == "path" or mode == "all",
+  collision = mode == "collision" or mode == "all",
   metrics = mode == "metrics" or mode == "all",
 }
 
-if not (enabled.graph or enabled.gameplay or enabled.path or enabled.metrics) then
-  io.write("usage: lua tools/validate_levels.lua [count] [startSeed] [graph|gameplay|path|metrics|all] [pathSamples]\n")
+if not (enabled.graph or enabled.gameplay or enabled.path or enabled.collision or enabled.metrics) then
+  io.write("usage: lua tools/validate_levels.lua [count] [startSeed] [graph|gameplay|path|collision|metrics|all] [pathSamples]\n")
   os.exit(2)
 end
 
@@ -122,6 +124,24 @@ local function checkPathStress(seed, level)
   end
 end
 
+local function checkCollision(seed, level)
+  local failures = {}
+  local player = Actor.createPlayer(level)
+  local enemy = Actor.createEnemy(level)
+
+  if not Actor.canOccupy(level, player) then
+    failures[#failures + 1] = "player-spawn"
+  end
+
+  if not Actor.canOccupy(level, enemy) then
+    failures[#failures + 1] = "enemy-spawn"
+  end
+
+  if #failures > 0 then
+    recordFailure(seed, "collision", failures)
+  end
+end
+
 local function appendCoreMetrics(level)
   local validation = Level.validate(level)
 
@@ -171,6 +191,9 @@ for i = 0, count - 1 do
   end
   if enabled.path then
     checkPathStress(seed, level)
+  end
+  if enabled.collision then
+    checkCollision(seed, level)
   end
   if enabled.metrics then
     collectMetrics(level)
