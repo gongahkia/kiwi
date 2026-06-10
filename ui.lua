@@ -11,8 +11,19 @@ local sin = math.sin
 local UI = {}
 
 local function terrainColor(cell)
-  if cell.gateLocked then
+  if cell.lock and cell.lock.locked then
+    return 0.8, 0.62, 0.22
+  elseif cell.gateLocked then
     return 0.78, 0.52, 0.12
+  elseif cell.exit then
+    return 0.95, 0.72, 0.24
+  elseif cell.hazard and cell.hazard.active then
+    if cell.hazard.kind == "ember" then
+      return 0.72, 0.22, 0.08
+    elseif cell.hazard.kind == "wire" then
+      return 0.62, 0.62, 0.32
+    end
+    return 0.34, 0.22, 0.18
   elseif cell.ladder then
     return 0.96, 0.7, 0.24
   elseif cell.stair then
@@ -82,6 +93,25 @@ local function drawMinimap(game, width, height)
     end
   end
 
+  for _, key in ipairs(level.keys or {}) do
+    if not key.cell.key.collected then
+      love.graphics.setColor(1, 0.86, 0.26, 0.95)
+      love.graphics.rectangle("fill", originX + (key.x - 1) * size, originY + (key.y - 1) * size, max(2, size), max(2, size))
+    end
+  end
+
+  for _, lock in ipairs(level.locks or {}) do
+    if lock.cell.lock.locked then
+      love.graphics.setColor(0.95, 0.62, 0.12, 0.95)
+      love.graphics.rectangle("line", originX + (lock.x - 1) * size, originY + (lock.y - 1) * size, max(2, size), max(2, size))
+    end
+  end
+
+  if level.exit and game.objectives.collected >= game.objectives.total then
+    love.graphics.setColor(1, 0.78, 0.24, 0.96)
+    love.graphics.rectangle("fill", originX + (level.exit.x - 1) * size, originY + (level.exit.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
+  end
+
   for _, refill in ipairs(level.refills) do
     if not refill.cell.refillUsed then
       love.graphics.setColor(1, 0.6, 0.16, 0.9)
@@ -137,9 +167,12 @@ local function drawHud(game, width, height)
   love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
   love.graphics.print(string.format("THREAT %02dM %-11s", floor(distance), string.upper(enemy.state or "WANDER")), 30, 55)
   love.graphics.setColor(0.78, 0.72, 0.6)
-  love.graphics.print("DECK   00", 30, 82)
+  love.graphics.print(string.format("DECK   %02d/%02d", game.deck or 1, game.maxDecks or 1), 30, 82)
   love.graphics.setColor(0.82, 0.76, 0.62)
   love.graphics.print(string.format("OBJ    %d/%d", game.objectives.collected, game.objectives.total), 30, 109)
+  if game.keys and game.keys.total > 0 then
+    love.graphics.print(string.format("KEY %d/%d", game.keys.collected, game.keys.total), 206, 109)
+  end
   love.graphics.setColor(0.84, 0.64, 0.36)
   love.graphics.print(string.format("TORCH  %03d%%", floor(game.torch.fuel * 100)), 30, 136)
   love.graphics.setColor(0.68, 0.64, 0.56)
@@ -183,7 +216,7 @@ local function drawEndState(game, width, height)
 
   love.graphics.setFont(game.fonts.hud)
   love.graphics.setColor(0.95, 0.86, 0.64)
-  love.graphics.printf(string.format("TIME %.1f   BEST %.1f   SEED %d", game.survivalTime, game.bestTime, game.seed), 0, height * 0.49, width, "center")
+  love.graphics.printf(string.format("TIME %.1f   BEST %.1f   DECK %02d   SEED %d", game.survivalTime, game.bestTime, game.deck or 1, game.seed), 0, height * 0.49, width, "center")
   love.graphics.setColor(0.82, 0.76, 0.66)
   love.graphics.printf("R REPLAY   N NEW RUN", 0, height * 0.58, width, "center")
 end

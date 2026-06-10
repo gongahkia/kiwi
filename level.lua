@@ -9,9 +9,16 @@ local sqrt = math.sqrt
 local Level = {
   width = 57,
   height = 57,
+  maxDecks = 3,
   maxStepHeight = 0.58,
   floorHeight = 0,
   ceilingHeight = 3.05,
+}
+
+Level.deckConfigs = {
+  { width = 57, height = 57, rooms = 14, objectives = 4, refills = 6, gates = 2, locks = 1, hazards = 8 },
+  { width = 65, height = 65, rooms = 18, objectives = 4, refills = 7, gates = 3, locks = 1, hazards = 12 },
+  { width = 73, height = 73, rooms = 22, objectives = 5, refills = 8, gates = 3, locks = 2, hazards = 16 },
 }
 
 local zoneStyles = {
@@ -65,6 +72,33 @@ local objectiveLabels = {
   "EAST RELAY",
   "SOUTH RELAY",
   "WEST RELAY",
+  "LOWER RELAY",
+}
+
+local directions = {
+  { name = "north", dx = 0, dy = -1, opposite = "south" },
+  { name = "east", dx = 1, dy = 0, opposite = "west" },
+  { name = "south", dx = 0, dy = 1, opposite = "north" },
+  { name = "west", dx = -1, dy = 0, opposite = "east" },
+}
+
+local directionByName = {}
+for _, direction in ipairs(directions) do
+  directionByName[direction.name] = direction
+end
+
+local moduleTemplates = {
+  { id = "atrium", kind = "atrium", width = { 12, 15 }, height = { 10, 13 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "archive_cross", kind = "archive", width = { 9, 13 }, height = { 8, 11 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "cistern_run", kind = "cistern", width = { 8, 12 }, height = { 10, 14 }, connectors = { north = true, south = true, east = true } },
+  { id = "foundry_bend", kind = "lower foundry", width = { 9, 12 }, height = { 8, 11 }, connectors = { north = true, east = true, west = true } },
+  { id = "overgrown_bend", kind = "overgrown court", width = { 8, 11 }, height = { 8, 12 }, connectors = { east = true, south = true, west = true } },
+  { id = "quarry_hub", kind = "quarry", width = { 9, 13 }, height = { 8, 12 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "machine_spine", kind = "machine shaft", width = { 8, 10 }, height = { 11, 15 }, connectors = { north = true, south = true, west = true } },
+  { id = "bridge_bar", kind = "bridgeworks", width = { 11, 15 }, height = { 6, 9 }, connectors = { east = true, west = true, south = true } },
+  { id = "observatory", kind = "observatory", width = { 10, 14 }, height = { 9, 12 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "annex", kind = "annex", width = { 6, 9 }, height = { 6, 9 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "chamber", kind = "chamber", width = { 7, 10 }, height = { 7, 10 }, connectors = { north = true, east = true, south = true, west = true } },
 }
 
 local metricNeighbors = {
@@ -96,11 +130,17 @@ local function makeWallCell()
     objective = nil,
     refill = false,
     refillUsed = false,
+    key = nil,
+    lock = nil,
+    hazard = nil,
+    exit = false,
+    dynamicGroup = nil,
+    dynamicActive = false,
     landmark = nil,
   }
 end
 
-local function makeLevel(width, height)
+local function makeLevel(width, height, deck, config)
   local grid = {}
 
   for y = 1, height do
@@ -113,10 +153,15 @@ local function makeLevel(width, height)
   return {
     width = width,
     height = height,
+    deck = deck or 1,
+    config = config,
     grid = grid,
     rooms = {},
     routeRooms = {},
+    modules = {},
+    criticalPath = {},
     start = { x = floor(width / 2), y = floor(height / 2) },
+    exit = nil,
     stairCount = 0,
     ladderCount = 0,
     terrainCounts = {},
@@ -128,6 +173,9 @@ local function makeLevel(width, height)
     objectives = {},
     refills = {},
     gates = {},
+    keys = {},
+    locks = {},
+    hazards = {},
     validation = {},
   }
 end
@@ -144,7 +192,7 @@ function Level.cellAtWorld(level, worldX, worldY)
 end
 
 function Level.isBlocked(cell)
-  return cell == nil or cell.solid or cell.gateLocked
+  return cell == nil or cell.solid or cell.gateLocked or (cell.lock and cell.lock.locked)
 end
 
 local function carveCell(level, x, y, kind, light, terrain, zone)
@@ -183,6 +231,71 @@ local function carveRect(level, x, y, width, height, kind, light, terrain, zone)
   end
 end
 
+local function cloneConnectors(connectors)
+  local copy = {}
+
+  for key, value in pairs(connectors or {}) do
+    copy[key] = value
+  end
+
+  return copy
+end
+
+local function roomOverlaps(level, x, y, width, height, padding)
+  padding = padding or 1
+
+  if x <= 1 or y <= 1 or x + width - 1 >= level.width or y + height - 1 >= level.height then
+    return true
+  end
+
+  for _, room in ipairs(level.rooms) do
+    if x - padding <= room.x + room.width - 1
+      and x + width - 1 + padding >= room.x
+      and y - padding <= room.y + room.height - 1
+      and y + height - 1 + padding >= room.y then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function addRoomAt(level, x, y, width, height, kind, route, template)
+  if roomOverlaps(level, x, y, width, height, 1) then
+    return nil
+  end
+
+  local style = zoneStyle(kind)
+  local light = style.light or 0.55
+
+  carveRect(level, x, y, width, height, kind, light, style.terrain, kind)
+
+  local room = {
+    x = x,
+    y = y,
+    width = width,
+    height = height,
+    cx = x + floor(width / 2),
+    cy = y + floor(height / 2),
+    floor = Level.floorHeight,
+    kind = kind,
+    terrain = style.terrain,
+    light = light,
+    ceiling = Level.ceilingHeight,
+    route = route or false,
+    template = template and template.id or kind,
+    connectors = cloneConnectors(template and template.connectors),
+  }
+
+  level.rooms[#level.rooms + 1] = room
+  level.modules[#level.modules + 1] = room
+  if route then
+    level.routeRooms[#level.routeRooms + 1] = room
+    level.criticalPath[#level.criticalPath + 1] = room
+  end
+  return room
+end
+
 local function addRoom(level, centerX, centerY, width, height, kind, route)
   local x = U.clamp(floor(centerX - width / 2), 2, level.width - width)
   local y = U.clamp(floor(centerY - height / 2), 2, level.height - height)
@@ -204,11 +317,15 @@ local function addRoom(level, centerX, centerY, width, height, kind, route)
     light = light,
     ceiling = Level.ceilingHeight,
     route = route or false,
+    template = kind,
+    connectors = { north = true, east = true, south = true, west = true },
   }
 
   level.rooms[#level.rooms + 1] = room
+  level.modules[#level.modules + 1] = room
   if route then
     level.routeRooms[#level.routeRooms + 1] = room
+    level.criticalPath[#level.criticalPath + 1] = room
   end
   return room
 end
@@ -308,6 +425,12 @@ local function setSolidFeature(level, x, y, kind, light)
   cell.objective = nil
   cell.refill = false
   cell.refillUsed = false
+  cell.key = nil
+  cell.lock = nil
+  cell.hazard = nil
+  cell.exit = false
+  cell.dynamicGroup = nil
+  cell.dynamicActive = false
   cell.landmark = nil
 end
 
@@ -737,6 +860,28 @@ local function markRefill(level, room)
   return false
 end
 
+local function markKey(level, room, id)
+  for _ = 1, 18 do
+    local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit then
+      cell.key = {
+        id = id,
+        collected = false,
+      }
+      cell.kind = "key"
+      cell.light = max(cell.light or 0.5, 0.82)
+      cell.landmark = "key"
+      level.keys[#level.keys + 1] = { x = x, y = y, cell = cell, id = id }
+      return true
+    end
+  end
+
+  return false
+end
+
 local function markLadder(level, room)
   local cell = Level.cellAtCell(level, room.cx, room.cy)
 
@@ -753,6 +898,86 @@ local function markLadder(level, room)
   return true
 end
 
+local function markExit(level, room)
+  local cell = Level.cellAtCell(level, room.cx, room.cy)
+
+  if not cell or cell.solid or cell.objective or cell.gate then
+    return false
+  end
+
+  cell.exit = true
+  cell.kind = "exit shaft"
+  cell.terrain = "ladder"
+  cell.ladder = true
+  cell.light = max(cell.light or 0.5, 0.86)
+  cell.zone = "shaft"
+  cell.landmark = "exit"
+  level.exit = { x = room.cx, y = room.cy, room = room, cell = cell }
+  return true
+end
+
+local function markHazard(level, room, id)
+  local kinds = {
+    { kind = "ember", terrain = "slag", light = 0.78 },
+    { kind = "pit", terrain = "rubble", light = 0.42 },
+    { kind = "wire", terrain = "grate", light = 0.68 },
+  }
+  local spec = kinds[((id - 1) % #kinds) + 1]
+
+  for _ = 1, 18 do
+    local x = love.math.random(room.x + 1, room.x + room.width - 2)
+    local y = love.math.random(room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit and not cell.hazard then
+      cell.hazard = { id = id, kind = spec.kind, active = true }
+      cell.terrain = spec.terrain
+      cell.kind = spec.kind
+      cell.light = max(cell.light or 0.5, spec.light)
+      level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = id, kind = spec.kind }
+      return true
+    end
+  end
+
+  return false
+end
+
+local function markDynamicCells(level, room)
+  local marked = 0
+
+  for _ = 1, 16 do
+    if marked >= 3 then
+      break
+    end
+
+    local x = love.math.random(room.x + 1, room.x + room.width - 2)
+    local y = love.math.random(room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.exit then
+      cell.dynamicGroup = "relays"
+      cell.dynamicActive = false
+      cell.light = min(cell.light or 0.5, 0.36)
+      marked = marked + 1
+    end
+  end
+end
+
+function Level.activateDynamics(level, group)
+  for y = 1, level.height do
+    for x = 1, level.width do
+      local cell = level.grid[y][x]
+      if cell.dynamicGroup == group and not cell.dynamicActive then
+        cell.dynamicActive = true
+        cell.light = max(cell.light or 0.5, 0.82)
+        if cell.terrain == "stone" then
+          cell.terrain = "glass"
+        end
+      end
+    end
+  end
+end
+
 local function findGatePoint(level, points)
   local mid = floor(#points / 2)
 
@@ -761,7 +986,7 @@ local function findGatePoint(level, points)
       local point = points[index]
       if point then
         local cell = Level.cellAtCell(level, point[1], point[2])
-        if cell and not cell.solid and not cell.objective and not cell.refill and not cell.ladder then
+        if cell and not cell.solid and not cell.objective and not cell.refill and not cell.ladder and not cell.key and not cell.lock and not cell.hazard and not cell.exit then
           if not (point[1] == level.start.x and point[2] == level.start.y) then
             return point
           end
@@ -793,9 +1018,39 @@ local function markShortcutGate(level, points, required)
   level.gates[#level.gates + 1] = { x = point[1], y = point[2], cell = cell, required = required or 999 }
 end
 
+local function markLock(level, points, id)
+  if #points < 5 then
+    return
+  end
+
+  local point = findGatePoint(level, points)
+  if not point then
+    return
+  end
+
+  local cell = Level.cellAtCell(level, point[1], point[2])
+  cell.gate = true
+  cell.gateLocked = false
+  cell.lock = {
+    id = id,
+    locked = true,
+  }
+  cell.kind = "lock"
+  cell.light = 0.82
+  cell.terrain = "stone"
+  cell.zone = "lock"
+  level.locks[#level.locks + 1] = { x = point[1], y = point[2], cell = cell, id = id }
+end
+
 function Level.setGatesLocked(level, locked)
   for _, gate in ipairs(level.gates or {}) do
     gate.cell.gateLocked = locked
+  end
+end
+
+function Level.setLocksLocked(level, locked)
+  for _, lock in ipairs(level.locks or {}) do
+    lock.cell.lock.locked = locked
   end
 end
 
@@ -816,9 +1071,28 @@ local function restoreGateState(level, states)
   end
 end
 
-local function reachableFromStart(level, gatesLocked)
+local function setLockState(level, locked)
+  local states = {}
+
+  for i, lock in ipairs(level.locks or {}) do
+    states[i] = lock.cell.lock.locked
+    lock.cell.lock.locked = locked
+  end
+
+  return states
+end
+
+local function restoreLockState(level, states)
+  for i, lock in ipairs(level.locks or {}) do
+    lock.cell.lock.locked = states[i]
+  end
+end
+
+local function reachableFromStart(level, gatesLocked, locksLocked)
   local states = setGateState(level, gatesLocked)
+  local lockStates = setLockState(level, locksLocked == nil and gatesLocked or locksLocked)
   local farthest, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  restoreLockState(level, lockStates)
   restoreGateState(level, states)
 
   local reachable = 0
@@ -871,6 +1145,22 @@ local function countReachableObjectives(level, visited)
   return count
 end
 
+local function countReachableKeys(level, visited)
+  local count = 0
+
+  for _, key in ipairs(level.keys or {}) do
+    if visited[U.keyOf(key.x, key.y)] then
+      count = count + 1
+    end
+  end
+
+  return count
+end
+
+local function exitReachable(level, visited)
+  return level.exit ~= nil and visited[U.keyOf(level.exit.x, level.exit.y)] == true
+end
+
 local function gateDegree(level, gate)
   local degree = 0
 
@@ -902,6 +1192,24 @@ local function countUsableGates(level, visited)
   return reachable, usable
 end
 
+local function countUsableLocks(level, visited)
+  local reachable = 0
+  local usable = 0
+  local states = setLockState(level, false)
+
+  for _, lock in ipairs(level.locks or {}) do
+    if visited[U.keyOf(lock.x, lock.y)] then
+      reachable = reachable + 1
+    end
+    if gateDegree(level, lock) >= 2 then
+      usable = usable + 1
+    end
+  end
+
+  restoreLockState(level, states)
+  return reachable, usable
+end
+
 local function compactRefills(level)
   local refills = {}
 
@@ -916,7 +1224,9 @@ end
 
 local function sealUnreachableCells(level)
   local states = setGateState(level, true)
+  local lockStates = setLockState(level, true)
   local _, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  restoreLockState(level, lockStates)
   restoreGateState(level, states)
 
   for y = 1, level.height do
@@ -930,6 +1240,12 @@ local function sealUnreachableCells(level)
         cell.ladder = false
         cell.refill = false
         cell.refillUsed = false
+        cell.key = nil
+        cell.lock = nil
+        cell.hazard = nil
+        cell.exit = false
+        cell.dynamicGroup = nil
+        cell.dynamicActive = false
         cell.landmark = nil
       end
     end
@@ -941,15 +1257,18 @@ end
 function Level.validate(level)
   countFeatures(level)
 
-  local lockedReachable, lockedVisited, farthest = reachableFromStart(level, true)
-  local unlockedReachable, unlockedVisited = reachableFromStart(level, false)
+  local config = level.config or Level.deckConfigs[level.deck or 1] or Level.deckConfigs[1]
+  local lockedReachable, lockedVisited, farthest = reachableFromStart(level, true, true)
+  local unlockedReachable, unlockedVisited = reachableFromStart(level, false, false)
   local lockedOpenCells = countOpenCells(level, false)
   local unlockedOpenCells = countOpenCells(level, true)
   local lockedConnected = countVisitedCells(level, lockedVisited, false)
   local unlockedConnected = countVisitedCells(level, unlockedVisited, true)
   local objectiveReachable = countReachableObjectives(level, lockedVisited)
-  local atriumEscapeReachable = countReachableObjectives(level, unlockedVisited)
+  local keyReachable = countReachableKeys(level, lockedVisited)
+  local exitOpenReachable = exitReachable(level, lockedVisited)
   local gateReachable, gateUsable = countUsableGates(level, unlockedVisited)
+  local lockReachable, lockUsable = countUsableLocks(level, unlockedVisited)
   local failures = {}
 
   local function requireValid(condition, label)
@@ -958,17 +1277,23 @@ function Level.validate(level)
     end
   end
 
-  requireValid(lockedReachable >= 360, "min-reachable")
+  requireValid(lockedReachable >= 360 + (level.deck or 1) * 40, "min-reachable")
   requireValid(lockedConnected == lockedOpenCells, "locked-connectivity")
   requireValid(unlockedConnected == unlockedOpenCells, "unlocked-connectivity")
-  requireValid(#level.rooms >= 12, "rooms")
-  requireValid(#level.objectives >= 4, "objectives")
-  requireValid(#level.refills >= 5, "refills")
+  requireValid(#level.rooms >= (config.rooms or 12), "rooms")
+  requireValid(#level.objectives >= (config.objectives or 4), "objectives")
+  requireValid(#level.refills >= (config.refills or 5), "refills")
   requireValid(objectiveReachable == #level.objectives, "objective-reachability")
-  requireValid(atriumEscapeReachable == #level.objectives, "atrium-escape")
-  requireValid(#level.gates >= 2, "gates")
+  requireValid(exitOpenReachable, "exit-reachability")
+  requireValid(#level.gates >= (config.gates or 2), "gates")
   requireValid(gateReachable == #level.gates, "gate-reachability")
   requireValid(gateUsable == #level.gates, "gate-usability")
+  requireValid(#level.locks >= (config.locks or 0), "locks")
+  requireValid(#level.keys >= min(1, config.locks or 0), "keys")
+  requireValid(keyReachable == #level.keys, "key-reachability")
+  requireValid(lockReachable == #level.locks, "lock-reachability")
+  requireValid(lockUsable == #level.locks, "lock-usability")
+  requireValid(#level.hazards >= max(0, (config.hazards or 0) - 2), "hazards")
   requireValid(level.stairCount == 0, "no-stairs")
   requireValid(level.ladderCount >= 2, "ladders")
   requireValid(level.distinctFloorHeights == 1, "flat-floor")
@@ -985,14 +1310,20 @@ function Level.validate(level)
     unlockedReachable = unlockedReachable,
     unlockedOpenCells = unlockedOpenCells,
     objectiveReachable = objectiveReachable,
-    atriumEscapeReachable = atriumEscapeReachable,
+    keyReachable = keyReachable,
+    exitReachable = exitOpenReachable,
     gateReachable = gateReachable,
     gateUsable = gateUsable,
+    lockReachable = lockReachable,
+    lockUsable = lockUsable,
     farthest = farthest.distance,
     rooms = #level.rooms,
     objectives = #level.objectives,
     refills = #level.refills,
     gates = #level.gates,
+    keys = #level.keys,
+    locks = #level.locks,
+    hazards = #level.hazards,
     stairs = level.stairCount,
     ladders = level.ladderCount,
     floorHeights = level.distinctFloorHeights,
@@ -1008,98 +1339,342 @@ local function validateLevel(level)
   return Level.validate(level).valid
 end
 
-local function placeObjectives(level)
-  for i = 2, min(#level.routeRooms, 5) do
-    markObjective(level, level.routeRooms[i], i - 1)
+local function deckConfig(deck, width, height)
+  local base = Level.deckConfigs[deck] or Level.deckConfigs[#Level.deckConfigs]
+  return {
+    width = width or base.width,
+    height = height or base.height,
+    rooms = base.rooms,
+    objectives = base.objectives,
+    refills = base.refills,
+    gates = base.gates,
+    locks = base.locks,
+    hazards = base.hazards,
+  }
+end
+
+local function templateForConnector(connector)
+  for _ = 1, 24 do
+    local template = moduleTemplates[love.math.random(#moduleTemplates)]
+    if template.connectors[connector] then
+      return template
+    end
+  end
+
+  return moduleTemplates[#moduleTemplates]
+end
+
+local function randomConnector(room, avoid)
+  local choices = {}
+
+  for _, direction in ipairs(directions) do
+    if room.connectors[direction.name] and direction.name ~= avoid then
+      choices[#choices + 1] = direction
+    end
+  end
+
+  if #choices == 0 then
+    return directions[love.math.random(#directions)]
+  end
+
+  return choices[love.math.random(#choices)]
+end
+
+local function socketPoint(room, directionName)
+  if directionName == "north" then
+    return {
+      U.clamp(room.cx + love.math.random(-2, 2), room.x + 2, room.x + room.width - 3),
+      room.y,
+    }
+  elseif directionName == "south" then
+    return {
+      U.clamp(room.cx + love.math.random(-2, 2), room.x + 2, room.x + room.width - 3),
+      room.y + room.height - 1,
+    }
+  elseif directionName == "east" then
+    return {
+      room.x + room.width - 1,
+      U.clamp(room.cy + love.math.random(-2, 2), room.y + 2, room.y + room.height - 3),
+    }
+  end
+
+  return {
+    room.x,
+    U.clamp(room.cy + love.math.random(-2, 2), room.y + 2, room.y + room.height - 3),
+  }
+end
+
+local function connectorVertices(a, b, directionName, style)
+  local direction = directionByName[directionName]
+  local startPoint = socketPoint(a, directionName)
+  local endPoint = socketPoint(b, direction.opposite)
+
+  if style == "direct" then
+    return { startPoint, endPoint }
+  end
+
+  local bend
+  if love.math.random() < 0.5 then
+    bend = { endPoint[1], startPoint[2] }
+  else
+    bend = { startPoint[1], endPoint[2] }
+  end
+
+  return { startPoint, bend, endPoint }
+end
+
+local function connectModules(level, a, b, directionName, zone, terrain)
+  local style = love.math.random() < 0.34 and "direct" or "corridor"
+  return carvePolyline(level, connectorVertices(a, b, directionName, style), 1, zone or "connector", terrain or "stone")
+end
+
+local function modulePosition(anchor, direction, width, height)
+  local gap = love.math.random(4, 7)
+  local jitter = love.math.random(-5, 5)
+  local cx = anchor.cx
+  local cy = anchor.cy
+
+  if direction.name == "east" then
+    cx = anchor.cx + floor(anchor.width / 2) + floor(width / 2) + gap
+    cy = anchor.cy + jitter
+  elseif direction.name == "west" then
+    cx = anchor.cx - floor(anchor.width / 2) - floor(width / 2) - gap
+    cy = anchor.cy + jitter
+  elseif direction.name == "south" then
+    cx = anchor.cx + jitter
+    cy = anchor.cy + floor(anchor.height / 2) + floor(height / 2) + gap
+  else
+    cx = anchor.cx + jitter
+    cy = anchor.cy - floor(anchor.height / 2) - floor(height / 2) - gap
+  end
+
+  return floor(cx - width / 2), floor(cy - height / 2)
+end
+
+local function placeConnectedRoom(level, anchor, direction, route)
+  if not anchor.connectors[direction.name] then
+    return nil
+  end
+
+  for _ = 1, 20 do
+    local template = templateForConnector(direction.opposite)
+    local width = randomRange(template.width)
+    local height = randomRange(template.height)
+    local x, y = modulePosition(anchor, direction, width, height)
+    local room = addRoomAt(level, x, y, width, height, template.kind, route, template)
+
+    if room then
+      connectModules(level, anchor, room, direction.name, "connector", "stone")
+      return room
+    end
+  end
+
+  return nil
+end
+
+local function addStartRoom(level)
+  local template = moduleTemplates[1]
+  local width = randomRange(template.width)
+  local height = randomRange(template.height)
+  local x = floor(level.width / 2 - width / 2)
+  local y = floor(level.height / 2 - height / 2)
+  local room = addRoomAt(level, x, y, width, height, template.kind, true, template)
+
+  if room then
+    level.start = { x = room.cx, y = room.cy }
+  end
+
+  return room
+end
+
+local function growCriticalPath(level, config)
+  local current = addStartRoom(level)
+  local target = max(config.objectives + 3, floor(config.rooms * 0.48))
+  local lastDirection = nil
+  local attempts = 0
+
+  while current and #level.routeRooms < target and attempts < 360 do
+    local direction = randomConnector(current, lastDirection and directionByName[lastDirection].opposite)
+    local room = placeConnectedRoom(level, current, direction, true)
+
+    if room then
+      current = room
+      lastDirection = direction.name
+    else
+      current = level.routeRooms[love.math.random(#level.routeRooms)]
+      lastDirection = nil
+      attempts = attempts + 1
+    end
   end
 end
 
-local function placeRefills(level)
-  local refillBudget = 7
+local function fillSideRooms(level, config)
+  local attempts = 0
+
+  while #level.rooms < config.rooms and attempts < 700 do
+    local anchor = level.rooms[love.math.random(#level.rooms)]
+    local direction = randomConnector(anchor)
+    local room = placeConnectedRoom(level, anchor, direction, false)
+
+    if not room then
+      attempts = attempts + 1
+    end
+  end
+end
+
+local function inferredDirection(a, b)
+  local dx = b.cx - a.cx
+  local dy = b.cy - a.cy
+
+  if abs(dx) > abs(dy) then
+    return dx > 0 and "east" or "west"
+  end
+
+  return dy > 0 and "south" or "north"
+end
+
+local function connectRoomPair(level, a, b, zone)
+  local directionName = inferredDirection(a, b)
+  local direction = directionByName[directionName]
+
+  if a.connectors[directionName] and b.connectors[direction.opposite] then
+    return connectModules(level, a, b, directionName, zone or "shortcut", "stone")
+  end
+
+  return connectRooms(level, a, b, 1, zone or "shortcut", "stone")
+end
+
+local function addShortcutMarkers(level, count, marker)
+  local made = 0
+  local attempts = 0
+
+  while made < count and attempts < 120 do
+    local a = level.rooms[love.math.random(#level.rooms)]
+    local b = level.rooms[love.math.random(#level.rooms)]
+
+    if a ~= b and abs(a.cx - b.cx) + abs(a.cy - b.cy) >= 12 then
+      local before = marker == "gate" and #level.gates or #level.locks
+      local points = connectRoomPair(level, a, b, marker == "gate" and "shortcut" or "locked shortcut")
+
+      if marker == "gate" then
+        markShortcutGate(level, points, min(#level.objectives, made + 2))
+        if #level.gates > before then
+          made = made + 1
+        end
+      else
+        markLock(level, points, made + 1)
+        if #level.locks > before then
+          made = made + 1
+        end
+      end
+    end
+
+    attempts = attempts + 1
+  end
+end
+
+local function placeObjectives(level, config)
+  local lastRouteIndex = max(2, #level.routeRooms - 1)
+  local used = {}
+
+  for id = 1, config.objectives do
+    local span = max(1, lastRouteIndex - 1)
+    local index = 1 + floor(id * span / (config.objectives + 1))
+
+    index = U.clamp(index + 1, 2, lastRouteIndex)
+    while used[index] and index < lastRouteIndex do
+      index = index + 1
+    end
+    used[index] = true
+    markObjective(level, level.routeRooms[index], id)
+  end
+end
+
+local function placeKeys(level, config)
+  if (config.locks or 0) <= 0 then
+    return
+  end
+
+  local index = U.clamp(floor(#level.routeRooms * 0.38), 2, max(2, #level.routeRooms - 1))
+  if not markKey(level, level.routeRooms[index], 1) then
+    markKey(level, level.routeRooms[1], 1)
+  end
+end
+
+local function placeRefills(level, config)
+  local refillBudget = config.refills or 7
 
   for i = #level.rooms, 1, -1 do
     local room = level.rooms[i]
-    if not room.route and refillBudget > 0 and markRefill(level, room) then
+    if refillBudget > 0 and (not room.route or love.math.random() < 0.25) and markRefill(level, room) then
       refillBudget = refillBudget - 1
     end
   end
 end
 
-local function buildShortcutGates(level, nw, ne, se, sw)
-  local eastX = U.clamp(min(ne.cx, se.cx) - 3, 4, level.width - 4)
-  local westX = U.clamp(max(nw.cx, sw.cx) + 3, 4, level.width - 4)
-  local eastPoints = carvePolyline(level, {
-    { ne.cx, ne.cy },
-    { eastX, ne.cy },
-    { eastX, se.cy },
-    { se.cx, se.cy },
-  }, 1, "shortcut", "stone")
-  local westPoints = carvePolyline(level, {
-    { nw.cx, nw.cy },
-    { westX, nw.cy },
-    { westX, sw.cy },
-    { sw.cx, sw.cy },
-  }, 1, "shortcut", "stone")
+local function placeHazards(level, config)
+  local hazardBudget = config.hazards or 0
+  local attempts = 0
 
-  markShortcutGate(level, eastPoints, 2)
-  markShortcutGate(level, westPoints, 3)
+  while #level.hazards < hazardBudget and attempts < hazardBudget * 16 + 32 do
+    local room = level.rooms[love.math.random(#level.rooms)]
+    if room ~= level.routeRooms[1] and room ~= level.routeRooms[#level.routeRooms] then
+      markHazard(level, room, #level.hazards + 1)
+    end
+    attempts = attempts + 1
+  end
 end
 
-local function generateMegastructure(width, height)
-  local level = makeLevel(width, height)
-  local cx = floor(width / 2)
-  local cy = floor(height / 2)
-  local center = addJitteredRoom(level, cx, cy, { 13, 15 }, { 11, 13 }, "atrium", true)
-  local north = addJitteredRoom(level, cx, cy - 18, { 10, 13 }, { 8, 10 }, "archive", true)
-  local east = addJitteredRoom(level, cx + 18, cy, { 9, 11 }, { 10, 13 }, "machine shaft", true)
-  local south = addJitteredRoom(level, cx, cy + 18, { 10, 13 }, { 8, 10 }, "cistern", true)
-  local west = addJitteredRoom(level, cx - 18, cy, { 9, 11 }, { 10, 13 }, "observatory", true)
+local function placeLandmarks(level)
+  local placed = 0
 
-  level.start = { x = center.cx, y = center.cy }
+  for i = #level.rooms, 1, -1 do
+    local room = level.rooms[i]
+    if not room.route and markLadder(level, room) then
+      placed = placed + 1
+      if placed >= 2 then
+        return
+      end
+    end
+  end
 
-  connectRooms(level, center, north, 1)
-  connectRooms(level, center, east, 1)
-  connectRooms(level, center, south, 1)
-  connectRooms(level, center, west, 1)
-  connectRooms(level, north, east, 1)
-  connectRooms(level, east, south, 1)
-  connectRooms(level, south, west, 1)
-  connectRooms(level, west, north, 1)
+  for i = 2, #level.routeRooms - 1 do
+    if placed >= 2 then
+      return
+    end
+    if markLadder(level, level.routeRooms[i]) then
+      placed = placed + 1
+    end
+  end
+end
 
-  local nw = addJitteredRoom(level, cx - 15, cy - 15, { 7, 9 }, { 7, 9 }, "overgrown court", false)
-  local ne = addJitteredRoom(level, cx + 15, cy - 15, { 7, 9 }, { 7, 9 }, "bridgeworks", false)
-  local se = addJitteredRoom(level, cx + 15, cy + 15, { 7, 9 }, { 7, 9 }, "quarry", false)
-  local sw = addJitteredRoom(level, cx - 15, cy + 15, { 7, 9 }, { 7, 9 }, "lower foundry", false)
-  local innerNw = addJitteredRoom(level, cx - 8, cy - 8, { 6, 8 }, { 6, 8 }, "annex", false)
-  local innerNe = addJitteredRoom(level, cx + 8, cy - 8, { 6, 8 }, { 6, 8 }, "chamber", false)
-  local innerSe = addJitteredRoom(level, cx + 8, cy + 8, { 6, 8 }, { 6, 8 }, "annex", false)
-  local innerSw = addJitteredRoom(level, cx - 8, cy + 8, { 6, 8 }, { 6, 8 }, "chamber", false)
+local function placeDynamicRooms(level)
+  local marked = 0
 
-  connectRooms(level, nw, north, 1)
-  connectRooms(level, nw, west, 1)
-  connectRooms(level, ne, north, 1)
-  connectRooms(level, ne, east, 1)
-  connectRooms(level, se, east, 1)
-  connectRooms(level, se, south, 1)
-  connectRooms(level, sw, south, 1)
-  connectRooms(level, sw, west, 1)
-  connectRooms(level, innerNw, center, 1)
-  connectRooms(level, innerNe, center, 1)
-  connectRooms(level, innerSe, center, 1)
-  connectRooms(level, innerSw, center, 1)
+  for i = #level.rooms, 1, -1 do
+    local room = level.rooms[i]
+    if not room.route and marked < 3 then
+      markDynamicCells(level, room)
+      marked = marked + 1
+    end
+  end
+end
 
+local function finalizeGeneratedLevel(level, config)
   for _, room in ipairs(level.rooms) do
     decorateRoom(level, room)
   end
 
   addColumns(level)
-  placeObjectives(level)
-  buildShortcutGates(level, nw, ne, se, sw)
-  markLadder(level, nw)
-  markLadder(level, ne)
-  markLadder(level, se)
-  markLadder(level, sw)
-  placeRefills(level)
+  placeObjectives(level, config)
+  markExit(level, level.routeRooms[#level.routeRooms])
+  placeKeys(level, config)
+  addShortcutMarkers(level, config.gates or 2, "gate")
+  addShortcutMarkers(level, config.locks or 0, "lock")
+  placeLandmarks(level)
+  placeDynamicRooms(level)
+  placeHazards(level, config)
+  placeRefills(level, config)
 
   local startCell = Level.cellAtCell(level, level.start.x, level.start.y)
   if startCell then
@@ -1110,11 +1685,25 @@ local function generateMegastructure(width, height)
   return level
 end
 
-function Level.generate(width, height)
-  local last
+local function generateMegastructure(width, height, deck)
+  local config = deckConfig(deck or 1, width, height)
+  local level = makeLevel(config.width, config.height, deck or 1, config)
 
-  for _ = 1, 8 do
-    local level = generateMegastructure(width or Level.width, height or Level.height)
+  growCriticalPath(level, config)
+  fillSideRooms(level, config)
+  if #level.routeRooms == 0 or #level.rooms < config.rooms then
+    return level
+  end
+
+  return finalizeGeneratedLevel(level, config)
+end
+
+function Level.generate(width, height, deck)
+  local last
+  deck = deck or 1
+
+  for _ = 1, 14 do
+    local level = generateMegastructure(width, height, deck)
     last = level
     if validateLevel(level) then
       return level

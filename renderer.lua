@@ -204,6 +204,8 @@ local function segmentColor(segment, shade)
     red, green, blue = 0.74, 0.52, 0.25
   elseif segment.kind == "sealed gate" then
     red, green, blue = 0.64, 0.48, 0.16
+  elseif segment.kind == "lock" then
+    red, green, blue = 0.72, 0.5, 0.16
   elseif segment.kind == "riser" or segment.kind == "drop" then
     if cell.terrain == "water" then
       red, green, blue = 0.18, 0.32, 0.38
@@ -261,7 +263,7 @@ local function drawSegment(game, segment, width, height, screenX)
     for y = drawStart + 4, drawEnd - 2, max(4, floor(12 / distance)) do
       love.graphics.rectangle("fill", screenX, y, Renderer.rayStep + 1, 1)
     end
-  elseif segment.kind == "sealed gate" and distance < 16 then
+  elseif (segment.kind == "sealed gate" or segment.kind == "lock") and distance < 16 then
     love.graphics.setColor(1, 0.74, 0.2, 0.22)
     for y = drawStart + 4, drawEnd - 2, 9 do
       love.graphics.rectangle("fill", screenX, y, Renderer.rayStep + 1, 2)
@@ -511,6 +513,38 @@ local function drawPickupSprites(game, width, height, depthBuffer)
         love.graphics.rectangle("fill", -sprite.width * 0.12, -sprite.height * 0.28, sprite.width * 0.24, sprite.height * 0.1, 2, 2)
         love.graphics.pop()
       end
+    end
+  end
+
+  for _, key in ipairs(game.level.keys or {}) do
+    if not key.cell.key.collected then
+      local sprite = projectSprite(game, key.x + 0.5, key.y + 0.5, key.cell.floor + 0.12, 0.45, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local alpha = U.clamp(1 - sprite.distance / 18, 0.28, 0.9)
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.32)
+        love.graphics.setColor(1, 0.82, 0.18, alpha)
+        love.graphics.circle("line", -sprite.width * 0.08, 0, max(3, sprite.width * 0.18))
+        love.graphics.rectangle("fill", 0, -sprite.height * 0.04, sprite.width * 0.32, max(2, sprite.height * 0.08), 1, 1)
+        love.graphics.rectangle("fill", sprite.width * 0.2, -sprite.height * 0.04, max(2, sprite.width * 0.06), sprite.height * 0.18, 1, 1)
+        love.graphics.pop()
+      end
+    end
+  end
+
+  if game.level.exit and game.objectives.collected >= game.objectives.total then
+    local exit = game.level.exit
+    local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)
+    if spriteVisible(sprite, width, depthBuffer) then
+      local alpha = U.clamp(1 - sprite.distance / 24, 0.3, 0.92)
+      love.graphics.push()
+      love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.5)
+      love.graphics.setColor(0.98, 0.7, 0.22, alpha)
+      love.graphics.rectangle("line", -sprite.width * 0.25, -sprite.height * 0.34, sprite.width * 0.5, sprite.height * 0.68, 2, 2)
+      for y = -sprite.height * 0.24, sprite.height * 0.22, max(3, sprite.height * 0.16) do
+        love.graphics.line(-sprite.width * 0.24, y, sprite.width * 0.24, y)
+      end
+      love.graphics.pop()
     end
   end
 end

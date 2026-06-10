@@ -34,6 +34,9 @@ local metrics = {
   rooms = {},
   objectives = {},
   gates = {},
+  keys = {},
+  locks = {},
+  hazards = {},
   refills = {},
   stairs = {},
   ladders = {},
@@ -43,7 +46,7 @@ local metrics = {
   ceilingTransitions = {},
   reachable = {},
   objectiveDistance = {},
-  returnDistance = {},
+  exitDistance = {},
   pathLength = {},
   pathTimeMs = {},
 }
@@ -68,6 +71,23 @@ local function checkGameplay(seed, level)
   local currentX = level.start.x
   local currentY = level.start.y
 
+  for _, key in ipairs(level.keys or {}) do
+    Support.pathOrFail(
+      Level,
+      level,
+      currentX,
+      currentY,
+      key.x,
+      key.y,
+      "key-" .. key.id,
+      failures
+    )
+    key.cell.key.collected = true
+    Level.setLocksLocked(level, false)
+    currentX = key.x
+    currentY = key.y
+  end
+
   for _, objective in ipairs(level.objectives) do
     Support.pathOrFail(
       Level,
@@ -85,10 +105,14 @@ local function checkGameplay(seed, level)
   end
 
   Level.setGatesLocked(level, false)
-  Support.pathOrFail(Level, level, currentX, currentY, level.start.x, level.start.y, "atrium-return", failures)
+  if level.exit then
+    Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "exit", failures)
+  else
+    failures[#failures + 1] = "exit-missing"
+  end
 
   if #failures > 0 then
-    recordFailure(seed, "gameplay", failures)
+    recordFailure(seed, "gameplay-deck" .. (level.deck or 1), failures)
   end
 end
 
@@ -152,6 +176,9 @@ local function appendCoreMetrics(level)
   metrics.rooms[#metrics.rooms + 1] = #level.rooms
   metrics.objectives[#metrics.objectives + 1] = #level.objectives
   metrics.gates[#metrics.gates + 1] = #level.gates
+  metrics.keys[#metrics.keys + 1] = #(level.keys or {})
+  metrics.locks[#metrics.locks + 1] = #(level.locks or {})
+  metrics.hazards[#metrics.hazards + 1] = #(level.hazards or {})
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
   metrics.ladders[#metrics.ladders + 1] = level.ladderCount
@@ -166,6 +193,15 @@ local function appendRouteMetrics(level)
   local currentX = level.start.x
   local currentY = level.start.y
 
+  for _, key in ipairs(level.keys or {}) do
+    local distance = Support.pathOrFail(Level, level, currentX, currentY, key.x, key.y, "metric-key", {})
+    if distance then
+      currentX = key.x
+      currentY = key.y
+      Level.setLocksLocked(level, false)
+    end
+  end
+
   for _, objective in ipairs(level.objectives) do
     local distance = Support.pathOrFail(Level, level, currentX, currentY, objective.x, objective.y, "metric-objective", {})
     if distance then
@@ -176,11 +212,14 @@ local function appendRouteMetrics(level)
   end
 
   Support.withGates(level, false, function()
-    local distance = Support.pathOrFail(Level, level, currentX, currentY, level.start.x, level.start.y, "metric-return", {})
-    if distance then
-      metrics.returnDistance[#metrics.returnDistance + 1] = distance
+    if level.exit then
+      local distance = Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "metric-exit", {})
+      if distance then
+        metrics.exitDistance[#metrics.exitDistance + 1] = distance
+      end
     end
   end)
+  Level.setLocksLocked(level, true)
 end
 
 local function collectMetrics(level)
@@ -190,24 +229,27 @@ end
 
 for i = 0, count - 1 do
   local seed = startSeed + i
-  love.math.setRandomSeed(seed)
+  for deck = 1, Level.maxDecks do
+    love.math.setRandomSeed(seed + deck * 1000003)
 
-  local level = Level.generate(Level.width, Level.height)
+    local level = Level.generate(nil, nil, deck)
+    local labelSeed = seed * 10 + deck
 
-  if enabled.graph then
-    checkGraph(seed, level)
-  end
-  if enabled.path then
-    checkPathStress(seed, level)
-  end
-  if enabled.collision then
-    checkCollision(seed, level)
-  end
-  if enabled.metrics then
-    collectMetrics(level)
-  end
-  if enabled.gameplay then
-    checkGameplay(seed, level)
+    if enabled.graph then
+      checkGraph(labelSeed, level)
+    end
+    if enabled.path then
+      checkPathStress(labelSeed, level)
+    end
+    if enabled.collision then
+      checkCollision(labelSeed, level)
+    end
+    if enabled.metrics then
+      collectMetrics(level)
+    end
+    if enabled.gameplay then
+      checkGameplay(labelSeed, level)
+    end
   end
 end
 
@@ -215,6 +257,9 @@ if enabled.metrics then
   io.write(Support.metricLine("rooms", metrics.rooms) .. "\n")
   io.write(Support.metricLine("objectives", metrics.objectives) .. "\n")
   io.write(Support.metricLine("gates", metrics.gates) .. "\n")
+  io.write(Support.metricLine("keys", metrics.keys) .. "\n")
+  io.write(Support.metricLine("locks", metrics.locks) .. "\n")
+  io.write(Support.metricLine("hazards", metrics.hazards) .. "\n")
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")
   io.write(Support.metricLine("ladders", metrics.ladders) .. "\n")
@@ -224,7 +269,7 @@ if enabled.metrics then
   io.write(Support.metricLine("ceiling-transitions", metrics.ceilingTransitions) .. "\n")
   io.write(Support.metricLine("reachable", metrics.reachable) .. "\n")
   io.write(Support.percentileLine("objective-distance", metrics.objectiveDistance) .. "\n")
-  io.write(Support.percentileLine("return-distance", metrics.returnDistance) .. "\n")
+  io.write(Support.percentileLine("exit-distance", metrics.exitDistance) .. "\n")
   if enabled.path then
     io.write(Support.percentileLine("path-length", metrics.pathLength) .. "\n")
     io.write(Support.percentileLine("path-time-ms", metrics.pathTimeMs) .. "\n")
@@ -232,8 +277,8 @@ if enabled.metrics then
 end
 
 if failed > 0 then
-  io.write(string.format("failed %d checks across %d seeds from %d mode=%s\n", failed, count, startSeed, mode))
+  io.write(string.format("failed %d checks across %d seeds x %d decks from %d mode=%s\n", failed, count, Level.maxDecks, startSeed, mode))
   os.exit(1)
 end
 
-io.write(string.format("ok %d seeds from %d mode=%s\n", count, startSeed, mode))
+io.write(string.format("ok %d seeds x %d decks from %d mode=%s\n", count, Level.maxDecks, startSeed, mode))

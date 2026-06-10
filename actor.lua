@@ -148,6 +148,16 @@ function Actor.movementMultiplier(level, actor)
     return 1
   end
 
+  if cell.hazard and cell.hazard.active then
+    if cell.hazard.kind == "pit" then
+      return 0.56
+    elseif cell.hazard.kind == "ember" then
+      return 0.72
+    elseif cell.hazard.kind == "wire" then
+      return 0.82
+    end
+  end
+
   if cell.ladder then
     return Level.terrainSpeed.ladder
   end
@@ -209,13 +219,14 @@ end
 function Actor.createEnemy(level)
   local spawn = Level.farthestCellFrom(level, level.start.x, level.start.y)
   local x, y = findSafeSpawn(level, spawn.x, spawn.y, 0.2)
+  local deck = level.deck or 1
 
   return {
     x = x,
     y = y,
     radius = 0.2,
-    baseSpeed = 1.18,
-    sightSpeed = 1.68,
+    baseSpeed = 1.18 + (deck - 1) * 0.11,
+    sightSpeed = 1.68 + (deck - 1) * 0.16,
     path = {},
     pathTimer = 0,
     repathDelay = 0.24,
@@ -226,7 +237,7 @@ function Actor.createEnemy(level)
     eyeZ = Actor.floorAt(level, x, y) + 0.82,
     state = "wander",
     stateTimer = 0,
-    grace = 5.5,
+    grace = max(2.9, 5.5 - (deck - 1) * 0.9),
     lastKnownX = level.start.x + 0.5,
     lastKnownY = level.start.y + 0.5,
     targetKey = "",
@@ -454,7 +465,7 @@ function Actor.updateEnemy(game, dt, audio)
   local moveLength = sqrt(moveX * moveX + moveY * moveY)
 
   if moveLength > 0.001 then
-    local escalation = (game.objectives.collected / max(1, game.objectives.total)) * 0.42
+    local escalation = (game.objectives.collected / max(1, game.objectives.total)) * 0.42 + ((game.deck or 1) - 1) * 0.12
     local stateSpeed = {
       wander = 0.78,
       investigate = 1.08,

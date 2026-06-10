@@ -18,12 +18,16 @@ local Game = {
   bestTime = 0,
   seed = 0,
   lastSeed = 0,
+  deck = 1,
+  maxDecks = Level.maxDecks,
   fonts = {},
   objectives = { total = 0, collected = 0 },
+  keys = { total = 0, collected = 0 },
   torch = { fuel = 1 },
   noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 },
   message = "",
   messageTimer = 0,
+  hazardTimer = 0,
   seedEntry = { active = false, text = "" },
 }
 
@@ -36,23 +40,46 @@ local function setMessage(text, duration)
   Game.messageTimer = duration or 2
 end
 
-local function startGame(seed)
-  Game.seed = seed or newSeed()
-  Game.lastSeed = Game.seed
-  love.math.setRandomSeed(Game.seed)
+local function deckSeed(seed, deck)
+  return seed + deck * 1000003
+end
 
-  Game.level = Level.generate(Level.width, Level.height)
+local function startDeck(deck)
+  Game.deck = deck
+  love.math.setRandomSeed(deckSeed(Game.seed, deck))
+
+  Game.level = Level.generate(nil, nil, deck)
   Game.player = Actor.createPlayer(Game.level)
   Game.enemy = Actor.createEnemy(Game.level)
   Game.state = "playing"
-  Game.survivalTime = 0
   Game.objectives = { total = #Game.level.objectives, collected = 0 }
-  Game.torch = { fuel = 1 }
+  Game.keys = { total = #Game.level.keys, collected = 0 }
   Game.noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 }
+  Game.hazardTimer = 0
   Game.seedEntry.active = false
   Game.seedEntry.text = ""
-  setMessage(string.format("RUN %d", Game.seed), 1.5)
+  setMessage(string.format("DECK %02d", Game.deck), 1.5)
   love.mouse.setRelativeMode(true)
+end
+
+local function startGame(seed)
+  Game.seed = seed or newSeed()
+  Game.lastSeed = Game.seed
+  Game.deck = 1
+  Game.survivalTime = 0
+  Game.torch = { fuel = 1 }
+  startDeck(1)
+end
+
+local function advanceDeck()
+  if Game.deck >= Game.maxDecks then
+    Game.state = "escaped"
+    Game.bestTime = max(Game.bestTime, Game.survivalTime)
+    love.mouse.setRelativeMode(false)
+    return
+  end
+
+  startDeck(Game.deck + 1)
 end
 
 local function updateNoise(dt)
@@ -79,7 +106,24 @@ local function updateTorch(dt)
   Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
 end
 
-local function checkObjectives()
+local function updateHazards(dt)
+  Game.hazardTimer = max(0, (Game.hazardTimer or 0) - dt)
+
+  local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
+  if not cell or not cell.hazard or not cell.hazard.active then
+    return
+  end
+
+  local drain = cell.hazard.kind == "ember" and 0.055 or (cell.hazard.kind == "wire" and 0.038 or 0.026)
+  Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
+
+  if Game.hazardTimer <= 0 then
+    setMessage(string.upper(cell.hazard.kind), 1.1)
+    Game.hazardTimer = 2.4
+  end
+end
+
+local function checkInteractions()
   local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
 
   if not cell then
@@ -94,8 +138,17 @@ local function checkObjectives()
 
     if Game.objectives.collected >= Game.objectives.total then
       Level.setGatesLocked(Game.level, false)
-      setMessage("ALL RELAYS ONLINE - RETURN TO ATRIUM", 3)
+      Level.activateDynamics(Game.level, "relays")
+      setMessage("ALL RELAYS ONLINE - EXIT SHAFT OPEN", 3)
     end
+  end
+
+  if cell.key and not cell.key.collected then
+    cell.key.collected = true
+    Game.keys.collected = Game.keys.collected + 1
+    Level.setLocksLocked(Game.level, false)
+    Audio.refill()
+    setMessage("KEY", 1.6)
   end
 
   if cell.refill and not cell.refillUsed then
@@ -106,11 +159,8 @@ local function checkObjectives()
   end
 
   if Game.objectives.collected >= Game.objectives.total
-    and floor(Game.player.x) == Game.level.start.x
-    and floor(Game.player.y) == Game.level.start.y then
-    Game.state = "escaped"
-    Game.bestTime = max(Game.bestTime, Game.survivalTime)
-    love.mouse.setRelativeMode(false)
+    and cell.exit then
+    advanceDeck()
   end
 end
 
@@ -137,7 +187,8 @@ function Game.update(dt)
     updateNoise(dt)
     Actor.updatePlayer(Game, dt, Audio)
     updateTorch(dt)
-    checkObjectives()
+    updateHazards(dt)
+    checkInteractions()
     Actor.updateEnemy(Game, dt, Audio)
   end
 end
