@@ -67,6 +67,29 @@ local function drawMinimap(game, width, height)
   local mapHeight = level.height * size
   local originX = width - mapWidth - 18
   local originY = 18
+  local function cellCenter(x, y)
+    return originX + (x - 0.5) * size, originY + (y - 0.5) * size
+  end
+  local function drawMarker(x, y, red, green, blue, kind)
+    local cx, cy = cellCenter(x, y)
+    local radius = max(5, size * 1.8)
+
+    love.graphics.setLineWidth(2)
+    love.graphics.setColor(0, 0, 0, 0.72)
+    love.graphics.circle("fill", cx, cy, radius + 2)
+    love.graphics.setColor(red, green, blue, 0.96)
+    if kind == "diamond" then
+      love.graphics.polygon("fill", cx, cy - radius, cx + radius, cy, cx, cy + radius, cx - radius, cy)
+      love.graphics.setColor(0, 0, 0, 0.65)
+      love.graphics.line(cx - radius * 0.45, cy, cx + radius * 0.45, cy)
+      love.graphics.line(cx, cy - radius * 0.45, cx, cy + radius * 0.45)
+    else
+      love.graphics.rectangle("fill", cx - radius, cy - radius, radius * 2, radius * 2)
+      love.graphics.setColor(0, 0, 0, 0.65)
+      love.graphics.rectangle("line", cx - radius * 0.55, cy - radius * 0.55, radius * 1.1, radius * 1.1)
+    end
+    love.graphics.setLineWidth(1)
+  end
 
   love.graphics.setColor(0, 0, 0, 0.46)
   love.graphics.rectangle("fill", originX - 7, originY - 7, mapWidth + 14, mapHeight + 14, 4, 4)
@@ -84,6 +107,11 @@ local function drawMinimap(game, width, height)
 
       love.graphics.rectangle("fill", originX + (x - 1) * size, originY + (y - 1) * size, size, size)
     end
+  end
+
+  drawMarker(level.start.x, level.start.y, 0.42, 0.95, 1, "square")
+  if level.exit then
+    drawMarker(level.exit.x, level.exit.y, 1, 0.74, 0.16, "diamond")
   end
 
   for _, objective in ipairs(level.objectives) do
