@@ -90,15 +90,32 @@ end
 local moduleTemplates = {
   { id = "atrium", kind = "atrium", width = { 12, 15 }, height = { 10, 13 }, connectors = { north = true, east = true, south = true, west = true } },
   { id = "archive_cross", kind = "archive", width = { 9, 13 }, height = { 8, 11 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "archive_gallery", kind = "archive", width = { 14, 18 }, height = { 5, 8 }, connectors = { east = true, west = true, south = true } },
   { id = "cistern_run", kind = "cistern", width = { 8, 12 }, height = { 10, 14 }, connectors = { north = true, south = true, east = true } },
+  { id = "cistern_pool", kind = "cistern", width = { 12, 16 }, height = { 12, 16 }, connectors = { north = true, east = true, south = true, west = true } },
   { id = "foundry_bend", kind = "lower foundry", width = { 9, 12 }, height = { 8, 11 }, connectors = { north = true, east = true, west = true } },
+  { id = "foundry_line", kind = "lower foundry", width = { 6, 9 }, height = { 14, 18 }, connectors = { north = true, south = true, west = true } },
   { id = "overgrown_bend", kind = "overgrown court", width = { 8, 11 }, height = { 8, 12 }, connectors = { east = true, south = true, west = true } },
+  { id = "overgrown_garden", kind = "overgrown court", width = { 13, 17 }, height = { 10, 14 }, connectors = { north = true, east = true, south = true, west = true } },
   { id = "quarry_hub", kind = "quarry", width = { 9, 13 }, height = { 8, 12 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "quarry_pit", kind = "quarry", width = { 13, 17 }, height = { 7, 11 }, connectors = { north = true, south = true, west = true } },
   { id = "machine_spine", kind = "machine shaft", width = { 8, 10 }, height = { 11, 15 }, connectors = { north = true, south = true, west = true } },
+  { id = "machine_cross", kind = "machine shaft", width = { 12, 16 }, height = { 9, 12 }, connectors = { north = true, east = true, south = true, west = true } },
   { id = "bridge_bar", kind = "bridgeworks", width = { 11, 15 }, height = { 6, 9 }, connectors = { east = true, west = true, south = true } },
+  { id = "bridge_long", kind = "bridgeworks", width = { 16, 22 }, height = { 4, 6 }, connectors = { east = true, west = true } },
   { id = "observatory", kind = "observatory", width = { 10, 14 }, height = { 9, 12 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "observatory_dome", kind = "observatory", width = { 14, 18 }, height = { 14, 18 }, connectors = { north = true, east = true, south = true, west = true } },
   { id = "annex", kind = "annex", width = { 6, 9 }, height = { 6, 9 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "annex_deadend", kind = "annex", width = { 5, 8 }, height = { 5, 8 }, connectors = { north = true } },
   { id = "chamber", kind = "chamber", width = { 7, 10 }, height = { 7, 10 }, connectors = { north = true, east = true, south = true, west = true } },
+  { id = "chamber_long", kind = "chamber", width = { 5, 8 }, height = { 13, 18 }, connectors = { north = true, south = true, east = true } },
+}
+
+local layoutProfiles = {
+  { name = "spine", routeRatio = 0.62, gap = { 5, 9 }, jitter = 4, directChance = 0.18, doglegChance = 0.62, sideRouteBias = 0.7, alcoves = 1, openLinks = 0 },
+  { name = "cluster", routeRatio = 0.42, gap = { 3, 6 }, jitter = 8, directChance = 0.52, doglegChance = 0.24, sideRouteBias = 0.34, alcoves = 3, openLinks = 2 },
+  { name = "sprawl", routeRatio = 0.52, gap = { 7, 11 }, jitter = 7, directChance = 0.22, doglegChance = 0.48, sideRouteBias = 0.5, alcoves = 2, openLinks = 1 },
+  { name = "crosslink", routeRatio = 0.48, gap = { 4, 8 }, jitter = 6, directChance = 0.34, doglegChance = 0.4, sideRouteBias = 0.25, alcoves = 2, openLinks = 4 },
 }
 
 local metricNeighbors = {
@@ -155,6 +172,7 @@ local function makeLevel(width, height, deck, config)
     height = height,
     deck = deck or 1,
     config = config,
+    profile = config and config.profile or layoutProfiles[1],
     grid = grid,
     rooms = {},
     routeRooms = {},
@@ -445,6 +463,73 @@ local function scatterTerrain(level, room, terrain, chance, light, kind)
         setTerrain(level, x, y, terrain, light, kind)
       end
     end
+  end
+end
+
+local function carveRoomAlcove(level, room)
+  local direction = directions[love.math.random(#directions)]
+  local width = love.math.random(2, 4)
+  local depth = love.math.random(2, 5)
+  local x
+  local y
+
+  if direction.name == "north" then
+    x = U.clamp(room.cx + love.math.random(-floor(room.width / 3), floor(room.width / 3)), room.x + 2, room.x + room.width - width - 1)
+    y = room.y - depth
+    carveRect(level, x, y, width, depth + 1, room.kind, room.light, room.terrain, room.kind)
+  elseif direction.name == "south" then
+    x = U.clamp(room.cx + love.math.random(-floor(room.width / 3), floor(room.width / 3)), room.x + 2, room.x + room.width - width - 1)
+    y = room.y + room.height - 1
+    carveRect(level, x, y, width, depth + 1, room.kind, room.light, room.terrain, room.kind)
+  elseif direction.name == "east" then
+    x = room.x + room.width - 1
+    y = U.clamp(room.cy + love.math.random(-floor(room.height / 3), floor(room.height / 3)), room.y + 2, room.y + room.height - width - 1)
+    carveRect(level, x, y, depth + 1, width, room.kind, room.light, room.terrain, room.kind)
+  else
+    x = room.x - depth
+    y = U.clamp(room.cy + love.math.random(-floor(room.height / 3), floor(room.height / 3)), room.y + 2, room.y + room.height - width - 1)
+    carveRect(level, x, y, depth + 1, width, room.kind, room.light, room.terrain, room.kind)
+  end
+end
+
+local function notchRoomCorners(level, room)
+  if room.width < 9 or room.height < 9 then
+    return
+  end
+
+  local corners = {
+    { room.x + 1, room.y + 1 },
+    { room.x + room.width - 3, room.y + 1 },
+    { room.x + 1, room.y + room.height - 3 },
+    { room.x + room.width - 3, room.y + room.height - 3 },
+  }
+  local corner = corners[love.math.random(#corners)]
+
+  for y = corner[2], corner[2] + 1 do
+    for x = corner[1], corner[1] + 1 do
+      if not preserveRoomSpine(room, x, y) then
+        setSolidFeature(level, x, y, "collapsed wall", 0.34)
+      end
+    end
+  end
+end
+
+local function mutateRoomShape(level, room)
+  local profile = level.profile or layoutProfiles[1]
+  local alcoves = profile.alcoves or 1
+
+  if room.kind == "atrium" then
+    alcoves = max(1, alcoves - 1)
+  end
+
+  for _ = 1, alcoves do
+    if love.math.random() < 0.72 then
+      carveRoomAlcove(level, room)
+    end
+  end
+
+  if love.math.random() < 0.34 then
+    notchRoomCorners(level, room)
   end
 end
 
@@ -1341,27 +1426,68 @@ end
 
 local function deckConfig(deck, width, height)
   local base = Level.deckConfigs[deck] or Level.deckConfigs[#Level.deckConfigs]
+  local rooms = max(12, base.rooms + love.math.random(-2, 3))
+  local profile = layoutProfiles[love.math.random(#layoutProfiles)]
+  local themes = {
+    { "archive", "observatory", "chamber" },
+    { "cistern", "bridgeworks", "machine shaft" },
+    { "lower foundry", "quarry", "overgrown court" },
+    { "annex", "chamber", "archive" },
+  }
+
   return {
     width = width or base.width,
     height = height or base.height,
-    rooms = base.rooms,
+    rooms = rooms,
     objectives = base.objectives,
-    refills = base.refills,
+    refills = max(5, base.refills + floor((rooms - base.rooms) / 2)),
     gates = base.gates,
     locks = base.locks,
-    hazards = base.hazards,
+    hazards = max(6, base.hazards + rooms - base.rooms),
+    profile = profile,
+    theme = themes[love.math.random(#themes)],
   }
 end
 
-local function templateForConnector(connector)
-  for _ = 1, 24 do
-    local template = moduleTemplates[love.math.random(#moduleTemplates)]
-    if template.connectors[connector] then
-      return template
+local function templateWeight(config, template, route)
+  local weight = route and 4 or 3
+
+  for _, kind in ipairs(config.theme or {}) do
+    if template.kind == kind then
+      weight = weight + 5
     end
   end
 
-  return moduleTemplates[#moduleTemplates]
+  if template.kind == "annex" or template.kind == "chamber" then
+    weight = weight + (route and -1 or 2)
+  end
+  if template.id:match("deadend") and route then
+    weight = 1
+  end
+
+  return max(1, weight)
+end
+
+local function templateForConnector(level, connector, route)
+  local candidates = {}
+  local total = 0
+
+  for _, template in ipairs(moduleTemplates) do
+    if template.connectors[connector] then
+      local weight = templateWeight(level.config or {}, template, route)
+      total = total + weight
+      candidates[#candidates + 1] = { template = template, limit = total }
+    end
+  end
+
+  local roll = love.math.random() * total
+  for _, candidate in ipairs(candidates) do
+    if roll <= candidate.limit then
+      return candidate.template
+    end
+  end
+
+  return candidates[#candidates].template
 end
 
 local function randomConnector(room, avoid)
@@ -1413,6 +1539,24 @@ local function connectorVertices(a, b, directionName, style)
     return { startPoint, endPoint }
   end
 
+  if style == "dogleg" then
+    local axis = love.math.random() < 0.5
+    local midA
+    local midB
+
+    if axis then
+      local midX = floor((startPoint[1] + endPoint[1]) / 2) + love.math.random(-3, 3)
+      midA = { midX, startPoint[2] }
+      midB = { midX, endPoint[2] }
+    else
+      local midY = floor((startPoint[2] + endPoint[2]) / 2) + love.math.random(-3, 3)
+      midA = { startPoint[1], midY }
+      midB = { endPoint[1], midY }
+    end
+
+    return { startPoint, midA, midB, endPoint }
+  end
+
   local bend
   if love.math.random() < 0.5 then
     bend = { endPoint[1], startPoint[2] }
@@ -1424,13 +1568,23 @@ local function connectorVertices(a, b, directionName, style)
 end
 
 local function connectModules(level, a, b, directionName, zone, terrain)
-  local style = love.math.random() < 0.34 and "direct" or "corridor"
+  local profile = level.profile or layoutProfiles[1]
+  local roll = love.math.random()
+  local style = "corridor"
+
+  if roll < profile.directChance then
+    style = "direct"
+  elseif roll < profile.directChance + profile.doglegChance then
+    style = "dogleg"
+  end
+
   return carvePolyline(level, connectorVertices(a, b, directionName, style), 1, zone or "connector", terrain or "stone")
 end
 
 local function modulePosition(anchor, direction, width, height)
-  local gap = love.math.random(4, 7)
-  local jitter = love.math.random(-5, 5)
+  local profile = anchor.levelProfile or layoutProfiles[1]
+  local gap = love.math.random(profile.gap[1], profile.gap[2])
+  local jitter = love.math.random(-profile.jitter, profile.jitter)
   local cx = anchor.cx
   local cy = anchor.cy
 
@@ -1457,13 +1611,14 @@ local function placeConnectedRoom(level, anchor, direction, route)
   end
 
   for _ = 1, 20 do
-    local template = templateForConnector(direction.opposite)
+    local template = templateForConnector(level, direction.opposite, route)
     local width = randomRange(template.width)
     local height = randomRange(template.height)
     local x, y = modulePosition(anchor, direction, width, height)
     local room = addRoomAt(level, x, y, width, height, template.kind, route, template)
 
     if room then
+      room.levelProfile = level.profile
       connectModules(level, anchor, room, direction.name, "connector", "stone")
       return room
     end
@@ -1476,11 +1631,13 @@ local function addStartRoom(level)
   local template = moduleTemplates[1]
   local width = randomRange(template.width)
   local height = randomRange(template.height)
-  local x = floor(level.width / 2 - width / 2)
-  local y = floor(level.height / 2 - height / 2)
+  local offset = min(7, floor(level.width * 0.08))
+  local x = floor(level.width / 2 - width / 2) + love.math.random(-offset, offset)
+  local y = floor(level.height / 2 - height / 2) + love.math.random(-offset, offset)
   local room = addRoomAt(level, x, y, width, height, template.kind, true, template)
 
   if room then
+    room.levelProfile = level.profile
     level.start = { x = room.cx, y = room.cy }
   end
 
@@ -1489,7 +1646,8 @@ end
 
 local function growCriticalPath(level, config)
   local current = addStartRoom(level)
-  local target = max(config.objectives + 3, floor(config.rooms * 0.48))
+  local profile = level.profile or layoutProfiles[1]
+  local target = max(config.objectives + 3, floor(config.rooms * profile.routeRatio))
   local lastDirection = nil
   local attempts = 0
 
@@ -1510,9 +1668,11 @@ end
 
 local function fillSideRooms(level, config)
   local attempts = 0
+  local profile = level.profile or layoutProfiles[1]
 
   while #level.rooms < config.rooms and attempts < 700 do
-    local anchor = level.rooms[love.math.random(#level.rooms)]
+    local pool = love.math.random() < profile.sideRouteBias and level.routeRooms or level.rooms
+    local anchor = pool[love.math.random(#pool)]
     local direction = randomConnector(anchor)
     local room = placeConnectedRoom(level, anchor, direction, false)
 
@@ -1567,6 +1727,23 @@ local function addShortcutMarkers(level, count, marker)
           made = made + 1
         end
       end
+    end
+
+    attempts = attempts + 1
+  end
+end
+
+local function addOpenCrossLinks(level, count)
+  local made = 0
+  local attempts = 0
+
+  while made < count and attempts < 120 do
+    local a = level.rooms[love.math.random(#level.rooms)]
+    local b = level.rooms[love.math.random(#level.rooms)]
+
+    if a ~= b and abs(a.cx - b.cx) + abs(a.cy - b.cy) >= 14 then
+      connectRoomPair(level, a, b, "crosslink")
+      made = made + 1
     end
 
     attempts = attempts + 1
@@ -1662,6 +1839,10 @@ end
 
 local function finalizeGeneratedLevel(level, config)
   for _, room in ipairs(level.rooms) do
+    mutateRoomShape(level, room)
+  end
+
+  for _, room in ipairs(level.rooms) do
     decorateRoom(level, room)
   end
 
@@ -1669,6 +1850,7 @@ local function finalizeGeneratedLevel(level, config)
   placeObjectives(level, config)
   markExit(level, level.routeRooms[#level.routeRooms])
   placeKeys(level, config)
+  addOpenCrossLinks(level, (level.profile and level.profile.openLinks or 0) + love.math.random(0, 1))
   addShortcutMarkers(level, config.gates or 2, "gate")
   addShortcutMarkers(level, config.locks or 0, "lock")
   placeLandmarks(level)
