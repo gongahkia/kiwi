@@ -213,6 +213,16 @@ local function segmentColor(segment, shade)
       red, green, blue = 0.25, 0.38, 0.22
     elseif cell.terrain == "slag" then
       red, green, blue = 0.62, 0.25, 0.1
+    elseif cell.terrain == "ice" then
+      red, green, blue = 0.38, 0.56, 0.64
+    elseif cell.terrain == "fungus" then
+      red, green, blue = 0.28, 0.38, 0.18
+    elseif cell.terrain == "pressure" then
+      red, green, blue = 0.36, 0.38, 0.44
+    elseif cell.terrain == "reactor" then
+      red, green, blue = 0.58, 0.24, 0.08
+    elseif cell.terrain == "sludge" then
+      red, green, blue = 0.16, 0.28, 0.18
     elseif cell.terrain == "rubble" then
       red, green, blue = 0.4, 0.36, 0.3
     else
@@ -284,6 +294,16 @@ local function surfaceColor(cell, distance, ceiling)
     red, green, blue = 0.23, 0.23, 0.21
   elseif cell.terrain == "slag" then
     red, green, blue = 0.36, 0.14, 0.06
+  elseif cell.terrain == "ice" then
+    red, green, blue = 0.20, 0.34, 0.42
+  elseif cell.terrain == "fungus" then
+    red, green, blue = 0.18, 0.25, 0.12
+  elseif cell.terrain == "pressure" then
+    red, green, blue = 0.25, 0.26, 0.30
+  elseif cell.terrain == "reactor" then
+    red, green, blue = 0.42, 0.15, 0.04
+  elseif cell.terrain == "sludge" then
+    red, green, blue = 0.09, 0.2, 0.12
   elseif cell.terrain == "glass" then
     red, green, blue = 0.25, 0.31, 0.34
   elseif cell.terrain == "dust" then
@@ -417,9 +437,20 @@ local function spriteVisible(sprite, width, depthBuffer)
   return false
 end
 
-local function drawEnemySprite(game, width, height, depthBuffer)
-  local enemy = game.enemy
-  local sprite = projectSprite(game, enemy.x, enemy.y, enemy.floorZ, Actor.playerHeight, width, height)
+local creatureColors = {
+  hunter = { 0.18, 0.02, 0.018, 0.45, 0.035, 0.03 },
+  stalker = { 0.04, 0.045, 0.08, 0.22, 0.26, 0.42 },
+  skitter = { 0.12, 0.09, 0.03, 0.8, 0.56, 0.14 },
+  screecher = { 0.08, 0.07, 0.1, 0.55, 0.48, 0.8 },
+  burrower = { 0.14, 0.06, 0.025, 0.5, 0.24, 0.08 },
+}
+
+local function drawCreatureSprite(game, creature, width, height, depthBuffer)
+  if not creature or not creature.alive then
+    return
+  end
+
+  local sprite = projectSprite(game, creature.x, creature.y, creature.floorZ, creature.height or Actor.playerHeight, width, height)
 
   if not spriteVisible(sprite, width, depthBuffer) then
     return
@@ -429,6 +460,7 @@ local function drawEnemySprite(game, width, height, depthBuffer)
   local bodyWidth = sprite.width
   local headY = -sprite.height * 0.58
   local headRadius = max(3, bodyWidth * 0.21)
+  local color = creatureColors[creature.kind] or creatureColors.hunter
 
   love.graphics.push()
   love.graphics.translate(sprite.x, sprite.y)
@@ -436,7 +468,7 @@ local function drawEnemySprite(game, width, height, depthBuffer)
   love.graphics.setColor(0, 0, 0, 0.35 * bodyAlpha)
   love.graphics.ellipse("fill", 0, sprite.height * 0.03, bodyWidth * 0.36, max(2, sprite.height * 0.035))
 
-  love.graphics.setColor(0.18, 0.02, 0.018, bodyAlpha)
+  love.graphics.setColor(color[1], color[2], color[3], bodyAlpha)
   love.graphics.polygon(
     "fill",
     -bodyWidth * 0.34,
@@ -451,7 +483,7 @@ local function drawEnemySprite(game, width, height, depthBuffer)
     -sprite.height * 0.04
   )
 
-  love.graphics.setColor(0.45, 0.035, 0.03, bodyAlpha)
+  love.graphics.setColor(color[4], color[5], color[6], bodyAlpha)
   love.graphics.polygon(
     "fill",
     -bodyWidth * 0.16,
@@ -466,11 +498,17 @@ local function drawEnemySprite(game, width, height, depthBuffer)
     -sprite.height * 0.1
   )
 
-  love.graphics.setColor(0.08, 0.008, 0.008, bodyAlpha)
+  love.graphics.setColor(color[1] * 0.45, color[2] * 0.45, color[3] * 0.45, bodyAlpha)
   love.graphics.circle("fill", 0, headY, headRadius)
 
-  local eyeGlow = 0.6 + game.enemy.growl * 0.4
-  love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow)
+  local eyeGlow = 0.6 + (creature.growl or 0) * 0.4
+  if creature.kind == "skitter" then
+    love.graphics.setColor(1.0, 0.86, 0.28, bodyAlpha * eyeGlow)
+  elseif creature.kind == "screecher" then
+    love.graphics.setColor(0.72, 0.58, 1.0, bodyAlpha * eyeGlow)
+  else
+    love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow)
+  end
   love.graphics.circle("fill", -headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
   love.graphics.circle("fill", headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
 
@@ -479,6 +517,23 @@ local function drawEnemySprite(game, width, height, depthBuffer)
   love.graphics.line(-headRadius * 0.55, headY + headRadius * 0.38, headRadius * 0.55, headY + headRadius * 0.38)
 
   love.graphics.pop()
+end
+
+local function drawCreatures(game, width, height, depthBuffer)
+  local drawList = {}
+  for _, creature in ipairs(game.creatures or {}) do
+    if creature.alive then
+      drawList[#drawList + 1] = creature
+    end
+  end
+  table.sort(drawList, function(a, b)
+    local ad = (a.x - game.player.x) ^ 2 + (a.y - game.player.y) ^ 2
+    local bd = (b.x - game.player.x) ^ 2 + (b.y - game.player.y) ^ 2
+    return ad > bd
+  end)
+  for _, creature in ipairs(drawList) do
+    drawCreatureSprite(game, creature, width, height, depthBuffer)
+  end
 end
 
 local function drawPickupSprites(game, width, height, depthBuffer)
@@ -511,6 +566,105 @@ local function drawPickupSprites(game, width, height, depthBuffer)
         love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.2, sprite.width * 0.44, sprite.height * 0.42, 2, 2)
         love.graphics.setColor(1, 0.9, 0.5, alpha * 0.7)
         love.graphics.rectangle("fill", -sprite.width * 0.12, -sprite.height * 0.28, sprite.width * 0.24, sprite.height * 0.1, 2, 2)
+        love.graphics.pop()
+      end
+    end
+  end
+
+  for _, cache in ipairs(game.level.toolCaches or {}) do
+    if not cache.cell.toolUsed then
+      local sprite = projectSprite(game, cache.x + 0.5, cache.y + 0.5, cache.cell.floor + 0.08, 0.52, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local alpha = U.clamp(1 - sprite.distance / 18, 0.24, 0.86)
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.3)
+        love.graphics.setColor(0.35, 0.88, 0.72, alpha)
+        love.graphics.rectangle("line", -sprite.width * 0.26, -sprite.height * 0.22, sprite.width * 0.52, sprite.height * 0.44, 2, 2)
+        love.graphics.setColor(0.12, 0.28, 0.24, alpha * 0.86)
+        love.graphics.rectangle("fill", -sprite.width * 0.2, -sprite.height * 0.16, sprite.width * 0.4, sprite.height * 0.32, 2, 2)
+        love.graphics.pop()
+      end
+    end
+  end
+
+  for _, effect in ipairs(game.effects or {}) do
+    if effect.kind == "flare" or effect.kind == "noisemaker" then
+      local sprite = projectSprite(game, effect.x, effect.y, Actor.floorAt(game.level, effect.x, effect.y) + 0.08, effect.kind == "flare" and 0.42 or 0.28, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local alpha = U.clamp((effect.ttl or 0) / (effect.kind == "flare" and 9 or 8), 0.18, 0.95)
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.25)
+        if effect.kind == "flare" then
+          love.graphics.setColor(1, 0.42, 0.16, alpha)
+          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.22))
+          love.graphics.setColor(1, 0.7, 0.24, alpha * 0.18)
+          love.graphics.circle("fill", 0, 0, max(8, sprite.width * 0.9))
+        else
+          love.graphics.setColor(0.6, 0.9, 1, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.12, sprite.width * 0.4, sprite.height * 0.24, 2, 2)
+        end
+        love.graphics.pop()
+      end
+    end
+  end
+
+  for _, prop in ipairs(game.props or {}) do
+    if prop.kind ~= "flare" and (prop.ttl or 0) > 0 then
+      local sprite = projectSprite(game, prop.x, prop.y, Actor.floorAt(game.level, prop.x, prop.y) + 0.08, 0.35, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local alpha = U.clamp((prop.ttl or 0) / 30, 0.24, 0.92)
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.22)
+        if prop.kind == "bait" then
+          love.graphics.setColor(0.86, 0.25, 0.12, alpha)
+          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.2))
+        elseif prop.kind == "scent" then
+          love.graphics.setColor(0.36, 0.9, 0.58, alpha)
+          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.28))
+        elseif prop.kind == "sonic" then
+          love.graphics.setColor(0.48, 0.8, 1, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 2, 2)
+        elseif prop.kind == "flash" then
+          love.graphics.setColor(1, 0.92, 0.45, prop.armed and alpha or alpha * 0.35)
+          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.32))
+        elseif prop.kind == "snare" then
+          love.graphics.setColor(0.82, 0.82, 0.72, prop.armed and alpha or alpha * 0.35)
+          love.graphics.line(-sprite.width * 0.32, 0, sprite.width * 0.32, 0)
+        elseif prop.kind == "noisemaker" then
+          love.graphics.setColor(0.6, 0.9, 1, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.12, sprite.width * 0.4, sprite.height * 0.24, 2, 2)
+        elseif prop.kind == "pheromone" then
+          love.graphics.setColor(0.32, 0.95, 0.52, alpha)
+          love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
+          love.graphics.line(-sprite.width * 0.28, 0, sprite.width * 0.28, 0)
+        elseif prop.kind == "probe" then
+          love.graphics.setColor(0.82, 0.9, 1, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 1, 1)
+          love.graphics.circle("line", 0, 0, max(4, sprite.width * 0.22))
+        end
+        love.graphics.pop()
+      end
+    end
+  end
+
+  for _, signal in ipairs(game.level.signals or {}) do
+    if signal.discovered or (game.survey and game.survey.ttl > 0) then
+      local sprite = projectSprite(game, signal.x, signal.y, Actor.floorAt(game.level, signal.x, signal.y) + 0.025, 0.18, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local alpha = signal.discovered and U.clamp((signal.strength or 1) * 0.55, 0.24, 0.72) or 0.24
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.12)
+        if signal.kind == "wet_tracks" then
+          love.graphics.setColor(0.24, 0.58, 0.86, alpha)
+        elseif signal.kind == "pheromone" then
+          love.graphics.setColor(0.32, 0.92, 0.5, alpha)
+        elseif signal.kind == "alarm_mark" or signal.kind == "scratch" then
+          love.graphics.setColor(0.9, 0.2, 0.12, alpha)
+        else
+          love.graphics.setColor(0.9, 0.72, 0.38, alpha)
+        end
+        love.graphics.line(-sprite.width * 0.42, 0, sprite.width * 0.42, 0)
+        love.graphics.line(0, -sprite.height * 0.18, 0, sprite.height * 0.18)
         love.graphics.pop()
       end
     end
@@ -551,7 +705,7 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     end
   end
 
-  if game.level.exit and game.objectives.collected >= game.objectives.total then
+  if game.level.exit and game.objectives.collected >= (game.level.minLiftRelays or game.objectives.total) then
     local exit = game.level.exit
     local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)
     if spriteVisible(sprite, width, depthBuffer) then
@@ -612,7 +766,7 @@ local function drawScene(game)
   local depthBuffer = drawRaycastWorld(game, width, height)
 
   drawPickupSprites(game, width, height, depthBuffer)
-  drawEnemySprite(game, width, height, depthBuffer)
+  drawCreatures(game, width, height, depthBuffer)
   drawTorch(game, width, height)
 end
 

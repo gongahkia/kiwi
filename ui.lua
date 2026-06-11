@@ -19,7 +19,7 @@ local function terrainColor(cell)
     return 0.95, 0.72, 0.24
   elseif cell.terminal then
     return 0.25, 0.72, 0.68
-  elseif cell.hazard and cell.hazard.active then
+  elseif Level.isHazardActive(cell) then
     if cell.hazard.kind == "ember" then
       return 0.72, 0.22, 0.08
     elseif cell.hazard.kind == "wire" then
@@ -40,10 +40,22 @@ local function terrainColor(cell)
     return 0.34, 0.34, 0.32
   elseif cell.terrain == "slag" then
     return 0.6, 0.22, 0.08
+  elseif cell.terrain == "ice" then
+    return 0.42, 0.62, 0.72
+  elseif cell.terrain == "fungus" then
+    return 0.36, 0.48, 0.24
+  elseif cell.terrain == "pressure" then
+    return 0.42, 0.44, 0.5
+  elseif cell.terrain == "reactor" then
+    return 0.72, 0.34, 0.12
+  elseif cell.terrain == "sludge" then
+    return 0.18, 0.34, 0.22
   elseif cell.terrain == "glass" then
     return 0.42, 0.52, 0.58
   elseif cell.terrain == "dust" then
     return 0.42, 0.38, 0.28
+  elseif cell.salvage then
+    return 0.24, 0.38, 0.32
   end
 
   local floorZ = cell.floor
@@ -137,7 +149,7 @@ local function drawMinimap(game, width, height)
     end
   end
 
-  if level.exit and game.objectives.collected >= game.objectives.total then
+  if level.exit and game.objectives.collected >= (level.minLiftRelays or game.objectives.total) then
     love.graphics.setColor(1, 0.78, 0.24, 0.96)
     love.graphics.rectangle("fill", originX + (level.exit.x - 1) * size, originY + (level.exit.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
   end
@@ -156,8 +168,36 @@ local function drawMinimap(game, width, height)
     end
   end
 
+  for _, nest in ipairs(level.nests or {}) do
+    love.graphics.setColor(0.78, 0.28, 0.88, 0.9)
+    love.graphics.circle("line", originX + nest.x * size - size, originY + nest.y * size - size, max(3, size * 0.85))
+  end
+
+  for _, prop in ipairs(game.props or {}) do
+    if (prop.ttl or 0) > 0 then
+      love.graphics.setColor(0.7, 0.9, 1, 0.82)
+      love.graphics.rectangle("fill", originX + prop.x * size - size, originY + prop.y * size - size, max(2, size * 0.55), max(2, size * 0.55))
+    end
+  end
+
+  for _, signal in ipairs(level.signals or {}) do
+    if signal.discovered or (game.survey and game.survey.ttl > 0) then
+      local alpha = signal.discovered and 0.8 or 0.36
+      if signal.kind == "pheromone" then
+        love.graphics.setColor(0.34, 0.95, 0.54, alpha)
+      elseif signal.kind == "alarm_mark" or signal.kind == "scratch" then
+        love.graphics.setColor(0.95, 0.28, 0.18, alpha)
+      elseif signal.kind == "wet_tracks" then
+        love.graphics.setColor(0.28, 0.62, 0.92, alpha)
+      else
+        love.graphics.setColor(0.9, 0.76, 0.42, alpha)
+      end
+      love.graphics.circle("line", originX + signal.x * size - size, originY + signal.y * size - size, max(2, size * 0.55))
+    end
+  end
+
   local player = game.player
-  local enemy = game.enemy
+  local enemy = game.enemy or { x = player.x, y = player.y, path = {}, state = "clear", kind = "none", floorZ = player.floorZ }
   local px = originX + player.x * size - size
   local py = originY + player.y * size - size
   local ex = originX + enemy.x * size - size
@@ -167,8 +207,24 @@ local function drawMinimap(game, width, height)
   love.graphics.circle("fill", px, py, max(2.5, size * 0.58))
   love.graphics.line(px, py, px + cos(player.angle) * size * 2.4, py + sin(player.angle) * size * 2.4)
 
-  love.graphics.setColor(0.9, 0.08, 0.05, 0.95)
-  love.graphics.circle("fill", ex, ey, max(2.5, size * 0.58))
+  for _, creature in ipairs(game.creatures or {}) do
+    if creature.alive then
+      local cx = originX + creature.x * size - size
+      local cy = originY + creature.y * size - size
+      if creature.kind == "skitter" then
+        love.graphics.setColor(1, 0.75, 0.18, 0.86)
+      elseif creature.kind == "stalker" then
+        love.graphics.setColor(0.35, 0.45, 0.9, 0.86)
+      elseif creature.kind == "screecher" then
+        love.graphics.setColor(0.75, 0.58, 1, 0.86)
+      elseif creature.kind == "burrower" then
+        love.graphics.setColor(0.75, 0.32, 0.12, 0.86)
+      else
+        love.graphics.setColor(0.9, 0.08, 0.05, 0.95)
+      end
+      love.graphics.circle("fill", cx, cy, max(2.5, size * 0.58))
+    end
+  end
 
   love.graphics.setColor(0.9, 0.08, 0.05, 0.22)
   for i = 1, #enemy.path - 1 do
@@ -193,7 +249,7 @@ end
 
 local function drawHud(game, width, height)
   local player = game.player
-  local enemy = game.enemy
+  local enemy = game.enemy or { x = player.x, y = player.y, floorZ = player.floorZ, state = "clear", kind = "none" }
   local dx, dy = enemy.x - player.x, enemy.y - player.y
   local z = (enemy.floorZ or 0) - (player.floorZ or 0)
   local distance = sqrt(dx * dx + dy * dy + z * z * 0.35)
@@ -210,16 +266,16 @@ local function drawHud(game, width, height)
 
   love.graphics.setFont(game.fonts.hud)
   love.graphics.setColor(0, 0, 0, 0.42)
-  love.graphics.rectangle("fill", 18, 18, 326, 202, 4, 4)
+  love.graphics.rectangle("fill", 18, 18, 356, 334, 4, 4)
 
   love.graphics.setColor(0.95, 0.88, 0.68)
   love.graphics.print(string.format("TIME   %05.1f", game.survivalTime), 30, 28)
   love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
-  love.graphics.print(string.format("THREAT %02dM %-11s", floor(distance), string.upper(enemy.state or "WANDER")), 30, 55)
+  love.graphics.print(string.format("THREAT %02dM %-8s %-7s", floor(distance), string.upper(enemy.kind or "NONE"), string.upper(enemy.state or "WANDER")), 30, 55)
   love.graphics.setColor(0.78, 0.72, 0.6)
   love.graphics.print(string.format("DECK   %02d/%02d", game.deck or 1, game.maxDecks or 1), 30, 82)
   love.graphics.setColor(0.82, 0.76, 0.62)
-  love.graphics.print(string.format("OBJ    %d/%d", game.objectives.collected, game.objectives.total), 30, 109)
+  love.graphics.print(string.format("RELAY  %d/%d  PWR %d/%d", game.objectives.collected, game.objectives.total, game.level.power.assigned or 0, Level.powerCapacity(game.level)), 30, 109)
   if game.keys and game.keys.total > 0 then
     love.graphics.print(string.format("KEY %d/%d", game.keys.collected, game.keys.total), 206, 109)
   end
@@ -233,6 +289,37 @@ local function drawHud(game, width, height)
   love.graphics.print(traversal .. "  " .. zone, 30, 163)
   love.graphics.setColor(0.58, 0.56, 0.5)
   love.graphics.print(string.format("SEED   %d", game.seed), 30, 190)
+
+  local systems = game.level.systems or {}
+  local systemText = string.format(
+    "SYS    L%s D%s P%s V%s C%s X%s",
+    systems.lights and systems.lights.powered and "+" or "-",
+    systems.doors and systems.doors.powered and "+" or "-",
+    systems.pumps and systems.pumps.powered and "+" or "-",
+    systems.vents and systems.vents.powered and "+" or "-",
+    systems.decoy and systems.decoy.powered and "+" or "-",
+    systems.lift and systems.lift.powered and "+" or "-"
+  )
+  love.graphics.setColor(0.62, 0.78, 0.7)
+  love.graphics.print(systemText, 30, 217)
+
+  local incident = game.ecology and game.ecology.active or "quiet"
+  love.graphics.setColor(0.84, 0.67, 0.46)
+  love.graphics.print(string.format("ECO    %-12s SURV %02d", string.upper(incident), floor((game.survey and game.survey.ttl or 0))), 30, 244)
+
+  local inv = game.inventory or {}
+  love.graphics.setColor(0.78, 0.72, 0.6)
+  local selected = inv.selected or "flare"
+  love.graphics.print(string.format("TOOL   %-10s x%d  CODEX C", string.upper(selected), inv[selected] or 0), 30, 271)
+
+  local biome = game.level.biomeProfile and game.level.biomeProfile.label or "UNKNOWN"
+  love.graphics.setColor(0.54, 0.78, 0.76)
+  love.graphics.print(string.format("BIO    %-12s SALV %d/%d", biome:sub(1, 12), game.salvage and game.salvage.carried or 0, game.unlocks and game.unlocks.salvage or 0), 30, 298)
+
+  if game.demoMode then
+    love.graphics.setColor(0.52, 0.82, 1, 0.9)
+    love.graphics.print("DEMO", 310, 271)
+  end
 
   if game.messageTimer > 0 then
     love.graphics.setColor(0.95, 0.86, 0.58)
@@ -284,7 +371,7 @@ local function drawTerminalOverlay(game, width, height)
   love.graphics.setColor(0.58, 1, 0.82)
   love.graphics.print(string.format("%s  DECK %02d  ACCESS %s", terminal.label, game.deck or 1, terminal.command), x + 22, y + 18)
   love.graphics.setColor(0.38, 0.78, 0.66)
-  love.graphics.print("COMMANDS SCAN UNLOCK PURGE LIFT", x + 22, y + 46)
+  love.graphics.print("1 LIGHTS 2 DOORS 3 PUMPS 4 VENTS 5 DECOY 6 LIFT", x + 22, y + 46)
 
   love.graphics.setColor(0.12, 0.23, 0.2, 0.9)
   love.graphics.rectangle("fill", x + 20, y + 78, panelWidth - 40, panelHeight - 144)
@@ -302,7 +389,7 @@ local function drawTerminalOverlay(game, width, height)
   love.graphics.setColor(0.58, 1, 0.82)
   love.graphics.print("> " .. (game.terminal.input or ""), x + 34, y + panelHeight - 47)
   love.graphics.setColor(0.38, 0.78, 0.66)
-  love.graphics.printf("ENTER RUN   ESC EXIT", x + 20, y + panelHeight - 47, panelWidth - 52, "right")
+  love.graphics.printf("ENTER RUN   ESC EXIT   TYPED: SCAN UNLOCK PURGE", x + 20, y + panelHeight - 47, panelWidth - 52, "right")
 end
 
 local function drawEndState(game, width, height)
@@ -326,12 +413,185 @@ local function drawEndState(game, width, height)
   love.graphics.printf("R REPLAY   N NEW RUN", 0, height * 0.58, width, "center")
 end
 
+local function drawRouteSelect(game, width, height)
+  if game.state ~= "route_select" then
+    return
+  end
+
+  local choices = game.routeChoices or {}
+  local panelWidth = min(width - 80, 860)
+  local panelHeight = min(height - 80, 430)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+
+  love.graphics.setColor(0, 0, 0, 0.78)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.07, 0.065, 0.055, 0.98)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.86, 0.68, 0.38, 0.95)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.96, 0.86, 0.58)
+  love.graphics.print("DESCENT ROUTE", x + 24, y + 20)
+  love.graphics.setColor(0.64, 0.6, 0.5)
+  love.graphics.printf("1-3 SELECT  ENTER CONFIRM", x + 24, y + 20, panelWidth - 48, "right")
+
+  local cardWidth = (panelWidth - 72) / max(1, #choices)
+  for i, choice in ipairs(choices) do
+    local cardX = x + 24 + (i - 1) * cardWidth
+    local selected = i == (game.routeIndex or 1)
+    love.graphics.setColor(selected and 0.22 or 0.11, selected and 0.17 or 0.115, selected and 0.085 or 0.07, 0.94)
+    love.graphics.rectangle("fill", cardX, y + 64, cardWidth - 12, panelHeight - 104, 4, 4)
+    love.graphics.setColor(selected and 0.98 or 0.76, selected and 0.8 or 0.68, selected and 0.42 or 0.54)
+    love.graphics.rectangle("line", cardX, y + 64, cardWidth - 12, panelHeight - 104, 4, 4)
+
+    local lineY = y + 82
+    love.graphics.setColor(0.95, 0.86, 0.62)
+    love.graphics.print(i .. "  " .. choice.label, cardX + 14, lineY)
+    lineY = lineY + 34
+    love.graphics.setColor(0.7, 0.92, 0.86)
+    love.graphics.print(choice.biomeLabel or "UNKNOWN", cardX + 14, lineY)
+    lineY = lineY + 30
+    love.graphics.setColor(0.82, 0.76, 0.62)
+    love.graphics.print("RISK " .. choice.risk .. "  SALVAGE " .. choice.salvage, cardX + 14, lineY)
+    lineY = lineY + 28
+    love.graphics.setColor(0.72, 0.68, 0.58)
+    love.graphics.printf(choice.description or "", cardX + 14, lineY, cardWidth - 40)
+    lineY = lineY + 72
+    love.graphics.setColor(0.82, 0.72, 0.5)
+    love.graphics.print("FACTION " .. (choice.previewFaction and string.upper(choice.faction or "UNKNOWN") or "UNKNOWN"), cardX + 14, lineY)
+    lineY = lineY + 28
+    love.graphics.print("INCIDENT " .. (choice.previewIncident and string.upper(choice.incident or "UNKNOWN") or "UNKNOWN"), cardX + 14, lineY)
+    if choice.rareCache then
+      love.graphics.setColor(0.52, 0.9, 0.72)
+      love.graphics.print("RARE CACHE SIGNAL", cardX + 14, lineY + 28)
+    end
+  end
+end
+
+local function drawCodex(game, width, height)
+  if not game.codexOpen then
+    return
+  end
+
+  local panelWidth = min(width - 90, 760)
+  local panelHeight = min(height - 90, 420)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+  local entries = game.codex and game.codex.entries or {}
+
+  love.graphics.setColor(0, 0, 0, 0.78)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.08, 0.08, 0.07, 0.96)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.86, 0.72, 0.44, 0.95)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.95, 0.86, 0.62)
+  love.graphics.print("CODEX", x + 22, y + 18)
+  love.graphics.setColor(0.66, 0.62, 0.54)
+  love.graphics.printf("C CLOSE", x + 22, y + 18, panelWidth - 44, "right")
+
+  local start = max(1, #entries - 10)
+  local lineY = y + 54
+  if #entries == 0 then
+    love.graphics.setColor(0.72, 0.68, 0.58)
+    love.graphics.print("NO DISCOVERIES", x + 22, lineY)
+    return
+  end
+
+  for i = start, #entries do
+    local entry = entries[i]
+    love.graphics.setColor(0.5, 0.88, 0.76)
+    love.graphics.print(string.upper(entry.kind) .. " / " .. string.upper(entry.id), x + 22, lineY)
+    love.graphics.setColor(0.86, 0.82, 0.7)
+    love.graphics.printf(entry.text, x + 22, lineY + 20, panelWidth - 44)
+    lineY = lineY + 54
+  end
+end
+
+local function drawToolWheel(game, width, height)
+  if not game.toolWheel or not game.toolWheel.visible then
+    return
+  end
+
+  local order = game.toolOrder or {}
+  local inv = game.inventory or {}
+  local cx = width * 0.5
+  local cy = height * 0.52
+  local radius = min(width, height) * 0.22
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0, 0, 0, 0.56)
+  love.graphics.circle("fill", cx, cy, radius + 48)
+
+  for i, tool in ipairs(order) do
+    local angle = (i / #order) * math.pi * 2 - math.pi * 0.5
+    local x = cx + cos(angle) * radius
+    local y = cy + sin(angle) * radius
+    local selected = tool == inv.selected
+    love.graphics.setColor(selected and 0.9 or 0.22, selected and 0.76 or 0.28, selected and 0.38 or 0.26, selected and 0.95 or 0.82)
+    love.graphics.circle("fill", x, y, selected and 34 or 27)
+    love.graphics.setColor(0.04, 0.035, 0.028, 0.92)
+    love.graphics.printf(tostring(inv[tool] or 0), x - 18, y - 8, 36, "center")
+    love.graphics.setColor(0.95, 0.88, 0.68, 0.94)
+    love.graphics.printf(string.upper(tool):sub(1, 4), x - 42, y + 28, 84, "center")
+  end
+end
+
+local function drawPause(game, width, height)
+  if not game.paused then
+    return
+  end
+
+  local actions = game.bindingActions or {}
+  local panelWidth = min(width - 90, 620)
+  local panelHeight = min(height - 90, 460)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+
+  love.graphics.setColor(0, 0, 0, 0.78)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.08, 0.075, 0.065, 0.98)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.86, 0.72, 0.44, 0.95)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.95, 0.86, 0.62)
+  love.graphics.print("PAUSED", x + 24, y + 20)
+  love.graphics.setColor(0.66, 0.62, 0.54)
+  love.graphics.printf("UP/DOWN SELECT  ENTER REBIND  BACKSPACE RESET", x + 24, y + 20, panelWidth - 48, "right")
+
+  local lineY = y + 64
+  for i, action in ipairs(actions) do
+    local selected = i == (game.settingsIndex or 1)
+    love.graphics.setColor(selected and 0.22 or 0.11, selected and 0.18 or 0.12, selected and 0.09 or 0.08, 0.92)
+    love.graphics.rectangle("fill", x + 24, lineY - 4, panelWidth - 48, 24)
+    love.graphics.setColor(selected and 0.98 or 0.74, selected and 0.86 or 0.7, selected and 0.56 or 0.58)
+    love.graphics.print(string.upper(action), x + 34, lineY)
+    love.graphics.printf(string.upper(game.bindings[action] or ""), x + 24, lineY, panelWidth - 66, "right")
+    lineY = lineY + 28
+  end
+
+  if game.bindTarget then
+    love.graphics.setColor(0.95, 0.76, 0.38)
+    love.graphics.printf("PRESS A KEY FOR " .. string.upper(game.bindTarget), x + 24, y + panelHeight - 42, panelWidth - 48, "center")
+  end
+end
+
 function UI.draw(game)
   local width, height = love.graphics.getDimensions()
   drawMinimap(game, width, height)
   drawHud(game, width, height)
   drawEndState(game, width, height)
+  drawRouteSelect(game, width, height)
+  drawToolWheel(game, width, height)
   drawTerminalOverlay(game, width, height)
+  drawCodex(game, width, height)
+  drawPause(game, width, height)
 end
 
 return UI

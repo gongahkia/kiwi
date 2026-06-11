@@ -21,6 +21,71 @@ Level.deckConfigs = {
   { width = 73, height = 73, rooms = 22, objectives = 5, refills = 8, gates = 3, locks = 2, hazards = 16 },
 }
 
+Level.biomeOrder = { "cryo_vault", "fungal_service", "pressure_lab", "reactor_trench", "waste_artery" }
+
+Level.biomeProfiles = {
+  cryo_vault = {
+    label = "CRYO VAULT",
+    terrain = "ice",
+    district = "cryo_vault",
+    signal = "frost_trace",
+    hazard = "pit",
+    primaryFaction = "predator",
+    factions = { "predator", "scavenger" },
+    incidents = { "blackout", "lockdown", "nest_wake" },
+    salvageTools = { "flare", "breaker", "probe", "oil" },
+    risk = "fog and brittle seals",
+  },
+  fungal_service = {
+    label = "FUNGAL SERVICE",
+    terrain = "fungus",
+    district = "fungal_service",
+    signal = "spore_bloom",
+    hazard = "wire",
+    primaryFaction = "scavenger",
+    factions = { "scavenger", "burrow_colony" },
+    incidents = { "nest_wake", "vent_bloom", "flood_surge" },
+    salvageTools = { "pheromone", "scent", "probe", "bait" },
+    risk = "false trails and spore scent",
+  },
+  pressure_lab = {
+    label = "PRESSURE LAB",
+    terrain = "pressure",
+    district = "pressure_lab",
+    signal = "pressure_tick",
+    hazard = "wire",
+    primaryFaction = "machine_nest",
+    factions = { "machine_nest", "predator" },
+    incidents = { "lockdown", "blackout", "nest_wake" },
+    salvageTools = { "seal", "breaker", "flash", "fuse" },
+    risk = "doors, alarms, and glass sight lines",
+  },
+  reactor_trench = {
+    label = "REACTOR TRENCH",
+    terrain = "reactor",
+    district = "reactor_trench",
+    signal = "radiant_heat",
+    hazard = "ember",
+    primaryFaction = "screeching_flock",
+    factions = { "screeching_flock", "predator" },
+    incidents = { "heat_spike", "vent_bloom", "blackout" },
+    salvageTools = { "fuse", "sonic", "breaker", "oil" },
+    risk = "heat, overcharge, and sound panic",
+  },
+  waste_artery = {
+    label = "WASTE ARTERY",
+    terrain = "sludge",
+    district = "waste_artery",
+    signal = "tainted_sludge",
+    hazard = "wire",
+    primaryFaction = "burrow_colony",
+    factions = { "burrow_colony", "scavenger" },
+    incidents = { "flood_surge", "nest_wake", "lockdown" },
+    salvageTools = { "bait", "snare", "pheromone", "oil" },
+    risk = "sludge currents and contaminated salvage",
+  },
+}
+
 local zoneStyles = {
   ["atrium"] = { terrain = "flagstone", light = 0.78 },
   ["archive"] = { terrain = "dust", light = 0.56 },
@@ -49,6 +114,11 @@ Level.terrainSpeed = {
   rubble = 0.76,
   water = 0.72,
   slag = 0.78,
+  ice = 0.82,
+  fungus = 0.8,
+  pressure = 0.93,
+  reactor = 0.86,
+  sludge = 0.64,
   ladder = 0.9,
 }
 
@@ -64,6 +134,11 @@ Level.terrainLabels = {
   rubble = "RUBBLE",
   water = "WATER",
   slag = "SLAG",
+  ice = "ICE",
+  fungus = "FUNGUS",
+  pressure = "PRESSURE",
+  reactor = "REACTOR",
+  sludge = "SLUDGE",
   ladder = "LADDER",
 }
 
@@ -76,6 +151,7 @@ local objectiveLabels = {
 }
 
 local terminalCommands = { "SCAN", "UNLOCK", "PURGE", "LIFT" }
+local systemOrder = { "lights", "doors", "pumps", "vents", "decoy", "lift" }
 
 local directions = {
   { name = "north", dx = 0, dy = -1, opposite = "south" },
@@ -129,6 +205,24 @@ local function zoneStyle(kind)
   return zoneStyles[kind] or zoneStyles.chamber
 end
 
+local function normalizeBranch(branch, deck)
+  local order = Level.biomeOrder
+  local biome = branch and branch.biome
+  if not Level.biomeProfiles[biome] then
+    biome = order[((deck or 1) - 1) % #order + 1]
+  end
+
+  return {
+    kind = branch and branch.kind or "safe",
+    biome = biome,
+    risk = branch and branch.risk or 1,
+    salvage = branch and branch.salvage or 1,
+    faction = branch and branch.faction or Level.biomeProfiles[biome].primaryFaction,
+    incident = branch and branch.incident or Level.biomeProfiles[biome].incidents[1],
+    rareCache = branch and branch.rareCache or false,
+  }
+end
+
 local function randomRange(range)
   return love.math.random(range[1], range[2])
 end
@@ -149,6 +243,8 @@ local function makeWallCell()
     objective = nil,
     refill = false,
     refillUsed = false,
+    tool = nil,
+    toolUsed = false,
     key = nil,
     lock = nil,
     hazard = nil,
@@ -157,6 +253,21 @@ local function makeWallCell()
     dynamicGroup = nil,
     dynamicActive = false,
     landmark = nil,
+    salvage = false,
+    vent = false,
+    district = nil,
+    tags = {},
+  }
+end
+
+local function makeSystems()
+  return {
+    lights = { powered = false, cost = 1 },
+    doors = { powered = false, cost = 1 },
+    pumps = { powered = false, cost = 1 },
+    vents = { powered = false, cost = 1 },
+    decoy = { powered = false, cost = 1, cooldown = 0 },
+    lift = { powered = false, cost = 2 },
   }
 end
 
@@ -193,11 +304,25 @@ local function makeLevel(width, height, deck, config)
     ceilingTransitionCount = 0,
     objectives = {},
     refills = {},
+    toolCaches = {},
     gates = {},
     keys = {},
     locks = {},
     hazards = {},
     terminals = {},
+    systems = makeSystems(),
+    power = { available = 0, assigned = 0, temporary = 0 },
+    minLiftRelays = min(4, max(3, (config and config.objectives or 4) - 1)),
+    salvageRooms = {},
+    salvageLocked = false,
+    creatureSpawns = {},
+    districts = {},
+    nests = {},
+    signals = {},
+    factions = {},
+    ecologyEvents = {},
+    branch = config and config.branch or normalizeBranch(nil, deck),
+    biomeProfile = config and config.biomeProfile or Level.biomeProfiles.cryo_vault,
     liftRequired = (deck or 1) > 1,
     liftAuthorized = (deck or 1) <= 1,
     scanRevealed = false,
@@ -218,6 +343,10 @@ end
 
 function Level.isBlocked(cell)
   return cell == nil or cell.solid or cell.gateLocked or (cell.lock and cell.lock.locked)
+end
+
+function Level.isHazardActive(cell)
+  return cell and cell.hazard and cell.hazard.active and not cell.hazard.suppressed
 end
 
 local function carveCell(level, x, y, kind, light, terrain, zone)
@@ -254,6 +383,72 @@ local function carveRect(level, x, y, width, height, kind, light, terrain, zone)
       carveCell(level, xx, yy, kind, light, terrain, zone)
     end
   end
+end
+
+local function tagCell(level, x, y, tag)
+  local cell = Level.cellAtCell(level, x, y)
+  if cell then
+    cell.tags = cell.tags or {}
+    cell.tags[tag] = true
+  end
+  return cell
+end
+
+local function addLevelSignal(level, x, y, kind, strength, source)
+  local cell = Level.cellAtCell(level, x, y)
+  if not cell or cell.solid then
+    return nil
+  end
+
+  cell.signal = kind
+  cell.tags = cell.tags or {}
+  cell.tags.signal = true
+  cell.tags[kind] = true
+
+  local signal = {
+    kind = kind,
+    x = x + 0.5,
+    y = y + 0.5,
+    strength = strength or 1,
+    source = source or "level",
+    discovered = false,
+  }
+  level.signals[#level.signals + 1] = signal
+  return signal
+end
+
+local function addDistrict(level, kind, room, role)
+  if not room then
+    return nil
+  end
+
+  local district = {
+    id = #level.districts + 1,
+    kind = kind,
+    rooms = { room },
+    role = role or kind,
+    cx = room.cx,
+    cy = room.cy,
+  }
+
+  level.districts[#level.districts + 1] = district
+  room.district = kind
+  room.districtId = district.id
+  room.role = role or room.role or "route"
+
+  for y = room.y, room.y + room.height - 1 do
+    for x = room.x, room.x + room.width - 1 do
+      local cell = Level.cellAtCell(level, x, y)
+      if cell and not cell.solid then
+        cell.district = kind
+        cell.tags = cell.tags or {}
+        cell.tags[kind] = true
+        cell.tags[role or kind] = true
+      end
+    end
+  end
+
+  return district
 end
 
 local function cloneConnectors(connectors)
@@ -450,6 +645,8 @@ local function setSolidFeature(level, x, y, kind, light)
   cell.objective = nil
   cell.refill = false
   cell.refillUsed = false
+  cell.tool = nil
+  cell.toolUsed = false
   cell.key = nil
   cell.lock = nil
   cell.hazard = nil
@@ -458,6 +655,8 @@ local function setSolidFeature(level, x, y, kind, light)
   cell.dynamicGroup = nil
   cell.dynamicActive = false
   cell.landmark = nil
+  cell.salvage = false
+  cell.vent = false
 end
 
 local function preserveRoomSpine(room, x, y)
@@ -953,6 +1152,32 @@ local function markRefill(level, room)
   return false
 end
 
+local function markToolCache(level, room, tool, id)
+  for _ = 1, 18 do
+    local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit and not cell.tool then
+      cell.tool = {
+        kind = tool,
+        id = id,
+        salvage = id >= 20 and 2 or 1,
+        contaminated = level.biomeProfile and level.biomeProfile.district == "waste_artery" or false,
+      }
+      cell.toolUsed = false
+      cell.kind = tool .. " cache"
+      cell.light = max(cell.light or 0.5, 0.78)
+      cell.landmark = "tool"
+      cell.salvage = true
+      level.toolCaches[#level.toolCaches + 1] = { x = x, y = y, cell = cell, kind = tool, id = id, room = room }
+      return true
+    end
+  end
+
+  return false
+end
+
 local function markKey(level, room, id)
   for _ = 1, 18 do
     local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
@@ -1023,11 +1248,30 @@ local function markHazard(level, room, id)
     local cell = Level.cellAtCell(level, x, y)
 
     if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit and not cell.hazard then
-      cell.hazard = { id = id, kind = spec.kind, active = true }
+      cell.hazard = { id = id, kind = spec.kind, active = true, suppressed = false }
       cell.terrain = spec.terrain
       cell.kind = spec.kind
       cell.light = max(cell.light or 0.5, spec.light)
       level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = id, kind = spec.kind, room = room }
+      return true
+    end
+  end
+
+  return false
+end
+
+local function markVent(level, room)
+  for _ = 1, 12 do
+    local x = U.clamp(room.cx + love.math.random(-4, 4), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-4, 4), room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+
+    if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit then
+      cell.vent = true
+      cell.kind = "vent"
+      cell.terrain = "grate"
+      cell.light = max(cell.light or 0.5, 0.68)
+      cell.landmark = "vent"
       return true
     end
   end
@@ -1110,22 +1354,32 @@ end
 function Level.purgeTerminalHazards(level, terminal)
   local purged = 0
   local room = terminal and terminal.room
+  local systems = level.systems or {}
+  local pumps = systems.pumps and systems.pumps.powered
+  local vents = systems.vents and systems.vents.powered
 
   for _, hazard in ipairs(level.hazards or {}) do
     if hazard.cell.hazard and hazard.cell.hazard.active and (hazard.room == room or hazard.cell.zone == (room and room.kind)) then
-      hazard.cell.hazard.active = false
-      hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
-      purged = purged + 1
+      local kind = hazard.cell.hazard.kind
+      if pumps and (kind == "wire" or kind == "pit") then
+        hazard.cell.hazard.suppressed = true
+        hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
+        purged = purged + 1
+      elseif vents and kind == "ember" then
+        hazard.cell.hazard.suppressed = true
+        hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
+        purged = purged + 1
+      end
     end
   end
 
   if purged == 0 then
     for _, hazard in ipairs(level.hazards or {}) do
       if hazard.cell.hazard and hazard.cell.hazard.active then
-        hazard.cell.hazard.active = false
+        hazard.cell.hazard.suppressed = true
         hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
         purged = purged + 1
-        if purged >= 3 then
+        if purged >= ((pumps or vents) and 3 or 1) then
           break
         end
       end
@@ -1250,6 +1504,104 @@ function Level.setLocksLocked(level, locked)
   for _, lock in ipairs(level.locks or {}) do
     lock.cell.lock.locked = locked
   end
+end
+
+function Level.powerUsed(level)
+  local used = 0
+
+  for _, name in ipairs(systemOrder) do
+    local system = level.systems and level.systems[name]
+    if system and system.powered then
+      used = used + (system.cost or 1)
+    end
+  end
+
+  if level.power then
+    level.power.assigned = used
+  end
+
+  return used
+end
+
+function Level.powerCapacity(level)
+  local power = level.power or {}
+  return (power.available or 0) + (power.temporary or 0)
+end
+
+function Level.applySystemEffects(level)
+  local systems = level.systems or {}
+  local lights = systems.lights and systems.lights.powered
+  local doors = systems.doors and systems.doors.powered
+  local pumps = systems.pumps and systems.pumps.powered
+  local vents = systems.vents and systems.vents.powered
+
+  for _, gate in ipairs(level.gates or {}) do
+    gate.cell.gateLocked = not doors
+    gate.cell.light = doors and 0.72 or 0.88
+  end
+
+  level.liftAuthorized = (systems.lift and systems.lift.powered) or false
+
+  for y = 1, level.height do
+    for x = 1, level.width do
+      local cell = level.grid[y][x]
+      if not cell.solid then
+        if cell.dynamicGroup == "relays" or cell.terminal or cell.vent then
+          cell.dynamicActive = lights or vents or cell.dynamicActive
+          if lights then
+            cell.light = max(cell.light or 0.5, 0.76)
+          elseif cell.dynamicGroup == "relays" and not cell.dynamicActive then
+            cell.light = min(cell.light or 0.5, 0.42)
+          end
+        end
+
+        if cell.hazard then
+          if cell.hazard.kind == "wire" then
+            cell.hazard.suppressed = pumps
+          elseif cell.hazard.kind == "ember" then
+            cell.hazard.suppressed = pumps or vents
+          elseif cell.hazard.kind == "pit" then
+            cell.hazard.suppressed = false
+          end
+        end
+      end
+    end
+  end
+
+  Level.powerUsed(level)
+end
+
+function Level.setSystemPowered(level, name, powered)
+  local system = level.systems and level.systems[name]
+  if not system then
+    return false, "UNKNOWN SYSTEM"
+  end
+
+  powered = powered ~= false
+  if powered == system.powered then
+    return true, string.upper(name) .. (powered and " ALREADY POWERED" or " ALREADY OFFLINE")
+  end
+
+  if powered then
+    local used = Level.powerUsed(level)
+    local capacity = Level.powerCapacity(level)
+    if used + (system.cost or 1) > capacity then
+      return false, "INSUFFICIENT POWER"
+    end
+  end
+
+  system.powered = powered
+  Level.applySystemEffects(level)
+  return true, string.upper(name) .. (powered and " POWERED" or " OFFLINE")
+end
+
+function Level.toggleSystem(level, name)
+  local system = level.systems and level.systems[name]
+  if not system then
+    return false, "UNKNOWN SYSTEM"
+  end
+
+  return Level.setSystemPowered(level, name, not system.powered)
 end
 
 local function setGateState(level, locked)
@@ -1424,6 +1776,20 @@ local function countUsableLocks(level, visited)
   return reachable, usable
 end
 
+local function countDistrictKinds(level)
+  local seen = {}
+  local count = 0
+
+  for _, district in ipairs(level.districts or {}) do
+    if district.kind and not seen[district.kind] then
+      seen[district.kind] = true
+      count = count + 1
+    end
+  end
+
+  return count
+end
+
 local function compactRefills(level)
   local refills = {}
 
@@ -1454,6 +1820,8 @@ local function sealUnreachableCells(level)
         cell.ladder = false
         cell.refill = false
         cell.refillUsed = false
+        cell.tool = nil
+        cell.toolUsed = false
         cell.key = nil
         cell.lock = nil
         cell.hazard = nil
@@ -1462,6 +1830,8 @@ local function sealUnreachableCells(level)
         cell.dynamicGroup = nil
         cell.dynamicActive = false
         cell.landmark = nil
+        cell.salvage = false
+        cell.vent = false
       end
     end
   end
@@ -1485,6 +1855,7 @@ function Level.validate(level)
   local exitOpenReachable = exitReachable(level, lockedVisited)
   local gateReachable, gateUsable = countUsableGates(level, unlockedVisited)
   local lockReachable, lockUsable = countUsableLocks(level, unlockedVisited)
+  local districtKinds = countDistrictKinds(level)
   local failures = {}
 
   local function requireValid(condition, label)
@@ -1513,6 +1884,13 @@ function Level.validate(level)
   requireValid(#level.terminals >= (config.terminals or 0), "terminals")
   requireValid(terminalReachable == #level.terminals, "terminal-reachability")
   requireValid((not level.liftRequired) or liftTerminalReachable, "lift-terminal")
+  requireValid(#level.creatureSpawns >= 3, "creature-spawns")
+  requireValid(#level.districts >= 4, "districts")
+  requireValid(districtKinds >= 4, "district-kinds")
+  requireValid(#level.nests >= 2, "nests")
+  requireValid(#level.signals >= #level.nests + 1, "signals")
+  requireValid(level.biomeProfile ~= nil, "biome-profile")
+  requireValid(#(level.factions or {}) >= 2, "factions")
   requireValid(level.stairCount == 0, "no-stairs")
   requireValid(level.ladderCount >= 2, "ladders")
   requireValid(level.distinctFloorHeights == 1, "flat-floor")
@@ -1546,6 +1924,13 @@ function Level.validate(level)
     locks = #level.locks,
     hazards = #level.hazards,
     terminals = #level.terminals,
+    creatureSpawns = #level.creatureSpawns,
+    districts = #level.districts,
+    districtKinds = districtKinds,
+    nests = #level.nests,
+    signals = #level.signals,
+    factions = #(level.factions or {}),
+    biome = level.biomeProfile and level.biomeProfile.district or "none",
     stairs = level.stairCount,
     ladders = level.ladderCount,
     floorHeights = level.distinctFloorHeights,
@@ -1561,9 +1946,12 @@ local function validateLevel(level)
   return Level.validate(level).valid
 end
 
-local function deckConfig(deck, width, height)
+local function deckConfig(deck, width, height, branch)
   local base = Level.deckConfigs[deck] or Level.deckConfigs[#Level.deckConfigs]
-  local rooms = max(12, base.rooms + love.math.random(-2, 3))
+  branch = normalizeBranch(branch, deck)
+  local biomeProfile = Level.biomeProfiles[branch.biome] or Level.biomeProfiles.cryo_vault
+  local branchRoomBonus = branch.kind == "salvage" and 2 or (branch.kind == "conflict" and 1 or 0)
+  local rooms = max(12, base.rooms + love.math.random(-2, 3) + branchRoomBonus)
   local profile = layoutProfiles[love.math.random(#layoutProfiles)]
   local themes = {
     { "archive", "observatory", "chamber" },
@@ -1571,6 +1959,18 @@ local function deckConfig(deck, width, height)
     { "lower foundry", "quarry", "overgrown court" },
     { "annex", "chamber", "archive" },
   }
+  local theme = themes[love.math.random(#themes)]
+  if branch.biome == "cryo_vault" then
+    theme = { "observatory", "archive", "chamber" }
+  elseif branch.biome == "fungal_service" then
+    theme = { "overgrown court", "annex", "cistern" }
+  elseif branch.biome == "pressure_lab" then
+    theme = { "observatory", "machine shaft", "archive" }
+  elseif branch.biome == "reactor_trench" then
+    theme = { "lower foundry", "bridgeworks", "machine shaft" }
+  elseif branch.biome == "waste_artery" then
+    theme = { "cistern", "quarry", "annex" }
+  end
 
   return {
     width = width or base.width,
@@ -1580,10 +1980,12 @@ local function deckConfig(deck, width, height)
     refills = max(5, base.refills + floor((rooms - base.rooms) / 2)),
     gates = base.gates,
     locks = base.locks,
-    hazards = max(6, base.hazards + rooms - base.rooms),
+    hazards = max(6, base.hazards + rooms - base.rooms + (branch.risk or 1) - 1),
     terminals = min(4, (deck or 1) + 1),
     profile = profile,
-    theme = themes[love.math.random(#themes)],
+    theme = theme,
+    branch = branch,
+    biomeProfile = biomeProfile,
   }
 end
 
@@ -1940,6 +2342,489 @@ local function placeHazards(level, config)
   end
 end
 
+local function chooseRoomForDistrict(level, preferredKinds, fallbackIndex)
+  for _, kind in ipairs(preferredKinds or {}) do
+    for _, room in ipairs(level.rooms) do
+      if room.kind == kind and not room.district then
+        return room
+      end
+    end
+  end
+
+  for _, room in ipairs(level.rooms) do
+    if not room.district and room ~= level.routeRooms[1] then
+      return room
+    end
+  end
+
+  return level.rooms[fallbackIndex or 1]
+end
+
+local function carveCaveDistrict(level, room)
+  local district = addDistrict(level, "collapsed_caves", room, "rubble")
+  if not district then
+    return
+  end
+
+  local x, y = room.cx, room.cy
+  for _ = 1, 82 + (level.deck or 1) * 12 do
+    carveBrush(level, x, y, love.math.random() < 0.28 and 2 or 1, "quarry", 0.5, "rubble", "collapsed caves")
+    tagCell(level, x, y, "rubble")
+    tagCell(level, x, y, "dark")
+    local direction = directions[love.math.random(#directions)]
+    x = U.clamp(x + direction.dx * love.math.random(1, 3), room.x - 5, room.x + room.width + 4)
+    y = U.clamp(y + direction.dy * love.math.random(1, 3), room.y - 5, room.y + room.height + 4)
+  end
+  addLevelSignal(level, room.cx, room.cy, "scratch", 1.2, "collapsed_caves")
+end
+
+local function carveFloodedBasin(level, room)
+  local district = addDistrict(level, "flooded_basin", room, "water")
+  if not district then
+    return
+  end
+
+  local radius = max(4, floor(min(room.width, room.height) * 0.45))
+  for y = room.cy - radius, room.cy + radius do
+    for x = room.cx - radius, room.cx + radius do
+      local distance = sqrt((x - room.cx) ^ 2 + (y - room.cy) ^ 2)
+      if distance <= radius + love.math.random() * 1.6 then
+        carveCell(level, x, y, "cistern", 0.48, "water", "flooded basin")
+        tagCell(level, x, y, "water")
+        tagCell(level, x, y, "flooded")
+        if love.math.random() < 0.12 then
+          local cell = tagCell(level, x, y, "wire")
+          if cell and not cell.hazard then
+            cell.hazard = { id = #level.hazards + 1, kind = "wire", active = true, suppressed = false }
+            cell.kind = "wire"
+            cell.terrain = "grate"
+            level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = cell.hazard.id, kind = "wire", room = room }
+          end
+        end
+      end
+    end
+  end
+  addLevelSignal(level, room.cx, room.cy, "wet_tracks", 1.2, "flooded_basin")
+end
+
+local function carveMachineMaze(level, room)
+  local district = addDistrict(level, "machine_maze", room, "machine")
+  if not district then
+    return
+  end
+
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      local cell = Level.cellAtCell(level, x, y)
+      if cell and not cell.solid then
+        cell.district = "machine_maze"
+        cell.tags = cell.tags or {}
+        cell.tags.machine = true
+        if (x + y) % 5 == 0 then
+          setSolidFeature(level, x, y, "machinery", 0.34)
+        elseif x % 3 == 0 or y % 4 == 0 then
+          setTerrain(level, x, y, "grate", 0.66, "service deck", "machine maze")
+          if love.math.random() < 0.08 then
+            local ventCell = Level.cellAtCell(level, x, y)
+            if ventCell then
+              ventCell.vent = true
+              ventCell.kind = "vent"
+              ventCell.landmark = "vent"
+              ventCell.tags = ventCell.tags or {}
+              ventCell.tags.vent = true
+            end
+          end
+        end
+      end
+    end
+  end
+
+  restoreRoomCenter(level, room)
+  addLevelSignal(level, room.cx, room.cy, "vent_call", 1.1, "machine_maze")
+end
+
+local function carveFoundryArena(level, room)
+  local district = addDistrict(level, "foundry_arena", room, "arena")
+  if not district then
+    return
+  end
+
+  local radius = min(room.width, room.height) * 0.42
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      local distance = sqrt((x - room.cx) ^ 2 + (y - room.cy) ^ 2)
+      local cell = Level.cellAtCell(level, x, y)
+      if cell and not cell.solid then
+        cell.district = "foundry_arena"
+        cell.tags = cell.tags or {}
+        cell.tags.arena = true
+        if distance < radius then
+          setTerrain(level, x, y, "catwalk", 0.68, "catwalk", "foundry arena")
+        elseif love.math.random() < 0.28 then
+          setTerrain(level, x, y, "slag", 0.72, "ember", "foundry arena")
+        end
+      end
+    end
+  end
+  addLevelSignal(level, room.cx, room.cy, "ash_drift", 1.1, "foundry_arena")
+end
+
+local function placeHybridDistricts(level)
+  if level.routeRooms[1] then
+    addDistrict(level, "atrium_spine", level.routeRooms[1], "start")
+  end
+  if level.routeRooms[#level.routeRooms] then
+    addDistrict(level, "escape_shaft", level.routeRooms[#level.routeRooms], "exit")
+  end
+
+  carveCaveDistrict(level, chooseRoomForDistrict(level, { "quarry", "annex", "chamber" }, 2))
+  carveFloodedBasin(level, chooseRoomForDistrict(level, { "cistern", "observatory" }, 3))
+  carveMachineMaze(level, chooseRoomForDistrict(level, { "machine shaft", "bridgeworks" }, 4))
+  carveFoundryArena(level, chooseRoomForDistrict(level, { "lower foundry", "bridgeworks" }, 5))
+
+  local salvage = chooseRoomForDistrict(level, { "archive", "annex", "chamber" }, 6)
+  if salvage then
+    addDistrict(level, "salvage_vault", salvage, "salvage")
+  end
+end
+
+local function markBiomeHazard(level, room, kind)
+  for _ = 1, 18 do
+    local x = love.math.random(room.x + 1, room.x + room.width - 2)
+    local y = love.math.random(room.y + 1, room.y + room.height - 2)
+    local cell = Level.cellAtCell(level, x, y)
+    if cell and not cell.solid and not preserveRoomSpine(room, x, y) and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit and not cell.hazard then
+      cell.hazard = { id = #level.hazards + 1, kind = kind, active = true, suppressed = false, biome = level.biomeProfile and level.biomeProfile.district }
+      if kind == "ember" then
+        cell.terrain = "reactor"
+        cell.light = max(cell.light or 0.5, 0.82)
+      elseif kind == "wire" then
+        cell.terrain = "grate"
+        cell.light = max(cell.light or 0.5, 0.7)
+      else
+        cell.terrain = "rubble"
+        cell.light = min(cell.light or 0.5, 0.42)
+      end
+      cell.kind = kind
+      level.hazards[#level.hazards + 1] = { x = x, y = y, cell = cell, id = cell.hazard.id, kind = kind, room = room }
+      return true
+    end
+  end
+
+  return false
+end
+
+local function paintBiomeRoom(level, room, profile)
+  if not room or not profile then
+    return
+  end
+
+  addDistrict(level, profile.district, room, "biome")
+  room.biome = profile.district
+  room.factionSeed = profile.primaryFaction
+
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      local cell = Level.cellAtCell(level, x, y)
+      if cell and not cell.solid and not cell.objective and not cell.exit and not cell.ladder then
+        local distance = abs(x - room.cx) + abs(y - room.cy)
+        if distance % 3 ~= 0 or love.math.random() < 0.42 then
+          setTerrain(level, x, y, profile.terrain, max(cell.light or 0.5, 0.54), profile.district, profile.label:lower())
+          cell.biome = profile.district
+          cell.tags = cell.tags or {}
+          cell.tags[profile.district] = true
+        end
+      end
+    end
+  end
+
+  if profile.district == "cryo_vault" then
+    for _ = 1, 2 do
+      markBiomeHazard(level, room, "pit")
+    end
+  elseif profile.district == "fungal_service" then
+    addLevelSignal(level, room.cx, room.cy, "spore_bloom", 1.4, "fungal_service")
+  elseif profile.district == "pressure_lab" then
+    markBiomeHazard(level, room, "wire")
+    if love.math.random() < 0.7 then
+      markVent(level, room)
+    end
+  elseif profile.district == "reactor_trench" then
+    for _ = 1, 3 do
+      markBiomeHazard(level, room, "ember")
+    end
+  elseif profile.district == "waste_artery" then
+    for _ = 1, 2 do
+      markBiomeHazard(level, room, "wire")
+    end
+  end
+
+  addLevelSignal(level, room.cx, room.cy, profile.signal, 1.35, profile.district)
+end
+
+local function placeBiomeDistricts(level)
+  local profile = level.biomeProfile
+  if not profile then
+    return
+  end
+
+  local target = min(4, max(2, 1 + (level.branch and level.branch.risk or 1)))
+  local painted = 0
+  local first = chooseRoomForDistrict(level, { "annex", "chamber", "archive" }, 3)
+  if first then
+    paintBiomeRoom(level, first, profile)
+    painted = painted + 1
+  end
+
+  for i = #level.rooms, 1, -1 do
+    if painted >= target then
+      break
+    end
+    local room = level.rooms[i]
+    if not room.route and not room.biome and room ~= level.routeRooms[1] and room ~= level.routeRooms[#level.routeRooms] then
+      paintBiomeRoom(level, room, profile)
+      painted = painted + 1
+    end
+  end
+
+  level.ecologyEvents[#level.ecologyEvents + 1] = {
+    kind = "biome",
+    biome = profile.district,
+    faction = level.branch and level.branch.faction or profile.primaryFaction,
+  }
+end
+
+local function placeVents(level)
+  local target = min(4, max(2, floor(#level.rooms / 6)))
+  local made = 0
+
+  for i = #level.rooms, 1, -1 do
+    if made >= target then
+      return
+    end
+    local room = level.rooms[i]
+    if (room.kind == "machine shaft" or room.kind == "bridgeworks" or room.kind == "lower foundry" or not room.route) and markVent(level, room) then
+      made = made + 1
+    end
+  end
+end
+
+local function placeSalvageRooms(level)
+  local tools = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil" }
+  if level.biomeProfile and level.biomeProfile.salvageTools then
+    tools = level.biomeProfile.salvageTools
+  end
+  local salvageBonus = level.branch and level.branch.kind == "salvage" and 1 or 0
+  local target = min(4, max(1, floor(#level.rooms / 7) + salvageBonus))
+  local made = 0
+
+  for i = #level.rooms, 1, -1 do
+    if made >= target then
+      break
+    end
+
+    local room = level.rooms[i]
+    if not room.route and room ~= level.routeRooms[1] and room ~= level.routeRooms[#level.routeRooms] then
+      room.salvage = true
+      level.salvageRooms[#level.salvageRooms + 1] = room
+      for y = room.y + 1, room.y + room.height - 2 do
+        for x = room.x + 1, room.x + room.width - 2 do
+          local cell = Level.cellAtCell(level, x, y)
+          if cell and not cell.solid then
+            cell.salvage = true
+          end
+        end
+      end
+      markToolCache(level, room, tools[((made * 2) % #tools) + 1], made + 1)
+      if love.math.random() < 0.62 then
+        markToolCache(level, room, tools[((made * 2 + 1) % #tools) + 1], made + 10)
+      end
+      if level.branch and level.branch.kind == "salvage" and (level.branch.rareCache or love.math.random() < 0.58) then
+        markToolCache(level, room, tools[((made * 3 + 2) % #tools) + 1], made + 20)
+      end
+      made = made + 1
+    end
+  end
+end
+
+local function addNest(level, kind, room)
+  if not room then
+    return nil
+  end
+
+  local cell = Level.cellAtCell(level, room.cx, room.cy)
+  if not cell or Level.isBlocked(cell) then
+    return nil
+  end
+
+  addDistrict(level, "nest_zone", room, "nest")
+  room.role = "nest"
+  room.nestKind = kind
+  cell.kind = kind .. " nest"
+  cell.landmark = "nest"
+  cell.light = max(cell.light or 0.5, 0.7)
+  cell.tags = cell.tags or {}
+  cell.tags.nest = true
+  cell.tags[kind .. "_nest"] = true
+
+  local nest = {
+    id = #level.nests + 1,
+    kind = kind,
+    x = room.cx,
+    y = room.cy,
+    room = room,
+    hoard = {},
+    alarm = 0,
+    raidTimer = love.math.random() * 8,
+  }
+
+  level.nests[#level.nests + 1] = nest
+  addLevelSignal(level, room.cx, room.cy, "nest_debris", 1.3, kind)
+  return nest
+end
+
+local function placeNests(level)
+  local specs = {
+    { kind = "skitter", rooms = { "salvage_vault", "archive", "annex" } },
+    { kind = "stalker", rooms = { "collapsed_caves", "archive", "annex" } },
+    { kind = "screecher", rooms = { "machine_maze", "machine shaft", "bridgeworks" } },
+    { kind = "burrower", rooms = { "flooded_basin", "collapsed_caves", "cistern", "quarry" } },
+    { kind = "hunter", rooms = { "foundry_arena", "escape_shaft", "quarry" } },
+  }
+
+  for i, spec in ipairs(specs) do
+    if i <= 2 + (level.deck or 1) then
+      local room
+      for _, districtKind in ipairs(spec.rooms) do
+        for _, candidate in ipairs(level.rooms) do
+          if not candidate.nestKind and (candidate.district == districtKind or candidate.kind == districtKind or candidate.role == districtKind) then
+            room = candidate
+            break
+          end
+        end
+        if room then
+          break
+        end
+      end
+      room = room or chooseRoomForDistrict(level, {}, 1 + i)
+      addNest(level, spec.kind, room)
+    end
+  end
+end
+
+local function placeFactions(level)
+  local profile = level.biomeProfile or Level.biomeProfiles.cryo_vault
+  local names = profile.factions or { profile.primaryFaction or "scavenger", "predator" }
+  level.factions = {}
+
+  for i, name in ipairs(names) do
+    level.factions[#level.factions + 1] = {
+      id = i,
+      name = name,
+      territory = 0,
+      alarm = 0,
+      greed = 0.35 + love.math.random() * 0.55,
+      fear = 0.15 + love.math.random() * 0.45,
+      hostility = {},
+    }
+  end
+
+  for i, faction in ipairs(level.factions) do
+    for j, other in ipairs(level.factions) do
+      if i ~= j then
+        faction.hostility[other.name] = (level.branch and level.branch.kind == "conflict") and 0.92 or 0.55
+      end
+    end
+  end
+
+  for i, nest in ipairs(level.nests or {}) do
+    local faction = level.factions[((i - 1) % max(1, #level.factions)) + 1]
+    nest.faction = faction.name
+    nest.alarm = max(nest.alarm or 0, faction.alarm or 0)
+    if nest.room then
+      nest.room.faction = faction.name
+      faction.territory = faction.territory + 1
+    end
+  end
+
+  for _, room in ipairs(level.rooms or {}) do
+    if room.biome and not room.faction and #level.factions > 0 then
+      local faction = level.factions[love.math.random(#level.factions)]
+      room.faction = faction.name
+      faction.territory = faction.territory + 1
+    end
+
+    if room.faction then
+      for y = room.y, room.y + room.height - 1 do
+        for x = room.x, room.x + room.width - 1 do
+          local cell = Level.cellAtCell(level, x, y)
+          if cell and not cell.solid then
+            cell.faction = room.faction
+          end
+        end
+      end
+    end
+  end
+end
+
+local function addCreatureSpawn(level, kind, room, nest)
+  if not room then
+    return false
+  end
+
+  local cell = Level.cellAtCell(level, room.cx, room.cy)
+  if cell and not Level.isBlocked(cell) then
+    level.creatureSpawns[#level.creatureSpawns + 1] = {
+      kind = kind,
+      x = room.cx,
+      y = room.cy,
+      room = room,
+      nest = nest,
+      faction = (nest and nest.faction) or room.faction,
+    }
+    return true
+  end
+
+  return false
+end
+
+local function placeCreatureSpawns(level)
+  local farthest = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  local farRoom = level.routeRooms[#level.routeRooms]
+  addCreatureSpawn(level, "hunter", farRoom or { cx = farthest.x, cy = farthest.y })
+
+  for _, nest in ipairs(level.nests or {}) do
+    addCreatureSpawn(level, nest.kind, nest.room, nest)
+  end
+
+  for _, room in ipairs(level.rooms) do
+    if not room.route and #level.creatureSpawns < 7 then
+      if room.kind == "archive" or room.kind == "annex" then
+        addCreatureSpawn(level, "stalker", room)
+      elseif room.kind == "cistern" or room.kind == "quarry" then
+        addCreatureSpawn(level, "burrower", room)
+      elseif room.kind == "machine shaft" or room.kind == "bridgeworks" then
+        addCreatureSpawn(level, "screecher", room)
+      else
+        addCreatureSpawn(level, "skitter", room)
+      end
+    end
+  end
+end
+
+local function placeOpeningSignals(level)
+  local kinds = { "scratch", "wet_tracks", "vent_call", "ash_drift", "dark_pulse" }
+  local kind = kinds[((level.deck or 1) - 1) % #kinds + 1]
+  addLevelSignal(level, level.start.x, level.start.y, kind, 1.4, "opening")
+
+  local firstNest = level.nests and level.nests[1]
+  if firstNest then
+    local dx = firstNest.x > level.start.x and 1 or -1
+    local dy = firstNest.y > level.start.y and 1 or -1
+    addLevelSignal(level, U.clamp(level.start.x + dx * 2, 2, level.width - 1), U.clamp(level.start.y + dy * 2, 2, level.height - 1), "nest_debris", 1.1, firstNest.kind)
+  end
+end
+
 local function placeLandmarks(level)
   local placed = 0
 
@@ -2068,6 +2953,7 @@ local function finalizeGeneratedLevel(level, config)
   end
 
   addColumns(level)
+  placeHybridDistricts(level)
   placeObjectives(level, config)
   markExit(level, level.routeRooms[#level.routeRooms])
   placeKeys(level, config)
@@ -2077,8 +2963,15 @@ local function finalizeGeneratedLevel(level, config)
   placeLandmarks(level)
   placeDynamicRooms(level)
   placeHazards(level, config)
+  placeBiomeDistricts(level)
+  placeVents(level)
   placeTerminals(level, config)
   placeRefills(level, config)
+  placeSalvageRooms(level)
+  placeNests(level)
+  placeFactions(level)
+  placeOpeningSignals(level)
+  placeCreatureSpawns(level)
 
   local startCell = Level.cellAtCell(level, level.start.x, level.start.y)
   if startCell then
@@ -2086,11 +2979,12 @@ local function finalizeGeneratedLevel(level, config)
   end
 
   sealUnreachableCells(level)
+  Level.applySystemEffects(level)
   return level
 end
 
-local function generateMegastructure(width, height, deck)
-  local config = deckConfig(deck or 1, width, height)
+local function generateMegastructure(width, height, deck, branch)
+  local config = deckConfig(deck or 1, width, height, branch)
   local level = makeLevel(config.width, config.height, deck or 1, config)
 
   growCriticalPath(level, config)
@@ -2102,12 +2996,12 @@ local function generateMegastructure(width, height, deck)
   return finalizeGeneratedLevel(level, config)
 end
 
-function Level.generate(width, height, deck)
+function Level.generate(width, height, deck, branch)
   local last
   deck = deck or 1
 
   for _ = 1, 14 do
-    local level = generateMegastructure(width, height, deck)
+    local level = generateMegastructure(width, height, deck, branch)
     last = level
     if validateLevel(level) then
       return level

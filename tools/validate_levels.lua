@@ -38,6 +38,12 @@ local metrics = {
   locks = {},
   hazards = {},
   terminals = {},
+  districts = {},
+  districtKinds = {},
+  nests = {},
+  signals = {},
+  factions = {},
+  creatureSpawns = {},
   refills = {},
   stairs = {},
   ladders = {},
@@ -176,6 +182,7 @@ local function checkCollision(seed, level)
   local failures = {}
   local player = Actor.createPlayer(level)
   local enemy = Actor.createEnemy(level)
+  local creatures = Actor.createCreatures(level)
 
   if not Actor.canOccupy(level, player) then
     failures[#failures + 1] = "player-spawn"
@@ -183,6 +190,12 @@ local function checkCollision(seed, level)
 
   if not Actor.canOccupy(level, enemy) then
     failures[#failures + 1] = "enemy-spawn"
+  end
+
+  for _, creature in ipairs(creatures) do
+    if not Actor.canOccupy(level, creature) then
+      failures[#failures + 1] = "creature-spawn-" .. creature.kind .. "-" .. creature.id
+    end
   end
 
   if #failures > 0 then
@@ -200,6 +213,12 @@ local function appendCoreMetrics(level)
   metrics.locks[#metrics.locks + 1] = #(level.locks or {})
   metrics.hazards[#metrics.hazards + 1] = #(level.hazards or {})
   metrics.terminals[#metrics.terminals + 1] = #(level.terminals or {})
+  metrics.districts[#metrics.districts + 1] = validation.districts or 0
+  metrics.districtKinds[#metrics.districtKinds + 1] = validation.districtKinds or 0
+  metrics.nests[#metrics.nests + 1] = validation.nests or 0
+  metrics.signals[#metrics.signals + 1] = validation.signals or 0
+  metrics.factions[#metrics.factions + 1] = validation.factions or 0
+  metrics.creatureSpawns[#metrics.creatureSpawns + 1] = validation.creatureSpawns or 0
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
   metrics.ladders[#metrics.ladders + 1] = level.ladderCount
@@ -262,12 +281,26 @@ local function collectMetrics(level)
   appendRouteMetrics(level)
 end
 
+local function validationBranch(seed, deck)
+  local order = Level.biomeOrder or {}
+  local biome = order[((seed + deck - 2) % #order) + 1]
+  local profile = Level.biomeProfiles[biome]
+  return {
+    kind = (seed + deck) % 3 == 0 and "conflict" or ((seed + deck) % 2 == 0 and "salvage" or "safe"),
+    biome = biome,
+    risk = ((seed + deck) % 3) + 1,
+    salvage = ((seed + deck + 1) % 3) + 1,
+    faction = profile and profile.primaryFaction or "scavenger",
+    incident = profile and profile.incidents[((seed + deck - 1) % #profile.incidents) + 1] or nil,
+  }
+end
+
 for i = 0, count - 1 do
   local seed = startSeed + i
   for deck = 1, Level.maxDecks do
     love.math.setRandomSeed(seed + deck * 1000003)
 
-    local level = Level.generate(nil, nil, deck)
+    local level = Level.generate(nil, nil, deck, validationBranch(seed, deck))
     local labelSeed = seed * 10 + deck
 
     if enabled.graph then
@@ -296,6 +329,12 @@ if enabled.metrics then
   io.write(Support.metricLine("locks", metrics.locks) .. "\n")
   io.write(Support.metricLine("hazards", metrics.hazards) .. "\n")
   io.write(Support.metricLine("terminals", metrics.terminals) .. "\n")
+  io.write(Support.metricLine("districts", metrics.districts) .. "\n")
+  io.write(Support.metricLine("district-kinds", metrics.districtKinds) .. "\n")
+  io.write(Support.metricLine("nests", metrics.nests) .. "\n")
+  io.write(Support.metricLine("signals", metrics.signals) .. "\n")
+  io.write(Support.metricLine("factions", metrics.factions) .. "\n")
+  io.write(Support.metricLine("creature-spawns", metrics.creatureSpawns) .. "\n")
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")
   io.write(Support.metricLine("ladders", metrics.ladders) .. "\n")
