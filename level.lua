@@ -1,3 +1,4 @@
+local Biomes = require("content.biomes")
 local U = require("utils")
 
 local floor = math.floor
@@ -21,70 +22,10 @@ Level.deckConfigs = {
   { width = 73, height = 73, rooms = 22, objectives = 5, refills = 8, gates = 3, locks = 2, hazards = 16 },
 }
 
-Level.biomeOrder = { "cryo_vault", "fungal_service", "pressure_lab", "reactor_trench", "waste_artery" }
-
-Level.biomeProfiles = {
-  cryo_vault = {
-    label = "CRYO VAULT",
-    terrain = "ice",
-    district = "cryo_vault",
-    signal = "frost_trace",
-    hazard = "pit",
-    primaryFaction = "predator",
-    factions = { "predator", "scavenger" },
-    incidents = { "blackout", "lockdown", "nest_wake" },
-    salvageTools = { "flare", "breaker", "probe", "oil" },
-    risk = "fog and brittle seals",
-  },
-  fungal_service = {
-    label = "FUNGAL SERVICE",
-    terrain = "fungus",
-    district = "fungal_service",
-    signal = "spore_bloom",
-    hazard = "wire",
-    primaryFaction = "scavenger",
-    factions = { "scavenger", "burrow_colony" },
-    incidents = { "nest_wake", "vent_bloom", "flood_surge" },
-    salvageTools = { "pheromone", "scent", "probe", "bait" },
-    risk = "false trails and spore scent",
-  },
-  pressure_lab = {
-    label = "PRESSURE LAB",
-    terrain = "pressure",
-    district = "pressure_lab",
-    signal = "pressure_tick",
-    hazard = "wire",
-    primaryFaction = "machine_nest",
-    factions = { "machine_nest", "predator" },
-    incidents = { "lockdown", "blackout", "nest_wake" },
-    salvageTools = { "seal", "breaker", "flash", "fuse" },
-    risk = "doors, alarms, and glass sight lines",
-  },
-  reactor_trench = {
-    label = "REACTOR TRENCH",
-    terrain = "reactor",
-    district = "reactor_trench",
-    signal = "radiant_heat",
-    hazard = "ember",
-    primaryFaction = "screeching_flock",
-    factions = { "screeching_flock", "predator" },
-    incidents = { "heat_spike", "vent_bloom", "blackout" },
-    salvageTools = { "fuse", "sonic", "breaker", "oil" },
-    risk = "heat, overcharge, and sound panic",
-  },
-  waste_artery = {
-    label = "WASTE ARTERY",
-    terrain = "sludge",
-    district = "waste_artery",
-    signal = "tainted_sludge",
-    hazard = "wire",
-    primaryFaction = "burrow_colony",
-    factions = { "burrow_colony", "scavenger" },
-    incidents = { "flood_surge", "nest_wake", "lockdown" },
-    salvageTools = { "bait", "snare", "pheromone", "oil" },
-    risk = "sludge currents and contaminated salvage",
-  },
-}
+Level.biomeOrder = Biomes.order
+Level.biomeProfiles = Biomes.profiles
+Level.roomModifiers = Biomes.roomModifiers
+Level.roomModifierOrder = Biomes.modifierOrder
 
 local zoneStyles = {
   ["atrium"] = { terrain = "flagstone", light = 0.78 },
@@ -119,6 +60,11 @@ Level.terrainSpeed = {
   pressure = 0.93,
   reactor = 0.86,
   sludge = 0.64,
+  storm = 0.68,
+  ash = 0.74,
+  signal = 0.94,
+  bone = 0.88,
+  organ = 0.76,
   ladder = 0.9,
 }
 
@@ -139,6 +85,11 @@ Level.terrainLabels = {
   pressure = "PRESSURE",
   reactor = "REACTOR",
   sludge = "SLUDGE",
+  storm = "STORM",
+  ash = "ASH",
+  signal = "SIGNAL",
+  bone = "BONE",
+  organ = "ORGAN",
   ladder = "LADDER",
 }
 
@@ -321,6 +272,8 @@ local function makeLevel(width, height, deck, config)
     signals = {},
     factions = {},
     ecologyEvents = {},
+    cycleShelters = {},
+    roomModifiers = {},
     branch = config and config.branch or normalizeBranch(nil, deck),
     biomeProfile = config and config.biomeProfile or Level.biomeProfiles.cryo_vault,
     liftRequired = (deck or 1) > 1,
