@@ -1,4 +1,5 @@
 local Biomes = require("content.biomes")
+local CreatureContent = require("content.creatures")
 local U = require("utils")
 
 local floor = math.floor
@@ -1117,6 +1118,7 @@ local function markToolCache(level, room, tool, id)
         id = id,
         salvage = id >= 20 and 2 or 1,
         contaminated = level.biomeProfile and level.biomeProfile.district == "waste_artery" or false,
+        mimic = level.biomeProfile and level.biomeProfile.district == "signal_catacombs" and id % 2 == 0 or false,
       }
       cell.toolUsed = false
       cell.kind = tool .. " cache"
@@ -1844,6 +1846,8 @@ function Level.validate(level)
   requireValid(#level.signals >= #level.nests + 1, "signals")
   requireValid(level.biomeProfile ~= nil, "biome-profile")
   requireValid(#(level.factions or {}) >= 2, "factions")
+  requireValid(#(level.cycleShelters or {}) >= 1, "cycle-shelters")
+  requireValid(#(level.roomModifiers or {}) >= 2, "room-modifiers")
   requireValid(level.stairCount == 0, "no-stairs")
   requireValid(level.ladderCount >= 2, "ladders")
   requireValid(level.distinctFloorHeights == 1, "flat-floor")
@@ -1883,6 +1887,8 @@ function Level.validate(level)
     nests = #level.nests,
     signals = #level.signals,
     factions = #(level.factions or {}),
+    cycleShelters = #(level.cycleShelters or {}),
+    roomModifiers = #(level.roomModifiers or {}),
     biome = level.biomeProfile and level.biomeProfile.district or "none",
     stairs = level.stairCount,
     ladders = level.ladderCount,
@@ -1913,17 +1919,7 @@ local function deckConfig(deck, width, height, branch)
     { "annex", "chamber", "archive" },
   }
   local theme = themes[love.math.random(#themes)]
-  if branch.biome == "cryo_vault" then
-    theme = { "observatory", "archive", "chamber" }
-  elseif branch.biome == "fungal_service" then
-    theme = { "overgrown court", "annex", "cistern" }
-  elseif branch.biome == "pressure_lab" then
-    theme = { "observatory", "machine shaft", "archive" }
-  elseif branch.biome == "reactor_trench" then
-    theme = { "lower foundry", "bridgeworks", "machine shaft" }
-  elseif branch.biome == "waste_artery" then
-    theme = { "cistern", "quarry", "annex" }
-  end
+  theme = Biomes.themes[branch.biome] or theme
 
   return {
     width = width or base.width,
@@ -2510,6 +2506,26 @@ local function paintBiomeRoom(level, room, profile)
     for _ = 1, 2 do
       markBiomeHazard(level, room, "wire")
     end
+  elseif profile.district == "storm_drain" then
+    for _ = 1, 3 do
+      markBiomeHazard(level, room, "wire")
+    end
+    markCycleShelter(level, room, "storm")
+  elseif profile.district == "ash_foundry" then
+    for _ = 1, 3 do
+      markBiomeHazard(level, room, "ember")
+    end
+    addLevelSignal(level, room.cx, room.cy, "smoke_veil", 1.25, "ash_foundry")
+  elseif profile.district == "signal_catacombs" then
+    markBiomeHazard(level, room, "wire")
+    addLevelSignal(level, room.cx, room.cy, "false_ping", 1.6, "signal_catacombs")
+  elseif profile.district == "bone_market" then
+    markBiomeHazard(level, room, "pit")
+    addLevelSignal(level, room.cx, room.cy, "trade_mark", 1.4, "bone_market")
+  elseif profile.district == "organ_machine" then
+    markBiomeHazard(level, room, "wire")
+    markCycleShelter(level, room, "organ")
+    addLevelSignal(level, room.cx, room.cy, "pulse_mark", 1.35, "organ_machine")
   end
 
   addLevelSignal(level, room.cx, room.cy, profile.signal, 1.35, profile.district)
@@ -2545,6 +2561,109 @@ local function placeBiomeDistricts(level)
     biome = profile.district,
     faction = level.branch and level.branch.faction or profile.primaryFaction,
   }
+end
+
+local function markCycleShelter(level, room, reason)
+  if not room then
+    return false
+  end
+
+  local cell = Level.cellAtCell(level, room.cx, room.cy)
+  if not cell or Level.isBlocked(cell) then
+    return false
+  end
+
+  room.shelter = true
+  room.shelterReason = reason or "cycle"
+  cell.shelter = true
+  cell.kind = "shelter"
+  cell.landmark = "shelter"
+  cell.light = max(cell.light or 0.5, 0.86)
+  cell.tags = cell.tags or {}
+  cell.tags.shelter = true
+  if cell.terrain == "water" or cell.terrain == "storm" then
+    cell.terrain = "catwalk"
+  elseif cell.terrain == "slag" or cell.terrain == "reactor" then
+    cell.terrain = "grate"
+  end
+
+  level.cycleShelters[#level.cycleShelters + 1] = { x = room.cx, y = room.cy, room = room, reason = reason or "cycle", cell = cell }
+  addLevelSignal(level, room.cx, room.cy, "shelter_mark", 1.1, reason or "cycle")
+  return true
+end
+
+local function paintRoomModifier(level, room, modifierName, modifier)
+  if not room or not modifier then
+    return
+  end
+
+  room.modifier = modifierName
+  level.roomModifiers[#level.roomModifiers + 1] = { room = room, kind = modifierName }
+
+  for y = room.y + 1, room.y + room.height - 2 do
+    for x = room.x + 1, room.x + room.width - 2 do
+      local cell = Level.cellAtCell(level, x, y)
+      if cell and not cell.solid and not cell.objective and not cell.exit and not cell.ladder and love.math.random() < 0.34 then
+        setTerrain(level, x, y, modifier.terrain or cell.terrain, modifier.light and max(cell.light or 0.5, modifier.light) or cell.light, room.kind, room.zone)
+        cell.modifier = modifierName
+        cell.tags = cell.tags or {}
+        cell.tags[modifierName] = true
+      end
+    end
+  end
+
+  if modifier.signal then
+    addLevelSignal(level, room.cx, room.cy, modifier.signal, 1.05 + (level.branch and level.branch.risk or 1) * 0.08, modifierName)
+  end
+  if modifier.hazard and love.math.random() < 0.84 then
+    markBiomeHazard(level, room, modifier.hazard)
+  end
+  if modifier.shelter then
+    markCycleShelter(level, room, modifierName)
+  end
+end
+
+local function placeRoomModifiers(level)
+  local order = Level.roomModifierOrder or {}
+  local target = min(5, max(2, 1 + (level.branch and level.branch.risk or 1)))
+  local made = 0
+
+  for i = #level.rooms, 1, -1 do
+    if made >= target then
+      break
+    end
+    local room = level.rooms[i]
+    if room and not room.route and not room.modifier and room ~= level.routeRooms[1] and room ~= level.routeRooms[#level.routeRooms] then
+      local index = ((level.deck or 1) + i + made) % #order + 1
+      local name = order[index]
+      paintRoomModifier(level, room, name, Level.roomModifiers and Level.roomModifiers[name])
+      made = made + 1
+    end
+  end
+end
+
+local function placeCycleShelters(level)
+  local target = max(1, min(3, 1 + floor((level.branch and level.branch.risk or 1) / 2)))
+  local made = #level.cycleShelters
+
+  for i = 2, max(2, #level.routeRooms - 1) do
+    if made >= target then
+      return
+    end
+    local room = level.routeRooms[i]
+    if room and not room.shelter and i % 3 == 0 and markCycleShelter(level, room, "route") then
+      made = made + 1
+    end
+  end
+
+  for _, room in ipairs(level.rooms or {}) do
+    if made >= target then
+      return
+    end
+    if not room.shelter and not room.route and markCycleShelter(level, room, "side") then
+      made = made + 1
+    end
+  end
 end
 
 local function placeVents(level)
@@ -2763,6 +2882,16 @@ local function placeCreatureSpawns(level)
       end
     end
   end
+
+  local biome = level.biomeProfile and level.biomeProfile.district
+  local biomeSpawns = CreatureContent.biomeSpawns[biome] or {}
+  for i, kind in ipairs(biomeSpawns) do
+    if #level.creatureSpawns >= 9 then
+      break
+    end
+    local room = level.salvageRooms[i] or level.routeRooms[max(2, #level.routeRooms - i)] or level.rooms[((i * 3) % #level.rooms) + 1]
+    addCreatureSpawn(level, kind, room)
+  end
 end
 
 local function placeOpeningSignals(level)
@@ -2917,6 +3046,8 @@ local function finalizeGeneratedLevel(level, config)
   placeDynamicRooms(level)
   placeHazards(level, config)
   placeBiomeDistricts(level)
+  placeRoomModifiers(level)
+  placeCycleShelters(level)
   placeVents(level)
   placeTerminals(level, config)
   placeRefills(level, config)

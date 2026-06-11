@@ -1,3 +1,4 @@
+local CreatureContent = require("content.creatures")
 local Level = require("level")
 local U = require("utils")
 
@@ -19,8 +20,13 @@ local terrainNoise = {
   grate = 1.8,
   catwalk = 1.65,
   water = 1.6,
+  storm = 1.7,
   rubble = 1.45,
   slag = 1.35,
+  ash = 1.25,
+  bone = 1.15,
+  organ = 1.2,
+  signal = 0.9,
   moss = 0.75,
   dust = 0.85,
 }
