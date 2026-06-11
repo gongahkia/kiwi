@@ -1,5 +1,6 @@
 local Actor = require("actor")
 local Audio = require("audio")
+local Cycles = require("content.cycles")
 local Level = require("level")
 local Renderer = require("renderer")
 local UI = require("ui")
@@ -96,7 +97,12 @@ local Game = {
     breaker = 0,
     probe = 1,
     oil = 1,
-    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3 },
+    valve = 0,
+    ground = 0,
+    smoke = 0,
+    beacon = 0,
+    coolant = 0,
+    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3, valve = 2, ground = 2, smoke = 2, beacon = 2, coolant = 2 },
   },
   message = "",
   messageTimer = 0,
@@ -351,6 +357,11 @@ local creatureCodex = {
   skitter = "Skitters are scavengers that panic loudly and steal useful objects.",
   screecher = "Screechers are sound predators that can drag other threats toward noise.",
   burrower = "Burrowers guard rubble and flooded nests, but powered pumps weaken them.",
+  warden = "Wardens guard powered infrastructure and react aggressively to terminal use.",
+  leecher = "Leechers follow flooded conductors and are repelled by grounding spikes.",
+  mimic = "Mimics impersonate useful signals or caches until proximity or survey pulses wake them.",
+  choir = "Choirs coordinate through vents and amplify noise pressure during blackouts or blooms.",
+  scavenger = "Scavenger rivals steal exposed caches and carried salvage, then flee toward cover.",
 }
 
 local districtCodex = {
@@ -365,6 +376,11 @@ local districtCodex = {
   pressure_lab = "Pressure labs link doors, alarms, glass sight lines, and seal timing.",
   reactor_trench = "Reactor trenches reward overcharge timing but punish heat and sound mistakes.",
   waste_artery = "Waste arteries slow movement, strengthen burrowers in sludge, and contaminate salvage.",
+  storm_drain = "Storm drains push flood cycles through live conduit routes; valves and grounding spikes create safe windows.",
+  ash_foundry = "Ash foundries hide movement in smoke but turn heat cycles into shelter races.",
+  signal_catacombs = "Signal catacombs spoof map pings and hide mimics among salvage signs.",
+  bone_market = "Bone markets are scavenger trade routes where caches attract rivals and predators.",
+  organ_machine = "Organ machines pulse living doors and biological alarms around powered systems.",
 }
 
 local startDeck
@@ -400,6 +416,11 @@ local incidentDefs = {
     signal = "alarm_mark",
     codex = "Nest wake events send guards and raiders toward any fresh territorial disturbance.",
   },
+  faction_raid = {
+    label = "FACTION RAID",
+    signal = "trade_mark",
+    codex = "Faction raids pull scavengers and predators toward exposed salvage and alarm marks.",
+  },
 }
 
 local signalCodex = {
@@ -419,13 +440,21 @@ local signalCodex = {
   pressure_tick = "Pressure ticks warn that doors, glass sight lines, and alarms are coupled.",
   radiant_heat = "Radiant heat marks reactor pressure that vents, pumps, or careful overcharge can manage.",
   tainted_sludge = "Tainted sludge marks waste routes where salvage may decay before extraction.",
+  surge_line = "Surge lines show where water pressure will return during the next flood phase.",
+  smoke_veil = "Smoke veils break sight but carry noise and can hide stalkers.",
+  false_ping = "False pings can mark salvage, mimic bait, or real terminals until surveyed.",
+  trade_mark = "Trade marks warn that scavenger rivals watch nearby caches.",
+  pulse_mark = "Pulse marks show living machinery that reacts to power and coolant.",
+  shelter_mark = "Shelter marks identify temporary pockets that reduce cycle pressure.",
 }
 
 local incidentDecks = {
   { "nest_wake", "blackout" },
   { "flood_surge", "vent_bloom", "lockdown" },
-  { "heat_spike", "blackout", "nest_wake", "vent_bloom", "lockdown" },
+  { "heat_spike", "blackout", "nest_wake", "vent_bloom", "lockdown", "faction_raid" },
 }
+
+local appendIncidentLog
 
 local function addSignal(kind, x, y, strength, ttl, source, discovered)
   if not Game.level then
@@ -462,6 +491,50 @@ local function chooseIncident(deck)
   return list[love.math.random(#list)]
 end
 
+local function signalCycleShelter(phase)
+  if not phase or not phase.shelter or not Game.level.cycleShelters or #Game.level.cycleShelters == 0 then
+    return
+  end
+  local shelter = Game.level.cycleShelters[love.math.random(#Game.level.cycleShelters)]
+  addSignal("shelter_mark", shelter.x + 0.5, shelter.y + 0.5, 1.5, 18, "cycle", true)
+end
+
+local function setCyclePhase(index, opening)
+  local phase = Cycles.phaseAt(index)
+  local biome = Game.level.biomeProfile and Game.level.biomeProfile.district
+  local incident = Cycles.incidentFor(biome, phase.id, chooseIncident(Game.deck))
+  local duration = Cycles.durationFor(phase)
+  local pulseEvery = phase.pulseEvery or 0
+
+  Game.ecology.cycle = {
+    index = index,
+    phase = phase.id,
+    label = phase.label,
+    duration = duration,
+    timer = duration,
+    pulseEvery = pulseEvery,
+    pulse = pulseEvery > 0 and min(pulseEvery, 2.5 + love.math.random() * 1.5) or 999,
+    pressure = phase.pressure or 0,
+  }
+  Game.ecology.active = incident
+  Game.ecology.timer = duration
+  Game.ecology.pulse = Game.ecology.cycle.pulse
+
+  if phase.signal then
+    addSignal(phase.signal, Game.player.x, Game.player.y, 1.2, 16, "cycle", true)
+  end
+  signalCycleShelter(phase)
+
+  local def = incidentDefs[incident]
+  if def then
+    addSignal(def.signal, Game.level.start.x + 0.5, Game.level.start.y + 0.5, 1.1, opening and nil or 20, "cycle", opening)
+  end
+  if appendIncidentLog then
+    appendIncidentLog("CYCLE: " .. phase.label .. " / " .. string.upper(incident))
+  end
+  setMessage((opening and "CYCLE " or "CYCLE SHIFT: ") .. phase.label, 1.6)
+end
+
 local function initEcology()
   local primary = chooseIncident(Game.deck)
   local secondary = chooseIncident(min(Game.deck + 1, #incidentDecks))
@@ -474,23 +547,23 @@ local function initEcology()
     secondary = secondary,
     active = primary,
     intensity = 0.32 + (Game.deck or 1) * 0.18,
-    timer = 8 + love.math.random() * 7,
-    pulse = 2 + love.math.random() * 2,
+    timer = 0,
+    pulse = 0,
     blackout = 0,
     flood = 0,
     heat = 0,
     lockdown = 0,
     ventBloom = 0,
     nestWake = 0,
+    raid = 0,
+    cycle = nil,
     observed = {},
   }
 
-  local def = incidentDefs[primary]
-  addSignal(def.signal, Game.level.start.x + 0.5, Game.level.start.y + 0.5, 1.1, nil, "opening", true)
-  setMessage("INCIDENT " .. def.label, 1.8)
+  setCyclePhase(1, true)
 end
 
-local function appendIncidentLog(text)
+function appendIncidentLog(text)
   for _, terminal in ipairs(Game.level.terminals or {}) do
     local logs = terminal.terminal and terminal.terminal.logs
     if logs then
@@ -558,22 +631,24 @@ local function pulseIncident(kind)
   unlockAchievement("incident_contact", "Witness a live facility incident.")
 
   if kind == "blackout" then
-    ecology.blackout = 5.5
+    ecology.blackout = 5.5 + ((ecology.cycle and ecology.cycle.pressure) or 0) * 2
     addSignal("dark_pulse", Game.player.x, Game.player.y, 1.2, 18, "facility", true)
     appendIncidentLog("BLACKOUT: LOCAL LIGHT UNRELIABLE")
   elseif kind == "flood_surge" then
-    ecology.flood = 7
+    ecology.flood = 7 + ((ecology.cycle and ecology.cycle.pressure) or 0) * 3
     addSignal("wet_tracks", Game.player.x, Game.player.y, 1.1, 22, "facility", true)
+    addSignal("surge_line", Game.player.x, Game.player.y, 1.2, 18, "facility", true)
     appendIncidentLog("FLOOD SURGE: PUMPS RECOMMENDED")
   elseif kind == "vent_bloom" then
-    ecology.ventBloom = 8
+    ecology.ventBloom = 8 + ((ecology.cycle and ecology.cycle.pressure) or 0) * 2
     local vent = Game.level.terminals[1] or Game.level.exit or { x = Game.player.x, y = Game.player.y }
     Actor.emitNoise(Game, vent.x + 0.5, vent.y + 0.5, 3.5, 1.4, "vent")
     addSignal("vent_call", vent.x + 0.5, vent.y + 0.5, 1.2, 20, "facility")
     appendIncidentLog("VENT BLOOM: SOUND CARRIERS ACTIVE")
   elseif kind == "heat_spike" then
-    ecology.heat = 8
+    ecology.heat = 8 + ((ecology.cycle and ecology.cycle.pressure) or 0) * 3
     addSignal("ash_drift", Game.player.x, Game.player.y, 1.1, 22, "facility", true)
+    addSignal("smoke_veil", Game.player.x, Game.player.y, 1.1, 18, "facility", true)
     appendIncidentLog("HEAT SPIKE: VENTS OR PUMPS ADVISED")
   elseif kind == "lockdown" then
     local gate = randomGate()
@@ -594,6 +669,17 @@ local function pulseIncident(kind)
     end
     ecology.nestWake = 9
     appendIncidentLog("NEST WAKE: GUARDS MOVING")
+  elseif kind == "faction_raid" then
+    ecology.raid = 10
+    local cache = Game.level.toolCaches and Game.level.toolCaches[love.math.random(max(1, #Game.level.toolCaches))]
+    local x = cache and cache.x + 0.5 or Game.player.x
+    local y = cache and cache.y + 0.5 or Game.player.y
+    addSignal("trade_mark", x, y, 1.5, 24, "raid", true)
+    Actor.emitNoise(Game, x, y, 3.0, 1.4, "raid")
+    for _, faction in ipairs(Game.level.factions or {}) do
+      faction.alarm = max(faction.alarm or 0, 6)
+    end
+    appendIncidentLog("FACTION RAID: SALVAGE ROUTES EXPOSED")
   end
 end
 
@@ -647,8 +733,16 @@ local function updateEcology(dt)
   ecology.lockdown = max(0, (ecology.lockdown or 0) - dt)
   ecology.ventBloom = max(0, (ecology.ventBloom or 0) - dt)
   ecology.nestWake = max(0, (ecology.nestWake or 0) - dt)
-  ecology.timer = max(0, (ecology.timer or 0) - dt)
-  ecology.pulse = max(0, (ecology.pulse or 0) - dt)
+  ecology.raid = max(0, (ecology.raid or 0) - dt)
+  if ecology.cycle then
+    ecology.cycle.timer = max(0, (ecology.cycle.timer or 0) - dt)
+    ecology.cycle.pulse = max(0, (ecology.cycle.pulse or 0) - dt)
+    ecology.timer = ecology.cycle.timer
+    ecology.pulse = ecology.cycle.pulse
+  else
+    ecology.timer = max(0, (ecology.timer or 0) - dt)
+    ecology.pulse = max(0, (ecology.pulse or 0) - dt)
+  end
   for _, faction in ipairs(Game.level.factions or {}) do
     faction.alarm = max(0, (faction.alarm or 0) - dt * 0.45)
   end
@@ -666,12 +760,18 @@ local function updateEcology(dt)
     end
   end
 
-  if ecology.pulse <= 0 then
+  if ecology.cycle and ecology.cycle.pulseEvery > 0 and ecology.cycle.pulse <= 0 then
+    pulseIncident(ecology.active or ecology.primary)
+    ecology.cycle.pulse = ecology.cycle.pulseEvery + love.math.random() * 2
+    ecology.pulse = ecology.cycle.pulse
+  elseif not ecology.cycle and ecology.pulse <= 0 then
     pulseIncident(ecology.active or ecology.primary)
     ecology.pulse = 13 + love.math.random() * 8
   end
 
-  if ecology.timer <= 0 then
+  if ecology.cycle and ecology.cycle.timer <= 0 then
+    setCyclePhase((ecology.cycle.index or 1) + 1, false)
+  elseif not ecology.cycle and ecology.timer <= 0 then
     ecology.active = ecology.active == ecology.primary and ecology.secondary or ecology.primary
     ecology.timer = 24 + love.math.random() * 16
     local def = incidentDefs[ecology.active]
@@ -692,6 +792,12 @@ local function recordDeckDiscoveries()
 
   for _, faction in ipairs(Game.level.factions or {}) do
     recordCodexDiscovery("faction", faction.name, "This faction controls territory, alarms nests, and reacts to theft or route manipulation.")
+  end
+
+  for _, creature in ipairs(Game.creatures or {}) do
+    if creatureCodex[creature.kind] then
+      recordCodexDiscovery("creature", creature.kind, creatureCodex[creature.kind])
+    end
   end
 end
 
@@ -834,7 +940,12 @@ local function startGame(seed)
     breaker = 0,
     probe = 1,
     oil = 1,
-    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3 },
+    valve = 0,
+    ground = 0,
+    smoke = 0,
+    beacon = 0,
+    coolant = 0,
+    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3, valve = 2, ground = 2, smoke = 2, beacon = 2, coolant = 2 },
   }
   if Game.unlocks.unlocked.start_probe then
     Game.inventory.probe = min(Game.inventory.max.probe, Game.inventory.probe + 1)
@@ -906,6 +1017,11 @@ local function updateEffects(dt)
       if effect.restore then
         Level.setSystemPowered(Game.level, effect.system, true)
       end
+    elseif effect.kind == "hazard_suppress" and effect.hazard and effect.ttl <= 0 then
+      if effect.hazard.cell and effect.hazard.cell.hazard then
+        effect.hazard.cell.hazard.suppressed = false
+      end
+      Level.applySystemEffects(Game.level)
     end
 
     if effect.ttl <= 0 then
@@ -952,6 +1068,20 @@ local function updateProps(dt)
       elseif prop.kind == "probe" then
         addSignal("survey_ping", prop.x, prop.y, 1.1, 8, "player", true)
         prop.pulse = 3.4
+      elseif prop.kind == "smoke" then
+        addSignal("smoke_veil", prop.x, prop.y, 1.2, 7, "player", true)
+        Actor.emitNoise(Game, prop.x, prop.y, 1.4, 1.0, "smoke")
+        prop.pulse = 3.0
+      elseif prop.kind == "beacon" then
+        addSignal("trade_mark", prop.x, prop.y, 1.4, 9, "player", true)
+        Actor.emitNoise(Game, prop.x, prop.y, 3.8, 1.2, "beacon")
+        prop.pulse = 1.8
+      elseif prop.kind == "ground" then
+        addSignal("surge_line", prop.x, prop.y, 0.8, 6, "player", true)
+        prop.pulse = 4.0
+      elseif prop.kind == "coolant" then
+        addSignal("smoke_veil", prop.x, prop.y, 0.9, 6, "coolant", true)
+        prop.pulse = 3.6
       end
     end
 
@@ -959,6 +1089,11 @@ local function updateProps(dt)
       table.remove(Game.props, i)
     end
   end
+end
+
+local function playerInShelter()
+  local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
+  return cell and cell.shelter
 end
 
 local function updateTorch(dt)
@@ -979,6 +1114,10 @@ local function updateTorch(dt)
   if Game.ecology and Game.ecology.blackout > 0 then
     drain = drain + 0.008
   end
+  if Game.ecology and Game.ecology.cycle then
+    local pressure = Game.ecology.cycle.pressure or 0
+    drain = drain + (playerInShelter() and pressure * 0.002 or pressure * 0.008)
+  end
 
   local biome = Game.level.biomeProfile and Game.level.biomeProfile.district
   if biome == "cryo_vault" and not (Game.level.systems and Game.level.systems.vents.powered) then
@@ -987,6 +1126,14 @@ local function updateTorch(dt)
     drain = drain + 0.012
   elseif biome == "fungal_service" and Game.player.sprinting then
     drain = drain + 0.003
+  elseif biome == "storm_drain" and not (Game.level.systems and Game.level.systems.pumps.powered) then
+    drain = drain + 0.006
+  elseif biome == "ash_foundry" and not (Game.level.systems and Game.level.systems.vents.powered) then
+    drain = drain + 0.01
+  elseif biome == "signal_catacombs" and not (Game.survey and Game.survey.ttl > 0) then
+    drain = drain + 0.003
+  elseif biome == "organ_machine" and Game.level.systems and Game.level.systems.doors.powered then
+    drain = drain + 0.004
   end
 
   Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
@@ -1010,6 +1157,21 @@ local function updateHazards(dt)
     elseif cell.hazard.kind == "ember" and Game.ecology.heat > 0 then
       drain = drain + 0.032
     end
+    if Game.ecology.cycle then
+      drain = drain + (Game.ecology.cycle.pressure or 0) * 0.012
+    end
+  end
+  for _, effect in ipairs(Game.effects or {}) do
+    local dx = (effect.x or 0) - Game.player.x
+    local dy = (effect.y or 0) - Game.player.y
+    if effect.kind == "ground" and cell.hazard.kind == "wire" and dx * dx + dy * dy < 16 then
+      drain = drain - 0.04
+    elseif effect.kind == "coolant" and cell.hazard.kind == "ember" and dx * dx + dy * dy < 16 then
+      drain = drain - 0.05
+    end
+  end
+  if playerInShelter() then
+    drain = drain * 0.65
   end
   local biome = Game.level.biomeProfile and Game.level.biomeProfile.district
   if biome == "reactor_trench" and cell.hazard.kind == "ember" then
@@ -1018,6 +1180,12 @@ local function updateHazards(dt)
     drain = drain + (Game.level.systems and Game.level.systems.pumps.powered and -0.016 or 0.024)
   elseif biome == "cryo_vault" and cell.hazard.kind == "pit" then
     drain = drain + 0.016
+  elseif biome == "storm_drain" and cell.hazard.kind == "wire" then
+    drain = drain + (Game.level.systems and Game.level.systems.pumps.powered and -0.012 or 0.032)
+  elseif biome == "ash_foundry" and cell.hazard.kind == "ember" then
+    drain = drain + (Game.level.systems and Game.level.systems.vents.powered and -0.014 or 0.03)
+  elseif biome == "organ_machine" and cell.hazard.kind == "wire" then
+    drain = drain + (Game.level.systems and Game.level.systems.doors.powered and 0.018 or 0)
   end
   drain = max(0.01, drain)
   Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
@@ -1113,7 +1281,7 @@ local systemAliases = {
   LIFT = "lift",
 }
 
-local toolOrder = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil" }
+local toolOrder = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil", "valve", "ground", "smoke", "beacon", "coolant" }
 
 local function addInventory(kind, amount)
   local maxCount = Game.inventory.max[kind] or 0
@@ -1207,6 +1375,20 @@ local function executeTerminalCommand()
   end
 end
 
+local function spawnCreature(kind, x, y, faction)
+  local creature = Actor.createCreature(Game.level, kind, {
+    x = floor(x or Game.player.x),
+    y = floor(y or Game.player.y),
+    faction = faction,
+  }, #(Game.creatures or {}) + 1)
+  creature.awake = true
+  creature.dormant = false
+  creature.grace = 0
+  Game.creatures[#Game.creatures + 1] = creature
+  Game.enemy = Actor.nearestThreat(Game) or creature
+  return creature
+end
+
 local function checkInteractions()
   local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
 
@@ -1248,6 +1430,13 @@ local function checkInteractions()
   if cell.tool and not cell.toolUsed then
     if Game.level.salvageLocked then
       setMessage("SALVAGE SEALED", 1.2)
+    elseif cell.tool.mimic then
+      cell.toolUsed = true
+      cell.salvage = false
+      spawnCreature("mimic", Game.player.x + math.cos(Game.player.angle) * 1.2, Game.player.y + math.sin(Game.player.angle) * 1.2, cell.faction)
+      Actor.emitNoise(Game, Game.player.x, Game.player.y, 3.0, 1.2, "mimic")
+      recordCodexDiscovery("creature", "mimic", "Some catacomb caches are false pings that wake into mimic predators when touched.")
+      setMessage("FALSE CACHE", 1.4)
     else
       cell.toolUsed = true
       addInventory(cell.tool.kind, 1)
@@ -1327,6 +1516,25 @@ local function breakerSystem()
   return nil
 end
 
+local function suppressHazardsNear(x, y, kinds, radius, ttl, effectKind)
+  local suppressed = 0
+  local radiusSq = (radius or 3.6) * (radius or 3.6)
+  for _, hazard in ipairs(Game.level.hazards or {}) do
+    local active = hazard.cell and hazard.cell.hazard and hazard.cell.hazard.active
+    if active and kinds[hazard.cell.hazard.kind] then
+      local dx = hazard.x + 0.5 - x
+      local dy = hazard.y + 0.5 - y
+      if dx * dx + dy * dy <= radiusSq then
+        hazard.cell.hazard.suppressed = true
+        hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
+        Game.effects[#Game.effects + 1] = { kind = "hazard_suppress", x = hazard.x + 0.5, y = hazard.y + 0.5, ttl = ttl or 16, hazard = hazard, source = effectKind }
+        suppressed = suppressed + 1
+      end
+    end
+  end
+  return suppressed
+end
+
 local function useSelectedTool()
   local tool = Game.inventory.selected
   local biome = Game.level.biomeProfile and Game.level.biomeProfile.district
@@ -1386,7 +1594,7 @@ local function useSelectedTool()
     Game.props[#Game.props + 1] = { kind = "snare", x = x, y = y, ttl = 30, armed = true }
     setMessage("SNARE WIRE", 1.2)
   elseif tool == "fuse" then
-    local amount = biome == "reactor_trench" and 2 or 1
+    local amount = (biome == "reactor_trench" or biome == "ash_foundry") and 2 or 1
     Game.level.power.temporary = (Game.level.power.temporary or 0) + amount
     Game.effects[#Game.effects + 1] = { kind = "fuse", x = Game.player.x, y = Game.player.y, ttl = 45, amount = amount }
     if biome == "reactor_trench" then
@@ -1448,6 +1656,53 @@ local function useSelectedTool()
     Game.showMap = true
     recordCodexDiscovery("tool", "probe", "Survey probes reveal recent ecology signs without showing exact creature positions.")
     setMessage("SURVEY PULSE", 1.2)
+  elseif tool == "valve" then
+    Game.props[#Game.props + 1] = { kind = "valve", x = x, y = y, ttl = 14, pulse = 0 }
+    local suppressed = suppressHazardsNear(x, y, { wire = true }, 4.2, 14, "valve")
+    if Game.ecology then
+      Game.ecology.flood = max(0, (Game.ecology.flood or 0) - 6)
+    end
+    addSignal("surge_line", x, y, 1.5, 18, "valve", true)
+    Actor.emitNoise(Game, x, y, 2.6, 1.1, "valve")
+    recordCodexDiscovery("tool", "valve", "Valve cranks redirect flood pressure, briefly calming live water and wire routes.")
+    setMessage("VALVE TURNED " .. suppressed .. " LINES", 1.3)
+  elseif tool == "ground" then
+    Game.props[#Game.props + 1] = { kind = "ground", x = x, y = y, ttl = 18, pulse = 0 }
+    Game.effects[#Game.effects + 1] = { kind = "ground", x = x, y = y, ttl = 18, radius = 4.2 }
+    local suppressed = suppressHazardsNear(x, y, { wire = true }, 4.2, 18, "ground")
+    addSignal("surge_line", x, y, 1.1, 18, "ground", true)
+    recordCodexDiscovery("tool", "ground", "Grounding spikes make nearby powered water safe enough to cross and repel leechers.")
+    setMessage("GROUND SPIKE " .. suppressed .. " WIRES", 1.3)
+  elseif tool == "smoke" then
+    Game.props[#Game.props + 1] = { kind = "smoke", x = x, y = y, ttl = 16, pulse = 0 }
+    Game.effects[#Game.effects + 1] = { kind = "smoke", x = x, y = y, ttl = 16, radius = 6.5 }
+    addSignal("smoke_veil", x, y, 1.4, 16, "player", true)
+    Actor.emitNoise(Game, x, y, 1.9, 1.1, "smoke")
+    recordCodexDiscovery("tool", "smoke", "Smoke charges break sight lines, but their turbulent vents can carry noise.")
+    setMessage("SMOKE CHARGE", 1.2)
+  elseif tool == "beacon" then
+    Game.props[#Game.props + 1] = { kind = "beacon", x = x, y = y, ttl = 18, pulse = 0 }
+    addSignal("trade_mark", x, y, 1.7, 20, "player", true)
+    Actor.emitNoise(Game, x, y, 3.8, 1.4, "beacon")
+    local cell = Level.cellAtWorld(Game.level, x, y) or {}
+    local fallbackFaction = Game.level.factions and Game.level.factions[1] and Game.level.factions[1].name
+    alarmFaction(cell.faction or fallbackFaction, 7, x, y, "beacon")
+    recordCodexDiscovery("tool", "beacon", "Lure beacons create a loud salvage mark that pulls scavengers and sound predators away from you.")
+    setMessage("LURE BEACON", 1.2)
+  elseif tool == "coolant" then
+    Game.props[#Game.props + 1] = { kind = "coolant", x = x, y = y, ttl = 14, pulse = 0 }
+    Game.effects[#Game.effects + 1] = { kind = "coolant", x = x, y = y, ttl = 14, radius = 4.6 }
+    local suppressed = suppressHazardsNear(x, y, { ember = true }, 4.6, 14, "coolant")
+    if Game.ecology then
+      Game.ecology.heat = max(0, (Game.ecology.heat or 0) - 6)
+    end
+    if biome == "organ_machine" then
+      addSignal("pulse_mark", x, y, 1.4, 18, "coolant", true)
+    else
+      addSignal("smoke_veil", x, y, 1.2, 14, "coolant", true)
+    end
+    recordCodexDiscovery("tool", "coolant", "Coolant ampoules quench ember lanes and slow wardens or mimics caught in the burst.")
+    setMessage("COOLANT " .. suppressed .. " EMBERS", 1.3)
   end
 end
 

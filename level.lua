@@ -2463,6 +2463,8 @@ local function markBiomeHazard(level, room, kind)
   return false
 end
 
+local markCycleShelter
+
 local function paintBiomeRoom(level, room, profile)
   if not room or not profile then
     return
@@ -2563,7 +2565,7 @@ local function placeBiomeDistricts(level)
   }
 end
 
-local function markCycleShelter(level, room, reason)
+function markCycleShelter(level, room, reason)
   if not room then
     return false
   end

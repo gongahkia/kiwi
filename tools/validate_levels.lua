@@ -43,6 +43,8 @@ local metrics = {
   nests = {},
   signals = {},
   factions = {},
+  cycleShelters = {},
+  roomModifiers = {},
   creatureSpawns = {},
   refills = {},
   stairs = {},
@@ -218,6 +220,8 @@ local function appendCoreMetrics(level)
   metrics.nests[#metrics.nests + 1] = validation.nests or 0
   metrics.signals[#metrics.signals + 1] = validation.signals or 0
   metrics.factions[#metrics.factions + 1] = validation.factions or 0
+  metrics.cycleShelters[#metrics.cycleShelters + 1] = validation.cycleShelters or 0
+  metrics.roomModifiers[#metrics.roomModifiers + 1] = validation.roomModifiers or 0
   metrics.creatureSpawns[#metrics.creatureSpawns + 1] = validation.creatureSpawns or 0
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
@@ -334,6 +338,8 @@ if enabled.metrics then
   io.write(Support.metricLine("nests", metrics.nests) .. "\n")
   io.write(Support.metricLine("signals", metrics.signals) .. "\n")
   io.write(Support.metricLine("factions", metrics.factions) .. "\n")
+  io.write(Support.metricLine("cycle-shelters", metrics.cycleShelters) .. "\n")
+  io.write(Support.metricLine("room-modifiers", metrics.roomModifiers) .. "\n")
   io.write(Support.metricLine("creature-spawns", metrics.creatureSpawns) .. "\n")
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")

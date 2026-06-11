@@ -50,6 +50,16 @@ local function terrainColor(cell)
     return 0.72, 0.34, 0.12
   elseif cell.terrain == "sludge" then
     return 0.18, 0.34, 0.22
+  elseif cell.terrain == "storm" then
+    return 0.1, 0.26, 0.34
+  elseif cell.terrain == "ash" then
+    return 0.38, 0.33, 0.3
+  elseif cell.terrain == "signal" then
+    return 0.24, 0.42, 0.5
+  elseif cell.terrain == "bone" then
+    return 0.52, 0.48, 0.38
+  elseif cell.terrain == "organ" then
+    return 0.35, 0.18, 0.24
   elseif cell.terrain == "glass" then
     return 0.42, 0.52, 0.58
   elseif cell.terrain == "dust" then
@@ -219,6 +229,16 @@ local function drawMinimap(game, width, height)
         love.graphics.setColor(0.75, 0.58, 1, 0.86)
       elseif creature.kind == "burrower" then
         love.graphics.setColor(0.75, 0.32, 0.12, 0.86)
+      elseif creature.kind == "warden" then
+        love.graphics.setColor(0.48, 0.82, 0.88, 0.9)
+      elseif creature.kind == "leecher" then
+        love.graphics.setColor(0.18, 0.76, 0.72, 0.88)
+      elseif creature.kind == "mimic" then
+        love.graphics.setColor(0.92, 0.82, 0.32, 0.9)
+      elseif creature.kind == "choir" then
+        love.graphics.setColor(0.82, 0.52, 1, 0.88)
+      elseif creature.kind == "scavenger" then
+        love.graphics.setColor(0.92, 0.56, 0.26, 0.88)
       else
         love.graphics.setColor(0.9, 0.08, 0.05, 0.95)
       end
@@ -303,9 +323,11 @@ local function drawHud(game, width, height)
   love.graphics.setColor(0.62, 0.78, 0.7)
   love.graphics.print(systemText, 30, 217)
 
+  local cycle = game.ecology and game.ecology.cycle
   local incident = game.ecology and game.ecology.active or "quiet"
+  local phase = cycle and cycle.label or string.upper(incident)
   love.graphics.setColor(0.84, 0.67, 0.46)
-  love.graphics.print(string.format("ECO    %-12s SURV %02d", string.upper(incident), floor((game.survey and game.survey.ttl or 0))), 30, 244)
+  love.graphics.print(string.format("ECO    %-8s %03d %s", phase:sub(1, 8), floor(cycle and cycle.timer or 0), string.upper(incident):sub(1, 8)), 30, 244)
 
   local inv = game.inventory or {}
   love.graphics.setColor(0.78, 0.72, 0.6)

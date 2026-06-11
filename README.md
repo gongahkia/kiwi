@@ -6,7 +6,7 @@ Every run generates three connected flat decks of large halls, themed rooms, ann
 
 Traversal is the focus: terrain can be rubble, water, moss, grates, catwalks, glass, slag, hazards, or ladder shafts. Different surfaces change movement speed and noise, keys open locked shortcuts, relays provide reroutable power, terminals control deck systems, and tools let the player redirect rather than fight threats.
 
-Survive, route enough power to authorize the lift, and reach the exit shaft before the ecology collapses around you. Full relay completion leaves more salvage available; early lift authorization can seal optional salvage. Between decks, choose a descent route that changes the next biome, faction pressure, incidents, and salvage rewards.
+Survive escalating deck cycles, route enough power to authorize the lift, and reach the exit shaft before the ecology collapses around you. Full relay completion leaves more salvage available; early lift authorization can seal optional salvage. Between decks, choose a descent route that changes the next biome, faction pressure, incidents, and salvage rewards.
 
 ## Systems
 
@@ -21,8 +21,10 @@ Survive, route enough power to authorize the lift, and reach the exit shaft befo
 
 ## Living Megastructure
 
-- Each deck gets a primary and secondary incident: blackout, flood surge, vent bloom, heat spike, lockdown, or nest wake.
+- Each deck runs through survival-cycle phases: quiet, warning, surge, collapse, and aftermath.
+- Cycle phases trigger biome-specific incidents: blackout, flood surge, vent bloom, heat spike, lockdown, nest wake, or faction raid.
 - Incidents create readable signs, terminal logs, noise, alarms, temporary route changes, and hazard pressure.
+- Shelter marks identify temporary pockets that reduce cycle pressure during surge/collapse windows.
 - Survey probes reveal recent signs without showing exact creature positions.
 - Local achievement hooks record major discoveries and extraction, but demo mode disables unlocks.
 
@@ -41,6 +43,11 @@ Survive, route enough power to authorize the lift, and reach the exit shaft befo
 - Pressure labs add pressure ticks, alarm seals, glassy sight-line pressure, and route-control decisions.
 - Reactor trenches add radiant heat, fuse overcharge, ember pressure, and sonic/screecher panic.
 - Waste arteries add sludge, pump dependency, tainted salvage, and burrower/skitter pressure.
+- Storm drains add flood cycles, surge lines, live conduits, leechers, valves, and grounding spike routes.
+- Ash foundries add smoke veils, heat shelters, coolant play, slag pressure, and choir/screecher sound loops.
+- Signal catacombs add false pings, mimic caches, survey counterplay, and warden infrastructure guards.
+- Bone markets add trade marks, scavenger rivals, baited salvage, and faction raid pressure.
+- Organ machines add living doors, pulse marks, coolant counters, warden patrols, and biological alarms.
 
 ## Districts
 
@@ -58,6 +65,11 @@ Survive, route enough power to authorize the lift, and reach the exit shaft befo
 - Skitter: scavenger prey that can steal carried supplies and panic loudly.
 - Screecher: sound predator that follows loud stimuli and disrupts hunts.
 - Burrower: territorial hazard-creature weakened by pumps.
+- Warden: infrastructure guard that reacts to terminals, powered doors, and lift systems.
+- Leecher: flooded-route predator repelled by grounding spikes and pressure control.
+- Mimic: false signal/cache predator exposed by proximity, survey pulses, or careless looting.
+- Choir: vent-linked sound predator that becomes more dangerous during blooms and blackouts.
+- Scavenger rival: nonlethal thief that steals exposed caches or carried salvage and flees.
 - Creatures guard nests, raid weaker nests, steal props, hoard supplies, follow tracks, react to pheromones, and respond differently to tools and incidents.
 - Tracks, scratches, nest debris, wet marks, ash drift, vent calls, alarm marks, and pheromone boundaries teach the ecology in-world.
 - Nests now belong to factions such as scavenger, predator, machine-nest, burrow colony, and screeching flock.
@@ -85,8 +97,8 @@ lua tools/validate_levels.lua 200 1 all 32
 - `Mouse`, `Left/Right`, `Q/E`: turn
 - `Shift`: sprint
 - `F`: use nearby terminal
-- `Tab`: cycle selected field tool
-- `1`-`9`, `0`, `-`, `=`, `Backspace`: select field tool while playing
+- `Tab`: cycle all field tools
+- `1`-`9`, `0`, `-`, `=`, `Backspace`: select the first thirteen field tools while playing
 - `Space`: use selected field tool while playing
 - Route screen: `1`-`3`, arrows, `Tab`, or `Enter` choose the next descent route.
 - `C`: toggle persistent codex
@@ -126,6 +138,11 @@ lua tools/validate_levels.lua 200 1 all 32
 - Breaker plugs safely cut one nearby powered subsystem, then restore it after pressure bleeds out.
 - Survey probes reveal recent tracks and signs without exposing exact creature locations.
 - Oil kits refill torch fuel.
+- Valve cranks redirect flood pressure and briefly calm live water routes.
+- Grounding spikes suppress nearby wire hazards and repel leechers.
+- Smoke charges break sight lines but carry noise through vents.
+- Lure beacons create loud salvage marks that pull scavengers and sound predators away.
+- Coolant ampoules suppress ember lanes and slow wardens or mimics caught nearby.
 
 ## Codex
 

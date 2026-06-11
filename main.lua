@@ -1,4 +1,5 @@
 local Game = require("game")
+local Actor = require("actor")
 local Level = require("level")
 local smoke = false
 local validate = false
@@ -76,10 +77,43 @@ local function runValidation()
   end
 end
 
+local function runSmoke()
+  love.math.setRandomSeed(1001)
+  local level = Level.generate(nil, nil, 1)
+  local validation = Level.validate(level)
+  local player = Actor.createPlayer(level)
+  local creatures = Actor.createCreatures(level)
+
+  if not validation.valid then
+    print("fail love smoke " .. table.concat(validation.failures, ","))
+    love.event.quit(1)
+    return
+  end
+  if not Actor.canOccupy(level, player) then
+    print("fail love smoke player-spawn")
+    love.event.quit(1)
+    return
+  end
+  for _, creature in ipairs(creatures) do
+    if not Actor.canOccupy(level, creature) then
+      print("fail love smoke creature-" .. (creature.kind or "unknown"))
+      love.event.quit(1)
+      return
+    end
+  end
+
+  print("ok love smoke")
+  love.event.quit(0)
+end
+
 function love.load()
   smoke = hasArg("--smoke")
   validate = hasArg("--validate") or hasArg("--validate-fast") or hasArg("--validate-deep") or argValue("%-%-validate") ~= nil
   demo = hasArg("--demo")
+  if smoke then
+    runSmoke()
+    return
+  end
   if validate then
     runValidation()
     return
@@ -89,7 +123,7 @@ function love.load()
 end
 
 function love.update(dt)
-  if validate then
+  if validate or smoke then
     return
   end
 
@@ -97,15 +131,11 @@ function love.update(dt)
 end
 
 function love.draw()
-  if validate then
+  if validate or smoke then
     return
   end
 
   Game.draw()
-  if smoke then
-    print("ok love smoke")
-    love.event.quit(0)
-  end
 end
 
 function love.keypressed(key)

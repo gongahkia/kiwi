@@ -255,37 +255,11 @@ function Actor.createPlayer(level)
   return player
 end
 
-local creatureDefs = {
-  hunter = { radius = 0.2, baseSpeed = 1.18, sightSpeed = 1.68, sight = 24, hearing = 10, aggression = 1, height = 1.55, lethal = true },
-  stalker = { radius = 0.18, baseSpeed = 1.02, sightSpeed = 1.92, sight = 18, hearing = 7, aggression = 0.72, height = 1.35, lethal = true },
-  skitter = { radius = 0.14, baseSpeed = 1.34, sightSpeed = 1.72, sight = 12, hearing = 9, aggression = 0.1, height = 0.55, lethal = false },
-  screecher = { radius = 0.18, baseSpeed = 0.95, sightSpeed = 1.52, sight = 6, hearing = 18, aggression = 0.86, height = 1.18, lethal = true },
-  burrower = { radius = 0.22, baseSpeed = 0.78, sightSpeed = 1.18, sight = 10, hearing = 8, aggression = 0.62, height = 0.85, lethal = true },
-}
-
-local predatorRank = {
-  skitter = 0,
-  stalker = 1,
-  screecher = 2,
-  burrower = 2,
-  hunter = 3,
-}
-
-local toolAffinity = {
-  hunter = { bait = 24, scent = 34, sonic = 18, noisemaker = 22, flare = 10, pheromone = -38, probe = 8 },
-  stalker = { bait = 14, scent = 28, sonic = 10, noisemaker = 15, flare = -55, flash = -60, pheromone = -30, probe = 12 },
-  skitter = { bait = 36, scent = 18, sonic = 18, noisemaker = 10, flash = -60, pheromone = 14, probe = 32 },
-  screecher = { bait = 8, scent = 8, sonic = 58, noisemaker = 44, flare = 8, pheromone = -8, probe = 20 },
-  burrower = { bait = 18, scent = 10, sonic = 8, noisemaker = 12, pheromone = 30, probe = 4 },
-}
-
-local signalAffinity = {
-  hunter = { track = 28, scratch = 22, scent_trail = 30, nest_debris = 14, wet_tracks = 8, ash_drift = -4, vent_call = 14, alarm_mark = 22, pheromone = -34, survey_ping = 8, dark_pulse = 10, frost_trace = 8, spore_bloom = 20, pressure_tick = 18, radiant_heat = 6, tainted_sludge = 12 },
-  stalker = { track = 24, scratch = 30, scent_trail = 26, nest_debris = 8, wet_tracks = 4, ash_drift = 4, vent_call = 8, alarm_mark = 18, pheromone = -28, survey_ping = 12, dark_pulse = 36, frost_trace = 24, spore_bloom = 12, pressure_tick = 14, radiant_heat = -6, tainted_sludge = 4 },
-  skitter = { track = -16, scratch = -18, scent_trail = 12, nest_debris = 32, wet_tracks = 8, ash_drift = -8, vent_call = -8, alarm_mark = -20, pheromone = 12, survey_ping = 24, dark_pulse = 4, frost_trace = -12, spore_bloom = 28, pressure_tick = -8, radiant_heat = -16, tainted_sludge = 22 },
-  screecher = { track = 6, scratch = 8, scent_trail = 4, nest_debris = 10, wet_tracks = 8, ash_drift = 8, vent_call = 34, alarm_mark = 26, pheromone = -10, survey_ping = 18, dark_pulse = 4, frost_trace = 2, spore_bloom = 8, pressure_tick = 18, radiant_heat = 26, tainted_sludge = 4 },
-  burrower = { track = 10, scratch = 18, scent_trail = 6, nest_debris = 24, wet_tracks = 30, ash_drift = -12, vent_call = 4, alarm_mark = 18, pheromone = 28, survey_ping = 4, dark_pulse = 2, frost_trace = -10, spore_bloom = 18, pressure_tick = 4, radiant_heat = -8, tainted_sludge = 34 },
-}
+local creatureDefs = CreatureContent.defs
+local predatorRank = CreatureContent.predatorRank
+local toolAffinity = CreatureContent.toolAffinity
+local signalAffinity = CreatureContent.signalAffinity
+local coreCreatureKinds = { hunter = true, stalker = true, screecher = true, burrower = true }
 
 function Actor.createCreature(level, kind, spawn, id)
   local deck = level.deck or 1
@@ -318,7 +292,7 @@ function Actor.createCreature(level, kind, spawn, id)
     eyeZ = Actor.floorAt(level, x, y) + min(def.height - 0.08, 0.82),
     state = "wander",
     stateTimer = 0,
-    grace = kind == "hunter" and max(2.9, 5.5 - (deck - 1) * 0.9) or 1.2,
+    grace = kind == "hunter" and max(2.9, 5.5 - (deck - 1) * 0.9) or (def.dormant and 5 or 1.2),
     lastKnownX = level.start.x + 0.5,
     lastKnownY = level.start.y + 0.5,
     targetKey = "",
@@ -340,6 +314,11 @@ function Actor.createCreature(level, kind, spawn, id)
       territory = { loyalty = spawn and spawn.nest and 1 or 0.45, radius = kind == "burrower" and 7 or 10 },
       ecology = { curiosity = love.math.random(), fear = 0, hunger = love.math.random() },
     },
+    guard = def.guard or false,
+    aquatic = def.aquatic or false,
+    dormant = def.dormant or false,
+    flock = def.flock or false,
+    thief = def.thief or false,
     alive = true,
     stealTimer = 0,
     trackTimer = love.math.random() * 1.4,
@@ -365,13 +344,13 @@ function Actor.createCreatures(level)
   end
 
   for _, spawn in ipairs(level.creatureSpawns or {}) do
-    if wanted[spawn.kind] or spawn.kind == "skitter" then
+    if wanted[spawn.kind] or spawn.kind == "skitter" or (creatureDefs[spawn.kind] and not coreCreatureKinds[spawn.kind]) then
       creatures[#creatures + 1] = Actor.createCreature(level, spawn.kind, spawn, #creatures + 1)
       if spawn.kind ~= "skitter" then
         wanted[spawn.kind] = false
       end
     end
-    if #creatures >= 4 + (level.deck or 1) then
+    if #creatures >= 6 + (level.deck or 1) then
       break
     end
   end
@@ -542,10 +521,12 @@ local function strongestNoiseFor(creature, noises, game)
       if distance <= (noise.radius or 0) + (creature.hearing or 0) then
         local score = (noise.intensity or 0) * (1 - min(distance / max(1, (noise.radius or 1) + (creature.hearing or 0)), 0.95))
         if game and game.ecology and game.ecology.ventBloom > 0 then
-          score = score * (creature.kind == "screecher" and 2.05 or 1.28)
+          score = score * ((creature.kind == "screecher" or creature.kind == "choir") and 2.05 or 1.28)
         end
-        if creature.kind == "screecher" then
+        if creature.kind == "screecher" or creature.kind == "choir" then
           score = score * 1.8
+        elseif creature.kind == "warden" and noise.kind == "terminal" then
+          score = score * 1.9
         elseif creature.kind == "stalker" and noise.kind == "flare" then
           score = score * -2
         end
@@ -608,6 +589,18 @@ local function targetCreatureScore(level, creature, other, distance)
     return theirRank > myRank and 70 / max(distance, 0.6) or (-20 + factionPressure * 18)
   end
 
+  if creature.kind == "scavenger" then
+    return theirRank >= myRank and -42 / max(distance, 0.7) or (18 + factionPressure * 10) / max(distance, 1)
+  end
+
+  if creature.kind == "leecher" then
+    return (other.kind == "burrower" and -36 or 24 + factionPressure * 12) / max(distance, 0.8)
+  end
+
+  if creature.kind == "choir" and other.kind == "screecher" then
+    return -20 / max(distance, 0.8)
+  end
+
   if creature.kind == "burrower" then
     return distance < 5.5 and (44 + factionPressure * 24) / max(distance, 0.8) or -10
   end
@@ -638,6 +631,15 @@ function Actor.scorePropTarget(creature, prop)
   if prop.kind == "snare" then
     base = creature.kind == "skitter" and 8 or 2
   end
+  if prop.kind == "smoke" and creature.kind == "stalker" then
+    base = base + 18
+  elseif prop.kind == "ground" and creature.kind == "leecher" then
+    base = base - 42
+  elseif prop.kind == "coolant" and (creature.kind == "warden" or creature.kind == "mimic") then
+    base = base - 28
+  elseif prop.kind == "beacon" and creature.thief then
+    base = base + 24
+  end
   if creature.nest and prop.kind == "bait" and distance2d(prop.x, prop.y, creature.nest.x + 0.5, creature.nest.y + 0.5) < 4 then
     base = creature.kind == creature.nest.kind and -45 or base + 12
   end
@@ -667,6 +669,34 @@ local function scoreSignalTarget(creature, signal)
   return base * (signal.strength or 1) * ageModifier / max(distance, 0.9)
 end
 
+local function scoreCacheTarget(creature, cache)
+  if not creature.thief or not cache or not cache.cell or cache.cell.toolUsed or not cache.cell.tool then
+    return -math.huge
+  end
+
+  local distance = distance2d(creature.x, creature.y, cache.x + 0.5, cache.y + 0.5)
+  local value = (cache.cell.tool.salvage or 1) + (cache.cell.tool.mimic and -2 or 0)
+  return (28 + value * 12) / max(distance, 0.8)
+end
+
+local function scoreInfrastructureTarget(level, creature, item, kind)
+  if not creature.guard or not item then
+    return -math.huge
+  end
+
+  local x = (item.x or 0) + 0.5
+  local y = (item.y or 0) + 0.5
+  local distance = distance2d(creature.x, creature.y, x, y)
+  local score = kind == "terminal" and 28 or 22
+  if item.cell and (item.cell.gateLocked or item.cell.lock) then
+    score = score + 12
+  end
+  if level.systems and (level.systems.doors.powered or level.systems.lift.powered) then
+    score = score + 14
+  end
+  return score / max(distance, 0.8), x, y
+end
+
 local function chooseCreatureTarget(game, creature, dt)
   local level = game.level
   local player = game.player
@@ -687,6 +717,22 @@ local function chooseCreatureTarget(game, creature, dt)
   creature.stealTimer = max(0, (creature.stealTimer or 0) - dt)
   creature.snared = max(0, (creature.snared or 0) - dt)
 
+  if creature.dormant and not creature.awake then
+    local surveyNear = game.survey and (game.survey.ttl or 0) > 0 and playerDistance < 12
+    if playerDistance < 3.2 or surveyNear then
+      creature.awake = true
+      creature.dormant = false
+      creature.grace = 0
+      creature.growl = 1
+      if game.recordCodexDiscovery then
+        game.recordCodexDiscovery("creature", "mimic", "Mimic signals hold still as false salvage until proximity, noise, or survey pulses expose them.")
+      end
+    else
+      setEnemyState(creature, "dormant")
+      return creature.x, creature.y
+    end
+  end
+
   if creature.kind == "stalker" and light > 0.94 then
     best = { x = creature.x + (creature.x - player.x), y = creature.y + (creature.y - player.y), type = "flee" }
     bestScore = 100
@@ -697,18 +743,27 @@ local function chooseCreatureTarget(game, creature, dt)
     bestScore = -10
   end
 
+  if creature.guard and game.terminal and game.terminal.active and playerDistance < 18 then
+    best = { x = player.x, y = player.y, type = "player" }
+    bestScore = 105
+  end
+
   if seesPlayer and creature.kind ~= "skitter" then
     local score = 38 * (creature.aggression or 0.5) / max(playerDistance, 0.8)
     if creature.kind == "stalker" and light < 0.72 then
       score = score + 18
-    elseif creature.kind == "screecher" then
+    elseif creature.kind == "screecher" or creature.kind == "choir" then
       score = score * 0.45
+    elseif creature.thief then
+      score = -18 / max(playerDistance, 0.8)
     end
     if game.recordCodexDiscovery then
       game.recordCodexDiscovery("creature", creature.kind, (creature.kind or "creature") .. " has directly tracked you by sight.")
     end
     if score > bestScore then
-      best = { x = player.x, y = player.y, type = "player" }
+      best = creature.thief
+        and { x = creature.x + (creature.x - player.x), y = creature.y + (creature.y - player.y), type = "flee" }
+        or { x = player.x, y = player.y, type = "player" }
       bestScore = score
     end
   end
@@ -749,6 +804,30 @@ local function chooseCreatureTarget(game, creature, dt)
     end
   end
 
+  for _, cache in ipairs(level.toolCaches or {}) do
+    local score = scoreCacheTarget(creature, cache)
+    if score > bestScore then
+      best = { x = cache.x + 0.5, y = cache.y + 0.5, type = "cache", cache = cache }
+      bestScore = score
+    end
+  end
+
+  for _, terminal in ipairs(level.terminals or {}) do
+    local score, x, y = scoreInfrastructureTarget(level, creature, terminal, "terminal")
+    if score > bestScore then
+      best = { x = x, y = y, type = "guard", terminal = terminal }
+      bestScore = score
+    end
+  end
+
+  for _, gate in ipairs(level.gates or {}) do
+    local score, x, y = scoreInfrastructureTarget(level, creature, gate, "gate")
+    if score > bestScore then
+      best = { x = x, y = y, type = "guard", gate = gate }
+      bestScore = score
+    end
+  end
+
   for _, other in ipairs(game.creatures or {}) do
     local distance = distance2d(creature.x, creature.y, other.x, other.y)
     if distance < 14 then
@@ -784,8 +863,10 @@ local function chooseCreatureTarget(game, creature, dt)
       setEnemyState(creature, "flee", 0.8)
     elseif best.type == "noise" then
       setEnemyState(creature, "investigate", 2.6)
-    elseif best.type == "creature" or best.type == "prop" or best.type == "signal" then
+    elseif best.type == "creature" or best.type == "prop" or best.type == "signal" or best.type == "cache" then
       setEnemyState(creature, "hunt", 1.4)
+    elseif best.type == "guard" then
+      setEnemyState(creature, "guard", 1.6)
     elseif best.type == "player" then
       setEnemyState(creature, "chase")
     else
@@ -842,6 +923,8 @@ local function updateOneCreature(game, creature, dt)
       hunt = 1.22,
       chase = 1.0,
       flee = 1.36,
+      guard = 0.88,
+      dormant = 0,
     }
     local playerDistance = distance2d(creature.x, creature.y, game.player.x, game.player.y)
     local base = creature.visible and creature.sightSpeed or creature.baseSpeed * (stateSpeed[creature.state] or 1)
@@ -854,11 +937,13 @@ local function updateOneCreature(game, creature, dt)
       systemModifier = 0.84
     end
     if game.ecology then
+      local cyclePressure = (game.ecology.cycle and game.ecology.cycle.pressure) or 0
+      systemModifier = systemModifier * (1 + cyclePressure * 0.08)
       if game.ecology.blackout > 0 and creature.kind == "stalker" then
         systemModifier = systemModifier * 1.22
-      elseif game.ecology.flood > 0 and creature.kind == "burrower" then
+      elseif game.ecology.flood > 0 and (creature.kind == "burrower" or creature.kind == "leecher") then
         systemModifier = systemModifier * 1.18
-      elseif game.ecology.heat > 0 and creature.kind == "skitter" then
+      elseif game.ecology.heat > 0 and (creature.kind == "skitter" or creature.kind == "choir") then
         systemModifier = systemModifier * 1.2
       elseif game.ecology.nestWake > 0 and creature.nest then
         systemModifier = systemModifier * 1.12
@@ -868,9 +953,13 @@ local function updateOneCreature(game, creature, dt)
     local biome = level.biomeProfile and level.biomeProfile.district
     if biome == "waste_artery" and cell.terrain == "sludge" and creature.kind == "burrower" then
       systemModifier = systemModifier * 1.28
+    elseif biome == "storm_drain" and (cell.terrain == "storm" or cell.terrain == "water") and creature.kind == "leecher" then
+      systemModifier = systemModifier * 1.34
     elseif biome == "cryo_vault" and cell.terrain == "ice" and creature.kind == "stalker" then
       systemModifier = systemModifier * 1.16
-    elseif biome == "reactor_trench" and creature.kind == "screecher" then
+    elseif (biome == "reactor_trench" or biome == "ash_foundry") and (creature.kind == "screecher" or creature.kind == "choir") then
+      systemModifier = systemModifier * 1.12
+    elseif biome == "organ_machine" and creature.kind == "warden" then
       systemModifier = systemModifier * 1.12
     end
     if (creature.snared or 0) > 0 then
@@ -935,11 +1024,46 @@ local function handleCreaturePropContact(game, creature)
         if game.recordCodexDiscovery then
           game.recordCodexDiscovery("tool", "pheromone", "Pheromone boundaries make predators hesitate and territorial creatures investigate.")
         end
+      elseif prop.kind == "ground" and creature.kind == "leecher" then
+        setEnemyState(creature, "flee", 2.4)
+        creature.snared = max(creature.snared or 0, 1.8)
+        if game.recordCodexDiscovery then
+          game.recordCodexDiscovery("tool", "ground", "Grounding spikes make flooded live paths safer and repel leechers that follow current.")
+        end
+      elseif prop.kind == "coolant" and (creature.kind == "warden" or creature.kind == "mimic") then
+        setEnemyState(creature, "flee", 2.2)
+        creature.snared = max(creature.snared or 0, 2.2)
+      elseif prop.kind == "smoke" and creature.kind ~= "leecher" then
+        creature.grace = max(creature.grace or 0, 1.4)
+        if creature.kind == "stalker" then
+          setEnemyState(creature, "hunt", 1.2)
+        end
       elseif prop.kind == "probe" and creature.kind == "skitter" and not creature.carrying then
         creature.carrying = { kind = "probe", source = "prop" }
         prop.ttl = 0
         setEnemyState(creature, "flee", 2)
       end
+    end
+  end
+end
+
+local function handleCreatureCacheContact(game, creature)
+  if not creature.alive or not creature.thief then
+    return
+  end
+
+  for _, cache in ipairs(game.level.toolCaches or {}) do
+    if cache.cell and cache.cell.tool and not cache.cell.toolUsed and distance2d(creature.x, creature.y, cache.x + 0.5, cache.y + 0.5) < creature.radius + 0.42 then
+      cache.cell.toolUsed = true
+      cache.cell.salvage = false
+      creature.carrying = { kind = cache.cell.tool.kind, source = "cache" }
+      creature.stealTimer = 8
+      setEnemyState(creature, "flee", 2.6)
+      Actor.emitNoise(game, cache.x + 0.5, cache.y + 0.5, 2.2, 1.2, "theft")
+      if game.recordCodexDiscovery then
+        game.recordCodexDiscovery("creature", "scavenger", "Scavenger rivals steal exposed caches and can be baited away with beacon noise.")
+      end
+      return
     end
   end
 end
@@ -997,17 +1121,24 @@ local function resolveCreatureContacts(game)
   for _, creature in ipairs(game.creatures or {}) do
     if creature.alive then
       handleCreaturePropContact(game, creature)
+      handleCreatureCacheContact(game, creature)
       handleNestBehavior(game, creature, 0)
       local distance = distance2d(player.x, player.y, creature.x, creature.y)
-      if creature.kind == "skitter" and distance < player.radius + creature.radius + 0.16 and creature.stealTimer <= 0 then
+      if (creature.kind == "skitter" or creature.thief) and distance < player.radius + creature.radius + 0.16 and creature.stealTimer <= 0 then
         local inventory = game.inventory or {}
         local stolen
-        for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "fuse", "seal", "breaker" }) do
-          if (inventory[tool] or 0) > 0 then
-            inventory[tool] = inventory[tool] - 1
-            stolen = tool
-            creature.carrying = { kind = tool, source = "player" }
-            break
+        if creature.thief and game.salvage and (game.salvage.carried or 0) > 0 then
+          game.salvage.carried = max(0, game.salvage.carried - 1)
+          stolen = "salvage"
+          creature.carrying = { kind = "salvage", source = "player" }
+        else
+          for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "fuse", "seal", "breaker", "ground", "beacon", "coolant" }) do
+            if (inventory[tool] or 0) > 0 then
+              inventory[tool] = inventory[tool] - 1
+              stolen = tool
+              creature.carrying = { kind = tool, source = "player" }
+              break
+            end
           end
         end
         creature.stealTimer = 8

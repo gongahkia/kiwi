@@ -223,6 +223,16 @@ local function segmentColor(segment, shade)
       red, green, blue = 0.58, 0.24, 0.08
     elseif cell.terrain == "sludge" then
       red, green, blue = 0.16, 0.28, 0.18
+    elseif cell.terrain == "storm" then
+      red, green, blue = 0.12, 0.25, 0.32
+    elseif cell.terrain == "ash" then
+      red, green, blue = 0.36, 0.31, 0.28
+    elseif cell.terrain == "signal" then
+      red, green, blue = 0.18, 0.36, 0.42
+    elseif cell.terrain == "bone" then
+      red, green, blue = 0.42, 0.38, 0.28
+    elseif cell.terrain == "organ" then
+      red, green, blue = 0.3, 0.13, 0.18
     elseif cell.terrain == "rubble" then
       red, green, blue = 0.4, 0.36, 0.3
     else
@@ -304,6 +314,16 @@ local function surfaceColor(cell, distance, ceiling)
     red, green, blue = 0.42, 0.15, 0.04
   elseif cell.terrain == "sludge" then
     red, green, blue = 0.09, 0.2, 0.12
+  elseif cell.terrain == "storm" then
+    red, green, blue = 0.06, 0.18, 0.24
+  elseif cell.terrain == "ash" then
+    red, green, blue = 0.24, 0.21, 0.19
+  elseif cell.terrain == "signal" then
+    red, green, blue = 0.12, 0.25, 0.3
+  elseif cell.terrain == "bone" then
+    red, green, blue = 0.3, 0.27, 0.2
+  elseif cell.terrain == "organ" then
+    red, green, blue = 0.2, 0.08, 0.12
   elseif cell.terrain == "glass" then
     red, green, blue = 0.25, 0.31, 0.34
   elseif cell.terrain == "dust" then
@@ -443,6 +463,11 @@ local creatureColors = {
   skitter = { 0.12, 0.09, 0.03, 0.8, 0.56, 0.14 },
   screecher = { 0.08, 0.07, 0.1, 0.55, 0.48, 0.8 },
   burrower = { 0.14, 0.06, 0.025, 0.5, 0.24, 0.08 },
+  warden = { 0.06, 0.12, 0.14, 0.35, 0.68, 0.72 },
+  leecher = { 0.02, 0.14, 0.12, 0.18, 0.72, 0.64 },
+  mimic = { 0.16, 0.12, 0.02, 0.86, 0.68, 0.16 },
+  choir = { 0.1, 0.05, 0.12, 0.62, 0.42, 0.82 },
+  scavenger = { 0.16, 0.08, 0.035, 0.74, 0.38, 0.14 },
 }
 
 local function drawCreatureSprite(game, creature, width, height, depthBuffer)
@@ -641,6 +666,27 @@ local function drawPickupSprites(game, width, height, depthBuffer)
           love.graphics.setColor(0.82, 0.9, 1, alpha)
           love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 1, 1)
           love.graphics.circle("line", 0, 0, max(4, sprite.width * 0.22))
+        elseif prop.kind == "valve" then
+          love.graphics.setColor(0.36, 0.68, 0.9, alpha)
+          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.3))
+          love.graphics.line(-sprite.width * 0.25, 0, sprite.width * 0.25, 0)
+          love.graphics.line(0, -sprite.height * 0.16, 0, sprite.height * 0.16)
+        elseif prop.kind == "ground" then
+          love.graphics.setColor(0.92, 0.9, 0.52, alpha)
+          love.graphics.line(0, -sprite.height * 0.24, 0, sprite.height * 0.24)
+          love.graphics.line(-sprite.width * 0.22, sprite.height * 0.12, sprite.width * 0.22, sprite.height * 0.12)
+        elseif prop.kind == "smoke" then
+          love.graphics.setColor(0.62, 0.62, 0.58, alpha * 0.8)
+          love.graphics.circle("line", -sprite.width * 0.12, 0, max(4, sprite.width * 0.24))
+          love.graphics.circle("line", sprite.width * 0.14, -sprite.height * 0.08, max(5, sprite.width * 0.3))
+        elseif prop.kind == "beacon" then
+          love.graphics.setColor(0.95, 0.55, 0.18, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.22, sprite.width * 0.4, sprite.height * 0.44, 2, 2)
+          love.graphics.line(-sprite.width * 0.32, -sprite.height * 0.3, sprite.width * 0.32, -sprite.height * 0.3)
+        elseif prop.kind == "coolant" then
+          love.graphics.setColor(0.45, 0.86, 1, alpha)
+          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.18))
+          love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
         end
         love.graphics.pop()
       end
