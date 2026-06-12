@@ -142,6 +142,12 @@ function love.keypressed(key)
   Game.keypressed(key)
 end
 
+function love.keyreleased(key)
+  if Game.keyreleased then
+    Game.keyreleased(key)
+  end
+end
+
 function love.textinput(text)
   Game.textinput(text)
 end
@@ -156,4 +162,10 @@ end
 
 function love.gamepadpressed(...)
   Game.gamepadpressed(...)
+end
+
+function love.gamepadreleased(...)
+  if Game.gamepadreleased then
+    Game.gamepadreleased(...)
+  end
 end

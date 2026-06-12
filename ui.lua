@@ -81,16 +81,23 @@ local function terrainColor(cell)
 end
 
 local function drawMinimap(game, width, height)
-  if not game.showMap then
+  if not (game.mapHeld or game.mapGamepadHeld) then
     return
   end
 
   local level = game.level
-  local size = min(width * 0.3 / level.width, height * 0.36 / level.height, 7)
+  local size = min(width * 0.42 / level.width, height * 0.34 / level.height, 7)
   local mapWidth = level.width * size
   local mapHeight = level.height * size
-  local originX = width - mapWidth - 18
-  local originY = 18
+  local bob = game.player and sin(game.player.bob or 0) * 4 or 0
+  local originX = (width - mapWidth) * 0.5
+  local originY = height - mapHeight - 34 + bob
+  local visited = level.visitedMap or {}
+  local playerCellX = floor(game.player.x)
+  local playerCellY = floor(game.player.y)
+  local function mapKnown(x, y)
+    return visited[U.keyOf(x, y)] or (abs(x - playerCellX) + abs(y - playerCellY) <= 2)
+  end
   local function cellCenter(x, y)
     return originX + (x - 0.5) * size, originY + (y - 0.5) * size
   end
@@ -115,14 +122,28 @@ local function drawMinimap(game, width, height)
     love.graphics.setLineWidth(1)
   end
 
-  love.graphics.setColor(0, 0, 0, 0.46)
-  love.graphics.rectangle("fill", originX - 7, originY - 7, mapWidth + 14, mapHeight + 14, 4, 4)
+  love.graphics.setColor(0.03, 0.028, 0.022, 0.86)
+  love.graphics.polygon(
+    "fill",
+    originX - 16,
+    originY - 12,
+    originX + mapWidth + 18,
+    originY - 6,
+    originX + mapWidth + 10,
+    originY + mapHeight + 18,
+    originX - 18,
+    originY + mapHeight + 10
+  )
+  love.graphics.setColor(0.42, 0.35, 0.24, 0.92)
+  love.graphics.rectangle("line", originX - 7, originY - 7, mapWidth + 14, mapHeight + 14, 3, 3)
 
   for y = 1, level.height do
     for x = 1, level.width do
       local cell = level.grid[y][x]
 
-      if cell.solid then
+      if not mapKnown(x, y) then
+        love.graphics.setColor(0.035, 0.032, 0.028, 0.78)
+      elseif cell.solid then
         love.graphics.setColor(0.08, 0.075, 0.067, 0.9)
       else
         local red, green, blue = terrainColor(cell)
@@ -134,64 +155,76 @@ local function drawMinimap(game, width, height)
   end
 
   drawMarker(level.start.x, level.start.y, 0.42, 0.95, 1, "square")
-  if level.exit then
+  if level.exit and mapKnown(level.exit.x, level.exit.y) then
     drawMarker(level.exit.x, level.exit.y, 1, 0.74, 0.16, "diamond")
   end
 
   for _, objective in ipairs(level.objectives) do
-    if not objective.cell.objective.collected then
+    if mapKnown(objective.x, objective.y) and not objective.cell.objective.collected then
       love.graphics.setColor(0.4, 0.95, 1, 0.95)
       love.graphics.rectangle("fill", originX + (objective.x - 1) * size, originY + (objective.y - 1) * size, max(2, size), max(2, size))
     end
   end
 
   for _, key in ipairs(level.keys or {}) do
-    if not key.cell.key.collected then
-      love.graphics.setColor(1, 0.86, 0.26, 0.95)
+    if mapKnown(key.x, key.y) and not key.cell.key.collected then
+      if key.kind == "exit" then
+        love.graphics.setColor(1, 0.56, 0.18, 0.96)
+      else
+        love.graphics.setColor(1, 0.86, 0.26, 0.95)
+      end
       love.graphics.rectangle("fill", originX + (key.x - 1) * size, originY + (key.y - 1) * size, max(2, size), max(2, size))
     end
   end
 
   for _, lock in ipairs(level.locks or {}) do
-    if lock.cell.lock.locked then
+    if mapKnown(lock.x, lock.y) and lock.cell.lock.locked then
       love.graphics.setColor(0.95, 0.62, 0.12, 0.95)
       love.graphics.rectangle("line", originX + (lock.x - 1) * size, originY + (lock.y - 1) * size, max(2, size), max(2, size))
     end
   end
 
-  if level.exit and game.objectives.collected >= (level.minLiftRelays or game.objectives.total) then
-    love.graphics.setColor(1, 0.78, 0.24, 0.96)
-    love.graphics.rectangle("fill", originX + (level.exit.x - 1) * size, originY + (level.exit.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
-  end
-
-  if level.scanRevealed then
-    for _, terminal in ipairs(level.terminals or {}) do
-      love.graphics.setColor(0.18, 1, 0.78, terminal.terminal.used and 0.42 or 0.95)
-      love.graphics.rectangle("line", originX + (terminal.x - 1) * size, originY + (terminal.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
-    end
-  end
-
   for _, refill in ipairs(level.refills) do
-    if not refill.cell.refillUsed then
+    if mapKnown(refill.x, refill.y) and not refill.cell.refillUsed then
       love.graphics.setColor(1, 0.6, 0.16, 0.9)
       love.graphics.circle("fill", originX + refill.x * size - size, originY + refill.y * size - size, max(1.8, size * 0.45))
     end
   end
 
+  for _, shelter in ipairs(level.cycleShelters or {}) do
+    if mapKnown(shelter.x, shelter.y) then
+      love.graphics.setColor(0.52, 0.86, 1, 0.94)
+      love.graphics.rectangle("line", originX + (shelter.x - 1) * size, originY + (shelter.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
+    end
+  end
+
   for _, nest in ipairs(level.nests or {}) do
-    love.graphics.setColor(0.78, 0.28, 0.88, 0.9)
-    love.graphics.circle("line", originX + nest.x * size - size, originY + nest.y * size - size, max(3, size * 0.85))
+    if mapKnown(nest.x, nest.y) then
+      love.graphics.setColor(0.78, 0.28, 0.88, 0.9)
+      love.graphics.circle("line", originX + nest.x * size - size, originY + nest.y * size - size, max(3, size * 0.85))
+    end
   end
 
   for _, prop in ipairs(game.props or {}) do
-    if (prop.ttl or 0) > 0 then
+    if (prop.ttl or 0) > 0 and mapKnown(floor(prop.x), floor(prop.y)) then
       love.graphics.setColor(0.7, 0.9, 1, 0.82)
       love.graphics.rectangle("fill", originX + prop.x * size - size, originY + prop.y * size - size, max(2, size * 0.55), max(2, size * 0.55))
     end
   end
 
+  for _, npc in ipairs(game.npcs or {}) do
+    if npc.alive and mapKnown(floor(npc.x), floor(npc.y)) then
+      local nx = originX + npc.x * size - size
+      local ny = originY + npc.y * size - size
+      love.graphics.setColor(0.36, 0.92, 0.78, 0.95)
+      love.graphics.circle("line", nx, ny, max(3, size * 0.72))
+      love.graphics.setColor(0.78, 1, 0.88, 0.9)
+      love.graphics.circle("fill", nx, ny, max(1.8, size * 0.28))
+    end
+  end
+
   for _, signal in ipairs(level.signals or {}) do
-    if signal.discovered or (game.survey and game.survey.ttl > 0) then
+    if mapKnown(floor(signal.x), floor(signal.y)) and (signal.discovered or (game.survey and game.survey.ttl > 0)) then
       local alpha = signal.discovered and 0.8 or 0.36
       if signal.kind == "pheromone" then
         love.graphics.setColor(0.34, 0.95, 0.54, alpha)
@@ -218,7 +251,8 @@ local function drawMinimap(game, width, height)
   love.graphics.line(px, py, px + cos(player.angle) * size * 2.4, py + sin(player.angle) * size * 2.4)
 
   for _, creature in ipairs(game.creatures or {}) do
-    if creature.alive then
+    local creatureDistance = sqrt((creature.x - player.x) ^ 2 + (creature.y - player.y) ^ 2)
+    if creature.alive and mapKnown(floor(creature.x), floor(creature.y)) and creatureDistance < 7 then
       local cx = originX + creature.x * size - size
       local cy = originY + creature.y * size - size
       if creature.kind == "skitter" then
@@ -267,6 +301,29 @@ local function nearTerminal(game)
   return nil
 end
 
+local function nearNPC(game)
+  if game.nearNPC then
+    return game.nearNPC()
+  end
+
+  local best
+  local bestDistance = 2.05
+
+  for _, npc in ipairs(game.npcs or {}) do
+    if npc.alive then
+      local dx = npc.x - game.player.x
+      local dy = npc.y - game.player.y
+      local distance = sqrt(dx * dx + dy * dy)
+      if distance < bestDistance then
+        best = npc
+        bestDistance = distance
+      end
+    end
+  end
+
+  return best
+end
+
 local function drawHud(game, width, height)
   local player = game.player
   local enemy = game.enemy or { x = player.x, y = player.y, floorZ = player.floorZ, state = "clear", kind = "none" }
@@ -286,61 +343,35 @@ local function drawHud(game, width, height)
 
   love.graphics.setFont(game.fonts.hud)
   love.graphics.setColor(0, 0, 0, 0.42)
-  love.graphics.rectangle("fill", 18, 18, 356, 334, 4, 4)
+  love.graphics.rectangle("fill", 18, 18, 356, 250, 4, 4)
 
   love.graphics.setColor(0.95, 0.88, 0.68)
-  love.graphics.print(string.format("TIME   %05.1f", game.survivalTime), 30, 28)
+  love.graphics.print(string.format("TIME   %02d", max(0, floor(game.loopTimer or 0))), 30, 28)
   love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
   love.graphics.print(string.format("THREAT %02dM %-8s %-7s", floor(distance), string.upper(enemy.kind or "NONE"), string.upper(enemy.state or "WANDER")), 30, 55)
   love.graphics.setColor(0.78, 0.72, 0.6)
   love.graphics.print(string.format("DECK   %02d/%02d", game.deck or 1, game.maxDecks or 1), 30, 82)
   love.graphics.setColor(0.82, 0.76, 0.62)
-  love.graphics.print(string.format("RELAY  %d/%d  PWR %d/%d", game.objectives.collected, game.objectives.total, game.level.power.assigned or 0, Level.powerCapacity(game.level)), 30, 109)
-  if game.keys and game.keys.total > 0 then
-    love.graphics.print(string.format("KEY %d/%d", game.keys.collected, game.keys.total), 206, 109)
-  end
-  if game.level.liftRequired then
-    love.graphics.setColor(game.level.liftAuthorized and 0.42 or 0.86, game.level.liftAuthorized and 0.95 or 0.62, 0.58)
-    love.graphics.print(game.level.liftAuthorized and "TERM   LIFT OK" or "TERM   LIFT REQ", 206, 136)
-  end
+  love.graphics.print(string.format("KEYS   EXIT %s  SMALL %d", game.keys.exit and "YES" or "NO", game.keys.small or 0), 30, 109)
   love.graphics.setColor(0.84, 0.64, 0.36)
   love.graphics.print(string.format("TORCH  %03d%%", floor(game.torch.fuel * 100)), 30, 136)
   love.graphics.setColor(0.68, 0.64, 0.56)
   love.graphics.print(traversal .. "  " .. zone, 30, 163)
-  love.graphics.setColor(0.58, 0.56, 0.5)
-  love.graphics.print(string.format("SEED   %d", game.seed), 30, 190)
-
-  local systems = game.level.systems or {}
-  local systemText = string.format(
-    "SYS    L%s D%s P%s V%s C%s X%s",
-    systems.lights and systems.lights.powered and "+" or "-",
-    systems.doors and systems.doors.powered and "+" or "-",
-    systems.pumps and systems.pumps.powered and "+" or "-",
-    systems.vents and systems.vents.powered and "+" or "-",
-    systems.decoy and systems.decoy.powered and "+" or "-",
-    systems.lift and systems.lift.powered and "+" or "-"
-  )
-  love.graphics.setColor(0.62, 0.78, 0.7)
-  love.graphics.print(systemText, 30, 217)
 
   local cycle = game.ecology and game.ecology.cycle
   local incident = game.ecology and game.ecology.active or "quiet"
   local phase = cycle and cycle.label or string.upper(incident)
   love.graphics.setColor(0.84, 0.67, 0.46)
-  love.graphics.print(string.format("ECO    %-8s %03d %s", phase:sub(1, 8), floor(cycle and cycle.timer or 0), string.upper(incident):sub(1, 8)), 30, 244)
+  love.graphics.print(string.format("AREA   %-8s %03d", phase:sub(1, 8), floor(cycle and cycle.timer or 0)), 30, 190)
 
   local inv = game.inventory or {}
   love.graphics.setColor(0.78, 0.72, 0.6)
   local selected = inv.selected or "flare"
-  love.graphics.print(string.format("TOOL   %-10s x%d  CODEX C", string.upper(selected), inv[selected] or 0), 30, 271)
-
-  local biome = game.level.biomeProfile and game.level.biomeProfile.label or "UNKNOWN"
-  love.graphics.setColor(0.54, 0.78, 0.76)
-  love.graphics.print(string.format("BIO    %-12s SALV %d/%d", biome:sub(1, 12), game.salvage and game.salvage.carried or 0, game.unlocks and game.unlocks.salvage or 0), 30, 298)
+  love.graphics.print(string.format("TOOL   %-10s x%d  MAP M", string.upper(selected), inv[selected] or 0), 30, 217)
 
   if game.demoMode then
     love.graphics.setColor(0.52, 0.82, 1, 0.9)
-    love.graphics.print("DEMO", 310, 271)
+    love.graphics.print("DEMO", 310, 217)
   end
 
   if game.messageTimer > 0 then
@@ -362,13 +393,59 @@ local function drawHud(game, width, height)
     love.graphics.rectangle("fill", 0, 0, width, height)
   end
 
-  local terminal = nearTerminal(game)
-  if terminal and not game.terminal.active then
-    love.graphics.setColor(0.1, 0.16, 0.14, 0.76)
+  local npc = nearNPC(game)
+  if npc and not game.terminal.active and not (game.conversation and game.conversation.active) then
+    love.graphics.setColor(0.08, 0.14, 0.13, 0.78)
     love.graphics.rectangle("fill", width * 0.5 - 138, height - 120, 276, 34, 3, 3)
-    love.graphics.setColor(0.54, 1, 0.82)
-    love.graphics.printf("F  " .. terminal.terminal.label .. "  " .. terminal.command, width * 0.5 - 128, height - 113, 256, "center")
+    love.graphics.setColor(0.62, 1, 0.84)
+    love.graphics.printf("F  " .. (npc.callsign or "GUIDE") .. "  TALK", width * 0.5 - 128, height - 113, 256, "center")
   end
+end
+
+local function drawConversationOverlay(game, width, height)
+  local convo = game.conversation
+  if not convo or not convo.active then
+    return
+  end
+
+  local npc = convo.npc or { name = "Guide", callsign = "GUIDE", title = "survivor" }
+  local topics = convo.topics or {}
+  local panelWidth = min(width - 80, 720)
+  local panelHeight = min(height - 80, 380)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+
+  love.graphics.setColor(0, 0, 0, 0.74)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.055, 0.08, 0.075, 0.97)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.38, 0.92, 0.76, 0.94)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.72, 1, 0.86)
+  love.graphics.print((npc.callsign or "GUIDE") .. "  " .. string.upper(npc.name or "GUIDE"), x + 24, y + 18)
+  love.graphics.setColor(0.5, 0.82, 0.7)
+  love.graphics.printf(string.upper(npc.title or "survivor"), x + 24, y + 18, panelWidth - 48, "right")
+
+  local topicY = y + 64
+  local topicWidth = 210
+  for i, topic in ipairs(topics) do
+    local selected = i == (convo.index or 1)
+    love.graphics.setColor(selected and 0.18 or 0.08, selected and 0.24 or 0.12, selected and 0.2 or 0.105, 0.94)
+    love.graphics.rectangle("fill", x + 24, topicY - 4, topicWidth, 30, 3, 3)
+    love.graphics.setColor(selected and 0.78 or 0.48, selected and 1 or 0.74, selected and 0.84 or 0.66)
+    love.graphics.print(string.upper(topic.label or topic.id or "topic"), x + 36, topicY + 3)
+    topicY = topicY + 36
+  end
+
+  love.graphics.setColor(0.10, 0.16, 0.14, 0.94)
+  love.graphics.rectangle("fill", x + 258, y + 64, panelWidth - 282, panelHeight - 126, 3, 3)
+  love.graphics.setColor(0.84, 0.94, 0.78)
+  love.graphics.printf(convo.response or "", x + 278, y + 86, panelWidth - 322)
+
+  love.graphics.setColor(0.44, 0.72, 0.62)
+  love.graphics.printf("UP/DOWN SELECT  ENTER ASK  F/ESC CLOSE", x + 24, y + panelHeight - 38, panelWidth - 48, "center")
 end
 
 local function drawTerminalOverlay(game, width, height)
@@ -611,8 +688,7 @@ function UI.draw(game)
   drawEndState(game, width, height)
   drawRouteSelect(game, width, height)
   drawToolWheel(game, width, height)
-  drawTerminalOverlay(game, width, height)
-  drawCodex(game, width, height)
+  drawConversationOverlay(game, width, height)
   drawPause(game, width, height)
 end
 

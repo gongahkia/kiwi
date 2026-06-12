@@ -1,5 +1,6 @@
 local Biomes = require("content.biomes")
 local CreatureContent = require("content.creatures")
+local NPCContent = require("content.npcs")
 local U = require("utils")
 
 local floor = math.floor
@@ -18,9 +19,9 @@ local Level = {
 }
 
 Level.deckConfigs = {
-  { width = 57, height = 57, rooms = 14, objectives = 4, refills = 6, gates = 2, locks = 1, hazards = 8 },
-  { width = 65, height = 65, rooms = 18, objectives = 4, refills = 7, gates = 3, locks = 1, hazards = 12 },
-  { width = 73, height = 73, rooms = 22, objectives = 5, refills = 8, gates = 3, locks = 2, hazards = 16 },
+  { width = 57, height = 57, rooms = 14, keys = 2, refills = 6, gates = 2, locks = 1, hazards = 8 },
+  { width = 65, height = 65, rooms = 18, keys = 3, refills = 7, gates = 3, locks = 1, hazards = 12 },
+  { width = 73, height = 73, rooms = 22, keys = 3, refills = 8, gates = 3, locks = 2, hazards = 16 },
 }
 
 Level.biomeOrder = Biomes.order
@@ -92,14 +93,6 @@ Level.terrainLabels = {
   bone = "BONE",
   organ = "ORGAN",
   ladder = "LADDER",
-}
-
-local objectiveLabels = {
-  "NORTH RELAY",
-  "EAST RELAY",
-  "SOUTH RELAY",
-  "WEST RELAY",
-  "LOWER RELAY",
 }
 
 local terminalCommands = { "SCAN", "UNLOCK", "PURGE", "LIFT" }
@@ -259,26 +252,29 @@ local function makeLevel(width, height, deck, config)
     toolCaches = {},
     gates = {},
     keys = {},
+    exitKey = nil,
     locks = {},
     hazards = {},
     terminals = {},
     systems = makeSystems(),
     power = { available = 0, assigned = 0, temporary = 0 },
-    minLiftRelays = min(4, max(3, (config and config.objectives or 4) - 1)),
+    minLiftRelays = 0,
     salvageRooms = {},
     salvageLocked = false,
     creatureSpawns = {},
+    npcSpawns = {},
     districts = {},
     nests = {},
     signals = {},
     factions = {},
     ecologyEvents = {},
     cycleShelters = {},
+    visitedMap = {},
     roomModifiers = {},
     branch = config and config.branch or normalizeBranch(nil, deck),
     biomeProfile = config and config.biomeProfile or Level.biomeProfiles.cryo_vault,
-    liftRequired = (deck or 1) > 1,
-    liftAuthorized = (deck or 1) <= 1,
+    liftRequired = false,
+    liftAuthorized = true,
     scanRevealed = false,
     validation = {},
   }
@@ -1133,7 +1129,8 @@ local function markToolCache(level, room, tool, id)
   return false
 end
 
-local function markKey(level, room, id)
+local function markKey(level, room, id, kind)
+  kind = kind or "small"
   for _ = 1, 18 do
     local x = U.clamp(room.cx + love.math.random(-3, 3), room.x + 1, room.x + room.width - 2)
     local y = U.clamp(room.cy + love.math.random(-3, 3), room.y + 1, room.y + room.height - 2)
@@ -1142,12 +1139,18 @@ local function markKey(level, room, id)
     if cell and not cell.solid and not cell.objective and not cell.gate and not cell.ladder and not cell.refill and not cell.key and not cell.terminal and not cell.exit then
       cell.key = {
         id = id,
+        kind = kind,
+        label = kind == "exit" and "EXIT KEY" or "SMALL KEY",
         collected = false,
       }
-      cell.kind = "key"
-      cell.light = max(cell.light or 0.5, 0.82)
+      cell.kind = kind == "exit" and "exit key" or "key"
+      cell.light = max(cell.light or 0.5, kind == "exit" and 0.9 or 0.82)
       cell.landmark = "key"
-      level.keys[#level.keys + 1] = { x = x, y = y, cell = cell, id = id }
+      local key = { x = x, y = y, cell = cell, id = id, kind = kind }
+      level.keys[#level.keys + 1] = key
+      if kind == "exit" then
+        level.exitKey = key
+      end
       return true
     end
   end
@@ -1704,7 +1707,7 @@ local function countUsableGates(level, visited)
     if visited[U.keyOf(gate.x, gate.y)] then
       reachable = reachable + 1
     end
-    if (gate.required or math.huge) <= #level.objectives and gateDegree(level, gate) >= 2 then
+    if gateDegree(level, gate) >= 2 then
       usable = usable + 1
     end
   end
@@ -1804,9 +1807,7 @@ function Level.validate(level)
   local unlockedOpenCells = countOpenCells(level, true)
   local lockedConnected = countVisitedCells(level, lockedVisited, false)
   local unlockedConnected = countVisitedCells(level, unlockedVisited, true)
-  local objectiveReachable = countReachableObjectives(level, lockedVisited)
   local keyReachable = countReachableKeys(level, lockedVisited)
-  local terminalReachable, liftTerminalReachable = countReachableTerminals(level, lockedVisited)
   local exitOpenReachable = exitReachable(level, lockedVisited)
   local gateReachable, gateUsable = countUsableGates(level, unlockedVisited)
   local lockReachable, lockUsable = countUsableLocks(level, unlockedVisited)
@@ -1823,23 +1824,20 @@ function Level.validate(level)
   requireValid(lockedConnected == lockedOpenCells, "locked-connectivity")
   requireValid(unlockedConnected == unlockedOpenCells, "unlocked-connectivity")
   requireValid(#level.rooms >= (config.rooms or 12), "rooms")
-  requireValid(#level.objectives >= (config.objectives or 4), "objectives")
   requireValid(#level.refills >= (config.refills or 5), "refills")
-  requireValid(objectiveReachable == #level.objectives, "objective-reachability")
   requireValid(exitOpenReachable, "exit-reachability")
   requireValid(#level.gates >= (config.gates or 2), "gates")
   requireValid(gateReachable == #level.gates, "gate-reachability")
   requireValid(gateUsable == #level.gates, "gate-usability")
   requireValid(#level.locks >= (config.locks or 0), "locks")
-  requireValid(#level.keys >= min(1, config.locks or 0), "keys")
+  requireValid(level.exitKey ~= nil, "exit-key")
+  requireValid(#level.keys >= max(1, config.keys or 1), "keys")
   requireValid(keyReachable == #level.keys, "key-reachability")
   requireValid(lockReachable == #level.locks, "lock-reachability")
   requireValid(lockUsable == #level.locks, "lock-usability")
   requireValid(#level.hazards >= max(0, (config.hazards or 0) - 2), "hazards")
-  requireValid(#level.terminals >= (config.terminals or 0), "terminals")
-  requireValid(terminalReachable == #level.terminals, "terminal-reachability")
-  requireValid((not level.liftRequired) or liftTerminalReachable, "lift-terminal")
   requireValid(#level.creatureSpawns >= 3, "creature-spawns")
+  requireValid(#(level.npcSpawns or {}) >= 1, "npc-spawns")
   requireValid(#level.districts >= 4, "districts")
   requireValid(districtKinds >= 4, "district-kinds")
   requireValid(#level.nests >= 2, "nests")
@@ -1863,10 +1861,9 @@ function Level.validate(level)
     openCells = lockedOpenCells,
     unlockedReachable = unlockedReachable,
     unlockedOpenCells = unlockedOpenCells,
-    objectiveReachable = objectiveReachable,
     keyReachable = keyReachable,
-    terminalReachable = terminalReachable,
-    liftTerminalReachable = liftTerminalReachable,
+    terminalReachable = 0,
+    liftTerminalReachable = false,
     exitReachable = exitOpenReachable,
     gateReachable = gateReachable,
     gateUsable = gateUsable,
@@ -1874,14 +1871,16 @@ function Level.validate(level)
     lockUsable = lockUsable,
     farthest = farthest.distance,
     rooms = #level.rooms,
-    objectives = #level.objectives,
+    objectives = 0,
     refills = #level.refills,
     gates = #level.gates,
     keys = #level.keys,
     locks = #level.locks,
     hazards = #level.hazards,
-    terminals = #level.terminals,
+    terminals = 0,
+    exitKey = level.exitKey ~= nil and 1 or 0,
     creatureSpawns = #level.creatureSpawns,
+    npcSpawns = #(level.npcSpawns or {}),
     districts = #level.districts,
     districtKinds = districtKinds,
     nests = #level.nests,
@@ -1925,12 +1924,13 @@ local function deckConfig(deck, width, height, branch)
     width = width or base.width,
     height = height or base.height,
     rooms = rooms,
-    objectives = base.objectives,
+    keys = base.keys or 2,
+    objectives = 0,
     refills = max(5, base.refills + floor((rooms - base.rooms) / 2)),
     gates = base.gates,
     locks = base.locks,
     hazards = max(6, base.hazards + rooms - base.rooms + (branch.risk or 1) - 1),
-    terminals = min(4, (deck or 1) + 1),
+    terminals = 0,
     profile = profile,
     theme = theme,
     branch = branch,
@@ -2206,7 +2206,7 @@ local function addShortcutMarkers(level, count, marker)
       local points = connectRoomPair(level, a, b, marker == "gate" and "shortcut" or "locked shortcut")
 
       if marker == "gate" then
-        markShortcutGate(level, points, min(#level.objectives, made + 2))
+        markShortcutGate(level, points, made + 1)
         if #level.gates > before then
           made = made + 1
         end
@@ -2257,13 +2257,19 @@ local function placeObjectives(level, config)
 end
 
 local function placeKeys(level, config)
-  if (config.locks or 0) <= 0 then
-    return
+  local lastRouteIndex = max(2, #level.routeRooms - 1)
+  local exitIndex = U.clamp(floor(#level.routeRooms * 0.62), 2, lastRouteIndex)
+
+  if not markKey(level, level.routeRooms[exitIndex], 1, "exit") then
+    markKey(level, level.routeRooms[max(2, lastRouteIndex)], 1, "exit")
   end
 
-  local index = U.clamp(floor(#level.routeRooms * 0.38), 2, max(2, #level.routeRooms - 1))
-  if not markKey(level, level.routeRooms[index], 1) then
-    markKey(level, level.routeRooms[1], 1)
+  local smallKeys = max(config.locks or 0, (config.keys or 2) - 1)
+  for id = 1, smallKeys do
+    local index = U.clamp(floor(#level.routeRooms * (0.22 + id * 0.16)), 2, lastRouteIndex)
+    if not markKey(level, level.routeRooms[index], id, "small") then
+      markKey(level, level.routeRooms[1], id, "small")
+    end
   end
 end
 
@@ -3027,6 +3033,86 @@ local function placeTerminals(level, config)
   end
 end
 
+local function npcSpawnClear(level, x, y, visited)
+  local cell = Level.cellAtCell(level, x, y)
+
+  if not cell or cell.solid or not visited[U.keyOf(x, y)] then
+    return false
+  end
+
+  if cell.objective or cell.gate or cell.ladder or cell.refill or cell.key or cell.lock or cell.hazard or cell.terminal or cell.exit or cell.tool or cell.vent then
+    return false
+  end
+
+  for _, spawn in ipairs(level.npcSpawns or {}) do
+    local dx = spawn.x - x
+    local dy = spawn.y - y
+    if dx * dx + dy * dy < 16 then
+      return false
+    end
+  end
+
+  return true
+end
+
+local function markNPCSpawn(level, room, id, visited)
+  if not room then
+    return false
+  end
+
+  for _ = 1, 22 do
+    local x = U.clamp(room.cx + love.math.random(-4, 4), room.x + 1, room.x + room.width - 2)
+    local y = U.clamp(room.cy + love.math.random(-4, 4), room.y + 1, room.y + room.height - 2)
+
+    if npcSpawnClear(level, x, y, visited) then
+      local kind = NPCContent.order[((level.deck or 1) + id - 2) % #NPCContent.order + 1]
+      level.npcSpawns[#level.npcSpawns + 1] = {
+        x = x,
+        y = y,
+        id = id,
+        kind = kind,
+        room = room,
+      }
+      return true
+    end
+  end
+
+  return false
+end
+
+local function addRoomCandidate(candidates, room, seen)
+  if not room or seen[room] then
+    return
+  end
+  seen[room] = true
+  candidates[#candidates + 1] = room
+end
+
+local function placeNPCs(level)
+  local target = (level.deck or 1) >= 2 and 2 or 1
+  local _, visited = Level.farthestCellFrom(level, level.start.x, level.start.y)
+  local candidates = {}
+  local seen = {}
+
+  for _, shelter in ipairs(level.cycleShelters or {}) do
+    addRoomCandidate(candidates, shelter.room, seen)
+  end
+  addRoomCandidate(candidates, level.routeRooms[2], seen)
+  addRoomCandidate(candidates, level.routeRooms[max(1, #level.routeRooms - 1)], seen)
+  addRoomCandidate(candidates, level.rooms[1], seen)
+
+  for _, room in ipairs(level.rooms or {}) do
+    addRoomCandidate(candidates, room, seen)
+  end
+
+  for _, room in ipairs(candidates) do
+    if #level.npcSpawns >= target then
+      return
+    end
+    markNPCSpawn(level, room, #level.npcSpawns + 1, visited)
+  end
+end
+
 local function finalizeGeneratedLevel(level, config)
   for _, room in ipairs(level.rooms) do
     mutateRoomShape(level, room)
@@ -3038,20 +3124,17 @@ local function finalizeGeneratedLevel(level, config)
 
   addColumns(level)
   placeHybridDistricts(level)
-  placeObjectives(level, config)
   markExit(level, level.routeRooms[#level.routeRooms])
   placeKeys(level, config)
   addOpenCrossLinks(level, (level.profile and level.profile.openLinks or 0) + love.math.random(0, 1))
   addShortcutMarkers(level, config.gates or 2, "gate")
   addShortcutMarkers(level, config.locks or 0, "lock")
   placeLandmarks(level)
-  placeDynamicRooms(level)
   placeHazards(level, config)
   placeBiomeDistricts(level)
   placeRoomModifiers(level)
   placeCycleShelters(level)
   placeVents(level)
-  placeTerminals(level, config)
   placeRefills(level, config)
   placeSalvageRooms(level)
   placeNests(level)
@@ -3065,7 +3148,7 @@ local function finalizeGeneratedLevel(level, config)
   end
 
   sealUnreachableCells(level)
-  Level.applySystemEffects(level)
+  placeNPCs(level)
   return level
 end
 

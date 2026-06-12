@@ -1,4 +1,5 @@
 local CreatureContent = require("content.creatures")
+local NPCContent = require("content.npcs")
 local Level = require("level")
 local U = require("utils")
 
@@ -334,13 +335,15 @@ end
 
 function Actor.createCreatures(level)
   local creatures = {}
-  local wanted = { hunter = true, stalker = true, skitter = true }
+  local wanted = { hunter = true, skitter = true }
 
   if (level.deck or 1) >= 2 then
-    wanted.screecher = true
+    wanted.stalker = true
+    wanted.burrower = true
   end
   if (level.deck or 1) >= 3 then
-    wanted.burrower = true
+    wanted.screecher = true
+    wanted.scavenger = true
   end
 
   for _, spawn in ipairs(level.creatureSpawns or {}) do
@@ -350,7 +353,7 @@ function Actor.createCreatures(level)
         wanted[spawn.kind] = false
       end
     end
-    if #creatures >= 6 + (level.deck or 1) then
+    if #creatures >= 3 + (level.deck or 1) then
       break
     end
   end
@@ -363,6 +366,53 @@ function Actor.createCreatures(level)
   end
 
   return creatures
+end
+
+function Actor.createNPC(level, spawn, id)
+  local kind = spawn and spawn.kind or NPCContent.order[((id or 1) - 1) % #NPCContent.order + 1]
+  local profile = NPCContent.profiles[kind] or NPCContent.profiles.scout
+  local x, y = findSafeSpawn(level, spawn and spawn.x or level.start.x, spawn and spawn.y or level.start.y, profile.radius or 0.16)
+  local floorZ = Actor.floorAt(level, x, y)
+
+  return {
+    id = id or 1,
+    kind = kind,
+    name = profile.name or "Guide",
+    callsign = profile.callsign or "GUIDE",
+    title = profile.title or "guide",
+    x = x,
+    y = y,
+    homeX = x,
+    homeY = y,
+    radius = profile.radius or 0.16,
+    speed = profile.speed or 1,
+    height = profile.height or 1.4,
+    eyeHeight = min((profile.height or 1.4) - 0.1, 0.84),
+    floorZ = floorZ,
+    eyeZ = floorZ + min((profile.height or 1.4) - 0.1, 0.84),
+    room = spawn and spawn.room or nil,
+    path = {},
+    pathTimer = 0,
+    repathDelay = 0.42,
+    targetKey = "",
+    wanderTarget = nil,
+    leadTarget = nil,
+    state = "idle",
+    stateTimer = 0,
+    talking = false,
+    color = profile.color,
+    alive = true,
+  }
+end
+
+function Actor.createNPCs(level)
+  local npcs = {}
+
+  for _, spawn in ipairs(level.npcSpawns or {}) do
+    npcs[#npcs + 1] = Actor.createNPC(level, spawn, #npcs + 1)
+  end
+
+  return npcs
 end
 
 function Actor.emitNoise(game, x, y, intensity, ttl, kind)
@@ -508,6 +558,189 @@ local function refreshEnemyPath(level, enemy, targetX, targetY, dt)
     enemy.path = Level.findPath(level, floor(enemy.x), floor(enemy.y), targetCellX, targetCellY)
     enemy.pathTimer = enemy.repathDelay
     enemy.targetKey = targetKey
+  end
+end
+
+local function setNPCState(npc, state, timer)
+  if npc.state ~= state then
+    npc.state = state
+    npc.stateTimer = timer or 0
+  elseif timer and (npc.stateTimer or 0) <= 0 then
+    npc.stateTimer = timer
+  end
+end
+
+local function npcReachableTarget(level, npc, x, y)
+  local targetX = floor(x)
+  local targetY = floor(y)
+
+  if not Level.isWalkableCell(level, targetX, targetY) then
+    return false
+  end
+
+  if floor(npc.x) == targetX and floor(npc.y) == targetY then
+    return true
+  end
+
+  return #Level.findPath(level, floor(npc.x), floor(npc.y), targetX, targetY) > 0
+end
+
+local function nearestNPCThreat(game, npc)
+  local nearest
+  local nearestDistance = math.huge
+
+  for _, creature in ipairs(game.creatures or {}) do
+    if creature.alive and creature.lethal then
+      local distance = distance2d(npc.x, npc.y, creature.x, creature.y)
+      if distance < nearestDistance then
+        nearest = creature
+        nearestDistance = distance
+      end
+    end
+  end
+
+  return nearest, nearestDistance
+end
+
+local function npcFleeTarget(game, npc, threat)
+  local level = game.level
+  local awayX = npc.x - threat.x
+  local awayY = npc.y - threat.y
+  local length = sqrt(awayX * awayX + awayY * awayY)
+
+  if length < 0.001 then
+    awayX, awayY = 1, 0
+    length = 1
+  end
+
+  awayX = awayX / length
+  awayY = awayY / length
+
+  for distance = 7, 2, -1 do
+    local x = npc.x + awayX * distance
+    local y = npc.y + awayY * distance
+    if npcReachableTarget(level, npc, x, y) then
+      return x, y
+    end
+  end
+
+  return npc.homeX, npc.homeY
+end
+
+local function chooseNPCWanderTarget(level, npc)
+  if npc.wanderTarget and distance2d(npc.x, npc.y, npc.wanderTarget.x, npc.wanderTarget.y) > 0.75 then
+    return npc.wanderTarget.x, npc.wanderTarget.y
+  end
+
+  local room = npc.room
+  for _ = 1, 12 do
+    local x, y
+    if room then
+      x = love.math.random(room.x + 1, room.x + room.width - 2) + 0.5
+      y = love.math.random(room.y + 1, room.y + room.height - 2) + 0.5
+    else
+      x = U.clamp(npc.homeX + love.math.random(-4, 4), 2, level.width - 1)
+      y = U.clamp(npc.homeY + love.math.random(-4, 4), 2, level.height - 1)
+    end
+
+    if npcReachableTarget(level, npc, x, y) then
+      npc.wanderTarget = { x = x, y = y }
+      return x, y
+    end
+  end
+
+  if distance2d(npc.x, npc.y, npc.homeX, npc.homeY) > 0.8 then
+    npc.wanderTarget = { x = npc.homeX, y = npc.homeY }
+    return npc.homeX, npc.homeY
+  end
+
+  return npc.x, npc.y
+end
+
+local function chooseNPCTarget(game, npc, dt)
+  local threat, threatDistance = nearestNPCThreat(game, npc)
+  npc.stateTimer = max(0, (npc.stateTimer or 0) - dt)
+
+  if threat and (threatDistance < 6.2 or (threatDistance < 9.5 and Level.lineOfSight(game.level, npc.x, npc.y, threat.x, threat.y))) then
+    npc.talking = false
+    setNPCState(npc, "flee", 1.8)
+    return npcFleeTarget(game, npc, threat)
+  end
+
+  if npc.talking then
+    setNPCState(npc, "talk")
+    return npc.x, npc.y
+  end
+
+  if npc.leadTarget then
+    npc.leadTarget.ttl = max(0, (npc.leadTarget.ttl or 0) - dt)
+    if npc.leadTarget.ttl > 0 and distance2d(npc.x, npc.y, npc.leadTarget.x, npc.leadTarget.y) > 1.4 then
+      setNPCState(npc, "lead")
+      return npc.leadTarget.x, npc.leadTarget.y
+    end
+    npc.leadTarget = nil
+  end
+
+  if distance2d(npc.x, npc.y, npc.homeX, npc.homeY) > 8 then
+    setNPCState(npc, "return")
+    npc.wanderTarget = { x = npc.homeX, y = npc.homeY }
+    return npc.homeX, npc.homeY
+  end
+
+  setNPCState(npc, "wander")
+  return chooseNPCWanderTarget(game.level, npc)
+end
+
+local function updateOneNPC(game, npc, dt)
+  if not npc.alive then
+    return
+  end
+
+  local level = game.level
+  local targetX, targetY = chooseNPCTarget(game, npc, dt)
+
+  if npc.state ~= "talk" then
+    refreshEnemyPath(level, npc, targetX, targetY, dt)
+    local waypoint = npc.path[1]
+
+    if waypoint then
+      targetX, targetY = waypoint.x, waypoint.y
+
+      if distance2d(targetX, targetY, npc.x, npc.y) < 0.12 then
+        table.remove(npc.path, 1)
+        waypoint = npc.path[1]
+
+        if waypoint then
+          targetX, targetY = waypoint.x, waypoint.y
+        end
+      end
+    end
+  end
+
+  local moveX, moveY = targetX - npc.x, targetY - npc.y
+  local moveLength = sqrt(moveX * moveX + moveY * moveY)
+  local stateSpeed = {
+    idle = 0,
+    talk = 0,
+    wander = 0.58,
+    lead = 0.98,
+    flee = 1.28,
+    ["return"] = 0.74,
+  }
+  local speed = (npc.speed or 1) * (stateSpeed[npc.state] or 0.6)
+
+  if moveLength > 0.001 and speed > 0 then
+    moveX = (moveX / moveLength) * speed * Actor.movementMultiplier(level, npc) * dt
+    moveY = (moveY / moveLength) * speed * Actor.movementMultiplier(level, npc) * dt
+    moveWithCollision(level, npc, moveX, moveY)
+  end
+
+  updateActorHeight(level, npc, dt)
+end
+
+function Actor.updateNPCs(game, dt)
+  for _, npc in ipairs(game.npcs or {}) do
+    updateOneNPC(game, npc, dt)
   end
 end
 
@@ -1148,9 +1381,13 @@ local function resolveCreatureContacts(game)
           game.setMessage("SKITTER STOLE " .. string.upper(stolen), 1.6)
         end
       elseif creature.lethal and creature.grace <= 0 and distance < player.radius + creature.radius + 0.12 then
-        game.state = "caught"
-        game.bestTime = max(game.bestTime, game.survivalTime)
-        love.mouse.setRelativeMode(false)
+        if game.resetLife then
+          game.resetLife("CAUGHT")
+        else
+          game.state = "caught"
+          game.bestTime = max(game.bestTime, game.survivalTime)
+          love.mouse.setRelativeMode(false)
+        end
       end
     end
   end

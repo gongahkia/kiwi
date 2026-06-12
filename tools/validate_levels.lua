@@ -32,12 +32,11 @@ end
 
 local metrics = {
   rooms = {},
-  objectives = {},
   gates = {},
   keys = {},
+  exitKeys = {},
   locks = {},
   hazards = {},
-  terminals = {},
   districts = {},
   districtKinds = {},
   nests = {},
@@ -46,6 +45,7 @@ local metrics = {
   cycleShelters = {},
   roomModifiers = {},
   creatureSpawns = {},
+  npcSpawns = {},
   refills = {},
   stairs = {},
   ladders = {},
@@ -54,8 +54,7 @@ local metrics = {
   steepTransitions = {},
   ceilingTransitions = {},
   reachable = {},
-  objectiveDistance = {},
-  terminalDistance = {},
+  keyDistance = {},
   exitDistance = {},
   pathLength = {},
   pathTimeMs = {},
@@ -98,40 +97,7 @@ local function checkGameplay(seed, level)
     currentY = key.y
   end
 
-  for _, objective in ipairs(level.objectives) do
-    Support.pathOrFail(
-      Level,
-      level,
-      currentX,
-      currentY,
-      objective.x,
-      objective.y,
-      "objective-" .. objective.id,
-      failures
-    )
-    objective.cell.objective.collected = true
-    currentX = objective.x
-    currentY = objective.y
-  end
-
   Level.setGatesLocked(level, false)
-  if level.liftRequired then
-    local liftTerminal
-    for _, terminal in ipairs(level.terminals or {}) do
-      if terminal.command == "LIFT" then
-        liftTerminal = terminal
-        break
-      end
-    end
-    if liftTerminal then
-      Support.pathOrFail(Level, level, currentX, currentY, liftTerminal.x, liftTerminal.y, "lift-terminal", failures)
-      level.liftAuthorized = true
-      currentX = liftTerminal.x
-      currentY = liftTerminal.y
-    else
-      failures[#failures + 1] = "lift-terminal-missing"
-    end
-  end
 
   if level.exit then
     Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "exit", failures)
@@ -209,12 +175,11 @@ local function appendCoreMetrics(level)
   local validation = Level.validate(level)
 
   metrics.rooms[#metrics.rooms + 1] = #level.rooms
-  metrics.objectives[#metrics.objectives + 1] = #level.objectives
   metrics.gates[#metrics.gates + 1] = #level.gates
   metrics.keys[#metrics.keys + 1] = #(level.keys or {})
+  metrics.exitKeys[#metrics.exitKeys + 1] = level.exitKey and 1 or 0
   metrics.locks[#metrics.locks + 1] = #(level.locks or {})
   metrics.hazards[#metrics.hazards + 1] = #(level.hazards or {})
-  metrics.terminals[#metrics.terminals + 1] = #(level.terminals or {})
   metrics.districts[#metrics.districts + 1] = validation.districts or 0
   metrics.districtKinds[#metrics.districtKinds + 1] = validation.districtKinds or 0
   metrics.nests[#metrics.nests + 1] = validation.nests or 0
@@ -223,6 +188,7 @@ local function appendCoreMetrics(level)
   metrics.cycleShelters[#metrics.cycleShelters + 1] = validation.cycleShelters or 0
   metrics.roomModifiers[#metrics.roomModifiers + 1] = validation.roomModifiers or 0
   metrics.creatureSpawns[#metrics.creatureSpawns + 1] = validation.creatureSpawns or 0
+  metrics.npcSpawns[#metrics.npcSpawns + 1] = validation.npcSpawns or 0
   metrics.refills[#metrics.refills + 1] = #level.refills
   metrics.stairs[#metrics.stairs + 1] = level.stairCount
   metrics.ladders[#metrics.ladders + 1] = level.ladderCount
@@ -240,36 +206,14 @@ local function appendRouteMetrics(level)
   for _, key in ipairs(level.keys or {}) do
     local distance = Support.pathOrFail(Level, level, currentX, currentY, key.x, key.y, "metric-key", {})
     if distance then
+      metrics.keyDistance[#metrics.keyDistance + 1] = distance
       currentX = key.x
       currentY = key.y
       Level.setLocksLocked(level, false)
     end
   end
 
-  for _, objective in ipairs(level.objectives) do
-    local distance = Support.pathOrFail(Level, level, currentX, currentY, objective.x, objective.y, "metric-objective", {})
-    if distance then
-      metrics.objectiveDistance[#metrics.objectiveDistance + 1] = distance
-    end
-    currentX = objective.x
-    currentY = objective.y
-  end
-
   Support.withGates(level, false, function()
-    if level.liftRequired then
-      for _, terminal in ipairs(level.terminals or {}) do
-        if terminal.command == "LIFT" then
-          local distance = Support.pathOrFail(Level, level, currentX, currentY, terminal.x, terminal.y, "metric-lift", {})
-          if distance then
-            metrics.terminalDistance[#metrics.terminalDistance + 1] = distance
-            currentX = terminal.x
-            currentY = terminal.y
-          end
-          break
-        end
-      end
-    end
-
     if level.exit then
       local distance = Support.pathOrFail(Level, level, currentX, currentY, level.exit.x, level.exit.y, "metric-exit", {})
       if distance then
@@ -327,12 +271,11 @@ end
 
 if enabled.metrics then
   io.write(Support.metricLine("rooms", metrics.rooms) .. "\n")
-  io.write(Support.metricLine("objectives", metrics.objectives) .. "\n")
   io.write(Support.metricLine("gates", metrics.gates) .. "\n")
   io.write(Support.metricLine("keys", metrics.keys) .. "\n")
+  io.write(Support.metricLine("exit-keys", metrics.exitKeys) .. "\n")
   io.write(Support.metricLine("locks", metrics.locks) .. "\n")
   io.write(Support.metricLine("hazards", metrics.hazards) .. "\n")
-  io.write(Support.metricLine("terminals", metrics.terminals) .. "\n")
   io.write(Support.metricLine("districts", metrics.districts) .. "\n")
   io.write(Support.metricLine("district-kinds", metrics.districtKinds) .. "\n")
   io.write(Support.metricLine("nests", metrics.nests) .. "\n")
@@ -341,6 +284,7 @@ if enabled.metrics then
   io.write(Support.metricLine("cycle-shelters", metrics.cycleShelters) .. "\n")
   io.write(Support.metricLine("room-modifiers", metrics.roomModifiers) .. "\n")
   io.write(Support.metricLine("creature-spawns", metrics.creatureSpawns) .. "\n")
+  io.write(Support.metricLine("npc-spawns", metrics.npcSpawns) .. "\n")
   io.write(Support.metricLine("refills", metrics.refills) .. "\n")
   io.write(Support.metricLine("stairs", metrics.stairs) .. "\n")
   io.write(Support.metricLine("ladders", metrics.ladders) .. "\n")
@@ -349,8 +293,7 @@ if enabled.metrics then
   io.write(Support.metricLine("steep-transitions", metrics.steepTransitions) .. "\n")
   io.write(Support.metricLine("ceiling-transitions", metrics.ceilingTransitions) .. "\n")
   io.write(Support.metricLine("reachable", metrics.reachable) .. "\n")
-  io.write(Support.percentileLine("objective-distance", metrics.objectiveDistance) .. "\n")
-  io.write(Support.percentileLine("terminal-distance", metrics.terminalDistance) .. "\n")
+  io.write(Support.percentileLine("key-distance", metrics.keyDistance) .. "\n")
   io.write(Support.percentileLine("exit-distance", metrics.exitDistance) .. "\n")
   if enabled.path then
     io.write(Support.percentileLine("path-length", metrics.pathLength) .. "\n")

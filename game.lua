@@ -1,6 +1,7 @@
 local Actor = require("actor")
 local Audio = require("audio")
 local Cycles = require("content.cycles")
+local NPCContent = require("content.npcs")
 local Level = require("level")
 local Renderer = require("renderer")
 local UI = require("ui")
@@ -23,7 +24,6 @@ local defaultBindings = {
   useTool = "space",
   cycleTool = "tab",
   map = "m",
-  codex = "c",
   pause = "escape",
 }
 
@@ -39,7 +39,6 @@ local bindingActions = {
   "useTool",
   "cycleTool",
   "map",
-  "codex",
   "pause",
 }
 
@@ -48,7 +47,7 @@ local Game = {
   player = nil,
   enemy = nil,
   creatures = {},
-  showMap = false,
+  npcs = {},
   state = "playing",
   survivalTime = 0,
   bestTime = 0,
@@ -58,7 +57,12 @@ local Game = {
   maxDecks = Level.maxDecks,
   fonts = {},
   objectives = { total = 0, collected = 0 },
-  keys = { total = 0, collected = 0 },
+  keys = { total = 0, collected = 0, small = 0, exit = false },
+  loopDuration = 60,
+  loopTimer = 60,
+  respawn = nil,
+  mapHeld = false,
+  mapGamepadHeld = false,
   torch = { fuel = 1 },
   noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 },
   noises = {},
@@ -80,8 +84,6 @@ local Game = {
   pendingDeck = nil,
   currentBranch = nil,
   demoMode = false,
-  codex = { entries = {}, seen = {} },
-  codexOpen = false,
   inventory = {
     selected = "flare",
     flare = 1,
@@ -108,6 +110,7 @@ local Game = {
   messageTimer = 0,
   hazardTimer = 0,
   terminal = { active = false, input = "", current = nil, logs = {}, liftAuthorized = true },
+  conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" },
   seedEntry = { active = false, text = "" },
 }
 
@@ -291,47 +294,12 @@ local function codexKey(kind, id)
 end
 
 local function saveCodex()
-  if not love.filesystem then
-    return
-  end
-
-  local lines = {}
-  for _, entry in ipairs(Game.codex.entries or {}) do
-    lines[#lines + 1] = table.concat({ entry.kind, entry.id, entry.text }, "|")
-  end
-  pcall(love.filesystem.write, "codex.txt", table.concat(lines, "\n"))
 end
 
 local function loadCodex()
-  Game.codex = { entries = {}, seen = {} }
-  if not love.filesystem or not love.filesystem.getInfo or not love.filesystem.getInfo("codex.txt") then
-    return
-  end
-
-  local ok, data = pcall(love.filesystem.read, "codex.txt")
-  if not ok or not data then
-    return
-  end
-
-  for line in data:gmatch("[^\n]+") do
-    local kind, id, text = line:match("^([^|]+)|([^|]+)|(.+)$")
-    if kind and id and text then
-      Game.codex.entries[#Game.codex.entries + 1] = { kind = kind, id = id, text = text }
-      Game.codex.seen[codexKey(kind, id)] = true
-    end
-  end
 end
 
 function recordCodexDiscovery(kind, id, text)
-  local key = codexKey(kind, id)
-  if Game.codex.seen[key] then
-    return
-  end
-
-  Game.codex.seen[key] = true
-  Game.codex.entries[#Game.codex.entries + 1] = { kind = kind, id = id, text = text }
-  saveCodex()
-  setMessage("CODEX: " .. string.upper(id), 1.6)
 end
 
 Game.recordCodexDiscovery = recordCodexDiscovery
@@ -356,8 +324,8 @@ local creatureCodex = {
   stalker = "Stalkers prefer dark territory and retreat from strong light or flash bursts.",
   skitter = "Skitters are scavengers that panic loudly and steal useful objects.",
   screecher = "Screechers are sound predators that can drag other threats toward noise.",
-  burrower = "Burrowers guard rubble and flooded nests, but powered pumps weaken them.",
-  warden = "Wardens guard powered infrastructure and react aggressively to terminal use.",
+  burrower = "Burrowers guard rubble and flooded nests, but loud bait can pull them off a crossing.",
+  warden = "Wardens guard locked routes and react aggressively to breaker sparks, fuse bursts, and cache theft.",
   leecher = "Leechers follow flooded conductors and are repelled by grounding spikes.",
   mimic = "Mimics impersonate useful signals or caches until proximity or survey pulses wake them.",
   choir = "Choirs coordinate through vents and amplify noise pressure during blackouts or blooms.",
@@ -369,7 +337,7 @@ local districtCodex = {
   flooded_basin = "Flooded basins slow movement and make wire hazards nastier until pumps come online.",
   machine_maze = "Machine mazes carry vents, grates, and sound paths for screechers.",
   foundry_arena = "Foundry arenas are exposed crossings where predators can interrupt each other.",
-  salvage_vault = "Salvage vaults hold tools, but early lift authorization can seal them.",
+  salvage_vault = "Cache vaults hold tools, but they often attract rivals and mimics.",
   nest_zone = "Nest zones are creature homes. Raiding or baiting them raises local aggression.",
   cryo_vault = "Cryo vaults carry frost traces, brittle seals, and low-visibility shortcut risks.",
   fungal_service = "Fungal service tunnels amplify scent tools and create misleading spore trails.",
@@ -378,7 +346,7 @@ local districtCodex = {
   waste_artery = "Waste arteries slow movement, strengthen burrowers in sludge, and contaminate salvage.",
   storm_drain = "Storm drains push flood cycles through live conduit routes; valves and grounding spikes create safe windows.",
   ash_foundry = "Ash foundries hide movement in smoke but turn heat cycles into shelter races.",
-  signal_catacombs = "Signal catacombs spoof map pings and hide mimics among salvage signs.",
+  signal_catacombs = "Signal catacombs spoof map pings and hide mimics among cache signs.",
   bone_market = "Bone markets are scavenger trade routes where caches attract rivals and predators.",
   organ_machine = "Organ machines pulse living doors and biological alarms around powered systems.",
 }
@@ -442,7 +410,7 @@ local signalCodex = {
   tainted_sludge = "Tainted sludge marks waste routes where salvage may decay before extraction.",
   surge_line = "Surge lines show where water pressure will return during the next flood phase.",
   smoke_veil = "Smoke veils break sight but carry noise and can hide stalkers.",
-  false_ping = "False pings can mark salvage, mimic bait, or real terminals until surveyed.",
+  false_ping = "False pings can mark real caches, mimic bait, or old signs until surveyed.",
   trade_mark = "Trade marks warn that scavenger rivals watch nearby caches.",
   pulse_mark = "Pulse marks show living machinery that reacts to power and coolant.",
   shelter_mark = "Shelter marks identify temporary pockets that reduce cycle pressure.",
@@ -679,7 +647,7 @@ local function pulseIncident(kind)
     for _, faction in ipairs(Game.level.factions or {}) do
       faction.alarm = max(faction.alarm or 0, 6)
     end
-    appendIncidentLog("FACTION RAID: SALVAGE ROUTES EXPOSED")
+    appendIncidentLog("FACTION RAID: CACHE ROUTES EXPOSED")
   end
 end
 
@@ -887,10 +855,14 @@ function startDeck(deck)
   Game.level = Level.generate(nil, nil, deck, Game.currentBranch)
   Game.player = Actor.createPlayer(Game.level)
   Game.creatures = Actor.createCreatures(Game.level)
+  Game.npcs = Actor.createNPCs(Game.level)
   Game.enemy = Actor.nearestThreat(Game) or Game.creatures[1] or Actor.createEnemy(Game.level)
   Game.state = "playing"
-  Game.objectives = { total = #Game.level.objectives, collected = 0 }
-  Game.keys = { total = #Game.level.keys, collected = 0 }
+  Game.objectives = { total = 0, collected = 0 }
+  Game.keys = { total = #Game.level.keys, collected = 0, small = 0, exit = false }
+  Game.loopTimer = Game.loopDuration
+  Game.respawn = { x = Game.player.x, y = Game.player.y }
+  Game.level.visitedMap = {}
   Game.terminal = {
     active = false,
     input = "",
@@ -898,23 +870,22 @@ function startDeck(deck)
     logs = {},
     liftAuthorized = not Game.level.liftRequired,
   }
+  Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
   Game.noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 }
   Game.noises = {}
   Game.effects = {}
   Game.props = {}
   Game.survey = { ttl = 0 }
   Game.toolWheel = { visible = false, timer = 0 }
+  Game.mapHeld = false
+  Game.mapGamepadHeld = false
   Game.hazardTimer = 0
   Game.seedEntry.active = false
   Game.seedEntry.text = ""
   Game.paused = false
   Game.bindTarget = nil
   initEcology()
-  if Game.level.biomeProfile then
-    appendIncidentLog("ROUTE: " .. Game.level.biomeProfile.label .. " / " .. string.upper(Game.level.branch.kind or "SAFE"))
-  end
-  setMessage(string.format("DECK %02d", Game.deck), 1.5)
-  recordDeckDiscoveries()
+  setMessage(string.format("FIND EXIT KEY  DECK %02d", Game.deck), 1.7)
   love.mouse.setRelativeMode(true)
 end
 
@@ -956,7 +927,7 @@ local function startGame(seed)
   if Game.unlocks.unlocked.start_breaker then
     Game.inventory.breaker = min(Game.inventory.max.breaker, Game.inventory.breaker + 1)
   end
-  Game.salvage = { carried = 0, total = Game.unlocks.salvage or 0, contamTimer = 0 }
+  Game.salvage = { carried = 0, total = 0, contamTimer = 0 }
   Game.currentBranch = nil
   Game.routeChoices = {}
   Game.routeIndex = 1
@@ -966,7 +937,6 @@ end
 
 local function advanceDeck()
   if Game.deck >= Game.maxDecks then
-    bankSalvage()
     Game.state = "escaped"
     Game.bestTime = max(Game.bestTime, Game.survivalTime)
     unlockAchievement("extraction", "Extract from Tikrit's active decks.")
@@ -974,8 +944,83 @@ local function advanceDeck()
     return
   end
 
-  bankSalvage()
-  openRouteSelect(Game.deck + 1)
+  Game.currentBranch = nil
+  startDeck(Game.deck + 1)
+end
+
+local function resetLife(reason)
+  local respawn = Game.respawn or { x = Game.level.start.x + 0.5, y = Game.level.start.y + 0.5 }
+
+  Game.player = Actor.createPlayer(Game.level)
+  Game.player.x = respawn.x
+  Game.player.y = respawn.y
+  Game.player.floorZ = Actor.floorAt(Game.level, respawn.x, respawn.y)
+  Game.player.eyeZ = Game.player.floorZ + (Game.player.eyeHeight or Actor.eyeHeight)
+  Game.creatures = Actor.createCreatures(Game.level)
+  Game.npcs = Actor.createNPCs(Game.level)
+  Game.enemy = Actor.nearestThreat(Game) or Game.creatures[1] or Actor.createEnemy(Game.level)
+  Game.noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 }
+  Game.noises = {}
+  Game.effects = {}
+  Game.props = {}
+  Game.survey = { ttl = 0 }
+  Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
+  Game.terminal.active = false
+  Game.loopTimer = Game.loopDuration
+  Game.torch.fuel = 1
+  Game.inventory.flare = 1
+  Game.inventory.noisemaker = 1
+  Game.inventory.bait = 1
+  Game.inventory.scent = 1
+  Game.inventory.pheromone = 1
+  Game.inventory.probe = 1
+  Game.inventory.oil = 1
+  Game.inventory.sonic = 0
+  Game.inventory.flash = 0
+  Game.inventory.snare = 0
+  Game.inventory.fuse = 0
+  Game.inventory.seal = 0
+  Game.inventory.breaker = 0
+  Game.inventory.valve = 0
+  Game.inventory.ground = 0
+  Game.inventory.smoke = 0
+  Game.inventory.beacon = 0
+  Game.inventory.coolant = 0
+  Game.state = "playing"
+  love.mouse.setRelativeMode(true)
+  setMessage(reason or "WAKE UP", 1.2)
+end
+
+Game.resetLife = resetLife
+
+local function updateMapDiscovery()
+  if not Game.level or not Game.player then
+    return
+  end
+
+  Game.level.visitedMap = Game.level.visitedMap or {}
+  local px = floor(Game.player.x)
+  local py = floor(Game.player.y)
+  local radius = (Game.survey and Game.survey.ttl > 0) and 5 or 2
+
+  for y = py - radius, py + radius do
+    for x = px - radius, px + radius do
+      if abs(x - px) + abs(y - py) <= radius and Level.isWalkableCell(Game.level, x, y) then
+        Game.level.visitedMap[U.keyOf(x, y)] = true
+      end
+    end
+  end
+end
+
+local function updateLoopTimer(dt)
+  if Game.state ~= "playing" or Game.seedEntry.active or Game.paused then
+    return
+  end
+
+  Game.loopTimer = max(0, (Game.loopTimer or Game.loopDuration) - dt)
+  if Game.loopTimer <= 0 then
+    resetLife("TIME")
+  end
 end
 
 local function updateNoise(dt)
@@ -1013,6 +1058,11 @@ local function updateEffects(dt)
       effect.gate.cell.gateLocked = effect.previousLocked or false
     elseif effect.kind == "thaw_gate" and effect.gate and effect.ttl <= 0 then
       effect.gate.cell.gateLocked = effect.previousLocked or false
+    elseif effect.kind == "breaker_door" and effect.gate and effect.ttl <= 0 then
+      effect.gate.cell.gateLocked = effect.previousLocked or false
+      if effect.gate.cell.lock then
+        effect.gate.cell.lock.locked = effect.previousLocked or false
+      end
     elseif effect.kind == "breaker" and effect.system and effect.ttl <= 0 then
       if effect.restore then
         Level.setSystemPowered(Game.level, effect.system, true)
@@ -1076,6 +1126,9 @@ local function updateProps(dt)
         addSignal("trade_mark", prop.x, prop.y, 1.4, 9, "player", true)
         Actor.emitNoise(Game, prop.x, prop.y, 3.8, 1.2, "beacon")
         prop.pulse = 1.8
+      elseif prop.kind == "fuse" then
+        Actor.emitNoise(Game, prop.x, prop.y, 3.6, 1.0, "fuse")
+        prop.pulse = 1.2
       elseif prop.kind == "ground" then
         addSignal("surge_line", prop.x, prop.y, 0.8, 6, "player", true)
         prop.pulse = 4.0
@@ -1229,6 +1282,430 @@ function Game.nearTerminal()
   return terminalAtPlayer()
 end
 
+local function distanceToPlayer(x, y)
+  local dx = x - Game.player.x
+  local dy = y - Game.player.y
+  return math.sqrt(dx * dx + dy * dy)
+end
+
+local function npcAtPlayer(maxDistance)
+  local best
+  local bestDistance = maxDistance or 2.05
+
+  for _, npc in ipairs(Game.npcs or {}) do
+    if npc.alive then
+      local distance = distanceToPlayer(npc.x, npc.y)
+      local sameFloor = abs((npc.floorZ or 0) - (Game.player.floorZ or 0)) < 0.8
+      if sameFloor and distance < bestDistance and (distance < 1.2 or Level.lineOfSight(Game.level, Game.player.x, Game.player.y, npc.x, npc.y)) then
+        best = npc
+        bestDistance = distance
+      end
+    end
+  end
+
+  return best, bestDistance
+end
+
+function Game.nearNPC()
+  if not Game.level or not Game.player then
+    return nil
+  end
+
+  return npcAtPlayer()
+end
+
+local function nearestItem(items, predicate)
+  local best
+  local bestDistance = math.huge
+
+  for _, item in ipairs(items or {}) do
+    if not predicate or predicate(item) then
+      local distance = distanceToPlayer((item.x or 0) + 0.5, (item.y or 0) + 0.5)
+      if distance < bestDistance then
+        best = item
+        bestDistance = distance
+      end
+    end
+  end
+
+  return best, bestDistance
+end
+
+local function directionToCell(x, y)
+  local path = Level.findPath(Game.level, floor(Game.player.x), floor(Game.player.y), x, y)
+  local targetX = x + 0.5
+  local targetY = y + 0.5
+
+  if path[1] then
+    targetX = path[1].x
+    targetY = path[1].y
+  end
+
+  local dx = targetX - Game.player.x
+  local dy = targetY - Game.player.y
+  local direction
+
+  if abs(dx) > abs(dy) then
+    direction = dx >= 0 and "east" or "west"
+  else
+    direction = dy >= 0 and "south" or "north"
+  end
+
+  local distance = distanceToPlayer(x + 0.5, y + 0.5)
+  if distance < 1.4 then
+    return "right here"
+  end
+  return string.format("%s, about %dm", direction, floor(distance + 0.5))
+end
+
+local function topicTarget(item)
+  if not item then
+    return nil
+  end
+
+  return { x = (item.x or Game.player.x) + 0.5, y = (item.y or Game.player.y) + 0.5 }
+end
+
+local function routeTopic()
+  local level = Game.level
+
+  if Game.keys.collected < Game.keys.total then
+    local key = nearestItem(level.keys, function(item)
+      return item.cell and item.cell.key and not item.cell.key.collected
+    end)
+    if key then
+      return {
+        id = "route",
+        label = "Route",
+        response = "A key is " .. directionToCell(key.x, key.y) .. ". Grab it before relying on locked shortcuts.",
+        target = topicTarget(key),
+        lead = true,
+      }
+    end
+  end
+
+  if level.exit then
+    return {
+      id = "route",
+      label = "Route",
+      response = "Extraction is the exit shaft " .. directionToCell(level.exit.x, level.exit.y) .. ". You need the exit key before it opens.",
+      target = topicTarget(level.exit),
+      lead = true,
+    }
+  end
+
+  return { id = "route", label = "Route", response = "I do not have a clean route read on this deck yet." }
+end
+
+local function exitTopic()
+  local level = Game.level
+  if level.exit then
+    local state = Game.keys.exit and "You have the exit key." or "You still need the exit key."
+    return {
+      id = "exit",
+      label = "Exit",
+      response = state .. " The exit is " .. directionToCell(level.exit.x, level.exit.y) .. ".",
+      target = topicTarget(level.exit),
+      lead = true,
+    }
+  end
+
+  return { id = "exit", label = "Exit", response = "No exit read from here. Follow the widest route." }
+end
+
+local function keyTopic()
+  local key = nearestItem(Game.level.keys, function(item)
+    return item.cell and item.cell.key and not item.cell.key.collected
+  end)
+
+  if key then
+    local label = key.kind == "exit" and "exit key" or "small key"
+    return {
+      id = "key",
+      label = "Key",
+      response = "The nearest " .. label .. " is " .. directionToCell(key.x, key.y) .. ". Small keys open nearby shortcuts with F.",
+      target = topicTarget(key),
+      lead = true,
+    }
+  end
+
+  return {
+    id = "key",
+    label = "Key",
+    response = string.format("Keys held: exit %s, small %d.", Game.keys.exit and "yes" or "no", Game.keys.small or 0),
+  }
+end
+
+local function shelterTopic()
+  local shelter = nearestItem(Game.level.cycleShelters, function(item)
+    return item.cell and item.cell.shelter
+  end)
+
+  if shelter then
+    return {
+      id = "shelter",
+      label = "Shelter",
+      response = "The nearest shelter is " .. directionToCell(shelter.x, shelter.y) .. ". Step onto it to reset your wake point and refill time.",
+      target = topicTarget(shelter),
+      lead = true,
+    }
+  end
+
+  return { id = "shelter", label = "Shelter", response = "I do not see a shelter mark nearby. Keep moving and watch for safe floor marks." }
+end
+
+local function terminalTopic()
+  local level = Game.level
+  local terminal = nearestItem(level.terminals, function(item)
+    if level.liftRequired and not level.liftAuthorized then
+      return item.command == "LIFT"
+    end
+    return true
+  end)
+
+  if not terminal then
+    return { id = "terminal", label = "Terminal", response = "No terminal is readable from here. Keep the map open after a SCAN." }
+  end
+
+  local command = terminal.command or "SCAN"
+  local advice = NPCContent.commandAdvice[command] or "Terminals reroute deck systems."
+  local power = string.format("Power is %d/%d assigned.", level.power.assigned or 0, Level.powerCapacity(level))
+  local liftHint = ""
+  if command == "LIFT" and Game.objectives.collected < (level.minLiftRelays or Game.objectives.total) then
+    liftHint = " You still need more relays before it will answer."
+  end
+
+  return {
+    id = "terminal",
+    label = "Terminal",
+    response = string.format("Nearest terminal is %s. %s %s%s", directionToCell(terminal.x, terminal.y), advice, power, liftHint),
+    target = topicTarget(terminal),
+    lead = true,
+  }
+end
+
+local function threatTopic()
+  local threat, distance = Actor.nearestThreat(Game)
+  if not threat then
+    return { id = "threat", label = "Threat", response = "No major threat has the deck center right now. Listen for sudden noise chains." }
+  end
+
+  local advice = NPCContent.creatureAdvice[threat.kind] or "Break sight, reduce noise, and force it around terrain."
+  return {
+    id = "threat",
+    label = "Threat",
+    response = string.format("%s pressure is about %dm out and currently %s. %s", string.upper(threat.kind or "threat"), floor((distance or 0) + 0.5), string.upper(threat.state or "moving"), advice),
+  }
+end
+
+local function biomeTopic()
+  local level = Game.level
+  local profile = level.biomeProfile or {}
+  local biome = profile.district
+  local incident = Game.ecology and Game.ecology.active or level.branch and level.branch.incident or "quiet"
+  local advice = NPCContent.biomeAdvice[biome] or (profile.risk and ("Watch for " .. profile.risk .. ".") or "Read terrain before sprinting.")
+  local cycle = Game.ecology and Game.ecology.cycle
+  local pressureText = cycle and (" The area is in " .. string.upper(cycle.label or cycle.phase or "pressure") .. " pressure.") or ""
+  return {
+    id = "biome",
+    label = "Biome",
+    response = string.format("%s: %s Active pressure is %s.%s", profile.label or "UNKNOWN", advice, string.upper(incident or "quiet"), pressureText),
+  }
+end
+
+local function toolsTopic()
+  local selected = Game.inventory.selected or "flare"
+  local count = Game.inventory[selected] or 0
+  local advice = NPCContent.toolAdvice[selected] or "Use tools to redirect pressure instead of trying to outrun everything."
+  local cache = nearestItem(Game.level.toolCaches, function(item)
+    return item.cell and item.cell.tool and not item.cell.toolUsed
+  end)
+  local cacheText = ""
+
+  if cache then
+    local kind = cache.cell.tool and cache.cell.tool.kind or "tool"
+    cacheText = " Nearest cache is " .. string.upper(kind) .. " " .. directionToCell(cache.x, cache.y) .. "."
+  end
+
+  return {
+    id = "tools",
+    label = "Tools",
+    response = string.format("%s x%d. %s%s", string.upper(selected), count, advice, cacheText),
+    target = cache and topicTarget(cache) or nil,
+    lead = cache ~= nil,
+  }
+end
+
+local function salvageTopic()
+  local cache = nearestItem(Game.level.toolCaches, function(item)
+    return item.cell and item.cell.tool and not item.cell.toolUsed
+  end)
+  local response
+
+  if Game.level.salvageLocked then
+    response = "Lift routing has sealed optional salvage. Stop chasing caches and leave clean."
+  else
+    response = string.format("You are carrying %d salvage. Banked total is %d.", Game.salvage.carried or 0, Game.unlocks.salvage or 0)
+    if cache then
+      local warning = cache.cell.tool and cache.cell.tool.mimic and " It reads wrong; probe it before touching." or ""
+      response = response .. " Nearest cache is " .. directionToCell(cache.x, cache.y) .. "." .. warning
+    end
+  end
+
+  return {
+    id = "salvage",
+    label = "Salvage",
+    response = response,
+    target = cache and topicTarget(cache) or nil,
+    lead = cache ~= nil and not Game.level.salvageLocked,
+  }
+end
+
+local topicBuilders = {
+  route = routeTopic,
+  exit = exitTopic,
+  key = keyTopic,
+  shelter = shelterTopic,
+  threat = threatTopic,
+  biome = biomeTopic,
+  tools = toolsTopic,
+}
+
+local function buildConversationTopics(npc)
+  local profile = NPCContent.profiles[npc.kind] or NPCContent.profiles.scout
+  local topics = {}
+  local seen = {}
+
+  for _, id in ipairs(profile.topics or {}) do
+    local builder = topicBuilders[id]
+    if builder and not seen[id] then
+      topics[#topics + 1] = builder()
+      seen[id] = true
+    end
+    if #topics >= 4 then
+      break
+    end
+  end
+
+  for _, id in ipairs({ "exit", "key", "threat", "shelter", "tools", "biome" }) do
+    if #topics >= 2 then
+      break
+    end
+    local builder = topicBuilders[id]
+    if builder and not seen[id] then
+      topics[#topics + 1] = builder()
+      seen[id] = true
+    end
+  end
+
+  return topics
+end
+
+local function openConversation()
+  local npc = npcAtPlayer()
+  if not npc then
+    return false
+  end
+
+  npc.talking = true
+  npc.path = {}
+  Game.conversation = {
+    active = true,
+    npc = npc,
+    topics = buildConversationTopics(npc),
+    index = 1,
+    response = string.format("%s here. Ask for the deck read.", npc.callsign or "GUIDE"),
+  }
+  love.mouse.setRelativeMode(false)
+  return true
+end
+
+local function nearbyLockedDoor()
+  local px = floor(Game.player.x)
+  local py = floor(Game.player.y)
+  local best
+  local bestDistance = 2.1
+
+  for _, lock in ipairs(Game.level.locks or {}) do
+    if lock.cell and lock.cell.lock and lock.cell.lock.locked then
+      local distance = abs(lock.x - px) + abs(lock.y - py)
+      if distance < bestDistance then
+        best = lock
+        bestDistance = distance
+      end
+    end
+  end
+
+  for _, gate in ipairs(Game.level.gates or {}) do
+    if gate.cell and gate.cell.gateLocked then
+      local distance = abs(gate.x - px) + abs(gate.y - py)
+      if distance < bestDistance then
+        best = gate
+        bestDistance = distance
+      end
+    end
+  end
+
+  return best
+end
+
+local function unlockNearbyDoor()
+  local door = nearbyLockedDoor()
+  if not door then
+    return false
+  end
+
+  if (Game.keys.small or 0) <= 0 then
+    setMessage("SMALL KEY NEEDED", 1)
+    return true
+  end
+
+  Game.keys.small = max(0, (Game.keys.small or 0) - 1)
+  if door.cell.lock then
+    door.cell.lock.locked = false
+  end
+  door.cell.gateLocked = false
+  door.cell.light = 0.72
+  setMessage("SHORTCUT OPEN", 1.1)
+  Audio.relay()
+  return true
+end
+
+local function closeConversation()
+  if Game.conversation and Game.conversation.npc then
+    Game.conversation.npc.talking = false
+  end
+  Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
+  if Game.state == "playing" then
+    love.mouse.setRelativeMode(true)
+  end
+end
+
+local function moveConversationCursor(delta)
+  local count = #(Game.conversation and Game.conversation.topics or {})
+  if count <= 0 then
+    return
+  end
+  Game.conversation.index = U.clamp((Game.conversation.index or 1) + delta, 1, count)
+end
+
+local function chooseConversationTopic()
+  local convo = Game.conversation or {}
+  local topic = convo.topics and convo.topics[convo.index or 1]
+  local npc = convo.npc
+
+  if not topic then
+    return
+  end
+
+  convo.response = topic.response
+  convo.responseTopic = topic.id
+  if npc and topic.lead and topic.target then
+    npc.leadTarget = { x = topic.target.x, y = topic.target.y, ttl = 10 }
+    convo.response = convo.response .. " Close comms and I will guide partway."
+  end
+end
+
 local function openTerminal()
   local terminal = terminalAtPlayer()
   if not terminal then
@@ -1242,6 +1719,22 @@ local function openTerminal()
   Game.terminal.logs = terminal.terminal.logs
   addTerminalLog("SESSION OPEN")
   love.mouse.setRelativeMode(false)
+end
+
+local function openInteraction()
+  if Game.terminal.active or Game.conversation.active then
+    return
+  end
+
+  if openConversation() then
+    return
+  end
+
+  if unlockNearbyDoor() then
+    return
+  end
+
+  setMessage("NO CONTACT", 0.8)
 end
 
 local function closeTerminal()
@@ -1396,26 +1889,23 @@ local function checkInteractions()
     return
   end
 
-  if cell.objective and not cell.objective.collected then
-    cell.objective.collected = true
-    Game.objectives.collected = Game.objectives.collected + 1
-    Game.level.power.available = Game.objectives.collected
-    Level.applySystemEffects(Game.level)
-    Audio.relay()
-    setMessage(cell.objective.label .. " ONLINE  POWER +" .. Game.objectives.collected, 2.2)
-
-    if Game.objectives.collected >= Game.objectives.total then
-      Level.activateDynamics(Game.level, "relays")
-      setMessage("ALL RELAYS ONLINE - ROUTE POWER TO LIFT", 3)
-    end
-  end
-
   if cell.key and not cell.key.collected then
     cell.key.collected = true
     Game.keys.collected = Game.keys.collected + 1
-    Level.setLocksLocked(Game.level, false)
+    if cell.key.kind == "exit" then
+      Game.keys.exit = true
+      setMessage("EXIT KEY", 1.6)
+    else
+      Game.keys.small = (Game.keys.small or 0) + 1
+      setMessage("SMALL KEY", 1.4)
+    end
     Audio.refill()
-    setMessage("KEY", 1.6)
+  end
+
+  if cell.shelter and (not Game.respawn or math.floor(Game.respawn.x) ~= math.floor(Game.player.x) or math.floor(Game.respawn.y) ~= math.floor(Game.player.y)) then
+    Game.respawn = { x = math.floor(Game.player.x) + 0.5, y = math.floor(Game.player.y) + 0.5 }
+    Game.loopTimer = Game.loopDuration
+    setMessage("SHELTER SET", 1.2)
   end
 
   if cell.refill and not cell.refillUsed then
@@ -1428,38 +1918,26 @@ local function checkInteractions()
   end
 
   if cell.tool and not cell.toolUsed then
-    if Game.level.salvageLocked then
-      setMessage("SALVAGE SEALED", 1.2)
-    elseif cell.tool.mimic then
+    if cell.tool.mimic then
       cell.toolUsed = true
       cell.salvage = false
       spawnCreature("mimic", Game.player.x + math.cos(Game.player.angle) * 1.2, Game.player.y + math.sin(Game.player.angle) * 1.2, cell.faction)
       Actor.emitNoise(Game, Game.player.x, Game.player.y, 3.0, 1.2, "mimic")
-      recordCodexDiscovery("creature", "mimic", "Some catacomb caches are false pings that wake into mimic predators when touched.")
       setMessage("FALSE CACHE", 1.4)
     else
       cell.toolUsed = true
       addInventory(cell.tool.kind, 1)
-      local salvageValue = cell.tool.salvage or 1
-      Game.salvage.carried = (Game.salvage.carried or 0) + salvageValue
-      if cell.tool.contaminated then
-        Game.salvage.contamTimer = max(Game.salvage.contamTimer or 0, 55)
-        recordCodexDiscovery("biome", "contaminated_salvage", "Waste artery salvage decays unless you extract it quickly.")
-      end
-      alarmFaction(cell.faction, 5 + salvageValue, Game.player.x, Game.player.y, "salvage")
+      alarmFaction(cell.faction, 4, Game.player.x, Game.player.y, "cache")
       Audio.refill()
-      setMessage(string.upper(cell.tool.kind) .. " CACHE  SALVAGE +" .. salvageValue, 1.8)
+      setMessage(string.upper(cell.tool.kind) .. " CACHE", 1.5)
     end
   end
 
-  if Game.objectives.collected >= (Game.level.minLiftRelays or Game.objectives.total) and cell.exit then
-    if not Game.level.liftAuthorized then
-      setMessage("LIFT AUTH REQUIRED", 1.4)
-    else
-      if Game.objectives.collected < Game.objectives.total then
-        Game.level.salvageLocked = true
-      end
+  if cell.exit then
+    if Game.keys.exit then
       advanceDeck()
+    else
+      setMessage("EXIT KEY NEEDED", 1.2)
     end
   end
 end
@@ -1557,7 +2035,6 @@ local function useSelectedTool()
   if tool == "flare" then
     Game.effects[#Game.effects + 1] = { kind = "flare", x = x, y = y, ttl = 9, radius = 8.5, pulse = 0 }
     Game.props[#Game.props + 1] = { kind = "flare", x = x, y = y, ttl = 9, pulse = 0 }
-    Game.showMap = true
     Actor.emitNoise(Game, x, y, 1.8, 1.2, "flare")
     if biome == "cryo_vault" then
       addSignal("frost_trace", x, y, 1.6, 18, "flare", true)
@@ -1594,14 +2071,12 @@ local function useSelectedTool()
     Game.props[#Game.props + 1] = { kind = "snare", x = x, y = y, ttl = 30, armed = true }
     setMessage("SNARE WIRE", 1.2)
   elseif tool == "fuse" then
-    local amount = (biome == "reactor_trench" or biome == "ash_foundry") and 2 or 1
-    Game.level.power.temporary = (Game.level.power.temporary or 0) + amount
-    Game.effects[#Game.effects + 1] = { kind = "fuse", x = Game.player.x, y = Game.player.y, ttl = 45, amount = amount }
+    Game.props[#Game.props + 1] = { kind = "fuse", x = x, y = y, ttl = 10, pulse = 0 }
+    Actor.emitNoise(Game, x, y, 4.2, 1.4, "fuse")
     if biome == "reactor_trench" then
-      addSignal("radiant_heat", Game.player.x, Game.player.y, 1.5, 18, "overcharge", true)
-      Actor.emitNoise(Game, Game.player.x, Game.player.y, 2.3, 1.1, "overcharge")
+      addSignal("radiant_heat", x, y, 1.5, 18, "fuse", true)
     end
-    setMessage("TEMP POWER +" .. amount, 1.4)
+    setMessage("FUSE SPARK", 1.2)
   elseif tool == "seal" then
     local gate = nearestGate()
     if gate then
@@ -1627,33 +2102,24 @@ local function useSelectedTool()
     recordCodexDiscovery("tool", "pheromone", "Pheromone vials draw a false territory edge that predators hesitate to cross.")
     setMessage("PHEROMONE BOUNDARY", 1.2)
   elseif tool == "breaker" then
-    local cryoGate = biome == "cryo_vault" and nearestGate(3.4) or nil
-    if cryoGate and cryoGate.cell.gateLocked then
-      local previousLocked = cryoGate.cell.gateLocked
-      cryoGate.cell.gateLocked = false
-      Game.effects[#Game.effects + 1] = { kind = "thaw_gate", x = cryoGate.x + 0.5, y = cryoGate.y + 0.5, ttl = 18, gate = cryoGate, previousLocked = previousLocked }
-      addSignal("frost_trace", cryoGate.x + 0.5, cryoGate.y + 0.5, 1.4, 18, "breaker", true)
-      recordCodexDiscovery("biome", "cryo_breaker", "Breaker plugs can thaw brittle cryo seals for a short route window.")
-      setMessage("CRYO SEAL THAWED", 1.4)
-      return
-    end
-    local system = breakerSystem()
-    if system then
-      local wasPowered = Game.level.systems[system] and Game.level.systems[system].powered
-      Level.setSystemPowered(Game.level, system, false)
-      Game.effects[#Game.effects + 1] = { kind = "breaker", x = Game.player.x, y = Game.player.y, ttl = 18, system = system, restore = wasPowered }
-      addSignal("seal_mark", Game.player.x, Game.player.y, 1.1, 18, "breaker", true)
-      recordCodexDiscovery("tool", "breaker", "Breaker plugs safely cut one nearby powered subsystem, then restore it after pressure bleeds out.")
-      setMessage("BREAKER CUT " .. string.upper(system), 1.4)
+    local door = nearbyLockedDoor()
+    if door then
+      local previousLocked = door.cell.gateLocked or (door.cell.lock and door.cell.lock.locked)
+      door.cell.gateLocked = false
+      if door.cell.lock then
+        door.cell.lock.locked = false
+      end
+      Game.effects[#Game.effects + 1] = { kind = "breaker_door", x = door.x + 0.5, y = door.y + 0.5, ttl = 16, gate = door, previousLocked = previousLocked }
+      addSignal("seal_mark", door.x + 0.5, door.y + 0.5, 1.1, 16, "breaker", true)
+      setMessage("BREAKER OPEN", 1.2)
     else
       addInventory("breaker", 1)
-      setMessage("NO POWERED SYSTEM", 0.9)
+      setMessage("NO LOCK NEARBY", 0.9)
     end
   elseif tool == "probe" then
     Game.survey.ttl = 12
     Game.props[#Game.props + 1] = { kind = "probe", x = x, y = y, ttl = 12, pulse = 0 }
     addSignal("survey_ping", x, y, 1.2, 12, "player", true)
-    Game.showMap = true
     recordCodexDiscovery("tool", "probe", "Survey probes reveal recent ecology signs without showing exact creature positions.")
     setMessage("SURVEY PULSE", 1.2)
   elseif tool == "valve" then
@@ -1730,7 +2196,7 @@ local function keyMatches(action, key)
 end
 
 local function togglePause()
-  if Game.state ~= "playing" or Game.seedEntry.active or Game.terminal.active then
+  if Game.state ~= "playing" or Game.seedEntry.active or Game.conversation.active then
     return
   end
   Game.paused = not Game.paused
@@ -1779,27 +2245,39 @@ function Game.update(dt)
 
   Audio.update(Game, dt)
 
-  if Game.codexOpen or Game.paused then
+  if Game.paused then
     return
   end
 
   if Game.state == "playing" and not Game.seedEntry.active then
     Game.survivalTime = Game.survivalTime + dt
+    updateLoopTimer(dt)
+    updateMapDiscovery()
     updateEcology(dt)
     updateNoise(dt)
     updateEffects(dt)
     updateProps(dt)
-    if Game.terminal.active then
+    if Game.conversation.active then
       for _, creature in ipairs(Game.creatures or {}) do
         creature.grace = max(creature.grace or 0, 0.65)
       end
     else
       Actor.updatePlayer(Game, dt, Audio)
     end
+    Actor.updateNPCs(Game, dt)
+    if Game.conversation.active then
+      local npc = Game.conversation.npc
+      if not npc or not npc.alive or distanceToPlayer(npc.x, npc.y) > 3.2 or npc.state == "flee" then
+        closeConversation()
+        setMessage("CONTACT BROKEN", 1)
+      end
+    end
     updateTorch(dt)
     updateHazards(dt)
     updateSalvage(dt)
-    checkInteractions()
+    if not Game.conversation.active then
+      checkInteractions()
+    end
     Actor.updateCreatures(Game, dt, Audio)
   end
 end
@@ -1835,16 +2313,15 @@ function Game.keypressed(key)
     return
   end
 
-  if Game.terminal.active then
-    if key == "return" or key == "kpenter" then
-      executeTerminalCommand()
-    elseif key == "escape" then
-      closeTerminal()
-    elseif key == "backspace" then
-      Game.terminal.input = Game.terminal.input:sub(1, -2)
-    elseif systemAliases[key] then
-      Game.terminal.suppressText = true
-      routeSystem(systemAliases[key])
+  if Game.conversation.active then
+    if key == "up" or key == "left" then
+      moveConversationCursor(-1)
+    elseif key == "down" or key == "right" or key == "tab" then
+      moveConversationCursor(1)
+    elseif key == "return" or key == "kpenter" or key == "space" then
+      chooseConversationTopic()
+    elseif keyMatches("interact", key) or key == "escape" then
+      closeConversation()
     end
     return
   end
@@ -1861,14 +2338,6 @@ function Game.keypressed(key)
       Game.seedEntry.active = false
     elseif key == "backspace" then
       Game.seedEntry.text = Game.seedEntry.text:sub(1, -2)
-    end
-    return
-  end
-
-  if Game.codexOpen then
-    if keyMatches("codex", key) or keyMatches("pause", key) then
-      Game.codexOpen = false
-      love.mouse.setRelativeMode(Game.state == "playing")
     end
     return
   end
@@ -1891,10 +2360,7 @@ function Game.keypressed(key)
   if keyMatches("pause", key) then
     togglePause()
   elseif keyMatches("map", key) then
-    Game.showMap = not Game.showMap
-  elseif keyMatches("codex", key) then
-    Game.codexOpen = not Game.codexOpen
-    love.mouse.setRelativeMode(not Game.codexOpen and Game.state == "playing")
+    Game.mapHeld = true
   elseif key == "r" or (key == "space" and Game.state ~= "playing") then
     startGame(Game.lastSeed)
   elseif key == "n" then
@@ -1904,7 +2370,7 @@ function Game.keypressed(key)
     Game.seedEntry.text = tostring(Game.seed)
     love.mouse.setRelativeMode(false)
   elseif keyMatches("interact", key) and Game.state == "playing" then
-    openTerminal()
+    openInteraction()
   elseif keyMatches("cycleTool", key) and Game.state == "playing" then
     cycleTool()
     Game.toolWheel.visible = true
@@ -1927,18 +2393,6 @@ function Game.keypressed(key)
 end
 
 function Game.textinput(text)
-  if Game.terminal.active then
-    if Game.terminal.suppressText then
-      Game.terminal.suppressText = false
-      return
-    end
-    text = string.upper(text)
-    if text:match("^[A-Z0-9]$") and #Game.terminal.input < 12 then
-      Game.terminal.input = Game.terminal.input .. text
-    end
-    return
-  end
-
   if not Game.seedEntry.active then
     return
   end
@@ -1948,14 +2402,20 @@ function Game.textinput(text)
   end
 end
 
+function Game.keyreleased(key)
+  if keyMatches("map", key) then
+    Game.mapHeld = false
+  end
+end
+
 function Game.mousepressed()
-  if Game.state == "playing" and not Game.paused and not Game.codexOpen and not Game.seedEntry.active and not Game.terminal.active then
+  if Game.state == "playing" and not Game.paused and not Game.seedEntry.active and not Game.conversation.active then
     love.mouse.setRelativeMode(true)
   end
 end
 
 function Game.mousemoved(_, _, dx)
-  if love.mouse.getRelativeMode() and Game.state == "playing" and not Game.paused and not Game.codexOpen and not Game.seedEntry.active and not Game.terminal.active then
+  if love.mouse.getRelativeMode() and Game.state == "playing" and not Game.paused and not Game.seedEntry.active and not Game.conversation.active then
     Game.player.angle = Game.player.angle + dx * 0.0024
   end
 end
@@ -1973,6 +2433,16 @@ function Game.gamepadpressed(_, button)
     elseif button == "b" then
       startGame(Game.lastSeed)
     end
+  elseif Game.conversation.active then
+    if button == "dpup" or button == "leftshoulder" then
+      moveConversationCursor(-1)
+    elseif button == "dpdown" or button == "rightshoulder" then
+      moveConversationCursor(1)
+    elseif button == "a" then
+      chooseConversationTopic()
+    elseif button == "b" or button == "x" then
+      closeConversation()
+    end
   elseif Game.paused then
     if button == "dpup" then
       moveSettingsCursor(-1)
@@ -1987,12 +2457,9 @@ function Game.gamepadpressed(_, button)
     if button == "a" then
       useSelectedTool()
     elseif button == "x" then
-      openTerminal()
-    elseif button == "y" then
-      Game.codexOpen = not Game.codexOpen
-      love.mouse.setRelativeMode(not Game.codexOpen and Game.state == "playing")
+      openInteraction()
     elseif button == "back" then
-      Game.showMap = not Game.showMap
+      Game.mapGamepadHeld = true
     elseif button == "rightshoulder" then
       cycleTool()
       Game.toolWheel.visible = true
@@ -2007,6 +2474,12 @@ function Game.gamepadpressed(_, button)
       Game.toolWheel.visible = true
       Game.toolWheel.timer = 1.8
     end
+  end
+end
+
+function Game.gamepadreleased(_, button)
+  if button == "back" then
+    Game.mapGamepadHeld = false
   end
 end
 

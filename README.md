@@ -26,6 +26,7 @@ Survive escalating deck cycles, route enough power to authorize the lift, and re
 - Incidents create readable signs, terminal logs, noise, alarms, temporary route changes, and hazard pressure.
 - Shelter marks identify temporary pockets that reduce cycle pressure during surge/collapse windows.
 - Survey probes reveal recent signs without showing exact creature positions.
+- Mobile survivor guides can be found in generated rooms and shelters. Talk to them for current route, terminal, threat, biome, tool, and salvage advice.
 - Local achievement hooks record major discoveries and extraction, but demo mode disables unlocks.
 
 ## Branch Routes
@@ -96,7 +97,7 @@ lua tools/validate_levels.lua 200 1 all 32
 - `WASD`: move and strafe
 - `Mouse`, `Left/Right`, `Q/E`: turn
 - `Shift`: sprint
-- `F`: use nearby terminal
+- `F`: talk to a nearby NPC guide, or use a nearby terminal
 - `Tab`: cycle all field tools
 - `1`-`9`, `0`, `-`, `=`, `Backspace`: select the first thirteen field tools while playing
 - `Space`: use selected field tool while playing
@@ -110,6 +111,7 @@ lua tools/validate_levels.lua 200 1 all 32
 - `X`: toggle post-process shader
 - `Esc`: pause/settings. Use `Up`/`Down`, `Enter`, and `Backspace` to rebind/reset saved controls.
 - Gamepad: left stick move, right stick turn, `A` use tool/confirm route, `X` terminal, `Y` codex, shoulders cycle tools/routes, `Back` map, `Start` pause.
+- Conversation screen: `Up`/`Down` select topic, `Enter` ask, `F`/`Esc` close. Gamepad uses d-pad/shoulders, `A`, and `B`/`X`.
 
 ## Terminals
 

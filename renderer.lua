@@ -15,11 +15,18 @@ local Renderer = {
   rayStep = 2,
   wallRenderDistance = 32,
   canvas = nil,
-  shader = nil,
-  postEnabled = true,
+  crtShader = nil,
+  asciiShader = nil,
+  glyphCanvas = nil,
+  renderMode = "crt",
+  modes = { "normal", "crt", "ascii" },
+  modeIndex = 2,
+  asciiRamp = " .,:;irsXA253hMHGS#9B&@",
+  asciiCellWidth = 8,
+  asciiCellHeight = 12,
 }
 
-local shaderSource = [[
+local crtShaderSource = [[
 extern number time;
 extern number fuel;
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
@@ -34,10 +41,96 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
+local asciiShaderSource = [[
+extern Image glyphTex;
+extern vec2 screenSize;
+extern vec2 cellSize;
+extern number glyphCount;
+extern number fuel;
+
+vec3 ansiColor(vec3 c) {
+  vec3 palette[16];
+  palette[0] = vec3(0.02, 0.018, 0.015);
+  palette[1] = vec3(0.46, 0.05, 0.04);
+  palette[2] = vec3(0.1, 0.44, 0.16);
+  palette[3] = vec3(0.64, 0.44, 0.12);
+  palette[4] = vec3(0.08, 0.18, 0.52);
+  palette[5] = vec3(0.42, 0.16, 0.5);
+  palette[6] = vec3(0.06, 0.42, 0.45);
+  palette[7] = vec3(0.68, 0.64, 0.54);
+  palette[8] = vec3(0.22, 0.2, 0.18);
+  palette[9] = vec3(0.9, 0.16, 0.1);
+  palette[10] = vec3(0.25, 0.82, 0.28);
+  palette[11] = vec3(0.95, 0.72, 0.22);
+  palette[12] = vec3(0.28, 0.48, 0.95);
+  palette[13] = vec3(0.78, 0.36, 0.92);
+  palette[14] = vec3(0.28, 0.84, 0.78);
+  palette[15] = vec3(0.94, 0.88, 0.7);
+
+  number best = 999.0;
+  vec3 chosen = palette[7];
+  for (int i = 0; i < 16; i++) {
+    vec3 d = c - palette[i];
+    number score = dot(d, d);
+    if (score < best) {
+      best = score;
+      chosen = palette[i];
+    }
+  }
+  return chosen;
+}
+
+vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
+  vec2 cell = floor(screen / cellSize);
+  vec2 localPx = mod(screen, cellSize);
+  vec2 sampleScreen = (cell + vec2(0.5)) * cellSize;
+  vec2 sampleUv = sampleScreen / screenSize;
+  vec4 src = Texel(tex, clamp(sampleUv, vec2(0.0), vec2(1.0))) * color;
+  number lum = dot(src.rgb, vec3(0.299, 0.587, 0.114));
+  lum = clamp(lum * (0.74 + fuel * 0.42), 0.0, 1.0);
+  number glyph = floor(lum * (glyphCount - 1.0) + 0.5);
+  vec2 glyphUv = vec2((glyph + localPx.x / cellSize.x) / glyphCount, localPx.y / cellSize.y);
+  number glyphAlpha = Texel(glyphTex, glyphUv).a;
+  vec3 ink = ansiColor(src.rgb * (0.7 + lum * 0.6));
+  vec3 paper = vec3(0.018, 0.016, 0.012);
+  return vec4(mix(paper, ink, glyphAlpha), 1.0);
+}
+]]
+
+local function makeGlyphCanvas()
+  local glyphs = {}
+  for i = 1, #Renderer.asciiRamp do
+    glyphs[#glyphs + 1] = Renderer.asciiRamp:sub(i, i)
+  end
+
+  local font = love.graphics.newFont(Renderer.asciiCellHeight)
+  local canvas = love.graphics.newCanvas(Renderer.asciiCellWidth * #glyphs, Renderer.asciiCellHeight)
+  canvas:setFilter("nearest", "nearest")
+
+  love.graphics.push("all")
+  love.graphics.setCanvas(canvas)
+  love.graphics.clear(0, 0, 0, 0)
+  love.graphics.setFont(font)
+  love.graphics.setColor(1, 1, 1, 1)
+  for i, glyph in ipairs(glyphs) do
+    love.graphics.printf(glyph, (i - 1) * Renderer.asciiCellWidth, -2, Renderer.asciiCellWidth, "center")
+  end
+  love.graphics.setCanvas()
+  love.graphics.pop()
+
+  Renderer.glyphCanvas = canvas
+end
+
 function Renderer.init()
-  local ok, shader = pcall(love.graphics.newShader, shaderSource)
+  local ok, shader = pcall(love.graphics.newShader, crtShaderSource)
   if ok then
-    Renderer.shader = shader
+    Renderer.crtShader = shader
+  end
+
+  local asciiOk, asciiShader = pcall(love.graphics.newShader, asciiShaderSource)
+  if asciiOk then
+    Renderer.asciiShader = asciiShader
+    makeGlyphCanvas()
   end
 end
 
@@ -561,6 +654,71 @@ local function drawCreatures(game, width, height, depthBuffer)
   end
 end
 
+local function drawNPCSprite(game, npc, width, height, depthBuffer)
+  if not npc or not npc.alive then
+    return
+  end
+
+  local sprite = projectSprite(game, npc.x, npc.y, npc.floorZ, npc.height or 1.4, width, height)
+  if not spriteVisible(sprite, width, depthBuffer) then
+    return
+  end
+
+  local alpha = U.clamp(1 - sprite.distance / 26, 0.34, 0.95)
+  local color = npc.color or { 0.18, 0.36, 0.34, 0.58, 0.92, 0.78 }
+  local bodyWidth = sprite.width * 0.82
+  local headRadius = max(3, sprite.width * 0.17)
+  local headY = -sprite.height * 0.7
+
+  love.graphics.push()
+  love.graphics.translate(sprite.x, sprite.y)
+
+  love.graphics.setColor(0, 0, 0, 0.32 * alpha)
+  love.graphics.ellipse("fill", 0, sprite.height * 0.03, bodyWidth * 0.34, max(2, sprite.height * 0.035))
+
+  love.graphics.setColor(color[1], color[2], color[3], alpha)
+  love.graphics.rectangle("fill", -bodyWidth * 0.22, -sprite.height * 0.58, bodyWidth * 0.44, sprite.height * 0.55, 3, 3)
+  love.graphics.setColor(color[4], color[5], color[6], alpha)
+  love.graphics.rectangle("line", -bodyWidth * 0.25, -sprite.height * 0.61, bodyWidth * 0.5, sprite.height * 0.6, 3, 3)
+  love.graphics.rectangle("fill", -bodyWidth * 0.16, -sprite.height * 0.47, bodyWidth * 0.32, max(2, sprite.height * 0.06), 1, 1)
+
+  love.graphics.setColor(0.18, 0.13, 0.08, alpha)
+  love.graphics.circle("fill", 0, headY, headRadius)
+  love.graphics.setColor(0.72, 1, 0.84, alpha)
+  love.graphics.circle("fill", -headRadius * 0.32, headY - headRadius * 0.08, max(1.2, headRadius * 0.13))
+  love.graphics.circle("fill", headRadius * 0.32, headY - headRadius * 0.08, max(1.2, headRadius * 0.13))
+
+  if npc.state == "lead" then
+    love.graphics.setColor(0.72, 1, 0.84, alpha * 0.72)
+    love.graphics.line(0, -sprite.height * 0.38, bodyWidth * 0.34, -sprite.height * 0.5)
+  elseif npc.state == "flee" then
+    love.graphics.setColor(1, 0.62, 0.28, alpha * 0.8)
+    love.graphics.line(-bodyWidth * 0.28, -sprite.height * 0.38, bodyWidth * 0.28, -sprite.height * 0.48)
+  end
+
+  love.graphics.pop()
+end
+
+local function drawNPCs(game, width, height, depthBuffer)
+  local drawList = {}
+
+  for _, npc in ipairs(game.npcs or {}) do
+    if npc.alive then
+      drawList[#drawList + 1] = npc
+    end
+  end
+
+  table.sort(drawList, function(a, b)
+    local ad = (a.x - game.player.x) ^ 2 + (a.y - game.player.y) ^ 2
+    local bd = (b.x - game.player.x) ^ 2 + (b.y - game.player.y) ^ 2
+    return ad > bd
+  end)
+
+  for _, npc in ipairs(drawList) do
+    drawNPCSprite(game, npc, width, height, depthBuffer)
+  end
+end
+
 local function drawPickupSprites(game, width, height, depthBuffer)
   for _, objective in ipairs(game.level.objectives) do
     if not objective.cell.objective.collected then
@@ -687,6 +845,10 @@ local function drawPickupSprites(game, width, height, depthBuffer)
           love.graphics.setColor(0.45, 0.86, 1, alpha)
           love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.18))
           love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
+        elseif prop.kind == "fuse" then
+          love.graphics.setColor(1, 0.68, 0.2, alpha)
+          love.graphics.rectangle("fill", -sprite.width * 0.08, -sprite.height * 0.24, sprite.width * 0.16, sprite.height * 0.48, 1, 1)
+          love.graphics.circle("line", 0, -sprite.height * 0.28, max(5, sprite.width * 0.28))
         end
         love.graphics.pop()
       end
@@ -723,7 +885,11 @@ local function drawPickupSprites(game, width, height, depthBuffer)
         local alpha = U.clamp(1 - sprite.distance / 18, 0.28, 0.9)
         love.graphics.push()
         love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.32)
-        love.graphics.setColor(1, 0.82, 0.18, alpha)
+        if key.kind == "exit" then
+          love.graphics.setColor(1, 0.52, 0.16, alpha)
+        else
+          love.graphics.setColor(1, 0.82, 0.18, alpha)
+        end
         love.graphics.circle("line", -sprite.width * 0.08, 0, max(3, sprite.width * 0.18))
         love.graphics.rectangle("fill", 0, -sprite.height * 0.04, sprite.width * 0.32, max(2, sprite.height * 0.08), 1, 1)
         love.graphics.rectangle("fill", sprite.width * 0.2, -sprite.height * 0.04, max(2, sprite.width * 0.06), sprite.height * 0.18, 1, 1)
@@ -732,26 +898,7 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     end
   end
 
-  for _, terminal in ipairs(game.level.terminals or {}) do
-    local sprite = projectSprite(game, terminal.x + 0.5, terminal.y + 0.5, terminal.cell.floor + 0.08, 0.82, width, height)
-    if spriteVisible(sprite, width, depthBuffer) then
-      local alpha = U.clamp(1 - sprite.distance / 22, 0.26, 0.9)
-      love.graphics.push()
-      love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.38)
-      love.graphics.setColor(0.04, 0.14, 0.12, alpha * 0.92)
-      love.graphics.rectangle("fill", -sprite.width * 0.34, -sprite.height * 0.3, sprite.width * 0.68, sprite.height * 0.48, 3, 3)
-      love.graphics.setColor(0.18, 1, 0.74, alpha)
-      love.graphics.rectangle("line", -sprite.width * 0.34, -sprite.height * 0.3, sprite.width * 0.68, sprite.height * 0.48, 3, 3)
-      love.graphics.setColor(0.52, 1, 0.82, alpha)
-      love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.18, sprite.width * 0.44, max(2, sprite.height * 0.07), 1, 1)
-      love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.05, sprite.width * 0.3, max(2, sprite.height * 0.05), 1, 1)
-      love.graphics.setColor(0.08, 0.22, 0.18, alpha)
-      love.graphics.rectangle("fill", -sprite.width * 0.18, sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.18, 2, 2)
-      love.graphics.pop()
-    end
-  end
-
-  if game.level.exit and game.objectives.collected >= (game.level.minLiftRelays or game.objectives.total) then
+  if game.level.exit then
     local exit = game.level.exit
     local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)
     if spriteVisible(sprite, width, depthBuffer) then
@@ -812,6 +959,7 @@ local function drawScene(game)
   local depthBuffer = drawRaycastWorld(game, width, height)
 
   drawPickupSprites(game, width, height, depthBuffer)
+  drawNPCs(game, width, height, depthBuffer)
   drawCreatures(game, width, height, depthBuffer)
   drawTorch(game, width, height)
 end
@@ -819,15 +967,32 @@ end
 function Renderer.draw(game)
   local width, height = love.graphics.getDimensions()
 
-  if Renderer.postEnabled and Renderer.shader then
+  if Renderer.renderMode == "normal" then
+    drawScene(game)
+  elseif Renderer.renderMode == "crt" and Renderer.crtShader then
     ensureCanvas(width, height)
     love.graphics.setCanvas(Renderer.canvas)
     love.graphics.clear(0, 0, 0, 1)
     drawScene(game)
     love.graphics.setCanvas()
-    Renderer.shader:send("time", game.survivalTime)
-    Renderer.shader:send("fuel", game.torch.fuel)
-    love.graphics.setShader(Renderer.shader)
+    Renderer.crtShader:send("time", game.survivalTime)
+    Renderer.crtShader:send("fuel", game.torch.fuel)
+    love.graphics.setShader(Renderer.crtShader)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.draw(Renderer.canvas, 0, 0)
+    love.graphics.setShader()
+  elseif Renderer.renderMode == "ascii" and Renderer.asciiShader and Renderer.glyphCanvas then
+    ensureCanvas(width, height)
+    love.graphics.setCanvas(Renderer.canvas)
+    love.graphics.clear(0, 0, 0, 1)
+    drawScene(game)
+    love.graphics.setCanvas()
+    Renderer.asciiShader:send("glyphTex", Renderer.glyphCanvas)
+    Renderer.asciiShader:send("screenSize", { width, height })
+    Renderer.asciiShader:send("cellSize", { Renderer.asciiCellWidth, Renderer.asciiCellHeight })
+    Renderer.asciiShader:send("glyphCount", #Renderer.asciiRamp)
+    Renderer.asciiShader:send("fuel", game.torch.fuel)
+    love.graphics.setShader(Renderer.asciiShader)
     love.graphics.setColor(1, 1, 1)
     love.graphics.draw(Renderer.canvas, 0, 0)
     love.graphics.setShader()
@@ -837,7 +1002,9 @@ function Renderer.draw(game)
 end
 
 function Renderer.togglePost()
-  Renderer.postEnabled = not Renderer.postEnabled
+  Renderer.modeIndex = (Renderer.modeIndex % #Renderer.modes) + 1
+  Renderer.renderMode = Renderer.modes[Renderer.modeIndex]
+  return Renderer.renderMode
 end
 
 return Renderer
