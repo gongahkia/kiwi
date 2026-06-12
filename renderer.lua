@@ -49,35 +49,15 @@ extern number glyphCount;
 extern number fuel;
 
 vec3 ansiColor(vec3 c) {
-  vec3 palette[16];
-  palette[0] = vec3(0.02, 0.018, 0.015);
-  palette[1] = vec3(0.46, 0.05, 0.04);
-  palette[2] = vec3(0.1, 0.44, 0.16);
-  palette[3] = vec3(0.64, 0.44, 0.12);
-  palette[4] = vec3(0.08, 0.18, 0.52);
-  palette[5] = vec3(0.42, 0.16, 0.5);
-  palette[6] = vec3(0.06, 0.42, 0.45);
-  palette[7] = vec3(0.68, 0.64, 0.54);
-  palette[8] = vec3(0.22, 0.2, 0.18);
-  palette[9] = vec3(0.9, 0.16, 0.1);
-  palette[10] = vec3(0.25, 0.82, 0.28);
-  palette[11] = vec3(0.95, 0.72, 0.22);
-  palette[12] = vec3(0.28, 0.48, 0.95);
-  palette[13] = vec3(0.78, 0.36, 0.92);
-  palette[14] = vec3(0.28, 0.84, 0.78);
-  palette[15] = vec3(0.94, 0.88, 0.7);
-
-  number best = 999.0;
-  vec3 chosen = palette[7];
-  for (int i = 0; i < 16; i++) {
-    vec3 d = c - palette[i];
-    number score = dot(d, d);
-    if (score < best) {
-      best = score;
-      chosen = palette[i];
-    }
-  }
-  return chosen;
+  number lum = dot(c, vec3(0.299, 0.587, 0.114));
+  number spread = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  number high = step(0.56, lum);
+  number gray = 1.0 - step(0.12, spread);
+  number black = 1.0 - step(0.075, lum);
+  vec3 bits = step(vec3(0.34), c);
+  vec3 chroma = mix(vec3(0.08), vec3(0.2), high) + bits * mix(0.44, 0.68, high);
+  vec3 grayscale = vec3(mix(0.2, 0.82, high));
+  return mix(mix(chroma, grayscale, gray), vec3(0.018, 0.016, 0.012), black);
 }
 
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
@@ -720,24 +700,6 @@ local function drawNPCs(game, width, height, depthBuffer)
 end
 
 local function drawPickupSprites(game, width, height, depthBuffer)
-  for _, objective in ipairs(game.level.objectives) do
-    if not objective.cell.objective.collected then
-      local sprite = projectSprite(game, objective.x + 0.5, objective.y + 0.5, objective.cell.floor + 0.12, 0.85, width, height)
-      if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp(1 - sprite.distance / 24, 0.28, 0.94)
-        love.graphics.push()
-        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.42)
-        love.graphics.setColor(0.1, 0.22, 0.28, alpha * 0.74)
-        love.graphics.rectangle("fill", -sprite.width * 0.3, -sprite.height * 0.28, sprite.width * 0.6, sprite.height * 0.58, 3, 3)
-        love.graphics.setColor(0.4, 0.95, 1, alpha)
-        love.graphics.rectangle("line", -sprite.width * 0.3, -sprite.height * 0.28, sprite.width * 0.6, sprite.height * 0.58, 3, 3)
-        love.graphics.setColor(0.85, 1, 0.96, alpha)
-        love.graphics.circle("fill", 0, -sprite.height * 0.02, max(2, sprite.width * 0.11))
-        love.graphics.pop()
-      end
-    end
-  end
-
   for _, refill in ipairs(game.level.refills) do
     if not refill.cell.refillUsed then
       local sprite = projectSprite(game, refill.x + 0.5, refill.y + 0.5, refill.cell.floor + 0.08, 0.55, width, height)
@@ -1002,8 +964,16 @@ function Renderer.draw(game)
 end
 
 function Renderer.togglePost()
-  Renderer.modeIndex = (Renderer.modeIndex % #Renderer.modes) + 1
-  Renderer.renderMode = Renderer.modes[Renderer.modeIndex]
+  for _ = 1, #Renderer.modes do
+    Renderer.modeIndex = (Renderer.modeIndex % #Renderer.modes) + 1
+    local mode = Renderer.modes[Renderer.modeIndex]
+    if mode == "normal" or (mode == "crt" and Renderer.crtShader) or (mode == "ascii" and Renderer.asciiShader and Renderer.glyphCanvas) then
+      Renderer.renderMode = mode
+      return Renderer.renderMode
+    end
+  end
+  Renderer.modeIndex = 1
+  Renderer.renderMode = "normal"
   return Renderer.renderMode
 end
 

@@ -758,8 +758,6 @@ local function strongestNoiseFor(creature, noises, game)
         end
         if creature.kind == "screecher" or creature.kind == "choir" then
           score = score * 1.8
-        elseif creature.kind == "warden" and noise.kind == "terminal" then
-          score = score * 1.9
         elseif creature.kind == "stalker" and noise.kind == "flare" then
           score = score * -2
         end
@@ -912,7 +910,7 @@ local function scoreCacheTarget(creature, cache)
   return (28 + value * 12) / max(distance, 0.8)
 end
 
-local function scoreInfrastructureTarget(level, creature, item, kind)
+local function scoreInfrastructureTarget(level, creature, item)
   if not creature.guard or not item then
     return -math.huge
   end
@@ -920,12 +918,9 @@ local function scoreInfrastructureTarget(level, creature, item, kind)
   local x = (item.x or 0) + 0.5
   local y = (item.y or 0) + 0.5
   local distance = distance2d(creature.x, creature.y, x, y)
-  local score = kind == "terminal" and 28 or 22
+  local score = 22
   if item.cell and (item.cell.gateLocked or item.cell.lock) then
     score = score + 12
-  end
-  if level.systems and (level.systems.doors.powered or level.systems.lift.powered) then
-    score = score + 14
   end
   return score / max(distance, 0.8), x, y
 end
@@ -957,9 +952,6 @@ local function chooseCreatureTarget(game, creature, dt)
       creature.dormant = false
       creature.grace = 0
       creature.growl = 1
-      if game.recordCodexDiscovery then
-        game.recordCodexDiscovery("creature", "mimic", "Mimic signals hold still as false salvage until proximity, noise, or survey pulses expose them.")
-      end
     else
       setEnemyState(creature, "dormant")
       return creature.x, creature.y
@@ -976,11 +968,6 @@ local function chooseCreatureTarget(game, creature, dt)
     bestScore = -10
   end
 
-  if creature.guard and game.terminal and game.terminal.active and playerDistance < 18 then
-    best = { x = player.x, y = player.y, type = "player" }
-    bestScore = 105
-  end
-
   if seesPlayer and creature.kind ~= "skitter" then
     local score = 38 * (creature.aggression or 0.5) / max(playerDistance, 0.8)
     if creature.kind == "stalker" and light < 0.72 then
@@ -989,9 +976,6 @@ local function chooseCreatureTarget(game, creature, dt)
       score = score * 0.45
     elseif creature.thief then
       score = -18 / max(playerDistance, 0.8)
-    end
-    if game.recordCodexDiscovery then
-      game.recordCodexDiscovery("creature", creature.kind, (creature.kind or "creature") .. " has directly tracked you by sight.")
     end
     if score > bestScore then
       best = creature.thief
@@ -1045,16 +1029,8 @@ local function chooseCreatureTarget(game, creature, dt)
     end
   end
 
-  for _, terminal in ipairs(level.terminals or {}) do
-    local score, x, y = scoreInfrastructureTarget(level, creature, terminal, "terminal")
-    if score > bestScore then
-      best = { x = x, y = y, type = "guard", terminal = terminal }
-      bestScore = score
-    end
-  end
-
   for _, gate in ipairs(level.gates or {}) do
-    local score, x, y = scoreInfrastructureTarget(level, creature, gate, "gate")
+    local score, x, y = scoreInfrastructureTarget(level, creature, gate)
     if score > bestScore then
       best = { x = x, y = y, type = "guard", gate = gate }
       bestScore = score
@@ -1148,7 +1124,8 @@ local function updateOneCreature(game, creature, dt)
   local moveLength = sqrt(moveX * moveX + moveY * moveY)
 
   if moveLength > 0.001 then
-    local escalation = (game.objectives.collected / max(1, game.objectives.total)) * 0.42 + ((game.deck or 1) - 1) * 0.12
+    local keyProgress = game.keys and ((game.keys.collected or 0) / max(1, game.keys.total or 1)) or 0
+    local escalation = keyProgress * 0.32 + ((game.deck or 1) - 1) * 0.12
     local stateSpeed = {
       wander = 0.78,
       investigate = 1.08,
@@ -1221,9 +1198,6 @@ local function handleCreaturePropContact(game, creature)
         creature.stateTimer = max(creature.stateTimer or 0, 2.4)
         creature.mood = "fleeing"
         Actor.emitNoise(game, prop.x, prop.y, 2.9, 1.2, "snare")
-        if game.recordCodexDiscovery then
-          game.recordCodexDiscovery("tool", "snare", "Snare wires slow the first creature that crosses them, then break loudly.")
-        end
       elseif prop.kind == "flash" and prop.armed then
         prop.armed = false
         prop.ttl = 0.9
@@ -1233,16 +1207,10 @@ local function handleCreaturePropContact(game, creature)
           creature.grace = max(creature.grace or 0, 1.4)
         end
         Actor.emitNoise(game, prop.x, prop.y, 2.1, 0.8, "flash")
-        if game.recordCodexDiscovery then
-          game.recordCodexDiscovery("tool", "flash", "Flash pods scatter skitters and stalkers and briefly break hunter sight pressure.")
-        end
       elseif creature.kind == "skitter" and not creature.carrying and (prop.kind == "bait" or prop.kind == "scent" or prop.kind == "sonic") then
         creature.carrying = { kind = prop.kind, source = "prop" }
         prop.ttl = 0
         setEnemyState(creature, "flee", 2.4)
-        if game.recordCodexDiscovery then
-          game.recordCodexDiscovery("creature", "skitter_hoard", "Skitters steal useful objects and drag them back to hoards.")
-        end
       elseif prop.kind == "bait" and creature.kind ~= "skitter" then
         prop.ttl = 0
         creature.needs.hunger = U.clamp((creature.needs.hunger or 0.5) - 0.45, 0, 1)
@@ -1254,15 +1222,9 @@ local function handleCreaturePropContact(game, creature)
           creature.mood = "guarding"
           setEnemyState(creature, "hunt", 1.4)
         end
-        if game.recordCodexDiscovery then
-          game.recordCodexDiscovery("tool", "pheromone", "Pheromone boundaries make predators hesitate and territorial creatures investigate.")
-        end
       elseif prop.kind == "ground" and creature.kind == "leecher" then
         setEnemyState(creature, "flee", 2.4)
         creature.snared = max(creature.snared or 0, 1.8)
-        if game.recordCodexDiscovery then
-          game.recordCodexDiscovery("tool", "ground", "Grounding spikes make flooded live paths safer and repel leechers that follow current.")
-        end
       elseif prop.kind == "coolant" and (creature.kind == "warden" or creature.kind == "mimic") then
         setEnemyState(creature, "flee", 2.2)
         creature.snared = max(creature.snared or 0, 2.2)
@@ -1293,9 +1255,6 @@ local function handleCreatureCacheContact(game, creature)
       creature.stealTimer = 8
       setEnemyState(creature, "flee", 2.6)
       Actor.emitNoise(game, cache.x + 0.5, cache.y + 0.5, 2.2, 1.2, "theft")
-      if game.recordCodexDiscovery then
-        game.recordCodexDiscovery("creature", "scavenger", "Scavenger rivals steal exposed caches and can be baited away with beacon noise.")
-      end
       return
     end
   end
@@ -1337,9 +1296,6 @@ local function updateNestRaids(game, dt)
             setEnemyState(creature, "hunt", 2.6)
             nest.alarm = 7
             Actor.emitNoise(game, nest.x + 0.5, nest.y + 0.5, 2.6, 1.5, "raid")
-            if game.recordCodexDiscovery then
-              game.recordCodexDiscovery("nest", nest.kind, "Predators raid weaker nests when they catch a scent or hear panic.")
-            end
             break
           end
         end
@@ -1360,18 +1316,12 @@ local function resolveCreatureContacts(game)
       if (creature.kind == "skitter" or creature.thief) and distance < player.radius + creature.radius + 0.16 and creature.stealTimer <= 0 then
         local inventory = game.inventory or {}
         local stolen
-        if creature.thief and game.salvage and (game.salvage.carried or 0) > 0 then
-          game.salvage.carried = max(0, game.salvage.carried - 1)
-          stolen = "salvage"
-          creature.carrying = { kind = "salvage", source = "player" }
-        else
-          for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "fuse", "seal", "breaker", "ground", "beacon", "coolant" }) do
-            if (inventory[tool] or 0) > 0 then
-              inventory[tool] = inventory[tool] - 1
-              stolen = tool
-              creature.carrying = { kind = tool, source = "player" }
-              break
-            end
+        for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "fuse", "seal", "breaker", "ground", "beacon", "coolant" }) do
+          if (inventory[tool] or 0) > 0 then
+            inventory[tool] = inventory[tool] - 1
+            stolen = tool
+            creature.carrying = { kind = tool, source = "player" }
+            break
           end
         end
         creature.stealTimer = 8

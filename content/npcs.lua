@@ -26,7 +26,7 @@ NPCs.profiles = {
   quartermaster = {
     name = "Sen",
     callsign = "QTR",
-    title = "salvage runner",
+    title = "cache runner",
     speed = 1.0,
     radius = 0.16,
     height = 1.36,
@@ -55,7 +55,7 @@ NPCs.creatureAdvice = {
   leecher = "Leechers follow live water. Grounding spikes and valves make flooded crossings safer.",
   mimic = "Mimics pretend to be useful signals or caches. Survey probes and caution near false pings expose them early.",
   choir = "Choirs ride vent sound. Flash pods, pheromones, and avoiding vent blooms reduce their pressure.",
-  scavenger = "Scavengers steal exposed salvage. Lure beacons, bait, smoke, or snare wires can redirect them.",
+  scavenger = "Scavengers steal exposed caches and loose tools. Lure beacons, bait, smoke, or snare wires can redirect them.",
 }
 
 NPCs.toolAdvice = {
@@ -75,7 +75,7 @@ NPCs.toolAdvice = {
   valve = "Valve cranks calm flood pressure and nearby live wire routes.",
   ground = "Grounding spikes suppress nearby wires and repel leechers.",
   smoke = "Smoke breaks sight lines, but it can also carry noise through vents.",
-  beacon = "Lure beacons create loud salvage marks that pull scavengers and sound predators.",
+  beacon = "Lure beacons create loud cache marks that pull scavengers and sound predators.",
   coolant = "Coolant suppresses embers and slows wardens or mimics caught nearby.",
 }
 
@@ -84,11 +84,11 @@ NPCs.biomeAdvice = {
   fungal_service = "Fungal service decks bend scent trails. Pheromones and scent tools are stronger, but spores can echo you.",
   pressure_lab = "Pressure labs turn doors and alarms into pathing problems. Breakers, seals, fuses, and flash pods are valuable.",
   reactor_trench = "Reactor trenches amplify heat and sound panic. Coolant, sonic stakes, fuses, and breakers give control.",
-  waste_artery = "Waste arteries contaminate salvage and favor burrowers. Move fast, use pumps, bait, snares, and grounding tools.",
+  waste_artery = "Waste arteries favor burrowers and live wires. Move fast, use bait, snares, valves, and grounding tools.",
   storm_drain = "Storm drains shift flood fronts and live conduits. Valves and grounding spikes are your cleanest answers.",
   ash_foundry = "Ash foundries hide sight in smoke and heat. Coolant, smoke, sonic stakes, and flares create route windows.",
   signal_catacombs = "Signal catacombs spoof caches and map marks. Probes expose lies before mimics wake.",
-  bone_market = "Bone markets are scavenger territory. Beacons, bait, snares, and smoke help protect salvage.",
+  bone_market = "Bone markets are scavenger territory. Beacons, bait, snares, and smoke help pull rivals off caches.",
   organ_machine = "Organ machines use living doors and pulse locks. Coolant, breakers, valves, pheromones, and grounding tools help.",
 }
 

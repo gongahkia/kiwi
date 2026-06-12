@@ -17,8 +17,6 @@ local function terrainColor(cell)
     return 0.78, 0.52, 0.12
   elseif cell.exit then
     return 0.95, 0.72, 0.24
-  elseif cell.terminal then
-    return 0.25, 0.72, 0.68
   elseif Level.isHazardActive(cell) then
     if cell.hazard.kind == "ember" then
       return 0.72, 0.22, 0.08
@@ -159,13 +157,6 @@ local function drawMinimap(game, width, height)
     drawMarker(level.exit.x, level.exit.y, 1, 0.74, 0.16, "diamond")
   end
 
-  for _, objective in ipairs(level.objectives) do
-    if mapKnown(objective.x, objective.y) and not objective.cell.objective.collected then
-      love.graphics.setColor(0.4, 0.95, 1, 0.95)
-      love.graphics.rectangle("fill", originX + (objective.x - 1) * size, originY + (objective.y - 1) * size, max(2, size), max(2, size))
-    end
-  end
-
   for _, key in ipairs(level.keys or {}) do
     if mapKnown(key.x, key.y) and not key.cell.key.collected then
       if key.kind == "exit" then
@@ -288,19 +279,6 @@ local function drawMinimap(game, width, height)
   end
 end
 
-local function nearTerminal(game)
-  local px = floor(game.player.x)
-  local py = floor(game.player.y)
-
-  for _, terminal in ipairs(game.level.terminals or {}) do
-    if math.abs(terminal.x - px) + math.abs(terminal.y - py) <= 1 then
-      return terminal
-    end
-  end
-
-  return nil
-end
-
 local function nearNPC(game)
   if game.nearNPC then
     return game.nearNPC()
@@ -394,7 +372,7 @@ local function drawHud(game, width, height)
   end
 
   local npc = nearNPC(game)
-  if npc and not game.terminal.active and not (game.conversation and game.conversation.active) then
+  if npc and not (game.conversation and game.conversation.active) then
     love.graphics.setColor(0.08, 0.14, 0.13, 0.78)
     love.graphics.rectangle("fill", width * 0.5 - 138, height - 120, 276, 34, 3, 3)
     love.graphics.setColor(0.62, 1, 0.84)
@@ -448,49 +426,6 @@ local function drawConversationOverlay(game, width, height)
   love.graphics.printf("UP/DOWN SELECT  ENTER ASK  F/ESC CLOSE", x + 24, y + panelHeight - 38, panelWidth - 48, "center")
 end
 
-local function drawTerminalOverlay(game, width, height)
-  if not game.terminal or not game.terminal.active then
-    return
-  end
-
-  local terminal = game.terminal.current or { label = "T??", command = "SCAN", logs = {} }
-  local panelWidth = min(width - 80, 680)
-  local panelHeight = min(height - 80, 360)
-  local x = (width - panelWidth) * 0.5
-  local y = (height - panelHeight) * 0.5
-
-  love.graphics.setColor(0, 0, 0, 0.78)
-  love.graphics.rectangle("fill", 0, 0, width, height)
-  love.graphics.setColor(0.04, 0.09, 0.08, 0.96)
-  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
-  love.graphics.setColor(0.2, 0.9, 0.7, 0.92)
-  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
-
-  love.graphics.setFont(game.fonts.hud)
-  love.graphics.setColor(0.58, 1, 0.82)
-  love.graphics.print(string.format("%s  DECK %02d  ACCESS %s", terminal.label, game.deck or 1, terminal.command), x + 22, y + 18)
-  love.graphics.setColor(0.38, 0.78, 0.66)
-  love.graphics.print("1 LIGHTS 2 DOORS 3 PUMPS 4 VENTS 5 DECOY 6 LIFT", x + 22, y + 46)
-
-  love.graphics.setColor(0.12, 0.23, 0.2, 0.9)
-  love.graphics.rectangle("fill", x + 20, y + 78, panelWidth - 40, panelHeight - 144)
-
-  local logs = terminal.logs or {}
-  local logY = y + 90
-  love.graphics.setColor(0.72, 0.95, 0.82)
-  for i = max(1, #logs - 7), #logs do
-    love.graphics.print(logs[i], x + 34, logY)
-    logY = logY + 23
-  end
-
-  love.graphics.setColor(0.04, 0.08, 0.07, 0.96)
-  love.graphics.rectangle("fill", x + 20, y + panelHeight - 54, panelWidth - 40, 34)
-  love.graphics.setColor(0.58, 1, 0.82)
-  love.graphics.print("> " .. (game.terminal.input or ""), x + 34, y + panelHeight - 47)
-  love.graphics.setColor(0.38, 0.78, 0.66)
-  love.graphics.printf("ENTER RUN   ESC EXIT   TYPED: SCAN UNLOCK PURGE", x + 20, y + panelHeight - 47, panelWidth - 52, "right")
-end
-
 local function drawEndState(game, width, height)
   if game.state ~= "caught" and game.state ~= "escaped" then
     return
@@ -510,105 +445,6 @@ local function drawEndState(game, width, height)
   love.graphics.printf(string.format("TIME %.1f   BEST %.1f   DECK %02d   SEED %d", game.survivalTime, game.bestTime, game.deck or 1, game.seed), 0, height * 0.49, width, "center")
   love.graphics.setColor(0.82, 0.76, 0.66)
   love.graphics.printf("R REPLAY   N NEW RUN", 0, height * 0.58, width, "center")
-end
-
-local function drawRouteSelect(game, width, height)
-  if game.state ~= "route_select" then
-    return
-  end
-
-  local choices = game.routeChoices or {}
-  local panelWidth = min(width - 80, 860)
-  local panelHeight = min(height - 80, 430)
-  local x = (width - panelWidth) * 0.5
-  local y = (height - panelHeight) * 0.5
-
-  love.graphics.setColor(0, 0, 0, 0.78)
-  love.graphics.rectangle("fill", 0, 0, width, height)
-  love.graphics.setColor(0.07, 0.065, 0.055, 0.98)
-  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
-  love.graphics.setColor(0.86, 0.68, 0.38, 0.95)
-  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
-
-  love.graphics.setFont(game.fonts.hud)
-  love.graphics.setColor(0.96, 0.86, 0.58)
-  love.graphics.print("DESCENT ROUTE", x + 24, y + 20)
-  love.graphics.setColor(0.64, 0.6, 0.5)
-  love.graphics.printf("1-3 SELECT  ENTER CONFIRM", x + 24, y + 20, panelWidth - 48, "right")
-
-  local cardWidth = (panelWidth - 72) / max(1, #choices)
-  for i, choice in ipairs(choices) do
-    local cardX = x + 24 + (i - 1) * cardWidth
-    local selected = i == (game.routeIndex or 1)
-    love.graphics.setColor(selected and 0.22 or 0.11, selected and 0.17 or 0.115, selected and 0.085 or 0.07, 0.94)
-    love.graphics.rectangle("fill", cardX, y + 64, cardWidth - 12, panelHeight - 104, 4, 4)
-    love.graphics.setColor(selected and 0.98 or 0.76, selected and 0.8 or 0.68, selected and 0.42 or 0.54)
-    love.graphics.rectangle("line", cardX, y + 64, cardWidth - 12, panelHeight - 104, 4, 4)
-
-    local lineY = y + 82
-    love.graphics.setColor(0.95, 0.86, 0.62)
-    love.graphics.print(i .. "  " .. choice.label, cardX + 14, lineY)
-    lineY = lineY + 34
-    love.graphics.setColor(0.7, 0.92, 0.86)
-    love.graphics.print(choice.biomeLabel or "UNKNOWN", cardX + 14, lineY)
-    lineY = lineY + 30
-    love.graphics.setColor(0.82, 0.76, 0.62)
-    love.graphics.print("RISK " .. choice.risk .. "  SALVAGE " .. choice.salvage, cardX + 14, lineY)
-    lineY = lineY + 28
-    love.graphics.setColor(0.72, 0.68, 0.58)
-    love.graphics.printf(choice.description or "", cardX + 14, lineY, cardWidth - 40)
-    lineY = lineY + 72
-    love.graphics.setColor(0.82, 0.72, 0.5)
-    love.graphics.print("FACTION " .. (choice.previewFaction and string.upper(choice.faction or "UNKNOWN") or "UNKNOWN"), cardX + 14, lineY)
-    lineY = lineY + 28
-    love.graphics.print("INCIDENT " .. (choice.previewIncident and string.upper(choice.incident or "UNKNOWN") or "UNKNOWN"), cardX + 14, lineY)
-    if choice.rareCache then
-      love.graphics.setColor(0.52, 0.9, 0.72)
-      love.graphics.print("RARE CACHE SIGNAL", cardX + 14, lineY + 28)
-    end
-  end
-end
-
-local function drawCodex(game, width, height)
-  if not game.codexOpen then
-    return
-  end
-
-  local panelWidth = min(width - 90, 760)
-  local panelHeight = min(height - 90, 420)
-  local x = (width - panelWidth) * 0.5
-  local y = (height - panelHeight) * 0.5
-  local entries = game.codex and game.codex.entries or {}
-
-  love.graphics.setColor(0, 0, 0, 0.78)
-  love.graphics.rectangle("fill", 0, 0, width, height)
-  love.graphics.setColor(0.08, 0.08, 0.07, 0.96)
-  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
-  love.graphics.setColor(0.86, 0.72, 0.44, 0.95)
-  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
-
-  love.graphics.setFont(game.fonts.hud)
-  love.graphics.setColor(0.95, 0.86, 0.62)
-  love.graphics.print("CODEX", x + 22, y + 18)
-  love.graphics.setColor(0.66, 0.62, 0.54)
-  love.graphics.printf("C CLOSE", x + 22, y + 18, panelWidth - 44, "right")
-
-  local start = max(1, #entries - 10)
-  local lineY = y + 54
-  if #entries == 0 then
-    love.graphics.setColor(0.72, 0.68, 0.58)
-    love.graphics.print("NO DISCOVERIES", x + 22, lineY)
-    return
-  end
-
-  for i = start, #entries do
-    local entry = entries[i]
-    love.graphics.setColor(0.5, 0.88, 0.76)
-    love.graphics.print(string.upper(entry.kind) .. " / " .. string.upper(entry.id), x + 22, lineY)
-    love.graphics.setColor(0.86, 0.82, 0.7)
-    love.graphics.printf(entry.text, x + 22, lineY + 20, panelWidth - 44)
-    lineY = lineY + 54
-  end
 end
 
 local function drawToolWheel(game, width, height)
@@ -686,7 +522,6 @@ function UI.draw(game)
   drawMinimap(game, width, height)
   drawHud(game, width, height)
   drawEndState(game, width, height)
-  drawRouteSelect(game, width, height)
   drawToolWheel(game, width, height)
   drawConversationOverlay(game, width, height)
   drawPause(game, width, height)

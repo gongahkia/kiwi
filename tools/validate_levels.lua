@@ -229,26 +229,12 @@ local function collectMetrics(level)
   appendRouteMetrics(level)
 end
 
-local function validationBranch(seed, deck)
-  local order = Level.biomeOrder or {}
-  local biome = order[((seed + deck - 2) % #order) + 1]
-  local profile = Level.biomeProfiles[biome]
-  return {
-    kind = (seed + deck) % 3 == 0 and "conflict" or ((seed + deck) % 2 == 0 and "salvage" or "safe"),
-    biome = biome,
-    risk = ((seed + deck) % 3) + 1,
-    salvage = ((seed + deck + 1) % 3) + 1,
-    faction = profile and profile.primaryFaction or "scavenger",
-    incident = profile and profile.incidents[((seed + deck - 1) % #profile.incidents) + 1] or nil,
-  }
-end
-
 for i = 0, count - 1 do
   local seed = startSeed + i
   for deck = 1, Level.maxDecks do
     love.math.setRandomSeed(seed + deck * 1000003)
 
-    local level = Level.generate(nil, nil, deck, validationBranch(seed, deck))
+    local level = Level.generate(nil, nil, deck, nil)
     local labelSeed = seed * 10 + deck
 
     if enabled.graph then

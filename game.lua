@@ -56,7 +56,6 @@ local Game = {
   deck = 1,
   maxDecks = Level.maxDecks,
   fonts = {},
-  objectives = { total = 0, collected = 0 },
   keys = { total = 0, collected = 0, small = 0, exit = false },
   loopDuration = 60,
   loopTimer = 60,
@@ -77,12 +76,6 @@ local Game = {
   bindTarget = nil,
   bindings = {},
   achievements = { unlocked = {}, events = {} },
-  unlocks = { salvage = 0, unlocked = {}, branches = {} },
-  salvage = { carried = 0, total = 0, contamTimer = 0 },
-  routeChoices = {},
-  routeIndex = 1,
-  pendingDeck = nil,
-  currentBranch = nil,
   demoMode = false,
   inventory = {
     selected = "flare",
@@ -109,7 +102,6 @@ local Game = {
   message = "",
   messageTimer = 0,
   hazardTimer = 0,
-  terminal = { active = false, input = "", current = nil, logs = {}, liftAuthorized = true },
   conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" },
   seedEntry = { active = false, text = "" },
 }
@@ -124,8 +116,6 @@ local function setMessage(text, duration)
 end
 
 Game.setMessage = setMessage
-
-local recordCodexDiscovery
 
 local function copyDefaultBindings()
   local bindings = {}
@@ -209,68 +199,6 @@ local function loadAchievements()
   end
 end
 
-local unlockThresholds = {
-  { salvage = 2, id = "start_probe", text = "Start future runs with an extra survey probe." },
-  { salvage = 3, id = "preview_faction", text = "Route choices reveal dominant faction pressure." },
-  { salvage = 4, id = "start_pheromone", text = "Start future runs with an extra pheromone vial." },
-  { salvage = 5, id = "preview_incident", text = "Route choices reveal likely incident pressure." },
-  { salvage = 6, id = "start_breaker", text = "Start future runs with a breaker plug." },
-  { salvage = 7, id = "rare_cache", text = "Salvage routes can contain an extra rare cache." },
-}
-
-local function saveUnlocks()
-  if not love.filesystem then
-    return
-  end
-
-  local lines = { "salvage=" .. tostring(Game.unlocks.salvage or 0) }
-  for id in pairs(Game.unlocks.unlocked or {}) do
-    lines[#lines + 1] = "unlock=" .. id
-  end
-  for biome in pairs(Game.unlocks.branches or {}) do
-    lines[#lines + 1] = "branch=" .. biome
-  end
-  pcall(love.filesystem.write, "unlocks.txt", table.concat(lines, "\n"))
-end
-
-local function loadUnlocks()
-  Game.unlocks = { salvage = 0, unlocked = {}, branches = {} }
-  if not love.filesystem or not love.filesystem.getInfo or not love.filesystem.getInfo("unlocks.txt") then
-    return
-  end
-
-  local ok, data = pcall(love.filesystem.read, "unlocks.txt")
-  if not ok or not data then
-    return
-  end
-
-  for line in data:gmatch("[^\n]+") do
-    local key, value = line:match("^([^=]+)=([^=]+)$")
-    if key == "salvage" then
-      Game.unlocks.salvage = tonumber(value) or 0
-    elseif key == "unlock" then
-      Game.unlocks.unlocked[value] = true
-    elseif key == "branch" then
-      Game.unlocks.branches[value] = true
-    end
-  end
-end
-
-local function updateUnlocks()
-  local changed = false
-  for _, unlock in ipairs(unlockThresholds) do
-    if (Game.unlocks.salvage or 0) >= unlock.salvage and not Game.unlocks.unlocked[unlock.id] then
-      Game.unlocks.unlocked[unlock.id] = true
-      recordCodexDiscovery("unlock", unlock.id, unlock.text)
-      changed = true
-    end
-  end
-
-  if changed then
-    saveUnlocks()
-  end
-end
-
 local function unlockAchievement(id, text)
   if Game.demoMode or Game.achievements.unlocked[id] then
     return
@@ -289,67 +217,9 @@ function Game.setDemoMode(enabled)
   Game.maxDecks = Game.demoMode and min(2, Level.maxDecks) or Level.maxDecks
 end
 
-local function codexKey(kind, id)
-  return (kind or "misc") .. ":" .. (id or "unknown")
-end
-
-local function saveCodex()
-end
-
-local function loadCodex()
-end
-
-function recordCodexDiscovery(kind, id, text)
-end
-
-Game.recordCodexDiscovery = recordCodexDiscovery
-
-local function addTerminalLog(text)
-  local terminal = Game.terminal.current
-  local logs = terminal and terminal.logs or Game.terminal.logs
-
-  logs[#logs + 1] = text
-  while #logs > 6 do
-    table.remove(logs, 1)
-  end
-  Game.terminal.logs = logs
-end
-
 local function deckSeed(seed, deck)
   return seed + deck * 1000003
 end
-
-local creatureCodex = {
-  hunter = "Hunters are apex predators that track noise, sight, and weaker prey.",
-  stalker = "Stalkers prefer dark territory and retreat from strong light or flash bursts.",
-  skitter = "Skitters are scavengers that panic loudly and steal useful objects.",
-  screecher = "Screechers are sound predators that can drag other threats toward noise.",
-  burrower = "Burrowers guard rubble and flooded nests, but loud bait can pull them off a crossing.",
-  warden = "Wardens guard locked routes and react aggressively to breaker sparks, fuse bursts, and cache theft.",
-  leecher = "Leechers follow flooded conductors and are repelled by grounding spikes.",
-  mimic = "Mimics impersonate useful signals or caches until proximity or survey pulses wake them.",
-  choir = "Choirs coordinate through vents and amplify noise pressure during blackouts or blooms.",
-  scavenger = "Scavenger rivals steal exposed caches and carried salvage, then flee toward cover.",
-}
-
-local districtCodex = {
-  collapsed_caves = "Collapsed caves create rubble loops, dark pockets, and burrower routes.",
-  flooded_basin = "Flooded basins slow movement and make wire hazards nastier until pumps come online.",
-  machine_maze = "Machine mazes carry vents, grates, and sound paths for screechers.",
-  foundry_arena = "Foundry arenas are exposed crossings where predators can interrupt each other.",
-  salvage_vault = "Cache vaults hold tools, but they often attract rivals and mimics.",
-  nest_zone = "Nest zones are creature homes. Raiding or baiting them raises local aggression.",
-  cryo_vault = "Cryo vaults carry frost traces, brittle seals, and low-visibility shortcut risks.",
-  fungal_service = "Fungal service tunnels amplify scent tools and create misleading spore trails.",
-  pressure_lab = "Pressure labs link doors, alarms, glass sight lines, and seal timing.",
-  reactor_trench = "Reactor trenches reward overcharge timing but punish heat and sound mistakes.",
-  waste_artery = "Waste arteries slow movement, strengthen burrowers in sludge, and contaminate salvage.",
-  storm_drain = "Storm drains push flood cycles through live conduit routes; valves and grounding spikes create safe windows.",
-  ash_foundry = "Ash foundries hide movement in smoke but turn heat cycles into shelter races.",
-  signal_catacombs = "Signal catacombs spoof map pings and hide mimics among cache signs.",
-  bone_market = "Bone markets are scavenger trade routes where caches attract rivals and predators.",
-  organ_machine = "Organ machines pulse living doors and biological alarms around powered systems.",
-}
 
 local startDeck
 
@@ -357,63 +227,31 @@ local incidentDefs = {
   blackout = {
     label = "BLACKOUT",
     signal = "dark_pulse",
-    codex = "Blackouts suppress powered light long enough for stalkers to expand territory.",
   },
   flood_surge = {
     label = "FLOOD SURGE",
     signal = "wet_tracks",
-    codex = "Flood surges spread water pressure and make wire rooms harder until pumps answer.",
   },
   vent_bloom = {
     label = "VENT BLOOM",
     signal = "vent_call",
-    codex = "Vent blooms carry sound through machine districts and wake screechers.",
   },
   heat_spike = {
     label = "HEAT SPIKE",
     signal = "ash_drift",
-    codex = "Heat spikes make foundry embers flare until vents or pumps cut the pressure.",
   },
   lockdown = {
     label = "LOCKDOWN",
     signal = "seal_mark",
-    codex = "Lockdowns seal routes temporarily, splitting creatures and players into new paths.",
   },
   nest_wake = {
     label = "NEST WAKE",
     signal = "alarm_mark",
-    codex = "Nest wake events send guards and raiders toward any fresh territorial disturbance.",
   },
   faction_raid = {
     label = "FACTION RAID",
     signal = "trade_mark",
-    codex = "Faction raids pull scavengers and predators toward exposed salvage and alarm marks.",
   },
-}
-
-local signalCodex = {
-  track = "Tracks show where creatures recently moved. Survey probes reveal older paths.",
-  scratch = "Scratch marks usually mean a predator route crosses this room.",
-  nest_debris = "Nest debris marks a home territory. Bait and noise nearby can wake guards.",
-  wet_tracks = "Wet tracks warn that a flood surge or basin route is active.",
-  ash_drift = "Ash drift marks heat pressure and ember risk.",
-  vent_call = "Vent calls mean sound will travel farther than normal.",
-  alarm_mark = "Alarm marks show a nest has started defending or calling raiders.",
-  dark_pulse = "Dark pulses tell you lights are unreliable here.",
-  pheromone = "Pheromones create false territory boundaries that can redirect predators.",
-  survey_ping = "Survey pings expose recent movement without giving exact creature positions.",
-  seal_mark = "Seal marks show a lockdown route that will reopen after pressure drops.",
-  frost_trace = "Frost traces mark cryo routes where flares and breakers can reveal brittle shortcuts.",
-  spore_bloom = "Spore blooms amplify scent and can make false trails more convincing.",
-  pressure_tick = "Pressure ticks warn that doors, glass sight lines, and alarms are coupled.",
-  radiant_heat = "Radiant heat marks reactor pressure that vents, pumps, or careful overcharge can manage.",
-  tainted_sludge = "Tainted sludge marks waste routes where salvage may decay before extraction.",
-  surge_line = "Surge lines show where water pressure will return during the next flood phase.",
-  smoke_veil = "Smoke veils break sight but carry noise and can hide stalkers.",
-  false_ping = "False pings can mark real caches, mimic bait, or old signs until surveyed.",
-  trade_mark = "Trade marks warn that scavenger rivals watch nearby caches.",
-  pulse_mark = "Pulse marks show living machinery that reacts to power and coolant.",
-  shelter_mark = "Shelter marks identify temporary pockets that reduce cycle pressure.",
 }
 
 local incidentDecks = {
@@ -532,15 +370,6 @@ local function initEcology()
 end
 
 function appendIncidentLog(text)
-  for _, terminal in ipairs(Game.level.terminals or {}) do
-    local logs = terminal.terminal and terminal.terminal.logs
-    if logs then
-      logs[#logs + 1] = text
-      while #logs > 6 do
-        table.remove(logs, 1)
-      end
-    end
-  end
 end
 
 local function nearestNest()
@@ -595,7 +424,6 @@ local function pulseIncident(kind)
 
   ecology.active = kind
   ecology.observed[kind] = true
-  recordCodexDiscovery("incident", kind, def.codex)
   unlockAchievement("incident_contact", "Witness a live facility incident.")
 
   if kind == "blackout" then
@@ -609,7 +437,7 @@ local function pulseIncident(kind)
     appendIncidentLog("FLOOD SURGE: PUMPS RECOMMENDED")
   elseif kind == "vent_bloom" then
     ecology.ventBloom = 8 + ((ecology.cycle and ecology.cycle.pressure) or 0) * 2
-    local vent = Game.level.terminals[1] or Game.level.exit or { x = Game.player.x, y = Game.player.y }
+    local vent = Game.level.exit or { x = Game.player.x, y = Game.player.y }
     Actor.emitNoise(Game, vent.x + 0.5, vent.y + 0.5, 3.5, 1.4, "vent")
     addSignal("vent_call", vent.x + 0.5, vent.y + 0.5, 1.2, 20, "facility")
     appendIncidentLog("VENT BLOOM: SOUND CARRIERS ACTIVE")
@@ -671,9 +499,6 @@ local function updateSignals(dt)
       if not signal.discovered then
         signal.discovered = true
         unlockAchievement("first_signal", "Identify an ecology signal in-world.")
-        if signalCodex[signal.kind] then
-          recordCodexDiscovery("signal", signal.kind, signalCodex[signal.kind])
-        end
       end
     end
   end
@@ -751,125 +576,20 @@ local function updateEcology(dt)
   updateSignals(dt)
 end
 
-local function recordDeckDiscoveries()
-  for _, district in ipairs(Game.level.districts or {}) do
-    if districtCodex[district.kind] then
-      recordCodexDiscovery("district", district.kind, districtCodex[district.kind])
-    end
-  end
-
-  for _, faction in ipairs(Game.level.factions or {}) do
-    recordCodexDiscovery("faction", faction.name, "This faction controls territory, alarms nests, and reacts to theft or route manipulation.")
-  end
-
-  for _, creature in ipairs(Game.creatures or {}) do
-    if creatureCodex[creature.kind] then
-      recordCodexDiscovery("creature", creature.kind, creatureCodex[creature.kind])
-    end
-  end
-end
-
-local routeSpecs = {
-  safe = { label = "SAFER ROUTE", risk = 1, salvage = 1, description = "Lower pressure, fewer caches, clearer exits." },
-  salvage = { label = "RICH SALVAGE", risk = 2, salvage = 3, description = "More caches and rooms, more hazards." },
-  conflict = { label = "FACTION CONFLICT", risk = 3, salvage = 2, description = "Two factions contest the route." },
-}
-
-local routeOrder = { "safe", "salvage", "conflict" }
-
-local function routeBiome(nextDeck, offset)
-  local order = Level.biomeOrder or {}
-  local count = #order
-  local index = ((Game.seed + nextDeck * 7 + offset * 3) % count) + 1
-  return order[index]
-end
-
-local function makeRouteChoices(nextDeck)
-  local choices = {}
-
-  for i, kind in ipairs(routeOrder) do
-    local biome = routeBiome(nextDeck, i)
-    local profile = Level.biomeProfiles[biome]
-    local spec = routeSpecs[kind]
-    local incident = profile.incidents[((Game.seed + nextDeck + i) % #profile.incidents) + 1]
-    local faction = kind == "conflict" and profile.factions[min(2, #profile.factions)] or profile.primaryFaction
-
-    choices[#choices + 1] = {
-      kind = kind,
-      biome = biome,
-      biomeLabel = profile.label,
-      risk = spec.risk,
-      salvage = spec.salvage,
-      faction = faction,
-      incident = incident,
-      label = spec.label,
-      description = spec.description,
-      previewFaction = Game.unlocks.unlocked.preview_faction or Game.unlocks.branches[biome],
-      previewIncident = Game.unlocks.unlocked.preview_incident or Game.unlocks.branches[biome],
-      rareCache = Game.unlocks.unlocked.rare_cache and kind == "salvage",
-    }
-  end
-
-  return choices
-end
-
-local function bankSalvage()
-  if (Game.salvage.carried or 0) <= 0 then
-    return
-  end
-
-  Game.unlocks.salvage = (Game.unlocks.salvage or 0) + Game.salvage.carried
-  Game.salvage.total = Game.unlocks.salvage
-  setMessage("SALVAGE BANKED +" .. Game.salvage.carried, 1.6)
-  Game.salvage.carried = 0
-  Game.salvage.contamTimer = 0
-  updateUnlocks()
-  saveUnlocks()
-end
-
-local function openRouteSelect(nextDeck)
-  Game.pendingDeck = nextDeck
-  Game.routeChoices = makeRouteChoices(nextDeck)
-  Game.routeIndex = 1
-  Game.state = "route_select"
-  love.mouse.setRelativeMode(false)
-  setMessage("CHOOSE DESCENT ROUTE", 1.7)
-end
-
-local function chooseRoute(index)
-  local choice = Game.routeChoices[index or Game.routeIndex]
-  if not choice then
-    return
-  end
-
-  Game.currentBranch = choice
-  Game.unlocks.branches[choice.biome] = true
-  saveUnlocks()
-  startDeck(Game.pendingDeck or (Game.deck + 1))
-end
-
 function startDeck(deck)
   Game.deck = deck
   love.math.setRandomSeed(deckSeed(Game.seed, deck))
 
-  Game.level = Level.generate(nil, nil, deck, Game.currentBranch)
+  Game.level = Level.generate(nil, nil, deck, nil)
   Game.player = Actor.createPlayer(Game.level)
   Game.creatures = Actor.createCreatures(Game.level)
   Game.npcs = Actor.createNPCs(Game.level)
   Game.enemy = Actor.nearestThreat(Game) or Game.creatures[1] or Actor.createEnemy(Game.level)
   Game.state = "playing"
-  Game.objectives = { total = 0, collected = 0 }
   Game.keys = { total = #Game.level.keys, collected = 0, small = 0, exit = false }
   Game.loopTimer = Game.loopDuration
   Game.respawn = { x = Game.player.x, y = Game.player.y }
   Game.level.visitedMap = {}
-  Game.terminal = {
-    active = false,
-    input = "",
-    current = nil,
-    logs = {},
-    liftAuthorized = not Game.level.liftRequired,
-  }
   Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
   Game.noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 }
   Game.noises = {}
@@ -918,20 +638,6 @@ local function startGame(seed)
     coolant = 0,
     max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3, valve = 2, ground = 2, smoke = 2, beacon = 2, coolant = 2 },
   }
-  if Game.unlocks.unlocked.start_probe then
-    Game.inventory.probe = min(Game.inventory.max.probe, Game.inventory.probe + 1)
-  end
-  if Game.unlocks.unlocked.start_pheromone then
-    Game.inventory.pheromone = min(Game.inventory.max.pheromone, Game.inventory.pheromone + 1)
-  end
-  if Game.unlocks.unlocked.start_breaker then
-    Game.inventory.breaker = min(Game.inventory.max.breaker, Game.inventory.breaker + 1)
-  end
-  Game.salvage = { carried = 0, total = 0, contamTimer = 0 }
-  Game.currentBranch = nil
-  Game.routeChoices = {}
-  Game.routeIndex = 1
-  Game.pendingDeck = nil
   startDeck(1)
 end
 
@@ -944,7 +650,6 @@ local function advanceDeck()
     return
   end
 
-  Game.currentBranch = nil
   startDeck(Game.deck + 1)
 end
 
@@ -965,7 +670,6 @@ local function resetLife(reason)
   Game.props = {}
   Game.survey = { ttl = 0 }
   Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
-  Game.terminal.active = false
   Game.loopTimer = Game.loopDuration
   Game.torch.fuel = 1
   Game.inventory.flare = 1
@@ -1088,8 +792,8 @@ local function updateEffects(dt)
   if decoy and decoy.powered then
     decoy.cooldown = max(0, (decoy.cooldown or 0) - dt)
     if decoy.cooldown <= 0 then
-      local terminal = Game.level.terminals[#Game.level.terminals] or Game.level.exit or { x = Game.player.x, y = Game.player.y }
-      Actor.emitNoise(Game, terminal.x + 0.5, terminal.y + 0.5, 3.4, 1.2, "decoy")
+      local target = Game.level.exit or { x = Game.player.x, y = Game.player.y }
+      Actor.emitNoise(Game, target.x + 0.5, target.y + 0.5, 3.4, 1.2, "decoy")
       Game.torch.fuel = U.clamp(Game.torch.fuel - 0.03, 0, 1)
       decoy.cooldown = 3.4
     end
@@ -1247,39 +951,6 @@ local function updateHazards(dt)
     setMessage(string.upper(cell.hazard.kind), 1.1)
     Game.hazardTimer = 2.4
   end
-end
-
-local function updateSalvage(dt)
-  if (Game.salvage.contamTimer or 0) <= 0 then
-    return
-  end
-
-  Game.salvage.contamTimer = max(0, Game.salvage.contamTimer - dt)
-  if Game.salvage.contamTimer <= 0 and (Game.salvage.carried or 0) > 0 then
-    Game.salvage.carried = max(0, Game.salvage.carried - 1)
-    setMessage("CONTAMINATED SALVAGE SPOILED", 1.6)
-  end
-end
-
-local function terminalAtPlayer()
-  local px = floor(Game.player.x)
-  local py = floor(Game.player.y)
-
-  for _, terminal in ipairs(Game.level.terminals or {}) do
-    if abs(terminal.x - px) + abs(terminal.y - py) <= 1 then
-      return terminal
-    end
-  end
-
-  return nil
-end
-
-function Game.nearTerminal()
-  if not Game.level or not Game.player then
-    return nil
-  end
-
-  return terminalAtPlayer()
 end
 
 local function distanceToPlayer(x, y)
@@ -1454,36 +1125,6 @@ local function shelterTopic()
   return { id = "shelter", label = "Shelter", response = "I do not see a shelter mark nearby. Keep moving and watch for safe floor marks." }
 end
 
-local function terminalTopic()
-  local level = Game.level
-  local terminal = nearestItem(level.terminals, function(item)
-    if level.liftRequired and not level.liftAuthorized then
-      return item.command == "LIFT"
-    end
-    return true
-  end)
-
-  if not terminal then
-    return { id = "terminal", label = "Terminal", response = "No terminal is readable from here. Keep the map open after a SCAN." }
-  end
-
-  local command = terminal.command or "SCAN"
-  local advice = NPCContent.commandAdvice[command] or "Terminals reroute deck systems."
-  local power = string.format("Power is %d/%d assigned.", level.power.assigned or 0, Level.powerCapacity(level))
-  local liftHint = ""
-  if command == "LIFT" and Game.objectives.collected < (level.minLiftRelays or Game.objectives.total) then
-    liftHint = " You still need more relays before it will answer."
-  end
-
-  return {
-    id = "terminal",
-    label = "Terminal",
-    response = string.format("Nearest terminal is %s. %s %s%s", directionToCell(terminal.x, terminal.y), advice, power, liftHint),
-    target = topicTarget(terminal),
-    lead = true,
-  }
-end
-
 local function threatTopic()
   local threat, distance = Actor.nearestThreat(Game)
   if not threat then
@@ -1533,31 +1174,6 @@ local function toolsTopic()
     response = string.format("%s x%d. %s%s", string.upper(selected), count, advice, cacheText),
     target = cache and topicTarget(cache) or nil,
     lead = cache ~= nil,
-  }
-end
-
-local function salvageTopic()
-  local cache = nearestItem(Game.level.toolCaches, function(item)
-    return item.cell and item.cell.tool and not item.cell.toolUsed
-  end)
-  local response
-
-  if Game.level.salvageLocked then
-    response = "Lift routing has sealed optional salvage. Stop chasing caches and leave clean."
-  else
-    response = string.format("You are carrying %d salvage. Banked total is %d.", Game.salvage.carried or 0, Game.unlocks.salvage or 0)
-    if cache then
-      local warning = cache.cell.tool and cache.cell.tool.mimic and " It reads wrong; probe it before touching." or ""
-      response = response .. " Nearest cache is " .. directionToCell(cache.x, cache.y) .. "." .. warning
-    end
-  end
-
-  return {
-    id = "salvage",
-    label = "Salvage",
-    response = response,
-    target = cache and topicTarget(cache) or nil,
-    lead = cache ~= nil and not Game.level.salvageLocked,
   }
 end
 
@@ -1706,23 +1322,8 @@ local function chooseConversationTopic()
   end
 end
 
-local function openTerminal()
-  local terminal = terminalAtPlayer()
-  if not terminal then
-    setMessage("NO TERMINAL", 0.8)
-    return
-  end
-
-  Game.terminal.active = true
-  Game.terminal.input = ""
-  Game.terminal.current = terminal.terminal
-  Game.terminal.logs = terminal.terminal.logs
-  addTerminalLog("SESSION OPEN")
-  love.mouse.setRelativeMode(false)
-end
-
 local function openInteraction()
-  if Game.terminal.active or Game.conversation.active then
+  if Game.conversation.active then
     return
   end
 
@@ -1737,43 +1338,6 @@ local function openInteraction()
   setMessage("NO CONTACT", 0.8)
 end
 
-local function closeTerminal()
-  Game.terminal.active = false
-  Game.terminal.input = ""
-  Game.terminal.current = nil
-  Game.terminal.logs = {}
-  if Game.state == "playing" then
-    love.mouse.setRelativeMode(true)
-  end
-end
-
-local function terminalNoise()
-  local terminal = terminalAtPlayer()
-  local x = terminal and terminal.x + 0.5 or Game.player.x
-  local y = terminal and terminal.y + 0.5 or Game.player.y
-
-  Actor.emitNoise(Game, x, y, 2.2, 0.9, "terminal")
-end
-
-local systemAliases = {
-  ["1"] = "lights",
-  LIGHT = "lights",
-  LIGHTS = "lights",
-  ["2"] = "doors",
-  DOOR = "doors",
-  DOORS = "doors",
-  ["3"] = "pumps",
-  PUMP = "pumps",
-  PUMPS = "pumps",
-  ["4"] = "vents",
-  VENT = "vents",
-  VENTS = "vents",
-  ["5"] = "decoy",
-  DECOY = "decoy",
-  ["6"] = "lift",
-  LIFT = "lift",
-}
-
 local toolOrder = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil", "valve", "ground", "smoke", "beacon", "coolant" }
 
 local function addInventory(kind, amount)
@@ -1785,87 +1349,6 @@ local function addInventory(kind, amount)
   local before = Game.inventory[kind] or 0
   Game.inventory[kind] = U.clamp(before + (amount or 1), 0, maxCount)
   return Game.inventory[kind] > before
-end
-
-local function routeSystem(name)
-  if name == "lift" and Game.objectives.collected < (Game.level.minLiftRelays or Game.objectives.total) then
-    addTerminalLog("MIN RELAYS REQUIRED")
-    terminalNoise()
-    return
-  end
-
-  local ok, message = Level.toggleSystem(Game.level, name)
-  if ok and name == "lift" and Game.level.systems.lift.powered and Game.objectives.collected < Game.objectives.total then
-    Game.level.salvageLocked = true
-    message = message .. " SALVAGE SEALED"
-  end
-  addTerminalLog(message)
-  terminalNoise()
-  if ok then
-    Audio.relay()
-  end
-end
-
-local function executeTerminalCommand()
-  local terminal = Game.terminal.current
-  local command = Game.terminal.input
-
-  Game.terminal.input = ""
-  if not terminal or command == "" then
-    return
-  end
-
-  addTerminalLog("> " .. command)
-  local systemName = systemAliases[command]
-  if systemName then
-    routeSystem(systemName)
-    return
-  end
-
-  if command ~= terminal.command then
-    addTerminalLog("COMMAND REJECTED")
-    terminalNoise()
-    return
-  end
-
-  if command == "SCAN" then
-    if Game.level.scanRevealed then
-      addTerminalLog("SCAN CACHE READY")
-    else
-      Game.level.scanRevealed = true
-      Game.showMap = true
-      terminal.used = true
-      addTerminalLog("MAP NODES REVEALED")
-      Audio.relay()
-    end
-  elseif command == "UNLOCK" then
-    local ok, message = Level.unlockTerminalTarget(Game.level, terminal)
-    addTerminalLog(message)
-    if ok then
-      Audio.relay()
-    else
-      terminalNoise()
-    end
-  elseif command == "PURGE" then
-    local ok, message = Level.purgeTerminalHazards(Game.level, terminal)
-    addTerminalLog(message)
-    if ok then
-      Audio.relay()
-    else
-      terminalNoise()
-    end
-  elseif command == "LIFT" then
-    if Game.objectives.collected < Game.objectives.total and Game.objectives.collected < (Game.level.minLiftRelays or Game.objectives.total) then
-      addTerminalLog("RELAYS OFFLINE")
-      terminalNoise()
-    else
-      Level.setSystemPowered(Game.level, "lift", true)
-      Game.terminal.liftAuthorized = true
-      terminal.used = true
-      addTerminalLog("LIFT AUTHORIZED")
-      Audio.relay()
-    end
-  end
 end
 
 local function spawnCreature(kind, x, y, faction)
@@ -2040,28 +1523,22 @@ local function useSelectedTool()
       addSignal("frost_trace", x, y, 1.6, 18, "flare", true)
       Game.survey.ttl = max(Game.survey.ttl or 0, 5)
     end
-    recordCodexDiscovery("tool", "flare", "Flares reveal nearby ground and repel stalkers, but they still draw sight and sound predators.")
     setMessage("FLARE BURNING", 1.2)
   elseif tool == "noisemaker" then
     Game.props[#Game.props + 1] = { kind = "noisemaker", x = x, y = y, ttl = 8, pulse = 0 }
-    recordCodexDiscovery("tool", "noisemaker", "Noisemakers pull screechers and hunters toward repeated pulses.")
     setMessage("NOISEMAKER ARMED", 1.2)
   elseif tool == "bait" then
     Game.props[#Game.props + 1] = { kind = "bait", x = x, y = y, ttl = 22, scent = "meat" }
-    recordCodexDiscovery("tool", "bait", "Bait can feed or redirect predators, but bait near a nest may trigger guarding.")
     setMessage("BAIT DEPLOYED", 1.2)
   elseif tool == "scent" then
     Game.props[#Game.props + 1] = { kind = "scent", x = x, y = y, ttl = 28, pulse = 0, scent = "player" }
     if biome == "fungal_service" then
       addSignal("spore_bloom", x, y, 1.5, 24, "player", true)
       Actor.emitNoise(Game, Game.player.x, Game.player.y, 2.6, 1.3, "spore")
-      recordCodexDiscovery("biome", "fungal_scent", "In fungal service tunnels scent markers can create convincing false trails, but spores also echo your presence.")
     end
-    recordCodexDiscovery("tool", "scent", "Scent markers create a false trail for hunters and stalkers.")
     setMessage("SCENT MARKER", 1.2)
   elseif tool == "sonic" then
     Game.props[#Game.props + 1] = { kind = "sonic", x = x, y = y, ttl = 12, pulse = 0 }
-    recordCodexDiscovery("tool", "sonic", "Sonic stakes pulse loudly enough to pull screechers into other creatures.")
     setMessage("SONIC STAKE", 1.2)
   elseif tool == "flash" then
     Game.props[#Game.props + 1] = { kind = "flash", x = x, y = y, ttl = 6, armed = true }
@@ -2099,7 +1576,6 @@ local function useSelectedTool()
     addSignal("pheromone", x, y, strength, ttl, "player", true)
     local cell = Level.cellAtWorld(Game.level, x, y) or {}
     alarmFaction(cell.faction, biome == "fungal_service" and 7 or 4, x, y, "pheromone")
-    recordCodexDiscovery("tool", "pheromone", "Pheromone vials draw a false territory edge that predators hesitate to cross.")
     setMessage("PHEROMONE BOUNDARY", 1.2)
   elseif tool == "breaker" then
     local door = nearbyLockedDoor()
@@ -2120,7 +1596,6 @@ local function useSelectedTool()
     Game.survey.ttl = 12
     Game.props[#Game.props + 1] = { kind = "probe", x = x, y = y, ttl = 12, pulse = 0 }
     addSignal("survey_ping", x, y, 1.2, 12, "player", true)
-    recordCodexDiscovery("tool", "probe", "Survey probes reveal recent ecology signs without showing exact creature positions.")
     setMessage("SURVEY PULSE", 1.2)
   elseif tool == "valve" then
     Game.props[#Game.props + 1] = { kind = "valve", x = x, y = y, ttl = 14, pulse = 0 }
@@ -2130,21 +1605,18 @@ local function useSelectedTool()
     end
     addSignal("surge_line", x, y, 1.5, 18, "valve", true)
     Actor.emitNoise(Game, x, y, 2.6, 1.1, "valve")
-    recordCodexDiscovery("tool", "valve", "Valve cranks redirect flood pressure, briefly calming live water and wire routes.")
     setMessage("VALVE TURNED " .. suppressed .. " LINES", 1.3)
   elseif tool == "ground" then
     Game.props[#Game.props + 1] = { kind = "ground", x = x, y = y, ttl = 18, pulse = 0 }
     Game.effects[#Game.effects + 1] = { kind = "ground", x = x, y = y, ttl = 18, radius = 4.2 }
     local suppressed = suppressHazardsNear(x, y, { wire = true }, 4.2, 18, "ground")
     addSignal("surge_line", x, y, 1.1, 18, "ground", true)
-    recordCodexDiscovery("tool", "ground", "Grounding spikes make nearby powered water safe enough to cross and repel leechers.")
     setMessage("GROUND SPIKE " .. suppressed .. " WIRES", 1.3)
   elseif tool == "smoke" then
     Game.props[#Game.props + 1] = { kind = "smoke", x = x, y = y, ttl = 16, pulse = 0 }
     Game.effects[#Game.effects + 1] = { kind = "smoke", x = x, y = y, ttl = 16, radius = 6.5 }
     addSignal("smoke_veil", x, y, 1.4, 16, "player", true)
     Actor.emitNoise(Game, x, y, 1.9, 1.1, "smoke")
-    recordCodexDiscovery("tool", "smoke", "Smoke charges break sight lines, but their turbulent vents can carry noise.")
     setMessage("SMOKE CHARGE", 1.2)
   elseif tool == "beacon" then
     Game.props[#Game.props + 1] = { kind = "beacon", x = x, y = y, ttl = 18, pulse = 0 }
@@ -2153,7 +1625,6 @@ local function useSelectedTool()
     local cell = Level.cellAtWorld(Game.level, x, y) or {}
     local fallbackFaction = Game.level.factions and Game.level.factions[1] and Game.level.factions[1].name
     alarmFaction(cell.faction or fallbackFaction, 7, x, y, "beacon")
-    recordCodexDiscovery("tool", "beacon", "Lure beacons create a loud salvage mark that pulls scavengers and sound predators away from you.")
     setMessage("LURE BEACON", 1.2)
   elseif tool == "coolant" then
     Game.props[#Game.props + 1] = { kind = "coolant", x = x, y = y, ttl = 14, pulse = 0 }
@@ -2167,7 +1638,6 @@ local function useSelectedTool()
     else
       addSignal("smoke_veil", x, y, 1.2, 14, "coolant", true)
     end
-    recordCodexDiscovery("tool", "coolant", "Coolant ampoules quench ember lanes and slow wardens or mimics caught in the burst.")
     setMessage("COOLANT " .. suppressed .. " EMBERS", 1.3)
   end
 end
@@ -2219,10 +1689,6 @@ local function resetBindings()
   setMessage("DEFAULT CONTROLS", 1)
 end
 
-local function moveRouteCursor(delta)
-  Game.routeIndex = U.clamp((Game.routeIndex or 1) + delta, 1, max(1, #(Game.routeChoices or {})))
-end
-
 function Game.load()
   love.graphics.setDefaultFilter("nearest", "nearest")
   Game.fonts.hud = love.graphics.newFont(17)
@@ -2231,8 +1697,6 @@ function Game.load()
   Audio.init()
   loadSettings()
   loadAchievements()
-  loadUnlocks()
-  loadCodex()
   startGame()
 end
 
@@ -2274,7 +1738,6 @@ function Game.update(dt)
     end
     updateTorch(dt)
     updateHazards(dt)
-    updateSalvage(dt)
     if not Game.conversation.active then
       checkInteractions()
     end
@@ -2293,23 +1756,6 @@ function Game.keypressed(key)
     Game.bindTarget = nil
     saveSettings()
     setMessage("CONTROL SAVED", 1)
-    return
-  end
-
-  if Game.state == "route_select" then
-    if key:match("^[1-3]$") then
-      chooseRoute(tonumber(key))
-    elseif key == "up" or key == "left" then
-      moveRouteCursor(-1)
-    elseif key == "down" or key == "right" or key == "tab" then
-      moveRouteCursor(1)
-    elseif key == "return" or key == "kpenter" or key == "space" then
-      chooseRoute(Game.routeIndex)
-    elseif key == "r" then
-      startGame(Game.lastSeed)
-    elseif key == "n" then
-      startGame()
-    end
     return
   end
 
@@ -2388,7 +1834,7 @@ function Game.keypressed(key)
   elseif Game.state == "playing" and key == "backspace" then
     selectToolByIndex(13)
   elseif key == "x" then
-    Renderer.togglePost()
+    setMessage("RENDER " .. string.upper(Renderer.togglePost()), 0.8)
   end
 end
 
@@ -2423,16 +1869,6 @@ end
 function Game.gamepadpressed(_, button)
   if button == "start" then
     togglePause()
-  elseif Game.state == "route_select" then
-    if button == "dpup" or button == "leftshoulder" then
-      moveRouteCursor(-1)
-    elseif button == "dpdown" or button == "rightshoulder" then
-      moveRouteCursor(1)
-    elseif button == "a" then
-      chooseRoute(Game.routeIndex)
-    elseif button == "b" then
-      startGame(Game.lastSeed)
-    end
   elseif Game.conversation.active then
     if button == "dpup" or button == "leftshoulder" then
       moveConversationCursor(-1)
