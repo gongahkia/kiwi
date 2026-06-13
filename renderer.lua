@@ -16,14 +16,10 @@ local Renderer = {
   wallRenderDistance = 32,
   canvas = nil,
   crtShader = nil,
-  asciiShader = nil,
-  glyphCanvas = nil,
-  renderMode = "ascii",
-  modes = { "normal", "crt", "ascii" },
+  monoShader = nil,
+  renderMode = "mono",
+  modes = { "normal", "crt", "mono" },
   modeIndex = 3,
-  asciiRamp = " .,:;irsXA253hMHGS#9B&@",
-  asciiCellWidth = 8,
-  asciiCellHeight = 12,
 }
 
 local crtShaderSource = [[
@@ -41,65 +37,57 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 }
 ]]
 
-local asciiShaderSource = [[
-extern Image glyphTex;
+local monoShaderSource = [[
 extern vec2 screenSize;
-extern vec2 cellSize;
-extern number glyphCount;
 extern number fuel;
 
-vec3 ansiColor(vec3 c) {
-  number lum = dot(c, vec3(0.299, 0.587, 0.114));
-  number spread = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-  number high = step(0.56, lum);
-  number gray = 1.0 - step(0.12, spread);
-  number black = 1.0 - step(0.075, lum);
-  vec3 bits = step(vec3(0.34), c);
-  vec3 chroma = mix(vec3(0.08), vec3(0.2), high) + bits * mix(0.44, 0.68, high);
-  vec3 grayscale = vec3(mix(0.2, 0.82, high));
-  return mix(mix(chroma, grayscale, gray), vec3(0.018, 0.016, 0.012), black);
+number luminance(vec3 c) {
+  return dot(c, vec3(0.299, 0.587, 0.114));
+}
+
+number bayer2(vec2 p) {
+  p = mod(floor(p), 2.0);
+  if (p.y < 0.5) {
+    return p.x < 0.5 ? 0.0 : 2.0;
+  }
+  return p.x < 0.5 ? 3.0 : 1.0;
+}
+
+number bayer4(vec2 p) {
+  return 4.0 * bayer2(mod(p, 2.0)) + bayer2(floor(p / 2.0));
+}
+
+number bayer8(vec2 p) {
+  return (4.0 * bayer4(mod(p, 4.0)) + bayer2(floor(p / 4.0)) + 0.5) / 64.0;
 }
 
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
-  vec2 cell = floor(screen / cellSize);
-  vec2 localPx = mod(screen, cellSize);
-  vec2 sampleScreen = (cell + vec2(0.5)) * cellSize;
-  vec2 sampleUv = sampleScreen / screenSize;
-  vec4 src = Texel(tex, clamp(sampleUv, vec2(0.0), vec2(1.0))) * color;
-  number lum = dot(src.rgb, vec3(0.299, 0.587, 0.114));
-  lum = clamp(lum * (0.74 + fuel * 0.42), 0.0, 1.0);
-  number glyph = floor(lum * (glyphCount - 1.0) + 0.5);
-  vec2 glyphUv = vec2((glyph + localPx.x / cellSize.x) / glyphCount, localPx.y / cellSize.y);
-  number glyphAlpha = Texel(glyphTex, glyphUv).a;
-  vec3 ink = ansiColor(src.rgb * (0.7 + lum * 0.6));
-  vec3 paper = vec3(0.018, 0.016, 0.012);
-  return vec4(mix(paper, ink, glyphAlpha), 1.0);
+  vec2 px = 1.0 / screenSize;
+  vec4 src = Texel(tex, uv) * color;
+
+  number center = luminance(src.rgb);
+  number north = luminance(Texel(tex, uv + vec2(0.0, -px.y)).rgb);
+  number south = luminance(Texel(tex, uv + vec2(0.0, px.y)).rgb);
+  number east = luminance(Texel(tex, uv + vec2(px.x, 0.0)).rgb);
+  number west = luminance(Texel(tex, uv + vec2(-px.x, 0.0)).rgb);
+  number average = (north + south + east + west) * 0.25;
+  number edge = clamp(abs(east - west) + abs(south - north), 0.0, 1.0);
+  number contrast = clamp(center + (center - average) * 0.92 + edge * 0.24, 0.0, 1.0);
+  number exposure = 0.78 + fuel * 0.3;
+  number tone = pow(clamp(contrast * exposure, 0.0, 1.0), 0.78);
+  number vignette = smoothstep(0.82, 0.18, length(uv - vec2(0.5)));
+  tone *= mix(0.84, 1.08, vignette);
+
+  number threshold = bayer8(screen);
+  number inkMask = step(threshold, tone);
+  number edgeMask = step(0.18, edge) * step(0.18, center);
+  inkMask = max(inkMask, edgeMask);
+
+  vec3 paper = vec3(0.025, 0.024, 0.021);
+  vec3 ink = vec3(0.86, 0.82, 0.64);
+  return vec4(mix(paper, ink, inkMask), 1.0);
 }
 ]]
-
-local function makeGlyphCanvas()
-  local glyphs = {}
-  for i = 1, #Renderer.asciiRamp do
-    glyphs[#glyphs + 1] = Renderer.asciiRamp:sub(i, i)
-  end
-
-  local font = love.graphics.newFont(Renderer.asciiCellHeight)
-  local canvas = love.graphics.newCanvas(Renderer.asciiCellWidth * #glyphs, Renderer.asciiCellHeight)
-  canvas:setFilter("nearest", "nearest")
-
-  love.graphics.push("all")
-  love.graphics.setCanvas(canvas)
-  love.graphics.clear(0, 0, 0, 0)
-  love.graphics.setFont(font)
-  love.graphics.setColor(1, 1, 1, 1)
-  for i, glyph in ipairs(glyphs) do
-    love.graphics.printf(glyph, (i - 1) * Renderer.asciiCellWidth, -2, Renderer.asciiCellWidth, "center")
-  end
-  love.graphics.setCanvas()
-  love.graphics.pop()
-
-  Renderer.glyphCanvas = canvas
-end
 
 function Renderer.init()
   local ok, shader = pcall(love.graphics.newShader, crtShaderSource)
@@ -107,10 +95,9 @@ function Renderer.init()
     Renderer.crtShader = shader
   end
 
-  local asciiOk, asciiShader = pcall(love.graphics.newShader, asciiShaderSource)
-  if asciiOk then
-    Renderer.asciiShader = asciiShader
-    makeGlyphCanvas()
+  local monoOk, monoShader = pcall(love.graphics.newShader, monoShaderSource)
+  if monoOk then
+    Renderer.monoShader = monoShader
   end
 end
 
@@ -959,14 +946,11 @@ function Renderer.drawFrame(game, drawCallback)
     Renderer.crtShader:send("time", game.survivalTime)
     Renderer.crtShader:send("fuel", game.torch.fuel)
     drawCanvasWithShader(Renderer.crtShader)
-  elseif Renderer.renderMode == "ascii" and Renderer.asciiShader and Renderer.glyphCanvas then
+  elseif Renderer.renderMode == "mono" and Renderer.monoShader then
     drawToCanvas(width, height, drawCallback)
-    Renderer.asciiShader:send("glyphTex", Renderer.glyphCanvas)
-    Renderer.asciiShader:send("screenSize", { width, height })
-    Renderer.asciiShader:send("cellSize", { Renderer.asciiCellWidth, Renderer.asciiCellHeight })
-    Renderer.asciiShader:send("glyphCount", #Renderer.asciiRamp)
-    Renderer.asciiShader:send("fuel", game.torch.fuel)
-    drawCanvasWithShader(Renderer.asciiShader)
+    Renderer.monoShader:send("screenSize", { width, height })
+    Renderer.monoShader:send("fuel", game.torch.fuel)
+    drawCanvasWithShader(Renderer.monoShader)
   else
     drawCallback()
   end
@@ -976,7 +960,7 @@ function Renderer.togglePost()
   for _ = 1, #Renderer.modes do
     Renderer.modeIndex = (Renderer.modeIndex % #Renderer.modes) + 1
     local mode = Renderer.modes[Renderer.modeIndex]
-    if mode == "normal" or (mode == "crt" and Renderer.crtShader) or (mode == "ascii" and Renderer.asciiShader and Renderer.glyphCanvas) then
+    if mode == "normal" or (mode == "crt" and Renderer.crtShader) or (mode == "mono" and Renderer.monoShader) then
       Renderer.renderMode = mode
       return Renderer.renderMode
     end

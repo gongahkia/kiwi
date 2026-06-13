@@ -50,7 +50,7 @@ The map does not pause the game. It shows remembered floor space, nearby known c
 - `Tab`: cycle field tools
 - `1`-`9`, `0`, `-`, `=`, `Backspace`: select field tools
 - `Space`: use selected field tool
-- `X`: cycle render mode: normal, CRT, ASCII/ANSI
+- `X`: cycle render mode: normal, CRT, monochrome dither
 - `N`: generate a new run
 - `R`: replay current seed
 - `F2`: enter/replay a seed
