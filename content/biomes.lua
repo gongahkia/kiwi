@@ -23,7 +23,7 @@ Biomes.profiles = {
     primaryFaction = "predator",
     factions = { "predator", "scavenger" },
     incidents = { "blackout", "lockdown", "nest_wake" },
-    salvageTools = { "flare", "breaker", "probe", "oil", "coolant" },
+    salvageTools = { "flare", "probe", "oil", "snare", "noisemaker" },
     risk = "fog and brittle seals",
   },
   fungal_service = {
@@ -35,7 +35,7 @@ Biomes.profiles = {
     primaryFaction = "scavenger",
     factions = { "scavenger", "burrow_colony" },
     incidents = { "nest_wake", "vent_bloom", "flood_surge" },
-    salvageTools = { "pheromone", "scent", "probe", "bait", "smoke" },
+    salvageTools = { "pheromone", "scent", "probe", "snare", "beacon" },
     risk = "false trails and spore scent",
   },
   pressure_lab = {
@@ -47,7 +47,7 @@ Biomes.profiles = {
     primaryFaction = "machine_nest",
     factions = { "machine_nest", "predator" },
     incidents = { "lockdown", "blackout", "nest_wake" },
-    salvageTools = { "seal", "breaker", "flash", "fuse", "valve" },
+    salvageTools = { "probe", "snare", "noisemaker", "flare", "oil" },
     risk = "doors, alarms, and glass sight lines",
   },
   reactor_trench = {
@@ -59,7 +59,7 @@ Biomes.profiles = {
     primaryFaction = "screeching_flock",
     factions = { "screeching_flock", "predator" },
     incidents = { "heat_spike", "vent_bloom", "blackout" },
-    salvageTools = { "fuse", "sonic", "breaker", "oil", "coolant" },
+    salvageTools = { "noisemaker", "flare", "probe", "oil", "beacon" },
     risk = "heat, overcharge, and sound panic",
   },
   waste_artery = {
@@ -71,7 +71,7 @@ Biomes.profiles = {
     primaryFaction = "burrow_colony",
     factions = { "burrow_colony", "scavenger" },
     incidents = { "flood_surge", "nest_wake", "lockdown" },
-    salvageTools = { "bait", "snare", "pheromone", "oil", "ground" },
+    salvageTools = { "scent", "snare", "pheromone", "oil", "probe" },
     risk = "sludge currents and contaminated salvage",
   },
   storm_drain = {
@@ -83,7 +83,7 @@ Biomes.profiles = {
     primaryFaction = "burrow_colony",
     factions = { "burrow_colony", "machine_nest" },
     incidents = { "flood_surge", "lockdown", "vent_bloom" },
-    salvageTools = { "valve", "ground", "probe", "seal", "oil" },
+    salvageTools = { "probe", "snare", "noisemaker", "oil", "pheromone" },
     risk = "moving flood fronts and live conduits",
   },
   ash_foundry = {
@@ -95,8 +95,8 @@ Biomes.profiles = {
     primaryFaction = "screeching_flock",
     factions = { "screeching_flock", "scavenger" },
     incidents = { "heat_spike", "vent_bloom", "blackout" },
-    salvageTools = { "coolant", "smoke", "fuse", "sonic", "flare" },
-    risk = "smoke curtains, slag lanes, and hot shelter races",
+    salvageTools = { "flare", "noisemaker", "probe", "oil", "beacon" },
+    risk = "ash curtains, slag lanes, and hot shelter races",
   },
   signal_catacombs = {
     label = "SIGNAL CATACOMBS",
@@ -107,7 +107,7 @@ Biomes.profiles = {
     primaryFaction = "machine_nest",
     factions = { "machine_nest", "predator" },
     incidents = { "blackout", "vent_bloom", "nest_wake" },
-    salvageTools = { "probe", "beacon", "flash", "scent", "breaker" },
+    salvageTools = { "probe", "beacon", "scent", "snare", "flare" },
     risk = "spoofed map pings and mimic salvage",
   },
   bone_market = {
@@ -119,8 +119,8 @@ Biomes.profiles = {
     primaryFaction = "scavenger",
     factions = { "scavenger", "predator" },
     incidents = { "nest_wake", "lockdown", "faction_raid" },
-    salvageTools = { "beacon", "bait", "snare", "smoke", "seal" },
-    risk = "raiders, baited rooms, and stolen caches",
+    salvageTools = { "beacon", "scent", "snare", "probe", "oil" },
+    risk = "raiders, false trails, and stolen caches",
   },
   organ_machine = {
     label = "ORGAN MACHINE",
@@ -131,7 +131,7 @@ Biomes.profiles = {
     primaryFaction = "machine_nest",
     factions = { "machine_nest", "burrow_colony" },
     incidents = { "lockdown", "flood_surge", "heat_spike" },
-    salvageTools = { "coolant", "breaker", "valve", "pheromone", "ground" },
+    salvageTools = { "pheromone", "probe", "snare", "flare", "oil" },
     risk = "living doors, biological alarms, and pulse locks",
   },
 }

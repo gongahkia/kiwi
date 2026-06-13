@@ -2690,7 +2690,7 @@ local function placeVents(level)
 end
 
 local function placeSalvageRooms(level)
-  local tools = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil" }
+  local tools = { "flare", "noisemaker", "scent", "snare", "pheromone", "probe", "oil", "beacon" }
   if level.biomeProfile and level.biomeProfile.salvageTools then
     tools = level.biomeProfile.salvageTools
   end
