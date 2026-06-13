@@ -18,9 +18,9 @@ local Renderer = {
   crtShader = nil,
   asciiShader = nil,
   glyphCanvas = nil,
-  renderMode = "crt",
+  renderMode = "ascii",
   modes = { "normal", "crt", "ascii" },
-  modeIndex = 2,
+  modeIndex = 3,
   asciiRamp = " .,:;irsXA253hMHGS#9B&@",
   asciiCellWidth = 8,
   asciiCellHeight = 12,
@@ -119,6 +119,25 @@ local function ensureCanvas(width, height)
     Renderer.canvas = love.graphics.newCanvas(width, height)
     Renderer.canvas:setFilter("nearest", "nearest")
   end
+end
+
+local function drawToCanvas(width, height, drawCallback)
+  ensureCanvas(width, height)
+
+  love.graphics.push("all")
+  love.graphics.setCanvas(Renderer.canvas)
+  love.graphics.clear(0, 0, 0, 1)
+  drawCallback()
+  love.graphics.setCanvas()
+  love.graphics.pop()
+end
+
+local function drawCanvasWithShader(shader)
+  love.graphics.push("all")
+  love.graphics.setShader(shader)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(Renderer.canvas, 0, 0)
+  love.graphics.pop()
 end
 
 local function projectWorldZ(game, worldZ, distance, height)
@@ -927,39 +946,29 @@ local function drawScene(game)
 end
 
 function Renderer.draw(game)
+  drawScene(game)
+end
+
+function Renderer.drawFrame(game, drawCallback)
   local width, height = love.graphics.getDimensions()
 
   if Renderer.renderMode == "normal" then
-    drawScene(game)
+    drawCallback()
   elseif Renderer.renderMode == "crt" and Renderer.crtShader then
-    ensureCanvas(width, height)
-    love.graphics.setCanvas(Renderer.canvas)
-    love.graphics.clear(0, 0, 0, 1)
-    drawScene(game)
-    love.graphics.setCanvas()
+    drawToCanvas(width, height, drawCallback)
     Renderer.crtShader:send("time", game.survivalTime)
     Renderer.crtShader:send("fuel", game.torch.fuel)
-    love.graphics.setShader(Renderer.crtShader)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(Renderer.canvas, 0, 0)
-    love.graphics.setShader()
+    drawCanvasWithShader(Renderer.crtShader)
   elseif Renderer.renderMode == "ascii" and Renderer.asciiShader and Renderer.glyphCanvas then
-    ensureCanvas(width, height)
-    love.graphics.setCanvas(Renderer.canvas)
-    love.graphics.clear(0, 0, 0, 1)
-    drawScene(game)
-    love.graphics.setCanvas()
+    drawToCanvas(width, height, drawCallback)
     Renderer.asciiShader:send("glyphTex", Renderer.glyphCanvas)
     Renderer.asciiShader:send("screenSize", { width, height })
     Renderer.asciiShader:send("cellSize", { Renderer.asciiCellWidth, Renderer.asciiCellHeight })
     Renderer.asciiShader:send("glyphCount", #Renderer.asciiRamp)
     Renderer.asciiShader:send("fuel", game.torch.fuel)
-    love.graphics.setShader(Renderer.asciiShader)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.draw(Renderer.canvas, 0, 0)
-    love.graphics.setShader()
+    drawCanvasWithShader(Renderer.asciiShader)
   else
-    drawScene(game)
+    drawCallback()
   end
 end
 

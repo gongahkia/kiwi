@@ -1746,8 +1746,10 @@ function Game.update(dt)
 end
 
 function Game.draw()
-  Renderer.draw(Game)
-  UI.draw(Game)
+  Renderer.drawFrame(Game, function()
+    Renderer.draw(Game)
+    UI.draw(Game)
+  end)
 end
 
 function Game.keypressed(key)
