@@ -20,6 +20,16 @@ local Renderer = {
   renderMode = "mono",
   modes = { "normal", "crt", "mono" },
   modeIndex = 3,
+  paletteIndex = 1,
+  unlockedPalettes = 1,
+}
+
+Renderer.palettes = {
+  { label = "Bone Lamp", unlockDeck = 1, paper = { 0.025, 0.024, 0.021 }, ink = { 0.86, 0.82, 0.64 } },
+  { label = "Crimson Well", unlockDeck = 2, paper = { 0.035, 0.006, 0.01 }, ink = { 0.96, 0.66, 0.48 } },
+  { label = "Frost Vault", unlockDeck = 3, paper = { 0.015, 0.023, 0.035 }, ink = { 0.68, 0.93, 1.0 } },
+  { label = "Acid Signal", unlockDeck = 4, paper = { 0.01, 0.028, 0.018 }, ink = { 0.66, 1.0, 0.45 } },
+  { label = "Royal Void", unlockDeck = 5, paper = { 0.018, 0.012, 0.03 }, ink = { 0.92, 0.76, 1.0 } },
 }
 
 local crtShaderSource = [[
@@ -40,6 +50,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
 local monoShaderSource = [[
 extern vec2 screenSize;
 extern number fuel;
+extern vec3 paper;
+extern vec3 ink;
 
 number luminance(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
@@ -83,8 +95,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
   number edgeMask = step(0.18, edge) * step(0.18, center);
   inkMask = max(inkMask, edgeMask);
 
-  vec3 paper = vec3(0.025, 0.024, 0.021);
-  vec3 ink = vec3(0.86, 0.82, 0.64);
   return vec4(mix(paper, ink, inkMask), 1.0);
 }
 ]]
@@ -125,6 +135,31 @@ local function drawCanvasWithShader(shader)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(Renderer.canvas, 0, 0)
   love.graphics.pop()
+end
+
+local function paletteUnlockedBy(bestDeck)
+  local unlocked = 1
+  for i, palette in ipairs(Renderer.palettes) do
+    if (bestDeck or 1) >= (palette.unlockDeck or 1) then
+      unlocked = i
+    end
+  end
+  return unlocked
+end
+
+function Renderer.setPaletteProgress(bestDeck)
+  Renderer.unlockedPalettes = paletteUnlockedBy(bestDeck)
+  Renderer.paletteIndex = U.clamp(Renderer.paletteIndex or 1, 1, Renderer.unlockedPalettes)
+end
+
+function Renderer.currentPalette()
+  return Renderer.palettes[Renderer.paletteIndex] or Renderer.palettes[1]
+end
+
+function Renderer.cyclePalette(bestDeck)
+  Renderer.setPaletteProgress(bestDeck)
+  Renderer.paletteIndex = (Renderer.paletteIndex % Renderer.unlockedPalettes) + 1
+  return Renderer.currentPalette()
 end
 
 local function projectWorldZ(game, worldZ, distance, height)
@@ -314,6 +349,14 @@ local function segmentColor(segment, shade)
       red, green, blue = 0.3, 0.13, 0.18
     elseif cell.terrain == "rubble" then
       red, green, blue = 0.4, 0.36, 0.3
+    elseif cell.terrain == "tar" then
+      red, green, blue = 0.08, 0.12, 0.1
+    elseif cell.terrain == "thorn" then
+      red, green, blue = 0.34, 0.26, 0.16
+    elseif cell.terrain == "mirror" then
+      red, green, blue = 0.46, 0.52, 0.56
+    elseif cell.terrain == "drop" then
+      red, green, blue = 0.018, 0.015, 0.012
     else
       red, green, blue = 0.46, 0.42, 0.34
     end
@@ -407,6 +450,14 @@ local function surfaceColor(cell, distance, ceiling)
     red, green, blue = 0.25, 0.31, 0.34
   elseif cell.terrain == "dust" then
     red, green, blue = 0.28, 0.25, 0.18
+  elseif cell.terrain == "tar" then
+    red, green, blue = 0.035, 0.075, 0.055
+  elseif cell.terrain == "thorn" then
+    red, green, blue = 0.2, 0.16, 0.09
+  elseif cell.terrain == "mirror" then
+    red, green, blue = 0.34, 0.39, 0.42
+  elseif cell.terrain == "drop" then
+    red, green, blue = 0.012, 0.01, 0.008
   else
     red, green, blue = 0.24, 0.21, 0.16
   end
@@ -543,6 +594,9 @@ local creatureColors = {
   screecher = { 0.08, 0.07, 0.1, 0.55, 0.48, 0.8 },
   burrower = { 0.14, 0.06, 0.025, 0.5, 0.24, 0.08 },
   mimic = { 0.16, 0.12, 0.02, 0.86, 0.68, 0.16 },
+  warden = { 0.1, 0.08, 0.04, 0.72, 0.48, 0.16 },
+  leecher = { 0.025, 0.08, 0.06, 0.22, 0.62, 0.48 },
+  choir = { 0.1, 0.055, 0.11, 0.72, 0.38, 0.86 },
 }
 
 local function drawCreatureSprite(game, creature, width, height, depthBuffer)
@@ -604,8 +658,10 @@ local function drawCreatureSprite(game, creature, width, height, depthBuffer)
   local eyeGlow = 0.6 + (creature.growl or 0) * 0.4
   if creature.kind == "skitter" then
     love.graphics.setColor(1.0, 0.86, 0.28, bodyAlpha * eyeGlow)
-  elseif creature.kind == "screecher" then
+  elseif creature.kind == "screecher" or creature.kind == "choir" then
     love.graphics.setColor(0.72, 0.58, 1.0, bodyAlpha * eyeGlow)
+  elseif creature.kind == "leecher" then
+    love.graphics.setColor(0.42, 1.0, 0.74, bodyAlpha * eyeGlow)
   else
     love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow)
   end
@@ -834,11 +890,12 @@ local function drawPickupSprites(game, width, height, depthBuffer)
       local alpha = U.clamp(1 - sprite.distance / 24, 0.3, 0.92)
       love.graphics.push()
       love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.5)
+      love.graphics.setColor(0.02, 0.015, 0.01, alpha)
+      love.graphics.ellipse("fill", 0, sprite.height * 0.08, sprite.width * 0.54, sprite.height * 0.24)
       love.graphics.setColor(0.98, 0.7, 0.22, alpha)
-      love.graphics.rectangle("line", -sprite.width * 0.25, -sprite.height * 0.34, sprite.width * 0.5, sprite.height * 0.68, 2, 2)
-      for y = -sprite.height * 0.24, sprite.height * 0.22, max(3, sprite.height * 0.16) do
-        love.graphics.line(-sprite.width * 0.24, y, sprite.width * 0.24, y)
-      end
+      love.graphics.ellipse("line", 0, sprite.height * 0.08, sprite.width * 0.56, sprite.height * 0.26)
+      love.graphics.line(-sprite.width * 0.36, -sprite.height * 0.14, sprite.width * 0.36, -sprite.height * 0.14)
+      love.graphics.line(-sprite.width * 0.22, -sprite.height * 0.27, sprite.width * 0.22, -sprite.height * 0.27)
       love.graphics.pop()
     end
   end
@@ -909,8 +966,11 @@ function Renderer.drawFrame(game, drawCallback)
     drawCanvasWithShader(Renderer.crtShader)
   elseif Renderer.renderMode == "mono" and Renderer.monoShader then
     drawToCanvas(width, height, drawCallback)
+    local palette = Renderer.currentPalette()
     Renderer.monoShader:send("screenSize", { width, height })
     Renderer.monoShader:send("fuel", game.torch.fuel)
+    Renderer.monoShader:send("paper", palette.paper)
+    Renderer.monoShader:send("ink", palette.ink)
     drawCanvasWithShader(Renderer.monoShader)
   else
     drawCallback()

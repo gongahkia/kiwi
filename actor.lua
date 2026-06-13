@@ -28,6 +28,10 @@ local terrainNoise = {
   bone = 1.15,
   organ = 1.2,
   signal = 0.9,
+  tar = 0.65,
+  thorn = 1.55,
+  mirror = 1.05,
+  drop = 0.6,
   moss = 0.75,
   dust = 0.85,
 }
@@ -486,6 +490,9 @@ function Actor.updatePlayer(game, dt, audio)
   player.sprinting = forward > 0 and (keyDown(game, "sprint", "lshift") or love.keyboard.isDown("rshift") or (joystick and joystick:isGamepadDown("leftstick")))
 
   local speed = (player.sprinting and player.sprintSpeed or player.speed) * Actor.movementMultiplier(level, player)
+  if game.upgrades and game.upgrades.adrenal_step and (game.loopTimer or 60) <= 12 then
+    speed = speed * 1.18
+  end
   local dirX, dirY = cos(player.angle), sin(player.angle)
   local strafeX, strafeY = -dirY, dirX
   local dx = (dirX * forward + strafeX * strafe) * speed * dt
@@ -755,7 +762,7 @@ local function strongestNoiseFor(creature, noises, game)
         if game and game.ecology and game.ecology.ventBloom > 0 then
           score = score * (creature.kind == "screecher" and 2.05 or 1.28)
         end
-        if creature.kind == "screecher" then
+        if creature.kind == "screecher" or creature.kind == "choir" then
           score = score * 1.8
         elseif creature.kind == "stalker" and noise.kind == "flare" then
           score = score * -2
@@ -933,7 +940,7 @@ local function chooseCreatureTarget(game, creature, dt)
     end
   end
 
-  if creature.kind == "stalker" and light > 0.94 then
+  if (creature.kind == "stalker" and light > 0.94) or (creature.kind == "leecher" and light > 1.05) then
     best = { x = creature.x + (creature.x - player.x), y = creature.y + (creature.y - player.y), type = "flee" }
     bestScore = 100
   elseif creature.carrying and creature.nest then
@@ -947,7 +954,7 @@ local function chooseCreatureTarget(game, creature, dt)
     local score = 38 * (creature.aggression or 0.5) / max(playerDistance, 0.8)
     if creature.kind == "stalker" and light < 0.72 then
       score = score + 18
-    elseif creature.kind == "screecher" then
+    elseif creature.kind == "screecher" or creature.kind == "choir" then
       score = score * 0.45
     elseif creature.thief then
       score = -18 / max(playerDistance, 0.8)
@@ -1126,10 +1133,12 @@ local function updateOneCreature(game, creature, dt)
       systemModifier = systemModifier * (1 + cyclePressure * 0.08)
       if game.ecology.blackout > 0 and creature.kind == "stalker" then
         systemModifier = systemModifier * 1.22
-      elseif game.ecology.flood > 0 and creature.kind == "burrower" then
+      elseif game.ecology.flood > 0 and (creature.kind == "burrower" or creature.kind == "leecher") then
         systemModifier = systemModifier * 1.18
       elseif game.ecology.heat > 0 and creature.kind == "skitter" then
         systemModifier = systemModifier * 1.2
+      elseif game.ecology.ventBloom > 0 and creature.kind == "choir" then
+        systemModifier = systemModifier * 1.18
       elseif game.ecology.nestWake > 0 and creature.nest then
         systemModifier = systemModifier * 1.12
       end
@@ -1142,6 +1151,17 @@ local function updateOneCreature(game, creature, dt)
       systemModifier = systemModifier * 1.16
     elseif (biome == "reactor_trench" or biome == "ash_foundry") and creature.kind == "screecher" then
       systemModifier = systemModifier * 1.12
+    end
+    if creature.kind == "leecher" then
+      if cell.terrain == "water" or cell.terrain == "sludge" or cell.terrain == "storm" or cell.terrain == "tar" then
+        systemModifier = systemModifier * 1.28
+      else
+        systemModifier = systemModifier * 0.82
+      end
+    elseif creature.kind == "warden" and creature.state == "guard" then
+      systemModifier = systemModifier * 1.14
+    elseif creature.kind == "choir" and (cell.terrain == "grate" or cell.terrain == "catwalk") then
+      systemModifier = systemModifier * 1.1
     end
     if (creature.snared or 0) > 0 then
       systemModifier = systemModifier * 0.35

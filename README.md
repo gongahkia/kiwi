@@ -1,21 +1,22 @@
 # Tikrit
 
-A compact Love2D raycast survival prototype about escaping hostile generated decks with one clear rule: find the exit key, reach the exit shaft, and do it before the one-minute loop runs out.
+A compact Love2D raycast survival prototype about escaping hostile generated decks with one clear rule: find the exit key, reach the drop shaft, and do it before the one-minute level clock runs out.
 
-Each run generates three connected decks with halls, annexes, locked shortcuts, hazards, tool caches, shelters, NPC guides, creature nests, and readable ecology signs. The game is intentionally immediate: no terminal commands, no relay checklist, no codex screen, and no route-management layer between decks.
+Each run generates four connected decks with halls, annexes, locked shortcuts, hazards, tool caches, shelters, NPC guides, creature nests, and readable ecology signs. Between decks you choose one upgrade, then drop immediately into the next level.
 
 ## Core Loop
 
-- You have 60 seconds on each life.
+- You have 60 seconds on each deck.
 - Getting caught or running out of time wakes you back at the current shelter.
 - Keys and opened routes persist on the deck, so each loop should push a little farther.
-- The exit key opens the deck exit. Small keys open nearby locked shortcuts with `F`.
+- The exit key opens the drop shaft. Small keys open nearby locked shortcuts with `F`.
+- Drop shafts pause the action, offer three upgrade choices, then throw you into the next generated deck.
 - Shelters set your wake point and refill the timer when you step onto them.
 - NPC guides give practical local information: exit direction, nearest key, shelter, threat behavior, terrain pressure, and tool cache hints.
 
 ## Reading The Area
 
-- Terrain changes speed and noise. Water, rubble, grates, moss, slag, wire, ember lanes, and ladders all matter.
+- Terrain changes speed and noise. Water, rubble, grates, moss, slag, tar, thorn, mirror, wire, ember lanes, and ladders all matter.
 - Creatures react to sound, sight, scent, light, signals, props, nests, and each other.
 - Tracks, scratches, nest debris, wet marks, ash drift, vent calls, alarm marks, trade marks, and pheromone boundaries teach predator/prey relationships in-world.
 - Survey probes reveal more recent signs but do not freeze the game or give exact creature positions.
@@ -35,6 +36,15 @@ The map does not pause the game. It shows remembered floor space, nearby known c
 - Screecher: sound predator that follows loud stimuli and disrupts hunts.
 - Burrower: territorial nest guard that favors rubble and flooded routes.
 - Mimic: false cache predator exposed by proximity, survey pulses, or careless looting.
+- Warden: lock-and-gate guard that pressures shortcuts and machinery.
+- Leecher: wet-route ambusher that surges through water, sludge, storm, and tar.
+- Choir: sound-focused flock predator that follows repeated pulses and beacons.
+
+## Roguelike Progression
+
+Drop shafts offer one of three upgrades before the next deck. Upgrades stack or combine with field tools: faster final-second movement, larger tool capacity, cooler torch burn, flare survey pulses, echoing snares, cache-hunter probes, stronger beacons, and chained scent trails.
+
+Duotone palettes unlock as you reach deeper decks and finish a run. Press `P` to cycle earned palettes while using the monochrome render mode.
 
 ## Controls
 
@@ -44,6 +54,7 @@ The map does not pause the game. It shows remembered floor space, nearby known c
 - `F`: talk to a nearby NPC guide or open a nearby locked shortcut
 - `M`: hold the handheld map
 - `H`: hold the status readout
+- `P`: cycle earned duotone palettes
 - `Tab`: cycle field tools
 - `1`-`8`: select field tools
 - `Space`: use selected field tool
@@ -52,7 +63,7 @@ The map does not pause the game. It shows remembered floor space, nearby known c
 - `R`: replay current seed
 - `F2`: enter/replay a seed
 - `Esc`: pause/settings
-- Gamepad: left stick move, right stick turn, `A` use tool, `X` interact, shoulders cycle tools, hold `Back` for map, hold `Y` for status, `Start` pause
+- Gamepad: left stick move, right stick turn, `A` use tool/confirm upgrade, `X` interact, shoulders cycle tools/upgrades, hold `Back` for map, hold `Y` for status, `Start` pause
 
 Conversation screen: `Up`/`Down` select topic, `Enter` ask, `F`/`Esc` close. Gamepad uses d-pad/shoulders, `A`, and `B`/`X`.
 

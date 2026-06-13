@@ -12,7 +12,7 @@ local sqrt = math.sqrt
 local Level = {
   width = 57,
   height = 57,
-  maxDecks = 3,
+  maxDecks = 4,
   maxStepHeight = 0.58,
   floorHeight = 0,
   ceilingHeight = 3.05,
@@ -22,6 +22,7 @@ Level.deckConfigs = {
   { width = 57, height = 57, rooms = 14, keys = 2, refills = 6, gates = 2, locks = 1, hazards = 8 },
   { width = 65, height = 65, rooms = 18, keys = 3, refills = 7, gates = 3, locks = 1, hazards = 12 },
   { width = 73, height = 73, rooms = 22, keys = 3, refills = 8, gates = 3, locks = 2, hazards = 16 },
+  { width = 79, height = 79, rooms = 25, keys = 4, refills = 9, gates = 4, locks = 2, hazards = 20 },
 }
 
 Level.biomeOrder = Biomes.order
@@ -67,6 +68,10 @@ Level.terrainSpeed = {
   signal = 0.94,
   bone = 0.88,
   organ = 0.76,
+  tar = 0.58,
+  thorn = 0.7,
+  mirror = 0.96,
+  drop = 1,
   ladder = 0.9,
 }
 
@@ -92,6 +97,10 @@ Level.terrainLabels = {
   signal = "SIGNAL",
   bone = "BONE",
   organ = "ORGAN",
+  tar = "TAR",
+  thorn = "THORN",
+  mirror = "MIRROR",
+  drop = "DROP",
   ladder = "LADDER",
 }
 
@@ -1182,9 +1191,9 @@ local function markExit(level, room)
   end
 
   cell.exit = true
-  cell.kind = "exit shaft"
-  cell.terrain = "ladder"
-  cell.ladder = true
+  cell.kind = "drop shaft"
+  cell.terrain = "drop"
+  cell.ladder = false
   cell.light = max(cell.light or 0.5, 0.86)
   cell.zone = "shaft"
   cell.landmark = "exit"
@@ -2877,6 +2886,16 @@ local function placeCreatureSpawns(level)
     addCreatureSpawn(level, nest.kind, nest.room, nest)
   end
 
+  local biome = level.biomeProfile and level.biomeProfile.district
+  local biomeSpawns = CreatureContent.biomeSpawns[biome] or {}
+  for i, kind in ipairs(biomeSpawns) do
+    if #level.creatureSpawns >= 8 then
+      break
+    end
+    local room = level.salvageRooms[i] or level.routeRooms[max(2, #level.routeRooms - i)] or level.rooms[((i * 3) % #level.rooms) + 1]
+    addCreatureSpawn(level, kind, room)
+  end
+
   for _, room in ipairs(level.rooms) do
     if not room.route and #level.creatureSpawns < 7 then
       if room.kind == "archive" or room.kind == "annex" then
@@ -2889,16 +2908,6 @@ local function placeCreatureSpawns(level)
         addCreatureSpawn(level, "skitter", room)
       end
     end
-  end
-
-  local biome = level.biomeProfile and level.biomeProfile.district
-  local biomeSpawns = CreatureContent.biomeSpawns[biome] or {}
-  for i, kind in ipairs(biomeSpawns) do
-    if #level.creatureSpawns >= 9 then
-      break
-    end
-    local room = level.salvageRooms[i] or level.routeRooms[max(2, #level.routeRooms - i)] or level.rooms[((i * 3) % #level.rooms) + 1]
-    addCreatureSpawn(level, kind, room)
   end
 end
 

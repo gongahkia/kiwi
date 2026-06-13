@@ -2,6 +2,7 @@ local Actor = require("actor")
 local Audio = require("audio")
 local Cycles = require("content.cycles")
 local NPCContent = require("content.npcs")
+local Upgrades = require("content.upgrades")
 local Level = require("level")
 local Renderer = require("renderer")
 local UI = require("ui")
@@ -25,6 +26,7 @@ local defaultBindings = {
   cycleTool = "tab",
   map = "m",
   status = "h",
+  palette = "p",
   pause = "escape",
 }
 
@@ -41,6 +43,7 @@ local bindingActions = {
   "cycleTool",
   "map",
   "status",
+  "palette",
   "pause",
 }
 
@@ -75,6 +78,10 @@ local Game = {
   signals = {},
   survey = { ttl = 0 },
   toolWheel = { visible = false, timer = 0 },
+  upgrades = {},
+  upgradeChoice = nil,
+  upgradeIndex = 1,
+  progress = { bestDeck = 1 },
   paused = false,
   settingsIndex = 1,
   bindTarget = nil,
@@ -193,6 +200,40 @@ local function loadAchievements()
   end
 end
 
+local function saveProgress()
+  if not love.filesystem then
+    return
+  end
+
+  pcall(love.filesystem.write, "progress.txt", "bestDeck=" .. tostring(Game.progress.bestDeck or 1))
+end
+
+local function loadProgress()
+  Game.progress = { bestDeck = 1 }
+  if not love.filesystem or not love.filesystem.getInfo or not love.filesystem.getInfo("progress.txt") then
+    Renderer.setPaletteProgress(Game.progress.bestDeck)
+    return
+  end
+
+  local ok, data = pcall(love.filesystem.read, "progress.txt")
+  if ok and data then
+    local bestDeck = tonumber(data:match("bestDeck=(%d+)"))
+    if bestDeck then
+      Game.progress.bestDeck = max(1, bestDeck)
+    end
+  end
+  Renderer.setPaletteProgress(Game.progress.bestDeck)
+end
+
+local function setBestDeckReached(deck)
+  deck = max(1, deck or 1)
+  if deck > (Game.progress.bestDeck or 1) then
+    Game.progress.bestDeck = deck
+    saveProgress()
+  end
+  Renderer.setPaletteProgress(Game.progress.bestDeck)
+end
+
 local function unlockAchievement(id, text)
   if Game.demoMode or Game.achievements.unlocked[id] then
     return
@@ -216,6 +257,115 @@ local function deckSeed(seed, deck)
 end
 
 local startDeck
+
+local function upgradeCount(id)
+  return Upgrades.count(Game.upgrades, id)
+end
+
+local function hasUpgrade(id)
+  return Upgrades.has(Game.upgrades, id)
+end
+
+local function inventoryMax()
+  local pockets = upgradeCount("deep_pockets")
+  return {
+    flare = 3 + pockets,
+    noisemaker = 3 + pockets,
+    scent = 3 + pockets,
+    snare = 2 + pockets,
+    pheromone = 2 + pockets,
+    probe = 2 + pockets,
+    oil = 3 + pockets,
+    beacon = 2 + pockets,
+  }
+end
+
+local function stockDeckInventory(inventory)
+  local pockets = upgradeCount("deep_pockets")
+  inventory.max = inventoryMax()
+  inventory.flare = U.clamp(1 + pockets, 0, inventory.max.flare)
+  inventory.noisemaker = U.clamp(1 + pockets, 0, inventory.max.noisemaker)
+  inventory.scent = U.clamp(1, 0, inventory.max.scent)
+  inventory.snare = U.clamp(pockets, 0, inventory.max.snare)
+  inventory.pheromone = U.clamp(1, 0, inventory.max.pheromone)
+  inventory.probe = U.clamp(1, 0, inventory.max.probe)
+  inventory.oil = U.clamp(1 + pockets, 0, inventory.max.oil)
+  inventory.beacon = U.clamp(pockets > 0 and 1 or 0, 0, inventory.max.beacon)
+  inventory.selected = inventory.selected or "flare"
+  return inventory
+end
+
+local function newInventory()
+  return stockDeckInventory({ selected = "flare" })
+end
+
+local function applyRunUpgradesToPlayer()
+  if not Game.player then
+    return
+  end
+
+  local fleet = upgradeCount("fleet_soles")
+  Game.player.speed = Game.player.speed * (1 + fleet * 0.08)
+  Game.player.sprintSpeed = Game.player.sprintSpeed * (1 + fleet * 0.06)
+end
+
+local function chooseUpgradeOptions()
+  local pool = Upgrades.available(Game.upgrades)
+  local choices = {}
+
+  while #choices < 3 and #pool > 0 do
+    local index = love.math.random(#pool)
+    local id = table.remove(pool, index)
+    local def = Upgrades.defs[id]
+    choices[#choices + 1] = {
+      id = id,
+      label = def.label,
+      summary = def.summary,
+      rank = upgradeCount(id) + 1,
+      max = def.max or 1,
+    }
+  end
+
+  return choices
+end
+
+local function beginUpgradeChoice()
+  Game.upgradeChoice = {
+    nextDeck = Game.deck + 1,
+    choices = chooseUpgradeOptions(),
+  }
+  Game.upgradeIndex = 1
+  Game.state = "upgrade"
+  Game.paused = false
+  Game.mapHeld = false
+  Game.statusHeld = false
+  Game.mapGamepadHeld = false
+  Game.statusGamepadHeld = false
+  love.mouse.setRelativeMode(false)
+  setMessage("CHOOSE UPGRADE", 1.2)
+end
+
+local function chooseUpgrade(index)
+  if Game.state ~= "upgrade" or not Game.upgradeChoice then
+    return
+  end
+
+  local choices = Game.upgradeChoice.choices or {}
+  local choice = choices[index or Game.upgradeIndex or 1]
+  local chosenLabel
+  if choice then
+    Game.upgrades[choice.id] = upgradeCount(choice.id) + 1
+    chosenLabel = choice.label
+  end
+
+  local nextDeck = Game.upgradeChoice.nextDeck or (Game.deck + 1)
+  Game.upgradeChoice = nil
+  setBestDeckReached(nextDeck)
+  startDeck(nextDeck)
+  if chosenLabel then
+    setMessage(string.upper(chosenLabel) .. " / DROP " .. string.format("%02d", nextDeck), 1.5)
+  end
+end
 
 local incidentDefs = {
   blackout = {
@@ -576,6 +726,7 @@ function startDeck(deck)
 
   Game.level = Level.generate(nil, nil, deck, nil)
   Game.player = Actor.createPlayer(Game.level)
+  applyRunUpgradesToPlayer()
   Game.creatures = Actor.createCreatures(Game.level)
   Game.npcs = Actor.createNPCs(Game.level)
   Game.enemy = Actor.nearestThreat(Game) or Game.creatures[1] or Actor.createEnemy(Game.level)
@@ -601,6 +752,7 @@ function startDeck(deck)
   Game.paused = false
   Game.bindTarget = nil
   initEcology()
+  setBestDeckReached(Game.deck)
   setMessage(string.format("FIND EXIT KEY  DECK %02d", Game.deck), 1.7)
   love.mouse.setRelativeMode(true)
 end
@@ -612,18 +764,10 @@ local function startGame(seed)
   Game.maxDecks = Game.demoMode and min(2, Level.maxDecks) or Level.maxDecks
   Game.survivalTime = 0
   Game.torch = { fuel = 1 }
-  Game.inventory = {
-    selected = "flare",
-    flare = 1,
-    noisemaker = 1,
-    scent = 1,
-    snare = 0,
-    pheromone = 1,
-    probe = 1,
-    oil = 1,
-    beacon = 0,
-    max = { flare = 3, noisemaker = 3, scent = 3, snare = 2, pheromone = 2, probe = 2, oil = 3, beacon = 2 },
-  }
+  Game.upgrades = {}
+  Game.upgradeChoice = nil
+  Game.upgradeIndex = 1
+  Game.inventory = newInventory()
   startDeck(1)
 end
 
@@ -631,18 +775,20 @@ local function advanceDeck()
   if Game.deck >= Game.maxDecks then
     Game.state = "escaped"
     Game.bestTime = max(Game.bestTime, Game.survivalTime)
+    setBestDeckReached(Game.maxDecks + 1)
     unlockAchievement("extraction", "Extract from Tikrit's active decks.")
     love.mouse.setRelativeMode(false)
     return
   end
 
-  startDeck(Game.deck + 1)
+  beginUpgradeChoice()
 end
 
 local function resetLife(reason)
   local respawn = Game.respawn or { x = Game.level.start.x + 0.5, y = Game.level.start.y + 0.5 }
 
   Game.player = Actor.createPlayer(Game.level)
+  applyRunUpgradesToPlayer()
   Game.player.x = respawn.x
   Game.player.y = respawn.y
   Game.player.floorZ = Actor.floorAt(Game.level, respawn.x, respawn.y)
@@ -658,14 +804,7 @@ local function resetLife(reason)
   Game.conversation = { active = false, npc = nil, topics = {}, index = 1, response = "" }
   Game.loopTimer = Game.loopDuration
   Game.torch.fuel = 1
-  Game.inventory.flare = 1
-  Game.inventory.noisemaker = 1
-  Game.inventory.scent = 1
-  Game.inventory.snare = 0
-  Game.inventory.pheromone = 1
-  Game.inventory.probe = 1
-  Game.inventory.oil = 1
-  Game.inventory.beacon = 0
+  stockDeckInventory(Game.inventory)
   Game.state = "playing"
   love.mouse.setRelativeMode(true)
   setMessage(reason or "WAKE UP", 1.2)
@@ -771,8 +910,8 @@ local function updateProps(dt)
         prop.pulse = 3.4
       elseif prop.kind == "beacon" then
         addSignal("trade_mark", prop.x, prop.y, 1.4, 9, "player", true)
-        Actor.emitNoise(Game, prop.x, prop.y, 3.8, 1.2, "beacon")
-        prop.pulse = 1.8
+        Actor.emitNoise(Game, prop.x, prop.y, hasUpgrade("beacon_pack") and 4.7 or 3.8, 1.2, "beacon")
+        prop.pulse = hasUpgrade("beacon_pack") and 1.25 or 1.8
       end
     end
 
@@ -827,6 +966,7 @@ local function updateTorch(dt)
     drain = drain + 0.004
   end
 
+  drain = drain * (1 - min(0.36, upgradeCount("cool_burn") * 0.18))
   Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
 end
 
@@ -869,6 +1009,7 @@ local function updateHazards(dt)
   elseif biome == "organ_machine" and cell.hazard.kind == "wire" then
     drain = drain + (Game.level.systems and Game.level.systems.doors.powered and 0.018 or 0)
   end
+  drain = drain * (1 - min(0.34, upgradeCount("cool_burn") * 0.17))
   drain = max(0.01, drain)
   Game.torch.fuel = U.clamp(Game.torch.fuel - dt * drain, 0, 1)
 
@@ -984,7 +1125,7 @@ local function routeTopic()
     return {
       id = "route",
       label = "Route",
-      response = "Extraction is the exit shaft " .. directionToCell(level.exit.x, level.exit.y) .. ". You need the exit key before it opens.",
+      response = "The drop shaft is " .. directionToCell(level.exit.x, level.exit.y) .. ". You need the exit key before it opens.",
       target = topicTarget(level.exit),
       lead = true,
     }
@@ -1000,7 +1141,7 @@ local function exitTopic()
     return {
       id = "exit",
       label = "Exit",
-      response = state .. " The exit is " .. directionToCell(level.exit.x, level.exit.y) .. ".",
+      response = state .. " The drop shaft is " .. directionToCell(level.exit.x, level.exit.y) .. ".",
       target = topicTarget(level.exit),
       lead = true,
     }
@@ -1290,6 +1431,76 @@ local function spawnCreature(kind, x, y, faction)
   return creature
 end
 
+local function distanceBetween(ax, ay, bx, by)
+  local dx, dy = ax - bx, ay - by
+  return math.sqrt(dx * dx + dy * dy)
+end
+
+local function extendNearbyProps(kind, x, y, radius, amount)
+  local changed = 0
+
+  for _, prop in ipairs(Game.props or {}) do
+    if prop.kind == kind and (prop.ttl or 0) > 0 and distanceBetween(prop.x, prop.y, x, y) <= radius then
+      prop.ttl = prop.ttl + amount
+      changed = changed + 1
+    end
+  end
+
+  for _, effect in ipairs(Game.effects or {}) do
+    if effect.kind == kind and (effect.ttl or 0) > 0 and distanceBetween(effect.x, effect.y, x, y) <= radius then
+      effect.ttl = effect.ttl + amount
+      changed = changed + 1
+    end
+  end
+
+  return changed
+end
+
+local function refreshNearbySnares(x, y)
+  local changed = 0
+
+  for _, prop in ipairs(Game.props or {}) do
+    if prop.kind == "snare" and distanceBetween(prop.x, prop.y, x, y) <= 6 then
+      prop.ttl = max(prop.ttl or 0, 18)
+      prop.armed = true
+      Actor.emitNoise(Game, prop.x, prop.y, 2.5, 1.0, "snare")
+      changed = changed + 1
+    end
+  end
+
+  return changed
+end
+
+local function latticeScentSignals(x, y)
+  local offsets = {
+    { 2, 0 },
+    { -2, 1 },
+    { 0, -2 },
+  }
+
+  for _, offset in ipairs(offsets) do
+    local sx, sy = x + offset[1], y + offset[2]
+    local cell = Level.cellAtWorld(Game.level, sx, sy)
+    if cell and not Level.isBlocked(cell) then
+      addSignal("scent_trail", sx, sy, 1.05, 18, "player", true)
+    end
+  end
+end
+
+local function revealNearbyCaches(x, y)
+  local revealed = 0
+
+  for _, cache in ipairs(Game.level.toolCaches or {}) do
+    if cache.cell and cache.cell.tool and not cache.cell.toolUsed and distanceBetween(cache.x + 0.5, cache.y + 0.5, x, y) <= 8 then
+      cache.cell.light = max(cache.cell.light or 0.5, cache.cell.tool.mimic and 0.94 or 0.84)
+      addSignal(cache.cell.tool.mimic and "false_ping" or "trade_mark", cache.x + 0.5, cache.y + 0.5, 1.15, 16, "probe", true)
+      revealed = revealed + 1
+    end
+  end
+
+  return revealed
+end
+
 local function checkInteractions()
   local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y)
 
@@ -1373,8 +1584,9 @@ local function useSelectedTool()
   if tool == "oil" then
     Game.inventory.oil = Game.inventory.oil - 1
     Game.torch.fuel = U.clamp(Game.torch.fuel + 0.45, 0, 1)
+    local extended = hasUpgrade("cool_burn") and extendNearbyProps("flare", Game.player.x, Game.player.y, 5.5, 5) or 0
     Audio.refill()
-    setMessage("OIL USED", 1.1)
+    setMessage(extended > 0 and "FLARE FED" or "OIL USED", 1.1)
     return
   end
 
@@ -1382,22 +1594,27 @@ local function useSelectedTool()
   Game.inventory[tool] = Game.inventory[tool] - 1
 
   if tool == "flare" then
-    Game.effects[#Game.effects + 1] = { kind = "flare", x = x, y = y, ttl = 9, radius = 8.5, pulse = 0 }
-    Game.props[#Game.props + 1] = { kind = "flare", x = x, y = y, ttl = 9, pulse = 0 }
+    local ttl = 9 + upgradeCount("cool_burn") * 2
+    Game.effects[#Game.effects + 1] = { kind = "flare", x = x, y = y, ttl = ttl, radius = 8.5, pulse = 0 }
+    Game.props[#Game.props + 1] = { kind = "flare", x = x, y = y, ttl = ttl, pulse = 0 }
     Actor.emitNoise(Game, x, y, 1.8, 1.2, "flare")
-    if biome == "cryo_vault" then
+    if biome == "cryo_vault" or hasUpgrade("flare_survey") then
       addSignal("frost_trace", x, y, 1.6, 18, "flare", true)
       Game.survey.ttl = max(Game.survey.ttl or 0, 5)
     end
     setMessage("FLARE BURNING", 1.2)
   elseif tool == "noisemaker" then
     Game.props[#Game.props + 1] = { kind = "noisemaker", x = x, y = y, ttl = 8, pulse = 0 }
-    setMessage("NOISEMAKER ARMED", 1.2)
+    local refreshed = hasUpgrade("echo_snare") and refreshNearbySnares(x, y) or 0
+    setMessage(refreshed > 0 and "ECHO WIRE" or "NOISEMAKER ARMED", 1.2)
   elseif tool == "scent" then
     Game.props[#Game.props + 1] = { kind = "scent", x = x, y = y, ttl = 28, pulse = 0, scent = "player" }
     if biome == "fungal_service" then
       addSignal("spore_bloom", x, y, 1.5, 24, "player", true)
       Actor.emitNoise(Game, Game.player.x, Game.player.y, 2.6, 1.3, "spore")
+    end
+    if hasUpgrade("scent_lattice") then
+      latticeScentSignals(x, y)
     end
     setMessage("SCENT MARKER", 1.2)
   elseif tool == "snare" then
@@ -1415,11 +1632,12 @@ local function useSelectedTool()
     Game.survey.ttl = 12
     Game.props[#Game.props + 1] = { kind = "probe", x = x, y = y, ttl = 12, pulse = 0 }
     addSignal("survey_ping", x, y, 1.2, 12, "player", true)
-    setMessage("SURVEY PULSE", 1.2)
+    local revealed = hasUpgrade("cache_hunter") and revealNearbyCaches(x, y) or 0
+    setMessage(revealed > 0 and "CACHE PULSE" or "SURVEY PULSE", 1.2)
   elseif tool == "beacon" then
-    Game.props[#Game.props + 1] = { kind = "beacon", x = x, y = y, ttl = 18, pulse = 0 }
+    Game.props[#Game.props + 1] = { kind = "beacon", x = x, y = y, ttl = hasUpgrade("beacon_pack") and 26 or 18, pulse = 0 }
     addSignal("trade_mark", x, y, 1.7, 20, "player", true)
-    Actor.emitNoise(Game, x, y, 3.8, 1.4, "beacon")
+    Actor.emitNoise(Game, x, y, hasUpgrade("beacon_pack") and 4.8 or 3.8, 1.4, "beacon")
     local cell = Level.cellAtWorld(Game.level, x, y) or {}
     local fallbackFaction = Game.level.factions and Game.level.factions[1] and Game.level.factions[1].name
     alarmFaction(cell.faction or fallbackFaction, 7, x, y, "beacon")
@@ -1482,6 +1700,7 @@ function Game.load()
   Audio.init()
   loadSettings()
   loadAchievements()
+  loadProgress()
   startGame()
 end
 
@@ -1546,6 +1765,20 @@ function Game.keypressed(key)
     return
   end
 
+  if Game.state == "upgrade" then
+    local choices = Game.upgradeChoice and Game.upgradeChoice.choices or {}
+    if key == "left" or key == "up" then
+      Game.upgradeIndex = ((Game.upgradeIndex or 1) - 2) % max(1, #choices) + 1
+    elseif key == "right" or key == "down" or key == "tab" then
+      Game.upgradeIndex = ((Game.upgradeIndex or 1) % max(1, #choices)) + 1
+    elseif key == "return" or key == "kpenter" or key == "space" then
+      chooseUpgrade(Game.upgradeIndex or 1)
+    elseif key:match("^[1-3]$") then
+      chooseUpgrade(tonumber(key))
+    end
+    return
+  end
+
   if Game.conversation.active then
     if key == "up" or key == "left" then
       moveConversationCursor(-1)
@@ -1596,6 +1829,9 @@ function Game.keypressed(key)
     Game.mapHeld = true
   elseif keyMatches("status", key) then
     Game.statusHeld = true
+  elseif keyMatches("palette", key) then
+    local palette = Renderer.cyclePalette(Game.progress and Game.progress.bestDeck or 1)
+    setMessage("PALETTE " .. string.upper(palette.label), 1.1)
   elseif key == "r" or (key == "space" and Game.state ~= "playing") then
     startGame(Game.lastSeed)
   elseif key == "n" then
@@ -1652,6 +1888,15 @@ end
 function Game.gamepadpressed(_, button)
   if button == "start" then
     togglePause()
+  elseif Game.state == "upgrade" then
+    local choices = Game.upgradeChoice and Game.upgradeChoice.choices or {}
+    if button == "dpleft" or button == "leftshoulder" then
+      Game.upgradeIndex = ((Game.upgradeIndex or 1) - 2) % max(1, #choices) + 1
+    elseif button == "dpright" or button == "rightshoulder" then
+      Game.upgradeIndex = ((Game.upgradeIndex or 1) % max(1, #choices)) + 1
+    elseif button == "a" then
+      chooseUpgrade(Game.upgradeIndex or 1)
+    end
   elseif Game.conversation.active then
     if button == "dpup" or button == "leftshoulder" then
       moveConversationCursor(-1)

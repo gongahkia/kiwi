@@ -1,4 +1,5 @@
 local Level = require("level")
+local Renderer = require("renderer")
 local U = require("utils")
 
 local floor = math.floor
@@ -63,6 +64,14 @@ local function terrainColor(cell)
     return 0.42, 0.52, 0.58
   elseif cell.terrain == "dust" then
     return 0.42, 0.38, 0.28
+  elseif cell.terrain == "tar" then
+    return 0.08, 0.12, 0.1
+  elseif cell.terrain == "thorn" then
+    return 0.32, 0.26, 0.18
+  elseif cell.terrain == "mirror" then
+    return 0.58, 0.62, 0.64
+  elseif cell.terrain == "drop" then
+    return 0.02, 0.018, 0.014
   elseif cell.salvage then
     return 0.24, 0.38, 0.32
   end
@@ -257,6 +266,12 @@ local function drawMinimap(game, width, height)
         love.graphics.setColor(0.75, 0.32, 0.12, 0.86)
       elseif creature.kind == "mimic" then
         love.graphics.setColor(0.92, 0.82, 0.32, 0.9)
+      elseif creature.kind == "warden" then
+        love.graphics.setColor(0.92, 0.58, 0.18, 0.88)
+      elseif creature.kind == "leecher" then
+        love.graphics.setColor(0.28, 0.88, 0.62, 0.88)
+      elseif creature.kind == "choir" then
+        love.graphics.setColor(0.82, 0.42, 1, 0.88)
       else
         love.graphics.setColor(0.9, 0.08, 0.05, 0.95)
       end
@@ -320,7 +335,7 @@ local function drawHud(game, width, height)
 
   if game.statusHeld or game.statusGamepadHeld then
     love.graphics.setColor(0, 0, 0, 0.42)
-    love.graphics.rectangle("fill", 18, 60, 356, 222, 4, 4)
+    love.graphics.rectangle("fill", 18, 60, 356, 249, 4, 4)
 
     love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
     love.graphics.print(string.format("THREAT %02dM %-8s %-7s", floor(distance), string.upper(enemy.kind or "NONE"), string.upper(enemy.state or "WANDER")), 30, 72)
@@ -348,6 +363,10 @@ local function drawHud(game, width, height)
       love.graphics.setColor(0.52, 0.82, 1, 0.9)
       love.graphics.print("DEMO", 310, 234)
     end
+
+    local palette = Renderer.currentPalette()
+    love.graphics.setColor(0.7, 0.66, 0.58)
+    love.graphics.print(string.format("PAL    %-12s %d/%d", string.upper(palette.label):sub(1, 12), Renderer.unlockedPalettes or 1, #(Renderer.palettes or {})), 30, 261)
   end
 
   if game.messageTimer > 0 then
@@ -445,6 +464,62 @@ local function drawEndState(game, width, height)
   love.graphics.printf("R REPLAY   N NEW RUN", 0, height * 0.58, width, "center")
 end
 
+local function drawUpgradeChoice(game, width, height)
+  if game.state ~= "upgrade" or not game.upgradeChoice then
+    return
+  end
+
+  local choices = game.upgradeChoice.choices or {}
+  local panelWidth = min(width - 84, 780)
+  local panelHeight = min(height - 92, 350)
+  local x = (width - panelWidth) * 0.5
+  local y = (height - panelHeight) * 0.5
+  local cardGap = 14
+  local cardWidth = (#choices > 0) and ((panelWidth - 48 - cardGap * (#choices - 1)) / #choices) or 0
+
+  love.graphics.setColor(0, 0, 0, 0.72)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0.06, 0.052, 0.044, 0.98)
+  love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 4, 4)
+  love.graphics.setColor(0.9, 0.7, 0.38, 0.95)
+  love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 4, 4)
+
+  love.graphics.setFont(game.fonts.hud)
+  love.graphics.setColor(0.96, 0.86, 0.62)
+  love.graphics.print("DROP SHAFT", x + 24, y + 22)
+  love.graphics.setColor(0.66, 0.62, 0.54)
+  love.graphics.printf("CHOOSE ONE UPGRADE, THEN FALL TO DECK " .. string.format("%02d", game.upgradeChoice.nextDeck or 1), x + 24, y + 22, panelWidth - 48, "right")
+
+  if #choices == 0 then
+    love.graphics.setColor(0.95, 0.86, 0.62)
+    love.graphics.printf("NO UPGRADE OPTIONS REMAIN", x + 24, y + panelHeight * 0.48, panelWidth - 48, "center")
+    return
+  end
+
+  for i, choice in ipairs(choices) do
+    local selected = i == (game.upgradeIndex or 1)
+    local cardX = x + 24 + (i - 1) * (cardWidth + cardGap)
+    local cardY = y + 82
+    local cardHeight = panelHeight - 138
+
+    love.graphics.setColor(selected and 0.23 or 0.11, selected and 0.18 or 0.12, selected and 0.08 or 0.075, 0.96)
+    love.graphics.rectangle("fill", cardX, cardY, cardWidth, cardHeight, 4, 4)
+    love.graphics.setColor(selected and 1.0 or 0.48, selected and 0.78 or 0.4, selected and 0.34 or 0.26, selected and 0.95 or 0.7)
+    love.graphics.rectangle("line", cardX, cardY, cardWidth, cardHeight, 4, 4)
+
+    love.graphics.setColor(0.95, 0.86, 0.62)
+    love.graphics.print(tostring(i), cardX + 14, cardY + 14)
+    love.graphics.printf(string.upper(choice.label or "UPGRADE"), cardX + 38, cardY + 14, cardWidth - 52, "left")
+    love.graphics.setColor(0.68, 0.62, 0.52)
+    love.graphics.printf(string.format("RANK %d/%d", choice.rank or 1, choice.max or 1), cardX + 14, cardY + 48, cardWidth - 28, "left")
+    love.graphics.setColor(0.84, 0.9, 0.72)
+    love.graphics.printf(choice.summary or "", cardX + 14, cardY + 82, cardWidth - 28, "left")
+  end
+
+  love.graphics.setColor(0.74, 0.7, 0.6)
+  love.graphics.printf("1-3 CHOOSE   ARROWS SELECT   ENTER CONFIRM", x + 24, y + panelHeight - 38, panelWidth - 48, "center")
+end
+
 local function drawToolWheel(game, width, height)
   if not game.toolWheel or not game.toolWheel.visible then
     return
@@ -520,6 +595,7 @@ function UI.draw(game)
   drawMinimap(game, width, height)
   drawHud(game, width, height)
   drawEndState(game, width, height)
+  drawUpgradeChoice(game, width, height)
   drawToolWheel(game, width, height)
   drawConversationOverlay(game, width, height)
   drawPause(game, width, height)

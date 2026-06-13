@@ -158,8 +158,11 @@ Biomes.roomModifiers = {
   contested = { signal = "trade_mark", terrain = "bone", hazard = "pit", light = 0.58, factionAlarm = 4 },
   dormant = { signal = "pulse_mark", terrain = "organ", hazard = nil, light = 0.48, shelter = true },
   infested = { signal = "nest_debris", terrain = "fungus", hazard = "wire", light = 0.52, nest = true },
+  tarred = { signal = "tainted_sludge", terrain = "tar", hazard = nil, light = 0.34, hunger = 0.18 },
+  thorned = { signal = "scratch", terrain = "thorn", hazard = "pit", light = 0.44, factionAlarm = 1 },
+  mirrored = { signal = "false_ping", terrain = "mirror", hazard = nil, light = 0.86, powerHint = true },
 }
 
-Biomes.modifierOrder = { "overrun", "starved", "powered", "flooded", "hot", "contested", "dormant", "infested" }
+Biomes.modifierOrder = { "overrun", "starved", "powered", "flooded", "hot", "contested", "dormant", "infested", "tarred", "thorned", "mirrored" }
 
 return Biomes

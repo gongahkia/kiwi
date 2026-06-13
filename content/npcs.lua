@@ -52,6 +52,9 @@ NPCs.creatureAdvice = {
   screecher = "Screechers chase repeated sound. Noisemakers and beacons can move them, but they can pull worse things too.",
   burrower = "Burrowers own wet and broken ground. Pheromones and careful routing keep them off your line.",
   mimic = "Mimics pretend to be useful signals or caches. Survey probes and caution near false pings expose them early.",
+  warden = "Wardens patrol locks, gates, and machinery. Snares, probes, and route changes buy the best window.",
+  leecher = "Leechers surge through wet, sludge, and tar lanes. Flares and dry routes make them easier to shake.",
+  choir = "Choir packs follow rhythm and repeated noise. Beacons move them hard, but they can wake the whole deck.",
 }
 
 NPCs.toolAdvice = {
@@ -62,7 +65,7 @@ NPCs.toolAdvice = {
   pheromone = "Pheromones create false territory edges that predators hesitate to cross.",
   probe = "Survey probes reveal recent signs without showing exact creature positions.",
   oil = "Oil restores torch fuel. Spend it before entering long dark stretches.",
-  beacon = "Lure beacons create loud cache marks that pull skitters, screechers, and curious hunters.",
+  beacon = "Lure beacons create loud cache marks that pull skitters, screechers, choir packs, and curious hunters.",
 }
 
 NPCs.biomeAdvice = {
