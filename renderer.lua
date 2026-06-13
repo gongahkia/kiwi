@@ -542,11 +542,7 @@ local creatureColors = {
   skitter = { 0.12, 0.09, 0.03, 0.8, 0.56, 0.14 },
   screecher = { 0.08, 0.07, 0.1, 0.55, 0.48, 0.8 },
   burrower = { 0.14, 0.06, 0.025, 0.5, 0.24, 0.08 },
-  warden = { 0.06, 0.12, 0.14, 0.35, 0.68, 0.72 },
-  leecher = { 0.02, 0.14, 0.12, 0.18, 0.72, 0.64 },
   mimic = { 0.16, 0.12, 0.02, 0.86, 0.68, 0.16 },
-  choir = { 0.1, 0.05, 0.12, 0.62, 0.42, 0.82 },
-  scavenger = { 0.16, 0.08, 0.035, 0.74, 0.38, 0.14 },
 }
 
 local function drawCreatureSprite(game, creature, width, height, depthBuffer)
@@ -739,21 +735,16 @@ local function drawPickupSprites(game, width, height, depthBuffer)
   end
 
   for _, effect in ipairs(game.effects or {}) do
-    if effect.kind == "flare" or effect.kind == "noisemaker" then
-      local sprite = projectSprite(game, effect.x, effect.y, Actor.floorAt(game.level, effect.x, effect.y) + 0.08, effect.kind == "flare" and 0.42 or 0.28, width, height)
+    if effect.kind == "flare" then
+      local sprite = projectSprite(game, effect.x, effect.y, Actor.floorAt(game.level, effect.x, effect.y) + 0.08, 0.42, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp((effect.ttl or 0) / (effect.kind == "flare" and 9 or 8), 0.18, 0.95)
+        local alpha = U.clamp((effect.ttl or 0) / 9, 0.18, 0.95)
         love.graphics.push()
         love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.25)
-        if effect.kind == "flare" then
-          love.graphics.setColor(1, 0.42, 0.16, alpha)
-          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.22))
-          love.graphics.setColor(1, 0.7, 0.24, alpha * 0.18)
-          love.graphics.circle("fill", 0, 0, max(8, sprite.width * 0.9))
-        else
-          love.graphics.setColor(0.6, 0.9, 1, alpha)
-          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.12, sprite.width * 0.4, sprite.height * 0.24, 2, 2)
-        end
+        love.graphics.setColor(1, 0.42, 0.16, alpha)
+        love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.22))
+        love.graphics.setColor(1, 0.7, 0.24, alpha * 0.18)
+        love.graphics.circle("fill", 0, 0, max(8, sprite.width * 0.9))
         love.graphics.pop()
       end
     end
@@ -766,18 +757,9 @@ local function drawPickupSprites(game, width, height, depthBuffer)
         local alpha = U.clamp((prop.ttl or 0) / 30, 0.24, 0.92)
         love.graphics.push()
         love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.22)
-        if prop.kind == "bait" then
-          love.graphics.setColor(0.86, 0.25, 0.12, alpha)
-          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.2))
-        elseif prop.kind == "scent" then
+        if prop.kind == "scent" then
           love.graphics.setColor(0.36, 0.9, 0.58, alpha)
           love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.28))
-        elseif prop.kind == "sonic" then
-          love.graphics.setColor(0.48, 0.8, 1, alpha)
-          love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 2, 2)
-        elseif prop.kind == "flash" then
-          love.graphics.setColor(1, 0.92, 0.45, prop.armed and alpha or alpha * 0.35)
-          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.32))
         elseif prop.kind == "snare" then
           love.graphics.setColor(0.82, 0.82, 0.72, prop.armed and alpha or alpha * 0.35)
           love.graphics.line(-sprite.width * 0.32, 0, sprite.width * 0.32, 0)
@@ -792,31 +774,10 @@ local function drawPickupSprites(game, width, height, depthBuffer)
           love.graphics.setColor(0.82, 0.9, 1, alpha)
           love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 1, 1)
           love.graphics.circle("line", 0, 0, max(4, sprite.width * 0.22))
-        elseif prop.kind == "valve" then
-          love.graphics.setColor(0.36, 0.68, 0.9, alpha)
-          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.3))
-          love.graphics.line(-sprite.width * 0.25, 0, sprite.width * 0.25, 0)
-          love.graphics.line(0, -sprite.height * 0.16, 0, sprite.height * 0.16)
-        elseif prop.kind == "ground" then
-          love.graphics.setColor(0.92, 0.9, 0.52, alpha)
-          love.graphics.line(0, -sprite.height * 0.24, 0, sprite.height * 0.24)
-          love.graphics.line(-sprite.width * 0.22, sprite.height * 0.12, sprite.width * 0.22, sprite.height * 0.12)
-        elseif prop.kind == "smoke" then
-          love.graphics.setColor(0.62, 0.62, 0.58, alpha * 0.8)
-          love.graphics.circle("line", -sprite.width * 0.12, 0, max(4, sprite.width * 0.24))
-          love.graphics.circle("line", sprite.width * 0.14, -sprite.height * 0.08, max(5, sprite.width * 0.3))
         elseif prop.kind == "beacon" then
           love.graphics.setColor(0.95, 0.55, 0.18, alpha)
           love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.22, sprite.width * 0.4, sprite.height * 0.44, 2, 2)
           love.graphics.line(-sprite.width * 0.32, -sprite.height * 0.3, sprite.width * 0.32, -sprite.height * 0.3)
-        elseif prop.kind == "coolant" then
-          love.graphics.setColor(0.45, 0.86, 1, alpha)
-          love.graphics.circle("fill", 0, 0, max(3, sprite.width * 0.18))
-          love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
-        elseif prop.kind == "fuse" then
-          love.graphics.setColor(1, 0.68, 0.2, alpha)
-          love.graphics.rectangle("fill", -sprite.width * 0.08, -sprite.height * 0.24, sprite.width * 0.16, sprite.height * 0.48, 1, 1)
-          love.graphics.circle("line", 0, -sprite.height * 0.28, max(5, sprite.width * 0.28))
         end
         love.graphics.pop()
       end

@@ -255,16 +255,8 @@ local function drawMinimap(game, width, height)
         love.graphics.setColor(0.75, 0.58, 1, 0.86)
       elseif creature.kind == "burrower" then
         love.graphics.setColor(0.75, 0.32, 0.12, 0.86)
-      elseif creature.kind == "warden" then
-        love.graphics.setColor(0.48, 0.82, 0.88, 0.9)
-      elseif creature.kind == "leecher" then
-        love.graphics.setColor(0.18, 0.76, 0.72, 0.88)
       elseif creature.kind == "mimic" then
         love.graphics.setColor(0.92, 0.82, 0.32, 0.9)
-      elseif creature.kind == "choir" then
-        love.graphics.setColor(0.82, 0.52, 1, 0.88)
-      elseif creature.kind == "scavenger" then
-        love.graphics.setColor(0.92, 0.56, 0.26, 0.88)
       else
         love.graphics.setColor(0.9, 0.08, 0.05, 0.95)
       end

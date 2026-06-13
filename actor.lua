@@ -343,7 +343,6 @@ function Actor.createCreatures(level)
   end
   if (level.deck or 1) >= 3 then
     wanted.screecher = true
-    wanted.scavenger = true
   end
 
   for _, spawn in ipairs(level.creatureSpawns or {}) do
@@ -754,9 +753,9 @@ local function strongestNoiseFor(creature, noises, game)
       if distance <= (noise.radius or 0) + (creature.hearing or 0) then
         local score = (noise.intensity or 0) * (1 - min(distance / max(1, (noise.radius or 1) + (creature.hearing or 0)), 0.95))
         if game and game.ecology and game.ecology.ventBloom > 0 then
-          score = score * ((creature.kind == "screecher" or creature.kind == "choir") and 2.05 or 1.28)
+          score = score * (creature.kind == "screecher" and 2.05 or 1.28)
         end
-        if creature.kind == "screecher" or creature.kind == "choir" then
+        if creature.kind == "screecher" then
           score = score * 1.8
         elseif creature.kind == "stalker" and noise.kind == "flare" then
           score = score * -2
@@ -782,7 +781,7 @@ local function lightPressure(game, creature)
   end
 
   for _, effect in ipairs(game.effects or {}) do
-    if (effect.kind == "flare" or effect.kind == "flash") and (effect.ttl or 0) > 0 then
+    if effect.kind == "flare" and (effect.ttl or 0) > 0 then
       local distance = distance2d(creature.x, creature.y, effect.x, effect.y)
       if distance < (effect.radius or 0) then
         flareBoost = max(flareBoost, 1 - distance / effect.radius)
@@ -820,18 +819,6 @@ local function targetCreatureScore(level, creature, other, distance)
     return theirRank > myRank and 70 / max(distance, 0.6) or (-20 + factionPressure * 18)
   end
 
-  if creature.kind == "scavenger" then
-    return theirRank >= myRank and -42 / max(distance, 0.7) or (18 + factionPressure * 10) / max(distance, 1)
-  end
-
-  if creature.kind == "leecher" then
-    return (other.kind == "burrower" and -36 or 24 + factionPressure * 12) / max(distance, 0.8)
-  end
-
-  if creature.kind == "choir" and other.kind == "screecher" then
-    return -20 / max(distance, 0.8)
-  end
-
   if creature.kind == "burrower" then
     return distance < 5.5 and (44 + factionPressure * 24) / max(distance, 0.8) or -10
   end
@@ -856,23 +843,11 @@ function Actor.scorePropTarget(creature, prop)
   local affinity = toolAffinity[creature.kind] or {}
   local base = affinity[prop.kind] or 0
 
-  if prop.kind == "bait" and creature.kind ~= "skitter" then
-    base = base * (0.55 + (creature.needs.hunger or 0.5))
-  end
   if prop.kind == "snare" then
     base = creature.kind == "skitter" and 8 or 2
   end
-  if prop.kind == "smoke" and creature.kind == "stalker" then
-    base = base + 18
-  elseif prop.kind == "ground" and creature.kind == "leecher" then
-    base = base - 42
-  elseif prop.kind == "coolant" and (creature.kind == "warden" or creature.kind == "mimic") then
-    base = base - 28
-  elseif prop.kind == "beacon" and creature.thief then
+  if prop.kind == "beacon" and creature.kind == "skitter" then
     base = base + 24
-  end
-  if creature.nest and prop.kind == "bait" and distance2d(prop.x, prop.y, creature.nest.x + 0.5, creature.nest.y + 0.5) < 4 then
-    base = creature.kind == creature.nest.kind and -45 or base + 12
   end
 
   return base / max(distance, 0.8)
@@ -972,7 +947,7 @@ local function chooseCreatureTarget(game, creature, dt)
     local score = 38 * (creature.aggression or 0.5) / max(playerDistance, 0.8)
     if creature.kind == "stalker" and light < 0.72 then
       score = score + 18
-    elseif creature.kind == "screecher" or creature.kind == "choir" then
+    elseif creature.kind == "screecher" then
       score = score * 0.45
     elseif creature.thief then
       score = -18 / max(playerDistance, 0.8)
@@ -1151,9 +1126,9 @@ local function updateOneCreature(game, creature, dt)
       systemModifier = systemModifier * (1 + cyclePressure * 0.08)
       if game.ecology.blackout > 0 and creature.kind == "stalker" then
         systemModifier = systemModifier * 1.22
-      elseif game.ecology.flood > 0 and (creature.kind == "burrower" or creature.kind == "leecher") then
+      elseif game.ecology.flood > 0 and creature.kind == "burrower" then
         systemModifier = systemModifier * 1.18
-      elseif game.ecology.heat > 0 and (creature.kind == "skitter" or creature.kind == "choir") then
+      elseif game.ecology.heat > 0 and creature.kind == "skitter" then
         systemModifier = systemModifier * 1.2
       elseif game.ecology.nestWake > 0 and creature.nest then
         systemModifier = systemModifier * 1.12
@@ -1163,13 +1138,9 @@ local function updateOneCreature(game, creature, dt)
     local biome = level.biomeProfile and level.biomeProfile.district
     if biome == "waste_artery" and cell.terrain == "sludge" and creature.kind == "burrower" then
       systemModifier = systemModifier * 1.28
-    elseif biome == "storm_drain" and (cell.terrain == "storm" or cell.terrain == "water") and creature.kind == "leecher" then
-      systemModifier = systemModifier * 1.34
     elseif biome == "cryo_vault" and cell.terrain == "ice" and creature.kind == "stalker" then
       systemModifier = systemModifier * 1.16
-    elseif (biome == "reactor_trench" or biome == "ash_foundry") and (creature.kind == "screecher" or creature.kind == "choir") then
-      systemModifier = systemModifier * 1.12
-    elseif biome == "organ_machine" and creature.kind == "warden" then
+    elseif (biome == "reactor_trench" or biome == "ash_foundry") and creature.kind == "screecher" then
       systemModifier = systemModifier * 1.12
     end
     if (creature.snared or 0) > 0 then
@@ -1198,22 +1169,10 @@ local function handleCreaturePropContact(game, creature)
         creature.stateTimer = max(creature.stateTimer or 0, 2.4)
         creature.mood = "fleeing"
         Actor.emitNoise(game, prop.x, prop.y, 2.9, 1.2, "snare")
-      elseif prop.kind == "flash" and prop.armed then
-        prop.armed = false
-        prop.ttl = 0.9
-        if creature.kind == "stalker" or creature.kind == "skitter" then
-          setEnemyState(creature, "flee", 2.2)
-        else
-          creature.grace = max(creature.grace or 0, 1.4)
-        end
-        Actor.emitNoise(game, prop.x, prop.y, 2.1, 0.8, "flash")
-      elseif creature.kind == "skitter" and not creature.carrying and (prop.kind == "bait" or prop.kind == "scent" or prop.kind == "sonic") then
+      elseif creature.kind == "skitter" and not creature.carrying and (prop.kind == "scent" or prop.kind == "noisemaker" or prop.kind == "probe" or prop.kind == "beacon") then
         creature.carrying = { kind = prop.kind, source = "prop" }
         prop.ttl = 0
         setEnemyState(creature, "flee", 2.4)
-      elseif prop.kind == "bait" and creature.kind ~= "skitter" then
-        prop.ttl = 0
-        creature.needs.hunger = U.clamp((creature.needs.hunger or 0.5) - 0.45, 0, 1)
       elseif prop.kind == "pheromone" then
         if creature.kind == "hunter" or creature.kind == "stalker" then
           setEnemyState(creature, "flee", 1.7)
@@ -1221,17 +1180,6 @@ local function handleCreaturePropContact(game, creature)
         elseif creature.kind == "burrower" then
           creature.mood = "guarding"
           setEnemyState(creature, "hunt", 1.4)
-        end
-      elseif prop.kind == "ground" and creature.kind == "leecher" then
-        setEnemyState(creature, "flee", 2.4)
-        creature.snared = max(creature.snared or 0, 1.8)
-      elseif prop.kind == "coolant" and (creature.kind == "warden" or creature.kind == "mimic") then
-        setEnemyState(creature, "flee", 2.2)
-        creature.snared = max(creature.snared or 0, 2.2)
-      elseif prop.kind == "smoke" and creature.kind ~= "leecher" then
-        creature.grace = max(creature.grace or 0, 1.4)
-        if creature.kind == "stalker" then
-          setEnemyState(creature, "hunt", 1.2)
         end
       elseif prop.kind == "probe" and creature.kind == "skitter" and not creature.carrying then
         creature.carrying = { kind = "probe", source = "prop" }
@@ -1316,7 +1264,7 @@ local function resolveCreatureContacts(game)
       if (creature.kind == "skitter" or creature.thief) and distance < player.radius + creature.radius + 0.16 and creature.stealTimer <= 0 then
         local inventory = game.inventory or {}
         local stolen
-        for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "fuse", "seal", "breaker", "ground", "beacon", "coolant" }) do
+        for _, tool in ipairs({ "oil", "flare", "probe", "pheromone", "noisemaker", "scent", "snare", "beacon" }) do
           if (inventory[tool] or 0) > 0 then
             inventory[tool] = inventory[tool] - 1
             stolen = tool

@@ -81,23 +81,13 @@ local Game = {
     selected = "flare",
     flare = 1,
     noisemaker = 1,
-    bait = 1,
     scent = 1,
-    sonic = 0,
-    flash = 0,
     snare = 0,
-    fuse = 0,
-    seal = 0,
     pheromone = 1,
-    breaker = 0,
     probe = 1,
     oil = 1,
-    valve = 0,
-    ground = 0,
-    smoke = 0,
     beacon = 0,
-    coolant = 0,
-    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3, valve = 2, ground = 2, smoke = 2, beacon = 2, coolant = 2 },
+    max = { flare = 3, noisemaker = 3, scent = 3, snare = 2, pheromone = 2, probe = 2, oil = 3, beacon = 2 },
   },
   message = "",
   messageTimer = 0,
@@ -620,23 +610,13 @@ local function startGame(seed)
     selected = "flare",
     flare = 1,
     noisemaker = 1,
-    bait = 1,
     scent = 1,
-    sonic = 0,
-    flash = 0,
     snare = 0,
-    fuse = 0,
-    seal = 0,
     pheromone = 1,
-    breaker = 0,
     probe = 1,
     oil = 1,
-    valve = 0,
-    ground = 0,
-    smoke = 0,
     beacon = 0,
-    coolant = 0,
-    max = { flare = 3, noisemaker = 3, bait = 3, scent = 3, sonic = 2, flash = 2, snare = 2, fuse = 2, seal = 2, pheromone = 2, breaker = 2, probe = 2, oil = 3, valve = 2, ground = 2, smoke = 2, beacon = 2, coolant = 2 },
+    max = { flare = 3, noisemaker = 3, scent = 3, snare = 2, pheromone = 2, probe = 2, oil = 3, beacon = 2 },
   }
   startDeck(1)
 end
@@ -674,22 +654,12 @@ local function resetLife(reason)
   Game.torch.fuel = 1
   Game.inventory.flare = 1
   Game.inventory.noisemaker = 1
-  Game.inventory.bait = 1
   Game.inventory.scent = 1
+  Game.inventory.snare = 0
   Game.inventory.pheromone = 1
   Game.inventory.probe = 1
   Game.inventory.oil = 1
-  Game.inventory.sonic = 0
-  Game.inventory.flash = 0
-  Game.inventory.snare = 0
-  Game.inventory.fuse = 0
-  Game.inventory.seal = 0
-  Game.inventory.breaker = 0
-  Game.inventory.valve = 0
-  Game.inventory.ground = 0
-  Game.inventory.smoke = 0
   Game.inventory.beacon = 0
-  Game.inventory.coolant = 0
   Game.state = "playing"
   love.mouse.setRelativeMode(true)
   setMessage(reason or "WAKE UP", 1.2)
@@ -750,40 +720,14 @@ local function updateEffects(dt)
     effect.ttl = max(0, (effect.ttl or 0) - dt)
     effect.pulse = max(0, (effect.pulse or 0) - dt)
 
-    if effect.kind == "noisemaker" and effect.pulse <= 0 then
-      Actor.emitNoise(Game, effect.x, effect.y, 3.2, 1.1, "noisemaker")
-      effect.pulse = 1.15
-    elseif effect.kind == "flare" and effect.pulse <= 0 then
+    if effect.kind == "flare" and effect.pulse <= 0 then
       Actor.emitNoise(Game, effect.x, effect.y, 1.5, 0.8, "flare")
       effect.pulse = 1.4
-    elseif effect.kind == "seal" and effect.gate and effect.ttl <= 0 then
-      effect.gate.cell.gateLocked = false
     elseif effect.kind == "lockdown" and effect.gate and effect.ttl <= 0 then
       effect.gate.cell.gateLocked = effect.previousLocked or false
-    elseif effect.kind == "thaw_gate" and effect.gate and effect.ttl <= 0 then
-      effect.gate.cell.gateLocked = effect.previousLocked or false
-    elseif effect.kind == "breaker_door" and effect.gate and effect.ttl <= 0 then
-      effect.gate.cell.gateLocked = effect.previousLocked or false
-      if effect.gate.cell.lock then
-        effect.gate.cell.lock.locked = effect.previousLocked or false
-      end
-    elseif effect.kind == "breaker" and effect.system and effect.ttl <= 0 then
-      if effect.restore then
-        Level.setSystemPowered(Game.level, effect.system, true)
-      end
-    elseif effect.kind == "hazard_suppress" and effect.hazard and effect.ttl <= 0 then
-      if effect.hazard.cell and effect.hazard.cell.hazard then
-        effect.hazard.cell.hazard.suppressed = false
-      end
-      Level.applySystemEffects(Game.level)
     end
 
     if effect.ttl <= 0 then
-      if effect.kind == "fuse" then
-        Game.level.power.temporary = max(0, (Game.level.power.temporary or 0) - (effect.amount or 1))
-        Level.applySystemEffects(Game.level)
-        setMessage("FUSE EXPIRED", 1.2)
-      end
       table.remove(Game.effects, i)
     end
   end
@@ -807,10 +751,7 @@ local function updateProps(dt)
     prop.pulse = max(0, (prop.pulse or 0) - dt)
 
     if prop.pulse <= 0 then
-      if prop.kind == "sonic" then
-        Actor.emitNoise(Game, prop.x, prop.y, 4.0, 1.3, "sonic")
-        prop.pulse = 1.05
-      elseif prop.kind == "scent" then
+      if prop.kind == "scent" then
         Actor.emitNoise(Game, prop.x, prop.y, 1.8, 1.4, "scent")
         prop.pulse = 2.0
       elseif prop.kind == "noisemaker" then
@@ -822,23 +763,10 @@ local function updateProps(dt)
       elseif prop.kind == "probe" then
         addSignal("survey_ping", prop.x, prop.y, 1.1, 8, "player", true)
         prop.pulse = 3.4
-      elseif prop.kind == "smoke" then
-        addSignal("smoke_veil", prop.x, prop.y, 1.2, 7, "player", true)
-        Actor.emitNoise(Game, prop.x, prop.y, 1.4, 1.0, "smoke")
-        prop.pulse = 3.0
       elseif prop.kind == "beacon" then
         addSignal("trade_mark", prop.x, prop.y, 1.4, 9, "player", true)
         Actor.emitNoise(Game, prop.x, prop.y, 3.8, 1.2, "beacon")
         prop.pulse = 1.8
-      elseif prop.kind == "fuse" then
-        Actor.emitNoise(Game, prop.x, prop.y, 3.6, 1.0, "fuse")
-        prop.pulse = 1.2
-      elseif prop.kind == "ground" then
-        addSignal("surge_line", prop.x, prop.y, 0.8, 6, "player", true)
-        prop.pulse = 4.0
-      elseif prop.kind == "coolant" then
-        addSignal("smoke_veil", prop.x, prop.y, 0.9, 6, "coolant", true)
-        prop.pulse = 3.6
       end
     end
 
@@ -916,15 +844,6 @@ local function updateHazards(dt)
     end
     if Game.ecology.cycle then
       drain = drain + (Game.ecology.cycle.pressure or 0) * 0.012
-    end
-  end
-  for _, effect in ipairs(Game.effects or {}) do
-    local dx = (effect.x or 0) - Game.player.x
-    local dy = (effect.y or 0) - Game.player.y
-    if effect.kind == "ground" and cell.hazard.kind == "wire" and dx * dx + dy * dy < 16 then
-      drain = drain - 0.04
-    elseif effect.kind == "coolant" and cell.hazard.kind == "ember" and dx * dx + dy * dy < 16 then
-      drain = drain - 0.05
     end
   end
   if playerInShelter() then
@@ -1338,7 +1257,7 @@ local function openInteraction()
   setMessage("NO CONTACT", 0.8)
 end
 
-local toolOrder = { "flare", "noisemaker", "bait", "scent", "sonic", "flash", "snare", "fuse", "seal", "pheromone", "breaker", "probe", "oil", "valve", "ground", "smoke", "beacon", "coolant" }
+local toolOrder = { "flare", "noisemaker", "scent", "snare", "pheromone", "probe", "oil", "beacon" }
 
 local function addInventory(kind, amount)
   local maxCount = Game.inventory.max[kind] or 0
@@ -1437,65 +1356,6 @@ local function dropPoint(distance)
   return x, y
 end
 
-local function nearestGate(maxDistance)
-  local best
-  local bestDistance = maxDistance or 2.3
-
-  for _, gate in ipairs(Game.level.gates or {}) do
-    local dx = gate.x + 0.5 - Game.player.x
-    local dy = gate.y + 0.5 - Game.player.y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    if distance < bestDistance then
-      best = gate
-      bestDistance = distance
-    end
-  end
-
-  return best
-end
-
-local function breakerSystem()
-  local cell = Level.cellAtWorld(Game.level, Game.player.x, Game.player.y) or {}
-  local systems = Game.level.systems or {}
-
-  if cell.hazard and cell.hazard.kind == "wire" and systems.pumps and systems.pumps.powered then
-    return "pumps"
-  elseif cell.vent and systems.vents and systems.vents.powered then
-    return "vents"
-  elseif nearestGate(2.8) and systems.doors and systems.doors.powered then
-    return "doors"
-  elseif systems.lights and systems.lights.powered then
-    return "lights"
-  elseif systems.decoy and systems.decoy.powered then
-    return "decoy"
-  elseif systems.vents and systems.vents.powered then
-    return "vents"
-  elseif systems.pumps and systems.pumps.powered then
-    return "pumps"
-  end
-
-  return nil
-end
-
-local function suppressHazardsNear(x, y, kinds, radius, ttl, effectKind)
-  local suppressed = 0
-  local radiusSq = (radius or 3.6) * (radius or 3.6)
-  for _, hazard in ipairs(Game.level.hazards or {}) do
-    local active = hazard.cell and hazard.cell.hazard and hazard.cell.hazard.active
-    if active and kinds[hazard.cell.hazard.kind] then
-      local dx = hazard.x + 0.5 - x
-      local dy = hazard.y + 0.5 - y
-      if dx * dx + dy * dy <= radiusSq then
-        hazard.cell.hazard.suppressed = true
-        hazard.cell.light = min(hazard.cell.light or 0.5, 0.42)
-        Game.effects[#Game.effects + 1] = { kind = "hazard_suppress", x = hazard.x + 0.5, y = hazard.y + 0.5, ttl = ttl or 16, hazard = hazard, source = effectKind }
-        suppressed = suppressed + 1
-      end
-    end
-  end
-  return suppressed
-end
-
 local function useSelectedTool()
   local tool = Game.inventory.selected
   local biome = Game.level.biomeProfile and Game.level.biomeProfile.district
@@ -1512,7 +1372,7 @@ local function useSelectedTool()
     return
   end
 
-  local x, y = dropPoint(tool == "seal" and 1.0 or 1.8)
+  local x, y = dropPoint(1.8)
   Game.inventory[tool] = Game.inventory[tool] - 1
 
   if tool == "flare" then
@@ -1527,9 +1387,6 @@ local function useSelectedTool()
   elseif tool == "noisemaker" then
     Game.props[#Game.props + 1] = { kind = "noisemaker", x = x, y = y, ttl = 8, pulse = 0 }
     setMessage("NOISEMAKER ARMED", 1.2)
-  elseif tool == "bait" then
-    Game.props[#Game.props + 1] = { kind = "bait", x = x, y = y, ttl = 22, scent = "meat" }
-    setMessage("BAIT DEPLOYED", 1.2)
   elseif tool == "scent" then
     Game.props[#Game.props + 1] = { kind = "scent", x = x, y = y, ttl = 28, pulse = 0, scent = "player" }
     if biome == "fungal_service" then
@@ -1537,38 +1394,9 @@ local function useSelectedTool()
       Actor.emitNoise(Game, Game.player.x, Game.player.y, 2.6, 1.3, "spore")
     end
     setMessage("SCENT MARKER", 1.2)
-  elseif tool == "sonic" then
-    Game.props[#Game.props + 1] = { kind = "sonic", x = x, y = y, ttl = 12, pulse = 0 }
-    setMessage("SONIC STAKE", 1.2)
-  elseif tool == "flash" then
-    Game.props[#Game.props + 1] = { kind = "flash", x = x, y = y, ttl = 6, armed = true }
-    Game.effects[#Game.effects + 1] = { kind = "flash", x = x, y = y, ttl = 6, radius = 5.5 }
-    setMessage("FLASH POD SET", 1.2)
   elseif tool == "snare" then
     Game.props[#Game.props + 1] = { kind = "snare", x = x, y = y, ttl = 30, armed = true }
     setMessage("SNARE WIRE", 1.2)
-  elseif tool == "fuse" then
-    Game.props[#Game.props + 1] = { kind = "fuse", x = x, y = y, ttl = 10, pulse = 0 }
-    Actor.emitNoise(Game, x, y, 4.2, 1.4, "fuse")
-    if biome == "reactor_trench" then
-      addSignal("radiant_heat", x, y, 1.5, 18, "fuse", true)
-    end
-    setMessage("FUSE SPARK", 1.2)
-  elseif tool == "seal" then
-    local gate = nearestGate()
-    if gate then
-      gate.cell.gateLocked = true
-      Game.effects[#Game.effects + 1] = { kind = "seal", x = gate.x + 0.5, y = gate.y + 0.5, ttl = 15, gate = gate }
-      if biome == "pressure_lab" then
-        addSignal("pressure_tick", gate.x + 0.5, gate.y + 0.5, 1.5, 18, "seal", true)
-        Actor.emitNoise(Game, gate.x + 0.5, gate.y + 0.5, 2.7, 1.1, "alarm")
-        alarmFaction(gate.cell.faction, 6, gate.x + 0.5, gate.y + 0.5, "seal")
-      end
-      setMessage("SEAL CHARGE SET", 1.2)
-    else
-      addInventory("seal", 1)
-      setMessage("NO GATE NEARBY", 0.9)
-    end
   elseif tool == "pheromone" then
     local ttl = biome == "fungal_service" and 48 or 34
     local strength = biome == "fungal_service" and 1.9 or 1.4
@@ -1577,47 +1405,11 @@ local function useSelectedTool()
     local cell = Level.cellAtWorld(Game.level, x, y) or {}
     alarmFaction(cell.faction, biome == "fungal_service" and 7 or 4, x, y, "pheromone")
     setMessage("PHEROMONE BOUNDARY", 1.2)
-  elseif tool == "breaker" then
-    local door = nearbyLockedDoor()
-    if door then
-      local previousLocked = door.cell.gateLocked or (door.cell.lock and door.cell.lock.locked)
-      door.cell.gateLocked = false
-      if door.cell.lock then
-        door.cell.lock.locked = false
-      end
-      Game.effects[#Game.effects + 1] = { kind = "breaker_door", x = door.x + 0.5, y = door.y + 0.5, ttl = 16, gate = door, previousLocked = previousLocked }
-      addSignal("seal_mark", door.x + 0.5, door.y + 0.5, 1.1, 16, "breaker", true)
-      setMessage("BREAKER OPEN", 1.2)
-    else
-      addInventory("breaker", 1)
-      setMessage("NO LOCK NEARBY", 0.9)
-    end
   elseif tool == "probe" then
     Game.survey.ttl = 12
     Game.props[#Game.props + 1] = { kind = "probe", x = x, y = y, ttl = 12, pulse = 0 }
     addSignal("survey_ping", x, y, 1.2, 12, "player", true)
     setMessage("SURVEY PULSE", 1.2)
-  elseif tool == "valve" then
-    Game.props[#Game.props + 1] = { kind = "valve", x = x, y = y, ttl = 14, pulse = 0 }
-    local suppressed = suppressHazardsNear(x, y, { wire = true }, 4.2, 14, "valve")
-    if Game.ecology then
-      Game.ecology.flood = max(0, (Game.ecology.flood or 0) - 6)
-    end
-    addSignal("surge_line", x, y, 1.5, 18, "valve", true)
-    Actor.emitNoise(Game, x, y, 2.6, 1.1, "valve")
-    setMessage("VALVE TURNED " .. suppressed .. " LINES", 1.3)
-  elseif tool == "ground" then
-    Game.props[#Game.props + 1] = { kind = "ground", x = x, y = y, ttl = 18, pulse = 0 }
-    Game.effects[#Game.effects + 1] = { kind = "ground", x = x, y = y, ttl = 18, radius = 4.2 }
-    local suppressed = suppressHazardsNear(x, y, { wire = true }, 4.2, 18, "ground")
-    addSignal("surge_line", x, y, 1.1, 18, "ground", true)
-    setMessage("GROUND SPIKE " .. suppressed .. " WIRES", 1.3)
-  elseif tool == "smoke" then
-    Game.props[#Game.props + 1] = { kind = "smoke", x = x, y = y, ttl = 16, pulse = 0 }
-    Game.effects[#Game.effects + 1] = { kind = "smoke", x = x, y = y, ttl = 16, radius = 6.5 }
-    addSignal("smoke_veil", x, y, 1.4, 16, "player", true)
-    Actor.emitNoise(Game, x, y, 1.9, 1.1, "smoke")
-    setMessage("SMOKE CHARGE", 1.2)
   elseif tool == "beacon" then
     Game.props[#Game.props + 1] = { kind = "beacon", x = x, y = y, ttl = 18, pulse = 0 }
     addSignal("trade_mark", x, y, 1.7, 20, "player", true)
@@ -1626,19 +1418,6 @@ local function useSelectedTool()
     local fallbackFaction = Game.level.factions and Game.level.factions[1] and Game.level.factions[1].name
     alarmFaction(cell.faction or fallbackFaction, 7, x, y, "beacon")
     setMessage("LURE BEACON", 1.2)
-  elseif tool == "coolant" then
-    Game.props[#Game.props + 1] = { kind = "coolant", x = x, y = y, ttl = 14, pulse = 0 }
-    Game.effects[#Game.effects + 1] = { kind = "coolant", x = x, y = y, ttl = 14, radius = 4.6 }
-    local suppressed = suppressHazardsNear(x, y, { ember = true }, 4.6, 14, "coolant")
-    if Game.ecology then
-      Game.ecology.heat = max(0, (Game.ecology.heat or 0) - 6)
-    end
-    if biome == "organ_machine" then
-      addSignal("pulse_mark", x, y, 1.4, 18, "coolant", true)
-    else
-      addSignal("smoke_veil", x, y, 1.2, 14, "coolant", true)
-    end
-    setMessage("COOLANT " .. suppressed .. " EMBERS", 1.3)
   end
 end
 
