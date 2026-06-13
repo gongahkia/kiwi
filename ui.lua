@@ -313,36 +313,41 @@ local function drawHud(game, width, height)
   end
 
   love.graphics.setFont(game.fonts.hud)
-  love.graphics.setColor(0, 0, 0, 0.42)
-  love.graphics.rectangle("fill", 18, 18, 356, 250, 4, 4)
-
+  love.graphics.setColor(0, 0, 0, 0.48)
+  love.graphics.rectangle("fill", 18, 18, 132, 34, 4, 4)
   love.graphics.setColor(0.95, 0.88, 0.68)
   love.graphics.print(string.format("TIME   %02d", max(0, floor(game.loopTimer or 0))), 30, 28)
-  love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
-  love.graphics.print(string.format("THREAT %02dM %-8s %-7s", floor(distance), string.upper(enemy.kind or "NONE"), string.upper(enemy.state or "WANDER")), 30, 55)
-  love.graphics.setColor(0.78, 0.72, 0.6)
-  love.graphics.print(string.format("DECK   %02d/%02d", game.deck or 1, game.maxDecks or 1), 30, 82)
-  love.graphics.setColor(0.82, 0.76, 0.62)
-  love.graphics.print(string.format("KEYS   EXIT %s  SMALL %d", game.keys.exit and "YES" or "NO", game.keys.small or 0), 30, 109)
-  love.graphics.setColor(0.84, 0.64, 0.36)
-  love.graphics.print(string.format("TORCH  %03d%%", floor(game.torch.fuel * 100)), 30, 136)
-  love.graphics.setColor(0.68, 0.64, 0.56)
-  love.graphics.print(traversal .. "  " .. zone, 30, 163)
 
-  local cycle = game.ecology and game.ecology.cycle
-  local incident = game.ecology and game.ecology.active or "quiet"
-  local phase = cycle and cycle.label or string.upper(incident)
-  love.graphics.setColor(0.84, 0.67, 0.46)
-  love.graphics.print(string.format("AREA   %-8s %03d", phase:sub(1, 8), floor(cycle and cycle.timer or 0)), 30, 190)
+  if game.statusHeld or game.statusGamepadHeld then
+    love.graphics.setColor(0, 0, 0, 0.42)
+    love.graphics.rectangle("fill", 18, 60, 356, 222, 4, 4)
 
-  local inv = game.inventory or {}
-  love.graphics.setColor(0.78, 0.72, 0.6)
-  local selected = inv.selected or "flare"
-  love.graphics.print(string.format("TOOL   %-10s x%d  MAP M", string.upper(selected), inv[selected] or 0), 30, 217)
+    love.graphics.setColor(0.86 + danger * 0.14, 0.78 - danger * 0.48, 0.55 - danger * 0.45)
+    love.graphics.print(string.format("THREAT %02dM %-8s %-7s", floor(distance), string.upper(enemy.kind or "NONE"), string.upper(enemy.state or "WANDER")), 30, 72)
+    love.graphics.setColor(0.78, 0.72, 0.6)
+    love.graphics.print(string.format("DECK   %02d/%02d", game.deck or 1, game.maxDecks or 1), 30, 99)
+    love.graphics.setColor(0.82, 0.76, 0.62)
+    love.graphics.print(string.format("KEYS   EXIT %s  SMALL %d", game.keys.exit and "YES" or "NO", game.keys.small or 0), 30, 126)
+    love.graphics.setColor(0.84, 0.64, 0.36)
+    love.graphics.print(string.format("TORCH  %03d%%", floor(game.torch.fuel * 100)), 30, 153)
+    love.graphics.setColor(0.68, 0.64, 0.56)
+    love.graphics.print(traversal .. "  " .. zone, 30, 180)
 
-  if game.demoMode then
-    love.graphics.setColor(0.52, 0.82, 1, 0.9)
-    love.graphics.print("DEMO", 310, 217)
+    local cycle = game.ecology and game.ecology.cycle
+    local incident = game.ecology and game.ecology.active or "quiet"
+    local phase = cycle and cycle.label or string.upper(incident)
+    love.graphics.setColor(0.84, 0.67, 0.46)
+    love.graphics.print(string.format("AREA   %-8s %03d", phase:sub(1, 8), floor(cycle and cycle.timer or 0)), 30, 207)
+
+    local inv = game.inventory or {}
+    love.graphics.setColor(0.78, 0.72, 0.6)
+    local selected = inv.selected or "flare"
+    love.graphics.print(string.format("TOOL   %-10s x%d", string.upper(selected), inv[selected] or 0), 30, 234)
+
+    if game.demoMode then
+      love.graphics.setColor(0.52, 0.82, 1, 0.9)
+      love.graphics.print("DEMO", 310, 234)
+    end
   end
 
   if game.messageTimer > 0 then

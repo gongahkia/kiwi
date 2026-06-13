@@ -2794,7 +2794,7 @@ end
 
 local function placeFactions(level)
   local profile = level.biomeProfile or Level.biomeProfiles.cryo_vault
-  local names = profile.factions or { profile.primaryFaction or "scavenger", "predator" }
+  local names = profile.factions or { profile.primaryFaction or "salvage_clan", "predator" }
   level.factions = {}
 
   for i, name in ipairs(names) do

@@ -24,6 +24,7 @@ local defaultBindings = {
   useTool = "space",
   cycleTool = "tab",
   map = "m",
+  status = "h",
   pause = "escape",
 }
 
@@ -39,6 +40,7 @@ local bindingActions = {
   "useTool",
   "cycleTool",
   "map",
+  "status",
   "pause",
 }
 
@@ -62,6 +64,8 @@ local Game = {
   respawn = nil,
   mapHeld = false,
   mapGamepadHeld = false,
+  statusHeld = false,
+  statusGamepadHeld = false,
   torch = { fuel = 1 },
   noise = { ttl = 0, intensity = 0, radius = 0, x = 0, y = 0 },
   noises = {},
@@ -589,6 +593,8 @@ function startDeck(deck)
   Game.toolWheel = { visible = false, timer = 0 }
   Game.mapHeld = false
   Game.mapGamepadHeld = false
+  Game.statusHeld = false
+  Game.statusGamepadHeld = false
   Game.hazardTimer = 0
   Game.seedEntry.active = false
   Game.seedEntry.text = ""
@@ -1588,6 +1594,8 @@ function Game.keypressed(key)
     togglePause()
   elseif keyMatches("map", key) then
     Game.mapHeld = true
+  elseif keyMatches("status", key) then
+    Game.statusHeld = true
   elseif key == "r" or (key == "space" and Game.state ~= "playing") then
     startGame(Game.lastSeed)
   elseif key == "n" then
@@ -1604,16 +1612,8 @@ function Game.keypressed(key)
     Game.toolWheel.timer = 1.8
   elseif keyMatches("useTool", key) and Game.state == "playing" then
     useSelectedTool()
-  elseif Game.state == "playing" and key:match("^[1-9]$") then
+  elseif Game.state == "playing" and key:match("^[1-8]$") then
     selectToolByIndex(tonumber(key))
-  elseif Game.state == "playing" and key == "0" then
-    selectToolByIndex(10)
-  elseif Game.state == "playing" and key == "-" then
-    selectToolByIndex(11)
-  elseif Game.state == "playing" and key == "=" then
-    selectToolByIndex(12)
-  elseif Game.state == "playing" and key == "backspace" then
-    selectToolByIndex(13)
   elseif key == "x" then
     setMessage("RENDER " .. string.upper(Renderer.togglePost()), 0.8)
   end
@@ -1632,6 +1632,8 @@ end
 function Game.keyreleased(key)
   if keyMatches("map", key) then
     Game.mapHeld = false
+  elseif keyMatches("status", key) then
+    Game.statusHeld = false
   end
 end
 
@@ -1677,6 +1679,8 @@ function Game.gamepadpressed(_, button)
       openInteraction()
     elseif button == "back" then
       Game.mapGamepadHeld = true
+    elseif button == "y" then
+      Game.statusGamepadHeld = true
     elseif button == "rightshoulder" then
       cycleTool()
       Game.toolWheel.visible = true
@@ -1697,6 +1701,8 @@ end
 function Game.gamepadreleased(_, button)
   if button == "back" then
     Game.mapGamepadHeld = false
+  elseif button == "y" then
+    Game.statusGamepadHeld = false
   end
 end
 
