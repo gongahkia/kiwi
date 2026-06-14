@@ -40,7 +40,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
   vec2 p = uv - vec2(0.5);
   number vignette = 1.0 - smoothstep(0.25, 0.78, dot(p, p) * 1.7);
   number scan = 0.94 + 0.035 * sin(screen.y * 1.7 + time * 18.0);
-  number lowFuel = 0.62 + fuel * 0.38;
+  number lowFuel = 0.22 + fuel * 0.78;
   px.rgb *= mix(0.7, 1.0, vignette) * scan * lowFuel;
   px.rgb = floor(px.rgb * 18.0) / 18.0;
   return px;
@@ -85,7 +85,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
   number average = (north + south + east + west) * 0.25;
   number edge = clamp(abs(east - west) + abs(south - north), 0.0, 1.0);
   number contrast = clamp(center + (center - average) * 0.92 + edge * 0.24, 0.0, 1.0);
-  number exposure = 0.78 + fuel * 0.3;
+  number exposure = 0.34 + fuel * 0.74;
   number tone = pow(clamp(contrast * exposure, 0.0, 1.0), 0.78);
   number vignette = smoothstep(0.82, 0.18, length(uv - vec2(0.5)));
   tone *= mix(0.84, 1.08, vignette);
@@ -167,23 +167,173 @@ local function projectWorldZ(game, worldZ, distance, height)
   return height * 0.54 - (worldZ - game.player.eyeZ) * scale
 end
 
-local function drawBackground(width, height, fuel)
+local function mapIsHeld(game)
+  return game and (game.mapHeld or game.mapGamepadHeld) and true or false
+end
+
+local function activeTorchFuel(game)
+  if mapIsHeld(game) then
+    return 0
+  end
+
+  return U.clamp(game and game.torch and game.torch.fuel or 0, 0, 1)
+end
+
+local function poweredLights(game)
+  return game
+    and game.level
+    and game.level.systems
+    and game.level.systems.lights
+    and game.level.systems.lights.powered
+end
+
+local function blackoutAmount(game)
+  return U.clamp(game and game.ecology and game.ecology.blackout or 0, 0, 5.5) / 5.5
+end
+
+local function environmentLight(game, cell)
+  if not cell then
+    return 0
+  end
+
+  local powered = poweredLights(game)
+  local raw = U.clamp(cell.light or 0, 0, 1.3)
+  local bright = max(raw - 0.24, 0)
+  local light = powered and 0.075 or 0.01
+  light = light + bright * bright * (powered and 0.72 or 0.3)
+
+  if cell.dynamicActive then
+    light = light + (powered and 0.16 or 0.035)
+  end
+
+  if cell.hazard and cell.hazard.active and not cell.hazard.suppressed then
+    if cell.hazard.kind == "ember" then
+      light = light + 0.2
+    elseif cell.hazard.kind == "wire" then
+      light = light + 0.1
+    end
+  end
+
+  if cell.lock or cell.gateLocked then
+    light = light + 0.07
+  end
+
+  light = light * (1 - blackoutAmount(game) * 0.82)
+  return U.clamp(light, 0, 0.95)
+end
+
+local function addPointLight(total, x, y, lx, ly, radius, strength)
+  if not x or not y or not lx or not ly then
+    return total
+  end
+
+  local dx = x - lx
+  local dy = y - ly
+  local radiusSquared = radius * radius
+  local falloff = 1 - (dx * dx + dy * dy) / radiusSquared
+
+  if falloff <= 0 then
+    return total
+  end
+
+  return total + strength * falloff * falloff
+end
+
+local function dynamicLight(game, x, y)
+  if not game or not x or not y then
+    return 0
+  end
+
+  local total = 0
+
+  for _, effect in ipairs(game.effects or {}) do
+    if effect.kind == "flare" and (effect.ttl or 0) > 0 then
+      local burn = U.clamp((effect.ttl or 0) / 9, 0.18, 1)
+      local pulse = 0.92 + sin((game.survivalTime or 0) * 13.7 + (effect.x or 0)) * 0.08
+      total = addPointLight(total, x, y, effect.x, effect.y, effect.radius or 8.5, 0.95 * burn * pulse)
+    end
+  end
+
+  for _, prop in ipairs(game.props or {}) do
+    if prop.kind == "beacon" and (prop.ttl or 0) > 0 then
+      local pulse = 0.78 + sin((game.survivalTime or 0) * 8.8 + (prop.y or 0)) * 0.18
+      total = addPointLight(total, x, y, prop.x, prop.y, 6.4, 0.5 * pulse)
+    end
+  end
+
+  local level = game.level
+  if level then
+    for _, key in ipairs(level.keys or {}) do
+      if key.cell and key.cell.key and not key.cell.key.collected then
+        local strength = key.kind == "exit" and 0.33 or 0.2
+        local radius = key.kind == "exit" and 4.8 or 3.4
+        total = addPointLight(total, x, y, key.x + 0.5, key.y + 0.5, radius, strength)
+      end
+    end
+
+    for _, refill in ipairs(level.refills or {}) do
+      if refill.cell and not refill.cell.refillUsed then
+        total = addPointLight(total, x, y, refill.x + 0.5, refill.y + 0.5, 3.6, 0.2)
+      end
+    end
+
+    if level.exit then
+      total = addPointLight(total, x, y, level.exit.x + 0.5, level.exit.y + 0.5, 6.2, 0.38)
+    end
+  end
+
+  return U.clamp(total, 0, 1.2)
+end
+
+local function torchLight(game, distance)
+  local fuel = activeTorchFuel(game)
+  if fuel <= 0.01 then
+    return 0
+  end
+
+  local reach = 5.8 + fuel * 11.5
+  local falloff = U.clamp(1 - (distance or 0) / reach, 0, 1)
+  local pulse = 0.95 + sin((game.survivalTime or 0) * 11.1) * 0.055 + sin((game.survivalTime or 0) * 23.7) * 0.03
+  return falloff * falloff * (0.32 + fuel * 1.02) * pulse
+end
+
+local function sceneLightAt(game, x, y, cell, distance)
+  local nearFade = U.clamp(1 - (distance or 0) / (Renderer.wallRenderDistance * 1.08), 0, 1)
+  local light = environmentLight(game, cell) + dynamicLight(game, x, y) + torchLight(game, distance)
+  return U.clamp(light * (0.26 + nearFade * 0.8), 0, 1.28)
+end
+
+local function spriteLight(game, x, y, distance)
+  local cell = game and game.level and Level.cellAtWorld(game.level, x, y)
+  return sceneLightAt(game, x, y, cell, distance)
+end
+
+local function litAlpha(alpha, light)
+  return alpha * U.clamp(light * 1.85, 0, 1)
+end
+
+local function drawBackground(game, width, height)
   local horizon = height * 0.54
-  local fuelShade = 0.72 + fuel * 0.28
+  local player = game.player
+  local cell = player and Level.cellAtWorld(game.level, player.x, player.y)
+  local ambient = environmentLight(game, cell)
+  local fuel = activeTorchFuel(game)
+  local sky = U.clamp(ambient * 0.82 + fuel * 0.24, 0, 1)
+  local floorGlow = U.clamp(ambient * 0.95 + fuel * 0.36, 0, 1)
 
   for y = 0, horizon, 6 do
     local t = y / horizon
-    love.graphics.setColor((0.035 + t * 0.035) * fuelShade, (0.037 + t * 0.03) * fuelShade, (0.047 + t * 0.045) * fuelShade)
+    love.graphics.setColor((0.002 + t * 0.014) * (0.18 + sky), (0.002 + t * 0.014) * (0.2 + sky), (0.004 + t * 0.02) * (0.24 + sky))
     love.graphics.rectangle("fill", 0, y, width, 7)
   end
 
   for y = horizon, height, 6 do
     local t = (y - horizon) / (height - horizon)
-    love.graphics.setColor((0.15 - t * 0.055) * fuelShade, (0.125 - t * 0.045) * fuelShade, (0.09 - t * 0.035) * fuelShade)
+    love.graphics.setColor((0.008 + (1 - t) * 0.055) * (0.16 + floorGlow), (0.006 + (1 - t) * 0.044) * (0.16 + floorGlow), (0.004 + (1 - t) * 0.03) * (0.14 + floorGlow))
     love.graphics.rectangle("fill", 0, y, width, 7)
   end
 
-  love.graphics.setColor(0.23, 0.17, 0.11, 0.22)
+  love.graphics.setColor(0.12, 0.08, 0.045, 0.06 + floorGlow * 0.12)
   love.graphics.rectangle("fill", 0, horizon - 1, width, 2)
 end
 
@@ -232,6 +382,8 @@ local function castRay(game, rayDirX, rayDirY)
     end
 
     distance = max(distance, 0.01)
+    local hitX = player.x + rayDirX * distance
+    local hitY = player.y + rayDirY * distance
 
     if distance >= Renderer.wallRenderDistance then
       return segments, Renderer.wallRenderDistance
@@ -249,6 +401,8 @@ local function castRay(game, rayDirX, rayDirY)
           cell = previousCell,
           mapX = mapX,
           mapY = mapY,
+          hitX = hitX,
+          hitY = hitY,
           kind = nextCell and nextCell.kind or "outer",
           solid = true,
         }
@@ -268,6 +422,8 @@ local function castRay(game, rayDirX, rayDirY)
           cell = nextCell,
           mapX = mapX,
           mapY = mapY,
+          hitX = hitX,
+          hitY = hitY,
           kind = kind,
           solid = false,
         }
@@ -281,6 +437,8 @@ local function castRay(game, rayDirX, rayDirY)
           cell = previousCell,
           mapX = mapX,
           mapY = mapY,
+          hitX = hitX,
+          hitY = hitY,
           kind = kind,
           solid = false,
         }
@@ -295,6 +453,8 @@ local function castRay(game, rayDirX, rayDirY)
           cell = previousCell,
           mapX = mapX,
           mapY = mapY,
+          hitX = hitX,
+          hitY = hitY,
           kind = "lintel",
           solid = false,
         }
@@ -307,7 +467,7 @@ local function castRay(game, rayDirX, rayDirY)
   return segments, Renderer.wallRenderDistance
 end
 
-local function segmentColor(segment, shade)
+local function segmentColor(segment, light)
   local cell = segment.cell or { floor = 0, light = 0.4 }
   local heightTint = U.clamp((cell.floor + 1.2) / 4.2, 0, 1)
   local red, green, blue
@@ -370,10 +530,9 @@ local function segmentColor(segment, shade)
     blue = 0.33 + heightTint * 0.06
   end
 
-  local sideShade = segment.side == 1 and 0.78 or 1
-  local light = 0.5 + (cell.light or 0.45) * 0.55
+  local sideShade = segment.side == 1 and 0.76 or 1
 
-  return red * shade * sideShade * light, green * shade * sideShade * light, blue * shade * sideShade * light
+  return red * sideShade * light, green * sideShade * light, blue * sideShade * light
 end
 
 local function drawSegment(game, segment, width, height, screenX)
@@ -387,33 +546,29 @@ local function drawSegment(game, segment, width, height, screenX)
     return
   end
 
-  local fuel = game.torch.fuel
-  local torchPulse = 0.98 + sin(game.survivalTime * 11.1) * 0.055 + sin(game.survivalTime * 23.7) * 0.025
-  local baseShade = U.clamp(1 - distance / Renderer.wallRenderDistance, 0.16, 1)
-  local torchShade = U.clamp(1 - distance / (8 + fuel * 8), 0, 1) * torchPulse * (0.16 + fuel * 0.34)
-  local shade = U.clamp(baseShade + torchShade, 0.08, 1.18)
-  local red, green, blue = segmentColor(segment, shade)
+  local light = sceneLightAt(game, segment.hitX or ((segment.mapX or 0) + 0.5), segment.hitY or ((segment.mapY or 0) + 0.5), segment.cell, distance)
+  local red, green, blue = segmentColor(segment, light)
 
   love.graphics.setColor(red, green, blue)
   love.graphics.rectangle("fill", screenX, drawStart, Renderer.rayStep + 1, drawEnd - drawStart)
 
   if segment.kind == "stair" and distance < 10 then
-    love.graphics.setColor(red * 1.22, green * 1.14, blue * 0.92, 0.18)
+    love.graphics.setColor(red * 1.22, green * 1.14, blue * 0.92, 0.18 * light)
     love.graphics.rectangle("fill", screenX, drawStart, Renderer.rayStep + 1, 2)
   elseif segment.kind == "ladder" and distance < 14 then
-    love.graphics.setColor(0.12, 0.07, 0.035, 0.55)
+    love.graphics.setColor(0.12 * light, 0.07 * light, 0.035 * light, 0.55 * light)
     for y = drawStart + 4, drawEnd - 2, max(4, floor(12 / distance)) do
       love.graphics.rectangle("fill", screenX, y, Renderer.rayStep + 1, 1)
     end
   elseif (segment.kind == "sealed gate" or segment.kind == "lock") and distance < 16 then
-    love.graphics.setColor(1, 0.74, 0.2, 0.22)
+    love.graphics.setColor(1 * light, 0.74 * light, 0.2 * light, 0.22 * light)
     for y = drawStart + 4, drawEnd - 2, 9 do
       love.graphics.rectangle("fill", screenX, y, Renderer.rayStep + 1, 2)
     end
   end
 end
 
-local function surfaceColor(cell, distance, ceiling)
+local function surfaceColor(game, cell, distance, ceiling)
   local red, green, blue
 
   if cell.terrain == "water" then
@@ -466,10 +621,9 @@ local function surfaceColor(cell, distance, ceiling)
     red, green, blue = red * 0.54, green * 0.56, blue * 0.62
   end
 
-  local shade = U.clamp(1 - distance / Renderer.wallRenderDistance, 0.12, 1)
-  local light = 0.48 + (cell.light or 0.45) * 0.45
+  local light = sceneLightAt(game, nil, nil, cell, distance) * (ceiling and 0.8 or 1)
 
-  return red * shade * light, green * shade * light, blue * shade * light
+  return red * light, green * light, blue * light
 end
 
 local function drawFloorCeiling(game, width, height)
@@ -493,7 +647,7 @@ local function drawFloorCeiling(game, width, height)
     local distance = floorDistanceScale / max(y - horizon, 0.001)
 
     if distance < Renderer.wallRenderDistance then
-      love.graphics.setColor(surfaceColor(currentCell, distance, false))
+      love.graphics.setColor(surfaceColor(game, currentCell, distance, false))
       love.graphics.rectangle("fill", 0, y, width, 2)
     end
   end
@@ -502,7 +656,7 @@ local function drawFloorCeiling(game, width, height)
     local distance = ceilingDistanceScale / max(horizon - y, 0.001)
 
     if distance < Renderer.wallRenderDistance then
-      love.graphics.setColor(surfaceColor(currentCell, distance, true))
+      love.graphics.setColor(surfaceColor(game, currentCell, distance, true))
       love.graphics.rectangle("fill", 0, y - 1, width, 2)
     end
   end
@@ -515,7 +669,7 @@ local function drawRaycastWorld(game, width, height)
   local planeScale = tan(player.fov / 2)
   local planeX, planeY = -dirY * planeScale, dirX * planeScale
 
-  drawBackground(width, height, game.torch.fuel)
+  drawBackground(game, width, height)
   drawFloorCeiling(game, width, height)
 
   for screenX = 0, width - 1, Renderer.rayStep do
@@ -610,7 +764,13 @@ local function drawCreatureSprite(game, creature, width, height, depthBuffer)
     return
   end
 
-  local bodyAlpha = U.clamp(1 - sprite.distance / 28, 0.32, 1)
+  local light = spriteLight(game, creature.x, creature.y, sprite.distance)
+  local bodyAlpha = litAlpha(U.clamp(1 - sprite.distance / 28, 0.32, 1), light)
+  if bodyAlpha <= 0.012 then
+    return
+  end
+
+  local bodyLight = U.clamp(light + 0.12, 0, 1.18)
   local bodyWidth = sprite.width
   local headY = -sprite.height * 0.58
   local headRadius = max(3, bodyWidth * 0.21)
@@ -622,7 +782,7 @@ local function drawCreatureSprite(game, creature, width, height, depthBuffer)
   love.graphics.setColor(0, 0, 0, 0.35 * bodyAlpha)
   love.graphics.ellipse("fill", 0, sprite.height * 0.03, bodyWidth * 0.36, max(2, sprite.height * 0.035))
 
-  love.graphics.setColor(color[1], color[2], color[3], bodyAlpha)
+  love.graphics.setColor(color[1] * bodyLight, color[2] * bodyLight, color[3] * bodyLight, bodyAlpha)
   love.graphics.polygon(
     "fill",
     -bodyWidth * 0.34,
@@ -637,7 +797,7 @@ local function drawCreatureSprite(game, creature, width, height, depthBuffer)
     -sprite.height * 0.04
   )
 
-  love.graphics.setColor(color[4], color[5], color[6], bodyAlpha)
+  love.graphics.setColor(color[4] * bodyLight, color[5] * bodyLight, color[6] * bodyLight, bodyAlpha)
   love.graphics.polygon(
     "fill",
     -bodyWidth * 0.16,
@@ -652,18 +812,18 @@ local function drawCreatureSprite(game, creature, width, height, depthBuffer)
     -sprite.height * 0.1
   )
 
-  love.graphics.setColor(color[1] * 0.45, color[2] * 0.45, color[3] * 0.45, bodyAlpha)
+  love.graphics.setColor(color[1] * 0.45 * bodyLight, color[2] * 0.45 * bodyLight, color[3] * 0.45 * bodyLight, bodyAlpha)
   love.graphics.circle("fill", 0, headY, headRadius)
 
   local eyeGlow = 0.6 + (creature.growl or 0) * 0.4
   if creature.kind == "skitter" then
-    love.graphics.setColor(1.0, 0.86, 0.28, bodyAlpha * eyeGlow)
+    love.graphics.setColor(1.0, 0.86, 0.28, bodyAlpha * eyeGlow * U.clamp(0.2 + light, 0, 1))
   elseif creature.kind == "screecher" or creature.kind == "choir" then
-    love.graphics.setColor(0.72, 0.58, 1.0, bodyAlpha * eyeGlow)
+    love.graphics.setColor(0.72, 0.58, 1.0, bodyAlpha * eyeGlow * U.clamp(0.2 + light, 0, 1))
   elseif creature.kind == "leecher" then
-    love.graphics.setColor(0.42, 1.0, 0.74, bodyAlpha * eyeGlow)
+    love.graphics.setColor(0.42, 1.0, 0.74, bodyAlpha * eyeGlow * U.clamp(0.2 + light, 0, 1))
   else
-    love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow)
+    love.graphics.setColor(1.0, 0.76, 0.22, bodyAlpha * eyeGlow * U.clamp(0.2 + light, 0, 1))
   end
   love.graphics.circle("fill", -headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
   love.graphics.circle("fill", headRadius * 0.38, headY - headRadius * 0.12, max(1.5, headRadius * 0.16))
@@ -702,7 +862,13 @@ local function drawNPCSprite(game, npc, width, height, depthBuffer)
     return
   end
 
-  local alpha = U.clamp(1 - sprite.distance / 26, 0.34, 0.95)
+  local light = spriteLight(game, npc.x, npc.y, sprite.distance)
+  local alpha = litAlpha(U.clamp(1 - sprite.distance / 26, 0.34, 0.95), light)
+  if alpha <= 0.012 then
+    return
+  end
+
+  local bodyLight = U.clamp(light + 0.12, 0, 1.18)
   local color = npc.color or { 0.18, 0.36, 0.34, 0.58, 0.92, 0.78 }
   local bodyWidth = sprite.width * 0.82
   local headRadius = max(3, sprite.width * 0.17)
@@ -714,23 +880,23 @@ local function drawNPCSprite(game, npc, width, height, depthBuffer)
   love.graphics.setColor(0, 0, 0, 0.32 * alpha)
   love.graphics.ellipse("fill", 0, sprite.height * 0.03, bodyWidth * 0.34, max(2, sprite.height * 0.035))
 
-  love.graphics.setColor(color[1], color[2], color[3], alpha)
+  love.graphics.setColor(color[1] * bodyLight, color[2] * bodyLight, color[3] * bodyLight, alpha)
   love.graphics.rectangle("fill", -bodyWidth * 0.22, -sprite.height * 0.58, bodyWidth * 0.44, sprite.height * 0.55, 3, 3)
-  love.graphics.setColor(color[4], color[5], color[6], alpha)
+  love.graphics.setColor(color[4] * bodyLight, color[5] * bodyLight, color[6] * bodyLight, alpha)
   love.graphics.rectangle("line", -bodyWidth * 0.25, -sprite.height * 0.61, bodyWidth * 0.5, sprite.height * 0.6, 3, 3)
   love.graphics.rectangle("fill", -bodyWidth * 0.16, -sprite.height * 0.47, bodyWidth * 0.32, max(2, sprite.height * 0.06), 1, 1)
 
-  love.graphics.setColor(0.18, 0.13, 0.08, alpha)
+  love.graphics.setColor(0.18 * bodyLight, 0.13 * bodyLight, 0.08 * bodyLight, alpha)
   love.graphics.circle("fill", 0, headY, headRadius)
-  love.graphics.setColor(0.72, 1, 0.84, alpha)
+  love.graphics.setColor(0.72 * bodyLight, 1 * bodyLight, 0.84 * bodyLight, alpha)
   love.graphics.circle("fill", -headRadius * 0.32, headY - headRadius * 0.08, max(1.2, headRadius * 0.13))
   love.graphics.circle("fill", headRadius * 0.32, headY - headRadius * 0.08, max(1.2, headRadius * 0.13))
 
   if npc.state == "lead" then
-    love.graphics.setColor(0.72, 1, 0.84, alpha * 0.72)
+    love.graphics.setColor(0.72 * bodyLight, 1 * bodyLight, 0.84 * bodyLight, alpha * 0.72)
     love.graphics.line(0, -sprite.height * 0.38, bodyWidth * 0.34, -sprite.height * 0.5)
   elseif npc.state == "flee" then
-    love.graphics.setColor(1, 0.62, 0.28, alpha * 0.8)
+    love.graphics.setColor(1 * bodyLight, 0.62 * bodyLight, 0.28 * bodyLight, alpha * 0.8)
     love.graphics.line(-bodyWidth * 0.28, -sprite.height * 0.38, bodyWidth * 0.28, -sprite.height * 0.48)
   end
 
@@ -762,10 +928,11 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     if not refill.cell.refillUsed then
       local sprite = projectSprite(game, refill.x + 0.5, refill.y + 0.5, refill.cell.floor + 0.08, 0.55, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp(1 - sprite.distance / 18, 0.24, 0.84)
+        local light = spriteLight(game, refill.x + 0.5, refill.y + 0.5, sprite.distance)
+        local alpha = litAlpha(U.clamp(1 - sprite.distance / 18, 0.24, 0.84), max(light, 0.18))
         love.graphics.push()
         love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.3)
-        love.graphics.setColor(0.95, 0.58, 0.16, alpha)
+        love.graphics.setColor(0.95 * max(light, 0.24), 0.58 * max(light, 0.24), 0.16 * max(light, 0.24), alpha)
         love.graphics.rectangle("fill", -sprite.width * 0.22, -sprite.height * 0.2, sprite.width * 0.44, sprite.height * 0.42, 2, 2)
         love.graphics.setColor(1, 0.9, 0.5, alpha * 0.7)
         love.graphics.rectangle("fill", -sprite.width * 0.12, -sprite.height * 0.28, sprite.width * 0.24, sprite.height * 0.1, 2, 2)
@@ -778,14 +945,17 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     if not cache.cell.toolUsed then
       local sprite = projectSprite(game, cache.x + 0.5, cache.y + 0.5, cache.cell.floor + 0.08, 0.52, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp(1 - sprite.distance / 18, 0.24, 0.86)
-        love.graphics.push()
-        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.3)
-        love.graphics.setColor(0.35, 0.88, 0.72, alpha)
-        love.graphics.rectangle("line", -sprite.width * 0.26, -sprite.height * 0.22, sprite.width * 0.52, sprite.height * 0.44, 2, 2)
-        love.graphics.setColor(0.12, 0.28, 0.24, alpha * 0.86)
-        love.graphics.rectangle("fill", -sprite.width * 0.2, -sprite.height * 0.16, sprite.width * 0.4, sprite.height * 0.32, 2, 2)
-        love.graphics.pop()
+        local light = spriteLight(game, cache.x + 0.5, cache.y + 0.5, sprite.distance)
+        local alpha = litAlpha(U.clamp(1 - sprite.distance / 18, 0.24, 0.86), light)
+        if alpha > 0.012 then
+          love.graphics.push()
+          love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.3)
+          love.graphics.setColor(0.35 * light, 0.88 * light, 0.72 * light, alpha)
+          love.graphics.rectangle("line", -sprite.width * 0.26, -sprite.height * 0.22, sprite.width * 0.52, sprite.height * 0.44, 2, 2)
+          love.graphics.setColor(0.12 * light, 0.28 * light, 0.24 * light, alpha * 0.86)
+          love.graphics.rectangle("fill", -sprite.width * 0.2, -sprite.height * 0.16, sprite.width * 0.4, sprite.height * 0.32, 2, 2)
+          love.graphics.pop()
+        end
       end
     end
   end
@@ -810,32 +980,38 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     if prop.kind ~= "flare" and (prop.ttl or 0) > 0 then
       local sprite = projectSprite(game, prop.x, prop.y, Actor.floorAt(game.level, prop.x, prop.y) + 0.08, 0.35, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp((prop.ttl or 0) / 30, 0.24, 0.92)
-        love.graphics.push()
-        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.22)
-        if prop.kind == "scent" then
-          love.graphics.setColor(0.36, 0.9, 0.58, alpha)
-          love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.28))
-        elseif prop.kind == "snare" then
-          love.graphics.setColor(0.82, 0.82, 0.72, prop.armed and alpha or alpha * 0.35)
-          love.graphics.line(-sprite.width * 0.32, 0, sprite.width * 0.32, 0)
-        elseif prop.kind == "noisemaker" then
-          love.graphics.setColor(0.6, 0.9, 1, alpha)
-          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.12, sprite.width * 0.4, sprite.height * 0.24, 2, 2)
-        elseif prop.kind == "pheromone" then
-          love.graphics.setColor(0.32, 0.95, 0.52, alpha)
-          love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
-          love.graphics.line(-sprite.width * 0.28, 0, sprite.width * 0.28, 0)
-        elseif prop.kind == "probe" then
-          love.graphics.setColor(0.82, 0.9, 1, alpha)
-          love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 1, 1)
-          love.graphics.circle("line", 0, 0, max(4, sprite.width * 0.22))
-        elseif prop.kind == "beacon" then
-          love.graphics.setColor(0.95, 0.55, 0.18, alpha)
-          love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.22, sprite.width * 0.4, sprite.height * 0.44, 2, 2)
-          love.graphics.line(-sprite.width * 0.32, -sprite.height * 0.3, sprite.width * 0.32, -sprite.height * 0.3)
+        local light = spriteLight(game, prop.x, prop.y, sprite.distance)
+        if prop.kind == "beacon" then
+          light = max(light, 0.38)
         end
-        love.graphics.pop()
+        local alpha = litAlpha(U.clamp((prop.ttl or 0) / 30, 0.24, 0.92), light)
+        if alpha > 0.012 then
+          love.graphics.push()
+          love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.22)
+          if prop.kind == "scent" then
+            love.graphics.setColor(0.36 * light, 0.9 * light, 0.58 * light, alpha)
+            love.graphics.circle("line", 0, 0, max(5, sprite.width * 0.28))
+          elseif prop.kind == "snare" then
+            love.graphics.setColor(0.82 * light, 0.82 * light, 0.72 * light, prop.armed and alpha or alpha * 0.35)
+            love.graphics.line(-sprite.width * 0.32, 0, sprite.width * 0.32, 0)
+          elseif prop.kind == "noisemaker" then
+            love.graphics.setColor(0.6 * light, 0.9 * light, 1 * light, alpha)
+            love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.12, sprite.width * 0.4, sprite.height * 0.24, 2, 2)
+          elseif prop.kind == "pheromone" then
+            love.graphics.setColor(0.32 * light, 0.95 * light, 0.52 * light, alpha)
+            love.graphics.circle("line", 0, 0, max(7, sprite.width * 0.38))
+            love.graphics.line(-sprite.width * 0.28, 0, sprite.width * 0.28, 0)
+          elseif prop.kind == "probe" then
+            love.graphics.setColor(0.82 * light, 0.9 * light, 1 * light, alpha)
+            love.graphics.rectangle("line", -sprite.width * 0.18, -sprite.height * 0.18, sprite.width * 0.36, sprite.height * 0.36, 1, 1)
+            love.graphics.circle("line", 0, 0, max(4, sprite.width * 0.22))
+          elseif prop.kind == "beacon" then
+            love.graphics.setColor(0.95, 0.55, 0.18, alpha)
+            love.graphics.rectangle("line", -sprite.width * 0.2, -sprite.height * 0.22, sprite.width * 0.4, sprite.height * 0.44, 2, 2)
+            love.graphics.line(-sprite.width * 0.32, -sprite.height * 0.3, sprite.width * 0.32, -sprite.height * 0.3)
+          end
+          love.graphics.pop()
+        end
       end
     end
   end
@@ -844,21 +1020,24 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     if signal.discovered or (game.survey and game.survey.ttl > 0) then
       local sprite = projectSprite(game, signal.x, signal.y, Actor.floorAt(game.level, signal.x, signal.y) + 0.025, 0.18, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = signal.discovered and U.clamp((signal.strength or 1) * 0.55, 0.24, 0.72) or 0.24
-        love.graphics.push()
-        love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.12)
-        if signal.kind == "wet_tracks" then
-          love.graphics.setColor(0.24, 0.58, 0.86, alpha)
-        elseif signal.kind == "pheromone" then
-          love.graphics.setColor(0.32, 0.92, 0.5, alpha)
-        elseif signal.kind == "alarm_mark" or signal.kind == "scratch" then
-          love.graphics.setColor(0.9, 0.2, 0.12, alpha)
-        else
-          love.graphics.setColor(0.9, 0.72, 0.38, alpha)
+        local light = max(spriteLight(game, signal.x, signal.y, sprite.distance), game.survey and game.survey.ttl > 0 and 0.22 or 0)
+        local alpha = litAlpha(signal.discovered and U.clamp((signal.strength or 1) * 0.55, 0.24, 0.72) or 0.24, light)
+        if alpha > 0.012 then
+          love.graphics.push()
+          love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.12)
+          if signal.kind == "wet_tracks" then
+            love.graphics.setColor(0.24 * light, 0.58 * light, 0.86 * light, alpha)
+          elseif signal.kind == "pheromone" then
+            love.graphics.setColor(0.32 * light, 0.92 * light, 0.5 * light, alpha)
+          elseif signal.kind == "alarm_mark" or signal.kind == "scratch" then
+            love.graphics.setColor(0.9 * light, 0.2 * light, 0.12 * light, alpha)
+          else
+            love.graphics.setColor(0.9 * light, 0.72 * light, 0.38 * light, alpha)
+          end
+          love.graphics.line(-sprite.width * 0.42, 0, sprite.width * 0.42, 0)
+          love.graphics.line(0, -sprite.height * 0.18, 0, sprite.height * 0.18)
+          love.graphics.pop()
         end
-        love.graphics.line(-sprite.width * 0.42, 0, sprite.width * 0.42, 0)
-        love.graphics.line(0, -sprite.height * 0.18, 0, sprite.height * 0.18)
-        love.graphics.pop()
       end
     end
   end
@@ -867,7 +1046,8 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     if not key.cell.key.collected then
       local sprite = projectSprite(game, key.x + 0.5, key.y + 0.5, key.cell.floor + 0.12, 0.45, width, height)
       if spriteVisible(sprite, width, depthBuffer) then
-        local alpha = U.clamp(1 - sprite.distance / 18, 0.28, 0.9)
+        local light = max(spriteLight(game, key.x + 0.5, key.y + 0.5, sprite.distance), key.kind == "exit" and 0.28 or 0.18)
+        local alpha = litAlpha(U.clamp(1 - sprite.distance / 18, 0.28, 0.9), light)
         love.graphics.push()
         love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.32)
         if key.kind == "exit" then
@@ -887,10 +1067,11 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     local exit = game.level.exit
     local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)
     if spriteVisible(sprite, width, depthBuffer) then
-      local alpha = U.clamp(1 - sprite.distance / 24, 0.3, 0.92)
+      local light = max(spriteLight(game, exit.x + 0.5, exit.y + 0.5, sprite.distance), 0.24)
+      local alpha = litAlpha(U.clamp(1 - sprite.distance / 24, 0.3, 0.92), light)
       love.graphics.push()
       love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.5)
-      love.graphics.setColor(0.02, 0.015, 0.01, alpha)
+      love.graphics.setColor(0.02 * light, 0.015 * light, 0.01 * light, alpha)
       love.graphics.ellipse("fill", 0, sprite.height * 0.08, sprite.width * 0.54, sprite.height * 0.24)
       love.graphics.setColor(0.98, 0.7, 0.22, alpha)
       love.graphics.ellipse("line", 0, sprite.height * 0.08, sprite.width * 0.56, sprite.height * 0.26)
@@ -903,13 +1084,13 @@ end
 
 local function drawTorch(game, width, height)
   local player = game.player
-  local fuel = game.torch.fuel
+  local fuel = activeTorchFuel(game)
   local bob = sin(player.bob) * (player.moving and 7 or 2)
   local flicker = (sin(game.survivalTime * 18.5) * 3 + sin(game.survivalTime * 33.7) * 2) * (0.3 + fuel)
   local handY = height - 54 + bob
   local torchX = width * 0.57 + sin(player.bob * 0.5) * 4
   local torchY = height - 102 + bob
-  local flame = U.clamp(fuel, 0.08, 1)
+  local flame = U.clamp(fuel, 0, 1)
 
   love.graphics.setColor(0.10, 0.055, 0.035, 0.92)
   love.graphics.polygon("fill", width * 0.33, height, width * 0.4, handY - 18, width * 0.52, handY - 4, width * 0.51, height)
@@ -940,6 +1121,66 @@ local function drawTorch(game, width, height)
   love.graphics.circle("fill", width * 0.5, height * 0.55, max(width, height) * (0.24 + fuel * 0.2))
 end
 
+local function drawHeldMap(game, width, height)
+  local level = game.level
+  local player = game.player
+  if not level or not player then
+    return
+  end
+
+  local cellSize = min(width * 0.42 / level.width, height * 0.34 / level.height, 7)
+  local mapWidth = level.width * cellSize
+  local mapHeight = level.height * cellSize
+  local bob = sin(player.bob or 0) * (player.moving and 7 or 3)
+  local paperWidth = mapWidth + 74
+  local paperHeight = mapHeight + 58
+  local left = (width - paperWidth) * 0.5 + sin((player.bob or 0) * 0.6) * 3
+  local top = height - paperHeight - 18 + bob
+  local right = left + paperWidth
+  local bottom = top + paperHeight
+
+  love.graphics.setColor(0.025, 0.017, 0.012, 0.94)
+  love.graphics.polygon("fill", width * 0.22, height, left + 44, bottom - 22, left + 122, bottom + 10, width * 0.34, height)
+  love.graphics.polygon("fill", width * 0.78, height, right - 44, bottom - 26, right - 126, bottom + 12, width * 0.66, height)
+
+  love.graphics.setColor(0.026, 0.02, 0.016, 0.82)
+  love.graphics.polygon("fill", left + 6, top + 10, right - 10, top + 2, right + 8, bottom - 12, left - 8, bottom - 2)
+
+  love.graphics.setColor(0.24, 0.20, 0.13, 0.96)
+  love.graphics.polygon("fill", left, top + 7, right - 12, top, right, bottom - 16, left - 10, bottom)
+
+  love.graphics.setColor(0.06, 0.045, 0.032, 0.38)
+  love.graphics.rectangle("fill", left + 22, top + 20, paperWidth - 44, paperHeight - 40, 4, 4)
+  love.graphics.setColor(0.42, 0.35, 0.23, 0.52)
+  love.graphics.rectangle("line", left + 20, top + 18, paperWidth - 40, paperHeight - 36, 4, 4)
+  love.graphics.line(left + paperWidth * 0.5, top + 16, left + paperWidth * 0.5 + 8, bottom - 20)
+  love.graphics.line(left + 24, top + paperHeight * 0.5, right - 26, top + paperHeight * 0.5 - 5)
+
+  love.graphics.setColor(0.02, 0.012, 0.009, 0.76)
+  love.graphics.polygon("fill", left - 16, bottom - 32, left + 48, bottom - 60, left + 104, bottom - 12, left + 34, bottom + 8)
+  love.graphics.polygon("fill", right + 16, bottom - 36, right - 48, bottom - 62, right - 108, bottom - 10, right - 36, bottom + 8)
+end
+
+local function drawAtmosphere(game, width, height)
+  local player = game.player
+  local cell = player and Level.cellAtWorld(game.level, player.x, player.y)
+  local ambient = environmentLight(game, cell)
+  local fuel = activeTorchFuel(game)
+  local darkness = U.clamp(0.52 + blackoutAmount(game) * 0.2 - fuel * 0.32 - ambient * 0.42, 0.14, 0.66)
+
+  if mapIsHeld(game) then
+    darkness = max(darkness, 0.48)
+  end
+
+  love.graphics.setColor(0, 0, 0, darkness * 0.18)
+  love.graphics.rectangle("fill", 0, 0, width, height)
+  love.graphics.setColor(0, 0, 0, darkness * 0.34)
+  love.graphics.rectangle("fill", 0, 0, width, height * 0.18)
+  love.graphics.rectangle("fill", 0, height * 0.82, width, height * 0.18)
+  love.graphics.rectangle("fill", 0, 0, width * 0.12, height)
+  love.graphics.rectangle("fill", width * 0.88, 0, width * 0.12, height)
+end
+
 local function drawScene(game)
   local width, height = love.graphics.getDimensions()
   local depthBuffer = drawRaycastWorld(game, width, height)
@@ -947,7 +1188,12 @@ local function drawScene(game)
   drawPickupSprites(game, width, height, depthBuffer)
   drawNPCs(game, width, height, depthBuffer)
   drawCreatures(game, width, height, depthBuffer)
-  drawTorch(game, width, height)
+  drawAtmosphere(game, width, height)
+  if mapIsHeld(game) then
+    drawHeldMap(game, width, height)
+  else
+    drawTorch(game, width, height)
+  end
 end
 
 function Renderer.draw(game)
@@ -962,13 +1208,13 @@ function Renderer.drawFrame(game, drawCallback)
   elseif Renderer.renderMode == "crt" and Renderer.crtShader then
     drawToCanvas(width, height, drawCallback)
     Renderer.crtShader:send("time", game.survivalTime)
-    Renderer.crtShader:send("fuel", game.torch.fuel)
+    Renderer.crtShader:send("fuel", activeTorchFuel(game))
     drawCanvasWithShader(Renderer.crtShader)
   elseif Renderer.renderMode == "mono" and Renderer.monoShader then
     drawToCanvas(width, height, drawCallback)
     local palette = Renderer.currentPalette()
     Renderer.monoShader:send("screenSize", { width, height })
-    Renderer.monoShader:send("fuel", game.torch.fuel)
+    Renderer.monoShader:send("fuel", activeTorchFuel(game))
     Renderer.monoShader:send("paper", palette.paper)
     Renderer.monoShader:send("ink", palette.ink)
     drawCanvasWithShader(Renderer.monoShader)
