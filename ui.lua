@@ -500,10 +500,18 @@ local function drawConversationOverlay(game, width, height)
 
   local npc = convo.npc or { name = "Guide", callsign = "GUIDE", title = "survivor" }
   local topics = convo.topics or {}
-  local panelWidth = min(width - 80, 720)
-  local panelHeight = min(height - 80, 380)
+  local panelWidth = min(width - 80, 860)
+  local panelHeight = min(height - 80, 430)
   local x = (width - panelWidth) * 0.5
   local y = (height - panelHeight) * 0.5
+  local selectedIndex = convo.index or 1
+  local selectedTopic = topics[selectedIndex] or topics[1] or {}
+  local dialCx = x + panelWidth * 0.31
+  local dialCy = y + panelHeight * 0.54
+  local dialRadius = min(panelWidth * 0.22, panelHeight * 0.28)
+  local responseX = x + panelWidth * 0.56
+  local responseY = y + 74
+  local responseWidth = panelWidth - (responseX - x) - 26
 
   love.graphics.setColor(0, 0, 0, 0.74)
   love.graphics.rectangle("fill", 0, 0, width, height)
@@ -518,24 +526,66 @@ local function drawConversationOverlay(game, width, height)
   love.graphics.setColor(0.5, 0.82, 0.7)
   love.graphics.printf(string.upper(npc.title or "survivor"), x + 24, y + 18, panelWidth - 48, "right")
 
-  local topicY = y + 64
-  local topicWidth = 210
+  love.graphics.setColor(0.035, 0.052, 0.048, 0.96)
+  love.graphics.circle("fill", dialCx, dialCy, dialRadius + 56)
+  love.graphics.setColor(0.15, 0.34, 0.28, 0.5)
+  love.graphics.circle("line", dialCx, dialCy, dialRadius + 28)
+  love.graphics.circle("line", dialCx, dialCy, dialRadius - 16)
+
   for i, topic in ipairs(topics) do
-    local selected = i == (convo.index or 1)
-    love.graphics.setColor(selected and 0.18 or 0.08, selected and 0.24 or 0.12, selected and 0.2 or 0.105, 0.94)
-    love.graphics.rectangle("fill", x + 24, topicY - 4, topicWidth, 30, 3, 3)
-    love.graphics.setColor(selected and 0.78 or 0.48, selected and 1 or 0.74, selected and 0.84 or 0.66)
-    love.graphics.print(string.upper(topic.label or topic.id or "topic"), x + 36, topicY + 3)
-    topicY = topicY + 36
+    local angle = ((i - 1) / max(1, #topics)) * math.pi * 2 - math.pi * 0.5
+    local nodeX = dialCx + cos(angle) * dialRadius
+    local nodeY = dialCy + sin(angle) * dialRadius
+    local selected = i == selectedIndex
+    local asked = convo.asked and convo.asked[topic.id]
+
+    love.graphics.setColor(selected and 0.42 or 0.12, selected and 0.96 or 0.32, selected and 0.72 or 0.28, selected and 0.36 or 0.18)
+    love.graphics.setLineWidth(selected and 3 or 1)
+    love.graphics.line(dialCx, dialCy, nodeX, nodeY)
+
+    love.graphics.setColor(selected and 0.16 or 0.055, selected and 0.24 or 0.095, selected and 0.19 or 0.085, 0.96)
+    love.graphics.circle("fill", nodeX, nodeY, selected and 38 or 30)
+    love.graphics.setColor(selected and 0.82 or 0.35, selected and 1 or 0.68, selected and 0.86 or 0.55, selected and 0.98 or 0.82)
+    love.graphics.circle("line", nodeX, nodeY, selected and 38 or 30)
+    if asked then
+      love.graphics.setColor(0.92, 0.72, 0.34, 0.95)
+      love.graphics.circle("fill", nodeX + 22, nodeY - 21, 5)
+    end
+    love.graphics.setColor(selected and 0.92 or 0.62, selected and 1 or 0.78, selected and 0.86 or 0.66)
+    love.graphics.printf(tostring(i), nodeX - 18, nodeY - 20, 36, "center")
+    love.graphics.printf(string.upper(topic.label or topic.id or "topic"):sub(1, 8), nodeX - 48, nodeY + 2, 96, "center")
   end
 
+  love.graphics.setLineWidth(1)
   love.graphics.setColor(0.10, 0.16, 0.14, 0.94)
-  love.graphics.rectangle("fill", x + 258, y + 64, panelWidth - 282, panelHeight - 126, 3, 3)
+  love.graphics.circle("fill", dialCx, dialCy, 46)
+  love.graphics.setColor(0.62, 1, 0.84, 0.95)
+  love.graphics.circle("line", dialCx, dialCy, 46)
+  love.graphics.printf(npc.callsign or "GUIDE", dialCx - 44, dialCy - 11, 88, "center")
+
+  love.graphics.setColor(0.10, 0.16, 0.14, 0.94)
+  love.graphics.rectangle("fill", responseX, responseY, responseWidth, panelHeight - 142, 3, 3)
+  love.graphics.setColor(0.38, 0.92, 0.76, 0.42)
+  love.graphics.rectangle("line", responseX, responseY, responseWidth, panelHeight - 142, 3, 3)
+  love.graphics.setColor(0.72, 1, 0.86)
+  love.graphics.print(string.upper(selectedTopic.label or selectedTopic.id or "topic"), responseX + 18, responseY + 16)
+  love.graphics.setColor(0.48, 0.78, 0.66)
+  love.graphics.printf(string.upper(selectedTopic.summary or "deck read"), responseX + 18, responseY + 16, responseWidth - 36, "right")
   love.graphics.setColor(0.84, 0.94, 0.78)
-  love.graphics.printf(convo.response or "", x + 278, y + 86, panelWidth - 322)
+  love.graphics.printf(convo.response or "", responseX + 18, responseY + 54, responseWidth - 36)
+
+  if convo.history and #convo.history > 0 then
+    local historyY = responseY + panelHeight - 218
+    love.graphics.setColor(0.46, 0.72, 0.62, 0.72)
+    for i = 1, min(2, #convo.history) do
+      local item = convo.history[i]
+      love.graphics.printf(string.upper(item.label or "READ") .. " / " .. (item.response or ""):sub(1, 74), responseX + 18, historyY, responseWidth - 36)
+      historyY = historyY + 24
+    end
+  end
 
   love.graphics.setColor(0.44, 0.72, 0.62)
-  love.graphics.printf("UP/DOWN SELECT  ENTER ASK  F/ESC CLOSE", x + 24, y + panelHeight - 38, panelWidth - 48, "center")
+  love.graphics.printf("ARROWS SELECT  ENTER ASK  1-8 QUICK ASK  F/ESC CLOSE", x + 24, y + panelHeight - 38, panelWidth - 48, "center")
 end
 
 local function drawEndState(game, width, height)

@@ -727,6 +727,33 @@ local function projectSprite(game, x, y, floorZ, height, width, screenHeight)
   }
 end
 
+local function projectWorldPoint(game, x, y, z, width, screenHeight)
+  local player = game.player
+  local dx, dy = x - player.x, y - player.y
+  local dirX, dirY = cos(player.angle), sin(player.angle)
+  local planeScale = tan(player.fov / 2)
+  local planeX, planeY = -dirY * planeScale, dirX * planeScale
+  local determinant = planeX * dirY - dirX * planeY
+
+  if abs(determinant) < 0.00001 then
+    return nil
+  end
+
+  local inverseDet = 1 / determinant
+  local transformX = inverseDet * (dirY * dx - dirX * dy)
+  local transformY = inverseDet * (-planeY * dx + planeX * dy)
+
+  if transformY <= 0.08 then
+    return nil
+  end
+
+  return {
+    x = (width / 2) * (1 + transformX / transformY),
+    y = projectWorldZ(game, z, transformY, screenHeight),
+    distance = transformY,
+  }
+end
+
 local function spriteVisible(sprite, width, depthBuffer)
   if not sprite or sprite.height < 4 or sprite.right < 0 or sprite.left > width then
     return false
@@ -739,6 +766,142 @@ local function spriteVisible(sprite, width, depthBuffer)
   end
 
   return false
+end
+
+local function projectedCircle(game, x, y, z, radius, width, height, steps)
+  local points = {}
+
+  for i = 1, steps do
+    local angle = (i - 1) / steps * math.pi * 2
+    local point = projectWorldPoint(game, x + cos(angle) * radius, y + sin(angle) * radius, z, width, height)
+    if not point then
+      return nil
+    end
+    points[#points + 1] = point
+  end
+
+  return points
+end
+
+local function flattenPoints(points)
+  local flattened = {}
+  for _, point in ipairs(points or {}) do
+    flattened[#flattened + 1] = point.x
+    flattened[#flattened + 1] = point.y
+  end
+  return flattened
+end
+
+local function projectedCenterVisible(center, width, depthBuffer)
+  if not center or center.x < 0 or center.x >= width then
+    return false
+  end
+
+  local x = U.clamp(floor(center.x), 0, width - 1)
+  return center.distance < (depthBuffer[x + 1] or math.huge) + 0.08
+end
+
+local function drawExitShaft(game, width, height, depthBuffer)
+  local exit = game.level and game.level.exit
+  if not exit or not exit.cell then
+    return
+  end
+
+  local cx, cy = exit.x + 0.5, exit.y + 0.5
+  local floorZ = (exit.cell.floor or 0) + 0.018
+  local center = projectWorldPoint(game, cx, cy, floorZ, width, height)
+  if not projectedCenterVisible(center, width, depthBuffer) then
+    return
+  end
+
+  local outer = projectedCircle(game, cx, cy, floorZ, 0.58, width, height, 18)
+  local lip = projectedCircle(game, cx, cy, floorZ + 0.012, 0.48, width, height, 18)
+  local throat = projectedCircle(game, cx, cy, floorZ - 0.58, 0.34, width, height, 18)
+  if not outer or not lip or not throat then
+    return
+  end
+
+  local light = max(spriteLight(game, cx, cy, center.distance), 0.24)
+  local pulse = 0.82 + sin((game.survivalTime or 0) * 2.8) * 0.08
+
+  love.graphics.setColor(0.86 * light, 0.56 * light, 0.18 * light, 0.62 * pulse)
+  love.graphics.polygon("fill", flattenPoints(outer))
+
+  love.graphics.setColor(0.03 * light, 0.022 * light, 0.016 * light, 0.98)
+  love.graphics.polygon("fill", flattenPoints(lip))
+
+  for i = 1, #lip do
+    local nextIndex = (i % #lip) + 1
+    local shade = (i % 2 == 0) and 0.75 or 1
+    love.graphics.setColor(0.14 * light * shade, 0.085 * light * shade, 0.035 * light * shade, 0.8)
+    love.graphics.polygon(
+      "fill",
+      lip[i].x,
+      lip[i].y,
+      lip[nextIndex].x,
+      lip[nextIndex].y,
+      throat[nextIndex].x,
+      throat[nextIndex].y,
+      throat[i].x,
+      throat[i].y
+    )
+  end
+
+  love.graphics.setColor(0, 0, 0, 0.96)
+  love.graphics.polygon("fill", flattenPoints(throat))
+
+  love.graphics.setColor(1, 0.72, 0.24, 0.28 * light * pulse)
+  love.graphics.setLineWidth(2)
+  love.graphics.polygon("line", flattenPoints(outer))
+  love.graphics.setColor(0, 0, 0, 0.74)
+  love.graphics.polygon("line", flattenPoints(lip))
+  love.graphics.setLineWidth(1)
+end
+
+local function drawLightBloomAt(game, width, height, depthBuffer, x, y, floorZ, radius, red, green, blue, alpha)
+  local sprite = projectSprite(game, x, y, floorZ, 0.4, width, height)
+  if not spriteVisible(sprite, width, depthBuffer) then
+    return
+  end
+
+  local strength = U.clamp(1 - sprite.distance / 24, 0, 1) * (alpha or 0.1)
+  if strength <= 0.01 then
+    return
+  end
+
+  love.graphics.setColor(red, green, blue, strength * 0.34)
+  love.graphics.circle("fill", sprite.x, sprite.y - sprite.height * 0.32, max(8, sprite.width * radius))
+  love.graphics.setColor(red, green, blue, strength * 0.16)
+  love.graphics.circle("fill", sprite.x, sprite.y - sprite.height * 0.32, max(16, sprite.width * radius * 1.9))
+end
+
+local function drawLightBlooms(game, width, height, depthBuffer)
+  for _, effect in ipairs(game.effects or {}) do
+    if effect.kind == "flare" and (effect.ttl or 0) > 0 then
+      local floorZ = Actor.floorAt(game.level, effect.x, effect.y) + 0.18
+      local burn = U.clamp((effect.ttl or 0) / 9, 0.22, 1)
+      drawLightBloomAt(game, width, height, depthBuffer, effect.x, effect.y, floorZ, 2.8, 1, 0.42, 0.12, 0.42 * burn)
+    end
+  end
+
+  for _, prop in ipairs(game.props or {}) do
+    if prop.kind == "beacon" and (prop.ttl or 0) > 0 then
+      local floorZ = Actor.floorAt(game.level, prop.x, prop.y) + 0.16
+      drawLightBloomAt(game, width, height, depthBuffer, prop.x, prop.y, floorZ, 2.3, 0.95, 0.55, 0.18, 0.24)
+    end
+  end
+
+  for _, key in ipairs(game.level.keys or {}) do
+    if key.cell and key.cell.key and not key.cell.key.collected then
+      local strength = key.kind == "exit" and 0.18 or 0.1
+      drawLightBloomAt(game, width, height, depthBuffer, key.x + 0.5, key.y + 0.5, key.cell.floor + 0.22, 1.5, 1, 0.78, 0.22, strength)
+    end
+  end
+
+  if game.level.exit then
+    local exit = game.level.exit
+    drawLightBloomAt(game, width, height, depthBuffer, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.36, 2.2, 1, 0.66, 0.2, 0.18)
+  end
 end
 
 local creatureColors = {
@@ -1063,23 +1226,6 @@ local function drawPickupSprites(game, width, height, depthBuffer)
     end
   end
 
-  if game.level.exit then
-    local exit = game.level.exit
-    local sprite = projectSprite(game, exit.x + 0.5, exit.y + 0.5, exit.cell.floor + 0.08, 0.95, width, height)
-    if spriteVisible(sprite, width, depthBuffer) then
-      local light = max(spriteLight(game, exit.x + 0.5, exit.y + 0.5, sprite.distance), 0.24)
-      local alpha = litAlpha(U.clamp(1 - sprite.distance / 24, 0.3, 0.92), light)
-      love.graphics.push()
-      love.graphics.translate(sprite.x, sprite.y - sprite.height * 0.5)
-      love.graphics.setColor(0.02 * light, 0.015 * light, 0.01 * light, alpha)
-      love.graphics.ellipse("fill", 0, sprite.height * 0.08, sprite.width * 0.54, sprite.height * 0.24)
-      love.graphics.setColor(0.98, 0.7, 0.22, alpha)
-      love.graphics.ellipse("line", 0, sprite.height * 0.08, sprite.width * 0.56, sprite.height * 0.26)
-      love.graphics.line(-sprite.width * 0.36, -sprite.height * 0.14, sprite.width * 0.36, -sprite.height * 0.14)
-      love.graphics.line(-sprite.width * 0.22, -sprite.height * 0.27, sprite.width * 0.22, -sprite.height * 0.27)
-      love.graphics.pop()
-    end
-  end
 end
 
 local function drawTorch(game, width, height)
@@ -1189,6 +1335,8 @@ local function drawScene(game)
   local width, height = love.graphics.getDimensions()
   local depthBuffer = drawRaycastWorld(game, width, height)
 
+  drawLightBlooms(game, width, height, depthBuffer)
+  drawExitShaft(game, width, height, depthBuffer)
   drawPickupSprites(game, width, height, depthBuffer)
   drawNPCs(game, width, height, depthBuffer)
   drawCreatures(game, width, height, depthBuffer)
