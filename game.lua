@@ -1072,6 +1072,25 @@ local function nearestItem(items, predicate)
   return best, bestDistance
 end
 
+local function nearestCellMarker(items, predicate)
+  local best
+  local bestDistance = math.huge
+
+  for _, item in ipairs(items or {}) do
+    if not predicate or predicate(item) then
+      local x = (item.x or 0) + 0.5
+      local y = (item.y or 0) + 0.5
+      local distance = distanceToPlayer(x, y)
+      if distance < bestDistance then
+        best = item
+        bestDistance = distance
+      end
+    end
+  end
+
+  return best, bestDistance
+end
+
 local function directionToCell(x, y)
   local path = Level.findPath(Game.level, floor(Game.player.x), floor(Game.player.y), x, y)
   local targetX = x + 0.5
@@ -1099,6 +1118,10 @@ local function directionToCell(x, y)
   return string.format("%s, about %dm", direction, floor(distance + 0.5))
 end
 
+local function directionToPoint(x, y)
+  return directionToCell(floor(x), floor(y))
+end
+
 local function topicTarget(item)
   if not item then
     return nil
@@ -1118,6 +1141,7 @@ local function routeTopic()
       return {
         id = "route",
         label = "Route",
+        summary = "best next move",
         response = "A key is " .. directionToCell(key.x, key.y) .. ". Grab it before relying on locked shortcuts.",
         target = topicTarget(key),
         lead = true,
@@ -1129,13 +1153,14 @@ local function routeTopic()
     return {
       id = "route",
       label = "Route",
+      summary = "path to shaft",
       response = "The drop shaft is " .. directionToCell(level.exit.x, level.exit.y) .. ". You need the exit key before it opens.",
       target = topicTarget(level.exit),
       lead = true,
     }
   end
 
-  return { id = "route", label = "Route", response = "I do not have a clean route read on this deck yet." }
+  return { id = "route", label = "Route", summary = "no route lock", response = "I do not have a clean route read on this deck yet." }
 end
 
 local function exitTopic()
@@ -1145,13 +1170,14 @@ local function exitTopic()
     return {
       id = "exit",
       label = "Exit",
+      summary = Game.keys.exit and "shaft ready" or "needs exit key",
       response = state .. " The drop shaft is " .. directionToCell(level.exit.x, level.exit.y) .. ".",
       target = topicTarget(level.exit),
       lead = true,
     }
   end
 
-  return { id = "exit", label = "Exit", response = "No exit read from here. Follow the widest route." }
+  return { id = "exit", label = "Exit", summary = "no shaft read", response = "No exit read from here. Follow the widest route." }
 end
 
 local function keyTopic()
@@ -1164,6 +1190,7 @@ local function keyTopic()
     return {
       id = "key",
       label = "Key",
+      summary = label,
       response = "The nearest " .. label .. " is " .. directionToCell(key.x, key.y) .. ". Small keys open nearby shortcuts with F.",
       target = topicTarget(key),
       lead = true,
@@ -1173,6 +1200,7 @@ local function keyTopic()
   return {
     id = "key",
     label = "Key",
+    summary = "inventory",
     response = string.format("Keys held: exit %s, small %d.", Game.keys.exit and "yes" or "no", Game.keys.small or 0),
   }
 end
@@ -1186,26 +1214,45 @@ local function shelterTopic()
     return {
       id = "shelter",
       label = "Shelter",
+      summary = "wake point",
       response = "The nearest shelter is " .. directionToCell(shelter.x, shelter.y) .. ". Step onto it to reset your wake point and refill time.",
       target = topicTarget(shelter),
       lead = true,
     }
   end
 
-  return { id = "shelter", label = "Shelter", response = "I do not see a shelter mark nearby. Keep moving and watch for safe floor marks." }
+  return { id = "shelter", label = "Shelter", summary = "none nearby", response = "I do not see a shelter mark nearby. Keep moving and watch for safe floor marks." }
 end
 
 local function threatTopic()
   local threat, distance = Actor.nearestThreat(Game)
   if not threat then
-    return { id = "threat", label = "Threat", response = "No major threat has the deck center right now. Listen for sudden noise chains." }
+    return { id = "threat", label = "Threat", summary = "quiet read", response = "No major threat has the deck center right now. Listen for sudden noise chains." }
   end
 
   local advice = NPCContent.creatureAdvice[threat.kind] or "Break sight, reduce noise, and force it around terrain."
   return {
     id = "threat",
     label = "Threat",
+    summary = string.upper(threat.kind or "contact"),
     response = string.format("%s pressure is about %dm out and currently %s. %s", string.upper(threat.kind or "threat"), floor((distance or 0) + 0.5), string.upper(threat.state or "moving"), advice),
+  }
+end
+
+local function cycleTopic()
+  local cycle = Game.ecology and Game.ecology.cycle
+  local incident = Game.ecology and Game.ecology.active or "quiet"
+  if not cycle then
+    return { id = "cycle", label = "Cycle", summary = "unknown", response = "The deck cycle is not giving a stable read. Treat every quiet stretch as borrowed time." }
+  end
+
+  local pressure = cycle.pressure or 0
+  local pulseText = (cycle.pulseEvery or 0) > 0 and string.format(" Pulses repeat about every %.0fs.", cycle.pulseEvery) or " No regular pulse right now."
+  return {
+    id = "cycle",
+    label = "Cycle",
+    summary = string.upper(cycle.label or "phase"),
+    response = string.format("%s phase has %ds left. Active pressure is %.0f%% and the incident read is %s.%s", string.upper(cycle.label or "cycle"), floor(cycle.timer or 0), pressure * 100, string.upper(incident), pulseText),
   }
 end
 
@@ -1220,7 +1267,128 @@ local function biomeTopic()
   return {
     id = "biome",
     label = "Biome",
+    summary = profile.label or "area",
     response = string.format("%s: %s Active pressure is %s.%s", profile.label or "UNKNOWN", advice, string.upper(incident or "quiet"), pressureText),
+  }
+end
+
+local systemLabels = {
+  lights = "lights",
+  doors = "doors",
+  pumps = "pumps",
+  vents = "vents",
+  decoy = "decoy",
+  lift = "lift",
+}
+
+local function systemsTopic()
+  local level = Game.level
+  local powered = {}
+  local offline = {}
+
+  for _, name in ipairs({ "lights", "doors", "pumps", "vents", "decoy", "lift" }) do
+    local system = level.systems and level.systems[name]
+    if system and system.powered then
+      powered[#powered + 1] = systemLabels[name] or name
+    elseif system then
+      offline[#offline + 1] = systemLabels[name] or name
+    end
+  end
+
+  local used = Level.powerUsed(level)
+  local capacity = Level.powerCapacity(level)
+  local terminal = nearestCellMarker(level.terminals, function(item)
+    return item.cell and item.cell.terminal
+  end)
+  local terminalText = terminal and (" Nearest terminal is " .. directionToCell(terminal.x, terminal.y) .. ".") or ""
+  local poweredText = #powered > 0 and table.concat(powered, ", ") or "none"
+  local offlineText = #offline > 0 and table.concat(offline, ", ") or "none"
+
+  return {
+    id = "systems",
+    label = "Systems",
+    summary = string.format("%d/%d power", used, capacity),
+    response = string.format("Power is %d/%d. Online: %s. Offline: %s.%s", used, capacity, poweredText, offlineText, terminalText),
+    target = terminal and topicTarget(terminal) or nil,
+    lead = terminal ~= nil,
+  }
+end
+
+local function hazardsTopic()
+  local activeCount = 0
+  local suppressedCount = 0
+  for _, hazard in ipairs(Game.level.hazards or {}) do
+    if hazard.cell and hazard.cell.hazard and hazard.cell.hazard.suppressed then
+      suppressedCount = suppressedCount + 1
+    elseif hazard.cell and hazard.cell.hazard and hazard.cell.hazard.active then
+      activeCount = activeCount + 1
+    end
+  end
+
+  local hazard = nearestCellMarker(Game.level.hazards, function(item)
+    return item.cell and item.cell.hazard and item.cell.hazard.active and not item.cell.hazard.suppressed
+  end)
+  if hazard then
+    local kind = hazard.kind or (hazard.cell.hazard and hazard.cell.hazard.kind) or "hazard"
+    local answer = string.format("Nearest active %s is %s. Active hazards: %d. Suppressed: %d.", kind, directionToCell(hazard.x, hazard.y), activeCount, suppressedCount)
+    if kind == "wire" then
+      answer = answer .. " Pumps can suppress live wire lanes."
+    elseif kind == "ember" then
+      answer = answer .. " Pumps or vents can calm ember lanes."
+    elseif kind == "pit" then
+      answer = answer .. " Pits stay dangerous; route around them."
+    end
+    return { id = "hazards", label = "Hazards", summary = string.upper(kind), response = answer, target = topicTarget(hazard), lead = true }
+  end
+
+  return { id = "hazards", label = "Hazards", summary = "clear", response = string.format("No active hazard is close to your line. Suppressed hazards: %d.", suppressedCount) }
+end
+
+local function cacheTopic()
+  local cache = nearestItem(Game.level.toolCaches, function(item)
+    return item.cell and item.cell.tool and not item.cell.toolUsed
+  end)
+
+  if not cache then
+    return { id = "cache", label = "Cache", summary = "empty read", response = "I do not have an unclaimed cache mark from here." }
+  end
+
+  local kind = cache.cell.tool and cache.cell.tool.kind or "tool"
+  local spoofed = cache.cell.tool and cache.cell.tool.mimic
+  local trust = spoofed and ((Game.survey and Game.survey.ttl > 0) and "Survey says the mark is dirty. Treat it like a mimic." or "The mark feels noisy; probe before touching it.") or "Mark reads clean, but approach from an exit angle."
+  return {
+    id = "cache",
+    label = "Cache",
+    summary = string.upper(kind),
+    response = string.format("Nearest %s cache is %s. %s", kind, directionToCell(cache.x, cache.y), trust),
+    target = topicTarget(cache),
+    lead = true,
+  }
+end
+
+local function factionTopic()
+  local best
+  for _, faction in ipairs(Game.level.factions or {}) do
+    if not best or (faction.alarm or 0) > (best.alarm or 0) then
+      best = faction
+    end
+  end
+
+  if not best then
+    return { id = "faction", label = "Faction", summary = "none", response = "No faction ownership is marked on this deck." }
+  end
+
+  local names = {}
+  for _, faction in ipairs(Game.level.factions or {}) do
+    names[#names + 1] = string.format("%s alarm %d", faction.name or "unknown", floor(faction.alarm or 0))
+  end
+  local relation = next(best.hostility or {}) and "territory lines are hostile" or "territory lines are quiet"
+
+  return {
+    id = "faction",
+    label = "Faction",
+    summary = best.name or "territory",
+    response = string.format("Strongest faction pressure is %s at alarm %d; %s. Reads: %s.", best.name or "unknown", floor(best.alarm or 0), relation, table.concat(names, "; ")),
   }
 end
 
@@ -1241,6 +1409,7 @@ local function toolsTopic()
   return {
     id = "tools",
     label = "Tools",
+    summary = string.upper(selected),
     response = string.format("%s x%d. %s%s", string.upper(selected), count, advice, cacheText),
     target = cache and topicTarget(cache) or nil,
     lead = cache ~= nil,
@@ -1253,7 +1422,12 @@ local topicBuilders = {
   key = keyTopic,
   shelter = shelterTopic,
   threat = threatTopic,
+  cycle = cycleTopic,
   biome = biomeTopic,
+  systems = systemsTopic,
+  hazards = hazardsTopic,
+  cache = cacheTopic,
+  faction = factionTopic,
   tools = toolsTopic,
 }
 
@@ -1268,13 +1442,13 @@ local function buildConversationTopics(npc)
       topics[#topics + 1] = builder()
       seen[id] = true
     end
-    if #topics >= 4 then
+    if #topics >= 8 then
       break
     end
   end
 
-  for _, id in ipairs({ "exit", "key", "threat", "shelter", "tools", "biome" }) do
-    if #topics >= 2 then
+  for _, id in ipairs({ "route", "exit", "key", "shelter", "threat", "cycle", "biome", "systems", "hazards", "cache", "faction", "tools" }) do
+    if #topics >= 8 then
       break
     end
     local builder = topicBuilders[id]
@@ -1300,6 +1474,8 @@ local function openConversation()
     npc = npc,
     topics = buildConversationTopics(npc),
     index = 1,
+    asked = {},
+    history = {},
     response = string.format("%s here. Ask for the deck read.", npc.callsign or "GUIDE"),
   }
   love.mouse.setRelativeMode(false)
@@ -1372,7 +1548,7 @@ local function moveConversationCursor(delta)
   if count <= 0 then
     return
   end
-  Game.conversation.index = U.clamp((Game.conversation.index or 1) + delta, 1, count)
+  Game.conversation.index = ((Game.conversation.index or 1) - 1 + delta) % count + 1
 end
 
 local function chooseConversationTopic()
@@ -1386,9 +1562,16 @@ local function chooseConversationTopic()
 
   convo.response = topic.response
   convo.responseTopic = topic.id
+  convo.asked = convo.asked or {}
+  convo.asked[topic.id] = (convo.asked[topic.id] or 0) + 1
+  convo.history = convo.history or {}
   if npc and topic.lead and topic.target then
     npc.leadTarget = { x = topic.target.x, y = topic.target.y, ttl = 10 }
     convo.response = convo.response .. " Close comms and I will guide partway."
+  end
+  table.insert(convo.history, 1, { label = topic.label or topic.id, response = convo.response })
+  while #convo.history > 3 do
+    table.remove(convo.history)
   end
 end
 
@@ -1790,6 +1973,12 @@ function Game.keypressed(key)
       moveConversationCursor(1)
     elseif key == "return" or key == "kpenter" or key == "space" then
       chooseConversationTopic()
+    elseif key:match("^[1-8]$") then
+      local index = tonumber(key)
+      if index and index <= #(Game.conversation.topics or {}) then
+        Game.conversation.index = index
+        chooseConversationTopic()
+      end
     elseif keyMatches("interact", key) or key == "escape" then
       closeConversation()
     end

@@ -1128,6 +1128,10 @@ local function drawHeldMap(game, width, height)
     return
   end
 
+  local cell = Level.cellAtWorld(level, player.x, player.y)
+  local mapLight = U.clamp(environmentLight(game, cell) + dynamicLight(game, player.x, player.y) * 0.85, 0.035, 1)
+  local alphaLight = U.clamp(0.12 + mapLight * 0.88, 0.08, 1)
+
   local cellSize = min(width * 0.42 / level.width, height * 0.34 / level.height, 7)
   local mapWidth = level.width * cellSize
   local mapHeight = level.height * cellSize
@@ -1139,24 +1143,24 @@ local function drawHeldMap(game, width, height)
   local right = left + paperWidth
   local bottom = top + paperHeight
 
-  love.graphics.setColor(0.025, 0.017, 0.012, 0.94)
+  love.graphics.setColor(0.025 * mapLight, 0.017 * mapLight, 0.012 * mapLight, 0.94 * alphaLight)
   love.graphics.polygon("fill", width * 0.22, height, left + 44, bottom - 22, left + 122, bottom + 10, width * 0.34, height)
   love.graphics.polygon("fill", width * 0.78, height, right - 44, bottom - 26, right - 126, bottom + 12, width * 0.66, height)
 
-  love.graphics.setColor(0.026, 0.02, 0.016, 0.82)
+  love.graphics.setColor(0.026 * mapLight, 0.02 * mapLight, 0.016 * mapLight, 0.82 * alphaLight)
   love.graphics.polygon("fill", left + 6, top + 10, right - 10, top + 2, right + 8, bottom - 12, left - 8, bottom - 2)
 
-  love.graphics.setColor(0.24, 0.20, 0.13, 0.96)
+  love.graphics.setColor(0.24 * mapLight, 0.20 * mapLight, 0.13 * mapLight, 0.96 * alphaLight)
   love.graphics.polygon("fill", left, top + 7, right - 12, top, right, bottom - 16, left - 10, bottom)
 
-  love.graphics.setColor(0.06, 0.045, 0.032, 0.38)
+  love.graphics.setColor(0.06 * mapLight, 0.045 * mapLight, 0.032 * mapLight, 0.38 * alphaLight)
   love.graphics.rectangle("fill", left + 22, top + 20, paperWidth - 44, paperHeight - 40, 4, 4)
-  love.graphics.setColor(0.42, 0.35, 0.23, 0.52)
+  love.graphics.setColor(0.42 * mapLight, 0.35 * mapLight, 0.23 * mapLight, 0.52 * alphaLight)
   love.graphics.rectangle("line", left + 20, top + 18, paperWidth - 40, paperHeight - 36, 4, 4)
   love.graphics.line(left + paperWidth * 0.5, top + 16, left + paperWidth * 0.5 + 8, bottom - 20)
   love.graphics.line(left + 24, top + paperHeight * 0.5, right - 26, top + paperHeight * 0.5 - 5)
 
-  love.graphics.setColor(0.02, 0.012, 0.009, 0.76)
+  love.graphics.setColor(0.02 * mapLight, 0.012 * mapLight, 0.009 * mapLight, 0.76 * alphaLight)
   love.graphics.polygon("fill", left - 16, bottom - 32, left + 48, bottom - 60, left + 104, bottom - 12, left + 34, bottom + 8)
   love.graphics.polygon("fill", right + 16, bottom - 36, right - 48, bottom - 62, right - 108, bottom - 10, right - 36, bottom + 8)
 end

@@ -88,6 +88,84 @@ local function terrainColor(cell)
   return 0.33, 0.30, 0.22
 end
 
+local function addMapPointLight(total, x, y, lightX, lightY, radius, strength)
+  if not x or not y or not lightX or not lightY then
+    return total
+  end
+
+  local dx = x - lightX
+  local dy = y - lightY
+  local falloff = 1 - (dx * dx + dy * dy) / (radius * radius)
+  if falloff <= 0 then
+    return total
+  end
+
+  return total + strength * falloff * falloff
+end
+
+local function mapReadLight(game)
+  local level = game.level
+  local player = game.player
+  if not level or not player then
+    return 0
+  end
+
+  local px = floor(player.x)
+  local py = floor(player.y)
+  local powered = level.systems and level.systems.lights and level.systems.lights.powered
+  local light = powered and 0.12 or 0
+
+  for y = py - 3, py + 3 do
+    for x = px - 3, px + 3 do
+      local cell = level.grid[y] and level.grid[y][x]
+      if cell and not cell.solid then
+        local dx = x + 0.5 - player.x
+        local dy = y + 0.5 - player.y
+        local falloff = max(0, 1 - (dx * dx + dy * dy) / 12)
+        local raw = max((cell.light or 0) - 0.34, 0)
+        light = light + raw * raw * falloff * (powered and 0.8 or 0.34)
+        if cell.dynamicActive then
+          light = light + falloff * (powered and 0.12 or 0.035)
+        end
+        if cell.hazard and cell.hazard.active and not cell.hazard.suppressed and cell.hazard.kind == "ember" then
+          light = light + falloff * 0.1
+        end
+      end
+    end
+  end
+
+  for _, effect in ipairs(game.effects or {}) do
+    if effect.kind == "flare" and (effect.ttl or 0) > 0 then
+      light = addMapPointLight(light, player.x, player.y, effect.x, effect.y, effect.radius or 8.5, 1.0)
+    end
+  end
+
+  for _, prop in ipairs(game.props or {}) do
+    if prop.kind == "beacon" and (prop.ttl or 0) > 0 then
+      light = addMapPointLight(light, player.x, player.y, prop.x, prop.y, 6.4, 0.48)
+    end
+  end
+
+  for _, key in ipairs(level.keys or {}) do
+    if key.cell and key.cell.key and not key.cell.key.collected then
+      light = addMapPointLight(light, player.x, player.y, key.x + 0.5, key.y + 0.5, key.kind == "exit" and 4.8 or 3.4, key.kind == "exit" and 0.28 or 0.16)
+    end
+  end
+
+  for _, refill in ipairs(level.refills or {}) do
+    if refill.cell and not refill.cell.refillUsed then
+      light = addMapPointLight(light, player.x, player.y, refill.x + 0.5, refill.y + 0.5, 3.5, 0.16)
+    end
+  end
+
+  if level.exit then
+    light = addMapPointLight(light, player.x, player.y, level.exit.x + 0.5, level.exit.y + 0.5, 6.2, 0.26)
+  end
+
+  local blackout = U.clamp(game.ecology and game.ecology.blackout or 0, 0, 5.5) / 5.5
+  return U.clamp(light * (1 - blackout * 0.72), 0, 1)
+end
+
 local function drawMinimap(game, width, height)
   if not (game.mapHeld or game.mapGamepadHeld) then
     return
@@ -100,6 +178,8 @@ local function drawMinimap(game, width, height)
   local bob = game.player and sin(game.player.bob or 0) * 4 or 0
   local originX = (width - mapWidth) * 0.5
   local originY = height - mapHeight - 34 + bob
+  local readable = mapReadLight(game)
+  local coverAlpha = U.clamp(0.92 - readable * 1.08, 0, 0.92)
   local visited = level.visitedMap or {}
   local playerCellX = floor(game.player.x)
   local playerCellY = floor(game.player.y)
@@ -284,6 +364,21 @@ local function drawMinimap(game, width, height)
     local a = enemy.path[i]
     local b = enemy.path[i + 1]
     love.graphics.line(originX + a.x * size - size, originY + a.y * size - size, originX + b.x * size - size, originY + b.y * size - size)
+  end
+
+  if coverAlpha > 0 then
+    love.graphics.setColor(0, 0, 0, coverAlpha)
+    love.graphics.polygon(
+      "fill",
+      originX - 22,
+      originY - 18,
+      originX + mapWidth + 24,
+      originY - 12,
+      originX + mapWidth + 18,
+      originY + mapHeight + 24,
+      originX - 24,
+      originY + mapHeight + 16
+    )
   end
 end
 
