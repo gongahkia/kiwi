@@ -11,7 +11,7 @@ NPCs.profiles = {
     radius = 0.16,
     height = 1.42,
     color = { 0.18, 0.36, 0.34, 0.58, 0.92, 0.78 },
-    topics = { "exit", "key", "threat", "tools" },
+    topics = { "route", "exit", "threat", "cycle", "biome", "key", "shelter", "tools" },
   },
   mechanic = {
     name = "Ivo",
@@ -21,7 +21,7 @@ NPCs.profiles = {
     radius = 0.17,
     height = 1.48,
     color = { 0.28, 0.26, 0.17, 0.88, 0.72, 0.38 },
-    topics = { "key", "shelter", "tools", "threat" },
+    topics = { "systems", "hazards", "key", "shelter", "tools", "cycle", "threat", "route" },
   },
   quartermaster = {
     name = "Sen",
@@ -31,7 +31,7 @@ NPCs.profiles = {
     radius = 0.16,
     height = 1.36,
     color = { 0.31, 0.18, 0.12, 0.92, 0.58, 0.28 },
-    topics = { "key", "tools", "threat", "shelter" },
+    topics = { "cache", "tools", "faction", "key", "threat", "hazards", "shelter", "route" },
   },
   pathfinder = {
     name = "Kade",
@@ -41,7 +41,7 @@ NPCs.profiles = {
     radius = 0.16,
     height = 1.5,
     color = { 0.18, 0.22, 0.34, 0.48, 0.68, 0.96 },
-    topics = { "exit", "key", "threat", "shelter" },
+    topics = { "route", "shelter", "exit", "key", "biome", "cycle", "threat", "systems" },
   },
 }
 
