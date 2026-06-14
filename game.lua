@@ -927,6 +927,10 @@ local function playerInShelter()
 end
 
 local function updateTorch(dt)
+  if Game.mapHeld or Game.mapGamepadHeld then
+    return
+  end
+
   local drain = 0.010
 
   if Game.player.sprinting then
