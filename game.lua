@@ -62,8 +62,8 @@ local Game = {
   maxDecks = Level.maxDecks,
   fonts = {},
   keys = { total = 0, collected = 0, small = 0, exit = false },
-  loopDuration = 60,
-  loopTimer = 60,
+  loopDuration = 180,
+  loopTimer = 180,
   respawn = nil,
   mapHeld = false,
   mapGamepadHeld = false,
@@ -92,13 +92,13 @@ local Game = {
     selected = "flare",
     flare = 1,
     noisemaker = 1,
-    scent = 1,
+    scent = 0,
     snare = 0,
-    pheromone = 1,
+    pheromone = 0,
     probe = 1,
     oil = 1,
     beacon = 0,
-    max = { flare = 3, noisemaker = 3, scent = 3, snare = 2, pheromone = 2, probe = 2, oil = 3, beacon = 2 },
+    max = { flare = 3, noisemaker = 3, scent = 0, snare = 0, pheromone = 0, probe = 2, oil = 3, beacon = 0 },
   },
   message = "",
   messageTimer = 0,
@@ -271,12 +271,12 @@ local function inventoryMax()
   return {
     flare = 3 + pockets,
     noisemaker = 3 + pockets,
-    scent = 3 + pockets,
-    snare = 2 + pockets,
-    pheromone = 2 + pockets,
+    scent = 0,
+    snare = 0,
+    pheromone = 0,
     probe = 2 + pockets,
     oil = 3 + pockets,
-    beacon = 2 + pockets,
+    beacon = 0,
   }
 end
 
@@ -285,13 +285,15 @@ local function stockDeckInventory(inventory)
   inventory.max = inventoryMax()
   inventory.flare = U.clamp(1 + pockets, 0, inventory.max.flare)
   inventory.noisemaker = U.clamp(1 + pockets, 0, inventory.max.noisemaker)
-  inventory.scent = U.clamp(1, 0, inventory.max.scent)
-  inventory.snare = U.clamp(pockets, 0, inventory.max.snare)
-  inventory.pheromone = U.clamp(1, 0, inventory.max.pheromone)
+  inventory.scent = 0
+  inventory.snare = 0
+  inventory.pheromone = 0
   inventory.probe = U.clamp(1, 0, inventory.max.probe)
   inventory.oil = U.clamp(1 + pockets, 0, inventory.max.oil)
-  inventory.beacon = U.clamp(pockets > 0 and 1 or 0, 0, inventory.max.beacon)
-  inventory.selected = inventory.selected or "flare"
+  inventory.beacon = 0
+  if not inventory.selected or (inventory.max[inventory.selected] or 0) <= 0 then
+    inventory.selected = "flare"
+  end
   return inventory
 end
 
@@ -399,10 +401,12 @@ local incidentDefs = {
 }
 
 local incidentDecks = {
-  { "nest_wake", "blackout" },
-  { "flood_surge", "vent_bloom", "lockdown" },
-  { "heat_spike", "blackout", "nest_wake", "vent_bloom", "lockdown", "faction_raid" },
+  { "blackout" },
+  { "blackout", "lockdown" },
+  { "blackout", "lockdown", "vent_bloom" },
 }
+
+local activeIncidentKinds = { blackout = true, lockdown = true, vent_bloom = true }
 
 local appendIncidentLog
 
@@ -432,10 +436,18 @@ local function chooseIncident(deck)
   local profile = Game.level and Game.level.biomeProfile
   if profile and profile.incidents then
     local branchIncident = Game.level.branch and Game.level.branch.incident
-    if branchIncident then
+    if activeIncidentKinds[branchIncident] then
       return branchIncident
     end
-    return profile.incidents[love.math.random(#profile.incidents)]
+    local filtered = {}
+    for _, incident in ipairs(profile.incidents) do
+      if activeIncidentKinds[incident] then
+        filtered[#filtered + 1] = incident
+      end
+    end
+    if #filtered > 0 then
+      return filtered[love.math.random(#filtered)]
+    end
   end
   local list = incidentDecks[min(deck or 1, #incidentDecks)] or incidentDecks[1]
   return list[love.math.random(#list)]
@@ -489,7 +501,7 @@ local function initEcology()
   local primary = chooseIncident(Game.deck)
   local secondary = chooseIncident(min(Game.deck + 1, #incidentDecks))
   if secondary == primary then
-    secondary = "nest_wake"
+    secondary = primary == "blackout" and "lockdown" or "blackout"
   end
 
   Game.ecology = {
@@ -1591,7 +1603,7 @@ local function openInteraction()
   setMessage("NO CONTACT", 0.8)
 end
 
-local toolOrder = { "flare", "noisemaker", "scent", "snare", "pheromone", "probe", "oil", "beacon" }
+local toolOrder = { "flare", "noisemaker", "probe", "oil" }
 
 local function addInventory(kind, amount)
   local maxCount = Game.inventory.max[kind] or 0
@@ -2041,7 +2053,7 @@ function Game.keypressed(key)
     Game.toolWheel.timer = 1.8
   elseif keyMatches("useTool", key) and Game.state == "playing" then
     useSelectedTool()
-  elseif Game.state == "playing" and key:match("^[1-8]$") then
+  elseif Game.state == "playing" and key:match("^[1-4]$") then
     selectToolByIndex(tonumber(key))
   elseif key == "x" then
     setMessage("RENDER " .. string.upper(Renderer.togglePost()), 0.8)

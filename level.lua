@@ -259,6 +259,7 @@ local function makeLevel(width, height, deck, config)
     objectives = {},
     refills = {},
     toolCaches = {},
+    torches = {},
     gates = {},
     keys = {},
     exitKey = nil,
@@ -1136,6 +1137,162 @@ local function markToolCache(level, room, tool, id)
   end
 
   return false
+end
+
+local function torchSpotClear(cell)
+  return cell
+    and not cell.solid
+    and not cell.objective
+    and not cell.gate
+    and not cell.gateLocked
+    and not cell.lock
+    and not cell.ladder
+    and not cell.refill
+    and not cell.key
+    and not cell.terminal
+    and not cell.exit
+    and not cell.tool
+    and not cell.hazard
+    and not cell.torch
+end
+
+local function markTorch(level, room, x, y, radius, intensity)
+  local cell = Level.cellAtCell(level, x, y)
+  if not torchSpotClear(cell) then
+    return false
+  end
+
+  for _, torch in ipairs(level.torches or {}) do
+    if abs(torch.x - x) + abs(torch.y - y) < 5 then
+      return false
+    end
+  end
+
+  local torch = {
+    id = #(level.torches or {}) + 1,
+    x = x,
+    y = y,
+    cell = cell,
+    room = room,
+    radius = radius or 6.2,
+    intensity = intensity or 0.62,
+    flicker = love.math.random() * 6.28,
+  }
+
+  cell.torch = torch
+  cell.light = max(cell.light or 0.5, 0.9)
+  cell.landmark = cell.landmark or "torch"
+  level.torches[#level.torches + 1] = torch
+  return true
+end
+
+local function placeTorchInRoom(level, room)
+  if not room then
+    return false
+  end
+
+  local minX = room.x + 1
+  local maxX = room.x + room.width - 2
+  local minY = room.y + 1
+  local maxY = room.y + room.height - 2
+  if minX > maxX or minY > maxY then
+    return false
+  end
+
+  for _ = 1, 24 do
+    local side = love.math.random(4)
+    local x
+    local y
+    if side == 1 then
+      x = love.math.random(minX, maxX)
+      y = minY
+    elseif side == 2 then
+      x = love.math.random(minX, maxX)
+      y = maxY
+    elseif side == 3 then
+      x = minX
+      y = love.math.random(minY, maxY)
+    else
+      x = maxX
+      y = love.math.random(minY, maxY)
+    end
+
+    if markTorch(level, room, x, y) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function placeTorchNear(level, x, y)
+  local offsets = {
+    { 2, 0 },
+    { -2, 0 },
+    { 0, 2 },
+    { 0, -2 },
+    { 3, 1 },
+    { -3, -1 },
+  }
+
+  for _, offset in ipairs(offsets) do
+    if markTorch(level, nil, x + offset[1], y + offset[2], 5.8, 0.58) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function placeAmbientTorches(level)
+  level.torches = level.torches or {}
+
+  placeTorchNear(level, level.start.x, level.start.y)
+  placeTorchNear(level, level.start.x + 1, level.start.y + 1)
+
+  local target = min(12 + (level.deck or 1) * 2, max(7, floor(#level.rooms * 0.44)))
+  local priorityRooms = {
+    level.routeRooms[1],
+    level.routeRooms[max(1, floor(#level.routeRooms * 0.34))],
+    level.routeRooms[max(1, floor(#level.routeRooms * 0.67))],
+    level.routeRooms[#level.routeRooms],
+  }
+
+  for _, shelter in ipairs(level.cycleShelters or {}) do
+    priorityRooms[#priorityRooms + 1] = shelter.room
+  end
+
+  for _, room in ipairs(priorityRooms) do
+    if #level.torches >= target then
+      return
+    end
+    placeTorchInRoom(level, room)
+  end
+
+  for i, room in ipairs(level.routeRooms or {}) do
+    if #level.torches >= target then
+      return
+    end
+    if i % 3 == 0 then
+      placeTorchInRoom(level, room)
+    end
+  end
+
+  for _, room in ipairs(level.salvageRooms or {}) do
+    if #level.torches >= target then
+      return
+    end
+    placeTorchInRoom(level, room)
+  end
+
+  for _, room in ipairs(level.rooms or {}) do
+    if #level.torches >= target then
+      return
+    end
+    if not room.route and love.math.random() < 0.36 then
+      placeTorchInRoom(level, room)
+    end
+  end
 end
 
 local function markKey(level, room, id, kind)
@@ -2699,9 +2856,18 @@ local function placeVents(level)
 end
 
 local function placeSalvageRooms(level)
-  local tools = { "flare", "noisemaker", "scent", "snare", "pheromone", "probe", "oil", "beacon" }
+  local activeTools = { flare = true, noisemaker = true, probe = true, oil = true }
+  local tools = { "flare", "noisemaker", "probe", "oil" }
   if level.biomeProfile and level.biomeProfile.salvageTools then
-    tools = level.biomeProfile.salvageTools
+    tools = {}
+    for _, tool in ipairs(level.biomeProfile.salvageTools) do
+      if activeTools[tool] then
+        tools[#tools + 1] = tool
+      end
+    end
+    if #tools == 0 then
+      tools = { "flare", "noisemaker", "probe", "oil" }
+    end
   end
   local salvageBonus = level.branch and level.branch.kind == "salvage" and 1 or 0
   local target = min(4, max(1, floor(#level.rooms / 7) + salvageBonus))
@@ -2774,10 +2940,7 @@ end
 
 local function placeNests(level)
   local specs = {
-    { kind = "skitter", rooms = { "salvage_vault", "archive", "annex" } },
     { kind = "stalker", rooms = { "collapsed_caves", "archive", "annex" } },
-    { kind = "screecher", rooms = { "machine_maze", "machine shaft", "bridgeworks" } },
-    { kind = "burrower", rooms = { "flooded_basin", "collapsed_caves", "cistern", "quarry" } },
     { kind = "hunter", rooms = { "foundry_arena", "escape_shaft", "quarry" } },
   }
 
@@ -2887,25 +3050,24 @@ local function placeCreatureSpawns(level)
   end
 
   local biome = level.biomeProfile and level.biomeProfile.district
+  local activeSpawnKinds = { hunter = true, stalker = true }
   local biomeSpawns = CreatureContent.biomeSpawns[biome] or {}
   for i, kind in ipairs(biomeSpawns) do
-    if #level.creatureSpawns >= 8 then
+    if #level.creatureSpawns >= 4 then
       break
     end
-    local room = level.salvageRooms[i] or level.routeRooms[max(2, #level.routeRooms - i)] or level.rooms[((i * 3) % #level.rooms) + 1]
-    addCreatureSpawn(level, kind, room)
+    if activeSpawnKinds[kind] then
+      local room = level.salvageRooms[i] or level.routeRooms[max(2, #level.routeRooms - i)] or level.rooms[((i * 3) % #level.rooms) + 1]
+      addCreatureSpawn(level, kind, room)
+    end
   end
 
   for _, room in ipairs(level.rooms) do
-    if not room.route and #level.creatureSpawns < 7 then
+    if not room.route and #level.creatureSpawns < 4 then
       if room.kind == "archive" or room.kind == "annex" then
         addCreatureSpawn(level, "stalker", room)
-      elseif room.kind == "cistern" or room.kind == "quarry" then
-        addCreatureSpawn(level, "burrower", room)
-      elseif room.kind == "machine shaft" or room.kind == "bridgeworks" then
-        addCreatureSpawn(level, "screecher", room)
       else
-        addCreatureSpawn(level, "skitter", room)
+        addCreatureSpawn(level, "hunter", room)
       end
     end
   end
@@ -3146,6 +3308,7 @@ local function finalizeGeneratedLevel(level, config)
   placeVents(level)
   placeRefills(level, config)
   placeSalvageRooms(level)
+  placeAmbientTorches(level)
   placeNests(level)
   placeFactions(level)
   placeOpeningSignals(level)

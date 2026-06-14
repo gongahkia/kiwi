@@ -263,6 +263,13 @@ local function dynamicLight(game, x, y)
 
   local level = game.level
   if level then
+    for _, torch in ipairs(level.torches or {}) do
+      if torch.cell and torch.cell.torch then
+        local pulse = 0.9 + sin((game.survivalTime or 0) * 12.9 + (torch.flicker or 0)) * 0.08
+        total = addPointLight(total, x, y, torch.x + 0.5, torch.y + 0.5, torch.radius or 6.2, (torch.intensity or 0.62) * pulse)
+      end
+    end
+
     for _, key in ipairs(level.keys or {}) do
       if key.cell and key.cell.key and not key.cell.key.collected then
         local strength = key.kind == "exit" and 0.33 or 0.2
@@ -876,6 +883,13 @@ local function drawLightBloomAt(game, width, height, depthBuffer, x, y, floorZ, 
 end
 
 local function drawLightBlooms(game, width, height, depthBuffer)
+  for _, torch in ipairs(game.level.torches or {}) do
+    if torch.cell and torch.cell.torch then
+      local pulse = 0.9 + sin((game.survivalTime or 0) * 12.9 + (torch.flicker or 0)) * 0.08
+      drawLightBloomAt(game, width, height, depthBuffer, torch.x + 0.5, torch.y + 0.5, torch.cell.floor + 0.52, 2.05, 1, 0.54, 0.16, 0.2 * pulse)
+    end
+  end
+
   for _, effect in ipairs(game.effects or {}) do
     if effect.kind == "flare" and (effect.ttl or 0) > 0 then
       local floorZ = Actor.floorAt(game.level, effect.x, effect.y) + 0.18
@@ -1087,6 +1101,31 @@ local function drawNPCs(game, width, height, depthBuffer)
 end
 
 local function drawPickupSprites(game, width, height, depthBuffer)
+  for _, torch in ipairs(game.level.torches or {}) do
+    if torch.cell and torch.cell.torch then
+      local wx, wy = torch.x + 0.5, torch.y + 0.5
+      local sprite = projectSprite(game, wx, wy, torch.cell.floor + 0.02, 0.82, width, height)
+      if spriteVisible(sprite, width, depthBuffer) then
+        local pulse = 0.9 + sin((game.survivalTime or 0) * 12.9 + (torch.flicker or 0)) * 0.08
+        local light = max(spriteLight(game, wx, wy, sprite.distance), 0.4)
+        local alpha = U.clamp(1 - sprite.distance / 24, 0.22, 0.86)
+        love.graphics.push()
+        love.graphics.translate(sprite.x, sprite.y)
+        love.graphics.setColor(0.2 * light, 0.12 * light, 0.055 * light, alpha)
+        love.graphics.rectangle("fill", -sprite.width * 0.08, -sprite.height * 0.68, sprite.width * 0.16, sprite.height * 0.68, 2, 2)
+        love.graphics.setColor(0.62 * light, 0.38 * light, 0.12 * light, alpha * 0.9)
+        love.graphics.rectangle("fill", -sprite.width * 0.18, -sprite.height * 0.74, sprite.width * 0.36, sprite.height * 0.08, 2, 2)
+        love.graphics.setColor(1, 0.56, 0.14, alpha * pulse)
+        love.graphics.circle("fill", 0, -sprite.height * 0.86, max(4, sprite.width * 0.24))
+        love.graphics.setColor(1, 0.82, 0.26, alpha * 0.55 * pulse)
+        love.graphics.circle("fill", 0, -sprite.height * 0.86, max(2, sprite.width * 0.11))
+        love.graphics.setColor(1, 0.48, 0.1, alpha * 0.16 * pulse)
+        love.graphics.circle("fill", 0, -sprite.height * 0.86, max(9, sprite.width * 0.72))
+        love.graphics.pop()
+      end
+    end
+  end
+
   for _, refill in ipairs(game.level.refills) do
     if not refill.cell.refillUsed then
       local sprite = projectSprite(game, refill.x + 0.5, refill.y + 0.5, refill.cell.floor + 0.08, 0.55, width, height)

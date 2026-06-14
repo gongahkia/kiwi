@@ -9,16 +9,16 @@ Cycles.phases = {
 }
 
 Cycles.biomeIncidents = {
-  cryo_vault = { warning = "blackout", surge = "lockdown", collapse = "nest_wake", aftermath = "blackout" },
-  fungal_service = { warning = "vent_bloom", surge = "nest_wake", collapse = "flood_surge", aftermath = "vent_bloom" },
-  pressure_lab = { warning = "lockdown", surge = "blackout", collapse = "faction_raid", aftermath = "nest_wake" },
-  reactor_trench = { warning = "heat_spike", surge = "vent_bloom", collapse = "blackout", aftermath = "heat_spike" },
-  waste_artery = { warning = "flood_surge", surge = "nest_wake", collapse = "lockdown", aftermath = "flood_surge" },
-  storm_drain = { warning = "flood_surge", surge = "flood_surge", collapse = "lockdown", aftermath = "vent_bloom" },
-  ash_foundry = { warning = "heat_spike", surge = "heat_spike", collapse = "vent_bloom", aftermath = "blackout" },
-  signal_catacombs = { warning = "blackout", surge = "vent_bloom", collapse = "nest_wake", aftermath = "blackout" },
-  bone_market = { warning = "faction_raid", surge = "nest_wake", collapse = "lockdown", aftermath = "faction_raid" },
-  organ_machine = { warning = "lockdown", surge = "flood_surge", collapse = "heat_spike", aftermath = "nest_wake" },
+  cryo_vault = { warning = "blackout", surge = "lockdown", collapse = "blackout", aftermath = "vent_bloom" },
+  fungal_service = { warning = "vent_bloom", surge = "blackout", collapse = "lockdown", aftermath = "vent_bloom" },
+  pressure_lab = { warning = "lockdown", surge = "blackout", collapse = "lockdown", aftermath = "vent_bloom" },
+  reactor_trench = { warning = "vent_bloom", surge = "blackout", collapse = "lockdown", aftermath = "vent_bloom" },
+  waste_artery = { warning = "blackout", surge = "vent_bloom", collapse = "lockdown", aftermath = "blackout" },
+  storm_drain = { warning = "vent_bloom", surge = "blackout", collapse = "lockdown", aftermath = "vent_bloom" },
+  ash_foundry = { warning = "blackout", surge = "vent_bloom", collapse = "lockdown", aftermath = "blackout" },
+  signal_catacombs = { warning = "blackout", surge = "vent_bloom", collapse = "lockdown", aftermath = "blackout" },
+  bone_market = { warning = "lockdown", surge = "blackout", collapse = "lockdown", aftermath = "vent_bloom" },
+  organ_machine = { warning = "lockdown", surge = "blackout", collapse = "vent_bloom", aftermath = "lockdown" },
 }
 
 function Cycles.phaseAt(index)
@@ -32,7 +32,7 @@ end
 
 function Cycles.incidentFor(biome, phaseId, fallback)
   local map = Cycles.biomeIncidents[biome or ""]
-  return (map and map[phaseId]) or fallback or "nest_wake"
+  return (map and map[phaseId]) or fallback or "blackout"
 end
 
 return Cycles

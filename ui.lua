@@ -114,6 +114,7 @@ local function mapReadLight(game)
   local py = floor(player.y)
   local powered = level.systems and level.systems.lights and level.systems.lights.powered
   local light = powered and 0.12 or 0
+  local torchLight = 0
 
   for y = py - 3, py + 3 do
     for x = px - 3, px + 3 do
@@ -146,6 +147,13 @@ local function mapReadLight(game)
     end
   end
 
+  for _, torch in ipairs(level.torches or {}) do
+    if torch.cell and torch.cell.torch then
+      local pulse = 0.9 + sin((game.survivalTime or 0) * 12.9 + (torch.flicker or 0)) * 0.08
+      torchLight = addMapPointLight(torchLight, player.x, player.y, torch.x + 0.5, torch.y + 0.5, torch.radius or 6.2, (torch.intensity or 0.62) * 0.92 * pulse)
+    end
+  end
+
   for _, key in ipairs(level.keys or {}) do
     if key.cell and key.cell.key and not key.cell.key.collected then
       light = addMapPointLight(light, player.x, player.y, key.x + 0.5, key.y + 0.5, key.kind == "exit" and 4.8 or 3.4, key.kind == "exit" and 0.28 or 0.16)
@@ -163,7 +171,7 @@ local function mapReadLight(game)
   end
 
   local blackout = U.clamp(game.ecology and game.ecology.blackout or 0, 0, 5.5) / 5.5
-  return U.clamp(light * (1 - blackout * 0.72), 0, 1)
+  return U.clamp(light * (1 - blackout * 0.72) + torchLight, 0, 1)
 end
 
 local function drawMinimap(game, width, height)
@@ -276,6 +284,13 @@ local function drawMinimap(game, width, height)
     if mapKnown(shelter.x, shelter.y) then
       love.graphics.setColor(0.52, 0.86, 1, 0.94)
       love.graphics.rectangle("line", originX + (shelter.x - 1) * size, originY + (shelter.y - 1) * size, max(3, size * 1.4), max(3, size * 1.4))
+    end
+  end
+
+  for _, torch in ipairs(level.torches or {}) do
+    if mapKnown(torch.x, torch.y) then
+      love.graphics.setColor(1, 0.52, 0.16, 0.9)
+      love.graphics.circle("fill", originX + torch.x * size - size, originY + torch.y * size - size, max(1.6, size * 0.38))
     end
   end
 

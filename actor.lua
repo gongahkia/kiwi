@@ -339,31 +339,32 @@ end
 
 function Actor.createCreatures(level)
   local creatures = {}
-  local wanted = { hunter = true, skitter = true }
+  local wantedOrder = { "hunter" }
 
   if (level.deck or 1) >= 2 then
-    wanted.stalker = true
-    wanted.burrower = true
-  end
-  if (level.deck or 1) >= 3 then
-    wanted.screecher = true
+    wantedOrder[#wantedOrder + 1] = "stalker"
   end
 
-  for _, spawn in ipairs(level.creatureSpawns or {}) do
-    if wanted[spawn.kind] or spawn.kind == "skitter" or (creatureDefs[spawn.kind] and not coreCreatureKinds[spawn.kind]) then
-      creatures[#creatures + 1] = Actor.createCreature(level, spawn.kind, spawn, #creatures + 1)
-      if spawn.kind ~= "skitter" then
-        wanted[spawn.kind] = false
+  local wanted = {}
+  for _, kind in ipairs(wantedOrder) do
+    wanted[kind] = true
+  end
+
+  for _, kind in ipairs(wantedOrder) do
+    for _, spawn in ipairs(level.creatureSpawns or {}) do
+      if wanted[kind] and spawn.kind == kind then
+        creatures[#creatures + 1] = Actor.createCreature(level, spawn.kind, spawn, #creatures + 1)
+        wanted[kind] = false
+        break
       end
     end
-    if #creatures >= 3 + (level.deck or 1) then
-      break
-    end
   end
 
-  for kind, needed in pairs(wanted) do
+  for _, kind in ipairs(wantedOrder) do
+    local needed = wanted[kind]
     if needed then
-      local farthest = Level.farthestCellFrom(level, level.start.x, level.start.y)
+      local fallbackRoom = kind == "stalker" and level.routeRooms and level.routeRooms[max(1, #level.routeRooms - 2)] or nil
+      local farthest = fallbackRoom and { x = fallbackRoom.cx, y = fallbackRoom.cy } or Level.farthestCellFrom(level, level.start.x, level.start.y)
       creatures[#creatures + 1] = Actor.createCreature(level, kind, { x = farthest.x, y = farthest.y }, #creatures + 1)
     end
   end

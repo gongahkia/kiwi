@@ -1,12 +1,12 @@
 # Tikrit
 
-A compact Love2D raycast survival prototype about escaping hostile generated decks with one clear rule: find the exit key, reach the drop shaft, and do it before the one-minute level clock runs out.
+A compact Love2D raycast survival prototype about escaping hostile generated decks with one clear rule: find the exit key, reach the drop shaft, and do it before the deck goes completely wrong.
 
 Each run generates four connected decks with halls, annexes, locked shortcuts, hazards, tool caches, shelters, NPC guides, creature nests, and readable ecology signs. Between decks you choose one upgrade, then drop immediately into the next level.
 
 ## Core Loop
 
-- You have 60 seconds on each deck.
+- You have three minutes on each deck.
 - Getting caught or running out of time wakes you back at the current shelter.
 - Keys and opened routes persist on the deck, so each loop should push a little farther.
 - The exit key opens the drop shaft. Small keys open nearby locked shortcuts with `F`.
@@ -17,8 +17,8 @@ Each run generates four connected decks with halls, annexes, locked shortcuts, h
 ## Reading The Area
 
 - Terrain changes speed and noise. Water, rubble, grates, moss, slag, tar, thorn, mirror, wire, ember lanes, and ladders all matter.
-- Creatures react to sound, sight, scent, light, signals, props, nests, and each other.
-- Tracks, scratches, nest debris, wet marks, ash drift, vent calls, alarm marks, trade marks, and pheromone boundaries teach predator/prey relationships in-world.
+- Creatures react to sound, sight, light, signals, props, nests, and each other.
+- Tracks, scratches, wet marks, ash drift, vent calls, alarm marks, and false pings teach threat behavior in-world.
 - Survey probes reveal more recent signs but do not freeze the game or give exact creature positions.
 - Tool caches can be real or mimics. NPCs, probes, and cautious observation help separate them.
 
@@ -30,19 +30,14 @@ The map does not pause the game. It shows remembered floor space, nearby known c
 
 ## Ecology
 
-- Hunter: apex predator that tracks player noise and weaker prey.
+- Hunter: apex predator that tracks player noise and sight pressure.
 - Stalker: dark ambusher that avoids strong light and flares.
-- Skitter: prey thief that panics loudly and steals useful objects.
-- Screecher: sound predator that follows loud stimuli and disrupts hunts.
-- Burrower: territorial nest guard that favors rubble and flooded routes.
 - Mimic: false cache predator exposed by proximity, survey pulses, or careless looting.
-- Warden: lock-and-gate guard that pressures shortcuts and machinery.
-- Leecher: wet-route ambusher that surges through water, sludge, storm, and tar.
-- Choir: sound-focused flock predator that follows repeated pulses and beacons.
+- Environment: blackouts, vent blooms, lockdowns, hazards, and dark rooms create most of the route pressure.
 
 ## Roguelike Progression
 
-Drop shafts offer one of three upgrades before the next deck. Upgrades stack or combine with field tools: faster final-second movement, larger tool capacity, cooler torch burn, flare survey pulses, echoing snares, cache-hunter probes, stronger beacons, and chained scent trails.
+Drop shafts offer one of three upgrades before the next deck. Upgrades reinforce the survival kit: larger tool capacity, cooler torch burn, flare survey pulses, and cache-hunter probes.
 
 Duotone palettes unlock as you reach deeper decks and finish a run. Press `P` to cycle earned palettes while using the monochrome render mode.
 
@@ -56,7 +51,7 @@ Duotone palettes unlock as you reach deeper decks and finish a run. Press `P` to
 - `H`: hold the status readout
 - `P`: cycle earned duotone palettes
 - `Tab`: cycle field tools
-- `1`-`8`: select field tools
+- `1`-`4`: select field tools
 - `Space`: use selected field tool
 - `X`: cycle render mode: normal, CRT, monochrome dither
 - `N`: generate a new run
@@ -70,13 +65,9 @@ Conversation screen: `Up`/`Down` select topic, `Enter` ask, `F`/`Esc` close. Gam
 ## Tools
 
 - Flares reveal local space, repel stalkers, and attract sight/sound predators.
-- Noisemakers lure hunters and screechers away.
-- Scent markers create a fake player trail.
-- Snare wires slow one creature, then break loudly.
-- Pheromone vials create false territory boundaries that predators hesitate to cross.
-- Survey probes reveal recent tracks and signs.
+- Noisemakers lure hunters away from your next route.
+- Survey probes reveal recent tracks, signs, and false cache pressure.
 - Oil kits refill torch fuel.
-- Lure beacons create loud cache marks that pull skitters, screechers, and curious hunters.
 
 ## Run
 

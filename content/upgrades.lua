@@ -49,15 +49,10 @@ Upgrades.defs = {
 }
 
 Upgrades.order = {
-  "fleet_soles",
   "deep_pockets",
   "cool_burn",
   "flare_survey",
-  "echo_snare",
-  "adrenal_step",
   "cache_hunter",
-  "beacon_pack",
-  "scent_lattice",
 }
 
 function Upgrades.count(runUpgrades, id)
