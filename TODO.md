@@ -8,7 +8,7 @@
 - [x] Add MIT `LICENSE` file with current year and author name
 - [x] Write `README.md` v0 with one-line pitch, status badge placeholder, and link to `north_star.md`
 - [x] Add `.gitignore` for Rust (`target/`, `Cargo.lock` rules per crate type), Node (`node_modules/`, `dist/`), and OS (`.DS_Store`)
-- [ ] Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
+- [x] Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
 - [ ] Add `CONTRIBUTING.md` outlining branch flow, commit style (Conventional Commits), and review expectations
 - [ ] Add `SECURITY.md` with disclosure email
 - [ ] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
