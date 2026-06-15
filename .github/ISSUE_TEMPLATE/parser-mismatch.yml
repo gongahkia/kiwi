@@ -1,0 +1,38 @@
+name: Parser mismatch
+description: Report Mermaid syntax that parses differently from upstream Mermaid.
+title: "parser: "
+labels:
+  - parser
+body:
+  - type: textarea
+    id: mermaid
+    attributes:
+      label: Mermaid Source
+      description: Minimal input that reproduces the mismatch.
+      render: mermaid
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Upstream Mermaid Behavior
+      description: What Mermaid does with this input.
+    validations:
+      required: true
+  - type: textarea
+    id: kumeyuri
+    attributes:
+      label: kumeyuri Behavior
+      description: What kumeyuri does with this input.
+    validations:
+      required: true
+  - type: input
+    id: mermaid-version
+    attributes:
+      label: Mermaid Version
+      placeholder: e.g. 11.12.0
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, screenshots, or suspected grammar area.
