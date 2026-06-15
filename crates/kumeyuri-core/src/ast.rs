@@ -101,3 +101,36 @@ pub struct FlowNode {
     pub shape: Spanned<FlowShape>,
     pub span: Span,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowEdgeStroke {
+    Normal,
+    Thick,
+    Dotted,
+    Invisible,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArrowHead {
+    None,
+    Arrow,
+    Circle,
+    Cross,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlowEdgeLink {
+    pub stroke: FlowEdgeStroke,
+    pub arrow_start: ArrowHead,
+    pub arrow_end: ArrowHead,
+    pub min_length: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowEdge {
+    pub from: FlowNode,
+    pub to: FlowNode,
+    pub link: Spanned<FlowEdgeLink>,
+    pub label: Option<Label>,
+    pub span: Span,
+}

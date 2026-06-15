@@ -1,6 +1,6 @@
 use crate::ast::{
-    Direction, FlowNode, FlowShape, FlowchartDirective, FlowchartHeader, Label, LabelKind, Span,
-    Spanned,
+    ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
+    FlowchartDirective, FlowchartHeader, Label, LabelKind, Span, Spanned,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +28,7 @@ pub enum ParseErrorKind {
     MissingFlowNodeShape,
     UnknownFlowNodeShape,
     UnterminatedFlowNodeShape,
+    ExpectedFlowEdge,
     TrailingInput,
 }
 
@@ -64,6 +65,75 @@ impl Parser {
     pub fn parse_flow_node(source: &str) -> Result<FlowNode, ParseError> {
         FlowNodeParser::new(source).parse()
     }
+
+    pub fn parse_flow_edge(source: &str) -> Result<FlowEdge, ParseError> {
+        FlowEdgeParser::new(source).parse()
+    }
+}
+
+struct FlowEdgeParser<'source> {
+    source: &'source str,
+    cursor: usize,
+}
+
+impl<'source> FlowEdgeParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+            cursor: 0,
+        }
+    }
+
+    fn parse(&mut self) -> Result<FlowEdge, ParseError> {
+        let mut from_parser = FlowNodeParser {
+            source: self.source,
+            cursor: self.cursor,
+        };
+        let from = from_parser.parse_expr()?;
+        self.cursor = from_parser.cursor;
+        self.skip_ws();
+
+        let edge_start = self.cursor;
+        for edge_end in edge_start + 2..=self.source.len() {
+            let Some((link, label)) = parse_flow_edge_link(self.source, edge_start, edge_end)
+            else {
+                continue;
+            };
+            let mut to_parser = FlowNodeParser {
+                source: self.source,
+                cursor: edge_end,
+            };
+            let Ok(to) = to_parser.parse_expr() else {
+                continue;
+            };
+            to_parser.skip_ws();
+            if to_parser.peek_byte() == Some(b';') {
+                to_parser.cursor += 1;
+                to_parser.skip_ws();
+            }
+            if to_parser.cursor != self.source.len() {
+                continue;
+            }
+            return Ok(FlowEdge {
+                span: Span::new(from.span.start, to.span.end),
+                from,
+                to,
+                link,
+                label,
+            });
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedFlowEdge,
+            span: Span::new(edge_start, edge_start),
+        })
+    }
+
+    fn skip_ws(&mut self) {
+        while matches!(self.source.as_bytes().get(self.cursor), Some(b' ' | b'\t')) {
+            self.cursor += 1;
+        }
+    }
 }
 
 struct FlowNodeParser<'source> {
@@ -80,6 +150,22 @@ impl<'source> FlowNodeParser<'source> {
     }
 
     fn parse(&mut self) -> Result<FlowNode, ParseError> {
+        let node = self.parse_expr()?;
+        self.skip_ws();
+        if self.peek_byte() == Some(b';') {
+            self.cursor += 1;
+            self.skip_ws();
+        }
+        if self.cursor != self.source.len() {
+            return Err(ParseError {
+                kind: ParseErrorKind::TrailingInput,
+                span: Span::new(self.cursor, self.source.len()),
+            });
+        }
+        Ok(node)
+    }
+
+    fn parse_expr(&mut self) -> Result<FlowNode, ParseError> {
         self.skip_ws();
         let id = self.take_node_id()?;
         self.skip_ws();
@@ -93,18 +179,6 @@ impl<'source> FlowNodeParser<'source> {
                 id.span.end,
             ),
         };
-
-        self.skip_ws();
-        if self.peek_byte() == Some(b';') {
-            self.cursor += 1;
-            self.skip_ws();
-        }
-        if self.cursor != self.source.len() {
-            return Err(ParseError {
-                kind: ParseErrorKind::TrailingInput,
-                span: Span::new(self.cursor, self.source.len()),
-            });
-        }
 
         Ok(FlowNode {
             span: Span::new(id.span.start, node_end),
@@ -348,35 +422,7 @@ impl<'source> FlowNodeParser<'source> {
     }
 
     fn label_from_body(&self, start: usize, end: usize) -> Label {
-        let raw = &self.source[start..end];
-        if raw.len() >= 2
-            && raw.as_bytes().first() == Some(&b'"')
-            && raw.as_bytes().last() == Some(&b'"')
-        {
-            let quoted_start = start + 1;
-            let quoted_end = end - 1;
-            let quoted = &self.source[quoted_start..quoted_end];
-            if quoted.len() >= 2
-                && quoted.as_bytes().first() == Some(&b'`')
-                && quoted.as_bytes().last() == Some(&b'`')
-            {
-                return Label {
-                    text: self.source[quoted_start + 1..quoted_end - 1].to_owned(),
-                    kind: LabelKind::Markdown,
-                    span: Span::new(quoted_start + 1, quoted_end - 1),
-                };
-            }
-            return Label {
-                text: quoted.to_owned(),
-                kind: LabelKind::String,
-                span: Span::new(quoted_start, quoted_end),
-            };
-        }
-        Label {
-            text: raw.to_owned(),
-            kind: LabelKind::Plain,
-            span: Span::new(start, end),
-        }
+        label_from_body(self.source, start, end)
     }
 
     fn consume(&mut self, value: &str) -> bool {
@@ -514,12 +560,274 @@ fn trim_ascii_range(value: &str) -> Option<(usize, usize)> {
     (start < end).then_some((start, end))
 }
 
+fn parse_flow_edge_link(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(Spanned<FlowEdgeLink>, Option<Label>)> {
+    let segment = &source[start..end];
+    let (trim_start, trim_end) = trim_ascii_range(segment)?;
+    let raw_start = start + trim_start;
+    let raw_end = start + trim_end;
+    let raw = &source[raw_start..raw_end];
+
+    if let Some(pipe_start) = raw.find('|')
+        && pipe_start < raw.len() - 1
+        && raw.ends_with('|')
+    {
+        let link = parse_unlabeled_edge_operator(source, raw_start, raw_start + pipe_start)?;
+        let label = label_from_trimmed(source, raw_start + pipe_start + 1, raw_end - 1)?;
+        return Some((link, Some(label)));
+    }
+    if let Some(link) = parse_wrapped_label_edge(source, raw_start, raw_end) {
+        return Some(link);
+    }
+    parse_unlabeled_edge_operator(source, raw_start, raw_end).map(|link| (link, None))
+}
+
+fn parse_unlabeled_edge_operator(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<Spanned<FlowEdgeLink>> {
+    let raw = &source[start..end];
+    let bytes = raw.as_bytes();
+    if bytes.is_empty() {
+        return None;
+    }
+
+    let (arrow_start, core_start) = match bytes.first() {
+        Some(b'<') => (ArrowHead::Arrow, 1),
+        Some(b'o') => (ArrowHead::Circle, 1),
+        Some(b'x') => (ArrowHead::Cross, 1),
+        _ => (ArrowHead::None, 0),
+    };
+    let (arrow_end, core_end) = match bytes.last() {
+        Some(b'>') => (ArrowHead::Arrow, raw.len() - 1),
+        Some(b'o') => (ArrowHead::Circle, raw.len() - 1),
+        Some(b'x') => (ArrowHead::Cross, raw.len() - 1),
+        _ => (ArrowHead::None, raw.len()),
+    };
+    if core_start >= core_end {
+        return None;
+    }
+
+    let core = &raw[core_start..core_end];
+    let headed = arrow_start != ArrowHead::None || arrow_end != ArrowHead::None;
+    let (stroke, min_length) = if core.as_bytes().iter().all(|value| *value == b'-') {
+        (
+            FlowEdgeStroke::Normal,
+            min_length_from_count(core.len(), headed)?,
+        )
+    } else if core.as_bytes().iter().all(|value| *value == b'=') {
+        (
+            FlowEdgeStroke::Thick,
+            min_length_from_count(core.len(), headed)?,
+        )
+    } else if let Some(min_length) = dotted_min_length(core) {
+        (FlowEdgeStroke::Dotted, min_length)
+    } else if !headed && core.as_bytes().iter().all(|value| *value == b'~') && core.len() >= 3 {
+        (FlowEdgeStroke::Invisible, (core.len() - 2) as u16)
+    } else {
+        return None;
+    };
+
+    Some(Spanned::new(
+        FlowEdgeLink {
+            stroke,
+            arrow_start,
+            arrow_end,
+            min_length,
+        },
+        Span::new(start, end),
+    ))
+}
+
+fn parse_wrapped_label_edge(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(Spanned<FlowEdgeLink>, Option<Label>)> {
+    parse_wrapped_repeated_label_edge(source, start, end, "--", b'-', FlowEdgeStroke::Normal)
+        .or_else(|| {
+            parse_wrapped_repeated_label_edge(source, start, end, "==", b'=', FlowEdgeStroke::Thick)
+        })
+        .or_else(|| parse_wrapped_dotted_label_edge(source, start, end))
+}
+
+fn parse_wrapped_repeated_label_edge(
+    source: &str,
+    start: usize,
+    end: usize,
+    prefix: &str,
+    repeat: u8,
+    stroke: FlowEdgeStroke,
+) -> Option<(Spanned<FlowEdgeLink>, Option<Label>)> {
+    let raw = &source[start..end];
+    if !raw.starts_with(prefix) {
+        return None;
+    }
+    let (trailer_start, arrow_end, min_length) = repeated_trailer(raw, repeat)?;
+    let label_start = start + prefix.len();
+    let label_end = start + trailer_start;
+    if label_start >= label_end {
+        return None;
+    }
+    let label = label_from_trimmed(source, label_start, label_end)?;
+    Some((
+        Spanned::new(
+            FlowEdgeLink {
+                stroke,
+                arrow_start: ArrowHead::None,
+                arrow_end,
+                min_length,
+            },
+            Span::new(start, end),
+        ),
+        Some(label),
+    ))
+}
+
+fn parse_wrapped_dotted_label_edge(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(Spanned<FlowEdgeLink>, Option<Label>)> {
+    let raw = &source[start..end];
+    if !raw.starts_with("-.") {
+        return None;
+    }
+    let (trailer_start, arrow_end, min_length) = dotted_trailer(raw)?;
+    if start + 2 >= start + trailer_start {
+        return None;
+    }
+    let label = label_from_trimmed(source, start + 2, start + trailer_start)?;
+    Some((
+        Spanned::new(
+            FlowEdgeLink {
+                stroke: FlowEdgeStroke::Dotted,
+                arrow_start: ArrowHead::None,
+                arrow_end,
+                min_length,
+            },
+            Span::new(start, end),
+        ),
+        Some(label),
+    ))
+}
+
+fn repeated_trailer(raw: &str, repeat: u8) -> Option<(usize, ArrowHead, u16)> {
+    let bytes = raw.as_bytes();
+    let (arrow_end, mut end) = match bytes.last() {
+        Some(b'>') => (ArrowHead::Arrow, raw.len() - 1),
+        Some(b'o') => (ArrowHead::Circle, raw.len() - 1),
+        Some(b'x') => (ArrowHead::Cross, raw.len() - 1),
+        _ => (ArrowHead::None, raw.len()),
+    };
+    while end > 0 && bytes[end - 1] == repeat {
+        end -= 1;
+    }
+    let count = match arrow_end {
+        ArrowHead::None => raw.len() - end,
+        _ => raw.len() - 1 - end,
+    };
+    Some((
+        end,
+        arrow_end,
+        min_length_from_count(count, arrow_end != ArrowHead::None)?,
+    ))
+}
+
+fn dotted_trailer(raw: &str) -> Option<(usize, ArrowHead, u16)> {
+    let bytes = raw.as_bytes();
+    let (arrow_end, end) = match bytes.last() {
+        Some(b'>') => (ArrowHead::Arrow, raw.len() - 1),
+        Some(b'o') => (ArrowHead::Circle, raw.len() - 1),
+        Some(b'x') => (ArrowHead::Cross, raw.len() - 1),
+        _ => (ArrowHead::None, raw.len()),
+    };
+    if end == 0 || bytes[end - 1] != b'-' {
+        return None;
+    }
+    let dash = end - 1;
+    let mut start = dash;
+    while start > 0 && bytes[start - 1] == b'.' {
+        start -= 1;
+    }
+    let dot_count = dash - start;
+    (dot_count > 0).then_some((start, arrow_end, dot_count as u16))
+}
+
+fn min_length_from_count(count: usize, headed: bool) -> Option<u16> {
+    let baseline = if headed { 1 } else { 2 };
+    if count > baseline {
+        Some((count - baseline) as u16)
+    } else {
+        None
+    }
+}
+
+fn dotted_min_length(core: &str) -> Option<u16> {
+    let bytes = core.as_bytes();
+    if bytes.len() < 3 || bytes.first() != Some(&b'-') || bytes.last() != Some(&b'-') {
+        return None;
+    }
+    let dot_count = bytes[1..bytes.len() - 1]
+        .iter()
+        .filter(|value| **value == b'.')
+        .count();
+    (dot_count == bytes.len() - 2 && dot_count > 0).then_some(dot_count as u16)
+}
+
+fn label_from_trimmed(source: &str, start: usize, end: usize) -> Option<Label> {
+    let (trim_start, trim_end) = trim_ascii_range(&source[start..end])?;
+    Some(label_from_body(
+        source,
+        start + trim_start,
+        start + trim_end,
+    ))
+}
+
+fn label_from_body(source: &str, start: usize, end: usize) -> Label {
+    let raw = &source[start..end];
+    if raw.len() >= 2
+        && raw.as_bytes().first() == Some(&b'"')
+        && raw.as_bytes().last() == Some(&b'"')
+    {
+        let quoted_start = start + 1;
+        let quoted_end = end - 1;
+        let quoted = &source[quoted_start..quoted_end];
+        if quoted.len() >= 2
+            && quoted.as_bytes().first() == Some(&b'`')
+            && quoted.as_bytes().last() == Some(&b'`')
+        {
+            return Label {
+                text: source[quoted_start + 1..quoted_end - 1].to_owned(),
+                kind: LabelKind::Markdown,
+                span: Span::new(quoted_start + 1, quoted_end - 1),
+            };
+        }
+        return Label {
+            text: quoted.to_owned(),
+            kind: LabelKind::String,
+            span: Span::new(quoted_start, quoted_end),
+        };
+    }
+    Label {
+        text: raw.to_owned(),
+        kind: LabelKind::Plain,
+        span: Span::new(start, end),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
-    use crate::ast::{Direction, FlowShape, FlowchartDirective, LabelKind, Span};
+    use crate::ast::{
+        ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowchartDirective, LabelKind, Span,
+    };
 
     #[test]
     fn lexes_flowchart_header_tokens_with_spans() {
@@ -724,6 +1032,113 @@ mod tests {
                 kind: ParseErrorKind::TrailingInput,
                 span: Span::new(2, 3),
             },
+        );
+    }
+
+    #[test]
+    fn parses_basic_flow_edges() {
+        let cases = [
+            (
+                "A --> B",
+                FlowEdgeStroke::Normal,
+                ArrowHead::None,
+                ArrowHead::Arrow,
+                1,
+            ),
+            (
+                "A --- B",
+                FlowEdgeStroke::Normal,
+                ArrowHead::None,
+                ArrowHead::None,
+                1,
+            ),
+            (
+                "A ----> B",
+                FlowEdgeStroke::Normal,
+                ArrowHead::None,
+                ArrowHead::Arrow,
+                3,
+            ),
+            (
+                "A ==> B",
+                FlowEdgeStroke::Thick,
+                ArrowHead::None,
+                ArrowHead::Arrow,
+                1,
+            ),
+            (
+                "A -.-> B",
+                FlowEdgeStroke::Dotted,
+                ArrowHead::None,
+                ArrowHead::Arrow,
+                1,
+            ),
+            (
+                "A ~~~ B",
+                FlowEdgeStroke::Invisible,
+                ArrowHead::None,
+                ArrowHead::None,
+                1,
+            ),
+        ];
+
+        for (source, stroke, arrow_start, arrow_end, min_length) in cases {
+            let edge = Parser::parse_flow_edge(source).unwrap();
+
+            assert_eq!(edge.from.id.value, "A");
+            assert_eq!(edge.to.id.value, "B");
+            assert_eq!(edge.link.value.stroke, stroke);
+            assert_eq!(edge.link.value.arrow_start, arrow_start);
+            assert_eq!(edge.link.value.arrow_end, arrow_end);
+            assert_eq!(edge.link.value.min_length, min_length);
+        }
+    }
+
+    #[test]
+    fn parses_labelled_flow_edges() {
+        let cases = [
+            ("A -- label --> B", FlowEdgeStroke::Normal, "label"),
+            ("A -->|pipe label| B", FlowEdgeStroke::Normal, "pipe label"),
+            ("A == thick ==> B", FlowEdgeStroke::Thick, "thick"),
+            ("A -. dotted .-> B", FlowEdgeStroke::Dotted, "dotted"),
+        ];
+
+        for (source, stroke, label) in cases {
+            let edge = Parser::parse_flow_edge(source).unwrap();
+
+            assert_eq!(edge.link.value.stroke, stroke);
+            assert_eq!(edge.link.value.arrow_end, ArrowHead::Arrow);
+            assert_eq!(edge.label.unwrap().text, label);
+        }
+    }
+
+    #[test]
+    fn parses_circle_cross_and_bidirectional_edges() {
+        let circle = Parser::parse_flow_edge("A --o B").unwrap();
+        let cross = Parser::parse_flow_edge("A x--x B").unwrap();
+        let bidirectional = Parser::parse_flow_edge("A <--> B").unwrap();
+
+        assert_eq!(circle.link.value.arrow_end, ArrowHead::Circle);
+        assert_eq!(cross.link.value.arrow_start, ArrowHead::Cross);
+        assert_eq!(cross.link.value.arrow_end, ArrowHead::Cross);
+        assert_eq!(bidirectional.link.value.arrow_start, ArrowHead::Arrow);
+        assert_eq!(bidirectional.link.value.arrow_end, ArrowHead::Arrow);
+    }
+
+    #[test]
+    fn parses_flow_edges_with_inline_node_shapes() {
+        let edge = Parser::parse_flow_edge("A[Start] --> B((End))").unwrap();
+
+        assert_eq!(edge.from.label.unwrap().text, "Start");
+        assert_eq!(edge.to.shape.value, FlowShape::Circle);
+        assert_eq!(edge.to.label.unwrap().text, "End");
+    }
+
+    #[test]
+    fn rejects_missing_flow_edge() {
+        assert_eq!(
+            Parser::parse_flow_edge("A B").unwrap_err().kind,
+            ParseErrorKind::ExpectedFlowEdge,
         );
     }
 }

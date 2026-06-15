@@ -39,7 +39,7 @@
 
 - [x] Implement Mermaid lexer for `flowchart`/`graph` directive header (TD, LR, BT, RL)
 - [x] Implement node-id and node-shape parser (`[]`, `()`, `{}`, `(())`, `>]`, `[/...\\]`, etc.)
-- [ ] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
+- [x] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
 - [ ] Implement subgraph parser
 - [ ] Implement `classDef` and `class` styling parser
 - [ ] Implement comment + directive (`%%{ ... }%%`) parser — store directives in AST but ignore unknown ones (forward-compat)
