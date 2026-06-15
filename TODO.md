@@ -14,7 +14,7 @@
 - [ ] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
 - [x] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
 - [x] Create empty crate `crates/kumeyuri-render-tui`
-- [ ] Create empty crate `crates/kumeyuri-render-svg`
+- [x] Create empty crate `crates/kumeyuri-render-svg`
 - [ ] Create empty crate `crates/kumeyuri-render-raster`
 - [ ] Create empty crate `crates/kumeyuri-render-wasm` with `wasm-bindgen` boilerplate
 - [ ] Create empty crate `crates/kumeyuri-cli` with `clap` subcommand skeleton (`render`, `watch`, `play`)
