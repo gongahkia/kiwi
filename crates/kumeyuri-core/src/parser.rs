@@ -1,7 +1,7 @@
 use crate::ast::{
-    ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
-    FlowStatement, FlowSubgraph, FlowchartDirective, FlowchartHeader, Label, LabelKind, Span,
-    Spanned,
+    ArrowHead, Direction, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
+    FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartDirective,
+    FlowchartHeader, Label, LabelKind, Span, Spanned,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +34,11 @@ pub enum ParseErrorKind {
     ExpectedSubgraphId,
     UnterminatedSubgraph,
     UnknownFlowStatement,
+    ExpectedClassDef,
+    ExpectedClassName,
+    ExpectedStyleDeclaration,
+    ExpectedClassStatement,
+    ExpectedClassNode,
     TrailingInput,
 }
 
@@ -78,11 +83,151 @@ impl Parser {
     pub fn parse_flow_subgraph(source: &str) -> Result<FlowSubgraph, ParseError> {
         FlowSubgraphParser::new(source).parse()
     }
+
+    pub fn parse_flow_class_def(source: &str) -> Result<FlowClassDef, ParseError> {
+        FlowClassDefParser::new(source).parse()
+    }
+
+    pub fn parse_flow_class_apply(source: &str) -> Result<FlowClassApply, ParseError> {
+        FlowClassApplyParser::new(source).parse()
+    }
 }
 
 struct FlowEdgeParser<'source> {
     source: &'source str,
     cursor: usize,
+}
+
+struct FlowClassDefParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> FlowClassDefParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<FlowClassDef, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassDef,
+                span: Span::new(0, 0),
+            });
+        };
+        let keyword = "classDef";
+        if !has_keyword(self.source, start, keyword) {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassDef,
+                span: Span::new(start, end),
+            });
+        }
+
+        let rest_start = start + keyword.len();
+        let Some((rest_trim_start, rest_trim_end)) =
+            trim_ascii_range(&self.source[rest_start..end])
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassName,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let rest_start = rest_start + rest_trim_start;
+        let rest_end = start + keyword.len() + rest_trim_end;
+        let rest = &self.source[rest_start..rest_end];
+        let Some(colon) = rest.find(':') else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedStyleDeclaration,
+                span: Span::new(rest_start, rest_end),
+            });
+        };
+        let Some(style_start) = rest[..colon].rfind(|value: char| value.is_ascii_whitespace())
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassName,
+                span: Span::new(rest_start, rest_start + colon),
+            });
+        };
+
+        let class_ids = parse_csv_identifiers(
+            self.source,
+            rest_start,
+            rest_start + style_start,
+            ParseErrorKind::ExpectedClassName,
+        )?;
+        let styles = parse_style_declarations(self.source, rest_start + style_start, rest_end)?;
+        Ok(FlowClassDef {
+            class_ids,
+            styles,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct FlowClassApplyParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> FlowClassApplyParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<FlowClassApply, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let keyword = "class";
+        if !has_keyword(self.source, start, keyword) {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassStatement,
+                span: Span::new(start, end),
+            });
+        }
+
+        let rest_start = start + keyword.len();
+        let Some((rest_trim_start, rest_trim_end)) =
+            trim_ascii_range(&self.source[rest_start..end])
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassNode,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let rest_start = rest_start + rest_trim_start;
+        let rest_end = start + keyword.len() + rest_trim_end;
+        let rest = &self.source[rest_start..rest_end];
+        let Some(class_start) = rest.rfind(|value: char| value.is_ascii_whitespace()) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassName,
+                span: Span::new(rest_start, rest_end),
+            });
+        };
+
+        let node_ids = parse_csv_identifiers(
+            self.source,
+            rest_start,
+            rest_start + class_start,
+            ParseErrorKind::ExpectedClassNode,
+        )?;
+        let class_ids = parse_flexible_identifiers(
+            self.source,
+            rest_start + class_start,
+            rest_end,
+            ParseErrorKind::ExpectedClassName,
+        )?;
+        Ok(FlowClassApply {
+            node_ids,
+            class_ids,
+            span: Span::new(start, end),
+        })
+    }
 }
 
 impl<'source> FlowEdgeParser<'source> {
@@ -203,6 +348,26 @@ impl<'source> FlowSubgraphParser<'source> {
             }
             if let Some(direction) = parse_direction_statement(trimmed, absolute_start)? {
                 subgraph.direction = Some(direction);
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(class_def) = Parser::parse_flow_class_def(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::ClassDef(shift_class_def(
+                        class_def,
+                        absolute_start,
+                    )));
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(class_apply) = Parser::parse_flow_class_apply(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::ClassApply(shift_class_apply(
+                        class_apply,
+                        absolute_start,
+                    )));
                 self.cursor = line.next;
                 continue;
             }
@@ -692,6 +857,201 @@ fn trim_ascii_range(value: &str) -> Option<(usize, usize)> {
     (start < end).then_some((start, end))
 }
 
+fn trimmed_statement_bounds(source: &str) -> Option<(usize, usize)> {
+    let line = first_line(source);
+    let (start, mut end) = trim_ascii_range(line)?;
+    if line.as_bytes().get(end - 1) == Some(&b';') {
+        end -= 1;
+        let (inner_start, inner_end) = trim_ascii_range(&line[start..end])?;
+        return Some((start + inner_start, start + inner_end));
+    }
+    Some((start, end))
+}
+
+fn has_keyword(source: &str, start: usize, keyword: &str) -> bool {
+    source[start..].starts_with(keyword)
+        && source
+            .as_bytes()
+            .get(start + keyword.len())
+            .is_some_and(u8::is_ascii_whitespace)
+}
+
+fn parse_csv_identifiers(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<Vec<Spanned<String>>, ParseError> {
+    let mut values = Vec::new();
+    let mut part_start = start;
+    while part_start <= end {
+        let part_end = source[part_start..end]
+            .find(',')
+            .map_or(end, |offset| part_start + offset);
+        push_identifier(source, part_start, part_end, error_kind, &mut values)?;
+        if part_end == end {
+            break;
+        }
+        part_start = part_end + 1;
+    }
+    Ok(values)
+}
+
+fn parse_flexible_identifiers(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<Vec<Spanned<String>>, ParseError> {
+    let mut values = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        while cursor < end && matches!(source.as_bytes().get(cursor), Some(b',' | b' ' | b'\t')) {
+            cursor += 1;
+        }
+        if cursor == end {
+            break;
+        }
+        let value_start = cursor;
+        while cursor < end && !matches!(source.as_bytes().get(cursor), Some(b',' | b' ' | b'\t')) {
+            cursor += 1;
+        }
+        push_identifier(source, value_start, cursor, error_kind, &mut values)?;
+    }
+    if values.is_empty() {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(values)
+}
+
+fn push_identifier(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+    values: &mut Vec<Spanned<String>>,
+) -> Result<(), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let value = &source[absolute_start..absolute_end];
+    if !is_identifier(value) {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    values.push(Spanned::new(
+        value.to_owned(),
+        Span::new(absolute_start, absolute_end),
+    ));
+    Ok(())
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut bytes = value.as_bytes().iter();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    (first.is_ascii_alphanumeric() || *first == b'_')
+        && bytes.all(|value| value.is_ascii_alphanumeric() || *value == b'_' || *value == b'-')
+}
+
+fn parse_style_declarations(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<FlowStyleDeclaration>, ParseError> {
+    let mut values = Vec::new();
+    let mut part_start = start;
+    while part_start <= end {
+        let part_end = find_unescaped_comma(source, part_start, end).unwrap_or(end);
+        if let Some(value) = parse_style_declaration(source, part_start, part_end)? {
+            values.push(value);
+        }
+        if part_end == end {
+            break;
+        }
+        part_start = part_end + 1;
+    }
+    if values.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedStyleDeclaration,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(values)
+}
+
+fn parse_style_declaration(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Option<FlowStyleDeclaration>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Ok(None);
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let Some(colon) = source[absolute_start..absolute_end].find(':') else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedStyleDeclaration,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    let key_start = absolute_start;
+    let key_end = absolute_start + colon;
+    let value_start = key_end + 1;
+    let Some((key_trim_start, key_trim_end)) = trim_ascii_range(&source[key_start..key_end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedStyleDeclaration,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    let Some((value_trim_start, value_trim_end)) =
+        trim_ascii_range(&source[value_start..absolute_end])
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedStyleDeclaration,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+
+    let key_absolute_start = key_start + key_trim_start;
+    let key_absolute_end = key_start + key_trim_end;
+    let value_absolute_start = value_start + value_trim_start;
+    let value_absolute_end = value_start + value_trim_end;
+    let value = source[value_absolute_start..value_absolute_end].replace(r"\,", ",");
+    Ok(Some(FlowStyleDeclaration {
+        key: Spanned::new(
+            source[key_absolute_start..key_absolute_end].to_owned(),
+            Span::new(key_absolute_start, key_absolute_end),
+        ),
+        value: Spanned::new(value, Span::new(value_absolute_start, value_absolute_end)),
+        span: Span::new(absolute_start, absolute_end),
+    }))
+}
+
+fn find_unescaped_comma(source: &str, start: usize, end: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut cursor = start;
+    while cursor < end {
+        if bytes[cursor] == b',' && (cursor == start || bytes[cursor - 1] != b'\\') {
+            return Some(cursor);
+        }
+        cursor += 1;
+    }
+    None
+}
+
 fn parse_subgraph_header(
     source: &str,
     line: SourceLine<'_>,
@@ -863,6 +1223,46 @@ fn shift_edge(edge: FlowEdge, offset: usize) -> FlowEdge {
         link: shift_spanned(edge.link, offset),
         label: edge.label.map(|label| shift_label(label, offset)),
         span: shift_span(edge.span, offset),
+    }
+}
+
+fn shift_style_declaration(style: FlowStyleDeclaration, offset: usize) -> FlowStyleDeclaration {
+    FlowStyleDeclaration {
+        key: shift_spanned(style.key, offset),
+        value: shift_spanned(style.value, offset),
+        span: shift_span(style.span, offset),
+    }
+}
+
+fn shift_class_def(class_def: FlowClassDef, offset: usize) -> FlowClassDef {
+    FlowClassDef {
+        class_ids: class_def
+            .class_ids
+            .into_iter()
+            .map(|class_id| shift_spanned(class_id, offset))
+            .collect(),
+        styles: class_def
+            .styles
+            .into_iter()
+            .map(|style| shift_style_declaration(style, offset))
+            .collect(),
+        span: shift_span(class_def.span, offset),
+    }
+}
+
+fn shift_class_apply(class_apply: FlowClassApply, offset: usize) -> FlowClassApply {
+    FlowClassApply {
+        node_ids: class_apply
+            .node_ids
+            .into_iter()
+            .map(|node_id| shift_spanned(node_id, offset))
+            .collect(),
+        class_ids: class_apply
+            .class_ids
+            .into_iter()
+            .map(|class_id| shift_spanned(class_id, offset))
+            .collect(),
+        span: shift_span(class_apply.span, offset),
     }
 }
 
@@ -1500,6 +1900,78 @@ mod tests {
                 .unwrap_err()
                 .kind,
             ParseErrorKind::UnterminatedSubgraph,
+        );
+    }
+
+    #[test]
+    fn parses_flow_class_def() {
+        let class_def = Parser::parse_flow_class_def(
+            "classDef warning fill:#f96,stroke:#333,stroke-width:2px;",
+        )
+        .unwrap();
+
+        assert_eq!(class_def.class_ids[0].value, "warning");
+        assert_eq!(class_def.styles.len(), 3);
+        assert_eq!(class_def.styles[0].key.value, "fill");
+        assert_eq!(class_def.styles[0].value.value, "#f96");
+        assert_eq!(class_def.styles[2].key.value, "stroke-width");
+    }
+
+    #[test]
+    fn parses_multiple_class_defs_and_escaped_style_commas() {
+        let class_def = Parser::parse_flow_class_def(
+            r"classDef first, second stroke-dasharray:5\,5,animation:fast",
+        )
+        .unwrap();
+
+        assert_eq!(class_def.class_ids[0].value, "first");
+        assert_eq!(class_def.class_ids[1].value, "second");
+        assert_eq!(class_def.styles[0].value.value, "5,5");
+        assert_eq!(class_def.styles[1].value.value, "fast");
+    }
+
+    #[test]
+    fn parses_flow_class_apply() {
+        let class_apply = Parser::parse_flow_class_apply("class A,B warning,active;").unwrap();
+
+        assert_eq!(class_apply.node_ids[0].value, "A");
+        assert_eq!(class_apply.node_ids[1].value, "B");
+        assert_eq!(class_apply.class_ids[0].value, "warning");
+        assert_eq!(class_apply.class_ids[1].value, "active");
+    }
+
+    #[test]
+    fn parses_class_statements_inside_subgraph() {
+        let subgraph = Parser::parse_flow_subgraph(
+            "subgraph one\nclassDef warning fill:#f96\nclass A warning\nend",
+        )
+        .unwrap();
+
+        let FlowStatement::ClassDef(class_def) = &subgraph.statements[0] else {
+            panic!("expected classDef statement");
+        };
+        let FlowStatement::ClassApply(class_apply) = &subgraph.statements[1] else {
+            panic!("expected class statement");
+        };
+        assert_eq!(class_def.class_ids[0].value, "warning");
+        assert_eq!(class_apply.node_ids[0].value, "A");
+    }
+
+    #[test]
+    fn rejects_class_def_without_styles() {
+        assert_eq!(
+            Parser::parse_flow_class_def("classDef warning")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::ExpectedStyleDeclaration,
+        );
+    }
+
+    #[test]
+    fn rejects_class_apply_without_class_name() {
+        assert_eq!(
+            Parser::parse_flow_class_apply("class A").unwrap_err().kind,
+            ParseErrorKind::ExpectedClassName,
         );
     }
 }

@@ -41,7 +41,7 @@
 - [x] Implement node-id and node-shape parser (`[]`, `()`, `{}`, `(())`, `>]`, `[/...\\]`, etc.)
 - [x] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
 - [x] Implement subgraph parser
-- [ ] Implement `classDef` and `class` styling parser
+- [x] Implement `classDef` and `class` styling parser
 - [ ] Implement comment + directive (`%%{ ... }%%`) parser — store directives in AST but ignore unknown ones (forward-compat)
 - [ ] Build AST struct hierarchy in `kumeyuri-core::ast`
 - [ ] Implement sequence-diagram lexer (`sequenceDiagram` header, `participant`, `actor`, message arrows, `Note over`, `loop`, `alt`, `opt`, `par`)

@@ -140,6 +140,8 @@ pub enum FlowStatement {
     Node(FlowNode),
     Edge(Box<FlowEdge>),
     Subgraph(FlowSubgraph),
+    ClassDef(FlowClassDef),
+    ClassApply(FlowClassApply),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,5 +150,26 @@ pub struct FlowSubgraph {
     pub label: Option<Label>,
     pub direction: Option<Spanned<Direction>>,
     pub statements: Vec<FlowStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowStyleDeclaration {
+    pub key: Spanned<String>,
+    pub value: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowClassDef {
+    pub class_ids: Vec<Spanned<String>>,
+    pub styles: Vec<FlowStyleDeclaration>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowClassApply {
+    pub node_ids: Vec<Spanned<String>>,
+    pub class_ids: Vec<Spanned<String>>,
     pub span: Span,
 }
