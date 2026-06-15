@@ -1,7 +1,7 @@
 use crate::ast::{
     ArrowHead, Direction, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
     FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartDirective,
-    FlowchartHeader, Label, LabelKind, Span, Spanned,
+    FlowchartHeader, Label, LabelKind, MermaidComment, MermaidDirective, Span, Spanned,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +39,9 @@ pub enum ParseErrorKind {
     ExpectedStyleDeclaration,
     ExpectedClassStatement,
     ExpectedClassNode,
+    ExpectedComment,
+    ExpectedDirective,
+    UnterminatedDirective,
     TrailingInput,
 }
 
@@ -90,6 +93,14 @@ impl Parser {
 
     pub fn parse_flow_class_apply(source: &str) -> Result<FlowClassApply, ParseError> {
         FlowClassApplyParser::new(source).parse()
+    }
+
+    pub fn parse_mermaid_comment(source: &str) -> Result<MermaidComment, ParseError> {
+        MermaidCommentParser::new(source).parse()
+    }
+
+    pub fn parse_mermaid_directive(source: &str) -> Result<MermaidDirective, ParseError> {
+        MermaidDirectiveParser::new(source).parse()
     }
 }
 
@@ -167,6 +178,105 @@ impl<'source> FlowClassDefParser<'source> {
 
 struct FlowClassApplyParser<'source> {
     source: &'source str,
+}
+
+struct MermaidCommentParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> MermaidCommentParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<MermaidComment, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedComment,
+                span: Span::new(0, 0),
+            });
+        };
+        if !self.source[start..end].starts_with("%%") || self.source[start..end].starts_with("%%{")
+        {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedComment,
+                span: Span::new(start, end),
+            });
+        }
+        let text_start = start + 2;
+        let text = trim_ascii_range(&self.source[text_start..end]).map_or_else(
+            String::new,
+            |(trim_start, trim_end)| {
+                self.source[text_start + trim_start..text_start + trim_end].to_owned()
+            },
+        );
+        Ok(MermaidComment {
+            text,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct MermaidDirectiveParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> MermaidDirectiveParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<MermaidDirective, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedDirective,
+                span: Span::new(0, 0),
+            });
+        };
+        if !self.source[start..end].starts_with("%%{") {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedDirective,
+                span: Span::new(start, end),
+            });
+        }
+
+        let body_start = start + 3;
+        let Some(close_offset) = self.source[body_start..end].find("}%%") else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnterminatedDirective,
+                span: Span::new(start, end),
+            });
+        };
+        let body_end = body_start + close_offset;
+        let directive_end = body_end + 3;
+        if trim_ascii_range(&self.source[directive_end..end]).is_some() {
+            return Err(ParseError {
+                kind: ParseErrorKind::TrailingInput,
+                span: Span::new(directive_end, end),
+            });
+        }
+
+        let (raw, key) = if let Some((trim_start, trim_end)) =
+            trim_ascii_range(&self.source[body_start..body_end])
+        {
+            let raw_start = body_start + trim_start;
+            let raw_end = body_start + trim_end;
+            (
+                self.source[raw_start..raw_end].to_owned(),
+                directive_key(self.source, raw_start, raw_end),
+            )
+        } else {
+            (String::new(), None)
+        };
+
+        Ok(MermaidDirective {
+            raw,
+            key,
+            span: Span::new(start, directive_end),
+        })
+    }
 }
 
 impl<'source> FlowClassApplyParser<'source> {
@@ -344,6 +454,26 @@ impl<'source> FlowSubgraphParser<'source> {
             if trimmed.starts_with("subgraph") {
                 let nested = self.parse_subgraph()?;
                 subgraph.statements.push(FlowStatement::Subgraph(nested));
+                continue;
+            }
+            if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::Directive(shift_directive(
+                        directive,
+                        absolute_start,
+                    )));
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::Comment(shift_comment(
+                        comment,
+                        absolute_start,
+                    )));
+                self.cursor = line.next;
                 continue;
             }
             if let Some(direction) = parse_direction_statement(trimmed, absolute_start)? {
@@ -1052,6 +1182,17 @@ fn find_unescaped_comma(source: &str, start: usize, end: usize) -> Option<usize>
     None
 }
 
+fn directive_key(source: &str, start: usize, end: usize) -> Option<Spanned<String>> {
+    let colon = source[start..end].find(':')?;
+    let key_end = start + colon;
+    let (trim_start, trim_end) = trim_ascii_range(&source[start..key_end])?;
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let key = &source[absolute_start..absolute_end];
+    is_identifier(key)
+        .then(|| Spanned::new(key.to_owned(), Span::new(absolute_start, absolute_end)))
+}
+
 fn parse_subgraph_header(
     source: &str,
     line: SourceLine<'_>,
@@ -1263,6 +1404,21 @@ fn shift_class_apply(class_apply: FlowClassApply, offset: usize) -> FlowClassApp
             .map(|class_id| shift_spanned(class_id, offset))
             .collect(),
         span: shift_span(class_apply.span, offset),
+    }
+}
+
+fn shift_comment(comment: MermaidComment, offset: usize) -> MermaidComment {
+    MermaidComment {
+        text: comment.text,
+        span: shift_span(comment.span, offset),
+    }
+}
+
+fn shift_directive(directive: MermaidDirective, offset: usize) -> MermaidDirective {
+    MermaidDirective {
+        raw: directive.raw,
+        key: directive.key.map(|key| shift_spanned(key, offset)),
+        span: shift_span(directive.span, offset),
     }
 }
 
@@ -1972,6 +2128,50 @@ mod tests {
         assert_eq!(
             Parser::parse_flow_class_apply("class A").unwrap_err().kind,
             ParseErrorKind::ExpectedClassName,
+        );
+    }
+
+    #[test]
+    fn parses_mermaid_comment() {
+        let comment = Parser::parse_mermaid_comment("  %% keep this").unwrap();
+
+        assert_eq!(comment.text, "keep this");
+        assert_eq!(comment.span, Span::new(2, 14));
+    }
+
+    #[test]
+    fn parses_mermaid_directive() {
+        let directive =
+            Parser::parse_mermaid_directive("%%{ init: { 'theme': 'forest' } }%%").unwrap();
+
+        assert_eq!(directive.raw, "init: { 'theme': 'forest' }");
+        assert_eq!(directive.key.unwrap().value, "init");
+        assert_eq!(directive.span, Span::new(0, 35));
+    }
+
+    #[test]
+    fn stores_comments_and_directives_inside_subgraph() {
+        let subgraph =
+            Parser::parse_flow_subgraph("subgraph one\n%% keep\n%%{ animate: 'trace' }%%\nA\nend")
+                .unwrap();
+
+        let FlowStatement::Comment(comment) = &subgraph.statements[0] else {
+            panic!("expected comment statement");
+        };
+        let FlowStatement::Directive(directive) = &subgraph.statements[1] else {
+            panic!("expected directive statement");
+        };
+        assert_eq!(comment.text, "keep");
+        assert_eq!(directive.key.as_ref().unwrap().value, "animate");
+    }
+
+    #[test]
+    fn rejects_unterminated_directive() {
+        assert_eq!(
+            Parser::parse_mermaid_directive("%%{ init: {}")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::UnterminatedDirective,
         );
     }
 }

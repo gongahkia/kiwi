@@ -142,6 +142,8 @@ pub enum FlowStatement {
     Subgraph(FlowSubgraph),
     ClassDef(FlowClassDef),
     ClassApply(FlowClassApply),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -171,5 +173,18 @@ pub struct FlowClassDef {
 pub struct FlowClassApply {
     pub node_ids: Vec<Spanned<String>>,
     pub class_ids: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MermaidComment {
+    pub text: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MermaidDirective {
+    pub raw: String,
+    pub key: Option<Spanned<String>>,
     pub span: Span,
 }
