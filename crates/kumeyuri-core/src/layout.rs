@@ -1,6 +1,8 @@
 use crate::ast::{
-    Direction, FlowEdge, FlowNode, FlowStatement, FlowSubgraph, FlowchartAst, SequenceAst,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
+    ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
+    FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label,
+    LabelKind, SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
+    Spanned, StateAst, StateNode, StateStatement, StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -153,6 +155,18 @@ pub struct SequenceLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StateLayout {
+    pub graph: FlowLayout,
+    pub composites: Vec<PositionedStateComposite>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedStateComposite {
+    pub id: String,
+    pub child_ids: Vec<String>,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -161,6 +175,11 @@ pub struct FlowLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct SequenceLayoutEngine {
     config: SequenceLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct StateLayoutEngine {
+    flow: FlowLayoutEngine,
 }
 
 impl FlowLayoutEngine {
@@ -370,6 +389,155 @@ impl SequenceLayoutEngine {
         self.config.participant_height
             + self.config.top_padding
             + event_index * self.config.event_spacing
+    }
+}
+
+impl StateLayoutEngine {
+    #[must_use]
+    pub const fn new(flow: FlowLayoutEngine) -> Self {
+        Self { flow }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &StateAst) -> StateLayout {
+        let direction = ast
+            .direction
+            .map_or(Direction::TopDown, |value| value.value);
+        let mut statements = Vec::new();
+        let mut composites = Vec::new();
+
+        for state in &ast.states {
+            statements.push(FlowStatement::Node(state_to_flow_node(state)));
+        }
+        for transition in &ast.transitions {
+            statements.push(FlowStatement::Edge(Box::new(state_transition_to_edge(
+                transition,
+            ))));
+        }
+        for statement in &ast.statements {
+            collect_state_statement(statement, &mut statements, &mut composites);
+        }
+
+        let flow_ast = FlowchartAst {
+            header: FlowchartHeader {
+                directive: Spanned::new(FlowchartDirective::Graph, ast.header.span),
+                direction: Spanned::new(direction, ast.header.span),
+                span: ast.header.span,
+            },
+            statements,
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+            classes: Vec::new(),
+            span: ast.span,
+        };
+
+        StateLayout {
+            graph: self.flow.layout(&flow_ast),
+            composites,
+        }
+    }
+}
+
+fn collect_state_statement(
+    statement: &StateStatement,
+    flow_statements: &mut Vec<FlowStatement>,
+    composites: &mut Vec<PositionedStateComposite>,
+) {
+    match statement {
+        StateStatement::State(state) => {
+            flow_statements.push(FlowStatement::Node(state_to_flow_node(state)));
+        }
+        StateStatement::Transition(transition) => {
+            flow_statements.push(FlowStatement::Edge(Box::new(state_transition_to_edge(
+                transition,
+            ))));
+        }
+        StateStatement::Composite(state) => {
+            let mut child_ids = Vec::new();
+            flow_statements.push(FlowStatement::Node(state_to_flow_node(state)));
+            collect_state_children(state, flow_statements, composites, &mut child_ids);
+            composites.push(PositionedStateComposite {
+                id: state.id.value.clone(),
+                child_ids,
+            });
+        }
+        StateStatement::Direction(_)
+        | StateStatement::ClassDef(_)
+        | StateStatement::ClassApply(_)
+        | StateStatement::Comment(_)
+        | StateStatement::Directive(_) => {}
+    }
+}
+
+fn collect_state_children(
+    state: &StateNode,
+    flow_statements: &mut Vec<FlowStatement>,
+    composites: &mut Vec<PositionedStateComposite>,
+    child_ids: &mut Vec<String>,
+) {
+    for child in &state.children {
+        match child {
+            StateStatement::State(child_state) | StateStatement::Composite(child_state) => {
+                child_ids.push(child_state.id.value.clone());
+            }
+            StateStatement::Transition(transition) => {
+                child_ids.push(transition.from.value.clone());
+                child_ids.push(transition.to.value.clone());
+            }
+            StateStatement::ClassDef(_)
+            | StateStatement::ClassApply(_)
+            | StateStatement::Direction(_)
+            | StateStatement::Comment(_)
+            | StateStatement::Directive(_) => {}
+        }
+        collect_state_statement(child, flow_statements, composites);
+    }
+    child_ids.sort();
+    child_ids.dedup();
+}
+
+fn state_to_flow_node(state: &StateNode) -> FlowNode {
+    FlowNode {
+        id: state.id.clone(),
+        label: Some(state.label.clone().unwrap_or_else(|| Label {
+            text: state.id.value.clone(),
+            kind: LabelKind::Plain,
+            span: state.id.span,
+        })),
+        shape: Spanned::new(FlowShape::Rectangle, state.span),
+        span: state.span,
+    }
+}
+
+fn state_transition_to_edge(transition: &StateTransition) -> FlowEdge {
+    FlowEdge {
+        from: state_endpoint_to_node(&transition.from),
+        to: state_endpoint_to_node(&transition.to),
+        link: Spanned::new(
+            FlowEdgeLink {
+                stroke: FlowEdgeStroke::Normal,
+                arrow_start: ArrowHead::None,
+                arrow_end: ArrowHead::Arrow,
+                min_length: 1,
+            },
+            transition.span,
+        ),
+        label: transition.label.clone(),
+        span: transition.span,
+    }
+}
+
+fn state_endpoint_to_node(id: &Spanned<String>) -> FlowNode {
+    FlowNode {
+        id: id.clone(),
+        label: Some(Label {
+            text: id.value.clone(),
+            kind: LabelKind::Plain,
+            span: id.span,
+        }),
+        shape: Spanned::new(FlowShape::Rectangle, id.span),
+        span: id.span,
     }
 }
 
@@ -845,14 +1013,15 @@ fn layout_size(rects: &[Rect]) -> Size {
 
 #[cfg(test)]
 mod tests {
-    use super::{FlowLayoutEngine, Point, SequenceLayoutEngine};
+    use super::{FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine};
     use crate::ast::{ArrowHead, FlowShape, FlowchartAst};
     use crate::ast::{
         Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowStatement, FlowSubgraph,
         FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst,
         SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
         SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement,
-        Span, Spanned,
+        Span, Spanned, StateAst, StateDirective, StateHeader, StateNode, StateNodeKind,
+        StateStatement, StateTransition,
     };
 
     #[test]
@@ -1140,5 +1309,117 @@ mod tests {
             .iter()
             .find(|participant| participant.id == id)
             .unwrap_or_else(|| panic!("missing participant {id}"))
+    }
+
+    #[test]
+    fn lays_out_state_transitions_with_flow_engine() {
+        let ast = state(
+            Direction::TopDown,
+            vec![StateStatement::Transition(Box::new(state_transition(
+                "[*]", "Idle", "boot",
+            )))],
+        );
+
+        let layout = StateLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.graph.nodes.len(), 2);
+        assert_eq!(layout.graph.edges.len(), 1);
+        assert!(
+            flow_node(&layout.graph, "[*]").rect.origin.y
+                < flow_node(&layout.graph, "Idle").rect.origin.y
+        );
+    }
+
+    #[test]
+    fn state_layout_uses_requested_direction() {
+        let ast = state(
+            Direction::LeftRight,
+            vec![StateStatement::Transition(Box::new(state_transition(
+                "Idle", "Active", "start",
+            )))],
+        );
+
+        let layout = StateLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.graph.direction, Direction::LeftRight);
+        assert!(
+            flow_node(&layout.graph, "Idle").rect.origin.x
+                < flow_node(&layout.graph, "Active").rect.origin.x
+        );
+    }
+
+    #[test]
+    fn state_layout_recurses_composite_children() {
+        let composite = StateNode {
+            id: Spanned::new("Composite".to_owned(), Span::new(0, 0)),
+            label: None,
+            kind: StateNodeKind::Default,
+            descriptions: Vec::new(),
+            note: None,
+            children: vec![
+                StateStatement::State(Box::new(state_node("A"))),
+                StateStatement::Transition(Box::new(state_transition("A", "B", "next"))),
+            ],
+            span: Span::new(0, 0),
+        };
+        let ast = state(
+            Direction::TopDown,
+            vec![StateStatement::Composite(Box::new(composite))],
+        );
+
+        let layout = StateLayoutEngine::default().layout(&ast);
+
+        assert!(layout.graph.nodes.iter().any(|node| node.id == "Composite"));
+        assert!(layout.graph.nodes.iter().any(|node| node.id == "A"));
+        assert!(layout.graph.nodes.iter().any(|node| node.id == "B"));
+        assert_eq!(layout.composites[0].id, "Composite");
+        assert_eq!(layout.composites[0].child_ids, vec!["A", "B"]);
+    }
+
+    fn state(direction: Direction, statements: Vec<StateStatement>) -> StateAst {
+        StateAst {
+            header: StateHeader {
+                directive: StateDirective::StateDiagramV2,
+                span: Span::new(0, 15),
+            },
+            direction: Some(Spanned::new(direction, Span::new(0, 0))),
+            statements,
+            states: Vec::new(),
+            transitions: Vec::new(),
+            classes: Vec::new(),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn state_node(id: &str) -> StateNode {
+        StateNode {
+            id: Spanned::new(id.to_owned(), Span::new(0, 0)),
+            label: None,
+            kind: StateNodeKind::Default,
+            descriptions: Vec::new(),
+            note: None,
+            children: Vec::new(),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn state_transition(from: &str, to: &str, text: &str) -> StateTransition {
+        StateTransition {
+            from: Spanned::new(from.to_owned(), Span::new(0, 0)),
+            to: Spanned::new(to.to_owned(), Span::new(0, 0)),
+            label: Some(label(text)),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn flow_node<'layout>(
+        layout: &'layout super::FlowLayout,
+        id: &str,
+    ) -> &'layout super::PositionedFlowNode {
+        layout
+            .nodes
+            .iter()
+            .find(|node| node.id == id)
+            .unwrap_or_else(|| panic!("missing flow node {id}"))
     }
 }
