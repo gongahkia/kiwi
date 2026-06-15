@@ -12,7 +12,7 @@
 - [x] Add `CONTRIBUTING.md` outlining branch flow, commit style (Conventional Commits), and review expectations
 - [x] Add `SECURITY.md` with disclosure email
 - [ ] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
-- [ ] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
+- [x] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
 - [ ] Create empty crate `crates/kumeyuri-render-tui`
 - [ ] Create empty crate `crates/kumeyuri-render-svg`
 - [ ] Create empty crate `crates/kumeyuri-render-raster`

@@ -1,0 +1,10 @@
+[package]
+name = "kumeyuri-core"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gongahkia/kumeyuri"
+description = "Core parser, layout, animation, and frame model for kumeyuri."
+
+[lib]
+path = "src/lib.rs"
