@@ -1,0 +1,15 @@
+[package]
+name = "kumeyuri-render-wasm"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gongahkia/kumeyuri"
+description = "wasm-bindgen browser renderer bindings for kumeyuri."
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+kumeyuri-core = { path = "../kumeyuri-core" }
+wasm-bindgen = "0.2.125"
