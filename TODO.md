@@ -23,7 +23,7 @@
 - [x] Set up GitHub Actions CI workflow: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace`
 - [x] Add CI job for `wasm32-unknown-unknown` build to catch web-target breakage early
 - [x] Add `cargo-deny` config + CI job for license / advisory / source checks
-- [ ] Add `cargo-machete` or `cargo udeps` job to catch unused dependencies
+- [x] Add `cargo-machete` or `cargo udeps` job to catch unused dependencies
 - [ ] Add `release-please` workflow for automated changelog + version bumps
 - [ ] Add issue templates (bug, feature, parser-mismatch) under `.github/ISSUE_TEMPLATE/`
 - [ ] Add PR template requiring linked issue + visual-diff screenshots when renderer touched

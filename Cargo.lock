@@ -127,7 +127,6 @@ name = "kumeyuri-cli"
 version = "0.0.0"
 dependencies = [
  "clap",
- "kumeyuri-core",
 ]
 
 [[package]]
@@ -159,7 +158,6 @@ dependencies = [
 name = "kumeyuri-render-wasm"
 version = "0.0.0"
 dependencies = [
- "kumeyuri-core",
  "wasm-bindgen",
 ]
 

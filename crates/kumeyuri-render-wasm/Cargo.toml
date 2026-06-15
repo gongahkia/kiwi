@@ -11,5 +11,4 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-kumeyuri-core = { path = "../kumeyuri-core" }
 wasm-bindgen = "0.2.125"
