@@ -21,7 +21,7 @@
 - [x] Add `rustfmt.toml` and `clippy.toml` with project lint rules
 - [x] Add `.editorconfig` for cross-editor consistency
 - [x] Set up GitHub Actions CI workflow: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace`
-- [ ] Add CI job for `wasm32-unknown-unknown` build to catch web-target breakage early
+- [x] Add CI job for `wasm32-unknown-unknown` build to catch web-target breakage early
 - [ ] Add `cargo-deny` config + CI job for license / advisory / source checks
 - [ ] Add `cargo-machete` or `cargo udeps` job to catch unused dependencies
 - [ ] Add `release-please` workflow for automated changelog + version bumps
