@@ -1,0 +1,17 @@
+[[source]]
+name = "beautiful-mermaid"
+repository = "https://github.com/lukilabs/beautiful-mermaid"
+commit = "2ac8bbbb060ca0a65a6a21f3200bd99b1587b488"
+license = "MIT"
+copied_from = "src/__tests__/testdata"
+copied_to = "tests/golden/beautiful-mermaid/testdata"
+license_file = "tests/golden/beautiful-mermaid/LICENSE"
+
+[[source]]
+name = "mermaid-ascii"
+repository = "https://github.com/AlexanderGrooff/mermaid-ascii"
+commit = "fba8b40f14a309180df0b2943c2695c7a4e5a2e2"
+license = "MIT"
+copied_from = "cmd/testdata"
+copied_to = "tests/golden/mermaid-ascii/testdata"
+license_file = "tests/golden/mermaid-ascii/LICENSE"
