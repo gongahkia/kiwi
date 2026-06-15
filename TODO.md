@@ -50,7 +50,7 @@
 - [x] Implement layout engine for flowchart — port a layered Sugiyama-style algorithm or wrap `layout-rs`
 - [x] Implement layout engine for sequence — lane-based linear timeline
 - [x] Implement layout engine for state — same engine as flowchart with composite-state recursion
-- [ ] Define `Frame` type: 2D grid of glyph cells + style metadata + animation keyframe markers
+- [x] Define `Frame` type: 2D grid of glyph cells + style metadata + animation keyframe markers
 - [ ] Implement static-frame renderer: AST → single Frame
 - [ ] Implement glyph palette: ASCII set + Unicode set (box-drawing, block, arrows)
 - [ ] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
