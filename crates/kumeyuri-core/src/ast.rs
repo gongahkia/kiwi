@@ -134,3 +134,19 @@ pub struct FlowEdge {
     pub label: Option<Label>,
     pub span: Span,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FlowStatement {
+    Node(FlowNode),
+    Edge(Box<FlowEdge>),
+    Subgraph(FlowSubgraph),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowSubgraph {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub direction: Option<Spanned<Direction>>,
+    pub statements: Vec<FlowStatement>,
+    pub span: Span,
+}

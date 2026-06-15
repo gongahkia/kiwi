@@ -40,7 +40,7 @@
 - [x] Implement Mermaid lexer for `flowchart`/`graph` directive header (TD, LR, BT, RL)
 - [x] Implement node-id and node-shape parser (`[]`, `()`, `{}`, `(())`, `>]`, `[/...\\]`, etc.)
 - [x] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
-- [ ] Implement subgraph parser
+- [x] Implement subgraph parser
 - [ ] Implement `classDef` and `class` styling parser
 - [ ] Implement comment + directive (`%%{ ... }%%`) parser — store directives in AST but ignore unknown ones (forward-compat)
 - [ ] Build AST struct hierarchy in `kumeyuri-core::ast`

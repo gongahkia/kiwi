@@ -1,6 +1,7 @@
 use crate::ast::{
     ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
-    FlowchartDirective, FlowchartHeader, Label, LabelKind, Span, Spanned,
+    FlowStatement, FlowSubgraph, FlowchartDirective, FlowchartHeader, Label, LabelKind, Span,
+    Spanned,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +30,10 @@ pub enum ParseErrorKind {
     UnknownFlowNodeShape,
     UnterminatedFlowNodeShape,
     ExpectedFlowEdge,
+    ExpectedSubgraphHeader,
+    ExpectedSubgraphId,
+    UnterminatedSubgraph,
+    UnknownFlowStatement,
     TrailingInput,
 }
 
@@ -68,6 +73,10 @@ impl Parser {
 
     pub fn parse_flow_edge(source: &str) -> Result<FlowEdge, ParseError> {
         FlowEdgeParser::new(source).parse()
+    }
+
+    pub fn parse_flow_subgraph(source: &str) -> Result<FlowSubgraph, ParseError> {
+        FlowSubgraphParser::new(source).parse()
     }
 }
 
@@ -134,6 +143,129 @@ impl<'source> FlowEdgeParser<'source> {
             self.cursor += 1;
         }
     }
+}
+
+struct FlowSubgraphParser<'source> {
+    source: &'source str,
+    cursor: usize,
+}
+
+impl<'source> FlowSubgraphParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self { source, cursor: 0 }
+    }
+
+    fn parse(&mut self) -> Result<FlowSubgraph, ParseError> {
+        self.skip_blank_lines();
+        let subgraph = self.parse_subgraph()?;
+        self.skip_blank_lines();
+        if self.cursor != self.source.len() {
+            return Err(ParseError {
+                kind: ParseErrorKind::TrailingInput,
+                span: Span::new(self.cursor, self.source.len()),
+            });
+        }
+        Ok(subgraph)
+    }
+
+    fn parse_subgraph(&mut self) -> Result<FlowSubgraph, ParseError> {
+        let header = self.current_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSubgraphHeader,
+            span: Span::new(self.cursor, self.cursor),
+        })?;
+        let (mut subgraph, start) = parse_subgraph_header(self.source, header)?;
+        self.cursor = header.next;
+
+        loop {
+            let Some(line) = self.current_line() else {
+                return Err(ParseError {
+                    kind: ParseErrorKind::UnterminatedSubgraph,
+                    span: Span::new(start, self.source.len()),
+                });
+            };
+            let Some((trim_start, trim_end)) = trim_ascii_range(line.text) else {
+                self.cursor = line.next;
+                continue;
+            };
+            let absolute_start = line.start + trim_start;
+            let absolute_end = line.start + trim_end;
+            let trimmed = &self.source[absolute_start..absolute_end];
+
+            if trimmed == "end" {
+                subgraph.span = Span::new(start, absolute_end);
+                self.cursor = line.next;
+                return Ok(subgraph);
+            }
+            if trimmed.starts_with("subgraph") {
+                let nested = self.parse_subgraph()?;
+                subgraph.statements.push(FlowStatement::Subgraph(nested));
+                continue;
+            }
+            if let Some(direction) = parse_direction_statement(trimmed, absolute_start)? {
+                subgraph.direction = Some(direction);
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(edge) = Parser::parse_flow_edge(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::Edge(Box::new(shift_edge(
+                        edge,
+                        absolute_start,
+                    ))));
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(node) = Parser::parse_flow_node(trimmed) {
+                subgraph
+                    .statements
+                    .push(FlowStatement::Node(shift_node(node, absolute_start)));
+                self.cursor = line.next;
+                continue;
+            }
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownFlowStatement,
+                span: Span::new(absolute_start, absolute_end),
+            });
+        }
+    }
+
+    fn skip_blank_lines(&mut self) {
+        while let Some(line) = self.current_line() {
+            if trim_ascii_range(line.text).is_some() {
+                break;
+            }
+            self.cursor = line.next;
+        }
+    }
+
+    fn current_line(&self) -> Option<SourceLine<'source>> {
+        if self.cursor >= self.source.len() {
+            return None;
+        }
+        let rest = &self.source[self.cursor..];
+        let relative_end = rest.find(['\n', '\r']).unwrap_or(rest.len());
+        let end = self.cursor + relative_end;
+        let next = if end == self.source.len() {
+            end
+        } else if self.source[end..].starts_with("\r\n") {
+            end + 2
+        } else {
+            end + 1
+        };
+        Some(SourceLine {
+            start: self.cursor,
+            text: &self.source[self.cursor..end],
+            next,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SourceLine<'source> {
+    start: usize,
+    text: &'source str,
+    next: usize,
 }
 
 struct FlowNodeParser<'source> {
@@ -560,6 +692,180 @@ fn trim_ascii_range(value: &str) -> Option<(usize, usize)> {
     (start < end).then_some((start, end))
 }
 
+fn parse_subgraph_header(
+    source: &str,
+    line: SourceLine<'_>,
+) -> Result<(FlowSubgraph, usize), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(line.text) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSubgraphHeader,
+            span: Span::new(line.start, line.start),
+        });
+    };
+    let absolute_start = line.start + trim_start;
+    let absolute_end = line.start + trim_end;
+    let trimmed = &source[absolute_start..absolute_end];
+    let keyword = "subgraph";
+    if !trimmed.starts_with(keyword)
+        || !trimmed
+            .as_bytes()
+            .get(keyword.len())
+            .is_some_and(u8::is_ascii_whitespace)
+    {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSubgraphHeader,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+
+    let rest_start = absolute_start + keyword.len();
+    let Some((rest_trim_start, rest_trim_end)) =
+        trim_ascii_range(&source[rest_start..absolute_end])
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSubgraphId,
+            span: Span::new(rest_start, absolute_end),
+        });
+    };
+    let rest_absolute_start = rest_start + rest_trim_start;
+    let rest_absolute_end = rest_start + rest_trim_end;
+    let rest = &source[rest_absolute_start..rest_absolute_end];
+
+    let (id, label) = if rest.ends_with(']') {
+        if let Some(label_open) = rest.find('[') {
+            let id_source = &rest[..label_open];
+            let Some((id_start, id_end)) = trim_ascii_range(id_source) else {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedSubgraphId,
+                    span: Span::new(rest_absolute_start, rest_absolute_start + label_open),
+                });
+            };
+            let label_start = rest_absolute_start + label_open + 1;
+            let label_end = rest_absolute_end - 1;
+            (
+                Spanned::new(
+                    id_source[id_start..id_end].to_owned(),
+                    Span::new(rest_absolute_start + id_start, rest_absolute_start + id_end),
+                ),
+                label_from_trimmed(source, label_start, label_end),
+            )
+        } else {
+            subgraph_id_from_rest(rest, rest_absolute_start)?
+        }
+    } else {
+        subgraph_id_from_rest(rest, rest_absolute_start)?
+    };
+
+    Ok((
+        FlowSubgraph {
+            id,
+            label,
+            direction: None,
+            statements: Vec::new(),
+            span: Span::new(absolute_start, absolute_end),
+        },
+        absolute_start,
+    ))
+}
+
+fn subgraph_id_from_rest(
+    rest: &str,
+    rest_absolute_start: usize,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    let Some((id_start, id_end)) = trim_ascii_range(rest) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSubgraphId,
+            span: Span::new(rest_absolute_start, rest_absolute_start),
+        });
+    };
+    Ok((
+        Spanned::new(
+            rest[id_start..id_end].to_owned(),
+            Span::new(rest_absolute_start + id_start, rest_absolute_start + id_end),
+        ),
+        None,
+    ))
+}
+
+fn parse_direction_statement(
+    source: &str,
+    absolute_start: usize,
+) -> Result<Option<Spanned<Direction>>, ParseError> {
+    let keyword = "direction";
+    if !source.starts_with(keyword) {
+        return Ok(None);
+    }
+    let after_keyword = &source[keyword.len()..];
+    if !after_keyword
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_whitespace)
+    {
+        return Ok(None);
+    }
+    let Some((direction_start, direction_end)) = trim_ascii_range(after_keyword) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedFlowchartDirection,
+            span: Span::new(
+                absolute_start + keyword.len(),
+                absolute_start + source.len(),
+            ),
+        });
+    };
+    let direction_source = &after_keyword[direction_start..direction_end];
+    let Some(direction) = Direction::from_mermaid(direction_source) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownFlowchartDirection,
+            span: Span::new(
+                absolute_start + keyword.len() + direction_start,
+                absolute_start + keyword.len() + direction_end,
+            ),
+        });
+    };
+    Ok(Some(Spanned::new(
+        direction,
+        Span::new(
+            absolute_start + keyword.len() + direction_start,
+            absolute_start + keyword.len() + direction_end,
+        ),
+    )))
+}
+
+fn shift_span(span: Span, offset: usize) -> Span {
+    Span::new(span.start + offset, span.end + offset)
+}
+
+fn shift_spanned<T>(spanned: Spanned<T>, offset: usize) -> Spanned<T> {
+    Spanned::new(spanned.value, shift_span(spanned.span, offset))
+}
+
+fn shift_label(label: Label, offset: usize) -> Label {
+    Label {
+        text: label.text,
+        kind: label.kind,
+        span: shift_span(label.span, offset),
+    }
+}
+
+fn shift_node(node: FlowNode, offset: usize) -> FlowNode {
+    FlowNode {
+        id: shift_spanned(node.id, offset),
+        label: node.label.map(|label| shift_label(label, offset)),
+        shape: shift_spanned(node.shape, offset),
+        span: shift_span(node.span, offset),
+    }
+}
+
+fn shift_edge(edge: FlowEdge, offset: usize) -> FlowEdge {
+    FlowEdge {
+        from: shift_node(edge.from, offset),
+        to: shift_node(edge.to, offset),
+        link: shift_spanned(edge.link, offset),
+        label: edge.label.map(|label| shift_label(label, offset)),
+        span: shift_span(edge.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -826,7 +1132,8 @@ mod tests {
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
     use crate::ast::{
-        ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowchartDirective, LabelKind, Span,
+        ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
+        LabelKind, Span,
     };
 
     #[test]
@@ -1139,6 +1446,60 @@ mod tests {
         assert_eq!(
             Parser::parse_flow_edge("A B").unwrap_err().kind,
             ParseErrorKind::ExpectedFlowEdge,
+        );
+    }
+
+    #[test]
+    fn parses_subgraph_with_explicit_title() {
+        let subgraph =
+            Parser::parse_flow_subgraph("subgraph frontend [Frontend Services]\n    A --> B\nend")
+                .unwrap();
+
+        assert_eq!(subgraph.id.value, "frontend");
+        assert_eq!(subgraph.label.unwrap().text, "Frontend Services");
+        assert_eq!(subgraph.statements.len(), 1);
+        let FlowStatement::Edge(edge) = &subgraph.statements[0] else {
+            panic!("expected edge statement");
+        };
+        assert_eq!(edge.from.id.value, "A");
+        assert_eq!(edge.to.id.value, "B");
+    }
+
+    #[test]
+    fn parses_nested_subgraphs() {
+        let subgraph = Parser::parse_flow_subgraph(
+            "subgraph outer\n    subgraph inner\n        A\n    end\nend",
+        )
+        .unwrap();
+
+        let FlowStatement::Subgraph(inner) = &subgraph.statements[0] else {
+            panic!("expected nested subgraph");
+        };
+        assert_eq!(inner.id.value, "inner");
+        let FlowStatement::Node(node) = &inner.statements[0] else {
+            panic!("expected node statement");
+        };
+        assert_eq!(node.id.value, "A");
+    }
+
+    #[test]
+    fn parses_subgraph_direction_override() {
+        let subgraph = Parser::parse_flow_subgraph(
+            "subgraph one [LR Group]\n    direction LR\n    A --> B\nend",
+        )
+        .unwrap();
+
+        assert_eq!(subgraph.direction.unwrap().value, Direction::LeftRight);
+        assert_eq!(subgraph.statements.len(), 1);
+    }
+
+    #[test]
+    fn rejects_unterminated_subgraph() {
+        assert_eq!(
+            Parser::parse_flow_subgraph("subgraph one\n    A --> B")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::UnterminatedSubgraph,
         );
     }
 }
