@@ -333,12 +333,25 @@ pub struct SequenceAutoNumber {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateAst {
+    pub header: StateHeader,
     pub direction: Option<Spanned<Direction>>,
     pub statements: Vec<StateStatement>,
     pub states: Vec<StateNode>,
     pub transitions: Vec<StateTransition>,
     pub classes: Vec<FlowClassDef>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StateHeader {
+    pub directive: StateDirective,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateDirective {
+    StateDiagram,
+    StateDiagramV2,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

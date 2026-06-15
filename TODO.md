@@ -45,7 +45,7 @@
 - [x] Implement comment + directive (`%%{ ... }%%`) parser — store directives in AST but ignore unknown ones (forward-compat)
 - [x] Build AST struct hierarchy in `kumeyuri-core::ast`
 - [x] Implement sequence-diagram lexer (`sequenceDiagram` header, `participant`, `actor`, message arrows, `Note over`, `loop`, `alt`, `opt`, `par`)
-- [ ] Implement state-diagram lexer (`stateDiagram-v2`, states, transitions, composite states, `[*]`, choice/fork)
+- [x] Implement state-diagram lexer (`stateDiagram-v2`, states, transitions, composite states, `[*]`, choice/fork)
 - [ ] Property-test all three parsers against a fuzz corpus generated from official Mermaid examples
 - [ ] Implement layout engine for flowchart — port a layered Sugiyama-style algorithm or wrap `layout-rs`
 - [ ] Implement layout engine for sequence — lane-based linear timeline

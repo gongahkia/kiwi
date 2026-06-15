@@ -4,7 +4,8 @@ use crate::ast::{
     FlowchartHeader, Label, LabelKind, MermaidComment, MermaidDirective, SequenceArrow,
     SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
     SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
-    Spanned,
+    Spanned, StateDirective, StateHeader, StateNode, StateNodeKind, StateStatement,
+    StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +50,10 @@ pub enum ParseErrorKind {
     UnknownSequenceStatement,
     ExpectedSequenceParticipant,
     ExpectedSequenceMessage,
+    ExpectedStateHeader,
+    UnknownStateStatement,
+    ExpectedStateId,
+    ExpectedStateTransition,
     TrailingInput,
 }
 
@@ -116,6 +121,14 @@ impl Parser {
 
     pub fn parse_sequence_statement(source: &str) -> Result<SequenceStatement, ParseError> {
         SequenceStatementParser::new(source).parse()
+    }
+
+    pub fn parse_state_header(source: &str) -> Result<StateHeader, ParseError> {
+        StateHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_state_statement(source: &str) -> Result<StateStatement, ParseError> {
+        StateStatementParser::new(source).parse()
     }
 }
 
@@ -528,6 +541,226 @@ impl<'source> SequenceStatementParser<'source> {
             label,
             span: Span::new(start, end),
         }))
+    }
+}
+
+struct StateHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> StateHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<StateHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedStateHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        let directive = match &self.source[start..end] {
+            "stateDiagram" => StateDirective::StateDiagram,
+            "stateDiagram-v2" => StateDirective::StateDiagramV2,
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedStateHeader,
+                    span: Span::new(start, end),
+                });
+            }
+        };
+        Ok(StateHeader {
+            directive,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct StateStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> StateStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<StateStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownStateStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(StateStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(StateStatement::Comment(shift_comment(comment, start)));
+        }
+        if let Some(direction) = parse_direction_statement(trimmed, start)? {
+            return Ok(StateStatement::Direction(direction));
+        }
+        if let Some(transition) = self.parse_transition(start, end)? {
+            return Ok(StateStatement::Transition(Box::new(transition)));
+        }
+        if has_keyword(self.source, start, "state") {
+            return self.parse_state(start, end);
+        }
+        if trimmed == "[*]" {
+            return Ok(StateStatement::State(Box::new(StateNode {
+                id: Spanned::new("[*]".to_owned(), Span::new(start, end)),
+                label: None,
+                kind: StateNodeKind::Start,
+                descriptions: Vec::new(),
+                note: None,
+                children: Vec::new(),
+                span: Span::new(start, end),
+            })));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownStateStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_transition(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<StateTransition>, ParseError> {
+        let Some(arrow) = self.source[start..end].find("-->") else {
+            return Ok(None);
+        };
+        let arrow_start = start + arrow;
+        let from = parse_state_endpoint(
+            self.source,
+            start,
+            arrow_start,
+            ParseErrorKind::ExpectedStateTransition,
+        )?;
+        let after_arrow = arrow_start + 3;
+        let label_start = self.source[after_arrow..end]
+            .find(':')
+            .map(|offset| after_arrow + offset);
+        let to_end = label_start.unwrap_or(end);
+        let to = parse_state_endpoint(
+            self.source,
+            after_arrow,
+            to_end,
+            ParseErrorKind::ExpectedStateTransition,
+        )?;
+        let label = label_start.and_then(|offset| label_from_trimmed(self.source, offset + 1, end));
+        Ok(Some(StateTransition {
+            from,
+            to,
+            label,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_state(&self, start: usize, end: usize) -> Result<StateStatement, ParseError> {
+        let rest_start = start + "state".len();
+        let Some((rest_trim_start, rest_trim_end)) =
+            trim_ascii_range(&self.source[rest_start..end])
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedStateId,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let rest_start = rest_start + rest_trim_start;
+        let rest_end = start + "state".len() + rest_trim_end;
+        let rest = &self.source[rest_start..rest_end];
+        let composite = rest.ends_with('{');
+        let declaration_end = if composite { rest_end - 1 } else { rest_end };
+        let (id, label, kind) = if rest.starts_with('"') {
+            self.parse_aliased_state(rest_start, declaration_end)?
+        } else {
+            self.parse_named_state(rest_start, declaration_end)?
+        };
+        let node = StateNode {
+            id,
+            label,
+            kind,
+            descriptions: Vec::new(),
+            note: None,
+            children: Vec::new(),
+            span: Span::new(start, end),
+        };
+        if composite {
+            Ok(StateStatement::Composite(Box::new(node)))
+        } else {
+            Ok(StateStatement::State(Box::new(node)))
+        }
+    }
+
+    fn parse_aliased_state(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<(Spanned<String>, Option<Label>, StateNodeKind), ParseError> {
+        let close_quote = self.source[start + 1..end]
+            .find('"')
+            .map(|offset| start + 1 + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedStateId,
+                span: Span::new(start, end),
+            })?;
+        let label = label_from_body(self.source, start, close_quote + 1);
+        let after_label = close_quote + 1;
+        let Some(as_offset) = self.source[after_label..end].find(" as ") else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedStateId,
+                span: Span::new(after_label, end),
+            });
+        };
+        let id_start = after_label + as_offset + 4;
+        let id =
+            parse_single_identifier(self.source, id_start, end, ParseErrorKind::ExpectedStateId)?;
+        Ok((id, Some(label), StateNodeKind::Default))
+    }
+
+    fn parse_named_state(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<(Spanned<String>, Option<Label>, StateNodeKind), ParseError> {
+        let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[start..end]) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedStateId,
+                span: Span::new(start, end),
+            });
+        };
+        let absolute_start = start + trim_start;
+        let absolute_end = start + trim_end;
+        let rest = &self.source[absolute_start..absolute_end];
+        let id_end = rest
+            .find(|value: char| value.is_ascii_whitespace())
+            .map_or(absolute_end, |offset| absolute_start + offset);
+        let id = parse_state_endpoint(
+            self.source,
+            absolute_start,
+            id_end,
+            ParseErrorKind::ExpectedStateId,
+        )?;
+        let tag = trim_ascii_range(&self.source[id_end..absolute_end])
+            .map(|(tag_start, tag_end)| &self.source[id_end + tag_start..id_end + tag_end]);
+        let kind = match tag {
+            Some("<<choice>>") => StateNodeKind::Choice,
+            Some("<<fork>>") => StateNodeKind::Fork,
+            Some("<<join>>") => StateNodeKind::Join,
+            Some("<<end>>") => StateNodeKind::End,
+            _ if id.value == "[*]" => StateNodeKind::Start,
+            _ => StateNodeKind::Default,
+        };
+        Ok((id, None, kind))
     }
 }
 
@@ -1355,6 +1588,29 @@ fn parse_single_identifier(
     Ok(value)
 }
 
+fn parse_state_endpoint(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    if &source[absolute_start..absolute_end] == "[*]" {
+        return Ok(Spanned::new(
+            "[*]".to_owned(),
+            Span::new(absolute_start, absolute_end),
+        ));
+    }
+    parse_single_identifier(source, absolute_start, absolute_end, error_kind)
+}
+
 fn is_identifier(value: &str) -> bool {
     let mut bytes = value.as_bytes().iter();
     let Some(first) = bytes.next() else {
@@ -1987,7 +2243,8 @@ mod tests {
     use crate::ast::{
         ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
         LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
-        SequenceParticipantKind, SequenceStatement, Span,
+        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
+        StateStatement,
     };
 
     #[test]
@@ -2564,6 +2821,84 @@ mod tests {
                 .unwrap_err()
                 .kind,
             ParseErrorKind::UnknownSequenceStatement,
+        );
+    }
+
+    #[test]
+    fn parses_state_headers() {
+        assert_eq!(
+            Parser::parse_state_header("stateDiagram-v2")
+                .unwrap()
+                .directive,
+            StateDirective::StateDiagramV2,
+        );
+        assert_eq!(
+            Parser::parse_state_header("stateDiagram")
+                .unwrap()
+                .directive,
+            StateDirective::StateDiagram,
+        );
+    }
+
+    #[test]
+    fn parses_state_transitions() {
+        let statement = Parser::parse_state_statement("[*] --> Idle: boot").unwrap();
+
+        let StateStatement::Transition(transition) = statement else {
+            panic!("expected transition statement");
+        };
+        assert_eq!(transition.from.value, "[*]");
+        assert_eq!(transition.to.value, "Idle");
+        assert_eq!(transition.label.unwrap().text, "boot");
+    }
+
+    #[test]
+    fn parses_state_declarations() {
+        let aliased = Parser::parse_state_statement(r#"state "Power On" as power_on"#).unwrap();
+        let choice = Parser::parse_state_statement("state decision <<choice>>").unwrap();
+        let fork = Parser::parse_state_statement("state split <<fork>>").unwrap();
+
+        let StateStatement::State(aliased) = aliased else {
+            panic!("expected aliased state");
+        };
+        let StateStatement::State(choice) = choice else {
+            panic!("expected choice state");
+        };
+        let StateStatement::State(fork) = fork else {
+            panic!("expected fork state");
+        };
+        assert_eq!(aliased.id.value, "power_on");
+        assert_eq!(aliased.label.unwrap().text, "Power On");
+        assert_eq!(choice.kind, StateNodeKind::Choice);
+        assert_eq!(fork.kind, StateNodeKind::Fork);
+    }
+
+    #[test]
+    fn parses_composite_state_opening() {
+        let statement = Parser::parse_state_statement("state Composite {").unwrap();
+
+        let StateStatement::Composite(state) = statement else {
+            panic!("expected composite state");
+        };
+        assert_eq!(state.id.value, "Composite");
+    }
+
+    #[test]
+    fn parses_state_direction_comments_and_directives() {
+        let direction = Parser::parse_state_statement("direction LR").unwrap();
+        let comment = Parser::parse_state_statement("%% state note").unwrap();
+        let directive = Parser::parse_state_statement("%%{ init: {} }%%").unwrap();
+
+        assert!(matches!(direction, StateStatement::Direction(_)));
+        assert!(matches!(comment, StateStatement::Comment(_)));
+        assert!(matches!(directive, StateStatement::Directive(_)));
+    }
+
+    #[test]
+    fn rejects_unknown_state_statement() {
+        assert_eq!(
+            Parser::parse_state_statement("elsewhere").unwrap_err().kind,
+            ParseErrorKind::UnknownStateStatement,
         );
     }
 }
