@@ -31,7 +31,7 @@
 - [ ] Reserve `kumeyuri` npm name (publish a placeholder 0.0.0)
 - [ ] Reserve `kumeyuri.dev` domain (Cloudflare or Namecheap)
 - [ ] Reserve `@kumeyuri` handle on X / Bluesky / Mastodon
-- [ ] Spike: read `mermaid-js/mermaid` parser grammar; document AST shape decision in `docs/adr/0001-ast-shape.md`
+- [x] Spike: read `mermaid-js/mermaid` parser grammar; document AST shape decision in `docs/adr/0001-ast-shape.md`
 - [ ] Decide token strategy: hand-rolled `chumsky`/`logos` vs port of mermaid's Jison grammar; record in `docs/adr/0002-parser-choice.md`
 - [ ] Vendor or pin reference output corpora from `beautiful-mermaid` and `AlexanderGrooff/mermaid-ascii` into `tests/golden/` for visual parity benchmarking (respect their licenses)
 
