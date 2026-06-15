@@ -1,0 +1,13 @@
+[package]
+name = "kumeyuri-render-tui"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gongahkia/kumeyuri"
+description = "Terminal UI renderer for kumeyuri timelines."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+kumeyuri-core = { path = "../kumeyuri-core" }
