@@ -1,0 +1,424 @@
+# kumeyuri — Implementation TODO
+
+> One task per line. Ordered Phase 0 → Phase 6. Check off as you go. Each task maps to the north_star.md phasing.
+
+## Phase 0 — Foundation (weeks 0–1)
+
+- [ ] Create GitHub repo `kumeyuri/kumeyuri` (or under personal handle), set default branch to `main`
+- [ ] Add MIT `LICENSE` file with current year and author name
+- [ ] Write `README.md` v0 with one-line pitch, status badge placeholder, and link to `north_star.md`
+- [ ] Add `.gitignore` for Rust (`target/`, `Cargo.lock` rules per crate type), Node (`node_modules/`, `dist/`), and OS (`.DS_Store`)
+- [ ] Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
+- [ ] Add `CONTRIBUTING.md` outlining branch flow, commit style (Conventional Commits), and review expectations
+- [ ] Add `SECURITY.md` with disclosure email
+- [ ] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
+- [ ] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
+- [ ] Create empty crate `crates/kumeyuri-render-tui`
+- [ ] Create empty crate `crates/kumeyuri-render-svg`
+- [ ] Create empty crate `crates/kumeyuri-render-raster`
+- [ ] Create empty crate `crates/kumeyuri-render-wasm` with `wasm-bindgen` boilerplate
+- [ ] Create empty crate `crates/kumeyuri-cli` with `clap` subcommand skeleton (`render`, `watch`, `play`)
+- [ ] Add `rustfmt.toml` and `clippy.toml` with project lint rules
+- [ ] Add `.editorconfig` for cross-editor consistency
+- [ ] Set up GitHub Actions CI workflow: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace`
+- [ ] Add CI job for `wasm32-unknown-unknown` build to catch web-target breakage early
+- [ ] Add `cargo-deny` config + CI job for license / advisory / source checks
+- [ ] Add `cargo-machete` or `cargo udeps` job to catch unused dependencies
+- [ ] Add `release-please` workflow for automated changelog + version bumps
+- [ ] Add issue templates (bug, feature, parser-mismatch) under `.github/ISSUE_TEMPLATE/`
+- [ ] Add PR template requiring linked issue + visual-diff screenshots when renderer touched
+- [ ] Reserve `kumeyuri` crate name on crates.io (publish a placeholder 0.0.0)
+- [ ] Reserve `kumeyuri` npm name (publish a placeholder 0.0.0)
+- [ ] Reserve `kumeyuri.dev` domain (Cloudflare or Namecheap)
+- [ ] Reserve `@kumeyuri` handle on X / Bluesky / Mastodon
+- [ ] Spike: read `mermaid-js/mermaid` parser grammar; document AST shape decision in `docs/adr/0001-ast-shape.md`
+- [ ] Decide token strategy: hand-rolled `chumsky`/`logos` vs port of mermaid's Jison grammar; record in `docs/adr/0002-parser-choice.md`
+- [ ] Vendor or pin reference output corpora from `beautiful-mermaid` and `AlexanderGrooff/mermaid-ascii` into `tests/golden/` for visual parity benchmarking (respect their licenses)
+
+## Phase 1 — Static parity (weeks 1–4)
+
+- [ ] Implement Mermaid lexer for `flowchart`/`graph` directive header (TD, LR, BT, RL)
+- [ ] Implement node-id and node-shape parser (`[]`, `()`, `{}`, `(())`, `>]`, `[/...\\]`, etc.)
+- [ ] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
+- [ ] Implement subgraph parser
+- [ ] Implement `classDef` and `class` styling parser
+- [ ] Implement comment + directive (`%%{ ... }%%`) parser — store directives in AST but ignore unknown ones (forward-compat)
+- [ ] Build AST struct hierarchy in `kumeyuri-core::ast`
+- [ ] Implement sequence-diagram lexer (`sequenceDiagram` header, `participant`, `actor`, message arrows, `Note over`, `loop`, `alt`, `opt`, `par`)
+- [ ] Implement state-diagram lexer (`stateDiagram-v2`, states, transitions, composite states, `[*]`, choice/fork)
+- [ ] Property-test all three parsers against a fuzz corpus generated from official Mermaid examples
+- [ ] Implement layout engine for flowchart — port a layered Sugiyama-style algorithm or wrap `layout-rs`
+- [ ] Implement layout engine for sequence — lane-based linear timeline
+- [ ] Implement layout engine for state — same engine as flowchart with composite-state recursion
+- [ ] Define `Frame` type: 2D grid of glyph cells + style metadata + animation keyframe markers
+- [ ] Implement static-frame renderer: AST → single Frame
+- [ ] Implement glyph palette: ASCII set + Unicode set (box-drawing, block, arrows)
+- [ ] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
+- [ ] Implement text-output backend in `kumeyuri-core` (`Frame` → `String`)
+- [ ] Add CLI `kumeyuri render <file> --format text` end-to-end
+- [ ] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
+- [ ] Snapshot-test sequence static output against 15 examples
+- [ ] Snapshot-test state static output against 10 examples
+- [ ] Visual-diff CI job: render each fixture, compare against `tests/golden/`, fail on mismatch
+- [ ] Side-by-side comparison doc generator: produce a markdown page showing kumeyuri vs `beautiful-mermaid` vs `AlexanderGrooff/mermaid-ascii` on the same input
+- [ ] Resolve every static-parity regression flagged by the comparison doc before tagging `v0.1.0-static`
+- [ ] Publish `v0.1.0-static` to crates.io (CLI only, text output only)
+
+## Phase 2 — Animation engine (weeks 4–7)
+
+- [ ] Define `KeyFrame` type and `Timeline` model in `kumeyuri-core::animator`
+- [ ] Specify default animation per diagram type in `docs/animations.md`
+- [ ] Implement sequence-playback animator: emit one frame per message activation
+- [ ] Implement flowchart-trace animator: highlight path BFS/DFS through nodes
+- [ ] Implement state-transition animator: pulse current state, light up transition arrows
+- [ ] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
+- [ ] Parse directives into `AnimationConfig` and feed into animator
+- [ ] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame
+- [ ] Integrate `tachyonfx` for transition effects (fade, slide, glitch) between frames
+- [ ] Implement `kumeyuri play <file>` CLI subcommand for one-shot TUI playback
+- [ ] Implement `kumeyuri watch <file>` with `notify`-based filesystem watcher and in-place re-render
+- [ ] Add interactive TUI controls: pause/resume (space), step (arrows), restart (r), quit (q)
+- [ ] Add animation speed override flag `--speed` and loop flag `--loop`
+- [ ] Snapshot-test animation timelines: hash the keyframe sequence per fixture
+- [ ] Manual QA pass: every fixture run through `kumeyuri play` for visual sanity
+- [ ] Record three terminal demo GIFs (sequence, flowchart, state) using `vhs` or `asciinema-agg`
+- [ ] Publish `v0.2.0-animated-tui` to crates.io
+
+## Phase 3 — Web / embed renderers (weeks 7–10)
+
+- [ ] Implement `kumeyuri-render-svg`: emit SVG with `<g>` per frame and SMIL `<animate>` elements
+- [ ] Add CSS-keyframe fallback path for SVG (GitHub sanitizer test required)
+- [ ] CI test: pipe generated SVG through `DOMPurify` with GitHub's allowlist; fail if animation strips
+- [ ] Embed accessible `<title>` + `<desc>` + plain-text fallback inside every SVG
+- [ ] Implement `kumeyuri-render-raster`: composite frames to PNG via `tiny-skia` or `cosmic-text` + glyph atlas
+- [ ] Implement GIF encoder path (`gif` crate or `gifski` bindings)
+- [ ] Implement APNG encoder path (`png` crate with animation chunks)
+- [ ] Implement WebP encoder path (`webp` crate, animated mode)
+- [ ] Add CLI flags: `--format svg|gif|apng|webp|text|tui` to `kumeyuri render`
+- [ ] Add `--theme`, `--charset`, `--width`, `--padding`, `--font` flags
+- [ ] Build `kumeyuri-render-wasm` exposing `render(source, options) -> {svg, frames}` for browsers
+- [ ] Wrap WASM in TypeScript package `kumeyuri` (npm) with typed API
+- [ ] Implement `<kumeyuri-diagram>` web component (custom element) supporting `src`, `inline`, `animate`, `theme`, `speed`, `autoplay`, `controls` attributes
+- [ ] Add interactive controls overlay (play/pause/scrub/restart) to the web component
+- [ ] Set up CDN distribution (Cloudflare R2 + Cloudflare Pages, or jsDelivr via npm)
+- [ ] Write `docs/embedding.md` showing GitHub README, Hugo, Docusaurus, mdBook, plain HTML usage
+- [ ] Snapshot-test SVG and raster outputs (image-diff via `image-compare` crate)
+- [ ] Cross-browser test the web component (Chrome, Safari, Firefox, mobile) via Playwright
+- [ ] Performance budget: WASM bundle < 500 KB gzipped; document in CI
+- [ ] Publish `v0.3.0-embed` to crates.io and `kumeyuri` to npm
+
+## Phase 4 — Public launch (weeks 10–11)
+
+- [ ] Build landing page at `kumeyuri.dev` (Vite + Astro or plain HTML) with hero animation
+- [ ] Add interactive playground (textarea ↔ live diagram via WASM)
+- [ ] Author full docs site with mdBook: install, quickstart, syntax, directives, themes, embedding, recipes
+- [ ] Curate `examples/` gallery with 15 polished `.mmd` files + rendered SVG/GIFs
+- [ ] Write five "wow" demo diagrams: HTTP request lifecycle, OAuth flow, OS scheduler state machine, microservice fan-out, sorting algorithm trace
+- [ ] Record a 60-second screencast showing CLI + watch mode + web embed
+- [ ] Author launch blog post explaining the wedge, with embedded animations
+- [ ] Write Hacker News submission title + first comment (technical depth, no marketing fluff)
+- [ ] Draft X launch thread (3 posts max) with one GIF per post; schedule for Tue/Wed 9–11am PT
+- [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR
+- [ ] Post to r/rust, r/programming, r/commandline with the same blog post
+- [ ] Tag `v1.0.0` and publish to crates.io, npm, Homebrew tap
+- [ ] Set up `cargo-dist` release pipeline producing prebuilt binaries for macOS (aarch64+x86_64), Linux (x86_64+aarch64+musl), Windows (x86_64)
+- [ ] Create Homebrew tap repo `kumeyuri/homebrew-kumeyuri` with auto-updated formula
+- [ ] Monitor GitHub Issues + HN comments for 72h post-launch; triage P0 bugs same-day
+
+## Phase 5 — Long-tail diagram types (post-launch)
+
+- [ ] Implement class-diagram parser, layout, static + animated rendering
+- [ ] Implement ER-diagram parser, layout, static + animated rendering
+- [ ] Implement Gantt-chart parser, layout, static + animated rendering (timeline sweep animation)
+- [ ] Implement pie-chart parser, layout, static + animated rendering (slice growth animation)
+- [ ] Implement mindmap parser, layout, static + animated rendering (radial expand animation)
+- [ ] Implement journey diagram parser, layout, static + animated rendering
+- [ ] Implement gitGraph parser, layout, static + animated rendering (commit graph growth)
+- [ ] Implement timeline parser, layout, static + animated rendering (scroll/reveal animation)
+- [ ] Implement requirement diagram parser, layout, static rendering
+- [ ] Implement C4 diagram parser, layout, static rendering
+- [ ] Ship each as a minor release (`v1.1`, `v1.2`, ...) with its own demo GIF and changelog entry
+
+## Phase 6 — Ecosystem (ongoing, post-launch)
+
+- [ ] Build Neovim plugin (lua) — `:KumeyuriPreview` opens floating TUI
+- [ ] Build VSCode extension — webview embedding the WASM player; auto-render `.mmd` files on save
+- [ ] Build Claude-Code skill / plugin rendering mermaid blocks inline in agent output
+- [ ] Build opencode plugin equivalent
+- [ ] Publish GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
+- [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
+- [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
+- [ ] Author mdBook preprocessor `mdbook-kumeyuri`
+- [ ] Author Hugo shortcode `{{< kumeyuri >}}`
+- [ ] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
+- [ ] Add Astro integration `@kumeyuri/astro`
+- [ ] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
+- [ ] Track upstream Mermaid grammar changes; bump compat matrix per release in `docs/compat.md`
+- [ ] Quarterly: post X thread with one new animation demo and download/stars chart
+- [ ] Open a `good-first-issue` queue and respond to first-time contributors within 48h
+
+## Cross-cutting / continuous
+
+- [ ] Keep visual-diff golden snapshots up to date on every renderer change
+- [ ] Maintain `CHANGELOG.md` via release-please
+- [ ] Maintain `docs/adr/` decision log for any non-obvious architectural choice
+- [ ] Run `cargo audit` weekly via Dependabot/Renovate
+- [ ] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
+- [ ] Triage incoming GitHub Issues within 7 days
+- [ ] Publish a public roadmap pinned issue and update monthly
+
+---
+
+## Phase 7 — WASM plugin runtime (post-launch, ~months 4–6)
+
+- [ ] Author RFC `docs/rfcs/0001-plugin-abi.md` proposing plugin ABI semantics
+- [ ] Define `kumeyuri_abi` semver scheme and capability flags in core
+- [ ] Define `RenderBackend` trait stable surface (target ABI 1.0)
+- [ ] Define `DiagramType` trait surface covering parser + layout hooks
+- [ ] Define `ThemeTransform` trait surface for theme preprocessors
+- [ ] Decide host runtime: `wasmtime` vs `wasmer` vs `wasm-bindgen-cli` — record in `docs/adr/0010-wasm-host.md`
+- [ ] Implement plugin loader in `kumeyuri-core::plugins`
+- [ ] Implement capability denial defaults (no fs, no net, no env)
+- [ ] Implement explicit grants via `--plugin-allow=<csv>`
+- [ ] Implement plugin caching at `$XDG_DATA_HOME/kumeyuri/plugins/`
+- [ ] Implement `kumeyuri plugin install <name>` resolving npm + crates.io tagged with `kumeyuri-plugin`
+- [ ] Implement `kumeyuri plugin list / remove / update / disable` subcommands
+- [ ] Author plugin author guide `docs/plugins/authoring.md` with hello-world example
+- [ ] Build reference plugin `kumeyuri-render-pdf` as the canonical example
+- [ ] Build reference plugin `kumeyuri-diagram-sankey` as second canonical example
+- [ ] Add plugin smoke-test CI matrix: load each official plugin, render a sample, diff
+- [ ] Document ABI deprecation policy (2-year guarantee per ABI major)
+- [ ] Publish `v1.1.0-plugins` minor release
+
+## Phase 8 — Smart-layout assistant (post-launch, ~month 5)
+
+- [ ] Implement crossing-minimisation pass (Sugiyama phase 3) in `kumeyuri-core::layout::optimise`
+- [ ] Implement long-label auto-wrap with `--max-label-width`
+- [ ] Implement disconnected-subgraph clusterer with padding heuristic
+- [ ] Implement orphan-node detector emitting actionable stderr suggestions
+- [ ] Implement direction-swap suggestion when aspect ratio extreme
+- [ ] Add `kumeyuri lint <file>` subcommand producing layout report (JSON via `--json`)
+- [ ] Build a `kumeyuri-ai` companion crate (separate repo, optional dep)
+- [ ] Implement BYOK envvar resolution (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`)
+- [ ] Implement provider abstraction supporting OpenAI, Anthropic, OpenRouter, local llama.cpp
+- [ ] Implement diff-presenter that shows AI-rewritten source vs original before apply
+- [ ] Add `kumeyuri layout --ai` flag wiring to companion crate via dlopen-style optional binding
+- [ ] Document smart-layout heuristics + AI fallback in `docs/smart-layout.md`
+- [ ] Publish `v1.2.0-smart-layout` minor release
+
+## Phase 9 — Internationalisation deep pass (~month 6)
+
+- [ ] Add `unicode-width` + `unicode-segmentation` dependencies and audit current width code paths
+- [ ] Add `unicode-bidi` and integrate BiDi pass in label rendering
+- [ ] Add CJK full-width glyph awareness throughout layout engine
+- [ ] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
+- [ ] Add CJK snapshot tests with Japanese, Korean, Simplified + Traditional Chinese samples
+- [ ] Integrate `fluent-rs` for user-facing strings
+- [ ] Extract every user-facing string into `locales/en-US.ftl`
+- [ ] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
+- [ ] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
+- [ ] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
+- [ ] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
+- [ ] Document i18n behaviour in `docs/i18n.md` including known limitations
+- [ ] Publish `v1.3.0-i18n` minor release
+
+## Phase 10 — Print / PDF / slide-deck integrations (~months 7–8)
+
+- [ ] Implement PDF renderer in `kumeyuri-render-pdf` (plugin via Phase 7 ABI) using `printpdf` or `pdf-writer`
+- [ ] Implement print-friendly theme `print-mono` (no colour, high contrast, monospace ASCII fallback)
+- [ ] Implement reveal.js plugin loading kumecast files inline in slides
+- [ ] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
+- [ ] Implement Slidev component `<KumeyuriDiagram>`
+- [ ] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
+- [ ] Implement Logseq plugin equivalent
+- [ ] Implement Quartz plugin for digital gardens
+- [ ] Implement Zola shortcode for kumeyuri embeds
+- [ ] Add `docs/integrations/` directory with one page per integration
+- [ ] Publish `v1.4.0-deck` minor release
+
+## Phase 11 — Long-term maintenance & governance (ongoing, year 2+)
+
+- [ ] Write `GOVERNANCE.md` formalising maintainer ladder (triager → committer → maintainer)
+- [ ] Identify and invite first three triagers from contributor history
+- [ ] Move from solo-author MIT to multi-maintainer MIT with DCO sign-off enforcement
+- [ ] Establish monthly transparency post template for sponsorship income/spend
+- [ ] Establish quarterly roadmap review + community office hours (async GitHub Discussions thread)
+- [ ] Submit to OSS-Fuzz for continuous fuzzing once parser is stable
+- [ ] Apply for SLSA Level 3 build provenance attestation
+- [ ] Apply for OpenSSF Best Practices Badge silver/gold
+- [ ] Migrate to multi-maintainer release signing via threshold sigstore
+- [ ] Decide policy on AI-generated contributions; document in `CONTRIBUTING.md`
+- [ ] Annual archive of `metrics/dashboard.svg` snapshots for historical trends
+
+---
+
+## Cross-cutting deep dives
+
+### Accessibility audit checklist (continuous; gate every release)
+
+- [ ] Run `axe-core` against web player; zero violations
+- [ ] Run `pa11y` against every doc-site page; zero violations
+- [ ] Verify all themes meet 4.5:1 contrast ratio (automated headless render + colour sample)
+- [ ] Verify `prefers-reduced-motion: reduce` produces static SVG with progress dots
+- [ ] Verify keyboard-only navigation reaches every control (manual smoke test)
+- [ ] Verify NVDA, VoiceOver, JAWS narration of `aria-live` region
+- [ ] Verify touch targets ≥ 44×44 px on the web player
+- [ ] Verify SVG `<title>` and `<desc>` populate from diagram metadata
+- [ ] Verify `.vtt` caption track generated and synced to animation
+- [ ] Verify `--narrate` flag emits sensible prose for each diagram type
+- [ ] Verify `--alt-text` flag returns paste-ready alt strings
+
+### Security audit checklist (continuous; gate every release)
+
+- [ ] Continuous fuzzing of parser via `cargo-fuzz`; corpus refreshed weekly
+- [ ] Audit all regex usage; confirm linear-time `regex` crate only
+- [ ] Audit SVG output sanitiser; verify no `<foreignObject>`, no `<script>`, no `href=external`
+- [ ] Verify `--allow-external` is opt-in and gated
+- [ ] Verify input size limit enforced (default 1 MB; configurable)
+- [ ] Verify `cargo-deny` advisory check passes (no known CVEs)
+- [ ] Verify `cargo-deny` licence check passes (allowlist enforced)
+- [ ] Verify SLSA provenance attestation generated per release
+- [ ] Verify all release artefacts signed with sigstore
+- [ ] Verify `SECURITY.md` PGP key still valid; rotate annually
+
+### Benchmark harness build (Phase 1, maintained continuously)
+
+- [ ] Create `benches/compare/` directory with shared input corpus
+- [ ] Wire `beautiful-mermaid` invocation (Node.js subprocess)
+- [ ] Wire `AlexanderGrooff/mermaid-ascii` invocation (Go binary subprocess)
+- [ ] Wire `pgavlin/mermaid-ascii` invocation (Go binary subprocess)
+- [ ] Wire `mermaid2term` invocation (Crystal/npm)
+- [ ] Wire `mermaid-cli` invocation (headless Chrome, ground-truth SVG)
+- [ ] Implement fidelity scorer comparing each tool's output against ground-truth SVG
+- [ ] Implement timing harness via `hyperfine`
+- [ ] Implement output-size measurement
+- [ ] Emit results as `bench/results.json`
+- [ ] Generate static comparison page `kumeyuri.dev/vs/`
+- [ ] Add weekly cron via GitHub Actions to refresh results
+- [ ] If kumeyuri loses on a metric, mark loss with explanation; never hide it
+
+### MCP server build (Phase 6, drill-down)
+
+- [ ] Choose MCP SDK: `rmcp` (Rust) or thin handwritten transport
+- [ ] Implement `render_diagram` tool surface
+- [ ] Implement `play_diagram` tool surface (opens TUI subprocess)
+- [ ] Implement `lint_diagram` tool surface
+- [ ] Implement `list_themes`, `list_diagram_types` discovery tools
+- [ ] Implement stdio transport
+- [ ] Implement HTTP+SSE transport with bearer-token auth
+- [ ] Add `kumeyuri mcp` CLI subcommand wiring
+- [ ] Register on `mcp.directory`, `lobehub.com/mcp`, `mcpservers.org`, `glama.ai/mcp`
+- [ ] Author `docs/mcp.md` with Claude Code, Cursor, Continue, opencode, Goose setup snippets
+- [ ] Add MCP integration smoke test (spawn server, call each tool, assert response)
+
+### Theming system build (Phase 1 base, expanded Phase 3+)
+
+- [ ] Define `.kumetheme.toml` schema in `crates/kumeyuri-core/src/theme.rs`
+- [ ] Validate theme files with `--validate-theme <file>` CLI flag
+- [ ] Ship 10 built-in themes (default, mono, tokyo-night, github, dracula, solarized-light, solarized-dark, nord, catppuccin-mocha, high-contrast)
+- [ ] Implement theme search across XDG paths + project dir + bundled
+- [ ] Implement `kumeyuri theme list / show / new / validate`
+- [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
+- [ ] Implement theme hot-reload in `kumeyuri watch`
+- [ ] Document theme authoring in `docs/theming.md`
+- [ ] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
+
+### `.kumecast` format build (Phase 3)
+
+- [ ] Specify v1 JSON schema in `docs/spec/kumecast-v1.md`
+- [ ] Implement encoder in `kumeyuri-core::cast`
+- [ ] Implement decoder + validator
+- [ ] Implement `kumeyuri export --format kumecast`
+- [ ] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
+- [ ] Implement `kumeyuri play <cast>` in TUI
+- [ ] Add gzip variant `.kumecast.gz`
+- [ ] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
+- [ ] Build hosted player `play.kumeyuri.dev?cast=<url>`
+- [ ] Add cast-diffing CI test ensuring format determinism across kumeyuri patch versions
+
+### Performance budget enforcement (continuous)
+
+- [ ] Set up `criterion` benchmarks for parse, layout, render
+- [ ] Set up `dhat-rs` heap profiling in dedicated CI job
+- [ ] Set up `size-limit` (or equivalent) for WASM bundle gzip budget
+- [ ] Set up `playwright` perf test for first-contentful-render of web player
+- [ ] Add runtime FPS counter to TUI under `--debug`
+- [ ] Add CI gate: fail PR if any metric regresses > 10% without `perf:` label
+
+### Documentation expansion (Phase 4+ continuous)
+
+- [ ] Set up mdBook at `docs.kumeyuri.dev` with `mdbook-pagefind` for search
+- [ ] Write `docs/quickstart.md` (15-minute happy path)
+- [ ] Write `docs/syntax.md` covering vanilla mermaid + kumeyuri directives
+- [ ] Write `docs/directives.md` cataloguing every `%%{ }%%` directive
+- [ ] Write `docs/animations.md` documenting default + custom animations
+- [ ] Write `docs/themes.md` and `docs/theming.md`
+- [ ] Write `docs/embedding.md` (README, Hugo, Docusaurus, mdBook, plain HTML, X cards)
+- [ ] Write `docs/cli.md` reference for every flag and subcommand
+- [ ] Write `docs/api.md` Rust API reference (rustdoc + curated narrative)
+- [ ] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
+- [ ] Write `docs/recipes.md` (cookbook of 30+ tasks)
+- [ ] Write `docs/migrating-from-beautiful-mermaid.md`
+- [ ] Write `docs/migrating-from-mermaid-ascii.md`
+- [ ] Write `docs/migrating-from-mermaid-cli.md`
+- [ ] Add "Edit this page" GitHub links across every doc page
+- [ ] Add "Try in playground" CTA to every code block
+
+### Launch comms execution (Phase 4)
+
+- [ ] T-7: draft soft-tease X post + 5-second GIF; review with 2 trusted devs
+- [ ] T-7: post tease on X
+- [ ] T-2: DM five friendly devs requesting reviewer slot for launch day
+- [ ] T-1: dry-run install on clean macOS arm64, macOS x86_64, Ubuntu, Fedora, Windows
+- [ ] T-1: validate GitHub renders example SVG correctly (regression for SMIL stripping)
+- [ ] T-1: schedule HN post + X thread for Tue 9:00 AM PT
+- [ ] T-0: post HN "Show HN: kumeyuri — Animated ASCII diagrams from Mermaid"
+- [ ] T-0: 30 min later, post X thread with 3 demo GIFs
+- [ ] T-0: crosspost lobste.rs, /r/rust, /r/programming, /r/commandline, dev.to
+- [ ] T-0: respond to every HN comment within first 12 hours
+- [ ] T+1: write post-launch retro thread
+- [ ] T+7: submit to awesome-rust, awesome-ratatui, awesome-mermaid, terminaltrove.com
+- [ ] T+30: publish 30-day metrics + roadmap update blog post
+- [ ] T+90: review goal "1k stars within 90 days" — if missed, diagnose honestly
+
+### Metrics tracking pipeline (post-launch, ongoing)
+
+- [ ] Set up a `metrics/` directory in the repo (no external service)
+- [ ] Daily cron via GitHub Actions polling stars, forks, crates.io downloads, npm downloads
+- [ ] Aggregate weekly into `metrics/weekly.csv`
+- [ ] Generate `metrics/dashboard.svg` weekly using kumeyuri itself (dogfooding)
+- [ ] Publish dashboard as a README badge + dedicated `kumeyuri.dev/metrics` page
+- [ ] Quarterly review: post X update with metrics screenshot + reflections
+
+---
+
+## Quality gates (must pass before tagging any release)
+
+- [ ] `cargo fmt --check` clean
+- [ ] `cargo clippy --workspace -- -D warnings` clean
+- [ ] `cargo test --workspace` green
+- [ ] `cargo audit` clean
+- [ ] `cargo deny check` clean
+- [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
+- [ ] Snapshot tests green (text + SVG + raster + cast)
+- [ ] Performance benchmarks within budget (§18 of NORTHSTAR.md)
+- [ ] WASM bundle size within gzip budget
+- [ ] `axe-core` + `pa11y` audits clean
+- [ ] CHANGELOG.md updated via release-please
+- [ ] `docs/compat.md` matrix updated for any Mermaid grammar version change
+- [ ] All public Rust APIs documented with compiling doctests
+
+---
+
+## Open questions to resolve before each phase
+
+- [ ] Phase 1: Sugiyama port vs `layout-rs` wrap — measure both on benchmark corpus
+- [ ] Phase 2: tachyonfx integration depth — wrap or fork
+- [ ] Phase 3: SMIL vs CSS-keyframe-only SVG (GitHub sanitiser behaviour decisive)
+- [ ] Phase 3: GIF encoder choice — `gif` crate vs `gifski` bindings (quality vs deps)
+- [ ] Phase 4: kumeyuri.dev hosting — Cloudflare Pages vs GitHub Pages vs Vercel
+- [ ] Phase 5: pacing of long-tail diagram types — bundled monthly release vs one-per-release
+- [ ] Phase 6: MCP SDK choice — `rmcp` maturity vs hand-rolled stdio transport
+- [ ] Phase 7: WASM host — wasmtime vs wasmer; resolve via prototyping
+- [ ] Phase 8: AI provider abstraction — single trait vs per-provider crate features
+
