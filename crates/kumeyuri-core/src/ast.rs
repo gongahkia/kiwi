@@ -60,3 +60,44 @@ pub struct FlowchartHeader {
     pub direction: Spanned<Direction>,
     pub span: Span,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LabelKind {
+    Plain,
+    String,
+    Markdown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Label {
+    pub text: String,
+    pub kind: LabelKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FlowShape {
+    Rectangle,
+    Round,
+    Stadium,
+    Subroutine,
+    Cylinder,
+    Circle,
+    Asymmetric,
+    Rhombus,
+    Hexagon,
+    Parallelogram,
+    ParallelogramAlt,
+    Trapezoid,
+    TrapezoidAlt,
+    DoubleCircle,
+    Named(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowNode {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub shape: Spanned<FlowShape>,
+    pub span: Span,
+}
