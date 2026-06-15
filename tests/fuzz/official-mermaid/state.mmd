@@ -1,0 +1,12 @@
+%% generated from official Mermaid state examples
+%%{ init: { 'theme': 'base' } }%%
+stateDiagram-v2
+direction LR
+[*] --> Idle: boot
+state "Active Work" as Active
+Idle --> Active: start
+state Choice <<choice>>
+Active --> Choice
+Choice --> [*]: done
+state Composite {
+}

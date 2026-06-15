@@ -1,0 +1,12 @@
+%% generated from official Mermaid flowchart examples
+%%{ init: { 'theme': 'base' } }%%
+flowchart LR
+A[Start] --> B{Ready?}
+B -- Yes --> C[Ship]
+B -- No --> D[Retry]
+subgraph group [Generated Group]
+direction TB
+D --> A
+end
+classDef warning fill:#f96,stroke:#333,stroke-width:2px
+class B warning

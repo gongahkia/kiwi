@@ -8,3 +8,6 @@ description = "Core parser, layout, animation, and frame model for kumeyuri."
 
 [lib]
 path = "src/lib.rs"
+
+[dev-dependencies]
+proptest = "1.11.0"
