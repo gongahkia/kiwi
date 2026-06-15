@@ -4,7 +4,7 @@
 
 ## Phase 0 — Foundation (weeks 0–1)
 
-- [ ] Create GitHub repo `kumeyuri/kumeyuri` (or under personal handle), set default branch to `main`
+- [x] Create GitHub repo `kumeyuri/kumeyuri` (or under personal handle), set default branch to `main`
 - [ ] Add MIT `LICENSE` file with current year and author name
 - [ ] Write `README.md` v0 with one-line pitch, status badge placeholder, and link to `north_star.md`
 - [ ] Add `.gitignore` for Rust (`target/`, `Cargo.lock` rules per crate type), Node (`node_modules/`, `dist/`), and OS (`.DS_Store`)
