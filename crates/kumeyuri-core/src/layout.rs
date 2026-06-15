@@ -1,4 +1,7 @@
-use crate::ast::{Direction, FlowEdge, FlowNode, FlowStatement, FlowSubgraph, FlowchartAst};
+use crate::ast::{
+    Direction, FlowEdge, FlowNode, FlowStatement, FlowSubgraph, FlowchartAst, SequenceAst,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
+};
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,9 +90,77 @@ pub struct FlowLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SequenceLayoutConfig {
+    pub lane_spacing: i32,
+    pub event_spacing: i32,
+    pub participant_width: i32,
+    pub participant_height: i32,
+    pub top_padding: i32,
+}
+
+impl Default for SequenceLayoutConfig {
+    fn default() -> Self {
+        Self {
+            lane_spacing: 12,
+            event_spacing: 4,
+            participant_width: 9,
+            participant_height: 3,
+            top_padding: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceParticipant {
+    pub id: String,
+    pub label: String,
+    pub lane_x: i32,
+    pub header: Rect,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceMessage {
+    pub from: String,
+    pub to: String,
+    pub label: Option<String>,
+    pub y: i32,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceNote {
+    pub participants: Vec<String>,
+    pub label: String,
+    pub rect: Rect,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceControl {
+    pub label: Option<String>,
+    pub rect: Rect,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequenceLayout {
+    pub participants: Vec<PositionedSequenceParticipant>,
+    pub messages: Vec<PositionedSequenceMessage>,
+    pub notes: Vec<PositionedSequenceNote>,
+    pub controls: Vec<PositionedSequenceControl>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SequenceLayoutEngine {
+    config: SequenceLayoutConfig,
 }
 
 impl FlowLayoutEngine {
@@ -111,6 +182,318 @@ impl FlowLayoutEngine {
             self.config,
         )
     }
+}
+
+impl SequenceLayoutEngine {
+    #[must_use]
+    pub const fn new(config: SequenceLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &SequenceAst) -> SequenceLayout {
+        let participants = sequence_participants(ast);
+        let positioned_participants = self.position_participants(&participants);
+        let mut messages = Vec::new();
+        let mut notes = Vec::new();
+        let mut controls = Vec::new();
+        let mut event_index = 0i32;
+
+        for statement in &ast.statements {
+            match statement {
+                SequenceStatement::Message(message) => {
+                    let y = self.event_y(event_index);
+                    event_index += 1;
+                    messages.push(self.position_message(message, &positioned_participants, y));
+                }
+                SequenceStatement::Note(note) => {
+                    let y = self.event_y(event_index);
+                    event_index += 1;
+                    notes.push(self.position_note(note, &positioned_participants, y));
+                }
+                SequenceStatement::Control(control) => {
+                    let y = self.event_y(event_index);
+                    event_index += 1;
+                    controls.push(PositionedSequenceControl {
+                        label: control.label.as_ref().map(|label| label.text.clone()),
+                        rect: Rect {
+                            origin: Point { x: 0, y: y - 1 },
+                            size: Size {
+                                width: sequence_width(&positioned_participants, self.config),
+                                height: self.config.participant_height,
+                            },
+                        },
+                        y,
+                    });
+                }
+                SequenceStatement::Participant(_)
+                | SequenceStatement::ActivationStart(_)
+                | SequenceStatement::ActivationEnd(_)
+                | SequenceStatement::AutoNumber(_)
+                | SequenceStatement::Comment(_)
+                | SequenceStatement::Directive(_) => {}
+            }
+        }
+
+        let mut size = Size {
+            width: sequence_width(&positioned_participants, self.config),
+            height: self.config.participant_height,
+        };
+        for rect in positioned_participants
+            .iter()
+            .map(|participant| participant.header)
+            .chain(notes.iter().map(|note| note.rect))
+            .chain(controls.iter().map(|control| control.rect))
+        {
+            size.width = size.width.max(rect.right());
+            size.height = size.height.max(rect.bottom());
+        }
+        for message in &messages {
+            for point in &message.points {
+                size.width = size.width.max(point.x + 1);
+                size.height = size.height.max(point.y + 1);
+            }
+        }
+
+        SequenceLayout {
+            participants: positioned_participants,
+            messages,
+            notes,
+            controls,
+            size,
+        }
+    }
+
+    fn position_participants(
+        self,
+        participants: &[SequenceParticipantRef],
+    ) -> Vec<PositionedSequenceParticipant> {
+        participants
+            .iter()
+            .enumerate()
+            .map(|(order, participant)| {
+                let lane_x =
+                    order as i32 * self.config.lane_spacing + self.config.participant_width / 2;
+                PositionedSequenceParticipant {
+                    id: participant.id.clone(),
+                    label: participant.label.clone(),
+                    lane_x,
+                    header: Rect {
+                        origin: Point {
+                            x: lane_x - self.config.participant_width / 2,
+                            y: 0,
+                        },
+                        size: Size {
+                            width: self.config.participant_width,
+                            height: self.config.participant_height,
+                        },
+                    },
+                    order,
+                }
+            })
+            .collect()
+    }
+
+    fn position_message(
+        self,
+        message: &SequenceMessage,
+        participants: &[PositionedSequenceParticipant],
+        y: i32,
+    ) -> PositionedSequenceMessage {
+        let from_x = participant_lane(participants, &message.from.value);
+        let to_x = participant_lane(participants, &message.to.value);
+        let points = if from_x == to_x {
+            vec![
+                Point { x: from_x, y },
+                Point {
+                    x: from_x + self.config.lane_spacing / 2,
+                    y,
+                },
+                Point {
+                    x: from_x + self.config.lane_spacing / 2,
+                    y: y + self.config.event_spacing / 2,
+                },
+                Point {
+                    x: from_x,
+                    y: y + self.config.event_spacing / 2,
+                },
+            ]
+        } else {
+            vec![Point { x: from_x, y }, Point { x: to_x, y }]
+        };
+        PositionedSequenceMessage {
+            from: message.from.value.clone(),
+            to: message.to.value.clone(),
+            label: message.label.as_ref().map(|label| label.text.clone()),
+            y,
+            points,
+        }
+    }
+
+    fn position_note(
+        self,
+        note: &SequenceNote,
+        participants: &[PositionedSequenceParticipant],
+        y: i32,
+    ) -> PositionedSequenceNote {
+        let lanes = note
+            .participants
+            .iter()
+            .map(|participant| participant_lane(participants, &participant.value))
+            .collect::<Vec<_>>();
+        let min_x = lanes.iter().copied().min().unwrap_or(0);
+        let max_x = lanes.iter().copied().max().unwrap_or(min_x);
+        let width = (max_x - min_x + self.config.participant_width)
+            .max(note.label.text.chars().count() as i32 + 2);
+        PositionedSequenceNote {
+            participants: note
+                .participants
+                .iter()
+                .map(|participant| participant.value.clone())
+                .collect(),
+            label: note.label.text.clone(),
+            rect: Rect {
+                origin: Point {
+                    x: min_x - self.config.participant_width / 2,
+                    y: y - 1,
+                },
+                size: Size {
+                    width,
+                    height: self.config.participant_height,
+                },
+            },
+            y,
+        }
+    }
+
+    fn event_y(self, event_index: i32) -> i32 {
+        self.config.participant_height
+            + self.config.top_padding
+            + event_index * self.config.event_spacing
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SequenceParticipantRef {
+    id: String,
+    label: String,
+}
+
+fn sequence_participants(ast: &SequenceAst) -> Vec<SequenceParticipantRef> {
+    let mut participants = Vec::new();
+    for participant in &ast.participants {
+        ensure_sequence_participant(&mut participants, participant);
+    }
+    for statement in &ast.statements {
+        match statement {
+            SequenceStatement::Participant(participant) => {
+                ensure_sequence_participant(&mut participants, participant);
+            }
+            SequenceStatement::Message(message) => {
+                ensure_sequence_id(&mut participants, &message.from.value);
+                ensure_sequence_id(&mut participants, &message.to.value);
+            }
+            SequenceStatement::Note(note) => {
+                for participant in &note.participants {
+                    ensure_sequence_id(&mut participants, &participant.value);
+                }
+            }
+            SequenceStatement::Control(control) => {
+                for statement in &control.statements {
+                    collect_sequence_statement_participants(&mut participants, statement);
+                }
+            }
+            SequenceStatement::ActivationStart(participant)
+            | SequenceStatement::ActivationEnd(participant) => {
+                ensure_sequence_id(&mut participants, &participant.value);
+            }
+            SequenceStatement::AutoNumber(_)
+            | SequenceStatement::Comment(_)
+            | SequenceStatement::Directive(_) => {}
+        }
+    }
+    participants
+}
+
+fn collect_sequence_statement_participants(
+    participants: &mut Vec<SequenceParticipantRef>,
+    statement: &SequenceStatement,
+) {
+    match statement {
+        SequenceStatement::Participant(participant) => {
+            ensure_sequence_participant(participants, participant);
+        }
+        SequenceStatement::Message(message) => {
+            ensure_sequence_id(participants, &message.from.value);
+            ensure_sequence_id(participants, &message.to.value);
+        }
+        SequenceStatement::Note(note) => {
+            for participant in &note.participants {
+                ensure_sequence_id(participants, &participant.value);
+            }
+        }
+        SequenceStatement::Control(control) => {
+            for statement in &control.statements {
+                collect_sequence_statement_participants(participants, statement);
+            }
+        }
+        SequenceStatement::ActivationStart(participant)
+        | SequenceStatement::ActivationEnd(participant) => {
+            ensure_sequence_id(participants, &participant.value);
+        }
+        SequenceStatement::AutoNumber(_)
+        | SequenceStatement::Comment(_)
+        | SequenceStatement::Directive(_) => {}
+    }
+}
+
+fn ensure_sequence_participant(
+    participants: &mut Vec<SequenceParticipantRef>,
+    participant: &SequenceParticipant,
+) {
+    let label = participant
+        .alias
+        .as_ref()
+        .map_or_else(|| participant.id.value.clone(), |label| label.text.clone());
+    if let Some(existing) = participants
+        .iter_mut()
+        .find(|value| value.id == participant.id.value)
+    {
+        existing.label = label;
+        return;
+    }
+    participants.push(SequenceParticipantRef {
+        id: participant.id.value.clone(),
+        label,
+    });
+}
+
+fn ensure_sequence_id(participants: &mut Vec<SequenceParticipantRef>, id: &str) {
+    if participants.iter().any(|participant| participant.id == id) {
+        return;
+    }
+    participants.push(SequenceParticipantRef {
+        id: id.to_owned(),
+        label: id.to_owned(),
+    });
+}
+
+fn participant_lane(participants: &[PositionedSequenceParticipant], id: &str) -> i32 {
+    participants
+        .iter()
+        .find(|participant| participant.id == id)
+        .map_or(0, |participant| participant.lane_x)
+}
+
+fn sequence_width(
+    participants: &[PositionedSequenceParticipant],
+    config: SequenceLayoutConfig,
+) -> i32 {
+    participants
+        .last()
+        .map_or(config.participant_width, |last| {
+            last.header.right().max(config.participant_width)
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -462,11 +845,14 @@ fn layout_size(rects: &[Rect]) -> Size {
 
 #[cfg(test)]
 mod tests {
-    use super::{FlowLayoutEngine, Point};
+    use super::{FlowLayoutEngine, Point, SequenceLayoutEngine};
     use crate::ast::{ArrowHead, FlowShape, FlowchartAst};
     use crate::ast::{
         Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowStatement, FlowSubgraph,
-        FlowchartDirective, FlowchartHeader, Label, LabelKind, Span, Spanned,
+        FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst,
+        SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
+        SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement,
+        Span, Spanned,
     };
 
     #[test]
@@ -613,5 +999,146 @@ mod tests {
         .center();
 
         assert_eq!(center, Point { x: 2, y: 1 });
+    }
+
+    #[test]
+    fn lays_out_sequence_participants_as_lanes() {
+        let ast = sequence(vec![
+            SequenceStatement::Participant(Box::new(participant("Alice", Some("Alice Doe")))),
+            SequenceStatement::Participant(Box::new(participant("Bob", None))),
+            SequenceStatement::Message(Box::new(message("Alice", "Bob", "Request"))),
+        ]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.participants.len(), 2);
+        assert_eq!(sequence_participant(&layout, "Alice").label, "Alice Doe");
+        assert!(
+            sequence_participant(&layout, "Alice").lane_x
+                < sequence_participant(&layout, "Bob").lane_x
+        );
+        assert_eq!(layout.messages.len(), 1);
+        assert_eq!(layout.messages[0].points.len(), 2);
+        assert_eq!(layout.messages[0].from, "Alice");
+        assert_eq!(layout.messages[0].to, "Bob");
+    }
+
+    #[test]
+    fn adds_implicit_sequence_participants_from_messages() {
+        let ast = sequence(vec![SequenceStatement::Message(Box::new(message(
+            "Client", "Server", "GET",
+        )))]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.participants.len(), 2);
+        assert_eq!(sequence_participant(&layout, "Client").order, 0);
+        assert_eq!(sequence_participant(&layout, "Server").order, 1);
+    }
+
+    #[test]
+    fn lays_out_sequence_notes_across_participants() {
+        let ast = sequence(vec![
+            SequenceStatement::Participant(Box::new(participant("Alice", None))),
+            SequenceStatement::Participant(Box::new(participant("Bob", None))),
+            SequenceStatement::Note(Box::new(SequenceNote {
+                placement: SequenceNotePlacement::Over,
+                participants: vec![
+                    Spanned::new("Alice".to_owned(), Span::new(0, 0)),
+                    Spanned::new("Bob".to_owned(), Span::new(0, 0)),
+                ],
+                label: label("Shared"),
+                span: Span::new(0, 0),
+            })),
+        ]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.notes.len(), 1);
+        assert_eq!(layout.notes[0].participants, vec!["Alice", "Bob"]);
+        assert!(layout.notes[0].rect.size.width >= 21);
+    }
+
+    #[test]
+    fn lays_out_sequence_self_messages_as_loop_points() {
+        let ast = sequence(vec![
+            SequenceStatement::Participant(Box::new(participant("Alice", None))),
+            SequenceStatement::Message(Box::new(message("Alice", "Alice", "Self"))),
+        ]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.messages[0].points.len(), 4);
+        assert_eq!(
+            layout.messages[0].points[0].x,
+            layout.messages[0].points[3].x
+        );
+    }
+
+    #[test]
+    fn lays_out_sequence_control_blocks_as_timeline_bands() {
+        let ast = sequence(vec![SequenceStatement::Control(Box::new(
+            SequenceControlBlock {
+                kind: SequenceControlKind::Loop,
+                label: Some(label("Retry")),
+                statements: Vec::new(),
+                span: Span::new(0, 0),
+            },
+        ))]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.controls.len(), 1);
+        assert_eq!(layout.controls[0].label.as_deref(), Some("Retry"));
+    }
+
+    fn sequence(statements: Vec<SequenceStatement>) -> SequenceAst {
+        SequenceAst {
+            header: SequenceHeader {
+                span: Span::new(0, 15),
+            },
+            statements,
+            participants: Vec::new(),
+            boxes: Vec::new(),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn participant(id: &str, alias: Option<&str>) -> SequenceParticipant {
+        SequenceParticipant {
+            id: Spanned::new(id.to_owned(), Span::new(0, 0)),
+            alias: alias.map(label),
+            kind: SequenceParticipantKind::Participant,
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn message(from: &str, to: &str, text: &str) -> SequenceMessage {
+        SequenceMessage {
+            from: Spanned::new(from.to_owned(), Span::new(0, 0)),
+            to: Spanned::new(to.to_owned(), Span::new(0, 0)),
+            arrow: SequenceArrow::SolidArrow,
+            label: Some(label(text)),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn label(text: &str) -> Label {
+        Label {
+            text: text.to_owned(),
+            kind: LabelKind::Plain,
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn sequence_participant<'layout>(
+        layout: &'layout super::SequenceLayout,
+        id: &str,
+    ) -> &'layout super::PositionedSequenceParticipant {
+        layout
+            .participants
+            .iter()
+            .find(|participant| participant.id == id)
+            .unwrap_or_else(|| panic!("missing participant {id}"))
     }
 }
