@@ -1,1 +1,12 @@
 CLAUDE.md
+
+# Rust
+target/
+crates/*/Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
