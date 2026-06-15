@@ -26,7 +26,7 @@
 - [x] Add `cargo-machete` or `cargo udeps` job to catch unused dependencies
 - [x] Add `release-please` workflow for automated changelog + version bumps
 - [x] Add issue templates (bug, feature, parser-mismatch) under `.github/ISSUE_TEMPLATE/`
-- [ ] Add PR template requiring linked issue + visual-diff screenshots when renderer touched
+- [x] Add PR template requiring linked issue + visual-diff screenshots when renderer touched
 - [ ] Reserve `kumeyuri` crate name on crates.io (publish a placeholder 0.0.0)
 - [ ] Reserve `kumeyuri` npm name (publish a placeholder 0.0.0)
 - [ ] Reserve `kumeyuri.dev` domain (Cloudflare or Namecheap)
