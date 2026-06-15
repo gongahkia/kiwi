@@ -37,7 +37,7 @@
 
 ## Phase 1 — Static parity (weeks 1–4)
 
-- [ ] Implement Mermaid lexer for `flowchart`/`graph` directive header (TD, LR, BT, RL)
+- [x] Implement Mermaid lexer for `flowchart`/`graph` directive header (TD, LR, BT, RL)
 - [ ] Implement node-id and node-shape parser (`[]`, `()`, `{}`, `(())`, `>]`, `[/...\\]`, etc.)
 - [ ] Implement edge parser (`-->`, `---`, `-.->`, `==>`, `--text-->`, etc.)
 - [ ] Implement subgraph parser

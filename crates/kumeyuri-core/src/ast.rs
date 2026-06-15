@@ -1,2 +1,62 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagram;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    #[must_use]
+    pub const fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Spanned<T> {
+    pub value: T,
+    pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    #[must_use]
+    pub const fn new(value: T, span: Span) -> Self {
+        Self { value, span }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowchartDirective {
+    Flowchart,
+    Graph,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    TopDown,
+    BottomTop,
+    LeftRight,
+    RightLeft,
+}
+
+impl Direction {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"TB" | b"TD" => Some(Self::TopDown),
+            b"BT" => Some(Self::BottomTop),
+            b"LR" => Some(Self::LeftRight),
+            b"RL" => Some(Self::RightLeft),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowchartHeader {
+    pub directive: Spanned<FlowchartDirective>,
+    pub direction: Spanned<Direction>,
+    pub span: Span,
+}
