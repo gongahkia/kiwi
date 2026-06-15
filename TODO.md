@@ -15,7 +15,7 @@
 - [x] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
 - [x] Create empty crate `crates/kumeyuri-render-tui`
 - [x] Create empty crate `crates/kumeyuri-render-svg`
-- [ ] Create empty crate `crates/kumeyuri-render-raster`
+- [x] Create empty crate `crates/kumeyuri-render-raster`
 - [ ] Create empty crate `crates/kumeyuri-render-wasm` with `wasm-bindgen` boilerplate
 - [ ] Create empty crate `crates/kumeyuri-cli` with `clap` subcommand skeleton (`render`, `watch`, `play`)
 - [ ] Add `rustfmt.toml` and `clippy.toml` with project lint rules
