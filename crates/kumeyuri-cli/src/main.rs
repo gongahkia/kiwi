@@ -3,7 +3,11 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(name = "kumeyuri", version, about = "Render Mermaid as animated text artifacts.")]
+#[command(
+    name = "kumeyuri",
+    version,
+    about = "Render Mermaid as animated text artifacts."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

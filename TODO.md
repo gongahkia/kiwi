@@ -18,7 +18,7 @@
 - [x] Create empty crate `crates/kumeyuri-render-raster`
 - [x] Create empty crate `crates/kumeyuri-render-wasm` with `wasm-bindgen` boilerplate
 - [x] Create empty crate `crates/kumeyuri-cli` with `clap` subcommand skeleton (`render`, `watch`, `play`)
-- [ ] Add `rustfmt.toml` and `clippy.toml` with project lint rules
+- [x] Add `rustfmt.toml` and `clippy.toml` with project lint rules
 - [ ] Add `.editorconfig` for cross-editor consistency
 - [ ] Set up GitHub Actions CI workflow: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --workspace`
 - [ ] Add CI job for `wasm32-unknown-unknown` build to catch web-target breakage early
