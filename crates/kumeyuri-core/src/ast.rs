@@ -222,22 +222,29 @@ pub struct FlowchartAst {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SequenceAst {
+    pub header: SequenceHeader,
     pub statements: Vec<SequenceStatement>,
     pub participants: Vec<SequenceParticipant>,
     pub boxes: Vec<SequenceBox>,
     pub span: Span,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SequenceHeader {
+    pub span: Span,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SequenceStatement {
-    Participant(Spanned<String>),
-    Actor(Spanned<String>),
+    Participant(Box<SequenceParticipant>),
     Message(Box<SequenceMessage>),
     ActivationStart(Spanned<String>),
     ActivationEnd(Spanned<String>),
     Note(Box<SequenceNote>),
     Control(Box<SequenceControlBlock>),
     AutoNumber(SequenceAutoNumber),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,11 +279,16 @@ pub struct SequenceMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SequenceArrow {
-    Solid,
+    SolidLine,
+    DottedLine,
+    SolidArrow,
+    DottedArrow,
+    SolidCross,
+    DottedCross,
     SolidOpen,
-    Dotted,
     DottedOpen,
-    Cross,
+    SolidBidirectional,
+    DottedBidirectional,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

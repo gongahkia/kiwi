@@ -1,7 +1,10 @@
 use crate::ast::{
     ArrowHead, Direction, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
     FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartDirective,
-    FlowchartHeader, Label, LabelKind, MermaidComment, MermaidDirective, Span, Spanned,
+    FlowchartHeader, Label, LabelKind, MermaidComment, MermaidDirective, SequenceArrow,
+    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
+    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
+    Spanned,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +45,10 @@ pub enum ParseErrorKind {
     ExpectedComment,
     ExpectedDirective,
     UnterminatedDirective,
+    ExpectedSequenceHeader,
+    UnknownSequenceStatement,
+    ExpectedSequenceParticipant,
+    ExpectedSequenceMessage,
     TrailingInput,
 }
 
@@ -101,6 +108,14 @@ impl Parser {
 
     pub fn parse_mermaid_directive(source: &str) -> Result<MermaidDirective, ParseError> {
         MermaidDirectiveParser::new(source).parse()
+    }
+
+    pub fn parse_sequence_header(source: &str) -> Result<SequenceHeader, ParseError> {
+        SequenceHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_sequence_statement(source: &str) -> Result<SequenceStatement, ParseError> {
+        SequenceStatementParser::new(source).parse()
     }
 }
 
@@ -276,6 +291,243 @@ impl<'source> MermaidDirectiveParser<'source> {
             key,
             span: Span::new(start, directive_end),
         })
+    }
+}
+
+struct SequenceHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> SequenceHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<SequenceHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "sequenceDiagram" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(SequenceHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct SequenceStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> SequenceStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<SequenceStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSequenceStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(SequenceStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(SequenceStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "participant") {
+            return self.parse_participant(
+                start,
+                end,
+                "participant",
+                SequenceParticipantKind::Participant,
+            );
+        }
+        if has_keyword(self.source, start, "actor") {
+            return self.parse_participant(start, end, "actor", SequenceParticipantKind::Actor);
+        }
+        if trimmed.starts_with("Note ") {
+            return self.parse_note(start, end);
+        }
+        if let Some(control) = self.parse_control(start, end)? {
+            return Ok(control);
+        }
+        if let Some(message) = self.parse_message(start, end)? {
+            return Ok(SequenceStatement::Message(Box::new(message)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownSequenceStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_participant(
+        &self,
+        start: usize,
+        end: usize,
+        keyword: &str,
+        kind: SequenceParticipantKind,
+    ) -> Result<SequenceStatement, ParseError> {
+        let rest_start = start + keyword.len();
+        let Some((rest_trim_start, rest_trim_end)) =
+            trim_ascii_range(&self.source[rest_start..end])
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceParticipant,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let rest_start = rest_start + rest_trim_start;
+        let rest_end = start + keyword.len() + rest_trim_end;
+        let rest = &self.source[rest_start..rest_end];
+        let alias_marker = rest.find(" as ");
+        let id_end = alias_marker.map_or(rest_end, |offset| rest_start + offset);
+        let id = parse_single_identifier(
+            self.source,
+            rest_start,
+            id_end,
+            ParseErrorKind::ExpectedSequenceParticipant,
+        )?;
+        let alias = alias_marker.and_then(|offset| {
+            let alias_start = rest_start + offset + 4;
+            label_from_trimmed(self.source, alias_start, rest_end)
+        });
+        Ok(SequenceStatement::Participant(Box::new(
+            SequenceParticipant {
+                id,
+                alias,
+                kind,
+                span: Span::new(start, end),
+            },
+        )))
+    }
+
+    fn parse_note(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
+        let after_note = start + "Note ".len();
+        let note_source = &self.source[after_note..end];
+        let (placement, participant_start) = if note_source.starts_with("over ") {
+            (SequenceNotePlacement::Over, after_note + "over ".len())
+        } else if note_source.starts_with("left of ") {
+            (SequenceNotePlacement::LeftOf, after_note + "left of ".len())
+        } else if note_source.starts_with("right of ") {
+            (
+                SequenceNotePlacement::RightOf,
+                after_note + "right of ".len(),
+            )
+        } else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSequenceStatement,
+                span: Span::new(start, end),
+            });
+        };
+        let Some(colon) = self.source[participant_start..end].find(':') else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSequenceStatement,
+                span: Span::new(start, end),
+            });
+        };
+        let participant_end = participant_start + colon;
+        let participants = parse_csv_identifiers(
+            self.source,
+            participant_start,
+            participant_end,
+            ParseErrorKind::ExpectedSequenceParticipant,
+        )?;
+        let Some(label) = label_from_trimmed(self.source, participant_end + 1, end) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSequenceStatement,
+                span: Span::new(participant_end + 1, end),
+            });
+        };
+        Ok(SequenceStatement::Note(Box::new(SequenceNote {
+            placement,
+            participants,
+            label,
+            span: Span::new(start, end),
+        })))
+    }
+
+    fn parse_control(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<SequenceStatement>, ParseError> {
+        let controls = [
+            ("loop", SequenceControlKind::Loop),
+            ("alt", SequenceControlKind::Alt),
+            ("opt", SequenceControlKind::Opt),
+            ("par", SequenceControlKind::Par),
+        ];
+        for (keyword, kind) in controls {
+            if !has_keyword(self.source, start, keyword) {
+                continue;
+            }
+            let label = label_from_trimmed(self.source, start + keyword.len(), end);
+            return Ok(Some(SequenceStatement::Control(Box::new(
+                SequenceControlBlock {
+                    kind,
+                    label,
+                    statements: Vec::new(),
+                    span: Span::new(start, end),
+                },
+            ))));
+        }
+        Ok(None)
+    }
+
+    fn parse_message(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<SequenceMessage>, ParseError> {
+        let Some((arrow_start, arrow, arrow_len)) = find_sequence_arrow(self.source, start, end)
+        else {
+            return Ok(None);
+        };
+        let from = parse_single_identifier(
+            self.source,
+            start,
+            arrow_start,
+            ParseErrorKind::ExpectedSequenceMessage,
+        )?;
+        let message_start = arrow_start + arrow_len;
+        let Some(colon) = self.source[message_start..end].find(':') else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceMessage,
+                span: Span::new(start, end),
+            });
+        };
+        let to_end = message_start + colon;
+        let to = parse_single_identifier(
+            self.source,
+            message_start,
+            to_end,
+            ParseErrorKind::ExpectedSequenceMessage,
+        )?;
+        let label = label_from_trimmed(self.source, to_end + 1, end);
+        Ok(Some(SequenceMessage {
+            from,
+            to,
+            arrow,
+            label,
+            span: Span::new(start, end),
+        }))
     }
 }
 
@@ -1086,6 +1338,23 @@ fn push_identifier(
     Ok(())
 }
 
+fn parse_single_identifier(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<Spanned<String>, ParseError> {
+    let mut values = Vec::new();
+    push_identifier(source, start, end, error_kind, &mut values)?;
+    let Some(value) = values.pop() else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    };
+    Ok(value)
+}
+
 fn is_identifier(value: &str) -> bool {
     let mut bytes = value.as_bytes().iter();
     let Some(first) = bytes.next() else {
@@ -1191,6 +1460,34 @@ fn directive_key(source: &str, start: usize, end: usize) -> Option<Spanned<Strin
     let key = &source[absolute_start..absolute_end];
     is_identifier(key)
         .then(|| Spanned::new(key.to_owned(), Span::new(absolute_start, absolute_end)))
+}
+
+fn find_sequence_arrow(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(usize, SequenceArrow, usize)> {
+    let arrows = [
+        ("<<-->>", SequenceArrow::DottedBidirectional),
+        ("<<->>", SequenceArrow::SolidBidirectional),
+        ("-->>", SequenceArrow::DottedArrow),
+        ("->>", SequenceArrow::SolidArrow),
+        ("--x", SequenceArrow::DottedCross),
+        ("-x", SequenceArrow::SolidCross),
+        ("--)", SequenceArrow::DottedOpen),
+        ("-)", SequenceArrow::SolidOpen),
+        ("-->", SequenceArrow::DottedLine),
+        ("->", SequenceArrow::SolidLine),
+    ];
+    let haystack = &source[start..end];
+    arrows
+        .iter()
+        .filter_map(|(needle, arrow)| {
+            haystack
+                .find(needle)
+                .map(|offset| (start + offset, *arrow, needle.len()))
+        })
+        .min_by_key(|(offset, _, _)| *offset)
 }
 
 fn parse_subgraph_header(
@@ -1689,7 +1986,8 @@ mod tests {
     };
     use crate::ast::{
         ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
-        LabelKind, Span,
+        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        SequenceParticipantKind, SequenceStatement, Span,
     };
 
     #[test]
@@ -2172,6 +2470,100 @@ mod tests {
                 .unwrap_err()
                 .kind,
             ParseErrorKind::UnterminatedDirective,
+        );
+    }
+
+    #[test]
+    fn parses_sequence_header() {
+        assert_eq!(
+            Parser::parse_sequence_header(" sequenceDiagram ")
+                .unwrap()
+                .span,
+            Span::new(1, 16),
+        );
+    }
+
+    #[test]
+    fn parses_sequence_participants_and_actors() {
+        let participant =
+            Parser::parse_sequence_statement("participant Alice as Alice Doe").unwrap();
+        let actor = Parser::parse_sequence_statement("actor Bob").unwrap();
+
+        let SequenceStatement::Participant(participant) = participant else {
+            panic!("expected participant statement");
+        };
+        let SequenceStatement::Participant(actor) = actor else {
+            panic!("expected actor statement");
+        };
+        assert_eq!(participant.id.value, "Alice");
+        assert_eq!(participant.alias.unwrap().text, "Alice Doe");
+        assert_eq!(participant.kind, SequenceParticipantKind::Participant);
+        assert_eq!(actor.kind, SequenceParticipantKind::Actor);
+    }
+
+    #[test]
+    fn parses_sequence_messages() {
+        let cases = [
+            ("Alice->Bob: plain", SequenceArrow::SolidLine),
+            ("Alice-->Bob: dotted", SequenceArrow::DottedLine),
+            ("Alice->>Bob: arrow", SequenceArrow::SolidArrow),
+            ("Alice-->>Bob: dotted arrow", SequenceArrow::DottedArrow),
+            ("Alice-xBob: cross", SequenceArrow::SolidCross),
+            ("Alice--)Bob: open", SequenceArrow::DottedOpen),
+            ("Alice<<->>Bob: both", SequenceArrow::SolidBidirectional),
+        ];
+
+        for (source, arrow) in cases {
+            let statement = Parser::parse_sequence_statement(source).unwrap();
+            let SequenceStatement::Message(message) = statement else {
+                panic!("expected message statement");
+            };
+            assert_eq!(message.from.value, "Alice");
+            assert_eq!(message.to.value, "Bob");
+            assert_eq!(message.arrow, arrow);
+            assert!(message.label.is_some());
+        }
+    }
+
+    #[test]
+    fn parses_sequence_note() {
+        let statement =
+            Parser::parse_sequence_statement("Note over Alice,Bob: Shared state").unwrap();
+
+        let SequenceStatement::Note(note) = statement else {
+            panic!("expected note statement");
+        };
+        assert_eq!(note.placement, SequenceNotePlacement::Over);
+        assert_eq!(note.participants.len(), 2);
+        assert_eq!(note.label.text, "Shared state");
+    }
+
+    #[test]
+    fn parses_sequence_control_starts() {
+        let cases = [
+            ("loop Retry", SequenceControlKind::Loop),
+            ("alt Success", SequenceControlKind::Alt),
+            ("opt Cache hit", SequenceControlKind::Opt),
+            ("par Worker A", SequenceControlKind::Par),
+        ];
+
+        for (source, kind) in cases {
+            let statement = Parser::parse_sequence_statement(source).unwrap();
+            let SequenceStatement::Control(control) = statement else {
+                panic!("expected control statement");
+            };
+            assert_eq!(control.kind, kind);
+            assert!(control.label.is_some());
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_sequence_statement() {
+        assert_eq!(
+            Parser::parse_sequence_statement("else no branch")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::UnknownSequenceStatement,
         );
     }
 }
