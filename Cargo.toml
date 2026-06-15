@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "crates/kumeyuri-cli",
+    "crates/kumeyuri-core",
+    "crates/kumeyuri-render-raster",
+    "crates/kumeyuri-render-svg",
+    "crates/kumeyuri-render-tui",
+    "crates/kumeyuri-render-wasm",
+]
+resolver = "3"

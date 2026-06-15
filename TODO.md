@@ -11,7 +11,7 @@
 - [x] Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
 - [x] Add `CONTRIBUTING.md` outlining branch flow, commit style (Conventional Commits), and review expectations
 - [x] Add `SECURITY.md` with disclosure email
-- [ ] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
+- [x] Initialise Cargo workspace `Cargo.toml` at repo root listing all member crates
 - [x] Create empty crate `crates/kumeyuri-core` with `lib.rs` and basic module skeleton (`parser`, `ast`, `layout`, `animator`, `frame`)
 - [x] Create empty crate `crates/kumeyuri-render-tui`
 - [x] Create empty crate `crates/kumeyuri-render-svg`
