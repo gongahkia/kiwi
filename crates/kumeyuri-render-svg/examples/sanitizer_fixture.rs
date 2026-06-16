@@ -8,15 +8,24 @@ use kumeyuri_render_svg::{SvgAnimationMode, SvgRenderConfig, SvgRenderer};
 
 fn main() {
     let timeline = timeline();
-    print_fixture("smil", &SvgRenderer::default().render_timeline(&timeline));
+    print_fixture(
+        "smil",
+        &SvgRenderer::new(color_scheme_config(SvgAnimationMode::Smil)).render_timeline(&timeline),
+    );
     print_fixture(
         "css",
-        &SvgRenderer::new(SvgRenderConfig {
-            animation: SvgAnimationMode::CssKeyframes,
-            ..SvgRenderConfig::default()
-        })
-        .render_timeline(&timeline),
+        &SvgRenderer::new(color_scheme_config(SvgAnimationMode::CssKeyframes))
+            .render_timeline(&timeline),
     );
+}
+
+fn color_scheme_config(animation: SvgAnimationMode) -> SvgRenderConfig {
+    SvgRenderConfig {
+        animation,
+        dark_foreground: Some("#f8f8f2".to_owned()),
+        dark_background: Some("#282a36".to_owned()),
+        ..SvgRenderConfig::default()
+    }
 }
 
 fn timeline() -> Timeline {

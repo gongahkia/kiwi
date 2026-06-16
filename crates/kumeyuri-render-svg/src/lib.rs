@@ -11,6 +11,8 @@ pub struct SvgRenderConfig {
     pub font_family: String,
     pub foreground: String,
     pub background: String,
+    pub dark_foreground: Option<String>,
+    pub dark_background: Option<String>,
     pub animation: SvgAnimationMode,
     pub title: String,
     pub description: String,
@@ -26,6 +28,8 @@ impl Default for SvgRenderConfig {
             font_family: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace".to_owned(),
             foreground: "#111827".to_owned(),
             background: "#ffffff".to_owned(),
+            dark_foreground: None,
+            dark_background: None,
             animation: SvgAnimationMode::Smil,
             title: "kumeyuri diagram".to_owned(),
             description: "text-rendered Mermaid diagram".to_owned(),
@@ -66,6 +70,7 @@ impl SvgRenderer {
     pub fn render_frame(&self, frame: &Frame) -> String {
         let mut svg = self.open_svg(frame);
         self.push_accessibility(&mut svg, &frame_fallback(frame));
+        self.push_color_scheme_style(&mut svg);
         self.push_background(&mut svg, frame);
         self.push_frame_group(&mut svg, frame, "frame-0", 1.0, "");
         svg.push_str("</svg>\n");
@@ -79,6 +84,7 @@ impl SvgRenderer {
         };
         let mut svg = self.open_svg(first.frame());
         self.push_accessibility(&mut svg, &timeline_fallback(timeline));
+        self.push_color_scheme_style(&mut svg);
         self.push_background(&mut svg, first.frame());
         let boundaries = animation_boundaries(timeline);
         let total = animation_duration(timeline);
@@ -152,6 +158,27 @@ impl SvgRenderer {
 "#,
             escape_attr(&self.config.background),
         ));
+    }
+
+    fn push_color_scheme_style(&self, svg: &mut String) {
+        let (Some(dark_foreground), Some(dark_background)) =
+            (&self.config.dark_foreground, &self.config.dark_background)
+        else {
+            return;
+        };
+        svg.push_str("<style>\n");
+        svg.push_str(&format!(
+            "rect {{ fill: {}; }}\ntext {{ fill: {}; }}\n",
+            escape_text(&self.config.background),
+            escape_text(&self.config.foreground),
+        ));
+        svg.push_str("@media (prefers-color-scheme: dark) {\n");
+        svg.push_str(&format!(
+            "  rect {{ fill: {}; }}\n  text {{ fill: {}; }}\n",
+            escape_text(dark_background),
+            escape_text(dark_foreground),
+        ));
+        svg.push_str("}\n</style>\n");
     }
 
     fn push_css_keyframes(
@@ -418,5 +445,26 @@ mod tests {
         );
         assert!(svg.contains("25% { opacity: 0; }"));
         assert!(!svg.contains(r#"<animate attributeName="opacity""#));
+    }
+
+    #[test]
+    fn renders_prefers_color_scheme_style_when_dark_colors_are_set() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let renderer = SvgRenderer::new(SvgRenderConfig {
+            foreground: "#111111".to_owned(),
+            background: "#ffffff".to_owned(),
+            dark_foreground: Some("#eeeeee".to_owned()),
+            dark_background: Some("#000000".to_owned()),
+            ..SvgRenderConfig::default()
+        });
+
+        let svg = renderer.render_frame(&frame);
+
+        assert!(svg.contains("@media (prefers-color-scheme: dark)"));
+        assert!(svg.contains("rect { fill: #ffffff; }"));
+        assert!(svg.contains("text { fill: #111111; }"));
+        assert!(svg.contains("rect { fill: #000000; }"));
+        assert!(svg.contains("text { fill: #eeeeee; }"));
     }
 }

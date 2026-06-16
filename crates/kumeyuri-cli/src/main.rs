@@ -88,6 +88,8 @@ struct RenderOptions {
     #[arg(long, value_enum)]
     theme: Option<RenderTheme>,
     #[arg(long, value_enum)]
+    dark_theme: Option<RenderTheme>,
+    #[arg(long, value_enum)]
     charset: Option<RenderCharset>,
     #[arg(long, value_name = "CELLS", value_parser = parse_positive_usize)]
     width: Option<usize>,
@@ -162,6 +164,7 @@ fn run() -> Result<(), String> {
 }
 
 fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
+    validate_render_options(format, options)?;
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     if format == RenderFormat::Tui {
@@ -183,6 +186,7 @@ fn render_source(
     format: RenderFormat,
     options: &RenderOptions,
 ) -> Result<Vec<u8>, String> {
+    validate_render_options(format, options)?;
     match format {
         RenderFormat::Text => Ok(render_text_source(source, options)?.into_bytes()),
         RenderFormat::Svg => Ok(render_svg_source(source, options)?.into_bytes()),
@@ -191,6 +195,13 @@ fn render_source(
         RenderFormat::Webp => render_raster_source(source, options, RasterRenderer::render_webp),
         RenderFormat::Tui => Err("tui format requires an interactive terminal".to_owned()),
     }
+}
+
+fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
+    if options.dark_theme.is_some() && format != RenderFormat::Svg {
+        return Err("--dark-theme only supports --format svg".to_owned());
+    }
+    Ok(())
 }
 
 fn render_text_source(source: &str, options: &RenderOptions) -> Result<String, String> {
@@ -249,6 +260,11 @@ fn svg_config(options: &RenderOptions) -> SvgRenderConfig {
     }
     if let Some(font) = &options.font {
         config.font_family = font.clone();
+    }
+    if let Some(dark_theme) = options.dark_theme {
+        let dark_theme = dark_theme.theme().theme();
+        config.dark_foreground = Some(css_color(dark_theme.colors.foreground));
+        config.dark_background = Some(css_color(dark_theme.colors.background));
     }
     config
 }
@@ -666,6 +682,8 @@ mod tests {
             "diagram.mmd",
             "--theme",
             "tokyo-night",
+            "--dark-theme",
+            "dracula",
             "--charset",
             "unicode",
             "--width",
@@ -681,6 +699,7 @@ mod tests {
         };
 
         assert_eq!(options.theme, Some(RenderTheme::TokyoNight));
+        assert_eq!(options.dark_theme, Some(RenderTheme::Dracula));
         assert_eq!(options.charset, Some(RenderCharset::Unicode));
         assert_eq!(options.width, Some(40));
         assert_eq!(options.padding, Some(12));
@@ -762,13 +781,18 @@ mod tests {
             width: Some(40),
             padding: Some(3),
             font: Some("Fira Code".to_owned()),
+            ..RenderOptions::default()
+        };
+        let svg_options = RenderOptions {
+            dark_theme: Some(RenderTheme::Dracula),
+            ..options.clone()
         };
         let text = String::from_utf8(
             render_source("graph TD\nA --> B", RenderFormat::Text, &options).unwrap(),
         )
         .unwrap();
         let svg = String::from_utf8(
-            render_source("graph TD\nA --> B", RenderFormat::Svg, &options).unwrap(),
+            render_source("graph TD\nA --> B", RenderFormat::Svg, &svg_options).unwrap(),
         )
         .unwrap();
         let timeline = timeline_from_source_with_render_options(
@@ -783,6 +807,9 @@ mod tests {
         assert!(svg.contains(r#"font-family="Fira Code""#));
         assert!(svg.contains(r##"fill="#1a1b26""##));
         assert!(svg.contains(r##"fill="#c0caf5""##));
+        assert!(svg.contains("@media (prefers-color-scheme: dark)"));
+        assert!(svg.contains(r##"rect { fill: #282a36; }"##));
+        assert!(svg.contains(r##"text { fill: #f8f8f2; }"##));
         assert!(svg.contains(r#"<text x="3""#));
         assert!(
             timeline
@@ -790,6 +817,21 @@ mod tests {
                 .iter()
                 .all(|keyframe| keyframe.frame().width() == 40)
         );
+    }
+
+    #[test]
+    fn dark_theme_requires_svg_output() {
+        let error = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Text,
+            &RenderOptions {
+                dark_theme: Some(RenderTheme::Dracula),
+                ..RenderOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert!(error.contains("--dark-theme only supports --format svg"));
     }
 
     #[test]

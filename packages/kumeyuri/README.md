@@ -9,6 +9,7 @@ import { initKumeyuri, render } from "kumeyuri";
 await initKumeyuri({ ...wasm, default: initWasm });
 const { svg, frames } = render("graph TD\nA --> B", {
   theme: "github",
+  darkTheme: "tokyo-night",
   charset: "unicode",
 });
 ```

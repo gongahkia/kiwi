@@ -83,6 +83,7 @@ function assertClean(mode, sanitized) {
   assertIncludes(mode, sanitized, /<metadata\b/i, "text fallback stripped");
   assertIncludes(mode, sanitized, /<g\b/i, "frame groups stripped");
   assertIncludes(mode, sanitized, /<text\b/i, "text output stripped");
+  assertIncludes(mode, sanitized, /prefers-color-scheme/i, "colour-scheme CSS stripped");
 }
 
 function assertIncludes(mode, value, pattern, message) {

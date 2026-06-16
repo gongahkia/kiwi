@@ -24,6 +24,42 @@ For a code-block fallback:
 kumeyuri render diagrams/flow.mmd --format text --charset unicode > diagrams/flow.txt
 ```
 
+For one SVG that adapts to the viewer's colour scheme:
+
+```bash
+kumeyuri render diagrams/flow.mmd --format svg --theme github --dark-theme tokyo-night > diagrams/flow.svg
+```
+
+For paired assets, render a light file and a `.dark.svg` file, then swap them with CSS in static-site templates.
+
+```bash
+kumeyuri render diagrams/flow.mmd --format svg --theme github > diagrams/flow.svg
+kumeyuri render diagrams/flow.mmd --format svg --theme tokyo-night > diagrams/flow.dark.svg
+```
+
+```html
+<span class="kumeyuri-mermaid-swap">
+  <img class="mermaid-light" src="/diagrams/flow.svg" alt="Flow trace">
+  <img class="mermaid-dark" src="/diagrams/flow.dark.svg" alt="Flow trace">
+</span>
+```
+
+```css
+.mermaid-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mermaid-light {
+    display: none;
+  }
+
+  .mermaid-dark {
+    display: inline;
+  }
+}
+```
+
 ## Hugo
 
 Place rendered assets under `static/diagrams/`, then use a shortcode.
@@ -71,6 +107,7 @@ export function KumeyuriSetup() {
   src="/diagrams/flow.mmd"
   animate="trace"
   theme="github"
+  dark-theme="tokyo-night"
   speed="1.25"
   autoplay
   controls
@@ -124,6 +161,7 @@ For live rendering, load the generated wasm-bindgen module and the typed npm wra
   inline="sequenceDiagram&#10;Alice->>Bob: hello"
   animate="playback"
   theme="github"
+  dark-theme="tokyo-night"
   speed="1.25"
   autoplay
   controls

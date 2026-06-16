@@ -90,7 +90,7 @@
 - [x] Add CSS-keyframe fallback path for SVG (GitHub sanitizer test required)
 - [x] CI test: pipe generated SVG through `DOMPurify` with GitHub's allowlist; fail if animation strips
 - [x] Embed accessible `<title>` + `<desc>` + plain-text fallback inside every SVG
-- [ ] Emit paired light/dark SVG variants (`*.svg` + `*.dark.svg`) and/or single `prefers-color-scheme`-aware SVG; document `<img class="mermaid-light/dark">` swap pattern in `docs/embedding.md` (convention popularised by `@tldraw/mermaid` Astro plugin)
+- [x] Emit paired light/dark SVG variants (`*.svg` + `*.dark.svg`) and/or single `prefers-color-scheme`-aware SVG; document `<img class="mermaid-light/dark">` swap pattern in `docs/embedding.md` (convention popularised by `@tldraw/mermaid` Astro plugin)
 - [x] Implement `kumeyuri-render-raster`: composite frames to PNG via `tiny-skia` or `cosmic-text` + glyph atlas
 - [x] Implement GIF encoder path (`gif` crate or `gifski` bindings)
 - [x] Implement APNG encoder path (`png` crate with animation chunks)

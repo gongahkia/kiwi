@@ -11,7 +11,7 @@ const wasm = {
   render(source, options) {
     calls.push({ source, options });
     return {
-      svg: `<svg data-theme="${options.theme ?? "default"}"></svg>`,
+      svg: `<svg data-theme="${options.theme ?? "default"}" data-dark-theme="${options.darkTheme ?? ""}"></svg>`,
       frames: [
         { text: "A", durationMs: 550 },
         { text: "B", durationMs: 650 },
@@ -21,8 +21,8 @@ const wasm = {
 };
 
 const client = createKumeyuri(wasm);
-const output = client.render("graph TD\\nA --> B", { theme: "github" });
-assert.equal(output.svg, '<svg data-theme="github"></svg>');
+const output = client.render("graph TD\\nA --> B", { theme: "github", darkTheme: "dracula" });
+assert.equal(output.svg, '<svg data-theme="github" data-dark-theme="dracula"></svg>');
 assert.deepEqual(output.frames, [
   { text: "A", durationMs: 550 },
   { text: "B", durationMs: 650 },
@@ -52,6 +52,7 @@ const inlineElement = document.createElement("kumeyuri-diagram");
 inlineElement.setAttribute("inline", "graph TD\\nA --> B");
 inlineElement.setAttribute("animate", "trace");
 inlineElement.setAttribute("theme", "github");
+inlineElement.setAttribute("dark-theme", "dracula");
 inlineElement.setAttribute("speed", "1.5");
 inlineElement.setAttribute("autoplay", "");
 inlineElement.setAttribute("controls", "");
@@ -61,7 +62,9 @@ await tick();
 assert.equal(inlineElement.dataset.autoplay, "true");
 assert.equal(inlineElement.dataset.controls, "true");
 assert.equal(inlineElement.querySelector("svg")?.getAttribute("data-theme"), "github");
+assert.equal(inlineElement.querySelector("svg")?.getAttribute("data-dark-theme"), "dracula");
 assert.match(calls.at(-1).source, /^%%\{ animate: 'trace' \}%%\n/);
+assert.equal(calls.at(-1).options.darkTheme, "dracula");
 assert.equal(calls.at(-1).options.speed, 1.5);
 assert.equal(inlineElement.querySelector("[data-kumeyuri-controls]") !== null, true);
 assert.equal(inlineElement.querySelector("input[type='range']")?.getAttribute("max"), "1");

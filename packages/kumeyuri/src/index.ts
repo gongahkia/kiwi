@@ -4,6 +4,7 @@ export type KumeyuriSvgAnimation = "smil" | "css-keyframes";
 
 export interface KumeyuriRenderOptions {
   theme?: KumeyuriTheme;
+  darkTheme?: KumeyuriTheme;
   charset?: KumeyuriCharset;
   width?: number;
   padding?: number;
@@ -81,7 +82,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
   }
   class KumeyuriDiagramElement extends HTMLElement {
     static get observedAttributes(): string[] {
-      return ["src", "inline", "animate", "theme", "speed", "autoplay", "controls"];
+      return ["src", "inline", "animate", "theme", "dark-theme", "speed", "autoplay", "controls"];
     }
 
     #inlineSource: string | null = null;
@@ -155,6 +156,10 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       const theme = this.getAttribute("theme");
       if (theme) {
         options.theme = theme as KumeyuriTheme;
+      }
+      const darkTheme = this.getAttribute("dark-theme");
+      if (darkTheme) {
+        options.darkTheme = darkTheme as KumeyuriTheme;
       }
       const speed = this.getAttribute("speed");
       if (speed) {

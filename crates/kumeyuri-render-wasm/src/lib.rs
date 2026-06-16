@@ -38,6 +38,7 @@ pub fn render(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WasmRenderOptions {
     theme: Option<String>,
+    dark_theme: Option<String>,
     charset: Option<String>,
     width: Option<usize>,
     padding: Option<u16>,
@@ -94,14 +95,7 @@ fn frame_renderer(options: &WasmRenderOptions) -> Result<StaticFrameRenderer, St
 }
 
 fn render_theme(options: &WasmRenderOptions) -> Result<Theme, String> {
-    let mut theme = match options.theme.as_deref().unwrap_or("default") {
-        "default" => BuiltInTheme::Default.theme(),
-        "mono" => BuiltInTheme::Mono.theme(),
-        "tokyo-night" => BuiltInTheme::TokyoNight.theme(),
-        "github" => BuiltInTheme::Github.theme(),
-        "dracula" => BuiltInTheme::Dracula.theme(),
-        theme => return Err(format!("unknown theme {theme:?}")),
-    };
+    let mut theme = built_in_theme(options.theme.as_deref().unwrap_or("default"))?.theme();
     if let Some(charset) = options.charset.as_deref() {
         theme.charset = match charset {
             "ascii" => Charset::Ascii,
@@ -114,12 +108,18 @@ fn render_theme(options: &WasmRenderOptions) -> Result<Theme, String> {
 
 fn svg_config(options: &WasmRenderOptions) -> Result<SvgRenderConfig, String> {
     let theme = render_theme(options)?;
+    let dark_theme = options
+        .dark_theme
+        .as_deref()
+        .map(built_in_theme)
+        .transpose()?
+        .map(BuiltInTheme::theme);
     let animation = match options.svg_animation.as_deref().unwrap_or("smil") {
         "smil" => SvgAnimationMode::Smil,
         "css-keyframes" => SvgAnimationMode::CssKeyframes,
         animation => return Err(format!("unknown svgAnimation {animation:?}")),
     };
-    Ok(SvgRenderConfig {
+    let mut config = SvgRenderConfig {
         padding: options.padding.unwrap_or_default(),
         font_family: options
             .font
@@ -129,7 +129,16 @@ fn svg_config(options: &WasmRenderOptions) -> Result<SvgRenderConfig, String> {
         background: css_color(theme.colors.background),
         animation,
         ..SvgRenderConfig::default()
-    })
+    };
+    if let Some(dark_theme) = dark_theme {
+        config.dark_foreground = Some(css_color(dark_theme.colors.foreground));
+        config.dark_background = Some(css_color(dark_theme.colors.background));
+    }
+    Ok(config)
+}
+
+fn built_in_theme(name: &str) -> Result<BuiltInTheme, String> {
+    BuiltInTheme::from_name(name).ok_or_else(|| format!("unknown theme {name:?}"))
 }
 
 fn apply_timeline_width(timeline: Timeline, options: &WasmRenderOptions) -> Timeline {
@@ -192,6 +201,7 @@ mod tests {
             "graph TD\nA --> B",
             &WasmRenderOptions {
                 theme: Some("tokyo-night".to_owned()),
+                dark_theme: Some("dracula".to_owned()),
                 charset: Some("unicode".to_owned()),
                 width: Some(40),
                 padding: Some(4),
@@ -204,6 +214,8 @@ mod tests {
         assert!(output.svg.starts_with("<svg "));
         assert!(output.svg.contains(r#"font-family="Fira Code""#));
         assert!(output.svg.contains(r##"fill="#1a1b26""##));
+        assert!(output.svg.contains("@media (prefers-color-scheme: dark)"));
+        assert!(output.svg.contains(r##"rect { fill: #282a36; }"##));
         assert!(output.svg.contains(r#"<text x="4""#));
         assert!(!output.frames.is_empty());
         assert!(output.frames[0].text.contains('┌'));
@@ -222,6 +234,16 @@ mod tests {
                 "graph TD\nA --> B",
                 &WasmRenderOptions {
                     theme: Some("missing".to_owned()),
+                    ..WasmRenderOptions::default()
+                },
+            )
+            .is_err()
+        );
+        assert!(
+            render_output(
+                "graph TD\nA --> B",
+                &WasmRenderOptions {
+                    dark_theme: Some("missing".to_owned()),
                     ..WasmRenderOptions::default()
                 },
             )
