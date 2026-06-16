@@ -1,0 +1,10 @@
+01_start_to_idle 1344a46d1e12085c
+02_left_right_direction e46e3aad816dabbd
+03_three_state_chain b15972711543c2cf
+04_transition_labels 221e1bfcaf28c5fd
+05_state_alias 874b199b1ea55e05
+06_choice_state df3a91d71d31b50a
+07_fork_state f983f8181ecd2d0b
+08_directive_comment 1344a46d1e12085c
+09_state_declarations e211282c94b415a3
+10_composite_opening 4e96a37f6318c1da

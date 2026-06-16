@@ -1,0 +1,15 @@
+01_single_message 045aeabc6c766143
+02_declared_participants 271da790f4929a11
+03_multiple_messages a7e8f554e213cea8
+04_self_message 504159e94b46667c
+05_note_over eca8489702fe9c33
+06_note_left 0ad47474719bf5b1
+07_note_right 6044dcf91d625e45
+08_loop_block 5dacff029560be91
+09_alt_block 0180aa303c22fcdb
+10_opt_block 473da458546697e9
+11_par_block 24a140dd0ee18f29
+12_dotted_line 8bb83d4f34075e9f
+13_cross_and_open 026ba6bb562cde16
+14_bidirectional 46717c4074398d2d
+15_three_participants a87bd4f4f7c6a904
