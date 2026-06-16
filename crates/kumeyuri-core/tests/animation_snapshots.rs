@@ -74,6 +74,12 @@ const ER_NAMES: [&str; 3] = [
     "03_non_identifying",
 ];
 
+const GANTT_NAMES: [&str; 3] = [
+    "01_basic_schedule",
+    "02_sections_until",
+    "03_config_comments",
+];
+
 #[test]
 fn animation_timeline_hashes_match() {
     assert_timeline_hashes("flowchart", &FLOWCHART_NAMES);
@@ -81,6 +87,7 @@ fn animation_timeline_hashes_match() {
     assert_timeline_hashes("state", &STATE_NAMES);
     assert_timeline_hashes("class", &CLASS_NAMES);
     assert_timeline_hashes("er", &ER_NAMES);
+    assert_timeline_hashes("gantt", &GANTT_NAMES);
 }
 
 fn assert_timeline_hashes(kind: &str, names: &[&str]) {
@@ -164,6 +171,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::State(_) => ("state", "transitions"),
         DiagramKind::Class(_) => ("class", "trace"),
         DiagramKind::Er(_) => ("er", "trace"),
+        DiagramKind::Gantt(_) => ("gantt", "trace"),
     }
 }
 

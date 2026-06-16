@@ -130,7 +130,7 @@
 
 - [x] Implement class-diagram parser, layout, static + animated rendering
 - [x] Implement ER-diagram parser, layout, static + animated rendering
-- [ ] Implement Gantt-chart parser, layout, static + animated rendering (timeline sweep animation)
+- [x] Implement Gantt-chart parser, layout, static + animated rendering (timeline sweep animation)
 - [ ] Implement pie-chart parser, layout, static + animated rendering (slice growth animation)
 - [ ] Implement mindmap parser, layout, static + animated rendering (radial expand animation)
 - [ ] Implement journey diagram parser, layout, static + animated rendering

@@ -1,13 +1,15 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, MermaidDirective, SequenceAst, SequenceStatement, StateAst, StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, SequenceAst, SequenceStatement,
+    StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
-    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
-    PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
-    StateLayout, StateLayoutEngine,
+    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
+    GanttLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
+    PositionedFlowNode, PositionedGanttTask, PositionedSequenceMessage,
+    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
+    StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -39,6 +41,11 @@ impl Animator {
     #[must_use]
     pub fn er_trace(ast: &ErAst) -> Timeline {
         ErRelationshipAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn gantt_sweep(ast: &GanttAst) -> Timeline {
+        GanttSweepAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -98,6 +105,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Er(ast), AnimationMode::Trace) => ErRelationshipAnimator::new(
                 scaled_duration(ErRelationshipAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Gantt(ast), AnimationMode::Trace) => GanttSweepAnimator::new(
+                scaled_duration(GanttSweepAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -188,6 +199,11 @@ impl AnimationConfig {
                     apply_er_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Gantt(ast) => {
+                for statement in &ast.statements {
+                    apply_gantt_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -265,6 +281,7 @@ pub enum AnimationDiagramKind {
     State,
     Class,
     Er,
+    Gantt,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -275,6 +292,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::State(_) => Self::State,
             DiagramKind::Class(_) => Self::Class,
             DiagramKind::Er(_) => Self::Er,
+            DiagramKind::Gantt(_) => Self::Gantt,
         }
     }
 }
@@ -404,6 +422,27 @@ fn apply_er_animation_directives(
     Ok(())
 }
 
+fn apply_gantt_animation_directives(
+    statement: &GanttStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        GanttStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        GanttStatement::Title(_)
+        | GanttStatement::DateFormat(_)
+        | GanttStatement::AxisFormat(_)
+        | GanttStatement::Section(_)
+        | GanttStatement::Task(_)
+        | GanttStatement::Config(_)
+        | GanttStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -509,6 +548,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::State(_) => AnimationMode::Transitions,
         DiagramKind::Class(_) => AnimationMode::Trace,
         DiagramKind::Er(_) => AnimationMode::Trace,
+        DiagramKind::Gantt(_) => AnimationMode::Trace,
     }
 }
 
@@ -526,6 +566,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::State(_) => StateTransitionAnimator::default_frame_duration(),
         DiagramKind::Class(_) => ClassRelationshipAnimator::default_frame_duration(),
         DiagramKind::Er(_) => ErRelationshipAnimator::default_frame_duration(),
+        DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
     }
 }
 
@@ -1158,6 +1199,99 @@ fn add_er_relationship_markers(
         KeyFrameMarkerKind::Enter,
         &format!("er-entity-{}-enter", relationship.to),
     );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GanttSweepAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for GanttSweepAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl GanttSweepAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &GanttAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(self, ast: &GanttAst, renderer: StaticFrameRenderer) -> Timeline {
+        let layout = GanttLayoutEngine::default().layout(ast);
+        let mut timeline = Timeline::from_frame(renderer.render_gantt(ast), self.frame_duration);
+        let mut order = (0..layout.tasks.len()).collect::<Vec<_>>();
+        order.sort_by_key(|index| {
+            let task = &layout.tasks[*index];
+            (task.start, task.end, *index)
+        });
+
+        for (step, task_index) in order.iter().enumerate() {
+            let mut frame = renderer.render_gantt(ast);
+            for previous_index in order.iter().take(step) {
+                add_gantt_task_marker(
+                    &mut frame,
+                    &layout.tasks[*previous_index],
+                    *previous_index,
+                    KeyFrameMarkerKind::Hold,
+                );
+            }
+            add_gantt_task_marker(
+                &mut frame,
+                &layout.tasks[*task_index],
+                *task_index,
+                KeyFrameMarkerKind::Active,
+            );
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_gantt_task_marker(
+    frame: &mut Frame,
+    task: &PositionedGanttTask,
+    index: usize,
+    kind: KeyFrameMarkerKind,
+) {
+    let Some(region) = rect_region(
+        task.rect.origin.x,
+        task.rect.origin.y,
+        task.rect.right(),
+        task.rect.bottom(),
+    ) else {
+        return;
+    };
+    let id = task.id.as_ref().map_or_else(
+        || format!("gantt-task-{index}"),
+        |id| format!("gantt-task-{id}"),
+    );
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, &id);
 }
 
 fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyFrameMarkerKind) {

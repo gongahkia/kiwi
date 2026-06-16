@@ -4,12 +4,13 @@ use crate::ast::{
     Diagram, DiagramKind, DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity,
     ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
-    FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind, MermaidComment,
-    MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock,
-    SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
-    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
-    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
-    StateStatement, StateTransition,
+    FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
+    GanttStatement, GanttTask, GanttTaskTag, Label, LabelKind, MermaidComment, MermaidDirective,
+    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock, SequenceControlKind,
+    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
+    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
+    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
+    StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +69,10 @@ pub enum ParseErrorKind {
     ExpectedErEntity,
     ExpectedErAttribute,
     ExpectedErRelationship,
+    ExpectedGanttHeader,
+    UnknownGanttStatement,
+    ExpectedGanttTask,
+    ExpectedGanttMetadata,
     TrailingInput,
 }
 
@@ -100,6 +105,10 @@ impl Parser {
 
     pub fn parse_er(source: &str) -> Result<ErAst, ParseError> {
         DiagramParser::new(source).parse_er_only()
+    }
+
+    pub fn parse_gantt(source: &str) -> Result<GanttAst, ParseError> {
+        DiagramParser::new(source).parse_gantt_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -184,6 +193,14 @@ impl Parser {
     pub fn parse_er_statement(source: &str) -> Result<ErStatement, ParseError> {
         ErStatementParser::new(source).parse()
     }
+
+    pub fn parse_gantt_header(source: &str) -> Result<GanttHeader, ParseError> {
+        GanttHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_gantt_statement(source: &str) -> Result<GanttStatement, ParseError> {
+        GanttStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -234,6 +251,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_er_body(shift_er_header(er_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Er(Box::new(ast))));
+        }
+        if let Ok(gantt_header) = Parser::parse_gantt_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Gantt(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -295,6 +317,17 @@ impl<'source> DiagramParser<'source> {
         let er_header = Parser::parse_er_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_er_body(shift_er_header(er_header, header.start))
+    }
+
+    fn parse_gantt_only(mut self) -> Result<GanttAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedGanttHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let gantt_header = Parser::parse_gantt_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -549,6 +582,34 @@ impl<'source> DiagramParser<'source> {
         })
     }
 
+    fn parse_gantt_body(&mut self, header: GanttHeader) -> Result<GanttAst, ParseError> {
+        let mut ast = GanttAst {
+            header,
+            title: None,
+            date_format: None,
+            axis_format: None,
+            statements: Vec::new(),
+            tasks: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+        let mut current_section = None;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let mut statement =
+                shift_gantt_statement(Parser::parse_gantt_statement(line.text)?, line.start);
+            if let GanttStatement::Task(task) = &mut statement {
+                task.section = current_section.clone();
+            }
+            if let GanttStatement::Section(section) = &statement {
+                current_section = Some(section.clone());
+            }
+            push_gantt_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -724,6 +785,20 @@ fn ensure_er_entity(entities: &mut Vec<ErEntity>, id: &Spanned<String>) {
         attributes: Vec::new(),
         span: id.span,
     });
+}
+
+fn push_gantt_statement(ast: &mut GanttAst, statement: GanttStatement) {
+    match &statement {
+        GanttStatement::Title(title) => ast.title = Some(title.clone()),
+        GanttStatement::DateFormat(format) => ast.date_format = Some(format.clone()),
+        GanttStatement::AxisFormat(format) => ast.axis_format = Some(format.clone()),
+        GanttStatement::Task(task) => ast.tasks.push((**task).clone()),
+        GanttStatement::Section(_)
+        | GanttStatement::Config(_)
+        | GanttStatement::Comment(_)
+        | GanttStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
 }
 
 fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
@@ -1712,6 +1787,167 @@ impl<'source> ErStatementParser<'source> {
             end_cardinality: operator.end_cardinality,
             identifying: operator.identifying,
             label,
+            span: Span::new(start, end),
+        }))
+    }
+}
+
+struct GanttHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> GanttHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<GanttHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGanttHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "gantt" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGanttHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(GanttHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct GanttStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> GanttStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<GanttStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownGanttStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(GanttStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(GanttStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownGanttStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(GanttStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "dateFormat") {
+            return Ok(GanttStatement::DateFormat(parse_gantt_value(
+                self.source,
+                start,
+                end,
+                "dateFormat",
+            )?));
+        }
+        if has_keyword(self.source, start, "axisFormat") {
+            return Ok(GanttStatement::AxisFormat(parse_gantt_value(
+                self.source,
+                start,
+                end,
+                "axisFormat",
+            )?));
+        }
+        if has_keyword(self.source, start, "section") {
+            let label = label_from_trimmed(self.source, start + "section".len(), end).ok_or(
+                ParseError {
+                    kind: ParseErrorKind::UnknownGanttStatement,
+                    span: Span::new(start, end),
+                },
+            )?;
+            return Ok(GanttStatement::Section(label));
+        }
+        if let Some(config) = self.parse_config(start, end)? {
+            return Ok(GanttStatement::Config(config));
+        }
+        if let Some(task) = self.parse_task(start, end)? {
+            return Ok(GanttStatement::Task(Box::new(task)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownGanttStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_config(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<GanttConfigStatement>, ParseError> {
+        let configs = [
+            "excludes",
+            "weekend",
+            "tickInterval",
+            "todayMarker",
+            "weekday",
+            "click",
+        ];
+        let Some(key) = configs
+            .iter()
+            .find(|key| has_keyword(self.source, start, key))
+        else {
+            return Ok(None);
+        };
+        let key_span = Span::new(start, start + key.len());
+        let value = label_from_trimmed(self.source, key_span.end, end);
+        Ok(Some(GanttConfigStatement {
+            key: Spanned::new((*key).to_owned(), key_span),
+            value,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_task(&self, start: usize, end: usize) -> Result<Option<GanttTask>, ParseError> {
+        let Some(colon) = self.source[start..end].find(':') else {
+            return Ok(None);
+        };
+        let colon = start + colon;
+        let title = label_from_trimmed(self.source, start, colon).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedGanttTask,
+            span: Span::new(start, colon),
+        })?;
+        let mut metadata = parse_gantt_metadata(self.source, colon + 1, end)?;
+        let tags = take_gantt_tags(&mut metadata);
+        let id = if metadata.len() == 3 && is_identifier(&metadata[0].value) {
+            Some(metadata.remove(0))
+        } else {
+            None
+        };
+        if metadata.is_empty() {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGanttMetadata,
+                span: Span::new(colon + 1, end),
+            });
+        }
+        Ok(Some(GanttTask {
+            title,
+            section: None,
+            tags,
+            id,
+            metadata,
             span: Span::new(start, end),
         }))
     }
@@ -3282,6 +3518,79 @@ fn er_relationship_operators() -> Vec<ErRelationshipOperator> {
     operators
 }
 
+fn parse_gantt_value(
+    source: &str,
+    start: usize,
+    end: usize,
+    keyword: &str,
+) -> Result<Spanned<String>, ParseError> {
+    let value_start = start + keyword.len();
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[value_start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownGanttStatement,
+            span: Span::new(value_start, end),
+        });
+    };
+    let absolute_start = value_start + trim_start;
+    let absolute_end = value_start + trim_end;
+    Ok(Spanned::new(
+        source[absolute_start..absolute_end].to_owned(),
+        Span::new(absolute_start, absolute_end),
+    ))
+}
+
+fn parse_gantt_metadata(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<Spanned<String>>, ParseError> {
+    let mut values = Vec::new();
+    let mut part_start = start;
+    while part_start <= end {
+        let part_end = source[part_start..end]
+            .find(',')
+            .map_or(end, |offset| part_start + offset);
+        if let Some((trim_start, trim_end)) = trim_ascii_range(&source[part_start..part_end]) {
+            let absolute_start = part_start + trim_start;
+            let absolute_end = part_start + trim_end;
+            values.push(Spanned::new(
+                source[absolute_start..absolute_end].to_owned(),
+                Span::new(absolute_start, absolute_end),
+            ));
+        }
+        if part_end == end {
+            break;
+        }
+        part_start = part_end + 1;
+    }
+    if values.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedGanttMetadata,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(values)
+}
+
+fn take_gantt_tags(metadata: &mut Vec<Spanned<String>>) -> Vec<GanttTaskTag> {
+    let mut tags = Vec::new();
+    while let Some(tag) = metadata.first().and_then(|value| gantt_tag(&value.value)) {
+        tags.push(tag);
+        metadata.remove(0);
+    }
+    tags
+}
+
+fn gantt_tag(value: &str) -> Option<GanttTaskTag> {
+    match value {
+        "active" => Some(GanttTaskTag::Active),
+        "done" => Some(GanttTaskTag::Done),
+        "crit" => Some(GanttTaskTag::Crit),
+        "milestone" => Some(GanttTaskTag::Milestone),
+        _ => None,
+    }
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -3731,6 +4040,58 @@ fn shift_er_relationship(relationship: ErRelationship, offset: usize) -> ErRelat
     }
 }
 
+fn shift_gantt_header(header: GanttHeader, offset: usize) -> GanttHeader {
+    GanttHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_gantt_statement(statement: GanttStatement, offset: usize) -> GanttStatement {
+    match statement {
+        GanttStatement::Title(title) => GanttStatement::Title(shift_label(title, offset)),
+        GanttStatement::DateFormat(format) => {
+            GanttStatement::DateFormat(shift_spanned(format, offset))
+        }
+        GanttStatement::AxisFormat(format) => {
+            GanttStatement::AxisFormat(shift_spanned(format, offset))
+        }
+        GanttStatement::Section(section) => GanttStatement::Section(shift_label(section, offset)),
+        GanttStatement::Task(task) => {
+            GanttStatement::Task(Box::new(shift_gantt_task(*task, offset)))
+        }
+        GanttStatement::Config(config) => {
+            GanttStatement::Config(shift_gantt_config(config, offset))
+        }
+        GanttStatement::Comment(comment) => GanttStatement::Comment(shift_comment(comment, offset)),
+        GanttStatement::Directive(directive) => {
+            GanttStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_gantt_config(config: GanttConfigStatement, offset: usize) -> GanttConfigStatement {
+    GanttConfigStatement {
+        key: shift_spanned(config.key, offset),
+        value: config.value.map(|value| shift_label(value, offset)),
+        span: shift_span(config.span, offset),
+    }
+}
+
+fn shift_gantt_task(task: GanttTask, offset: usize) -> GanttTask {
+    GanttTask {
+        title: shift_label(task.title, offset),
+        section: task.section.map(|section| shift_label(section, offset)),
+        tags: task.tags,
+        id: task.id.map(|id| shift_spanned(id, offset)),
+        metadata: task
+            .metadata
+            .into_iter()
+            .map(|value| shift_spanned(value, offset))
+            .collect(),
+        span: shift_span(task.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -3999,9 +4360,9 @@ mod tests {
     use crate::ast::{
         ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
         DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
-        FlowStatement, FlowchartDirective, LabelKind, SequenceArrow, SequenceControlKind,
-        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
-        StateNodeKind, StateStatement,
+        FlowStatement, FlowchartDirective, GanttTaskTag, LabelKind, SequenceArrow,
+        SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind, SequenceStatement,
+        Span, StateDirective, StateNodeKind, StateStatement,
     };
 
     #[test]
@@ -4143,6 +4504,25 @@ mod tests {
             ast.relationships[0].end_cardinality,
             ErCardinality::ZeroOrMany,
         );
+    }
+
+    #[test]
+    fn parses_gantt_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "gantt\ntitle Release Plan\nsection Build\nDesign API :done, api, 2026-01-01, 3d\nImplement core :active, core, after api, 5d",
+        )
+        .unwrap();
+
+        let DiagramKind::Gantt(ast) = diagram.kind else {
+            panic!("expected Gantt diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Release Plan");
+        assert_eq!(ast.tasks.len(), 2);
+        assert_eq!(ast.tasks[0].section.as_ref().unwrap().text, "Build");
+        assert_eq!(ast.tasks[0].id.as_ref().unwrap().value, "api");
+        assert_eq!(ast.tasks[0].tags, vec![GanttTaskTag::Done]);
+        assert_eq!(ast.tasks[1].tags, vec![GanttTaskTag::Active]);
+        assert_eq!(ast.tasks[1].metadata[0].value, "after api");
     }
 
     #[test]

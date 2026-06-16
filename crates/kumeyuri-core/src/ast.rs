@@ -13,6 +13,7 @@ pub enum DiagramKind {
     State(Box<StateAst>),
     Class(Box<ClassAst>),
     Er(Box<ErAst>),
+    Gantt(Box<GanttAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -557,6 +558,59 @@ pub enum ErCardinality {
     ZeroOrOne,
     OneOrMany,
     ZeroOrMany,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GanttAst {
+    pub header: GanttHeader,
+    pub title: Option<Label>,
+    pub date_format: Option<Spanned<String>>,
+    pub axis_format: Option<Spanned<String>>,
+    pub statements: Vec<GanttStatement>,
+    pub tasks: Vec<GanttTask>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GanttHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GanttStatement {
+    Title(Label),
+    DateFormat(Spanned<String>),
+    AxisFormat(Spanned<String>),
+    Section(Label),
+    Task(Box<GanttTask>),
+    Config(GanttConfigStatement),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GanttConfigStatement {
+    pub key: Spanned<String>,
+    pub value: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GanttTask {
+    pub title: Label,
+    pub section: Option<Label>,
+    pub tags: Vec<GanttTaskTag>,
+    pub id: Option<Spanned<String>>,
+    pub metadata: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GanttTaskTag {
+    Active,
+    Done,
+    Crit,
+    Milestone,
 }
 
 #[cfg(test)]

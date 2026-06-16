@@ -1,12 +1,12 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, SequenceAst, StateAst,
+    ErAst, FlowchartAst, GanttAst, GanttTaskTag, SequenceAst, StateAst,
 };
 use crate::layout::{
-    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
-    PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
-    StateLayoutEngine,
+    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
+    GanttLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
+    PositionedFlowSubgraph, PositionedGanttTask, PositionedSequenceMessage, PositionedSequenceNote,
+    Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -325,6 +325,7 @@ pub struct StaticFrameRenderer {
     state: StateLayoutEngine,
     class: ClassLayoutEngine,
     er: ErLayoutEngine,
+    gantt: GanttLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -342,6 +343,7 @@ impl StaticFrameRenderer {
             state,
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
+            gantt: GanttLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -360,6 +362,7 @@ impl StaticFrameRenderer {
             state,
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
+            gantt: GanttLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -378,6 +381,7 @@ impl StaticFrameRenderer {
             state,
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
+            gantt: GanttLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -419,6 +423,7 @@ impl StaticFrameRenderer {
             DiagramKind::State(ast) => self.render_state(ast),
             DiagramKind::Class(ast) => self.render_class(ast),
             DiagramKind::Er(ast) => self.render_er(ast),
+            DiagramKind::Gantt(ast) => self.render_gantt(ast),
         }
     }
 
@@ -445,6 +450,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_er(&self, ast: &ErAst) -> Frame {
         render_class_layout(&self.er.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_gantt(&self, ast: &GanttAst) -> Frame {
+        render_gantt_layout(&self.gantt.layout(ast), self.palette, self.theme)
     }
 }
 
@@ -604,6 +614,146 @@ fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme
         );
     }
     frame
+}
+
+fn render_gantt_layout(layout: &GanttLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    draw_gantt_axis(
+        &mut frame,
+        layout,
+        palette,
+        muted_style.clone(),
+        text_style.clone(),
+    );
+    for section in &layout.sections {
+        write_text_safe(
+            &mut frame,
+            0,
+            section.y,
+            &section.label,
+            muted_style.clone(),
+        );
+    }
+    for task in &layout.tasks {
+        draw_gantt_task(
+            &mut frame,
+            task,
+            palette,
+            node_style.clone(),
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_gantt_axis(
+    frame: &mut Frame,
+    layout: &GanttLayout,
+    palette: GlyphPalette,
+    style: CellStyle,
+    text_style: CellStyle,
+) {
+    let axis_y = 1;
+    let left = gantt_chart_left(layout);
+    let right = layout.size.width.saturating_sub(1);
+    draw_horizontal(
+        frame,
+        left,
+        right,
+        axis_y,
+        palette.horizontal,
+        style.clone(),
+    );
+    put_safe(frame, left, axis_y, palette.crossing, style.clone());
+    put_safe(frame, right, axis_y, palette.crossing, style);
+    let min_label = layout.min_day.to_string();
+    let max_label = layout.max_day.to_string();
+    write_text_safe(frame, left, 0, &min_label, text_style.clone());
+    let max_x = (right - max_label.chars().count() as i32 + 1).max(0);
+    if max_x > left + min_label.chars().count() as i32 {
+        write_text_safe(frame, max_x, 0, &max_label, text_style);
+    }
+}
+
+fn draw_gantt_task(
+    frame: &mut Frame,
+    task: &PositionedGanttTask,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    write_text_safe(
+        frame,
+        task.label_origin.x,
+        task.label_origin.y,
+        &task.title,
+        text_style.clone(),
+    );
+    let glyph = gantt_task_glyph(task, palette);
+    let style = if task.tags.contains(&GanttTaskTag::Crit) {
+        edge_style
+    } else {
+        node_style
+    };
+    if task.tags.contains(&GanttTaskTag::Milestone) {
+        put_safe(
+            frame,
+            task.rect.origin.x,
+            task.rect.origin.y,
+            '<',
+            style.clone(),
+        );
+        put_safe(
+            frame,
+            task.rect.origin.x + 1,
+            task.rect.origin.y,
+            '>',
+            style,
+        );
+    } else {
+        draw_horizontal(
+            frame,
+            task.rect.origin.x,
+            task.rect.right().saturating_sub(1),
+            task.rect.origin.y,
+            glyph,
+            style,
+        );
+    }
+}
+
+fn gantt_task_glyph(task: &PositionedGanttTask, palette: GlyphPalette) -> char {
+    if task.tags.contains(&GanttTaskTag::Done) {
+        palette.block
+    } else if task.tags.contains(&GanttTaskTag::Active) {
+        '='
+    } else if task.tags.contains(&GanttTaskTag::Crit) {
+        '!'
+    } else {
+        palette.horizontal
+    }
+}
+
+fn gantt_chart_left(layout: &GanttLayout) -> i32 {
+    layout
+        .tasks
+        .iter()
+        .map(|task| task.rect.origin.x - (task.start - layout.min_day) * 2)
+        .min()
+        .unwrap_or(18)
 }
 
 fn draw_class_node(
@@ -1354,6 +1504,21 @@ mod tests {
         assert!(output.contains("PK string name"));
         assert!(output.contains("ORDER"));
         assert!(output.contains("places"));
+    }
+
+    #[test]
+    fn renders_gantt_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "gantt\ntitle Release Plan\nsection Build\nDesign API :done, api, 2026-01-01, 3d\nImplement core :active, core, after api, 5d",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Release Plan"));
+        assert!(output.contains("Build"));
+        assert!(output.contains("Design API"));
+        assert!(output.contains("Implement core"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

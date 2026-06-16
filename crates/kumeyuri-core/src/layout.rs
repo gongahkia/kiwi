@@ -2,9 +2,10 @@ use crate::ast::{
     ArrowHead, ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship,
     ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
     ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
-    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceAst,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition,
+    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
+    GanttTaskTag, Label, LabelKind, SequenceAst, SequenceMessage, SequenceNote,
+    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
+    StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -236,6 +237,60 @@ pub struct ClassLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GanttLayoutConfig {
+    pub left_width: i32,
+    pub day_width: i32,
+    pub row_height: i32,
+    pub top_padding: i32,
+}
+
+impl Default for GanttLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl GanttLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            left_width: 18,
+            day_width: 2,
+            row_height: 2,
+            top_padding: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGanttSection {
+    pub label: String,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGanttTask {
+    pub id: Option<String>,
+    pub title: String,
+    pub section: Option<String>,
+    pub tags: Vec<GanttTaskTag>,
+    pub start: i32,
+    pub end: i32,
+    pub rect: Rect,
+    pub label_origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GanttLayout {
+    pub title: Option<String>,
+    pub sections: Vec<PositionedGanttSection>,
+    pub tasks: Vec<PositionedGanttTask>,
+    pub min_day: i32,
+    pub max_day: i32,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -259,6 +314,11 @@ pub struct ClassLayoutEngine {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ErLayoutEngine {
     config: ClassLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct GanttLayoutEngine {
+    config: GanttLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -716,6 +776,220 @@ impl ErLayoutEngine {
             size,
         }
     }
+}
+
+impl GanttLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: GanttLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: GanttLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &GanttAst) -> GanttLayout {
+        let scheduled = schedule_gantt_tasks(ast);
+        let min_day = scheduled.iter().map(|task| task.start).min().unwrap_or(0);
+        let max_day = scheduled
+            .iter()
+            .map(|task| task.end.max(task.start + 1))
+            .max()
+            .unwrap_or(min_day + 1);
+        let mut sections = Vec::new();
+        let mut tasks = Vec::new();
+        let mut y = self.config.top_padding;
+        let mut current_section = None::<String>;
+
+        for task in scheduled {
+            if task.section != current_section {
+                if let Some(section) = &task.section {
+                    sections.push(PositionedGanttSection {
+                        label: section.clone(),
+                        y,
+                    });
+                    y += self.config.row_height;
+                }
+                current_section = task.section.clone();
+            }
+            let x = self.config.left_width + (task.start - min_day) * self.config.day_width;
+            let width = ((task.end - task.start).max(1) * self.config.day_width).max(1);
+            tasks.push(PositionedGanttTask {
+                id: task.id,
+                title: task.title,
+                section: task.section,
+                tags: task.tags,
+                start: task.start,
+                end: task.end,
+                rect: Rect {
+                    origin: Point { x, y },
+                    size: Size { width, height: 1 },
+                },
+                label_origin: Point { x: 0, y },
+            });
+            y += self.config.row_height;
+        }
+
+        let title_width = ast
+            .title
+            .as_ref()
+            .map_or(0, |title| title.text.chars().count() as i32);
+        GanttLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            sections,
+            tasks,
+            min_day,
+            max_day,
+            size: Size {
+                width: (self.config.left_width
+                    + (max_day - min_day).max(1) * self.config.day_width
+                    + 2)
+                .max(title_width),
+                height: y.max(self.config.top_padding + 1),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScheduledGanttTask {
+    id: Option<String>,
+    title: String,
+    section: Option<String>,
+    tags: Vec<GanttTaskTag>,
+    start: i32,
+    end: i32,
+}
+
+fn schedule_gantt_tasks(ast: &GanttAst) -> Vec<ScheduledGanttTask> {
+    let mut scheduled = Vec::new();
+    let mut previous_end = 0;
+    for task in &ast.tasks {
+        let (start, end) = resolve_gantt_task(task, previous_end, &scheduled);
+        previous_end = end;
+        scheduled.push(ScheduledGanttTask {
+            id: task.id.as_ref().map(|id| id.value.clone()),
+            title: task.title.text.clone(),
+            section: task.section.as_ref().map(|section| section.text.clone()),
+            tags: task.tags.clone(),
+            start,
+            end,
+        });
+    }
+    for _ in 0..ast.tasks.len() {
+        let mut changed = false;
+        for (index, task) in ast.tasks.iter().enumerate() {
+            let previous_end = index
+                .checked_sub(1)
+                .and_then(|previous| scheduled.get(previous))
+                .map_or(0, |task| task.end);
+            let (start, end) = resolve_gantt_task(task, previous_end, &scheduled);
+            if scheduled[index].start != start || scheduled[index].end != end {
+                scheduled[index].start = start;
+                scheduled[index].end = end;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    scheduled
+}
+
+fn resolve_gantt_task(
+    task: &GanttTask,
+    previous_end: i32,
+    scheduled: &[ScheduledGanttTask],
+) -> (i32, i32) {
+    let metadata = task
+        .metadata
+        .iter()
+        .map(|value| value.value.as_str())
+        .collect::<Vec<_>>();
+    let (start, end_spec) = match metadata.as_slice() {
+        [end] => (previous_end, *end),
+        [start, end, ..] => (resolve_gantt_start(start, previous_end, scheduled), *end),
+        [] => (previous_end, "1d"),
+    };
+    let end = resolve_gantt_end(end_spec, start, scheduled);
+    let min_span = if is_gantt_milestone(task) { 1 } else { 0 };
+    (start, end.max(start + min_span))
+}
+
+fn is_gantt_milestone(task: &GanttTask) -> bool {
+    task.tags.contains(&GanttTaskTag::Milestone)
+}
+
+fn resolve_gantt_start(value: &str, previous_end: i32, scheduled: &[ScheduledGanttTask]) -> i32 {
+    if let Some(ids) = value.strip_prefix("after ") {
+        return ids
+            .split_ascii_whitespace()
+            .filter_map(|id| gantt_task_by_id(scheduled, id).map(|task| task.end))
+            .max()
+            .unwrap_or(previous_end);
+    }
+    gantt_date_day(value).unwrap_or(previous_end)
+}
+
+fn resolve_gantt_end(value: &str, start: i32, scheduled: &[ScheduledGanttTask]) -> i32 {
+    if let Some(id) = value.strip_prefix("until ") {
+        return gantt_task_by_id(scheduled, id.trim()).map_or(start, |task| task.start);
+    }
+    if let Some(duration) = gantt_duration_days(value) {
+        return start + duration.max(0);
+    }
+    gantt_date_day(value).unwrap_or(start + 1)
+}
+
+fn gantt_task_by_id<'a>(
+    scheduled: &'a [ScheduledGanttTask],
+    id: &str,
+) -> Option<&'a ScheduledGanttTask> {
+    scheduled.iter().find(|task| task.id.as_deref() == Some(id))
+}
+
+fn gantt_duration_days(value: &str) -> Option<i32> {
+    let suffix_start = value
+        .find(|ch: char| !(ch.is_ascii_digit() || ch == '.'))
+        .unwrap_or(value.len());
+    if suffix_start == 0 || suffix_start == value.len() {
+        return None;
+    }
+    let amount = value[..suffix_start].parse::<f32>().ok()?;
+    let unit = &value[suffix_start..];
+    let days = match unit {
+        "ms" | "s" | "m" | "h" => 1.0,
+        "d" => amount,
+        "w" => amount * 7.0,
+        "M" => amount * 30.0,
+        "y" => amount * 365.0,
+        _ => return None,
+    };
+    Some(days.ceil().max(0.0) as i32)
+}
+
+fn gantt_date_day(value: &str) -> Option<i32> {
+    let mut parts = value.split('-');
+    let year = parts.next()?.parse::<i32>().ok()?;
+    let month = parts.next()?.parse::<i32>().ok()?;
+    let day = parts.next()?.parse::<i32>().ok()?;
+    (parts.next().is_none() && (1..=12).contains(&month) && (1..=31).contains(&day))
+        .then(|| days_from_civil(year, month, day))
+}
+
+fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
+    let year = year - i32::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let yoe = year - era * 400;
+    let month = month + if month > 2 { -3 } else { 9 };
+    let doy = (153 * month + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
 }
 
 fn er_cardinality_marker(cardinality: ErCardinality) -> ClassRelationshipMarker {
