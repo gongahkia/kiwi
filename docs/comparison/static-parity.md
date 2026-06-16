@@ -265,21 +265,27 @@ end
 <table>
 <thead><tr><th>Kumeyuri</th><th>beautiful-mermaid</th><th>mermaid-ascii</th></tr></thead>
 <tbody><tr>
-<td><pre><code>+---+
-|   |
-| A |
-|   |
-+---+
-  |
-  |
-  |
-  |
-  v
-+---+
-|   |
-| B |
-|   |
-+---+
+<td><pre><code>+-------+
+|  one  |
+|       |
+|       |
+| +---+ |
+| |   | |
+| | A | |
+| |   | |
+| +---+ |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+|   v   |
+| +---+ |
+| |   | |
+| | B | |
+| |   | |
+| +---+ |
+|       |
++-------+
 </code></pre></td>
 <td><pre><code>+-------+
 |  one  |

@@ -87,10 +87,19 @@ pub struct PositionedFlowEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedFlowSubgraph {
+    pub id: String,
+    pub label: String,
+    pub rect: Rect,
+    pub child_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlowLayout {
     pub direction: Direction,
     pub nodes: Vec<PositionedFlowNode>,
     pub edges: Vec<PositionedFlowEdge>,
+    pub subgraphs: Vec<PositionedFlowSubgraph>,
     pub size: Size,
 }
 
@@ -670,6 +679,7 @@ fn sequence_width(
 struct LayoutGraph {
     nodes: Vec<LayoutNode>,
     edges: Vec<LayoutGraphEdge>,
+    subgraphs: Vec<LayoutSubgraph>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -687,11 +697,19 @@ struct LayoutGraphEdge {
     min_length: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LayoutSubgraph {
+    id: String,
+    label: String,
+    child_ids: Vec<String>,
+}
+
 impl LayoutGraph {
     fn from_ast(ast: &FlowchartAst) -> Self {
         let mut graph = Self {
             nodes: Vec::new(),
             edges: Vec::new(),
+            subgraphs: Vec::new(),
         };
         for node in &ast.nodes {
             graph.ensure_node(node);
@@ -723,6 +741,18 @@ impl LayoutGraph {
         for statement in &subgraph.statements {
             self.add_statement(statement);
         }
+        let mut child_ids = Vec::new();
+        for statement in &subgraph.statements {
+            collect_flow_child_ids(statement, &mut child_ids);
+        }
+        self.subgraphs.push(LayoutSubgraph {
+            id: subgraph.id.value.clone(),
+            label: subgraph
+                .label
+                .as_ref()
+                .map_or_else(|| subgraph.id.value.clone(), |label| label.text.clone()),
+            child_ids,
+        });
     }
 
     fn add_edge(&mut self, edge: &FlowEdge) {
@@ -759,6 +789,31 @@ impl LayoutGraph {
             label,
         });
         self.nodes.len() - 1
+    }
+}
+
+fn collect_flow_child_ids(statement: &FlowStatement, child_ids: &mut Vec<String>) {
+    match statement {
+        FlowStatement::Node(node) => push_unique_id(child_ids, &node.id.value),
+        FlowStatement::Edge(edge) => {
+            push_unique_id(child_ids, &edge.from.id.value);
+            push_unique_id(child_ids, &edge.to.id.value);
+        }
+        FlowStatement::Subgraph(subgraph) => {
+            for statement in &subgraph.statements {
+                collect_flow_child_ids(statement, child_ids);
+            }
+        }
+        FlowStatement::ClassDef(_)
+        | FlowStatement::ClassApply(_)
+        | FlowStatement::Comment(_)
+        | FlowStatement::Directive(_) => {}
+    }
+}
+
+fn push_unique_id(ids: &mut Vec<String>, id: &str) {
+    if !ids.iter().any(|value| value == id) {
+        ids.push(id.to_owned());
     }
 }
 
@@ -945,6 +1000,10 @@ fn place_graph(
         }
     }
 
+    let subgraphs = position_subgraphs(graph, &mut rects);
+    size = layout_size(&rects);
+    size = layout_size_with_subgraphs(size, &subgraphs);
+
     let nodes = graph
         .nodes
         .iter()
@@ -974,8 +1033,64 @@ fn place_graph(
         direction,
         nodes,
         edges,
+        subgraphs,
         size,
     }
+}
+
+fn position_subgraphs(graph: &LayoutGraph, rects: &mut [Rect]) -> Vec<PositionedFlowSubgraph> {
+    graph
+        .subgraphs
+        .iter()
+        .filter_map(|subgraph| {
+            let indexes = subgraph
+                .child_ids
+                .iter()
+                .filter_map(|id| graph.nodes.iter().position(|node| &node.id == id))
+                .collect::<Vec<_>>();
+            let bounds = bounding_rect(indexes.iter().map(|index| rects[*index]))?;
+            for index in indexes {
+                rects[index].origin.x += 2;
+                rects[index].origin.y += 4;
+            }
+            Some(PositionedFlowSubgraph {
+                id: subgraph.id.clone(),
+                label: subgraph.label.clone(),
+                rect: Rect {
+                    origin: bounds.origin,
+                    size: Size {
+                        width: bounds.size.width + 4,
+                        height: bounds.size.height + 6,
+                    },
+                },
+                child_ids: subgraph.child_ids.clone(),
+            })
+        })
+        .collect()
+}
+
+fn bounding_rect(rects: impl IntoIterator<Item = Rect>) -> Option<Rect> {
+    let mut rects = rects.into_iter();
+    let first = rects.next()?;
+    let (mut left, mut top, mut right, mut bottom) = (
+        first.origin.x,
+        first.origin.y,
+        first.right(),
+        first.bottom(),
+    );
+    for rect in rects {
+        left = left.min(rect.origin.x);
+        top = top.min(rect.origin.y);
+        right = right.max(rect.right());
+        bottom = bottom.max(rect.bottom());
+    }
+    Some(Rect {
+        origin: Point { x: left, y: top },
+        size: Size {
+            width: right - left,
+            height: bottom - top,
+        },
+    })
 }
 
 fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
@@ -1173,6 +1288,19 @@ fn layout_size_with_edges(size: Size, edges: &[PositionedFlowEdge]) -> Size {
     }
 }
 
+fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) -> Size {
+    Size {
+        width: subgraphs
+            .iter()
+            .map(|subgraph| subgraph.rect.right())
+            .fold(size.width, i32::max),
+        height: subgraphs
+            .iter()
+            .map(|subgraph| subgraph.rect.bottom())
+            .fold(size.height, i32::max),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine};
@@ -1330,6 +1458,10 @@ mod tests {
         assert_eq!(layout.nodes.len(), 2);
         assert_eq!(layout.edges.len(), 1);
         assert_eq!(layout.edges[0].points.len(), 2);
+        assert_eq!(layout.subgraphs.len(), 1);
+        assert_eq!(layout.subgraphs[0].label, "group");
+        assert_eq!(layout.subgraphs[0].rect.size.width, 9);
+        assert_eq!(layout.subgraphs[0].rect.size.height, 21);
     }
 
     #[test]

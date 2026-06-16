@@ -1,7 +1,8 @@
 use crate::ast::{ArrowHead, Diagram, DiagramKind, FlowchartAst, SequenceAst, StateAst};
 use crate::layout::{
-    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedSequenceMessage,
-    PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowSubgraph,
+    PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
+    StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -410,6 +411,15 @@ fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) 
     let edge_style = theme.style_for(ThemeRole::Edge);
     let node_style = theme.style_for(ThemeRole::Node);
     let text_style = theme.style_for(ThemeRole::Text);
+    for subgraph in &layout.subgraphs {
+        draw_flow_subgraph(
+            &mut frame,
+            subgraph,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
     for edge in &layout.edges {
         if edge.points.len() >= 2 {
             draw_flow_edge(&mut frame, edge, palette, edge_style.clone());
@@ -420,6 +430,25 @@ fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) 
         write_centered(&mut frame, node.rect, &node.label, text_style.clone());
     }
     frame
+}
+
+fn draw_flow_subgraph(
+    frame: &mut Frame,
+    subgraph: &PositionedFlowSubgraph,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, subgraph.rect, palette, box_style);
+    let label_width = subgraph.label.chars().count() as i32;
+    let x = subgraph.rect.origin.x + (subgraph.rect.size.width - label_width).max(0) / 2;
+    write_text_safe(
+        frame,
+        x,
+        subgraph.rect.origin.y + 1,
+        &subgraph.label,
+        text_style,
+    );
 }
 
 fn draw_flow_edge(
@@ -717,10 +746,10 @@ mod tests {
     };
     use crate::ast::{
         ArrowHead, Diagram, DiagramKind, DiagramMetadata, Direction, FlowEdge, FlowEdgeLink,
-        FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowchartAst, FlowchartDirective,
-        FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst, SequenceHeader,
-        SequenceMessage, SequenceStatement, Span, Spanned, StateAst, StateDirective, StateHeader,
-        StateStatement, StateTransition,
+        FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
+        FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst,
+        SequenceHeader, SequenceMessage, SequenceStatement, Span, Spanned, StateAst,
+        StateDirective, StateHeader, StateStatement, StateTransition,
     };
     use crate::theme::Theme;
 
@@ -851,6 +880,23 @@ mod tests {
         assert!(output.contains('┌'));
         assert!(output.contains('─'));
         assert!(output.contains('│'));
+    }
+
+    #[test]
+    fn renders_flowchart_subgraph_box() {
+        let frame = StaticFrameRenderer::default().render_flowchart(&flowchart(vec![
+            FlowStatement::Subgraph(FlowSubgraph {
+                id: Spanned::new("group".to_owned(), Span::new(0, 0)),
+                label: None,
+                direction: None,
+                statements: vec![FlowStatement::Edge(Box::new(flow_edge("A", "B")))],
+                span: Span::new(0, 0),
+            }),
+        ]));
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("group"));
+        assert!(output.contains("| +---+ |"));
     }
 
     #[test]
