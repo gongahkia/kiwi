@@ -75,7 +75,7 @@
 - [x] Parse directives into `AnimationConfig` and feed into animator
 - [x] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame
 - [x] Integrate `tachyonfx` for transition effects (fade, slide, glitch) between frames
-- [ ] Implement `kumeyuri play <file>` CLI subcommand for one-shot TUI playback
+- [x] Implement `kumeyuri play <file>` CLI subcommand for one-shot TUI playback
 - [ ] Implement `kumeyuri watch <file>` with `notify`-based filesystem watcher and in-place re-render
 - [ ] Add interactive TUI controls: pause/resume (space), step (arrows), restart (r), quit (q)
 - [ ] Add animation speed override flag `--speed` and loop flag `--loop`

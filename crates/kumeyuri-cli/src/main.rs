@@ -7,9 +7,21 @@ use std::{
 
 use clap::{Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
+    animator::{Animator, Timeline},
+    ast::Diagram,
     frame::StaticFrameRenderer,
     parser::Parser as MermaidParser,
     text::{TextOutputBackend, TextOutputConfig},
+};
+
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    crossterm::{
+        execute,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    },
+    kumeyuri_render_tui::{TuiRenderConfig, TuiRenderer, TuiTransitionEffect},
+    ratatui::{Terminal, backend::CrosstermBackend},
 };
 
 #[derive(Debug, Parser)]
@@ -61,10 +73,11 @@ fn run() -> Result<(), String> {
 
     match cli.command {
         Command::Render { file, format } => render_file(&file, format),
-        Command::Watch { file } | Command::Play { file } => {
+        Command::Watch { file } => {
             let _ = file;
             Ok(())
         }
+        Command::Play { file } => play_file(&file),
     }
 }
 
@@ -80,12 +93,7 @@ fn render_file(path: &Path, format: RenderFormat) -> Result<(), String> {
 fn render_source(source: &str, format: RenderFormat) -> Result<String, String> {
     match format {
         RenderFormat::Text => {
-            let diagram = MermaidParser::parse_diagram(source).map_err(|error| {
-                format!(
-                    "parse error {:?} at {}..{}",
-                    error.kind, error.span.start, error.span.end
-                )
-            })?;
+            let diagram = parse_diagram(source)?;
             let frame = StaticFrameRenderer::default().render_diagram(&diagram);
             Ok(TextOutputBackend::new(TextOutputConfig {
                 trim_trailing_whitespace: true,
@@ -96,9 +104,74 @@ fn render_source(source: &str, format: RenderFormat) -> Result<String, String> {
     }
 }
 
+fn play_file(path: &Path) -> Result<(), String> {
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let timeline = timeline_from_source(&source)?;
+    play_timeline(&timeline)
+}
+
+fn timeline_from_source(source: &str) -> Result<Timeline, String> {
+    let diagram = parse_diagram(source)?;
+    Animator::animate_diagram(&diagram)
+        .map_err(|error| format!("animation config error: {error:?}"))
+}
+
+fn parse_diagram(source: &str) -> Result<Diagram, String> {
+    MermaidParser::parse_diagram(source).map_err(|error| {
+        format!(
+            "parse error {:?} at {}..{}",
+            error.kind, error.span.start, error.span.end
+        )
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn play_timeline(timeline: &Timeline) -> Result<(), String> {
+    enable_raw_mode().map_err(|error| format!("failed to enable raw mode: {error}"))?;
+    let mut stdout = io::stdout();
+    if let Err(error) = execute!(stdout, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(format!("failed to enter alternate screen: {error}"));
+    }
+
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = match Terminal::new(backend) {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            let _ = execute!(io::stdout(), LeaveAlternateScreen);
+            let _ = disable_raw_mode();
+            return Err(format!("failed to create terminal: {error}"));
+        }
+    };
+    let render_result = TuiRenderer::new(TuiRenderConfig {
+        transition: TuiTransitionEffect::Fade,
+        ..TuiRenderConfig::default()
+    })
+    .render_timeline(&mut terminal, timeline)
+    .map_err(|error| format!("failed to render timeline: {error}"));
+    let cursor_result = terminal
+        .show_cursor()
+        .map_err(|error| format!("failed to show cursor: {error}"));
+    let leave_result = execute!(terminal.backend_mut(), LeaveAlternateScreen)
+        .map_err(|error| format!("failed to leave alternate screen: {error}"));
+    let raw_result =
+        disable_raw_mode().map_err(|error| format!("failed to disable raw mode: {error}"));
+
+    render_result?;
+    cursor_result?;
+    leave_result?;
+    raw_result
+}
+
+#[cfg(target_arch = "wasm32")]
+fn play_timeline(_timeline: &Timeline) -> Result<(), String> {
+    Err("play is unsupported on wasm32".to_owned())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{RenderFormat, render_source};
+    use super::{RenderFormat, render_source, timeline_from_source};
 
     #[test]
     fn renders_mermaid_source_to_text() {
@@ -107,5 +180,20 @@ mod tests {
         assert!(output.contains('A'));
         assert!(output.contains('B'));
         assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn builds_timeline_from_mermaid_source() {
+        let timeline = timeline_from_source("graph TD\nA --> B").unwrap();
+
+        assert_eq!(timeline.len(), 3);
+        assert!(!timeline.repeat());
+    }
+
+    #[test]
+    fn timeline_source_honors_animation_directives() {
+        let timeline = timeline_from_source("%%{ animate: 'none' }%%\ngraph TD\nA --> B").unwrap();
+
+        assert_eq!(timeline.len(), 1);
     }
 }
