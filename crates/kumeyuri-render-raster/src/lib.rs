@@ -3,6 +3,8 @@ use gif::{Encoder as GifEncoder, Frame as GifFrame, Repeat};
 use kumeyuri_core::{animator::Timeline, frame::Frame};
 use png::{BitDepth, ColorType, Encoder as PngEncoder};
 use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
+#[cfg(not(target_arch = "wasm32"))]
+use webp_animation::{Encoder as WebPEncoder, EncoderOptions as WebPEncoderOptions};
 
 const GLYPH_SIZE: u32 = 8;
 
@@ -159,6 +161,36 @@ impl RasterRenderer {
         Ok(output)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn render_webp(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
+        let (width, height) = timeline_canvas_size(timeline, self.config)?;
+        let mut options = WebPEncoderOptions::default();
+        if !timeline.repeat() {
+            options.anim_params.loop_count = 1;
+        }
+        let mut encoder = WebPEncoder::new_with_options((width, height), options)
+            .map_err(|error| RasterRenderError::WebPEncode(error.to_string()))?;
+        let mut timestamp_ms = 0;
+        for keyframe in timeline.keyframes() {
+            let pixmap = self.frame_pixmap_with_canvas(keyframe.frame(), width, height)?;
+            let pixels = rgba_pixels(&pixmap);
+            encoder
+                .add_frame(&pixels, timestamp_ms)
+                .map_err(|error| RasterRenderError::WebPEncode(error.to_string()))?;
+            timestamp_ms = add_webp_duration(timestamp_ms, keyframe.duration())?;
+        }
+        let data = encoder
+            .finalize(timestamp_ms)
+            .map_err(|error| RasterRenderError::WebPEncode(error.to_string()))?;
+        Ok(data.as_ref().to_vec())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn render_webp(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
+        let _ = timeline_canvas_size(timeline, self.config)?;
+        Err(RasterRenderError::UnsupportedTarget("webp"))
+    }
+
     fn frame_pixmap(&self, frame: &Frame) -> Result<Pixmap, RasterRenderError> {
         let width = raster_extent(frame.width(), self.config.scale, self.config.padding)?;
         let height = raster_extent(frame.height(), self.config.scale, self.config.padding)?;
@@ -229,6 +261,8 @@ pub enum RasterRenderError {
     InvalidRect,
     GifEncode(String),
     PngEncode(String),
+    WebPEncode(String),
+    UnsupportedTarget(&'static str),
 }
 
 fn timeline_canvas_size(
@@ -260,6 +294,21 @@ fn gif_delay(duration: std::time::Duration) -> u16 {
 fn apng_delay(duration: std::time::Duration) -> (u16, u16) {
     let millis = duration.as_millis().clamp(1, u128::from(u16::MAX));
     (millis as u16, 1000)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn add_webp_duration(
+    timestamp_ms: i32,
+    duration: std::time::Duration,
+) -> Result<i32, RasterRenderError> {
+    timestamp_ms
+        .checked_add(webp_duration_ms(duration))
+        .ok_or(RasterRenderError::ImageTooLarge)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn webp_duration_ms(duration: std::time::Duration) -> i32 {
+    duration.as_millis().clamp(1, i32::MAX as u128) as i32
 }
 
 fn rgba_pixels(pixmap: &Pixmap) -> Vec<u8> {
@@ -379,11 +428,47 @@ mod tests {
         assert_eq!(apng.windows(4).filter(|chunk| *chunk == b"fcTL").count(), 2);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn renders_timeline_to_animated_webp() {
+        let mut first = Frame::new(1, 1);
+        first.write_text(0, 0, "A", Default::default()).unwrap();
+        let mut second = Frame::new(1, 1);
+        second.write_text(0, 0, "B", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![
+            KeyFrame::new(first, Duration::from_millis(20)),
+            KeyFrame::new(second, Duration::from_millis(30)),
+        ])
+        .with_repeat(true);
+
+        let webp = RasterRenderer::default().render_webp(&timeline).unwrap();
+        let decoder = webp_animation::Decoder::new(&webp).unwrap();
+        let dimensions = decoder.dimensions();
+        let frames: Vec<_> = decoder.into_iter().collect();
+
+        assert_eq!(&webp[..4], b"RIFF");
+        assert_eq!(&webp[8..12], b"WEBP");
+        assert!(webp.windows(4).any(|chunk| chunk == b"ANIM"));
+        assert_eq!(dimensions, (32, 32));
+        assert_eq!(frames.len(), 2);
+    }
+
     #[test]
     fn apng_render_rejects_empty_timeline() {
         assert_eq!(
             RasterRenderer::default()
                 .render_apng(&Timeline::new())
+                .unwrap_err(),
+            RasterRenderError::EmptyTimeline,
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn webp_render_rejects_empty_timeline() {
+        assert_eq!(
+            RasterRenderer::default()
+                .render_webp(&Timeline::new())
                 .unwrap_err(),
             RasterRenderError::EmptyTimeline,
         );
