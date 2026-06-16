@@ -71,7 +71,7 @@
 - [x] Implement sequence-playback animator: emit one frame per message activation
 - [x] Implement flowchart-trace animator: highlight path BFS/DFS through nodes
 - [x] Implement state-transition animator: pulse current state, light up transition arrows
-- [ ] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
+- [x] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
 - [ ] Parse directives into `AnimationConfig` and feed into animator
 - [ ] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame
 - [ ] Integrate `tachyonfx` for transition effects (fade, slide, glitch) between frames

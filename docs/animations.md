@@ -70,14 +70,23 @@ If a state diagram has no transitions, the timeline is a single static frame.
 
 ## Directive Overrides
 
-Future directive parsing will map:
+Directive parsing will map:
 
 ```mermaid
 %%{ animate: 'trace', speed: 1.0, loop: false, easing: 'linear' }%%
 ```
 
-to an animation config. Until that parser exists, core uses the defaults in this
-document.
+to `AnimationConfig`.
+
+Schema:
+
+- `animate`: one of `playback`, `trace`, `transitions`, `none`.
+- `speed`: finite `f32` greater than `0.0`; default `1.0`.
+- `loop`: boolean; stored as `AnimationConfig::repeat`; default `false`.
+- `easing`: one of `linear`, `ease`; default `linear`.
+
+Absent directive means use the diagram default. An explicit `animate: 'none'`
+disables animation.
 
 ## Snapshot Contract
 

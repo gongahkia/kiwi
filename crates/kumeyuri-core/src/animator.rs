@@ -28,6 +28,67 @@ impl Animator {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AnimationConfig {
+    pub mode: AnimationMode,
+    pub speed: f32,
+    pub repeat: bool,
+    pub easing: AnimationEasing,
+}
+
+impl Default for AnimationConfig {
+    fn default() -> Self {
+        Self {
+            mode: AnimationMode::None,
+            speed: Self::DEFAULT_SPEED,
+            repeat: false,
+            easing: AnimationEasing::Linear,
+        }
+    }
+}
+
+impl AnimationConfig {
+    pub const DEFAULT_SPEED: f32 = 1.0;
+
+    pub fn new(
+        mode: AnimationMode,
+        speed: f32,
+        repeat: bool,
+        easing: AnimationEasing,
+    ) -> Result<Self, AnimationConfigError> {
+        if !speed.is_finite() || speed <= 0.0 {
+            return Err(AnimationConfigError::InvalidSpeed);
+        }
+        Ok(Self {
+            mode,
+            speed,
+            repeat,
+            easing,
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationMode {
+    Playback,
+    Trace,
+    Transitions,
+    #[default]
+    None,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationEasing {
+    #[default]
+    Linear,
+    Ease,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationConfigError {
+    InvalidSpeed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyFrame {
     frame: Frame,
@@ -679,8 +740,9 @@ fn mark_point_cell(frame: &mut Frame, point: Point, marker_id: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        Animator, FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator,
-        StateTransitionAnimator, Timeline,
+        AnimationConfig, AnimationConfigError, AnimationEasing, AnimationMode, Animator,
+        FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator, StateTransitionAnimator,
+        Timeline,
     };
     use crate::ast::{
         ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
@@ -720,6 +782,46 @@ mod tests {
         assert_eq!(timeline.len(), 1);
         assert!(!timeline.repeat());
         assert_eq!(timeline.total_duration(), Duration::from_secs(1));
+    }
+
+    #[test]
+    fn animation_config_defaults_to_explicit_none_override() {
+        let config = AnimationConfig::default();
+
+        assert_eq!(config.mode, AnimationMode::None);
+        assert_eq!(config.speed, 1.0);
+        assert!(!config.repeat);
+        assert_eq!(config.easing, AnimationEasing::Linear);
+    }
+
+    #[test]
+    fn animation_config_accepts_schema_fields() {
+        let config =
+            AnimationConfig::new(AnimationMode::Trace, 1.5, true, AnimationEasing::Ease).unwrap();
+
+        assert_eq!(config.mode, AnimationMode::Trace);
+        assert_eq!(config.speed, 1.5);
+        assert!(config.repeat);
+        assert_eq!(config.easing, AnimationEasing::Ease);
+    }
+
+    #[test]
+    fn animation_config_rejects_invalid_speed() {
+        assert_eq!(
+            AnimationConfig::new(AnimationMode::Playback, 0.0, false, AnimationEasing::Linear)
+                .unwrap_err(),
+            AnimationConfigError::InvalidSpeed,
+        );
+        assert_eq!(
+            AnimationConfig::new(
+                AnimationMode::Transitions,
+                f32::NAN,
+                false,
+                AnimationEasing::Linear,
+            )
+            .unwrap_err(),
+            AnimationConfigError::InvalidSpeed,
+        );
     }
 
     #[test]
