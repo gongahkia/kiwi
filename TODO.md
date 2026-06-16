@@ -122,7 +122,7 @@
 - [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR
 - [ ] Post to r/rust, r/programming, r/commandline with the same blog post
 - [ ] Tag `v1.0.0` and publish to crates.io, npm, Homebrew tap
-- [ ] Set up `cargo-dist` release pipeline producing prebuilt binaries for macOS (aarch64+x86_64), Linux (x86_64+aarch64+musl), Windows (x86_64)
+- [x] Set up `cargo-dist` release pipeline producing prebuilt binaries for macOS (aarch64+x86_64), Linux (x86_64+aarch64+musl), Windows (x86_64)
 - [ ] Create Homebrew tap repo `kumeyuri/homebrew-kumeyuri` with auto-updated formula
 - [ ] Monitor GitHub Issues + HN comments for 72h post-launch; triage P0 bugs same-day
 
