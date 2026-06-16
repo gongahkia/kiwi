@@ -830,13 +830,18 @@ fn assign_layers(graph: &LayoutGraph) -> Vec<usize> {
         .enumerate()
         .filter_map(|(index, degree)| (*degree == 0).then_some(index))
         .collect::<VecDeque<_>>();
-    let mut layers = vec![0usize; graph.nodes.len()];
+    let mut layers = vec![usize::MAX; graph.nodes.len()];
+    for (index, degree) in indegree.iter().copied().enumerate() {
+        if degree == 0 {
+            layers[index] = 0;
+        }
+    }
     let mut visited = 0usize;
 
     while let Some(index) = queue.pop_front() {
         visited += 1;
         for edge in &outgoing[index] {
-            layers[edge.to] = layers[edge.to].max(layers[index] + edge.min_length);
+            layers[edge.to] = layers[edge.to].min(layers[index] + edge.min_length);
             indegree[edge.to] -= 1;
             if indegree[edge.to] == 0 {
                 queue.push_back(edge.to);
@@ -1117,6 +1122,9 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to.bottom(),
             },
         ],
+        Direction::LeftRight if from.origin.x == to.origin.x && from_center.y != to_center.y => {
+            vertical_same_layer_edge(from, to)
+        }
         Direction::LeftRight if to.origin.x < from.origin.x => {
             let y = from.bottom().max(to.bottom()) + 1;
             vec![
@@ -1159,6 +1167,9 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
+        Direction::RightLeft if from.origin.x == to.origin.x && from_center.y != to_center.y => {
+            vertical_same_layer_edge(from, to)
+        }
         Direction::RightLeft if to.origin.x > from.origin.x => {
             let y = from.bottom().max(to.bottom()) + 1;
             vec![
@@ -1209,6 +1220,34 @@ fn vertical_exit_y(from: Rect, to_center: Point) -> i32 {
         from.bottom()
     } else {
         from.origin.y - 1
+    }
+}
+
+fn vertical_same_layer_edge(from: Rect, to: Rect) -> Vec<Point> {
+    let from_center = from.center();
+    let to_center = to.center();
+    if to_center.y >= from_center.y {
+        vec![
+            Point {
+                x: from_center.x,
+                y: from.bottom(),
+            },
+            Point {
+                x: to_center.x,
+                y: to.origin.y - 1,
+            },
+        ]
+    } else {
+        vec![
+            Point {
+                x: from_center.x,
+                y: from.origin.y - 1,
+            },
+            Point {
+                x: to_center.x,
+                y: to.bottom(),
+            },
+        ]
     }
 }
 
@@ -1403,6 +1442,26 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn keeps_shortcut_targets_on_nearest_layer() {
+        let ast = flowchart(
+            Direction::LeftRight,
+            vec![
+                FlowStatement::Edge(Box::new(edge("A", "B"))),
+                FlowStatement::Edge(Box::new(edge("B", "C"))),
+                FlowStatement::Edge(Box::new(edge("A", "C"))),
+            ],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+
+        assert_eq!(
+            node(&layout, "B").rect.origin.x,
+            node(&layout, "C").rect.origin.x
+        );
+        assert!(node(&layout, "B").rect.origin.y < node(&layout, "C").rect.origin.y);
     }
 
     #[test]
