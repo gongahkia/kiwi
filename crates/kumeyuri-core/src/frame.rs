@@ -1,6 +1,6 @@
 use crate::ast::{Diagram, DiagramKind, FlowchartAst, SequenceAst, StateAst};
 use crate::layout::{
-    FlowLayout, FlowLayoutEngine, PositionedSequenceMessage, PositionedSequenceNote, Rect,
+    FlowLayout, FlowLayoutEngine, Point, PositionedSequenceMessage, PositionedSequenceNote, Rect,
     SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
 
@@ -186,10 +186,86 @@ pub enum FrameError {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Charset {
+    #[default]
+    Ascii,
+    Unicode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GlyphPalette {
+    pub horizontal: char,
+    pub vertical: char,
+    pub top_left: char,
+    pub top_right: char,
+    pub bottom_left: char,
+    pub bottom_right: char,
+    pub crossing: char,
+    pub arrow_left: char,
+    pub arrow_right: char,
+    pub arrow_up: char,
+    pub arrow_down: char,
+    pub block: char,
+}
+
+impl GlyphPalette {
+    #[must_use]
+    pub const fn ascii() -> Self {
+        Self {
+            horizontal: '-',
+            vertical: '|',
+            top_left: '+',
+            top_right: '+',
+            bottom_left: '+',
+            bottom_right: '+',
+            crossing: '+',
+            arrow_left: '<',
+            arrow_right: '>',
+            arrow_up: '^',
+            arrow_down: 'v',
+            block: '#',
+        }
+    }
+
+    #[must_use]
+    pub const fn unicode() -> Self {
+        Self {
+            horizontal: '─',
+            vertical: '│',
+            top_left: '┌',
+            top_right: '┐',
+            bottom_left: '└',
+            bottom_right: '┘',
+            crossing: '┼',
+            arrow_left: '◀',
+            arrow_right: '▶',
+            arrow_up: '▲',
+            arrow_down: '▼',
+            block: '█',
+        }
+    }
+
+    #[must_use]
+    pub const fn for_charset(charset: Charset) -> Self {
+        match charset {
+            Charset::Ascii => Self::ascii(),
+            Charset::Unicode => Self::unicode(),
+        }
+    }
+}
+
+impl Default for GlyphPalette {
+    fn default() -> Self {
+        Self::ascii()
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct StaticFrameRenderer {
     flow: FlowLayoutEngine,
     sequence: SequenceLayoutEngine,
     state: StateLayoutEngine,
+    palette: GlyphPalette,
 }
 
 impl StaticFrameRenderer {
@@ -203,7 +279,39 @@ impl StaticFrameRenderer {
             flow,
             sequence,
             state,
+            palette: GlyphPalette::ascii(),
         }
+    }
+
+    #[must_use]
+    pub const fn with_palette(
+        flow: FlowLayoutEngine,
+        sequence: SequenceLayoutEngine,
+        state: StateLayoutEngine,
+        palette: GlyphPalette,
+    ) -> Self {
+        Self {
+            flow,
+            sequence,
+            state,
+            palette,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_glyph_palette(mut self, palette: GlyphPalette) -> Self {
+        self.palette = palette;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_glyph_charset(self, charset: Charset) -> Self {
+        self.with_glyph_palette(GlyphPalette::for_charset(charset))
+    }
+
+    #[must_use]
+    pub const fn palette(&self) -> GlyphPalette {
+        self.palette
     }
 
     #[must_use]
@@ -217,75 +325,79 @@ impl StaticFrameRenderer {
 
     #[must_use]
     pub fn render_flowchart(&self, ast: &FlowchartAst) -> Frame {
-        render_flow_layout(&self.flow.layout(ast))
+        render_flow_layout(&self.flow.layout(ast), self.palette)
     }
 
     #[must_use]
     pub fn render_sequence(&self, ast: &SequenceAst) -> Frame {
-        render_sequence_layout(&self.sequence.layout(ast))
+        render_sequence_layout(&self.sequence.layout(ast), self.palette)
     }
 
     #[must_use]
     pub fn render_state(&self, ast: &StateAst) -> Frame {
-        render_flow_layout(&self.state.layout(ast).graph)
+        render_flow_layout(&self.state.layout(ast).graph, self.palette)
     }
 }
 
-fn render_flow_layout(layout: &FlowLayout) -> Frame {
+fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette) -> Frame {
     let mut frame = Frame::new(
         layout.size.width as usize + 1,
         layout.size.height as usize + 1,
     );
     for edge in &layout.edges {
         if edge.points.len() >= 2 {
-            draw_polyline(&mut frame, &edge.points, '-');
+            draw_polyline(&mut frame, &edge.points, palette);
         }
     }
     for node in &layout.nodes {
-        draw_box(&mut frame, node.rect);
+        draw_box(&mut frame, node.rect, palette);
         write_centered(&mut frame, node.rect, &node.label);
     }
     frame
 }
 
-fn render_sequence_layout(layout: &SequenceLayout) -> Frame {
+fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette) -> Frame {
     let mut frame = Frame::new(
         layout.size.width as usize + 1,
         layout.size.height as usize + 1,
     );
     for participant in &layout.participants {
-        draw_box(&mut frame, participant.header);
+        draw_box(&mut frame, participant.header, palette);
         write_centered(&mut frame, participant.header, &participant.label);
         draw_vertical(
             &mut frame,
             participant.lane_x,
             participant.header.bottom(),
             layout.size.height,
-            '|',
+            palette.vertical,
         );
     }
     for control in &layout.controls {
-        draw_box(&mut frame, control.rect);
+        draw_box(&mut frame, control.rect, palette);
         if let Some(label) = &control.label {
             write_text_safe(&mut frame, control.rect.origin.x + 1, control.y, label);
         }
     }
     for note in &layout.notes {
-        draw_sequence_note(&mut frame, note);
+        draw_sequence_note(&mut frame, note, palette);
     }
     for message in &layout.messages {
-        draw_sequence_message(&mut frame, message);
+        draw_sequence_message(&mut frame, message, palette);
     }
     frame
 }
 
-fn draw_sequence_note(frame: &mut Frame, note: &PositionedSequenceNote) {
-    draw_box(frame, note.rect);
+fn draw_sequence_note(frame: &mut Frame, note: &PositionedSequenceNote, palette: GlyphPalette) {
+    draw_box(frame, note.rect, palette);
     write_text_safe(frame, note.rect.origin.x + 1, note.y, &note.label);
 }
 
-fn draw_sequence_message(frame: &mut Frame, message: &PositionedSequenceMessage) {
-    draw_polyline(frame, &message.points, '-');
+fn draw_sequence_message(
+    frame: &mut Frame,
+    message: &PositionedSequenceMessage,
+    palette: GlyphPalette,
+) {
+    draw_polyline(frame, &message.points, palette);
     if let Some(label) = &message.label {
         let first = message.points.first().copied();
         let last = message.points.last().copied();
@@ -295,38 +407,49 @@ fn draw_sequence_message(frame: &mut Frame, message: &PositionedSequenceMessage)
         }
     }
     if let Some(last) = message.points.last() {
-        put_safe(frame, last.x, last.y, '>');
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            arrowhead_for_points(&message.points, palette),
+        );
     }
 }
 
-fn draw_box(frame: &mut Frame, rect: Rect) {
+fn draw_box(frame: &mut Frame, rect: Rect, palette: GlyphPalette) {
     let left = rect.origin.x;
     let right = rect.right().saturating_sub(1);
     let top = rect.origin.y;
     let bottom = rect.bottom().saturating_sub(1);
-    draw_horizontal(frame, left, right, top, '-');
-    draw_horizontal(frame, left, right, bottom, '-');
-    draw_vertical(frame, left, top, bottom, '|');
-    draw_vertical(frame, right, top, bottom, '|');
-    put_safe(frame, left, top, '+');
-    put_safe(frame, right, top, '+');
-    put_safe(frame, left, bottom, '+');
-    put_safe(frame, right, bottom, '+');
+    draw_horizontal(frame, left, right, top, palette.horizontal);
+    draw_horizontal(frame, left, right, bottom, palette.horizontal);
+    draw_vertical(frame, left, top, bottom, palette.vertical);
+    draw_vertical(frame, right, top, bottom, palette.vertical);
+    put_safe(frame, left, top, palette.top_left);
+    put_safe(frame, right, top, palette.top_right);
+    put_safe(frame, left, bottom, palette.bottom_left);
+    put_safe(frame, right, bottom, palette.bottom_right);
 }
 
-fn draw_polyline(frame: &mut Frame, points: &[crate::layout::Point], glyph: char) {
+fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
     for pair in points.windows(2) {
         let start = pair[0];
         let end = pair[1];
         if start.x == end.x {
-            draw_vertical(frame, start.x, start.y.min(end.y), start.y.max(end.y), '|');
+            draw_vertical(
+                frame,
+                start.x,
+                start.y.min(end.y),
+                start.y.max(end.y),
+                palette.vertical,
+            );
         } else if start.y == end.y {
             draw_horizontal(
                 frame,
                 start.x.min(end.x),
                 start.x.max(end.x),
                 start.y,
-                glyph,
+                palette.horizontal,
             );
         } else {
             draw_horizontal(
@@ -334,10 +457,27 @@ fn draw_polyline(frame: &mut Frame, points: &[crate::layout::Point], glyph: char
                 start.x.min(end.x),
                 start.x.max(end.x),
                 start.y,
-                glyph,
+                palette.horizontal,
             );
-            draw_vertical(frame, end.x, start.y.min(end.y), start.y.max(end.y), '|');
+            draw_vertical(
+                frame,
+                end.x,
+                start.y.min(end.y),
+                start.y.max(end.y),
+                palette.vertical,
+            );
+            put_safe(frame, end.x, start.y, palette.crossing);
         }
+    }
+}
+
+fn arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> char {
+    match points {
+        [.., previous, last] if last.x < previous.x => palette.arrow_left,
+        [.., previous, last] if last.x > previous.x => palette.arrow_right,
+        [.., previous, last] if last.y < previous.y => palette.arrow_up,
+        [.., previous, last] if last.y > previous.y => palette.arrow_down,
+        _ => palette.arrow_right,
     }
 }
 
@@ -375,8 +515,8 @@ fn put_safe(frame: &mut Frame, x: i32, y: i32, glyph: char) {
 #[cfg(test)]
 mod tests {
     use super::{
-        CellStyle, Color, Frame, FrameError, FrameRegion, GlyphCell, KeyFrameMarker,
-        KeyFrameMarkerKind, StaticFrameRenderer,
+        CellStyle, Charset, Color, Frame, FrameError, FrameRegion, GlyphCell, GlyphPalette,
+        KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer,
     };
     use crate::ast::{
         ArrowHead, Diagram, DiagramKind, DiagramMetadata, Direction, FlowEdge, FlowEdgeLink,
@@ -462,6 +602,15 @@ mod tests {
     }
 
     #[test]
+    fn exposes_ascii_and_unicode_glyph_palettes() {
+        assert_eq!(GlyphPalette::ascii().horizontal, '-');
+        assert_eq!(GlyphPalette::ascii().arrow_right, '>');
+        assert_eq!(GlyphPalette::unicode().top_left, '┌');
+        assert_eq!(GlyphPalette::unicode().arrow_right, '▶');
+        assert_eq!(GlyphPalette::for_charset(Charset::Unicode).block, '█');
+    }
+
+    #[test]
     fn renders_flowchart_ast_to_single_frame() {
         let frame =
             StaticFrameRenderer::default().render_flowchart(&flowchart(vec![FlowStatement::Edge(
@@ -473,6 +622,20 @@ mod tests {
         assert!(output.contains('B'));
         assert!(output.contains('+'));
         assert!(output.contains('-'));
+    }
+
+    #[test]
+    fn renders_flowchart_with_unicode_box_drawing_palette() {
+        let frame = StaticFrameRenderer::default()
+            .with_glyph_charset(Charset::Unicode)
+            .render_flowchart(&flowchart(vec![FlowStatement::Edge(Box::new(flow_edge(
+                "A", "B",
+            )))]));
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains('┌'));
+        assert!(output.contains('─'));
+        assert!(output.contains('│'));
     }
 
     #[test]
@@ -497,6 +660,31 @@ mod tests {
         assert!(output.contains("Alice"));
         assert!(output.contains("Bob"));
         assert!(output.contains("hello"));
+    }
+
+    #[test]
+    fn renders_sequence_with_unicode_arrow_palette() {
+        let frame = StaticFrameRenderer::default()
+            .with_glyph_charset(Charset::Unicode)
+            .render_sequence(&SequenceAst {
+                header: SequenceHeader {
+                    span: Span::new(0, 15),
+                },
+                statements: vec![SequenceStatement::Message(Box::new(SequenceMessage {
+                    from: Spanned::new("Alice".to_owned(), Span::new(0, 0)),
+                    to: Spanned::new("Bob".to_owned(), Span::new(0, 0)),
+                    arrow: SequenceArrow::SolidArrow,
+                    label: Some(label("hello")),
+                    span: Span::new(0, 0),
+                }))],
+                participants: Vec::new(),
+                boxes: Vec::new(),
+                span: Span::new(0, 0),
+            });
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains('▶'));
+        assert!(output.contains('─'));
     }
 
     #[test]
