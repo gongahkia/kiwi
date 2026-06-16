@@ -1,4 +1,7 @@
-use crate::ast::{FlowchartAst, SequenceAst, StateAst};
+use crate::ast::{
+    Diagram, DiagramKind, FlowStatement, FlowchartAst, MermaidDirective, SequenceAst,
+    SequenceStatement, StateAst, StateStatement,
+};
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowNode,
@@ -26,6 +29,42 @@ impl Animator {
     pub fn state_transitions(ast: &StateAst) -> Timeline {
         StateTransitionAnimator::default().animate(ast)
     }
+
+    pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
+        let config = AnimationConfig::from_diagram(diagram)?;
+        let mode = config.as_ref().map_or_else(
+            || default_animation_mode(&diagram.kind),
+            |config| config.mode,
+        );
+        let speed = config
+            .as_ref()
+            .map_or(AnimationConfig::DEFAULT_SPEED, |config| config.speed);
+        let repeat = config.as_ref().is_some_and(|config| config.repeat);
+
+        let timeline = match (&diagram.kind, mode) {
+            (_, AnimationMode::None) => static_timeline(diagram),
+            (DiagramKind::Sequence(ast), AnimationMode::Playback) => SequencePlaybackAnimator::new(
+                scaled_duration(SequencePlaybackAnimator::default_frame_duration(), speed),
+            )
+            .animate(ast),
+            (DiagramKind::Flowchart(ast), AnimationMode::Trace) => FlowchartTraceAnimator::new(
+                scaled_duration(FlowchartTraceAnimator::default_frame_duration(), speed),
+            )
+            .animate(ast),
+            (DiagramKind::State(ast), AnimationMode::Transitions) => StateTransitionAnimator::new(
+                scaled_duration(StateTransitionAnimator::default_frame_duration(), speed),
+            )
+            .animate(ast),
+            (kind, mode) => {
+                return Err(AnimationConfigParseError::UnsupportedMode {
+                    mode,
+                    diagram: AnimationDiagramKind::from(kind),
+                });
+            }
+        };
+
+        Ok(timeline.with_repeat(repeat))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,6 +88,42 @@ impl Default for AnimationConfig {
 
 impl AnimationConfig {
     pub const DEFAULT_SPEED: f32 = 1.0;
+
+    pub fn from_diagram(diagram: &Diagram) -> Result<Option<Self>, AnimationConfigParseError> {
+        let mut config = None;
+        apply_animation_directives(&diagram.directives, &mut config)?;
+        match &diagram.kind {
+            DiagramKind::Flowchart(ast) => {
+                for statement in &ast.statements {
+                    apply_flow_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::Sequence(ast) => {
+                for statement in &ast.statements {
+                    apply_sequence_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::State(ast) => {
+                for statement in &ast.statements {
+                    apply_state_animation_directives(statement, &mut config)?;
+                }
+            }
+        }
+        Ok(config)
+    }
+
+    pub fn from_directive(
+        directive: &MermaidDirective,
+    ) -> Result<Option<Self>, AnimationConfigParseError> {
+        if directive
+            .key
+            .as_ref()
+            .is_none_or(|key| key.value != "animate")
+        {
+            return Ok(None);
+        }
+        parse_animation_directive(&directive.raw).map(Some)
+    }
 
     pub fn new(
         mode: AnimationMode,
@@ -87,6 +162,249 @@ pub enum AnimationEasing {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnimationConfigError {
     InvalidSpeed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AnimationConfigParseError {
+    MissingAnimate,
+    UnknownField(String),
+    UnknownMode(String),
+    UnknownEasing(String),
+    InvalidSpeed(String),
+    InvalidLoop(String),
+    UnsupportedMode {
+        mode: AnimationMode,
+        diagram: AnimationDiagramKind,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationDiagramKind {
+    Flowchart,
+    Sequence,
+    State,
+}
+
+impl From<&DiagramKind> for AnimationDiagramKind {
+    fn from(kind: &DiagramKind) -> Self {
+        match kind {
+            DiagramKind::Flowchart(_) => Self::Flowchart,
+            DiagramKind::Sequence(_) => Self::Sequence,
+            DiagramKind::State(_) => Self::State,
+        }
+    }
+}
+
+fn apply_animation_directives(
+    directives: &[MermaidDirective],
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    for directive in directives {
+        if let Some(next) = AnimationConfig::from_directive(directive)? {
+            *config = Some(next);
+        }
+    }
+    Ok(())
+}
+
+fn apply_flow_animation_directives(
+    statement: &FlowStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        FlowStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        FlowStatement::Subgraph(subgraph) => {
+            for statement in &subgraph.statements {
+                apply_flow_animation_directives(statement, config)?;
+            }
+        }
+        FlowStatement::Node(_)
+        | FlowStatement::Edge(_)
+        | FlowStatement::ClassDef(_)
+        | FlowStatement::ClassApply(_)
+        | FlowStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_sequence_animation_directives(
+    statement: &SequenceStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        SequenceStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        SequenceStatement::Control(control) => {
+            for statement in &control.statements {
+                apply_sequence_animation_directives(statement, config)?;
+            }
+        }
+        SequenceStatement::Participant(_)
+        | SequenceStatement::Message(_)
+        | SequenceStatement::ActivationStart(_)
+        | SequenceStatement::ActivationEnd(_)
+        | SequenceStatement::Note(_)
+        | SequenceStatement::AutoNumber(_)
+        | SequenceStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_state_animation_directives(
+    statement: &StateStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        StateStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        StateStatement::Composite(state) => {
+            for statement in &state.children {
+                apply_state_animation_directives(statement, config)?;
+            }
+        }
+        StateStatement::State(_)
+        | StateStatement::Transition(_)
+        | StateStatement::ClassDef(_)
+        | StateStatement::ClassApply(_)
+        | StateStatement::Direction(_)
+        | StateStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
+    let mut mode = None;
+    let mut speed = AnimationConfig::DEFAULT_SPEED;
+    let mut repeat = false;
+    let mut easing = AnimationEasing::Linear;
+
+    for field in split_directive_fields(raw) {
+        let Some((key, value)) = field.split_once(':') else {
+            continue;
+        };
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "animate" => mode = Some(parse_animation_mode(value)?),
+            "speed" => speed = parse_animation_speed(value)?,
+            "loop" => repeat = parse_animation_loop(value)?,
+            "easing" => easing = parse_animation_easing(value)?,
+            _ => return Err(AnimationConfigParseError::UnknownField(key.to_owned())),
+        }
+    }
+
+    AnimationConfig::new(
+        mode.ok_or(AnimationConfigParseError::MissingAnimate)?,
+        speed,
+        repeat,
+        easing,
+    )
+    .map_err(|_| AnimationConfigParseError::InvalidSpeed(speed.to_string()))
+}
+
+fn split_directive_fields(raw: &str) -> Vec<&str> {
+    let mut fields = Vec::new();
+    let mut start = 0usize;
+    let mut quote = None;
+    for (index, glyph) in raw.char_indices() {
+        match (quote, glyph) {
+            (Some(active), value) if value == active => quote = None,
+            (None, '\'' | '"') => quote = Some(glyph),
+            (None, ',') => {
+                fields.push(raw[start..index].trim());
+                start = index + glyph.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    fields.push(raw[start..].trim());
+    fields
+}
+
+fn parse_animation_mode(value: &str) -> Result<AnimationMode, AnimationConfigParseError> {
+    match unquote(value) {
+        "playback" => Ok(AnimationMode::Playback),
+        "trace" => Ok(AnimationMode::Trace),
+        "transitions" => Ok(AnimationMode::Transitions),
+        "none" => Ok(AnimationMode::None),
+        value => Err(AnimationConfigParseError::UnknownMode(value.to_owned())),
+    }
+}
+
+fn parse_animation_easing(value: &str) -> Result<AnimationEasing, AnimationConfigParseError> {
+    match unquote(value) {
+        "linear" => Ok(AnimationEasing::Linear),
+        "ease" => Ok(AnimationEasing::Ease),
+        value => Err(AnimationConfigParseError::UnknownEasing(value.to_owned())),
+    }
+}
+
+fn parse_animation_speed(value: &str) -> Result<f32, AnimationConfigParseError> {
+    let value = unquote(value);
+    let Ok(speed) = value.parse::<f32>() else {
+        return Err(AnimationConfigParseError::InvalidSpeed(value.to_owned()));
+    };
+    if !speed.is_finite() || speed <= 0.0 {
+        return Err(AnimationConfigParseError::InvalidSpeed(value.to_owned()));
+    }
+    Ok(speed)
+}
+
+fn parse_animation_loop(value: &str) -> Result<bool, AnimationConfigParseError> {
+    match unquote(value) {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        value => Err(AnimationConfigParseError::InvalidLoop(value.to_owned())),
+    }
+}
+
+fn unquote(value: &str) -> &str {
+    let value = value.trim();
+    if value.len() >= 2
+        && ((value.starts_with('\'') && value.ends_with('\''))
+            || (value.starts_with('"') && value.ends_with('"')))
+    {
+        &value[1..value.len() - 1]
+    } else {
+        value
+    }
+}
+
+fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
+    match kind {
+        DiagramKind::Flowchart(_) => AnimationMode::Trace,
+        DiagramKind::Sequence(_) => AnimationMode::Playback,
+        DiagramKind::State(_) => AnimationMode::Transitions,
+    }
+}
+
+fn static_timeline(diagram: &Diagram) -> Timeline {
+    Timeline::from_frame(
+        StaticFrameRenderer::default().render_diagram(diagram),
+        default_animation_duration(&diagram.kind),
+    )
+}
+
+fn default_animation_duration(kind: &DiagramKind) -> Duration {
+    match kind {
+        DiagramKind::Flowchart(_) => FlowchartTraceAnimator::default_frame_duration(),
+        DiagramKind::Sequence(_) => SequencePlaybackAnimator::default_frame_duration(),
+        DiagramKind::State(_) => StateTransitionAnimator::default_frame_duration(),
+    }
+}
+
+fn scaled_duration(duration: Duration, speed: f32) -> Duration {
+    Duration::from_secs_f64(duration.as_secs_f64() / f64::from(speed))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -740,9 +1058,9 @@ fn mark_point_cell(frame: &mut Frame, point: Point, marker_id: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        AnimationConfig, AnimationConfigError, AnimationEasing, AnimationMode, Animator,
-        FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator, StateTransitionAnimator,
-        Timeline,
+        AnimationConfig, AnimationConfigError, AnimationConfigParseError, AnimationDiagramKind,
+        AnimationEasing, AnimationMode, Animator, FlowchartTraceAnimator, KeyFrame,
+        SequencePlaybackAnimator, StateTransitionAnimator, Timeline,
     };
     use crate::ast::{
         ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
@@ -752,6 +1070,7 @@ mod tests {
         StateHeader, StateNode, StateNodeKind, StateStatement, StateTransition,
     };
     use crate::frame::{Frame, KeyFrameMarkerKind};
+    use crate::parser::Parser;
     use std::time::Duration;
 
     #[test]
@@ -821,6 +1140,91 @@ mod tests {
             )
             .unwrap_err(),
             AnimationConfigError::InvalidSpeed,
+        );
+    }
+
+    #[test]
+    fn animation_config_parses_animate_directive() {
+        let directive = Parser::parse_mermaid_directive(
+            "%%{ animate: 'trace', speed: 2.0, loop: true, easing: 'ease' }%%",
+        )
+        .unwrap();
+
+        let config = AnimationConfig::from_directive(&directive)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(config.mode, AnimationMode::Trace);
+        assert_eq!(config.speed, 2.0);
+        assert!(config.repeat);
+        assert_eq!(config.easing, AnimationEasing::Ease);
+    }
+
+    #[test]
+    fn animation_config_rejects_unknown_directive_fields() {
+        let directive =
+            Parser::parse_mermaid_directive("%%{ animate: 'trace', unknown: true }%%").unwrap();
+
+        assert_eq!(
+            AnimationConfig::from_directive(&directive).unwrap_err(),
+            AnimationConfigParseError::UnknownField("unknown".to_owned()),
+        );
+    }
+
+    #[test]
+    fn animator_uses_default_mode_when_directive_absent() {
+        let diagram = Parser::parse_diagram("sequenceDiagram\nAlice->>Bob: hi").unwrap();
+        let timeline = Animator::animate_diagram(&diagram).unwrap();
+
+        assert_eq!(timeline.len(), 2);
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(700)
+        );
+        assert!(!timeline.repeat());
+    }
+
+    #[test]
+    fn animator_feeds_directive_config_into_timeline() {
+        let diagram = Parser::parse_diagram(
+            "%%{ animate: 'trace', speed: 2.0, loop: true, easing: 'ease' }%%\ngraph TD\nA --> B",
+        )
+        .unwrap();
+
+        let timeline = Animator::animate_diagram(&diagram).unwrap();
+
+        assert_eq!(timeline.len(), 3);
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(275)
+        );
+        assert!(timeline.repeat());
+    }
+
+    #[test]
+    fn animator_rejects_mode_for_wrong_diagram_kind() {
+        let diagram =
+            Parser::parse_diagram("%%{ animate: 'trace' }%%\nsequenceDiagram\nAlice->>Bob: hi")
+                .unwrap();
+
+        assert_eq!(
+            Animator::animate_diagram(&diagram).unwrap_err(),
+            AnimationConfigParseError::UnsupportedMode {
+                mode: AnimationMode::Trace,
+                diagram: AnimationDiagramKind::Sequence,
+            },
+        );
+    }
+
+    #[test]
+    fn animator_explicit_none_returns_static_timeline() {
+        let diagram = Parser::parse_diagram("%%{ animate: 'none' }%%\ngraph TD\nA --> B").unwrap();
+        let timeline = Animator::animate_diagram(&diagram).unwrap();
+
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(550)
         );
     }
 

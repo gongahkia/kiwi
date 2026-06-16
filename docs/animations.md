@@ -86,7 +86,9 @@ Schema:
 - `easing`: one of `linear`, `ease`; default `linear`.
 
 Absent directive means use the diagram default. An explicit `animate: 'none'`
-disables animation.
+disables animation. Multiple `animate` directives are applied in source order;
+the last valid directive wins. `Animator::animate_diagram` validates the mode
+against the diagram kind and applies `speed` by scaling keyframe duration.
 
 ## Snapshot Contract
 
