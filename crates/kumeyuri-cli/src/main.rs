@@ -15,9 +15,13 @@ use kumeyuri_core::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
 use {
     crossterm::{
         cursor::MoveTo,
+        event::{self, Event as TerminalEvent, KeyCode, KeyEventKind},
         execute,
         terminal::{
             Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
@@ -216,7 +220,7 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
         transition: TuiTransitionEffect::Fade,
         ..TuiRenderConfig::default()
     })
-    .render_timeline(&mut terminal, timeline)
+    .render_interactive_timeline(&mut terminal, timeline)
     .map_err(|error| format!("failed to render timeline: {error}"));
     let cursor_result = terminal
         .show_cursor()
@@ -237,11 +241,145 @@ fn play_timeline(_timeline: &Timeline) -> Result<(), String> {
     Err("play is unsupported on wasm32".to_owned())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+trait InteractiveTimelineRenderer {
+    fn render_interactive_timeline(
+        self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        timeline: &Timeline,
+    ) -> Result<(), io::Error>;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl InteractiveTimelineRenderer for TuiRenderer {
+    fn render_interactive_timeline(
+        self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        timeline: &Timeline,
+    ) -> Result<(), io::Error> {
+        if timeline.is_empty() {
+            return Ok(());
+        }
+
+        let mut state = PlaybackState::new();
+        loop {
+            self.draw(terminal, timeline.keyframes()[state.index].frame())?;
+            let timeout = if state.paused {
+                Duration::from_millis(100)
+            } else {
+                timeline.keyframes()[state.index].duration()
+            };
+
+            if event::poll(timeout)? {
+                if let TerminalEvent::Key(key) = event::read()?
+                    && key.kind == KeyEventKind::Press
+                    && state.handle_key(key.code, timeline.len(), timeline.repeat())
+                        == PlaybackAction::Quit
+                {
+                    break;
+                }
+            } else if !state.paused && !state.advance(timeline.len(), timeline.repeat()) {
+                break;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PlaybackState {
+    index: usize,
+    paused: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PlaybackState {
+    const fn new() -> Self {
+        Self {
+            index: 0,
+            paused: false,
+        }
+    }
+
+    fn handle_key(&mut self, key: KeyCode, len: usize, repeat: bool) -> PlaybackAction {
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => PlaybackAction::Quit,
+            KeyCode::Char(' ') => {
+                self.paused = !self.paused;
+                PlaybackAction::Continue
+            }
+            KeyCode::Right | KeyCode::Down => {
+                self.paused = true;
+                self.step_forward(len, repeat);
+                PlaybackAction::Continue
+            }
+            KeyCode::Left | KeyCode::Up => {
+                self.paused = true;
+                self.step_backward(len, repeat);
+                PlaybackAction::Continue
+            }
+            KeyCode::Char('r') => {
+                self.index = 0;
+                self.paused = false;
+                PlaybackAction::Continue
+            }
+            _ => PlaybackAction::Continue,
+        }
+    }
+
+    fn advance(&mut self, len: usize, repeat: bool) -> bool {
+        if len == 0 {
+            return false;
+        }
+        if self.index + 1 < len {
+            self.index += 1;
+            return true;
+        }
+        if repeat {
+            self.index = 0;
+            return true;
+        }
+        false
+    }
+
+    fn step_forward(&mut self, len: usize, repeat: bool) {
+        if len == 0 {
+            return;
+        }
+        if self.index + 1 < len {
+            self.index += 1;
+        } else if repeat {
+            self.index = 0;
+        }
+    }
+
+    fn step_backward(&mut self, len: usize, repeat: bool) {
+        if len == 0 {
+            return;
+        }
+        if self.index > 0 {
+            self.index -= 1;
+        } else if repeat {
+            self.index = len - 1;
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlaybackAction {
+    Continue,
+    Quit,
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(not(target_arch = "wasm32"))]
-    use super::should_rerender;
+    use super::{PlaybackAction, PlaybackState, should_rerender};
     use super::{RenderFormat, render_source, timeline_from_source};
+    #[cfg(not(target_arch = "wasm32"))]
+    use crossterm::event::KeyCode;
     #[cfg(not(target_arch = "wasm32"))]
     use notify::{
         Event, EventKind,
@@ -282,5 +420,48 @@ mod tests {
 
         assert!(should_rerender(&event, Path::new("diagram.mmd")));
         assert!(!should_rerender(&event, Path::new("other.mmd")));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn playback_controls_pause_step_restart_and_quit() {
+        let mut state = PlaybackState::new();
+
+        assert_eq!(
+            state.handle_key(KeyCode::Char(' '), 3, false),
+            PlaybackAction::Continue,
+        );
+        assert!(state.paused);
+
+        state.handle_key(KeyCode::Right, 3, false);
+        assert_eq!(state.index, 1);
+        assert!(state.paused);
+
+        state.handle_key(KeyCode::Left, 3, false);
+        assert_eq!(state.index, 0);
+
+        state.handle_key(KeyCode::Right, 3, false);
+        state.handle_key(KeyCode::Char('r'), 3, false);
+        assert_eq!(state.index, 0);
+        assert!(!state.paused);
+
+        assert_eq!(
+            state.handle_key(KeyCode::Char('q'), 3, false),
+            PlaybackAction::Quit,
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn playback_advance_respects_repeat_flag() {
+        let mut state = PlaybackState {
+            index: 1,
+            paused: false,
+        };
+
+        assert!(!state.advance(2, false));
+        assert_eq!(state.index, 1);
+        assert!(state.advance(2, true));
+        assert_eq!(state.index, 0);
     }
 }

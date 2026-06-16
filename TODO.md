@@ -77,7 +77,7 @@
 - [x] Integrate `tachyonfx` for transition effects (fade, slide, glitch) between frames
 - [x] Implement `kumeyuri play <file>` CLI subcommand for one-shot TUI playback
 - [x] Implement `kumeyuri watch <file>` with `notify`-based filesystem watcher and in-place re-render
-- [ ] Add interactive TUI controls: pause/resume (space), step (arrows), restart (r), quit (q)
+- [x] Add interactive TUI controls: pause/resume (space), step (arrows), restart (r), quit (q)
 - [ ] Add animation speed override flag `--speed` and loop flag `--loop`
 - [ ] Snapshot-test animation timelines: hash the keyframe sequence per fixture
 - [ ] Manual QA pass: every fixture run through `kumeyuri play` for visual sanity
