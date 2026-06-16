@@ -3,4 +3,5 @@ pub mod ast;
 pub mod frame;
 pub mod layout;
 pub mod parser;
+pub mod text;
 pub mod theme;
