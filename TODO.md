@@ -104,7 +104,7 @@
 - [ ] Set up CDN distribution (Cloudflare R2 + Cloudflare Pages, or jsDelivr via npm)
 - [x] Write `docs/embedding.md` showing GitHub README, Hugo, Docusaurus, mdBook, plain HTML usage
 - [x] Snapshot-test SVG and raster outputs (image-diff via `image-compare` crate)
-- [ ] Cross-browser test the web component (Chrome, Safari, Firefox, mobile) via Playwright
+- [x] Cross-browser test the web component (Chrome, Safari, Firefox, mobile) via Playwright
 - [ ] Performance budget: WASM bundle < 500 KB gzipped; document in CI
 - [ ] Publish `v0.3.0-embed` to crates.io and `kumeyuri` to npm
 
