@@ -81,6 +81,8 @@ pub struct PositionedFlowNode {
 pub struct PositionedFlowEdge {
     pub from: String,
     pub to: String,
+    pub arrow_start: ArrowHead,
+    pub arrow_end: ArrowHead,
     pub points: Vec<Point>,
 }
 
@@ -680,6 +682,8 @@ struct LayoutNode {
 struct LayoutGraphEdge {
     from: usize,
     to: usize,
+    arrow_start: ArrowHead,
+    arrow_end: ArrowHead,
     min_length: usize,
 }
 
@@ -727,6 +731,8 @@ impl LayoutGraph {
         self.edges.push(LayoutGraphEdge {
             from,
             to,
+            arrow_start: edge.link.value.arrow_start,
+            arrow_end: edge.link.value.arrow_end,
             min_length: usize::from(edge.link.value.min_length.max(1)),
         });
     }
@@ -944,6 +950,8 @@ fn place_graph(
         .map(|edge| PositionedFlowEdge {
             from: graph.nodes[edge.from].id.clone(),
             to: graph.nodes[edge.to].id.clone(),
+            arrow_start: edge.arrow_start,
+            arrow_end: edge.arrow_end,
             points: route_edge(rects[edge.from], rects[edge.to], direction),
         })
         .collect();
@@ -1167,6 +1175,22 @@ mod tests {
         assert_eq!(layout.nodes.len(), 2);
         assert_eq!(layout.edges.len(), 1);
         assert_eq!(layout.edges[0].points.len(), 2);
+    }
+
+    #[test]
+    fn carries_flow_edge_arrowheads() {
+        let mut edge = edge("A", "B");
+        edge.link.value.arrow_start = ArrowHead::Cross;
+        edge.link.value.arrow_end = ArrowHead::Circle;
+        let ast = flowchart(
+            Direction::TopDown,
+            vec![FlowStatement::Edge(Box::new(edge))],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+
+        assert_eq!(layout.edges[0].arrow_start, ArrowHead::Cross);
+        assert_eq!(layout.edges[0].arrow_end, ArrowHead::Circle);
     }
 
     fn flowchart(direction: Direction, statements: Vec<FlowStatement>) -> FlowchartAst {

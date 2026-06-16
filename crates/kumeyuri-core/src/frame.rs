@@ -1,7 +1,7 @@
-use crate::ast::{Diagram, DiagramKind, FlowchartAst, SequenceAst, StateAst};
+use crate::ast::{ArrowHead, Diagram, DiagramKind, FlowchartAst, SequenceAst, StateAst};
 use crate::layout::{
-    FlowLayout, FlowLayoutEngine, Point, PositionedSequenceMessage, PositionedSequenceNote, Rect,
-    SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedSequenceMessage,
+    PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -412,7 +412,7 @@ fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) 
     let text_style = theme.style_for(ThemeRole::Text);
     for edge in &layout.edges {
         if edge.points.len() >= 2 {
-            draw_polyline(&mut frame, &edge.points, palette, edge_style.clone());
+            draw_flow_edge(&mut frame, edge, palette, edge_style.clone());
         }
     }
     for node in &layout.nodes {
@@ -420,6 +420,25 @@ fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) 
         write_centered(&mut frame, node.rect, &node.label, text_style.clone());
     }
     frame
+}
+
+fn draw_flow_edge(
+    frame: &mut Frame,
+    edge: &PositionedFlowEdge,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+) {
+    draw_polyline(frame, &edge.points, palette, edge_style.clone());
+    if let Some(first) = edge.points.first().copied()
+        && let Some(glyph) = start_arrowhead_for_points(edge.arrow_start, &edge.points, palette)
+    {
+        put_safe(frame, first.x, first.y, glyph, edge_style.clone());
+    }
+    if let Some(last) = edge.points.last().copied()
+        && let Some(glyph) = end_arrowhead_for_points(edge.arrow_end, &edge.points, palette)
+    {
+        put_safe(frame, last.x, last.y, glyph, edge_style);
+    }
 }
 
 fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme: Theme) -> Frame {
@@ -594,11 +613,51 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette, sty
 
 fn arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> char {
     match points {
-        [.., previous, last] if last.x < previous.x => palette.arrow_left,
-        [.., previous, last] if last.x > previous.x => palette.arrow_right,
-        [.., previous, last] if last.y < previous.y => palette.arrow_up,
-        [.., previous, last] if last.y > previous.y => palette.arrow_down,
+        [.., previous, last] => arrowhead_for_segment(*previous, *last, palette),
         _ => palette.arrow_right,
+    }
+}
+
+fn start_arrowhead_for_points(
+    arrowhead: ArrowHead,
+    points: &[Point],
+    palette: GlyphPalette,
+) -> Option<char> {
+    match arrowhead {
+        ArrowHead::None => None,
+        ArrowHead::Arrow => match points {
+            [first, next, ..] => Some(arrowhead_for_segment(*next, *first, palette)),
+            _ => Some(palette.arrow_left),
+        },
+        ArrowHead::Circle => Some('o'),
+        ArrowHead::Cross => Some('x'),
+    }
+}
+
+fn end_arrowhead_for_points(
+    arrowhead: ArrowHead,
+    points: &[Point],
+    palette: GlyphPalette,
+) -> Option<char> {
+    match arrowhead {
+        ArrowHead::None => None,
+        ArrowHead::Arrow => Some(arrowhead_for_points(points, palette)),
+        ArrowHead::Circle => Some('o'),
+        ArrowHead::Cross => Some('x'),
+    }
+}
+
+fn arrowhead_for_segment(previous: Point, last: Point, palette: GlyphPalette) -> char {
+    if last.x < previous.x {
+        palette.arrow_left
+    } else if last.x > previous.x {
+        palette.arrow_right
+    } else if last.y < previous.y {
+        palette.arrow_up
+    } else if last.y > previous.y {
+        palette.arrow_down
+    } else {
+        palette.arrow_right
     }
 }
 
@@ -774,6 +833,7 @@ mod tests {
         assert!(output.contains('B'));
         assert!(output.contains('+'));
         assert!(output.contains('-'));
+        assert!(output.contains('v'));
     }
 
     #[test]
