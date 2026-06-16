@@ -660,6 +660,7 @@ dependencies = [
  "font8x8",
  "gif",
  "kumeyuri-core",
+ "png",
  "tiny-skia",
 ]
 

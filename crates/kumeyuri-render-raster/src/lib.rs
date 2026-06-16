@@ -1,6 +1,7 @@
 use font8x8::{BASIC_FONTS, BLOCK_FONTS, BOX_FONTS, MISC_FONTS, UnicodeFonts};
 use gif::{Encoder as GifEncoder, Frame as GifFrame, Repeat};
 use kumeyuri_core::{animator::Timeline, frame::Frame};
+use png::{BitDepth, ColorType, Encoder as PngEncoder};
 use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
 
 const GLYPH_SIZE: u32 = 8;
@@ -126,6 +127,38 @@ impl RasterRenderer {
         Ok(output)
     }
 
+    pub fn render_apng(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
+        let (width, height) = timeline_canvas_size(timeline, self.config)?;
+        let frame_count =
+            u32::try_from(timeline.len()).map_err(|_| RasterRenderError::ImageTooLarge)?;
+        let mut output = Vec::new();
+        {
+            let mut encoder = PngEncoder::new(&mut output, width, height);
+            encoder.set_color(ColorType::Rgba);
+            encoder.set_depth(BitDepth::Eight);
+            encoder
+                .set_animated(frame_count, if timeline.repeat() { 0 } else { 1 })
+                .map_err(|error| RasterRenderError::PngEncode(error.to_string()))?;
+            let mut writer = encoder
+                .write_header()
+                .map_err(|error| RasterRenderError::PngEncode(error.to_string()))?;
+            for keyframe in timeline.keyframes() {
+                let (delay, denominator) = apng_delay(keyframe.duration());
+                writer
+                    .set_frame_delay(delay, denominator)
+                    .map_err(|error| RasterRenderError::PngEncode(error.to_string()))?;
+                let pixmap = self.frame_pixmap_with_canvas(keyframe.frame(), width, height)?;
+                writer
+                    .write_image_data(&rgba_pixels(&pixmap))
+                    .map_err(|error| RasterRenderError::PngEncode(error.to_string()))?;
+            }
+            writer
+                .finish()
+                .map_err(|error| RasterRenderError::PngEncode(error.to_string()))?;
+        }
+        Ok(output)
+    }
+
     fn frame_pixmap(&self, frame: &Frame) -> Result<Pixmap, RasterRenderError> {
         let width = raster_extent(frame.width(), self.config.scale, self.config.padding)?;
         let height = raster_extent(frame.height(), self.config.scale, self.config.padding)?;
@@ -224,6 +257,15 @@ fn gif_delay(duration: std::time::Duration) -> u16 {
     centiseconds as u16
 }
 
+fn apng_delay(duration: std::time::Duration) -> (u16, u16) {
+    let millis = duration.as_millis().clamp(1, u128::from(u16::MAX));
+    (millis as u16, 1000)
+}
+
+fn rgba_pixels(pixmap: &Pixmap) -> Vec<u8> {
+    pixmap.data().to_vec()
+}
+
 fn raster_extent(cells: usize, scale: u32, padding: u32) -> Result<u32, RasterRenderError> {
     let cells = usize_to_u32(cells)?;
     cells
@@ -316,6 +358,35 @@ mod tests {
         assert!(decoder.read_next_frame().unwrap().is_some());
         assert!(decoder.read_next_frame().unwrap().is_some());
         assert!(decoder.read_next_frame().unwrap().is_none());
+    }
+
+    #[test]
+    fn renders_timeline_to_apng() {
+        let mut first = Frame::new(1, 1);
+        first.write_text(0, 0, "A", Default::default()).unwrap();
+        let mut second = Frame::new(1, 1);
+        second.write_text(0, 0, "B", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![
+            KeyFrame::new(first, Duration::from_millis(20)),
+            KeyFrame::new(second, Duration::from_millis(30)),
+        ])
+        .with_repeat(true);
+
+        let apng = RasterRenderer::default().render_apng(&timeline).unwrap();
+
+        assert!(apng.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert!(apng.windows(4).any(|chunk| chunk == b"acTL"));
+        assert_eq!(apng.windows(4).filter(|chunk| *chunk == b"fcTL").count(), 2);
+    }
+
+    #[test]
+    fn apng_render_rejects_empty_timeline() {
+        assert_eq!(
+            RasterRenderer::default()
+                .render_apng(&Timeline::new())
+                .unwrap_err(),
+            RasterRenderError::EmptyTimeline,
+        );
     }
 
     #[test]
