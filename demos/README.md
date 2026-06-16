@@ -3,6 +3,12 @@
 Run `scripts/render-demos.sh` from the repository root to regenerate the
 rendered assets.
 
+60-second screencast: [kumeyuri-screencast.cast](./kumeyuri-screencast.cast)
+
+```bash
+asciinema play demos/kumeyuri-screencast.cast
+```
+
 | Preview | Demo | Type | Source | Rendered |
 | --- | --- | --- | --- | --- |
 | <img src="./rendered/http-request-lifecycle.svg" width="360" alt="HTTP request lifecycle"> | HTTP request lifecycle | Sequence | [http-request-lifecycle.mmd](./http-request-lifecycle.mmd) | [SVG](./rendered/http-request-lifecycle.svg) / [GIF](./rendered/http-request-lifecycle.gif) |
