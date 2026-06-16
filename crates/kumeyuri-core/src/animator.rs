@@ -1,9 +1,10 @@
-use crate::ast::SequenceAst;
+use crate::ast::{FlowchartAst, SequenceAst};
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
-    Point, PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout,
-    SequenceLayoutEngine,
+    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowNode,
+    PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
 };
+use std::collections::VecDeque;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,6 +14,11 @@ impl Animator {
     #[must_use]
     pub fn sequence_playback(ast: &SequenceAst) -> Timeline {
         SequencePlaybackAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn flowchart_trace(ast: &FlowchartAst) -> Timeline {
+        FlowchartTraceAnimator::default().animate(ast)
     }
 }
 
@@ -104,6 +110,217 @@ impl Timeline {
             .map(KeyFrame::duration)
             .sum::<Duration>()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlowchartTraceAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for FlowchartTraceAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl FlowchartTraceAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(550)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &FlowchartAst) -> Timeline {
+        let layout = FlowLayoutEngine::default().layout(ast);
+        let renderer = StaticFrameRenderer::default();
+        let mut timeline =
+            Timeline::from_frame(renderer.render_flowchart(ast), self.frame_duration);
+
+        for step in flow_trace_steps(&layout) {
+            let mut frame = renderer.render_flowchart(ast);
+            add_flow_trace_markers(&mut frame, &layout, &step);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FlowTraceStep {
+    node_index: usize,
+    previous_nodes: Vec<usize>,
+    active_edges: Vec<usize>,
+}
+
+fn flow_trace_steps(layout: &FlowLayout) -> Vec<FlowTraceStep> {
+    let mut visited = vec![false; layout.nodes.len()];
+    let mut queued = vec![false; layout.nodes.len()];
+    let mut steps = Vec::new();
+
+    for root in flow_root_indices(layout) {
+        trace_flow_component(layout, root, &mut visited, &mut queued, &mut steps);
+    }
+    for index in 0..layout.nodes.len() {
+        trace_flow_component(layout, index, &mut visited, &mut queued, &mut steps);
+    }
+
+    steps
+}
+
+fn trace_flow_component(
+    layout: &FlowLayout,
+    start: usize,
+    visited: &mut [bool],
+    queued: &mut [bool],
+    steps: &mut Vec<FlowTraceStep>,
+) {
+    if visited[start] {
+        return;
+    }
+    let mut queue = VecDeque::new();
+    queue.push_back(start);
+    queued[start] = true;
+
+    while let Some(index) = queue.pop_front() {
+        if visited[index] {
+            continue;
+        }
+        let previous_nodes = visited
+            .iter()
+            .enumerate()
+            .filter_map(|(index, visited)| (*visited).then_some(index))
+            .collect::<Vec<_>>();
+        visited[index] = true;
+        let active_edges = outgoing_edge_indices(layout, &layout.nodes[index].id);
+        for edge_index in &active_edges {
+            let edge = &layout.edges[*edge_index];
+            let Some(target_index) = flow_node_index(layout, &edge.to) else {
+                continue;
+            };
+            if !visited[target_index] && !queued[target_index] {
+                queued[target_index] = true;
+                queue.push_back(target_index);
+            }
+        }
+        steps.push(FlowTraceStep {
+            node_index: index,
+            previous_nodes,
+            active_edges,
+        });
+    }
+}
+
+fn flow_root_indices(layout: &FlowLayout) -> Vec<usize> {
+    let mut has_incoming = vec![false; layout.nodes.len()];
+    for edge in &layout.edges {
+        if let Some(index) = flow_node_index(layout, &edge.to) {
+            has_incoming[index] = true;
+        }
+    }
+    let roots = has_incoming
+        .iter()
+        .enumerate()
+        .filter_map(|(index, incoming)| (!incoming).then_some(index))
+        .collect::<Vec<_>>();
+    if roots.is_empty() && !layout.nodes.is_empty() {
+        vec![0]
+    } else {
+        roots
+    }
+}
+
+fn outgoing_edge_indices(layout: &FlowLayout, node_id: &str) -> Vec<usize> {
+    layout
+        .edges
+        .iter()
+        .enumerate()
+        .filter_map(|(index, edge)| (edge.from == node_id).then_some(index))
+        .collect()
+}
+
+fn flow_node_index(layout: &FlowLayout, node_id: &str) -> Option<usize> {
+    layout.nodes.iter().position(|node| node.id == node_id)
+}
+
+fn add_flow_trace_markers(frame: &mut Frame, layout: &FlowLayout, step: &FlowTraceStep) {
+    for node_index in &step.previous_nodes {
+        add_flow_node_marker(
+            frame,
+            &layout.nodes[*node_index],
+            KeyFrameMarkerKind::Hold,
+            &flow_node_marker_id(&layout.nodes[*node_index].id),
+        );
+    }
+
+    let current = &layout.nodes[step.node_index];
+    add_flow_node_marker(
+        frame,
+        current,
+        KeyFrameMarkerKind::Enter,
+        &format!("{}-enter", flow_node_marker_id(&current.id)),
+    );
+    add_flow_node_marker(
+        frame,
+        current,
+        KeyFrameMarkerKind::Active,
+        &flow_node_marker_id(&current.id),
+    );
+
+    for edge_index in &step.active_edges {
+        add_flow_edge_marker(frame, &layout.edges[*edge_index], *edge_index);
+    }
+}
+
+fn add_flow_node_marker(
+    frame: &mut Frame,
+    node: &PositionedFlowNode,
+    kind: KeyFrameMarkerKind,
+    marker_id: &str,
+) {
+    let Some(region) = rect_region(
+        node.rect.origin.x,
+        node.rect.origin.y,
+        node.rect.right(),
+        node.rect.bottom(),
+    ) else {
+        return;
+    };
+    frame.add_marker(KeyFrameMarker {
+        id: marker_id.to_owned(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, marker_id);
+}
+
+fn add_flow_edge_marker(frame: &mut Frame, edge: &PositionedFlowEdge, edge_index: usize) {
+    let Some(region) = polyline_region(&edge.points) else {
+        return;
+    };
+    let id = format!("flow-edge-{edge_index}-{}-{}", edge.from, edge.to);
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind: KeyFrameMarkerKind::Active,
+        region,
+    });
+    mark_polyline_cells(frame, &edge.points, &id);
+}
+
+fn flow_node_marker_id(node_id: &str) -> String {
+    format!("flow-node-{node_id}")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,11 +446,11 @@ fn add_active_message_marker(
 }
 
 fn participant_header_region(participant: &PositionedSequenceParticipant) -> Option<FrameRegion> {
-    region_from_bounds(
+    rect_region(
         participant.header.origin.x,
         participant.header.origin.y,
-        participant.header.right().saturating_sub(1),
-        participant.header.bottom().saturating_sub(1),
+        participant.header.right(),
+        participant.header.bottom(),
     )
 }
 
@@ -250,11 +467,22 @@ fn participant_lane_region(
 }
 
 fn message_region(message: &PositionedSequenceMessage) -> Option<FrameRegion> {
-    let min_x = message.points.iter().map(|point| point.x).min()?;
-    let max_x = message.points.iter().map(|point| point.x).max()?;
-    let min_y = message.points.iter().map(|point| point.y).min()?;
-    let max_y = message.points.iter().map(|point| point.y).max()?;
-    region_from_bounds(min_x, min_y, max_x, max_y)
+    polyline_region(&message.points)
+}
+
+fn rect_region(x: i32, y: i32, right: i32, bottom: i32) -> Option<FrameRegion> {
+    region_from_bounds(x, y, right.saturating_sub(1), bottom.saturating_sub(1))
+}
+
+fn polyline_region(points: &[Point]) -> Option<FrameRegion> {
+    let min_x = points.iter().map(|point| point.x).min()?;
+    let max_x = points.iter().map(|point| point.x).max()?;
+    let min_y = points.iter().map(|point| point.y).min()?;
+    let max_y = points.iter().map(|point| point.y).max()?;
+    if max_x < 0 || max_y < 0 {
+        return None;
+    }
+    region_from_bounds(min_x.max(0), min_y.max(0), max_x, max_y)
 }
 
 fn region_from_bounds(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Option<FrameRegion> {
@@ -278,11 +506,15 @@ fn mark_region_cells(frame: &mut Frame, region: FrameRegion, marker_id: &str) {
 }
 
 fn mark_message_cells(frame: &mut Frame, message: &PositionedSequenceMessage, marker_id: &str) {
-    for pair in message.points.windows(2) {
+    mark_polyline_cells(frame, &message.points, marker_id);
+}
+
+fn mark_polyline_cells(frame: &mut Frame, points: &[Point], marker_id: &str) {
+    for pair in points.windows(2) {
         mark_segment_cells(frame, pair[0], pair[1], marker_id);
     }
-    if message.points.len() == 1 {
-        mark_point_cell(frame, message.points[0], marker_id);
+    if points.len() == 1 {
+        mark_point_cell(frame, points[0], marker_id);
     }
 }
 
@@ -313,10 +545,12 @@ fn mark_point_cell(frame: &mut Frame, point: Point, marker_id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Animator, KeyFrame, SequencePlaybackAnimator, Timeline};
+    use super::{Animator, FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator, Timeline};
     use crate::ast::{
-        Label, LabelKind, SequenceArrow, SequenceAst, SequenceHeader, SequenceMessage,
-        SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned,
+        ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
+        FlowStatement, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind,
+        SequenceArrow, SequenceAst, SequenceHeader, SequenceMessage, SequenceParticipant,
+        SequenceParticipantKind, SequenceStatement, Span, Spanned,
     };
     use crate::frame::{Frame, KeyFrameMarkerKind};
     use std::time::Duration;
@@ -349,6 +583,88 @@ mod tests {
         assert_eq!(timeline.len(), 1);
         assert!(!timeline.repeat());
         assert_eq!(timeline.total_duration(), Duration::from_secs(1));
+    }
+
+    #[test]
+    fn flowchart_trace_emits_static_frame_plus_bfs_steps() {
+        let ast = flowchart(vec![
+            FlowStatement::Edge(Box::new(edge("A", "B"))),
+            FlowStatement::Edge(Box::new(edge("A", "C"))),
+            FlowStatement::Edge(Box::new(edge("B", "D"))),
+        ]);
+
+        let timeline = Animator::flowchart_trace(&ast);
+
+        assert_eq!(timeline.len(), 5);
+        assert_eq!(timeline.total_duration(), Duration::from_millis(2750));
+        assert!(
+            timeline
+                .keyframes()
+                .iter()
+                .all(|keyframe| keyframe.duration() == Duration::from_millis(550))
+        );
+
+        let first_step = timeline.keyframes()[1].frame();
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "flow-node-A" && marker.kind == KeyFrameMarkerKind::Active
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "flow-node-A-enter" && marker.kind == KeyFrameMarkerKind::Enter
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "flow-edge-0-A-B" && marker.kind == KeyFrameMarkerKind::Active
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "flow-edge-1-A-C" && marker.kind == KeyFrameMarkerKind::Active
+        }));
+
+        let second_step = timeline.keyframes()[2].frame();
+        assert!(second_step.markers().iter().any(|marker| {
+            marker.id == "flow-node-A" && marker.kind == KeyFrameMarkerKind::Hold
+        }));
+        assert!(second_step.markers().iter().any(|marker| {
+            marker.id == "flow-node-B" && marker.kind == KeyFrameMarkerKind::Active
+        }));
+    }
+
+    #[test]
+    fn flowchart_trace_falls_back_to_source_order_for_cycles() {
+        let ast = flowchart(vec![
+            FlowStatement::Edge(Box::new(edge("A", "B"))),
+            FlowStatement::Edge(Box::new(edge("B", "A"))),
+        ]);
+
+        let timeline = FlowchartTraceAnimator::default().animate(&ast);
+
+        assert_eq!(timeline.len(), 3);
+        assert!(
+            timeline.keyframes()[1]
+                .frame()
+                .markers()
+                .iter()
+                .any(|marker| {
+                    marker.id == "flow-node-A" && marker.kind == KeyFrameMarkerKind::Active
+                })
+        );
+        assert!(
+            timeline.keyframes()[2]
+                .frame()
+                .markers()
+                .iter()
+                .any(|marker| {
+                    marker.id == "flow-edge-1-B-A" && marker.kind == KeyFrameMarkerKind::Active
+                })
+        );
+    }
+
+    #[test]
+    fn flowchart_trace_keeps_empty_flowchart_to_one_frame() {
+        let timeline =
+            FlowchartTraceAnimator::new(Duration::from_millis(25)).animate(&flowchart(Vec::new()));
+
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(timeline.total_duration(), Duration::from_millis(25));
+        assert!(timeline.keyframes()[0].frame().markers().is_empty());
     }
 
     #[test]
@@ -468,6 +784,49 @@ mod tests {
         Label {
             text: text.to_owned(),
             kind: LabelKind::Plain,
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {
+        FlowchartAst {
+            header: FlowchartHeader {
+                directive: Spanned::new(FlowchartDirective::Graph, Span::new(0, 5)),
+                direction: Spanned::new(Direction::TopDown, Span::new(6, 8)),
+                span: Span::new(0, 8),
+            },
+            statements,
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+            classes: Vec::new(),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn edge(from: &str, to: &str) -> FlowEdge {
+        FlowEdge {
+            from: flow_node(from),
+            to: flow_node(to),
+            link: Spanned::new(
+                FlowEdgeLink {
+                    stroke: FlowEdgeStroke::Normal,
+                    arrow_start: ArrowHead::None,
+                    arrow_end: ArrowHead::Arrow,
+                    min_length: 1,
+                },
+                Span::new(0, 0),
+            ),
+            label: None,
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn flow_node(id: &str) -> FlowNode {
+        FlowNode {
+            id: Spanned::new(id.to_owned(), Span::new(0, 0)),
+            label: Some(label(id)),
+            shape: Spanned::new(FlowShape::Rectangle, Span::new(0, 0)),
             span: Span::new(0, 0),
         }
     }
