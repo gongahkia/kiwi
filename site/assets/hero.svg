@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="676" height="276" viewBox="0 0 676 276" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+<title id="kumeyuri-title">kumeyuri diagram</title>
+<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">frame 0
+┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐
+│  CLI  │   │ Core  │   │  SVG  │   │  Web  │
+└───────┘   └───────┘   └───────┘   └───────┘
+    │           │           │           │
+    │Mermaid source         │           │
+    ────────────▶           │           │
+    │           │           │           │
+    │           │           │           │
+    │           │frame stream           │
+    │           ────────────▶           │
+    │           │           │           │
+    │           │           │           │
+    │           │playback controls      │
+    │           ────────────────────────▶
+    │           │           │           │
+
+frame 1
+┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐
+│  CLI  │   │ Core  │   │  SVG  │   │  Web  │
+└───────┘   └───────┘   └───────┘   └───────┘
+    │           │           │           │
+    │Mermaid source         │           │
+    ────────────▶           │           │
+    │           │           │           │
+    │           │           │           │
+    │           │frame stream           │
+    │           ────────────▶           │
+    │           │           │           │
+    │           │           │           │
+    │           │playback controls      │
+    │           ────────────────────────▶
+    │           │           │           │
+
+frame 2
+┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐
+│  CLI  │   │ Core  │   │  SVG  │   │  Web  │
+└───────┘   └───────┘   └───────┘   └───────┘
+    │           │           │           │
+    │Mermaid source         │           │
+    ────────────▶           │           │
+    │           │           │           │
+    │           │           │           │
+    │           │frame stream           │
+    │           ────────────▶           │
+    │           │           │           │
+    │           │           │           │
+    │           │playback controls      │
+    │           ────────────────────────▶
+    │           │           │           │
+
+frame 3
+┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐
+│  CLI  │   │ Core  │   │  SVG  │   │  Web  │
+└───────┘   └───────┘   └───────┘   └───────┘
+    │           │           │           │
+    │Mermaid source         │           │
+    ────────────▶           │           │
+    │           │           │           │
+    │           │           │           │
+    │           │frame stream           │
+    │           ────────────▶           │
+    │           │           │           │
+    │           │           │           │
+    │           │playback controls      │
+    │           ────────────────────────▶
+    │           │           │           │                                       </metadata>
+<style>
+rect { fill: #ffffff; }
+text { fill: #24292f; }
+@media (prefers-color-scheme: dark) {
+  rect { fill: #1a1b26; }
+  text { fill: #c0caf5; }
+}
+</style>
+<rect width="676" height="276" fill="#ffffff"/>
+<g id="frame-0" opacity="1">
+<animate attributeName="opacity" values="1;0;0;0;1" keyTimes="0;0.25;0.5;0.75;1" dur="2434ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="18" y="34" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐                                   </text>
+<text x="18" y="50" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  CLI  │   │ Core  │   │  SVG  │   │  Web  │                                   </text>
+<text x="18" y="66" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘   └───────┘                                   </text>
+<text x="18" y="82" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="98" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │Mermaid source         │           │                                       </text>
+<text x="18" y="114" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │           │                                       </text>
+<text x="18" y="130" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="146" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="162" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │frame stream           │                                       </text>
+<text x="18" y="178" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────▶           │                                       </text>
+<text x="18" y="194" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="210" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="226" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │playback controls      │                                       </text>
+<text x="18" y="242" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────────────────▶                                       </text>
+<text x="18" y="258" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+</g>
+<g id="frame-1" opacity="0">
+<animate attributeName="opacity" values="0;1;0;0;0" keyTimes="0;0.25;0.5;0.75;1" dur="2434ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="18" y="34" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐                                   </text>
+<text x="18" y="50" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  CLI  │   │ Core  │   │  SVG  │   │  Web  │                                   </text>
+<text x="18" y="66" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘   └───────┘                                   </text>
+<text x="18" y="82" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="98" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │Mermaid source         │           │                                       </text>
+<text x="18" y="114" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │           │                                       </text>
+<text x="18" y="130" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="146" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="162" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │frame stream           │                                       </text>
+<text x="18" y="178" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────▶           │                                       </text>
+<text x="18" y="194" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="210" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="226" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │playback controls      │                                       </text>
+<text x="18" y="242" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────────────────▶                                       </text>
+<text x="18" y="258" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+</g>
+<g id="frame-2" opacity="0">
+<animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.25;0.5;0.75;1" dur="2434ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="18" y="34" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐                                   </text>
+<text x="18" y="50" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  CLI  │   │ Core  │   │  SVG  │   │  Web  │                                   </text>
+<text x="18" y="66" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘   └───────┘                                   </text>
+<text x="18" y="82" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="98" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │Mermaid source         │           │                                       </text>
+<text x="18" y="114" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │           │                                       </text>
+<text x="18" y="130" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="146" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="162" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │frame stream           │                                       </text>
+<text x="18" y="178" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────▶           │                                       </text>
+<text x="18" y="194" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="210" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="226" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │playback controls      │                                       </text>
+<text x="18" y="242" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────────────────▶                                       </text>
+<text x="18" y="258" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+</g>
+<g id="frame-3" opacity="0">
+<animate attributeName="opacity" values="0;0;0;1;0" keyTimes="0;0.25;0.5;0.75;1" dur="2434ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="18" y="34" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐                                   </text>
+<text x="18" y="50" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  CLI  │   │ Core  │   │  SVG  │   │  Web  │                                   </text>
+<text x="18" y="66" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘   └───────┘                                   </text>
+<text x="18" y="82" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="98" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │Mermaid source         │           │                                       </text>
+<text x="18" y="114" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │           │                                       </text>
+<text x="18" y="130" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="146" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="162" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │frame stream           │                                       </text>
+<text x="18" y="178" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────▶           │                                       </text>
+<text x="18" y="194" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="210" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+<text x="18" y="226" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │playback controls      │                                       </text>
+<text x="18" y="242" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           ────────────────────────▶                                       </text>
+<text x="18" y="258" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │           │                                       </text>
+</g>
+</svg>

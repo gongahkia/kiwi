@@ -110,7 +110,7 @@
 
 ## Phase 4 — Public launch (weeks 10–11)
 
-- [ ] Build landing page at `kumeyuri.dev` (Vite + Astro or plain HTML) with hero animation
+- [x] Build landing page at `kumeyuri.dev` (Vite + Astro or plain HTML) with hero animation
 - [ ] Add interactive playground (textarea ↔ live diagram via WASM)
 - [ ] Author full docs site with mdBook: install, quickstart, syntax, directives, themes, embedding, recipes
 - [ ] Curate `examples/` gallery with 15 polished `.mmd` files + rendered SVG/GIFs

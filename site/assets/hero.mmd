@@ -1,0 +1,9 @@
+%%{ animate: 'playback', speed: 1.15, loop: true }%%
+sequenceDiagram
+  participant CLI
+  participant Core
+  participant SVG
+  participant Web
+  CLI->>Core: Mermaid source
+  Core-->>SVG: frame stream
+  Core-->>Web: playback controls

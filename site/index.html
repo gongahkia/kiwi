@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kumeyuri</title>
+    <meta name="description" content="Mermaid, animated. Anywhere text renders.">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="kumeyuri home">kumeyuri</a>
+      <nav aria-label="Primary">
+        <a href="#formats">Formats</a>
+        <a href="#embed">Embed</a>
+        <a href="https://github.com/gongahkia/kumeyuri">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <img class="hero-art" src="./assets/hero.svg" alt="Animated kumeyuri renderer pipeline">
+        <div class="hero-copy">
+          <p class="eyebrow">Mermaid, animated. Anywhere text renders.</p>
+          <h1 id="hero-title">kumeyuri</h1>
+          <p class="lede">A Rust renderer that turns vanilla Mermaid into animated terminal, SVG, raster, and browser artefacts from one frame stream.</p>
+          <div class="actions" aria-label="Primary actions">
+            <a class="button primary" href="https://github.com/gongahkia/kumeyuri">View source</a>
+            <a class="button" href="../docs/embedding.md">Embedding guide</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="quickstart" aria-labelledby="quickstart-title">
+        <div>
+          <p class="section-kicker">Current repo workflow</p>
+          <h2 id="quickstart-title">Render one source into multiple surfaces.</h2>
+        </div>
+        <pre><code>cargo run -q -p kumeyuri-cli -- render site/assets/hero.mmd \
+  --format svg --theme github --dark-theme tokyo-night &gt; site/assets/hero.svg
+cargo run -q -p kumeyuri-cli -- render site/assets/hero.mmd \
+  --format gif --padding 12 &gt; hero.gif
+cargo run -q -p kumeyuri-cli -- play site/assets/hero.mmd --loop</code></pre>
+      </section>
+
+      <section id="formats" class="formats" aria-labelledby="formats-title">
+        <div>
+          <p class="section-kicker">Outputs</p>
+          <h2 id="formats-title">One parser, one animation timeline, many renderers.</h2>
+        </div>
+        <ul class="format-grid">
+          <li><strong>TUI</strong><span>Live playback for terminal-first docs and demos.</span></li>
+          <li><strong>SVG</strong><span>Frame groups, SMIL, CSS fallback, text metadata.</span></li>
+          <li><strong>Raster</strong><span>GIF, APNG, and WebP for feeds and slide decks.</span></li>
+          <li><strong>WASM</strong><span>A typed wrapper and custom element for browser embeds.</span></li>
+        </ul>
+      </section>
+
+      <section id="embed" class="embed" aria-labelledby="embed-title">
+        <div>
+          <p class="section-kicker">Embed</p>
+          <h2 id="embed-title">Drop generated diagrams into READMEs, docs, and static sites.</h2>
+        </div>
+        <div class="embed-example">
+          <pre><code>&lt;kumeyuri-diagram
+  src="/diagrams/flow.mmd"
+  animate="trace"
+  theme="github"
+  dark-theme="tokyo-night"
+  autoplay
+  controls
+&gt;&lt;/kumeyuri-diagram&gt;</code></pre>
+          <p>Static SVG works without JavaScript; the browser component adds playback controls when the WASM bundle is loaded.</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
