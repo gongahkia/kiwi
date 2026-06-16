@@ -68,7 +68,7 @@
 
 - [x] Define `KeyFrame` type and `Timeline` model in `kumeyuri-core::animator`
 - [x] Specify default animation per diagram type in `docs/animations.md`
-- [ ] Implement sequence-playback animator: emit one frame per message activation
+- [x] Implement sequence-playback animator: emit one frame per message activation
 - [ ] Implement flowchart-trace animator: highlight path BFS/DFS through nodes
 - [ ] Implement state-transition animator: pulse current state, light up transition arrows
 - [ ] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
