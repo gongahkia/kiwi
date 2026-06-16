@@ -55,7 +55,7 @@
 - [x] Implement glyph palette: ASCII set + Unicode set (box-drawing, block, arrows)
 - [x] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
 - [x] Implement text-output backend in `kumeyuri-core` (`Frame` → `String`)
-- [ ] Add CLI `kumeyuri render <file> --format text` end-to-end
+- [x] Add CLI `kumeyuri render <file> --format text` end-to-end
 - [ ] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
 - [ ] Snapshot-test sequence static output against 15 examples
 - [ ] Snapshot-test state static output against 10 examples

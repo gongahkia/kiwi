@@ -1,11 +1,12 @@
 use crate::ast::{
-    ArrowHead, Direction, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
-    FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartDirective,
-    FlowchartHeader, Label, LabelKind, MermaidComment, MermaidDirective, SequenceArrow,
+    ArrowHead, Diagram, DiagramKind, DiagramMetadata, Direction, FlowClassApply, FlowClassDef,
+    FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
+    FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label,
+    LabelKind, MermaidComment, MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber,
     SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
     SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
-    Spanned, StateDirective, StateHeader, StateNode, StateNodeKind, StateStatement,
-    StateTransition,
+    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
+    StateNote, StateStatement, StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +26,7 @@ pub struct FlowchartHeaderToken {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseErrorKind {
+    ExpectedDiagramHeader,
     ExpectedFlowchartDirective,
     ExpectedFlowchartDirection,
     UnknownFlowchartDirective,
@@ -64,6 +66,22 @@ pub struct ParseError {
 }
 
 impl Parser {
+    pub fn parse_diagram(source: &str) -> Result<Diagram, ParseError> {
+        DiagramParser::new(source).parse()
+    }
+
+    pub fn parse_flowchart(source: &str) -> Result<FlowchartAst, ParseError> {
+        DiagramParser::new(source).parse_flowchart_only()
+    }
+
+    pub fn parse_sequence(source: &str) -> Result<SequenceAst, ParseError> {
+        DiagramParser::new(source).parse_sequence_only()
+    }
+
+    pub fn parse_state(source: &str) -> Result<StateAst, ParseError> {
+        DiagramParser::new(source).parse_state_only()
+    }
+
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
         FlowchartHeaderLexer::new(source).lex()
     }
@@ -130,6 +148,310 @@ impl Parser {
     pub fn parse_state_statement(source: &str) -> Result<StateStatement, ParseError> {
         StateStatementParser::new(source).parse()
     }
+}
+
+struct DiagramParser<'source> {
+    source: &'source str,
+    cursor: usize,
+    directives: Vec<MermaidDirective>,
+}
+
+impl<'source> DiagramParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source,
+            cursor: 0,
+            directives: Vec::new(),
+        }
+    }
+
+    fn parse(mut self) -> Result<Diagram, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedDiagramHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+
+        if let Ok(flow_header) = Parser::parse_flowchart_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Flowchart(Box::new(ast))));
+        }
+        if let Ok(sequence_header) = Parser::parse_sequence_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_sequence_body(shift_sequence_header(sequence_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Sequence(Box::new(ast))));
+        }
+        if let Ok(state_header) = Parser::parse_state_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_state_body(shift_state_header(state_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::State(Box::new(ast))));
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedDiagramHeader,
+            span: Span::new(header.start, header.end),
+        })
+    }
+
+    fn parse_flowchart_only(mut self) -> Result<FlowchartAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedFlowchartDirective,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let flow_header = Parser::parse_flowchart_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))
+    }
+
+    fn parse_sequence_only(mut self) -> Result<SequenceAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSequenceHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let sequence_header = Parser::parse_sequence_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_sequence_body(shift_sequence_header(sequence_header, header.start))
+    }
+
+    fn parse_state_only(mut self) -> Result<StateAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedStateHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let state_header = Parser::parse_state_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_state_body(shift_state_header(state_header, header.start))
+    }
+
+    fn diagram(self, kind: DiagramKind) -> Diagram {
+        Diagram {
+            metadata: DiagramMetadata {
+                title: None,
+                accessibility_title: None,
+                accessibility_description: None,
+                span: Span::new(0, 0),
+            },
+            directives: self.directives,
+            kind,
+            span: Span::new(0, self.source.len()),
+        }
+    }
+
+    fn skip_preamble(&mut self) {
+        while let Some(line) = self.current_trimmed_line() {
+            if let Ok(directive) = Parser::parse_mermaid_directive(line.text) {
+                self.directives.push(shift_directive(directive, line.start));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if Parser::parse_mermaid_comment(line.text).is_ok() {
+                self.cursor = line.line.next;
+                continue;
+            }
+            break;
+        }
+    }
+
+    fn parse_flowchart_body(
+        &mut self,
+        header: FlowchartHeader,
+    ) -> Result<FlowchartAst, ParseError> {
+        let span = Span::new(header.span.start, self.source.len());
+        let mut ast = FlowchartAst {
+            header,
+            statements: Vec::new(),
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+            classes: Vec::new(),
+            span,
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text.starts_with("subgraph") {
+                let (block_end, next_cursor) = collect_subgraph_span(self.source, line.start)?;
+                let subgraph = Parser::parse_flow_subgraph(&self.source[line.start..block_end])?;
+                push_flow_statement(
+                    &mut ast,
+                    FlowStatement::Subgraph(shift_subgraph(subgraph, line.start)),
+                );
+                self.cursor = next_cursor;
+                continue;
+            }
+
+            let statement = parse_flow_document_statement(line.text, line.start)?;
+            push_flow_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_sequence_body(&mut self, header: SequenceHeader) -> Result<SequenceAst, ParseError> {
+        let mut ast = SequenceAst {
+            header,
+            statements: Vec::new(),
+            participants: Vec::new(),
+            boxes: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "end" {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let statement =
+                shift_sequence_statement(Parser::parse_sequence_statement(line.text)?, line.start);
+            if let SequenceStatement::Participant(participant) = &statement {
+                ast.participants.push((**participant).clone());
+            }
+            ast.statements.push(statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_state_body(&mut self, header: StateHeader) -> Result<StateAst, ParseError> {
+        let mut ast = StateAst {
+            header,
+            direction: None,
+            statements: Vec::new(),
+            states: Vec::new(),
+            transitions: Vec::new(),
+            classes: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let statement =
+                shift_state_statement(Parser::parse_state_statement(line.text)?, line.start);
+            match &statement {
+                StateStatement::State(state) | StateStatement::Composite(state) => {
+                    ast.states.push((**state).clone());
+                }
+                StateStatement::Transition(transition) => {
+                    ast.transitions.push((**transition).clone());
+                }
+                StateStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
+                StateStatement::Direction(direction) => ast.direction = Some(*direction),
+                StateStatement::ClassApply(_)
+                | StateStatement::Comment(_)
+                | StateStatement::Directive(_) => {}
+            }
+            ast.statements.push(statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
+        let mut cursor = self.cursor;
+        while let Some(line) = source_line(self.source, cursor) {
+            let Some((trim_start, trim_end)) = trim_ascii_range(line.text) else {
+                cursor = line.next;
+                continue;
+            };
+            let start = line.start + trim_start;
+            let end = line.start + trim_end;
+            return Some(TrimmedSourceLine {
+                line,
+                start,
+                end,
+                text: &self.source[start..end],
+            });
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TrimmedSourceLine<'source> {
+    line: SourceLine<'source>,
+    start: usize,
+    end: usize,
+    text: &'source str,
+}
+
+fn parse_flow_document_statement(
+    statement: &str,
+    offset: usize,
+) -> Result<FlowStatement, ParseError> {
+    if let Ok(directive) = Parser::parse_mermaid_directive(statement) {
+        return Ok(FlowStatement::Directive(shift_directive(directive, offset)));
+    }
+    if let Ok(comment) = Parser::parse_mermaid_comment(statement) {
+        return Ok(FlowStatement::Comment(shift_comment(comment, offset)));
+    }
+    if let Ok(class_def) = Parser::parse_flow_class_def(statement) {
+        return Ok(FlowStatement::ClassDef(shift_class_def(class_def, offset)));
+    }
+    if let Ok(class_apply) = Parser::parse_flow_class_apply(statement) {
+        return Ok(FlowStatement::ClassApply(shift_class_apply(
+            class_apply,
+            offset,
+        )));
+    }
+    if let Ok(edge) = Parser::parse_flow_edge(statement) {
+        return Ok(FlowStatement::Edge(Box::new(shift_edge(edge, offset))));
+    }
+    if let Ok(node) = Parser::parse_flow_node(statement) {
+        return Ok(FlowStatement::Node(shift_node(node, offset)));
+    }
+    Err(ParseError {
+        kind: ParseErrorKind::UnknownFlowStatement,
+        span: Span::new(offset, offset + statement.len()),
+    })
+}
+
+fn push_flow_statement(ast: &mut FlowchartAst, statement: FlowStatement) {
+    match &statement {
+        FlowStatement::Node(node) => ast.nodes.push(node.clone()),
+        FlowStatement::Edge(edge) => ast.edges.push((**edge).clone()),
+        FlowStatement::Subgraph(subgraph) => ast.subgraphs.push(subgraph.clone()),
+        FlowStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
+        FlowStatement::ClassApply(_) | FlowStatement::Comment(_) | FlowStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
+    let mut cursor = start;
+    let mut depth = 0usize;
+
+    while let Some(line) = source_line(source, cursor) {
+        if let Some((trim_start, trim_end)) = trim_ascii_range(line.text) {
+            let absolute_start = line.start + trim_start;
+            let absolute_end = line.start + trim_end;
+            let trimmed = &source[absolute_start..absolute_end];
+            if trimmed.starts_with("subgraph") {
+                depth += 1;
+            } else if trimmed == "end" {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Ok((absolute_end, line.next));
+                }
+            }
+        }
+        cursor = line.next;
+    }
+
+    Err(ParseError {
+        kind: ParseErrorKind::UnterminatedSubgraph,
+        span: Span::new(start, source.len()),
+    })
 }
 
 struct FlowEdgeParser<'source> {
@@ -1046,6 +1368,27 @@ struct SourceLine<'source> {
     start: usize,
     text: &'source str,
     next: usize,
+}
+
+fn source_line(source: &str, cursor: usize) -> Option<SourceLine<'_>> {
+    if cursor >= source.len() {
+        return None;
+    }
+    let rest = &source[cursor..];
+    let relative_end = rest.find(['\n', '\r']).unwrap_or(rest.len());
+    let end = cursor + relative_end;
+    let next = if end == source.len() {
+        end
+    } else if source[end..].starts_with("\r\n") {
+        end + 2
+    } else {
+        end + 1
+    };
+    Some(SourceLine {
+        start: cursor,
+        text: &source[cursor..end],
+        next,
+    })
 }
 
 struct FlowNodeParser<'source> {
@@ -1975,6 +2318,234 @@ fn shift_directive(directive: MermaidDirective, offset: usize) -> MermaidDirecti
     }
 }
 
+fn shift_flowchart_header(header: FlowchartHeader, offset: usize) -> FlowchartHeader {
+    FlowchartHeader {
+        directive: shift_spanned(header.directive, offset),
+        direction: shift_spanned(header.direction, offset),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_subgraph(subgraph: FlowSubgraph, offset: usize) -> FlowSubgraph {
+    FlowSubgraph {
+        id: shift_spanned(subgraph.id, offset),
+        label: subgraph.label.map(|label| shift_label(label, offset)),
+        direction: subgraph
+            .direction
+            .map(|direction| shift_spanned(direction, offset)),
+        statements: subgraph
+            .statements
+            .into_iter()
+            .map(|statement| shift_flow_statement(statement, offset))
+            .collect(),
+        span: shift_span(subgraph.span, offset),
+    }
+}
+
+fn shift_flow_statement(statement: FlowStatement, offset: usize) -> FlowStatement {
+    match statement {
+        FlowStatement::Node(node) => FlowStatement::Node(shift_node(node, offset)),
+        FlowStatement::Edge(edge) => FlowStatement::Edge(Box::new(shift_edge(*edge, offset))),
+        FlowStatement::Subgraph(subgraph) => {
+            FlowStatement::Subgraph(shift_subgraph(subgraph, offset))
+        }
+        FlowStatement::ClassDef(class_def) => {
+            FlowStatement::ClassDef(shift_class_def(class_def, offset))
+        }
+        FlowStatement::ClassApply(class_apply) => {
+            FlowStatement::ClassApply(shift_class_apply(class_apply, offset))
+        }
+        FlowStatement::Comment(comment) => FlowStatement::Comment(shift_comment(comment, offset)),
+        FlowStatement::Directive(directive) => {
+            FlowStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_sequence_header(header: SequenceHeader, offset: usize) -> SequenceHeader {
+    SequenceHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_sequence_statement(statement: SequenceStatement, offset: usize) -> SequenceStatement {
+    match statement {
+        SequenceStatement::Participant(participant) => SequenceStatement::Participant(Box::new(
+            shift_sequence_participant(*participant, offset),
+        )),
+        SequenceStatement::Message(message) => {
+            SequenceStatement::Message(Box::new(shift_sequence_message(*message, offset)))
+        }
+        SequenceStatement::ActivationStart(participant) => {
+            SequenceStatement::ActivationStart(shift_spanned(participant, offset))
+        }
+        SequenceStatement::ActivationEnd(participant) => {
+            SequenceStatement::ActivationEnd(shift_spanned(participant, offset))
+        }
+        SequenceStatement::Note(note) => {
+            SequenceStatement::Note(Box::new(shift_sequence_note(*note, offset)))
+        }
+        SequenceStatement::Control(control) => {
+            SequenceStatement::Control(Box::new(shift_sequence_control(*control, offset)))
+        }
+        SequenceStatement::AutoNumber(auto_number) => {
+            SequenceStatement::AutoNumber(shift_sequence_auto_number(auto_number, offset))
+        }
+        SequenceStatement::Comment(comment) => {
+            SequenceStatement::Comment(shift_comment(comment, offset))
+        }
+        SequenceStatement::Directive(directive) => {
+            SequenceStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_sequence_participant(
+    participant: SequenceParticipant,
+    offset: usize,
+) -> SequenceParticipant {
+    SequenceParticipant {
+        id: shift_spanned(participant.id, offset),
+        alias: participant.alias.map(|label| shift_label(label, offset)),
+        kind: participant.kind,
+        span: shift_span(participant.span, offset),
+    }
+}
+
+fn shift_sequence_message(message: SequenceMessage, offset: usize) -> SequenceMessage {
+    SequenceMessage {
+        from: shift_spanned(message.from, offset),
+        to: shift_spanned(message.to, offset),
+        arrow: message.arrow,
+        label: message.label.map(|label| shift_label(label, offset)),
+        span: shift_span(message.span, offset),
+    }
+}
+
+fn shift_sequence_note(note: SequenceNote, offset: usize) -> SequenceNote {
+    SequenceNote {
+        placement: note.placement,
+        participants: note
+            .participants
+            .into_iter()
+            .map(|participant| shift_spanned(participant, offset))
+            .collect(),
+        label: shift_label(note.label, offset),
+        span: shift_span(note.span, offset),
+    }
+}
+
+fn shift_sequence_control(control: SequenceControlBlock, offset: usize) -> SequenceControlBlock {
+    SequenceControlBlock {
+        kind: control.kind,
+        label: control.label.map(|label| shift_label(label, offset)),
+        statements: control
+            .statements
+            .into_iter()
+            .map(|statement| shift_sequence_statement(statement, offset))
+            .collect(),
+        span: shift_span(control.span, offset),
+    }
+}
+
+fn shift_sequence_auto_number(
+    auto_number: SequenceAutoNumber,
+    offset: usize,
+) -> SequenceAutoNumber {
+    SequenceAutoNumber {
+        start: auto_number.start,
+        step: auto_number.step,
+        span: shift_span(auto_number.span, offset),
+    }
+}
+
+fn shift_state_header(header: StateHeader, offset: usize) -> StateHeader {
+    StateHeader {
+        directive: header.directive,
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_state_statement(statement: StateStatement, offset: usize) -> StateStatement {
+    match statement {
+        StateStatement::State(state) => {
+            StateStatement::State(Box::new(shift_state_node(*state, offset)))
+        }
+        StateStatement::Transition(transition) => {
+            StateStatement::Transition(Box::new(shift_state_transition(*transition, offset)))
+        }
+        StateStatement::Composite(state) => {
+            StateStatement::Composite(Box::new(shift_state_node(*state, offset)))
+        }
+        StateStatement::ClassDef(class_def) => {
+            StateStatement::ClassDef(shift_class_def(class_def, offset))
+        }
+        StateStatement::ClassApply(class_apply) => {
+            StateStatement::ClassApply(shift_state_class_apply(class_apply, offset))
+        }
+        StateStatement::Direction(direction) => {
+            StateStatement::Direction(shift_spanned(direction, offset))
+        }
+        StateStatement::Comment(comment) => StateStatement::Comment(shift_comment(comment, offset)),
+        StateStatement::Directive(directive) => {
+            StateStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_state_node(state: StateNode, offset: usize) -> StateNode {
+    StateNode {
+        id: shift_spanned(state.id, offset),
+        label: state.label.map(|label| shift_label(label, offset)),
+        kind: state.kind,
+        descriptions: state
+            .descriptions
+            .into_iter()
+            .map(|label| shift_label(label, offset))
+            .collect(),
+        note: state.note.map(|note| shift_state_note(note, offset)),
+        children: state
+            .children
+            .into_iter()
+            .map(|statement| shift_state_statement(statement, offset))
+            .collect(),
+        span: shift_span(state.span, offset),
+    }
+}
+
+fn shift_state_transition(transition: StateTransition, offset: usize) -> StateTransition {
+    StateTransition {
+        from: shift_spanned(transition.from, offset),
+        to: shift_spanned(transition.to, offset),
+        label: transition.label.map(|label| shift_label(label, offset)),
+        span: shift_span(transition.span, offset),
+    }
+}
+
+fn shift_state_note(note: StateNote, offset: usize) -> StateNote {
+    StateNote {
+        placement: note.placement,
+        label: shift_label(note.label, offset),
+        span: shift_span(note.span, offset),
+    }
+}
+
+fn shift_state_class_apply(class_apply: StateClassApply, offset: usize) -> StateClassApply {
+    StateClassApply {
+        state_ids: class_apply
+            .state_ids
+            .into_iter()
+            .map(|state_id| shift_spanned(state_id, offset))
+            .collect(),
+        class_ids: class_apply
+            .class_ids
+            .into_iter()
+            .map(|class_id| shift_spanned(class_id, offset))
+            .collect(),
+        span: shift_span(class_apply.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -2241,8 +2812,8 @@ mod tests {
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
     use crate::ast::{
-        ArrowHead, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
-        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        ArrowHead, DiagramKind, Direction, FlowEdgeStroke, FlowShape, FlowStatement,
+        FlowchartDirective, LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
         SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
         StateStatement,
     };
@@ -2294,6 +2865,48 @@ mod tests {
         assert_eq!(header.directive.value, FlowchartDirective::Flowchart);
         assert_eq!(header.direction.value, Direction::BottomTop);
         assert_eq!(header.span, Span::new(0, 12));
+    }
+
+    #[test]
+    fn parses_flowchart_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "%%{ init: {} }%%\ngraph TD\nA --> B\nsubgraph group\nC --> D\nend",
+        )
+        .unwrap();
+
+        assert_eq!(diagram.directives.len(), 1);
+        let DiagramKind::Flowchart(ast) = diagram.kind else {
+            panic!("expected flowchart diagram");
+        };
+        assert_eq!(ast.header.direction.value, Direction::TopDown);
+        assert_eq!(ast.edges.len(), 1);
+        assert_eq!(ast.subgraphs.len(), 1);
+        assert!(matches!(ast.statements[1], FlowStatement::Subgraph(_)));
+    }
+
+    #[test]
+    fn parses_sequence_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "sequenceDiagram\nparticipant Alice as Alice Doe\nAlice->>Bob: hello",
+        )
+        .unwrap();
+
+        let DiagramKind::Sequence(ast) = diagram.kind else {
+            panic!("expected sequence diagram");
+        };
+        assert_eq!(ast.participants.len(), 1);
+        assert_eq!(ast.statements.len(), 2);
+    }
+
+    #[test]
+    fn parses_state_document_to_diagram() {
+        let diagram = Parser::parse_diagram("stateDiagram-v2\ndirection LR\n[*] --> Idle").unwrap();
+
+        let DiagramKind::State(ast) = diagram.kind else {
+            panic!("expected state diagram");
+        };
+        assert_eq!(ast.direction.unwrap().value, Direction::LeftRight);
+        assert_eq!(ast.transitions.len(), 1);
     }
 
     #[test]
