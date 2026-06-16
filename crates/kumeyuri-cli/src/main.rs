@@ -13,6 +13,8 @@ use kumeyuri_core::{
     parser::Parser as MermaidParser,
     text::{TextOutputBackend, TextOutputConfig},
 };
+use kumeyuri_render_raster::RasterRenderer;
+use kumeyuri_render_svg::SvgRenderer;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -71,6 +73,11 @@ enum Command {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum RenderFormat {
     Text,
+    Svg,
+    Gif,
+    Apng,
+    Webp,
+    Tui,
 }
 
 fn main() -> ExitCode {
@@ -100,24 +107,52 @@ fn run() -> Result<(), String> {
 fn render_file(path: &Path, format: RenderFormat) -> Result<(), String> {
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    if format == RenderFormat::Tui {
+        let timeline = timeline_from_source(&source)?;
+        return play_timeline(&timeline);
+    }
     let output = render_source(&source, format)?;
     io::stdout()
-        .write_all(output.as_bytes())
+        .write_all(&output)
         .map_err(|error| format!("failed to write stdout: {error}"))
 }
 
-fn render_source(source: &str, format: RenderFormat) -> Result<String, String> {
+fn render_source(source: &str, format: RenderFormat) -> Result<Vec<u8>, String> {
     match format {
-        RenderFormat::Text => {
-            let diagram = parse_diagram(source)?;
-            let frame = StaticFrameRenderer::default().render_diagram(&diagram);
-            Ok(TextOutputBackend::new(TextOutputConfig {
-                trim_trailing_whitespace: true,
-                final_newline: true,
-            })
-            .render_frame(&frame))
-        }
+        RenderFormat::Text => Ok(render_text_source(source)?.into_bytes()),
+        RenderFormat::Svg => Ok(render_svg_source(source)?.into_bytes()),
+        RenderFormat::Gif => render_raster_source(source, RasterRenderer::render_gif),
+        RenderFormat::Apng => render_raster_source(source, RasterRenderer::render_apng),
+        RenderFormat::Webp => render_raster_source(source, RasterRenderer::render_webp),
+        RenderFormat::Tui => Err("tui format requires an interactive terminal".to_owned()),
     }
+}
+
+fn render_text_source(source: &str) -> Result<String, String> {
+    let diagram = parse_diagram(source)?;
+    let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+    Ok(TextOutputBackend::new(TextOutputConfig {
+        trim_trailing_whitespace: true,
+        final_newline: true,
+    })
+    .render_frame(&frame))
+}
+
+fn render_svg_source(source: &str) -> Result<String, String> {
+    let timeline = timeline_from_source(source)?;
+    Ok(SvgRenderer::default().render_timeline(&timeline))
+}
+
+fn render_raster_source(
+    source: &str,
+    render: fn(
+        &RasterRenderer,
+        &Timeline,
+    ) -> Result<Vec<u8>, kumeyuri_render_raster::RasterRenderError>,
+) -> Result<Vec<u8>, String> {
+    let timeline = timeline_from_source(source)?;
+    render(&RasterRenderer::default(), &timeline)
+        .map_err(|error| format!("raster render error: {error:?}"))
 }
 
 fn play_file(path: &Path, options: AnimationOptions) -> Result<(), String> {
@@ -173,7 +208,7 @@ fn should_rerender(event: &Event, path: &Path) -> bool {
 fn redraw_watched_file(path: &Path) -> Result<(), String> {
     let output = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))
-        .and_then(|source| render_source(&source, RenderFormat::Text))
+        .and_then(|source| render_text_source(&source))
         .unwrap_or_else(|error| format!("{error}\n"));
     redraw_message(&output)
 }
@@ -191,7 +226,6 @@ fn redraw_message(output: &str) -> Result<(), String> {
         .map_err(|error| format!("failed to flush stdout: {error}"))
 }
 
-#[cfg(test)]
 fn timeline_from_source(source: &str) -> Result<Timeline, String> {
     timeline_from_source_with_options(source, AnimationOptions::default())
 }
@@ -406,12 +440,13 @@ enum PlaybackAction {
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        Cli, Command, RenderFormat, parse_speed_override, playback_options, render_source,
+        timeline_from_source, timeline_from_source_with_options,
+    };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackState, should_rerender};
-    use super::{
-        RenderFormat, parse_speed_override, playback_options, render_source, timeline_from_source,
-        timeline_from_source_with_options,
-    };
+    use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
     #[cfg(not(target_arch = "wasm32"))]
@@ -425,11 +460,63 @@ mod tests {
 
     #[test]
     fn renders_mermaid_source_to_text() {
-        let output = render_source("graph TD\nA --> B", RenderFormat::Text).unwrap();
+        let output =
+            String::from_utf8(render_source("graph TD\nA --> B", RenderFormat::Text).unwrap())
+                .unwrap();
 
         assert!(output.contains('A'));
         assert!(output.contains('B'));
         assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn render_format_parser_accepts_all_values() {
+        for value in ["text", "svg", "gif", "apng", "webp", "tui"] {
+            let cli = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--format", value])
+                .unwrap();
+            assert!(matches!(cli.command, Command::Render { .. }));
+        }
+    }
+
+    #[test]
+    fn renders_mermaid_source_to_svg() {
+        let output =
+            String::from_utf8(render_source("graph TD\nA --> B", RenderFormat::Svg).unwrap())
+                .unwrap();
+
+        assert!(output.starts_with("<svg "));
+        assert!(output.contains("<animate "));
+    }
+
+    #[test]
+    fn renders_mermaid_source_to_gif() {
+        let output = render_source("graph TD\nA --> B", RenderFormat::Gif).unwrap();
+
+        assert!(output.starts_with(b"GIF89a"));
+    }
+
+    #[test]
+    fn renders_mermaid_source_to_apng() {
+        let output = render_source("graph TD\nA --> B", RenderFormat::Apng).unwrap();
+
+        assert!(output.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert!(output.windows(4).any(|chunk| chunk == b"acTL"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn renders_mermaid_source_to_webp() {
+        let output = render_source("graph TD\nA --> B", RenderFormat::Webp).unwrap();
+
+        assert_eq!(&output[..4], b"RIFF");
+        assert_eq!(&output[8..12], b"WEBP");
+    }
+
+    #[test]
+    fn tui_format_requires_render_file_terminal_path() {
+        let error = render_source("graph TD\nA --> B", RenderFormat::Tui).unwrap_err();
+
+        assert!(error.contains("interactive terminal"));
     }
 
     #[test]
