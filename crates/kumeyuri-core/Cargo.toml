@@ -1,6 +1,6 @@
 [package]
 name = "kumeyuri-core"
-version = "0.0.0"
+version = "0.1.0-static"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/gongahkia/kumeyuri"
