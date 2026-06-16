@@ -12,6 +12,7 @@ pub enum DiagramKind {
     Sequence(Box<SequenceAst>),
     State(Box<StateAst>),
     Class(Box<ClassAst>),
+    Er(Box<ErAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -496,6 +497,66 @@ pub enum ClassRelationshipMarker {
     Inheritance,
     Aggregation,
     Composition,
+    One,
+    ZeroOrOne,
+    Many,
+    ZeroOrMany,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErAst {
+    pub header: ErHeader,
+    pub statements: Vec<ErStatement>,
+    pub entities: Vec<ErEntity>,
+    pub relationships: Vec<ErRelationship>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErStatement {
+    Entity(Box<ErEntity>),
+    Relationship(Box<ErRelationship>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErEntity {
+    pub id: Spanned<String>,
+    pub attributes: Vec<ErAttribute>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErAttribute {
+    pub ty: Spanned<String>,
+    pub name: Spanned<String>,
+    pub key: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErRelationship {
+    pub from: Spanned<String>,
+    pub to: Spanned<String>,
+    pub start_cardinality: ErCardinality,
+    pub end_cardinality: ErCardinality,
+    pub identifying: bool,
+    pub label: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErCardinality {
+    One,
+    ZeroOrOne,
+    OneOrMany,
+    ZeroOrMany,
 }
 
 #[cfg(test)]

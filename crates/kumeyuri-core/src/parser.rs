@@ -1,14 +1,15 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassHeader, ClassMember, ClassMemberAssignment, ClassMemberKind,
     ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-    Diagram, DiagramKind, DiagramMetadata, Direction, FlowClassApply, FlowClassDef, FlowEdge,
-    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration,
-    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind,
-    MermaidComment, MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber,
-    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
-    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
-    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
-    StateNote, StateStatement, StateTransition,
+    Diagram, DiagramKind, DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity,
+    ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
+    FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
+    FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind, MermaidComment,
+    MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock,
+    SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
+    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
+    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
+    StateStatement, StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +63,11 @@ pub enum ParseErrorKind {
     UnknownClassStatement,
     ExpectedClassMember,
     ExpectedClassRelationship,
+    ExpectedErHeader,
+    UnknownErStatement,
+    ExpectedErEntity,
+    ExpectedErAttribute,
+    ExpectedErRelationship,
     TrailingInput,
 }
 
@@ -90,6 +96,10 @@ impl Parser {
 
     pub fn parse_class(source: &str) -> Result<ClassAst, ParseError> {
         DiagramParser::new(source).parse_class_only()
+    }
+
+    pub fn parse_er(source: &str) -> Result<ErAst, ParseError> {
+        DiagramParser::new(source).parse_er_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -166,6 +176,14 @@ impl Parser {
     pub fn parse_class_statement(source: &str) -> Result<ClassStatement, ParseError> {
         ClassStatementParser::new(source).parse()
     }
+
+    pub fn parse_er_header(source: &str) -> Result<ErHeader, ParseError> {
+        ErHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_er_statement(source: &str) -> Result<ErStatement, ParseError> {
+        ErStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -211,6 +229,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_class_body(shift_class_header(class_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Class(Box::new(ast))));
+        }
+        if let Ok(er_header) = Parser::parse_er_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_er_body(shift_er_header(er_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Er(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -261,6 +284,17 @@ impl<'source> DiagramParser<'source> {
         let class_header = Parser::parse_class_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_class_body(shift_class_header(class_header, header.start))
+    }
+
+    fn parse_er_only(mut self) -> Result<ErAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedErHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let er_header = Parser::parse_er_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_er_body(shift_er_header(er_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -457,6 +491,64 @@ impl<'source> DiagramParser<'source> {
         })
     }
 
+    fn parse_er_body(&mut self, header: ErHeader) -> Result<ErAst, ParseError> {
+        let mut ast = ErAst {
+            header,
+            statements: Vec::new(),
+            entities: Vec::new(),
+            relationships: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if is_er_block_header(line.text) {
+                let entity = self.parse_er_block(line)?;
+                push_er_statement(&mut ast, ErStatement::Entity(Box::new(entity)));
+                continue;
+            }
+            if line.text == "}" {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let statement = shift_er_statement(Parser::parse_er_statement(line.text)?, line.start);
+            push_er_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_er_block(
+        &mut self,
+        header_line: TrimmedSourceLine<'source>,
+    ) -> Result<ErEntity, ParseError> {
+        let mut entity = parse_er_entity_header(
+            header_line.text,
+            0,
+            header_line.text.len().saturating_sub(1),
+        )?;
+        entity = shift_er_entity(entity, header_line.start);
+        self.cursor = header_line.line.next;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                entity.span = Span::new(entity.span.start, line.end);
+                self.cursor = line.line.next;
+                return Ok(entity);
+            }
+            entity.attributes.push(shift_er_attribute(
+                parse_er_attribute(line.text, 0, line.text.len())?,
+                line.start,
+            ));
+            self.cursor = line.line.next;
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedErAttribute,
+            span: Span::new(entity.span.start, self.source.len()),
+        })
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -594,6 +686,42 @@ fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
         id: id.clone(),
         annotations: Vec::new(),
         members: Vec::new(),
+        span: id.span,
+    });
+}
+
+fn push_er_statement(ast: &mut ErAst, statement: ErStatement) {
+    match &statement {
+        ErStatement::Entity(entity) => merge_er_entity(&mut ast.entities, entity),
+        ErStatement::Relationship(relationship) => {
+            ensure_er_entity(&mut ast.entities, &relationship.from);
+            ensure_er_entity(&mut ast.entities, &relationship.to);
+            ast.relationships.push((**relationship).clone());
+        }
+        ErStatement::Comment(_) | ErStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn merge_er_entity(entities: &mut Vec<ErEntity>, entity: &ErEntity) {
+    if let Some(existing) = entities
+        .iter_mut()
+        .find(|value| value.id.value == entity.id.value)
+    {
+        existing.attributes.extend(entity.attributes.clone());
+        existing.span = Span::new(existing.span.start.min(entity.span.start), entity.span.end);
+        return;
+    }
+    entities.push(entity.clone());
+}
+
+fn ensure_er_entity(entities: &mut Vec<ErEntity>, id: &Spanned<String>) {
+    if entities.iter().any(|entity| entity.id.value == id.value) {
+        return;
+    }
+    entities.push(ErEntity {
+        id: id.clone(),
+        attributes: Vec::new(),
         span: id.span,
     });
 }
@@ -1459,6 +1587,130 @@ impl<'source> ClassStatementParser<'source> {
             line: operator.line,
             start_marker: operator.start_marker,
             end_marker: operator.end_marker,
+            label,
+            span: Span::new(start, end),
+        }))
+    }
+}
+
+struct ErHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> ErHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ErHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedErHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "erDiagram" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedErHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(ErHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct ErStatementParser<'source> {
+    source: &'source str,
+}
+
+#[derive(Debug, Clone)]
+struct ErRelationshipOperator {
+    token: String,
+    start_cardinality: ErCardinality,
+    end_cardinality: ErCardinality,
+    identifying: bool,
+}
+
+impl<'source> ErStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ErStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownErStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(ErStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(ErStatement::Comment(shift_comment(comment, start)));
+        }
+        if let Some(relationship) = self.parse_relationship(start, end)? {
+            return Ok(ErStatement::Relationship(Box::new(relationship)));
+        }
+        if is_er_block_header(trimmed) || is_identifier(trimmed) {
+            let end = if self.source.as_bytes().get(end.saturating_sub(1)) == Some(&b'{') {
+                end - 1
+            } else {
+                end
+            };
+            return Ok(ErStatement::Entity(Box::new(parse_er_entity_header(
+                self.source,
+                start,
+                end,
+            )?)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownErStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_relationship(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ErRelationship>, ParseError> {
+        let Some((operator_start, operator)) =
+            find_er_relationship_operator(self.source, start, end)
+        else {
+            return Ok(None);
+        };
+        let operator_end = operator_start + operator.token.len();
+        let from = parse_single_identifier(
+            self.source,
+            start,
+            operator_start,
+            ParseErrorKind::ExpectedErRelationship,
+        )?;
+        let label_start = self.source[operator_end..end]
+            .find(':')
+            .map(|offset| operator_end + offset);
+        let to_end = label_start.unwrap_or(end);
+        let to = parse_single_identifier(
+            self.source,
+            operator_end,
+            to_end,
+            ParseErrorKind::ExpectedErRelationship,
+        )?;
+        let label = label_start.and_then(|offset| label_from_trimmed(self.source, offset + 1, end));
+        Ok(Some(ErRelationship {
+            from,
+            to,
+            start_cardinality: operator.start_cardinality,
+            end_cardinality: operator.end_cardinality,
+            identifying: operator.identifying,
             label,
             span: Span::new(start, end),
         }))
@@ -2918,6 +3170,118 @@ fn class_relationship_operators() -> [ClassRelationshipOperator; 14] {
     ]
 }
 
+fn is_er_block_header(source: &str) -> bool {
+    let Some((start, end)) = trim_ascii_range(source) else {
+        return false;
+    };
+    source[start..end].ends_with('{')
+        && parse_single_identifier(
+            source,
+            start,
+            end.saturating_sub(1),
+            ParseErrorKind::ExpectedErEntity,
+        )
+        .is_ok()
+}
+
+fn parse_er_entity_header(source: &str, start: usize, end: usize) -> Result<ErEntity, ParseError> {
+    let id = parse_single_identifier(source, start, end, ParseErrorKind::ExpectedErEntity)?;
+    Ok(ErEntity {
+        id,
+        attributes: Vec::new(),
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_er_attribute(source: &str, start: usize, end: usize) -> Result<ErAttribute, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedErAttribute,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let parts = source[absolute_start..absolute_end]
+        .split_ascii_whitespace()
+        .collect::<Vec<_>>();
+    let [ty, name, rest @ ..] = parts.as_slice() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedErAttribute,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    let ty_start = source[absolute_start..absolute_end]
+        .find(ty)
+        .map_or(absolute_start, |offset| absolute_start + offset);
+    let name_start = source[ty_start + ty.len()..absolute_end]
+        .find(name)
+        .map_or(ty_start + ty.len(), |offset| ty_start + ty.len() + offset);
+    let key = rest.first().and_then(|key| {
+        let key_start = source[name_start + name.len()..absolute_end]
+            .find(key)
+            .map(|offset| name_start + name.len() + offset)?;
+        Some(Spanned::new(
+            (*key).to_owned(),
+            Span::new(key_start, key_start + key.len()),
+        ))
+    });
+    Ok(ErAttribute {
+        ty: Spanned::new((*ty).to_owned(), Span::new(ty_start, ty_start + ty.len())),
+        name: Spanned::new(
+            (*name).to_owned(),
+            Span::new(name_start, name_start + name.len()),
+        ),
+        key,
+        span: Span::new(absolute_start, absolute_end),
+    })
+}
+
+fn find_er_relationship_operator(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(usize, ErRelationshipOperator)> {
+    er_relationship_operators()
+        .into_iter()
+        .filter_map(|operator| {
+            source[start..end]
+                .find(&operator.token)
+                .map(|offset| (start + offset, operator))
+        })
+        .min_by_key(|(offset, operator)| (*offset, std::cmp::Reverse(operator.token.len())))
+}
+
+fn er_relationship_operators() -> Vec<ErRelationshipOperator> {
+    let ends = [
+        ("||", ErCardinality::One),
+        ("|o", ErCardinality::ZeroOrOne),
+        ("o|", ErCardinality::ZeroOrOne),
+        ("}|", ErCardinality::OneOrMany),
+        ("|{", ErCardinality::OneOrMany),
+        ("}o", ErCardinality::ZeroOrMany),
+        ("o{", ErCardinality::ZeroOrMany),
+    ];
+    let mut operators = Vec::new();
+    for (left, start_cardinality) in ends {
+        for (right, end_cardinality) in ends {
+            operators.push(ErRelationshipOperator {
+                token: format!("{left}--{right}"),
+                start_cardinality,
+                end_cardinality,
+                identifying: true,
+            });
+            operators.push(ErRelationshipOperator {
+                token: format!("{left}..{right}"),
+                start_cardinality,
+                end_cardinality,
+                identifying: false,
+            });
+        }
+    }
+    operators
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -3313,6 +3677,60 @@ fn shift_class_relationship(relationship: ClassRelationship, offset: usize) -> C
     }
 }
 
+fn shift_er_header(header: ErHeader, offset: usize) -> ErHeader {
+    ErHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_er_statement(statement: ErStatement, offset: usize) -> ErStatement {
+    match statement {
+        ErStatement::Entity(entity) => {
+            ErStatement::Entity(Box::new(shift_er_entity(*entity, offset)))
+        }
+        ErStatement::Relationship(relationship) => {
+            ErStatement::Relationship(Box::new(shift_er_relationship(*relationship, offset)))
+        }
+        ErStatement::Comment(comment) => ErStatement::Comment(shift_comment(comment, offset)),
+        ErStatement::Directive(directive) => {
+            ErStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_er_entity(entity: ErEntity, offset: usize) -> ErEntity {
+    ErEntity {
+        id: shift_spanned(entity.id, offset),
+        attributes: entity
+            .attributes
+            .into_iter()
+            .map(|attribute| shift_er_attribute(attribute, offset))
+            .collect(),
+        span: shift_span(entity.span, offset),
+    }
+}
+
+fn shift_er_attribute(attribute: ErAttribute, offset: usize) -> ErAttribute {
+    ErAttribute {
+        ty: shift_spanned(attribute.ty, offset),
+        name: shift_spanned(attribute.name, offset),
+        key: attribute.key.map(|key| shift_spanned(key, offset)),
+        span: shift_span(attribute.span, offset),
+    }
+}
+
+fn shift_er_relationship(relationship: ErRelationship, offset: usize) -> ErRelationship {
+    ErRelationship {
+        from: shift_spanned(relationship.from, offset),
+        to: shift_spanned(relationship.to, offset),
+        start_cardinality: relationship.start_cardinality,
+        end_cardinality: relationship.end_cardinality,
+        identifying: relationship.identifying,
+        label: relationship.label.map(|label| shift_label(label, offset)),
+        span: shift_span(relationship.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -3580,10 +3998,10 @@ mod tests {
     };
     use crate::ast::{
         ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-        DiagramKind, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
-        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
-        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
-        StateStatement,
+        DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
+        FlowStatement, FlowchartDirective, LabelKind, SequenceArrow, SequenceControlKind,
+        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
+        StateNodeKind, StateStatement,
     };
 
     #[test]
@@ -3705,6 +4123,25 @@ mod tests {
         assert_eq!(
             ast.relationships[0].start_marker,
             ClassRelationshipMarker::Inheritance,
+        );
+    }
+
+    #[test]
+    fn parses_er_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "erDiagram\nCUSTOMER {\nstring name PK\n}\nCUSTOMER ||--o{ ORDER : places",
+        )
+        .unwrap();
+
+        let DiagramKind::Er(ast) = diagram.kind else {
+            panic!("expected ER diagram");
+        };
+        assert_eq!(ast.entities.len(), 2);
+        assert_eq!(ast.entities[0].attributes.len(), 1);
+        assert_eq!(ast.relationships.len(), 1);
+        assert_eq!(
+            ast.relationships[0].end_cardinality,
+            ErCardinality::ZeroOrMany,
         );
     }
 
@@ -4333,6 +4770,29 @@ mod tests {
         assert_eq!(relationship.line, ClassRelationshipLine::Dotted);
         assert_eq!(relationship.end_marker, ClassRelationshipMarker::Arrow);
         assert_eq!(relationship.label.unwrap().text, "uses");
+    }
+
+    #[test]
+    fn parses_er_relationships() {
+        let relationship = Parser::parse_er_statement("CUSTOMER ||--o{ ORDER : places").unwrap();
+
+        let ErStatement::Relationship(relationship) = relationship else {
+            panic!("expected ER relationship");
+        };
+        assert_eq!(relationship.from.value, "CUSTOMER");
+        assert_eq!(relationship.to.value, "ORDER");
+        assert_eq!(relationship.start_cardinality, ErCardinality::One);
+        assert_eq!(relationship.end_cardinality, ErCardinality::ZeroOrMany);
+        assert!(relationship.identifying);
+        assert_eq!(relationship.label.unwrap().text, "places");
+    }
+
+    #[test]
+    fn rejects_unknown_er_statement() {
+        assert_eq!(
+            Parser::parse_er_statement("else where").unwrap_err().kind,
+            ParseErrorKind::UnknownErStatement,
+        );
     }
 
     #[test]

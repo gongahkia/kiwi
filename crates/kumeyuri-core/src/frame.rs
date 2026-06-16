@@ -1,10 +1,10 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    FlowchartAst, SequenceAst, StateAst,
+    ErAst, FlowchartAst, SequenceAst, StateAst,
 };
 use crate::layout::{
-    ClassLayout, ClassLayoutEngine, FlowLayout, FlowLayoutEngine, Point, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
+    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, Point,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
     PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
     StateLayoutEngine,
 };
@@ -324,6 +324,7 @@ pub struct StaticFrameRenderer {
     sequence: SequenceLayoutEngine,
     state: StateLayoutEngine,
     class: ClassLayoutEngine,
+    er: ErLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -340,6 +341,7 @@ impl StaticFrameRenderer {
             sequence,
             state,
             class: ClassLayoutEngine::default_values(),
+            er: ErLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -357,6 +359,7 @@ impl StaticFrameRenderer {
             sequence,
             state,
             class: ClassLayoutEngine::default_values(),
+            er: ErLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -374,6 +377,7 @@ impl StaticFrameRenderer {
             sequence,
             state,
             class: ClassLayoutEngine::default_values(),
+            er: ErLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -414,6 +418,7 @@ impl StaticFrameRenderer {
             DiagramKind::Sequence(ast) => self.render_sequence(ast),
             DiagramKind::State(ast) => self.render_state(ast),
             DiagramKind::Class(ast) => self.render_class(ast),
+            DiagramKind::Er(ast) => self.render_er(ast),
         }
     }
 
@@ -435,6 +440,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_class(&self, ast: &ClassAst) -> Frame {
         render_class_layout(&self.class.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_er(&self, ast: &ErAst) -> Frame {
+        render_class_layout(&self.er.layout(ast), self.palette, self.theme)
     }
 }
 
@@ -762,6 +772,9 @@ fn class_start_marker_for_points(
         }
         ClassRelationshipMarker::Aggregation => Some('o'),
         ClassRelationshipMarker::Composition => Some('*'),
+        ClassRelationshipMarker::One => Some('|'),
+        ClassRelationshipMarker::ZeroOrOne => Some('o'),
+        ClassRelationshipMarker::Many | ClassRelationshipMarker::ZeroOrMany => Some('<'),
     }
 }
 
@@ -777,6 +790,9 @@ fn class_end_marker_for_points(
         }
         ClassRelationshipMarker::Aggregation => Some('o'),
         ClassRelationshipMarker::Composition => Some('*'),
+        ClassRelationshipMarker::One => Some('|'),
+        ClassRelationshipMarker::ZeroOrOne => Some('o'),
+        ClassRelationshipMarker::Many | ClassRelationshipMarker::ZeroOrMany => Some('<'),
     }
 }
 
@@ -1323,6 +1339,21 @@ mod tests {
         assert!(output.contains("+name: String"));
         assert!(output.contains("+eat: void"));
         assert!(output.contains("Dog"));
+    }
+
+    #[test]
+    fn renders_er_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "erDiagram\nCUSTOMER {\nstring name PK\n}\nCUSTOMER ||--o{ ORDER : places",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("CUSTOMER"));
+        assert!(output.contains("PK string name"));
+        assert!(output.contains("ORDER"));
+        assert!(output.contains("places"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

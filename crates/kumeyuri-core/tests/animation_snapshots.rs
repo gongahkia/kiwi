@@ -68,12 +68,19 @@ const CLASS_NAMES: [&str; 4] = [
     "04_direction_lr",
 ];
 
+const ER_NAMES: [&str; 3] = [
+    "01_basic_relationship",
+    "02_attributes",
+    "03_non_identifying",
+];
+
 #[test]
 fn animation_timeline_hashes_match() {
     assert_timeline_hashes("flowchart", &FLOWCHART_NAMES);
     assert_timeline_hashes("sequence", &SEQUENCE_NAMES);
     assert_timeline_hashes("state", &STATE_NAMES);
     assert_timeline_hashes("class", &CLASS_NAMES);
+    assert_timeline_hashes("er", &ER_NAMES);
 }
 
 fn assert_timeline_hashes(kind: &str, names: &[&str]) {
@@ -156,6 +163,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Sequence(_) => ("sequence", "playback"),
         DiagramKind::State(_) => ("state", "transitions"),
         DiagramKind::Class(_) => ("class", "trace"),
+        DiagramKind::Er(_) => ("er", "trace"),
     }
 }
 

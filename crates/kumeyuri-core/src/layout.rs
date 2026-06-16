@@ -1,10 +1,10 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship,
-    ClassRelationshipLine, ClassRelationshipMarker, Direction, FlowEdge, FlowEdgeLink,
-    FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
-    FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceAst, SequenceMessage,
-    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
-    StateStatement, StateTransition,
+    ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
+    ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
+    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceAst,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
+    StateNode, StateStatement, StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -254,6 +254,17 @@ pub struct StateLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ClassLayoutEngine {
     config: ClassLayoutConfig,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErLayoutEngine {
+    config: ClassLayoutConfig,
+}
+
+impl Default for ErLayoutEngine {
+    fn default() -> Self {
+        Self::default_values()
+    }
 }
 
 impl FlowLayoutEngine {
@@ -605,6 +616,117 @@ impl ClassLayoutEngine {
     }
 }
 
+impl ErLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: ClassLayoutConfig {
+                horizontal_spacing: 18,
+                vertical_spacing: 5,
+                horizontal_padding: 4,
+                min_node_width: 7,
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: ClassLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &ErAst) -> ClassLayout {
+        let direction = Direction::LeftRight;
+        let graph = LayoutGraph::from_er_ast(ast);
+        let layers = assign_layers(&graph);
+        let order = minimise_crossings(&graph, &layers);
+        let sizes = graph
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                ast.entities
+                    .iter()
+                    .find(|entity| entity.id.value == node.id)
+            })
+            .map(|entity| er_entity_size(entity, self.config))
+            .collect::<Vec<_>>();
+        let placement_config = FlowLayoutConfig {
+            horizontal_spacing: self.config.horizontal_spacing,
+            vertical_spacing: self.config.vertical_spacing,
+            horizontal_padding: self.config.horizontal_padding,
+            min_node_width: self.config.min_node_width,
+            node_height: 3,
+        };
+        let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
+        transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
+        let mut size = layout_size(&rects);
+
+        let nodes = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, node)| {
+                let entity = ast
+                    .entities
+                    .iter()
+                    .find(|entity| entity.id.value == node.id)?;
+                Some(PositionedClassNode {
+                    id: entity.id.value.clone(),
+                    annotations: Vec::new(),
+                    fields: er_attribute_lines(entity),
+                    methods: Vec::new(),
+                    rect: rects[index],
+                    layer: layers[index],
+                    order: order[index],
+                })
+            })
+            .collect::<Vec<_>>();
+        let relationships = ast
+            .relationships
+            .iter()
+            .filter_map(|relationship| {
+                let from = graph.node_index(&relationship.from.value)?;
+                let to = graph.node_index(&relationship.to.value)?;
+                Some(PositionedClassRelationship {
+                    from: relationship.from.value.clone(),
+                    to: relationship.to.value.clone(),
+                    line: if relationship.identifying {
+                        ClassRelationshipLine::Solid
+                    } else {
+                        ClassRelationshipLine::Dotted
+                    },
+                    start_marker: er_cardinality_marker(relationship.start_cardinality),
+                    end_marker: er_cardinality_marker(relationship.end_cardinality),
+                    label: relationship.label.as_ref().map(|label| label.text.clone()),
+                    points: route_class_relationship(
+                        rects[from],
+                        rects[to],
+                        direction,
+                        closes_existing_path(&graph, to, from, (from, to)),
+                    ),
+                })
+            })
+            .collect::<Vec<_>>();
+        size = layout_size_with_class_relationships(size, &relationships);
+
+        ClassLayout {
+            direction,
+            nodes,
+            relationships,
+            size,
+        }
+    }
+}
+
+fn er_cardinality_marker(cardinality: ErCardinality) -> ClassRelationshipMarker {
+    match cardinality {
+        ErCardinality::One => ClassRelationshipMarker::One,
+        ErCardinality::ZeroOrOne => ClassRelationshipMarker::ZeroOrOne,
+        ErCardinality::OneOrMany => ClassRelationshipMarker::Many,
+        ErCardinality::ZeroOrMany => ClassRelationshipMarker::ZeroOrMany,
+    }
+}
+
 fn route_class_relationship(
     from: Rect,
     to: Rect,
@@ -937,6 +1059,37 @@ impl LayoutGraph {
                 continue;
             };
             let Some(to) = graph.node_index(to_id) else {
+                continue;
+            };
+            graph.edges.push(LayoutGraphEdge {
+                from,
+                to,
+                arrow_start: ArrowHead::None,
+                arrow_end: ArrowHead::None,
+                min_length: 1,
+            });
+        }
+        graph
+    }
+
+    fn from_er_ast(ast: &ErAst) -> Self {
+        let mut graph = Self {
+            nodes: ast
+                .entities
+                .iter()
+                .map(|entity| LayoutNode {
+                    id: entity.id.value.clone(),
+                    label: entity.id.value.clone(),
+                })
+                .collect(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+        };
+        for relationship in &ast.relationships {
+            let Some(from) = graph.node_index(&relationship.from.value) else {
+                continue;
+            };
+            let Some(to) = graph.node_index(&relationship.to.value) else {
                 continue;
             };
             graph.edges.push(LayoutGraphEdge {
@@ -1712,6 +1865,36 @@ fn class_member_line(member: &ClassMember) -> String {
         (None, ClassMemberKind::Method) => line.push_str("()"),
         (None, ClassMemberKind::Field) => {}
     }
+    line
+}
+
+fn er_entity_size(entity: &ErEntity, config: ClassLayoutConfig) -> Size {
+    let attributes = er_attribute_lines(entity);
+    let width = std::iter::once(entity.id.value.as_str())
+        .chain(attributes.iter().map(String::as_str))
+        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .max()
+        .unwrap_or(config.min_node_width)
+        .max(config.min_node_width);
+    Size {
+        width,
+        height: attributes.len() as i32 + 3,
+    }
+}
+
+fn er_attribute_lines(entity: &ErEntity) -> Vec<String> {
+    entity.attributes.iter().map(er_attribute_line).collect()
+}
+
+fn er_attribute_line(attribute: &ErAttribute) -> String {
+    let mut line = String::new();
+    if let Some(key) = &attribute.key {
+        line.push_str(&key.value);
+        line.push(' ');
+    }
+    line.push_str(&attribute.ty.value);
+    line.push(' ');
+    line.push_str(&attribute.name.value);
     line
 }
 
