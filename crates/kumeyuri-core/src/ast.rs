@@ -16,6 +16,7 @@ pub enum DiagramKind {
     Gantt(Box<GanttAst>),
     Pie(Box<PieAst>),
     Mindmap(Box<MindmapAst>),
+    Journey(Box<JourneyAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -687,6 +688,38 @@ pub enum MindmapShape {
     Bang,
     Cloud,
     Hexagon,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JourneyAst {
+    pub header: JourneyHeader,
+    pub title: Option<Label>,
+    pub statements: Vec<JourneyStatement>,
+    pub tasks: Vec<JourneyTask>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JourneyHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum JourneyStatement {
+    Title(Label),
+    Section(Label),
+    Task(Box<JourneyTask>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JourneyTask {
+    pub label: Label,
+    pub section: Option<Label>,
+    pub score: Spanned<u8>,
+    pub actors: Vec<Spanned<String>>,
+    pub span: Span,
 }
 
 #[cfg(test)]

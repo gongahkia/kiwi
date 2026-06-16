@@ -133,7 +133,7 @@
 - [x] Implement Gantt-chart parser, layout, static + animated rendering (timeline sweep animation)
 - [x] Implement pie-chart parser, layout, static + animated rendering (slice growth animation)
 - [x] Implement mindmap parser, layout, static + animated rendering (radial expand animation)
-- [ ] Implement journey diagram parser, layout, static + animated rendering
+- [x] Implement journey diagram parser, layout, static + animated rendering
 - [ ] Implement gitGraph parser, layout, static + animated rendering (commit graph growth)
 - [ ] Implement timeline parser, layout, static + animated rendering (scroll/reveal animation)
 - [ ] Implement requirement diagram parser, layout, static rendering

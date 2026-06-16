@@ -1,14 +1,15 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, GanttAst, GanttTaskTag, MindmapAst, MindmapShape, PieAst, SequenceAst,
-    StateAst,
+    ErAst, FlowchartAst, GanttAst, GanttTaskTag, JourneyAst, MindmapAst, MindmapShape, PieAst,
+    SequenceAst, StateAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
-    PositionedGanttTask, PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage,
-    PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    GanttLayoutEngine, JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine,
+    PieLayout, PieLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship,
+    PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask, PositionedJourneyTask,
+    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote,
+    Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -330,6 +331,7 @@ pub struct StaticFrameRenderer {
     gantt: GanttLayoutEngine,
     pie: PieLayoutEngine,
     mindmap: MindmapLayoutEngine,
+    journey: JourneyLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -350,6 +352,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
+            journey: JourneyLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -371,6 +374,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
+            journey: JourneyLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -392,6 +396,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
+            journey: JourneyLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -436,6 +441,7 @@ impl StaticFrameRenderer {
             DiagramKind::Gantt(ast) => self.render_gantt(ast),
             DiagramKind::Pie(ast) => self.render_pie(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
+            DiagramKind::Journey(ast) => self.render_journey(ast),
         }
     }
 
@@ -496,6 +502,21 @@ impl StaticFrameRenderer {
             self.palette,
             self.theme,
             visible_depth,
+        )
+    }
+
+    #[must_use]
+    pub fn render_journey(&self, ast: &JourneyAst) -> Frame {
+        self.render_journey_progress(ast, ast.tasks.len())
+    }
+
+    #[must_use]
+    pub fn render_journey_progress(&self, ast: &JourneyAst, visible_tasks: usize) -> Frame {
+        render_journey_layout(
+            &self.journey.layout(ast),
+            self.palette,
+            self.theme,
+            visible_tasks,
         )
     }
 }
@@ -905,6 +926,96 @@ fn render_mindmap_layout(
         );
     }
     frame
+}
+
+fn render_journey_layout(
+    layout: &JourneyLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+    visible_tasks: usize,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let text_style = theme.style_for(ThemeRole::Text);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for section in &layout.sections {
+        write_text_safe(
+            &mut frame,
+            0,
+            section.y,
+            &section.label,
+            muted_style.clone(),
+        );
+    }
+    for task in layout.tasks.iter().take(visible_tasks) {
+        draw_journey_task(
+            &mut frame,
+            task,
+            palette,
+            node_style.clone(),
+            muted_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_journey_task(
+    frame: &mut Frame,
+    task: &PositionedJourneyTask,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    muted_style: CellStyle,
+    text_style: CellStyle,
+) {
+    write_text_safe(
+        frame,
+        task.label_origin.x,
+        task.label_origin.y,
+        &task.label,
+        text_style.clone(),
+    );
+    let filled =
+        (task.bar_rect.size.width * i32::from(task.score) / 5).clamp(0, task.bar_rect.size.width);
+    for offset in 0..task.bar_rect.size.width {
+        let is_filled = offset < filled;
+        put_safe(
+            frame,
+            task.bar_rect.origin.x + offset,
+            task.bar_rect.origin.y,
+            if is_filled {
+                palette.block
+            } else {
+                palette.horizontal
+            },
+            if is_filled {
+                node_style.clone()
+            } else {
+                muted_style.clone()
+            },
+        );
+    }
+    write_text_safe(
+        frame,
+        task.score_origin.x,
+        task.score_origin.y,
+        &format!("{}/5", task.score),
+        text_style.clone(),
+    );
+    write_text_safe(
+        frame,
+        task.actors_origin.x,
+        task.actors_origin.y,
+        &task.actors.join(", "),
+        text_style,
+    );
 }
 
 fn draw_mindmap_node(
@@ -1746,6 +1857,23 @@ mod tests {
         assert!(output.contains("Branch A"));
         assert!(output.contains("Leaf A1"));
         assert!(output.contains("fa fa-code Branch B"));
+    }
+
+    #[test]
+    fn renders_journey_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "journey\ntitle Working Day\nsection Go to work\nMake tea: 5: Me\nDo work: 1: Me",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Working Day"));
+        assert!(output.contains("Go to work"));
+        assert!(output.contains("Make tea"));
+        assert!(output.contains("5/5"));
+        assert!(output.contains("Do work"));
+        assert!(output.contains("1/5"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

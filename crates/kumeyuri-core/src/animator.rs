@@ -1,15 +1,17 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst,
-    PieStatement, SequenceAst, SequenceStatement, StateAst, StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, JourneyAst, JourneyStatement, MermaidDirective,
+    MindmapAst, MindmapStatement, PieAst, PieStatement, SequenceAst, SequenceStatement, StateAst,
+    StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayoutEngine, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedGanttTask,
-    PositionedMindmapNode, PositionedSequenceMessage, PositionedSequenceParticipant,
-    SequenceLayout, SequenceLayoutEngine, StateLayout, StateLayoutEngine,
+    GanttLayoutEngine, JourneyLayoutEngine, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
+    PositionedGanttTask, PositionedJourneyTask, PositionedMindmapNode, PositionedSequenceMessage,
+    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
+    StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -56,6 +58,11 @@ impl Animator {
     #[must_use]
     pub fn mindmap_expand(ast: &MindmapAst) -> Timeline {
         MindmapExpandAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn journey_trace(ast: &JourneyAst) -> Timeline {
+        JourneyTraceAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -127,6 +134,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Mindmap(ast), AnimationMode::Trace) => MindmapExpandAnimator::new(
                 scaled_duration(MindmapExpandAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Journey(ast), AnimationMode::Trace) => JourneyTraceAnimator::new(
+                scaled_duration(JourneyTraceAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -232,6 +243,11 @@ impl AnimationConfig {
                     apply_mindmap_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Journey(ast) => {
+                for statement in &ast.statements {
+                    apply_journey_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -312,6 +328,7 @@ pub enum AnimationDiagramKind {
     Gantt,
     Pie,
     Mindmap,
+    Journey,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -325,6 +342,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Gantt(_) => Self::Gantt,
             DiagramKind::Pie(_) => Self::Pie,
             DiagramKind::Mindmap(_) => Self::Mindmap,
+            DiagramKind::Journey(_) => Self::Journey,
         }
     }
 }
@@ -505,6 +523,24 @@ fn apply_mindmap_animation_directives(
     Ok(())
 }
 
+fn apply_journey_animation_directives(
+    statement: &JourneyStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        JourneyStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        JourneyStatement::Title(_)
+        | JourneyStatement::Section(_)
+        | JourneyStatement::Task(_)
+        | JourneyStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -613,6 +649,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Gantt(_) => AnimationMode::Trace,
         DiagramKind::Pie(_) => AnimationMode::Trace,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
+        DiagramKind::Journey(_) => AnimationMode::Trace,
     }
 }
 
@@ -633,6 +670,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
+        DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
     }
 }
 
@@ -1531,6 +1569,95 @@ fn add_mindmap_node_marker(
         return;
     };
     let id = format!("mindmap-node-{}", node.id);
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, &id);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JourneyTraceAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for JourneyTraceAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl JourneyTraceAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &JourneyAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &JourneyAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
+        let layout = JourneyLayoutEngine::default().layout(ast);
+        let mut timeline = Timeline::from_frame(
+            renderer.render_journey_progress(ast, 0),
+            self.frame_duration,
+        );
+
+        for (index, task) in layout.tasks.iter().enumerate() {
+            let mut frame = renderer.render_journey_progress(ast, index + 1);
+            for previous in layout.tasks.iter().take(index) {
+                add_journey_task_marker(&mut frame, previous, KeyFrameMarkerKind::Hold);
+            }
+            add_journey_task_marker(&mut frame, task, KeyFrameMarkerKind::Active);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_journey_task_marker(
+    frame: &mut Frame,
+    task: &PositionedJourneyTask,
+    kind: KeyFrameMarkerKind,
+) {
+    let actor_text_width = task.actors.join(", ").chars().count() as i32;
+    let label_right = task.label_origin.x + task.label.chars().count() as i32;
+    let score_right = task.score_origin.x + 3;
+    let actor_right = task.actors_origin.x + actor_text_width;
+    let Some(region) = region_from_bounds(
+        task.label_origin.x,
+        task.label_origin.y,
+        label_right
+            .max(task.bar_rect.right())
+            .max(score_right)
+            .max(actor_right)
+            - 1,
+        task.label_origin.y,
+    ) else {
+        return;
+    };
+    let id = format!("journey-task-{}", task.index);
     frame.add_marker(KeyFrameMarker {
         id: id.clone(),
         kind,

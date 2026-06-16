@@ -5,13 +5,14 @@ use crate::ast::{
     ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
-    GanttStatement, GanttTask, GanttTaskTag, Label, LabelKind, MermaidComment, MermaidDirective,
-    MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement, PieAst, PieHeader,
-    PieSlice, PieStatement, SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock,
-    SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
-    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
-    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
-    StateStatement, StateTransition,
+    GanttStatement, GanttTask, GanttTaskTag, JourneyAst, JourneyHeader, JourneyStatement,
+    JourneyTask, Label, LabelKind, MermaidComment, MermaidDirective, MindmapAst, MindmapHeader,
+    MindmapNode, MindmapShape, MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement,
+    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock, SequenceControlKind,
+    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
+    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
+    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
+    StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,6 +82,10 @@ pub enum ParseErrorKind {
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
+    ExpectedJourneyHeader,
+    UnknownJourneyStatement,
+    ExpectedJourneyTask,
+    ExpectedJourneyScore,
     TrailingInput,
 }
 
@@ -125,6 +130,10 @@ impl Parser {
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
         DiagramParser::new(source).parse_mindmap_only()
+    }
+
+    pub fn parse_journey(source: &str) -> Result<JourneyAst, ParseError> {
+        DiagramParser::new(source).parse_journey_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -229,6 +238,14 @@ impl Parser {
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
+
+    pub fn parse_journey_header(source: &str) -> Result<JourneyHeader, ParseError> {
+        JourneyHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_journey_statement(source: &str) -> Result<JourneyStatement, ParseError> {
+        JourneyStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -295,6 +312,12 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Mindmap(Box::new(ast))));
+        }
+        if let Ok(journey_header) = Parser::parse_journey_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_journey_body(shift_journey_header(journey_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Journey(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -389,6 +412,17 @@ impl<'source> DiagramParser<'source> {
         let mindmap_header = Parser::parse_mindmap_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))
+    }
+
+    fn parse_journey_only(mut self) -> Result<JourneyAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedJourneyHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let journey_header = Parser::parse_journey_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_journey_body(shift_journey_header(journey_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -758,6 +792,32 @@ impl<'source> DiagramParser<'source> {
         })
     }
 
+    fn parse_journey_body(&mut self, header: JourneyHeader) -> Result<JourneyAst, ParseError> {
+        let mut ast = JourneyAst {
+            header,
+            title: None,
+            statements: Vec::new(),
+            tasks: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+        let mut current_section = None;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let mut statement =
+                shift_journey_statement(Parser::parse_journey_statement(line.text)?, line.start);
+            if let JourneyStatement::Task(task) = &mut statement {
+                task.section = current_section.clone();
+            }
+            if let JourneyStatement::Section(section) = &statement {
+                current_section = Some(section.clone());
+            }
+            push_journey_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -954,6 +1014,17 @@ fn push_pie_statement(ast: &mut PieAst, statement: PieStatement) {
         PieStatement::Title(title) => ast.title = Some(title.clone()),
         PieStatement::Slice(slice) => ast.slices.push(slice.clone()),
         PieStatement::Comment(_) | PieStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_journey_statement(ast: &mut JourneyAst, statement: JourneyStatement) {
+    match &statement {
+        JourneyStatement::Title(title) => ast.title = Some(title.clone()),
+        JourneyStatement::Task(task) => ast.tasks.push((**task).clone()),
+        JourneyStatement::Section(_)
+        | JourneyStatement::Comment(_)
+        | JourneyStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -2203,6 +2274,36 @@ impl<'source> MindmapHeaderParser<'source> {
     }
 }
 
+struct JourneyHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> JourneyHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<JourneyHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedJourneyHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "journey" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedJourneyHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(JourneyHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct PieStatementParser<'source> {
     source: &'source str,
 }
@@ -2259,6 +2360,79 @@ impl<'source> PieStatementParser<'source> {
             label,
             value_units,
             value_text,
+            span: Span::new(start, end),
+        }))
+    }
+}
+
+struct JourneyStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> JourneyStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<JourneyStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownJourneyStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(JourneyStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(JourneyStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownJourneyStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(JourneyStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "section") {
+            let label = label_from_trimmed(self.source, start + "section".len(), end).ok_or(
+                ParseError {
+                    kind: ParseErrorKind::UnknownJourneyStatement,
+                    span: Span::new(start, end),
+                },
+            )?;
+            return Ok(JourneyStatement::Section(label));
+        }
+        if let Some(task) = self.parse_task(start, end)? {
+            return Ok(JourneyStatement::Task(Box::new(task)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownJourneyStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_task(&self, start: usize, end: usize) -> Result<Option<JourneyTask>, ParseError> {
+        let Some(colon) = self.source[start..end].find(':') else {
+            return Ok(None);
+        };
+        let colon = start + colon;
+        let label = label_from_trimmed(self.source, start, colon).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedJourneyTask,
+            span: Span::new(start, colon),
+        })?;
+        let (score, actors) = parse_journey_tail(self.source, colon + 1, end)?;
+        Ok(Some(JourneyTask {
+            label,
+            section: None,
+            score,
+            actors,
             span: Span::new(start, end),
         }))
     }
@@ -4087,6 +4261,70 @@ fn build_mindmap_node(index: usize, parsed: &[ParsedMindmapNode]) -> MindmapNode
     node
 }
 
+fn parse_journey_tail(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<u8>, Vec<Spanned<String>>), ParseError> {
+    let score_end = source[start..end]
+        .find(':')
+        .map_or(end, |offset| start + offset);
+    let score = parse_journey_score(source, start, score_end)?;
+    let actors = if score_end == end {
+        Vec::new()
+    } else {
+        parse_journey_actors(source, score_end + 1, end)
+    };
+    Ok((score, actors))
+}
+
+fn parse_journey_score(source: &str, start: usize, end: usize) -> Result<Spanned<u8>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedJourneyScore,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let Ok(score) = source[absolute_start..absolute_end].parse::<u8>() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedJourneyScore,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    if score > 5 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedJourneyScore,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    Ok(Spanned::new(score, Span::new(absolute_start, absolute_end)))
+}
+
+fn parse_journey_actors(source: &str, start: usize, end: usize) -> Vec<Spanned<String>> {
+    let mut actors = Vec::new();
+    let mut cursor = start;
+    while cursor <= end {
+        let actor_end = source[cursor..end]
+            .find(',')
+            .map_or(end, |offset| cursor + offset);
+        if let Some((trim_start, trim_end)) = trim_ascii_range(&source[cursor..actor_end]) {
+            let absolute_start = cursor + trim_start;
+            let absolute_end = cursor + trim_end;
+            actors.push(Spanned::new(
+                source[absolute_start..absolute_end].to_owned(),
+                Span::new(absolute_start, absolute_end),
+            ));
+        }
+        if actor_end == end {
+            break;
+        }
+        cursor = actor_end + 1;
+    }
+    actors
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -4622,6 +4860,44 @@ fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     }
 }
 
+fn shift_journey_header(header: JourneyHeader, offset: usize) -> JourneyHeader {
+    JourneyHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_journey_statement(statement: JourneyStatement, offset: usize) -> JourneyStatement {
+    match statement {
+        JourneyStatement::Title(title) => JourneyStatement::Title(shift_label(title, offset)),
+        JourneyStatement::Section(section) => {
+            JourneyStatement::Section(shift_label(section, offset))
+        }
+        JourneyStatement::Task(task) => {
+            JourneyStatement::Task(Box::new(shift_journey_task(*task, offset)))
+        }
+        JourneyStatement::Comment(comment) => {
+            JourneyStatement::Comment(shift_comment(comment, offset))
+        }
+        JourneyStatement::Directive(directive) => {
+            JourneyStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_journey_task(task: JourneyTask, offset: usize) -> JourneyTask {
+    JourneyTask {
+        label: shift_label(task.label, offset),
+        section: task.section.map(|section| shift_label(section, offset)),
+        score: shift_spanned(task.score, offset),
+        actors: task
+            .actors
+            .into_iter()
+            .map(|actor| shift_spanned(actor, offset))
+            .collect(),
+        span: shift_span(task.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -5090,6 +5366,26 @@ mod tests {
             ast.roots[0].children[1].icon.as_ref().unwrap().value,
             "fa fa-code",
         );
+    }
+
+    #[test]
+    fn parses_journey_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "journey\ntitle Working Day\nsection Go to work\nMake tea: 5: Me, Kettle\nDo work: 1: Me",
+        )
+        .unwrap();
+
+        let DiagramKind::Journey(ast) = diagram.kind else {
+            panic!("expected Journey diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Working Day");
+        assert_eq!(ast.tasks.len(), 2);
+        assert_eq!(ast.tasks[0].label.text, "Make tea");
+        assert_eq!(ast.tasks[0].section.as_ref().unwrap().text, "Go to work");
+        assert_eq!(ast.tasks[0].score.value, 5);
+        assert_eq!(ast.tasks[0].actors[0].value, "Me");
+        assert_eq!(ast.tasks[0].actors[1].value, "Kettle");
+        assert_eq!(ast.tasks[1].score.value, 1);
     }
 
     #[test]

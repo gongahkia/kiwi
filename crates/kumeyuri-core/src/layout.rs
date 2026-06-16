@@ -3,9 +3,9 @@ use crate::ast::{
     ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
     ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
     FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
-    GanttTaskTag, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, SequenceAst,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition,
+    GanttTaskTag, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
+    SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
+    StateAst, StateNode, StateStatement, StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -395,6 +395,65 @@ pub struct MindmapLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct JourneyLayoutConfig {
+    pub label_width: i32,
+    pub score_width: i32,
+    pub score_label_width: i32,
+    pub actor_gap: i32,
+    pub row_height: i32,
+    pub section_gap: i32,
+    pub top_padding: i32,
+}
+
+impl Default for JourneyLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl JourneyLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            label_width: 24,
+            score_width: 10,
+            score_label_width: 4,
+            actor_gap: 2,
+            row_height: 2,
+            section_gap: 1,
+            top_padding: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedJourneySection {
+    pub label: String,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedJourneyTask {
+    pub index: usize,
+    pub label: String,
+    pub section: Option<String>,
+    pub score: u8,
+    pub actors: Vec<String>,
+    pub label_origin: Point,
+    pub bar_rect: Rect,
+    pub score_origin: Point,
+    pub actors_origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JourneyLayout {
+    pub title: Option<String>,
+    pub sections: Vec<PositionedJourneySection>,
+    pub tasks: Vec<PositionedJourneyTask>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -433,6 +492,11 @@ pub struct PieLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct MindmapLayoutEngine {
     config: MindmapLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct JourneyLayoutEngine {
+    config: JourneyLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -1277,6 +1341,106 @@ impl MindmapLayoutEngine {
             size: Size { width, height },
         }
     }
+}
+
+impl JourneyLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: JourneyLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: JourneyLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &JourneyAst) -> JourneyLayout {
+        let mut sections = Vec::new();
+        let mut tasks = Vec::new();
+        let mut y = self.config.top_padding;
+        let mut current_section = None::<String>;
+        let bar_x = self.config.label_width;
+        let score_x = bar_x + self.config.score_width + 1;
+        let actors_x = score_x + self.config.score_label_width + self.config.actor_gap;
+
+        for (index, task) in ast.tasks.iter().enumerate() {
+            let section = task.section.as_ref().map(|section| section.text.clone());
+            if section != current_section {
+                if let Some(label) = &section {
+                    sections.push(PositionedJourneySection {
+                        label: label.clone(),
+                        y,
+                    });
+                    y += 1 + self.config.section_gap;
+                }
+                current_section = section.clone();
+            }
+
+            tasks.push(PositionedJourneyTask {
+                index,
+                label: task.label.text.clone(),
+                section,
+                score: task.score.value,
+                actors: task
+                    .actors
+                    .iter()
+                    .map(|actor| actor.value.clone())
+                    .collect(),
+                label_origin: Point { x: 0, y },
+                bar_rect: Rect {
+                    origin: Point { x: bar_x, y },
+                    size: Size {
+                        width: self.config.score_width,
+                        height: 1,
+                    },
+                },
+                score_origin: Point { x: score_x, y },
+                actors_origin: Point { x: actors_x, y },
+            });
+            y += self.config.row_height;
+        }
+
+        let title_width = ast
+            .title
+            .as_ref()
+            .map_or(0, |title| title.text.chars().count() as i32);
+        let section_width = sections
+            .iter()
+            .map(|section| section.label.chars().count() as i32)
+            .max()
+            .unwrap_or(0);
+        let task_width = tasks
+            .iter()
+            .map(|task| journey_task_width(task, self.config))
+            .max()
+            .unwrap_or(0);
+
+        JourneyLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            sections,
+            tasks,
+            size: Size {
+                width: title_width.max(section_width).max(task_width).max(1),
+                height: y.max(self.config.top_padding + 1),
+            },
+        }
+    }
+}
+
+fn journey_task_width(task: &PositionedJourneyTask, config: JourneyLayoutConfig) -> i32 {
+    let actor_width = journey_actor_text(task).chars().count() as i32;
+    let label_width = task.label.chars().count() as i32;
+    let score_end = task.score_origin.x + config.score_label_width;
+    label_width
+        .max(score_end)
+        .max(task.actors_origin.x + actor_width)
+}
+
+fn journey_actor_text(task: &PositionedJourneyTask) -> String {
+    task.actors.join(", ")
 }
 
 fn layout_mindmap_node(

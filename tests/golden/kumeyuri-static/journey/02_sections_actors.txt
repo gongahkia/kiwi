@@ -1,0 +1,13 @@
+Checkout
+
+Browse
+
+Visit homepage          ########## 5/5   Customer
+
+Search product          ########-- 4/5   Customer, Search
+
+Purchase
+
+Enter address           ####------ 2/5   Customer
+
+Payment                 ######---- 3/5   Customer, Gateway
