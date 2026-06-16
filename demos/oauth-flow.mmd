@@ -1,0 +1,21 @@
+%%{ animate: 'playback', speed: 1.15, loop: true, easing: 'ease' }%%
+sequenceDiagram
+  actor User
+  participant Browser
+  participant App
+  participant Auth as Authorization Server
+  participant API
+  User->>Browser: sign in
+  Browser->>App: GET /login
+  App-->>Browser: redirect with client id
+  Browser->>Auth: authorize request
+  Auth-->>Browser: login + consent
+  Browser->>Auth: credentials approved
+  Auth-->>Browser: authorization code
+  Browser->>App: callback with code
+  App->>Auth: exchange code + verifier
+  Auth-->>App: access token
+  App->>API: request profile
+  API-->>App: profile JSON
+  App-->>Browser: secure session cookie
+  Note over Browser,App: browser never sees client secret

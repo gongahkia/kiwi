@@ -1,0 +1,19 @@
+%%{ animate: 'trace', speed: 1.25, loop: true, easing: 'ease' }%%
+graph TD
+  Input[7 3 9 1 5] --> Pivot{choose pivot 5}
+  Pivot --> Left[3 1]
+  Pivot --> Equal[5]
+  Pivot --> Right[7 9]
+  Left --> LeftPivot{choose pivot 3}
+  LeftPivot --> L1[1]
+  LeftPivot --> L2[3]
+  Right --> RightPivot{choose pivot 7}
+  RightPivot --> R1[7]
+  RightPivot --> R2[9]
+  L1 --> Merge[1 3 5 7 9]
+  L2 --> Merge
+  Equal --> Merge
+  R1 --> Merge
+  R2 --> Merge
+  classDef pivot fill:#fff8dc,stroke:#bf8700,stroke-width:2px
+  class Pivot,LeftPivot,RightPivot pivot

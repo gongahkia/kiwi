@@ -1,0 +1,16 @@
+%%{ animate: 'transitions', speed: 1.2, loop: true, easing: 'ease' }%%
+stateDiagram-v2
+  direction LR
+  state "New process" as New
+  state "Ready queue" as Ready
+  state "Running on CPU" as Running
+  state "Blocked on IO" as Blocked
+  state "Terminated" as Done
+  [*] --> New
+  New --> Ready: admitted
+  Ready --> Running: dispatch
+  Running --> Ready: time slice expired
+  Running --> Blocked: wait for IO
+  Blocked --> Ready: interrupt
+  Running --> Done: exit
+  Done --> [*]

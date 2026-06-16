@@ -1,0 +1,19 @@
+%%{ animate: 'trace', speed: 1.15, loop: true, easing: 'ease' }%%
+flowchart LR
+  Client[client request] --> Gateway[API gateway]
+  Gateway --> Auth{auth ok}
+  Auth -- no --> Reject[401 response]
+  Auth -- yes --> Orchestrator[order orchestrator]
+  subgraph services [Fan-out services]
+    Orchestrator --> Catalog[catalog]
+    Orchestrator --> Inventory[inventory]
+    Orchestrator --> Pricing[pricing]
+    Orchestrator --> Shipping[shipping]
+  end
+  Catalog --> Join[merge result]
+  Inventory --> Join
+  Pricing --> Join
+  Shipping --> Join
+  Join --> Response[200 response]
+  classDef hot fill:#e8f1ff,stroke:#0969da,stroke-width:2px
+  class Orchestrator,Join hot

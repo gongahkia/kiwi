@@ -1,0 +1,22 @@
+%%{ animate: 'playback', speed: 1.2, loop: true, easing: 'ease' }%%
+sequenceDiagram
+  actor User
+  participant Browser
+  participant CDN
+  participant API
+  participant Cache
+  participant DB
+  participant Queue
+  User->>Browser: click dashboard
+  Browser->>CDN: GET /dashboard
+  CDN-->>Browser: HTML shell
+  Browser->>API: GET /api/summary
+  API->>Cache: read summary
+  Cache-->>API: miss
+  API->>DB: select account metrics
+  DB-->>API: rows
+  API->>Cache: store summary
+  API->>Queue: emit viewed_dashboard
+  API-->>Browser: 200 JSON
+  Browser-->>User: paint metrics
+  Note over API,Queue: async analytics never blocks response
