@@ -285,8 +285,9 @@ impl<'source> DiagramParser<'source> {
                 continue;
             }
 
-            let statement = parse_flow_document_statement(line.text, line.start)?;
-            push_flow_statement(&mut ast, statement);
+            for statement in parse_flow_document_statements(line.text, line.start)? {
+                push_flow_statement(&mut ast, statement);
+            }
             self.cursor = line.line.next;
         }
 
@@ -385,30 +386,48 @@ struct TrimmedSourceLine<'source> {
     text: &'source str,
 }
 
-fn parse_flow_document_statement(
+fn parse_flow_document_statements(
     statement: &str,
     offset: usize,
-) -> Result<FlowStatement, ParseError> {
+) -> Result<Vec<FlowStatement>, ParseError> {
     if let Ok(directive) = Parser::parse_mermaid_directive(statement) {
-        return Ok(FlowStatement::Directive(shift_directive(directive, offset)));
+        return Ok(vec![FlowStatement::Directive(shift_directive(
+            directive, offset,
+        ))]);
     }
     if let Ok(comment) = Parser::parse_mermaid_comment(statement) {
-        return Ok(FlowStatement::Comment(shift_comment(comment, offset)));
+        return Ok(vec![FlowStatement::Comment(shift_comment(comment, offset))]);
     }
     if let Ok(class_def) = Parser::parse_flow_class_def(statement) {
-        return Ok(FlowStatement::ClassDef(shift_class_def(class_def, offset)));
+        return Ok(vec![FlowStatement::ClassDef(shift_class_def(
+            class_def, offset,
+        ))]);
     }
     if let Ok(class_apply) = Parser::parse_flow_class_apply(statement) {
-        return Ok(FlowStatement::ClassApply(shift_class_apply(
+        return Ok(vec![FlowStatement::ClassApply(shift_class_apply(
             class_apply,
             offset,
-        )));
+        ))]);
+    }
+    if let Ok(edges) = parse_flow_edge_chain(statement)
+        && edges.len() > 1
+        && edges.iter().all(|edge| {
+            edge.link.value.arrow_start != ArrowHead::None
+                || edge.link.value.arrow_end != ArrowHead::None
+        })
+    {
+        return Ok(edges
+            .into_iter()
+            .map(|edge| FlowStatement::Edge(Box::new(shift_edge(edge, offset))))
+            .collect());
     }
     if let Ok(edge) = Parser::parse_flow_edge(statement) {
-        return Ok(FlowStatement::Edge(Box::new(shift_edge(edge, offset))));
+        return Ok(vec![FlowStatement::Edge(Box::new(shift_edge(
+            edge, offset,
+        )))]);
     }
     if let Ok(node) = Parser::parse_flow_node(statement) {
-        return Ok(FlowStatement::Node(shift_node(node, offset)));
+        return Ok(vec![FlowStatement::Node(shift_node(node, offset))]);
     }
     Err(ParseError {
         kind: ParseErrorKind::UnknownFlowStatement,
@@ -461,6 +480,64 @@ struct FlowEdgeParser<'source> {
 
 struct FlowClassDefParser<'source> {
     source: &'source str,
+}
+
+fn parse_flow_edge_chain(source: &str) -> Result<Vec<FlowEdge>, ParseError> {
+    let source = first_line(source);
+    let mut parser = FlowNodeParser { source, cursor: 0 };
+    let mut from = parser.parse_expr()?;
+    parser.skip_ws();
+    let mut edges = Vec::new();
+
+    while let Some(link) = parse_flow_edge_operator_at(source, parser.cursor) {
+        parser.cursor = link.span.end;
+        parser.skip_ws();
+
+        let mut to_parser = FlowNodeParser {
+            source,
+            cursor: parser.cursor,
+        };
+        let to = to_parser.parse_expr()?;
+        parser.cursor = to_parser.cursor;
+        edges.push(FlowEdge {
+            span: Span::new(from.span.start, to.span.end),
+            from,
+            to: to.clone(),
+            link,
+            label: None,
+        });
+        from = to;
+        parser.skip_ws();
+    }
+
+    if edges.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedFlowEdge,
+            span: Span::new(parser.cursor, parser.cursor),
+        });
+    }
+    if parser.peek_byte() == Some(b';') {
+        parser.cursor += 1;
+        parser.skip_ws();
+    }
+    if parser.cursor != source.len() {
+        return Err(ParseError {
+            kind: ParseErrorKind::TrailingInput,
+            span: Span::new(parser.cursor, source.len()),
+        });
+    }
+
+    Ok(edges)
+}
+
+fn parse_flow_edge_operator_at(source: &str, start: usize) -> Option<Spanned<FlowEdgeLink>> {
+    let mut best = None;
+    for end in start + 2..=source.len() {
+        if let Some(link) = parse_unlabeled_edge_operator(source, start, end) {
+            best = Some(link);
+        }
+    }
+    best
 }
 
 impl<'source> FlowClassDefParser<'source> {
@@ -1305,6 +1382,21 @@ impl<'source> FlowSubgraphParser<'source> {
                         class_apply,
                         absolute_start,
                     )));
+                self.cursor = line.next;
+                continue;
+            }
+            if let Ok(edges) = parse_flow_edge_chain(trimmed)
+                && edges.len() > 1
+                && edges.iter().all(|edge| {
+                    edge.link.value.arrow_start != ArrowHead::None
+                        || edge.link.value.arrow_end != ArrowHead::None
+                })
+            {
+                subgraph.statements.extend(
+                    edges.into_iter().map(|edge| {
+                        FlowStatement::Edge(Box::new(shift_edge(edge, absolute_start)))
+                    }),
+                );
                 self.cursor = line.next;
                 continue;
             }
@@ -2882,6 +2974,17 @@ mod tests {
         assert_eq!(ast.edges.len(), 1);
         assert_eq!(ast.subgraphs.len(), 1);
         assert!(matches!(ast.statements[1], FlowStatement::Subgraph(_)));
+    }
+
+    #[test]
+    fn parses_single_line_flow_edge_chains() {
+        let ast = Parser::parse_flowchart("graph LR\nA --> B --> C").unwrap();
+
+        assert_eq!(ast.edges.len(), 2);
+        assert_eq!(ast.edges[0].from.id.value, "A");
+        assert_eq!(ast.edges[0].to.id.value, "B");
+        assert_eq!(ast.edges[1].from.id.value, "B");
+        assert_eq!(ast.edges[1].to.id.value, "C");
     }
 
     #[test]
