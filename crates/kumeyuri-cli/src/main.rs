@@ -7,7 +7,7 @@ use std::{
 
 use clap::{Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
-    animator::{Animator, Timeline},
+    animator::{AnimationOptions, Animator, Timeline},
     ast::Diagram,
     frame::StaticFrameRenderer,
     parser::Parser as MermaidParser,
@@ -61,6 +61,10 @@ enum Command {
     Play {
         #[arg(value_name = "FILE")]
         file: PathBuf,
+        #[arg(long, value_name = "FACTOR", value_parser = parse_speed_override)]
+        speed: Option<f32>,
+        #[arg(long = "loop")]
+        repeat: bool,
     },
 }
 
@@ -85,7 +89,11 @@ fn run() -> Result<(), String> {
     match cli.command {
         Command::Render { file, format } => render_file(&file, format),
         Command::Watch { file } => watch_file(&file),
-        Command::Play { file } => play_file(&file),
+        Command::Play {
+            file,
+            speed,
+            repeat,
+        } => play_file(&file, playback_options(speed, repeat)?),
     }
 }
 
@@ -112,10 +120,10 @@ fn render_source(source: &str, format: RenderFormat) -> Result<String, String> {
     }
 }
 
-fn play_file(path: &Path) -> Result<(), String> {
+fn play_file(path: &Path, options: AnimationOptions) -> Result<(), String> {
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    let timeline = timeline_from_source(&source)?;
+    let timeline = timeline_from_source_with_options(&source, options)?;
     play_timeline(&timeline)
 }
 
@@ -183,10 +191,33 @@ fn redraw_message(output: &str) -> Result<(), String> {
         .map_err(|error| format!("failed to flush stdout: {error}"))
 }
 
+#[cfg(test)]
 fn timeline_from_source(source: &str) -> Result<Timeline, String> {
+    timeline_from_source_with_options(source, AnimationOptions::default())
+}
+
+fn timeline_from_source_with_options(
+    source: &str,
+    options: AnimationOptions,
+) -> Result<Timeline, String> {
     let diagram = parse_diagram(source)?;
-    Animator::animate_diagram(&diagram)
+    Animator::animate_diagram_with_options(&diagram, options)
         .map_err(|error| format!("animation config error: {error:?}"))
+}
+
+fn playback_options(speed: Option<f32>, repeat: bool) -> Result<AnimationOptions, String> {
+    AnimationOptions::new(speed, repeat.then_some(true))
+        .map_err(|error| format!("invalid playback options: {error:?}"))
+}
+
+fn parse_speed_override(value: &str) -> Result<f32, String> {
+    let speed = value
+        .parse::<f32>()
+        .map_err(|_| format!("invalid speed {value:?}: expected finite f32 > 0"))?;
+    if !speed.is_finite() || speed <= 0.0 {
+        return Err(format!("invalid speed {value:?}: expected finite f32 > 0"));
+    }
+    Ok(speed)
 }
 
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
@@ -377,7 +408,10 @@ enum PlaybackAction {
 mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackState, should_rerender};
-    use super::{RenderFormat, render_source, timeline_from_source};
+    use super::{
+        RenderFormat, parse_speed_override, playback_options, render_source, timeline_from_source,
+        timeline_from_source_with_options,
+    };
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
     #[cfg(not(target_arch = "wasm32"))]
@@ -387,6 +421,7 @@ mod tests {
     };
     #[cfg(not(target_arch = "wasm32"))]
     use std::path::Path;
+    use std::time::Duration;
 
     #[test]
     fn renders_mermaid_source_to_text() {
@@ -410,6 +445,29 @@ mod tests {
         let timeline = timeline_from_source("%%{ animate: 'none' }%%\ngraph TD\nA --> B").unwrap();
 
         assert_eq!(timeline.len(), 1);
+    }
+
+    #[test]
+    fn playback_options_override_timeline_speed_and_loop() {
+        let options = playback_options(Some(4.0), true).unwrap();
+        let timeline = timeline_from_source_with_options(
+            "%%{ animate: 'playback', speed: 2.0, loop: false }%%\nsequenceDiagram\nAlice->>Bob: hi",
+            options,
+        )
+        .unwrap();
+
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(175)
+        );
+        assert!(timeline.repeat());
+    }
+
+    #[test]
+    fn speed_override_parser_rejects_invalid_values() {
+        assert_eq!(parse_speed_override("1.25").unwrap(), 1.25);
+        assert!(parse_speed_override("0").is_err());
+        assert!(parse_speed_override("NaN").is_err());
     }
 
     #[cfg(not(target_arch = "wasm32"))]

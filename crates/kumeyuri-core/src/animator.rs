@@ -31,15 +31,29 @@ impl Animator {
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
+        Self::animate_diagram_with_options(diagram, AnimationOptions::default())
+    }
+
+    pub fn animate_diagram_with_options(
+        diagram: &Diagram,
+        options: AnimationOptions,
+    ) -> Result<Timeline, AnimationConfigParseError> {
         let config = AnimationConfig::from_diagram(diagram)?;
         let mode = config.as_ref().map_or_else(
             || default_animation_mode(&diagram.kind),
             |config| config.mode,
         );
-        let speed = config
-            .as_ref()
-            .map_or(AnimationConfig::DEFAULT_SPEED, |config| config.speed);
-        let repeat = config.as_ref().is_some_and(|config| config.repeat);
+        let speed = options.speed().unwrap_or_else(|| {
+            config
+                .as_ref()
+                .map_or(AnimationConfig::DEFAULT_SPEED, |config| config.speed)
+        });
+        if !is_valid_animation_speed(speed) {
+            return Err(AnimationConfigParseError::InvalidSpeed(speed.to_string()));
+        }
+        let repeat = options
+            .repeat()
+            .unwrap_or_else(|| config.as_ref().is_some_and(|config| config.repeat));
 
         let timeline = match (&diagram.kind, mode) {
             (_, AnimationMode::None) => static_timeline(diagram),
@@ -64,6 +78,31 @@ impl Animator {
         };
 
         Ok(timeline.with_repeat(repeat))
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct AnimationOptions {
+    speed: Option<f32>,
+    repeat: Option<bool>,
+}
+
+impl AnimationOptions {
+    pub fn new(speed: Option<f32>, repeat: Option<bool>) -> Result<Self, AnimationConfigError> {
+        if speed.is_some_and(|speed| !is_valid_animation_speed(speed)) {
+            return Err(AnimationConfigError::InvalidSpeed);
+        }
+        Ok(Self { speed, repeat })
+    }
+
+    #[must_use]
+    pub const fn speed(self) -> Option<f32> {
+        self.speed
+    }
+
+    #[must_use]
+    pub const fn repeat(self) -> Option<bool> {
+        self.repeat
     }
 }
 
@@ -131,7 +170,7 @@ impl AnimationConfig {
         repeat: bool,
         easing: AnimationEasing,
     ) -> Result<Self, AnimationConfigError> {
-        if !speed.is_finite() || speed <= 0.0 {
+        if !is_valid_animation_speed(speed) {
             return Err(AnimationConfigError::InvalidSpeed);
         }
         Ok(Self {
@@ -193,6 +232,10 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::State(_) => Self::State,
         }
     }
+}
+
+fn is_valid_animation_speed(speed: f32) -> bool {
+    speed.is_finite() && speed > 0.0
 }
 
 fn apply_animation_directives(
@@ -354,7 +397,7 @@ fn parse_animation_speed(value: &str) -> Result<f32, AnimationConfigParseError> 
     let Ok(speed) = value.parse::<f32>() else {
         return Err(AnimationConfigParseError::InvalidSpeed(value.to_owned()));
     };
-    if !speed.is_finite() || speed <= 0.0 {
+    if !is_valid_animation_speed(speed) {
         return Err(AnimationConfigParseError::InvalidSpeed(value.to_owned()));
     }
     Ok(speed)
@@ -1059,8 +1102,8 @@ fn mark_point_cell(frame: &mut Frame, point: Point, marker_id: &str) {
 mod tests {
     use super::{
         AnimationConfig, AnimationConfigError, AnimationConfigParseError, AnimationDiagramKind,
-        AnimationEasing, AnimationMode, Animator, FlowchartTraceAnimator, KeyFrame,
-        SequencePlaybackAnimator, StateTransitionAnimator, Timeline,
+        AnimationEasing, AnimationMode, AnimationOptions, Animator, FlowchartTraceAnimator,
+        KeyFrame, SequencePlaybackAnimator, StateTransitionAnimator, Timeline,
     };
     use crate::ast::{
         ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
@@ -1144,6 +1187,14 @@ mod tests {
     }
 
     #[test]
+    fn animation_options_reject_invalid_speed() {
+        assert_eq!(
+            AnimationOptions::new(Some(0.0), None).unwrap_err(),
+            AnimationConfigError::InvalidSpeed,
+        );
+    }
+
+    #[test]
     fn animation_config_parses_animate_directive() {
         let directive = Parser::parse_mermaid_directive(
             "%%{ animate: 'trace', speed: 2.0, loop: true, easing: 'ease' }%%",
@@ -1197,6 +1248,23 @@ mod tests {
         assert_eq!(
             timeline.keyframes()[0].duration(),
             Duration::from_millis(275)
+        );
+        assert!(timeline.repeat());
+    }
+
+    #[test]
+    fn animator_options_override_directive_speed_and_repeat() {
+        let diagram = Parser::parse_diagram(
+            "%%{ animate: 'playback', speed: 2.0, loop: false }%%\nsequenceDiagram\nAlice->>Bob: hi",
+        )
+        .unwrap();
+        let options = AnimationOptions::new(Some(4.0), Some(true)).unwrap();
+
+        let timeline = Animator::animate_diagram_with_options(&diagram, options).unwrap();
+
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(175)
         );
         assert!(timeline.repeat());
     }
