@@ -5,16 +5,17 @@ use std::{
     process::ExitCode,
 };
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
-    animator::{AnimationOptions, Animator, Timeline},
+    animator::{AnimationOptions, Animator, KeyFrame, Timeline},
     ast::Diagram,
-    frame::StaticFrameRenderer,
+    frame::{Charset, Frame, StaticFrameRenderer},
     parser::Parser as MermaidParser,
     text::{TextOutputBackend, TextOutputConfig},
+    theme::{BuiltInTheme, RgbColor, Theme},
 };
-use kumeyuri_render_raster::RasterRenderer;
-use kumeyuri_render_svg::SvgRenderer;
+use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
+use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -55,6 +56,8 @@ enum Command {
         file: PathBuf,
         #[arg(long, value_enum, default_value_t = RenderFormat::Text)]
         format: RenderFormat,
+        #[command(flatten)]
+        options: RenderOptions,
     },
     Watch {
         #[arg(value_name = "FILE")]
@@ -80,6 +83,56 @@ enum RenderFormat {
     Tui,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Args)]
+struct RenderOptions {
+    #[arg(long, value_enum)]
+    theme: Option<RenderTheme>,
+    #[arg(long, value_enum)]
+    charset: Option<RenderCharset>,
+    #[arg(long, value_name = "CELLS", value_parser = parse_positive_usize)]
+    width: Option<usize>,
+    #[arg(long, value_name = "PX")]
+    padding: Option<u32>,
+    #[arg(long, value_name = "FAMILY", value_parser = parse_non_empty_string)]
+    font: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum RenderTheme {
+    Default,
+    Mono,
+    TokyoNight,
+    Github,
+    Dracula,
+}
+
+impl RenderTheme {
+    const fn theme(self) -> BuiltInTheme {
+        match self {
+            Self::Default => BuiltInTheme::Default,
+            Self::Mono => BuiltInTheme::Mono,
+            Self::TokyoNight => BuiltInTheme::TokyoNight,
+            Self::Github => BuiltInTheme::Github,
+            Self::Dracula => BuiltInTheme::Dracula,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum RenderCharset {
+    Ascii,
+    Unicode,
+}
+
+impl From<RenderCharset> for Charset {
+    fn from(charset: RenderCharset) -> Self {
+        match charset {
+            RenderCharset::Ascii => Self::Ascii,
+            RenderCharset::Unicode => Self::Unicode,
+        }
+    }
+}
+
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -94,7 +147,11 @@ fn run() -> Result<(), String> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Render { file, format } => render_file(&file, format),
+        Command::Render {
+            file,
+            format,
+            options,
+        } => render_file(&file, format, &options),
         Command::Watch { file } => watch_file(&file),
         Command::Play {
             file,
@@ -104,55 +161,138 @@ fn run() -> Result<(), String> {
     }
 }
 
-fn render_file(path: &Path, format: RenderFormat) -> Result<(), String> {
+fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     if format == RenderFormat::Tui {
-        let timeline = timeline_from_source(&source)?;
+        let timeline = timeline_from_source_with_render_options(
+            &source,
+            AnimationOptions::default(),
+            options,
+        )?;
         return play_timeline(&timeline);
     }
-    let output = render_source(&source, format)?;
+    let output = render_source(&source, format, options)?;
     io::stdout()
         .write_all(&output)
         .map_err(|error| format!("failed to write stdout: {error}"))
 }
 
-fn render_source(source: &str, format: RenderFormat) -> Result<Vec<u8>, String> {
+fn render_source(
+    source: &str,
+    format: RenderFormat,
+    options: &RenderOptions,
+) -> Result<Vec<u8>, String> {
     match format {
-        RenderFormat::Text => Ok(render_text_source(source)?.into_bytes()),
-        RenderFormat::Svg => Ok(render_svg_source(source)?.into_bytes()),
-        RenderFormat::Gif => render_raster_source(source, RasterRenderer::render_gif),
-        RenderFormat::Apng => render_raster_source(source, RasterRenderer::render_apng),
-        RenderFormat::Webp => render_raster_source(source, RasterRenderer::render_webp),
+        RenderFormat::Text => Ok(render_text_source(source, options)?.into_bytes()),
+        RenderFormat::Svg => Ok(render_svg_source(source, options)?.into_bytes()),
+        RenderFormat::Gif => render_raster_source(source, options, RasterRenderer::render_gif),
+        RenderFormat::Apng => render_raster_source(source, options, RasterRenderer::render_apng),
+        RenderFormat::Webp => render_raster_source(source, options, RasterRenderer::render_webp),
         RenderFormat::Tui => Err("tui format requires an interactive terminal".to_owned()),
     }
 }
 
-fn render_text_source(source: &str) -> Result<String, String> {
+fn render_text_source(source: &str, options: &RenderOptions) -> Result<String, String> {
     let diagram = parse_diagram(source)?;
-    let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+    let frame = apply_frame_width(frame_renderer(options).render_diagram(&diagram), options);
     Ok(TextOutputBackend::new(TextOutputConfig {
-        trim_trailing_whitespace: true,
+        trim_trailing_whitespace: options.width.is_none(),
         final_newline: true,
     })
     .render_frame(&frame))
 }
 
-fn render_svg_source(source: &str) -> Result<String, String> {
-    let timeline = timeline_from_source(source)?;
-    Ok(SvgRenderer::default().render_timeline(&timeline))
+fn render_svg_source(source: &str, options: &RenderOptions) -> Result<String, String> {
+    let timeline =
+        timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
+    Ok(SvgRenderer::new(svg_config(options)).render_timeline(&timeline))
 }
 
 fn render_raster_source(
     source: &str,
+    options: &RenderOptions,
     render: fn(
         &RasterRenderer,
         &Timeline,
     ) -> Result<Vec<u8>, kumeyuri_render_raster::RasterRenderError>,
 ) -> Result<Vec<u8>, String> {
-    let timeline = timeline_from_source(source)?;
-    render(&RasterRenderer::default(), &timeline)
+    let timeline =
+        timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
+    render(&raster_renderer(options)?, &timeline)
         .map_err(|error| format!("raster render error: {error:?}"))
+}
+
+fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
+    StaticFrameRenderer::default().with_theme(render_theme(options))
+}
+
+fn render_theme(options: &RenderOptions) -> Theme {
+    let mut theme = options
+        .theme
+        .map_or_else(Theme::default_theme, |theme| theme.theme().theme());
+    if let Some(charset) = options.charset {
+        theme.charset = charset.into();
+    }
+    theme
+}
+
+fn svg_config(options: &RenderOptions) -> SvgRenderConfig {
+    let theme = render_theme(options);
+    let mut config = SvgRenderConfig {
+        foreground: css_color(theme.colors.foreground),
+        background: css_color(theme.colors.background),
+        ..SvgRenderConfig::default()
+    };
+    if let Some(padding) = options.padding {
+        config.padding = u16::try_from(padding).unwrap_or(u16::MAX);
+    }
+    if let Some(font) = &options.font {
+        config.font_family = font.clone();
+    }
+    config
+}
+
+fn raster_renderer(options: &RenderOptions) -> Result<RasterRenderer, String> {
+    let theme = render_theme(options);
+    RasterRenderer::new(RasterRenderConfig {
+        padding: options
+            .padding
+            .unwrap_or(RasterRenderConfig::default().padding),
+        foreground: rgba_color(theme.colors.foreground),
+        background: rgba_color(theme.colors.background),
+        ..RasterRenderConfig::default()
+    })
+    .map_err(|error| format!("invalid raster render options: {error:?}"))
+}
+
+fn apply_frame_width(frame: Frame, options: &RenderOptions) -> Frame {
+    match options.width {
+        Some(width) => frame.with_min_width(width),
+        None => frame,
+    }
+}
+
+fn apply_timeline_width(timeline: Timeline, options: &RenderOptions) -> Timeline {
+    let Some(width) = options.width else {
+        return timeline;
+    };
+    let mut resized = Timeline::new().with_repeat(timeline.repeat());
+    for keyframe in timeline.keyframes() {
+        resized.push(KeyFrame::new(
+            keyframe.frame().with_min_width(width),
+            keyframe.duration(),
+        ));
+    }
+    resized
+}
+
+fn css_color(color: RgbColor) -> String {
+    format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue)
+}
+
+fn rgba_color(color: RgbColor) -> RgbaColor {
+    RgbaColor::rgb(color.red, color.green, color.blue)
 }
 
 fn play_file(path: &Path, options: AnimationOptions) -> Result<(), String> {
@@ -208,7 +348,7 @@ fn should_rerender(event: &Event, path: &Path) -> bool {
 fn redraw_watched_file(path: &Path) -> Result<(), String> {
     let output = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))
-        .and_then(|source| render_text_source(&source))
+        .and_then(|source| render_text_source(&source, &RenderOptions::default()))
         .unwrap_or_else(|error| format!("{error}\n"));
     redraw_message(&output)
 }
@@ -226,6 +366,7 @@ fn redraw_message(output: &str) -> Result<(), String> {
         .map_err(|error| format!("failed to flush stdout: {error}"))
 }
 
+#[cfg(test)]
 fn timeline_from_source(source: &str) -> Result<Timeline, String> {
     timeline_from_source_with_options(source, AnimationOptions::default())
 }
@@ -234,9 +375,22 @@ fn timeline_from_source_with_options(
     source: &str,
     options: AnimationOptions,
 ) -> Result<Timeline, String> {
+    timeline_from_source_with_render_options(source, options, &RenderOptions::default())
+}
+
+fn timeline_from_source_with_render_options(
+    source: &str,
+    options: AnimationOptions,
+    render_options: &RenderOptions,
+) -> Result<Timeline, String> {
     let diagram = parse_diagram(source)?;
-    Animator::animate_diagram_with_options(&diagram, options)
-        .map_err(|error| format!("animation config error: {error:?}"))
+    let timeline = Animator::animate_diagram_with_options_and_renderer(
+        &diagram,
+        options,
+        frame_renderer(render_options),
+    )
+    .map_err(|error| format!("animation config error: {error:?}"))?;
+    Ok(apply_timeline_width(timeline, render_options))
 }
 
 fn playback_options(speed: Option<f32>, repeat: bool) -> Result<AnimationOptions, String> {
@@ -252,6 +406,23 @@ fn parse_speed_override(value: &str) -> Result<f32, String> {
         return Err(format!("invalid speed {value:?}: expected finite f32 > 0"));
     }
     Ok(speed)
+}
+
+fn parse_positive_usize(value: &str) -> Result<usize, String> {
+    let parsed = value
+        .parse::<usize>()
+        .map_err(|_| format!("invalid width {value:?}: expected integer > 0"))?;
+    if parsed == 0 {
+        return Err(format!("invalid width {value:?}: expected integer > 0"));
+    }
+    Ok(parsed)
+}
+
+fn parse_non_empty_string(value: &str) -> Result<String, String> {
+    if value.trim().is_empty() {
+        return Err("invalid font: expected non-empty family name".to_owned());
+    }
+    Ok(value.to_owned())
 }
 
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
@@ -441,14 +612,17 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, Command, RenderFormat, parse_speed_override, playback_options, render_source,
-        timeline_from_source, timeline_from_source_with_options,
+        Cli, Command, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
+        parse_non_empty_string, parse_positive_usize, parse_speed_override, playback_options,
+        render_source, timeline_from_source, timeline_from_source_with_options,
+        timeline_from_source_with_render_options,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackState, should_rerender};
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
+    use kumeyuri_core::animator::AnimationOptions;
     #[cfg(not(target_arch = "wasm32"))]
     use notify::{
         Event, EventKind,
@@ -460,9 +634,15 @@ mod tests {
 
     #[test]
     fn renders_mermaid_source_to_text() {
-        let output =
-            String::from_utf8(render_source("graph TD\nA --> B", RenderFormat::Text).unwrap())
-                .unwrap();
+        let output = String::from_utf8(
+            render_source(
+                "graph TD\nA --> B",
+                RenderFormat::Text,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
 
         assert!(output.contains('A'));
         assert!(output.contains('B'));
@@ -479,10 +659,45 @@ mod tests {
     }
 
     #[test]
+    fn render_option_parser_accepts_theme_charset_width_padding_and_font() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "render",
+            "diagram.mmd",
+            "--theme",
+            "tokyo-night",
+            "--charset",
+            "unicode",
+            "--width",
+            "40",
+            "--padding",
+            "12",
+            "--font",
+            "Fira Code",
+        ])
+        .unwrap();
+        let Command::Render { options, .. } = cli.command else {
+            panic!("expected render command");
+        };
+
+        assert_eq!(options.theme, Some(RenderTheme::TokyoNight));
+        assert_eq!(options.charset, Some(RenderCharset::Unicode));
+        assert_eq!(options.width, Some(40));
+        assert_eq!(options.padding, Some(12));
+        assert_eq!(options.font.as_deref(), Some("Fira Code"));
+    }
+
+    #[test]
     fn renders_mermaid_source_to_svg() {
-        let output =
-            String::from_utf8(render_source("graph TD\nA --> B", RenderFormat::Svg).unwrap())
-                .unwrap();
+        let output = String::from_utf8(
+            render_source(
+                "graph TD\nA --> B",
+                RenderFormat::Svg,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
 
         assert!(output.starts_with("<svg "));
         assert!(output.contains("<animate "));
@@ -490,14 +705,24 @@ mod tests {
 
     #[test]
     fn renders_mermaid_source_to_gif() {
-        let output = render_source("graph TD\nA --> B", RenderFormat::Gif).unwrap();
+        let output = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Gif,
+            &RenderOptions::default(),
+        )
+        .unwrap();
 
         assert!(output.starts_with(b"GIF89a"));
     }
 
     #[test]
     fn renders_mermaid_source_to_apng() {
-        let output = render_source("graph TD\nA --> B", RenderFormat::Apng).unwrap();
+        let output = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Apng,
+            &RenderOptions::default(),
+        )
+        .unwrap();
 
         assert!(output.starts_with(b"\x89PNG\r\n\x1a\n"));
         assert!(output.windows(4).any(|chunk| chunk == b"acTL"));
@@ -506,7 +731,12 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn renders_mermaid_source_to_webp() {
-        let output = render_source("graph TD\nA --> B", RenderFormat::Webp).unwrap();
+        let output = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Webp,
+            &RenderOptions::default(),
+        )
+        .unwrap();
 
         assert_eq!(&output[..4], b"RIFF");
         assert_eq!(&output[8..12], b"WEBP");
@@ -514,9 +744,52 @@ mod tests {
 
     #[test]
     fn tui_format_requires_render_file_terminal_path() {
-        let error = render_source("graph TD\nA --> B", RenderFormat::Tui).unwrap_err();
+        let error = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Tui,
+            &RenderOptions::default(),
+        )
+        .unwrap_err();
 
         assert!(error.contains("interactive terminal"));
+    }
+
+    #[test]
+    fn render_options_apply_to_text_svg_and_timeline_frames() {
+        let options = RenderOptions {
+            theme: Some(RenderTheme::TokyoNight),
+            charset: Some(RenderCharset::Unicode),
+            width: Some(40),
+            padding: Some(3),
+            font: Some("Fira Code".to_owned()),
+        };
+        let text = String::from_utf8(
+            render_source("graph TD\nA --> B", RenderFormat::Text, &options).unwrap(),
+        )
+        .unwrap();
+        let svg = String::from_utf8(
+            render_source("graph TD\nA --> B", RenderFormat::Svg, &options).unwrap(),
+        )
+        .unwrap();
+        let timeline = timeline_from_source_with_render_options(
+            "graph TD\nA --> B",
+            AnimationOptions::default(),
+            &options,
+        )
+        .unwrap();
+
+        assert!(text.lines().all(|line| line.chars().count() == 40));
+        assert!(text.contains('┌'));
+        assert!(svg.contains(r#"font-family="Fira Code""#));
+        assert!(svg.contains(r##"fill="#1a1b26""##));
+        assert!(svg.contains(r##"fill="#c0caf5""##));
+        assert!(svg.contains(r#"<text x="3""#));
+        assert!(
+            timeline
+                .keyframes()
+                .iter()
+                .all(|keyframe| keyframe.frame().width() == 40)
+        );
     }
 
     #[test]
@@ -555,6 +828,14 @@ mod tests {
         assert_eq!(parse_speed_override("1.25").unwrap(), 1.25);
         assert!(parse_speed_override("0").is_err());
         assert!(parse_speed_override("NaN").is_err());
+    }
+
+    #[test]
+    fn render_option_parsers_reject_invalid_values() {
+        assert_eq!(parse_positive_usize("12").unwrap(), 12);
+        assert!(parse_positive_usize("0").is_err());
+        assert_eq!(parse_non_empty_string("Fira Code").unwrap(), "Fira Code");
+        assert!(parse_non_empty_string(" ").is_err());
     }
 
     #[cfg(not(target_arch = "wasm32"))]

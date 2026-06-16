@@ -96,7 +96,7 @@
 - [x] Implement APNG encoder path (`png` crate with animation chunks)
 - [x] Implement WebP encoder path (`webp` crate, animated mode)
 - [x] Add CLI flags: `--format svg|gif|apng|webp|text|tui` to `kumeyuri render`
-- [ ] Add `--theme`, `--charset`, `--width`, `--padding`, `--font` flags
+- [x] Add `--theme`, `--charset`, `--width`, `--padding`, `--font` flags
 - [ ] Build `kumeyuri-render-wasm` exposing `render(source, options) -> {svg, frames}` for browsers
 - [ ] Wrap WASM in TypeScript package `kumeyuri` (npm) with typed API
 - [ ] Implement `<kumeyuri-diagram>` web component (custom element) supporting `src`, `inline`, `animate`, `theme`, `speed`, `autoplay`, `controls` attributes

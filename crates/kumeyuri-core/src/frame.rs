@@ -154,6 +154,28 @@ impl Frame {
             .map(|row| row.iter().map(|cell| cell.glyph).collect())
             .collect()
     }
+
+    #[must_use]
+    pub fn with_min_width(&self, min_width: usize) -> Self {
+        if min_width <= self.width {
+            return self.clone();
+        }
+        let style = self
+            .cells
+            .first()
+            .map(|cell| cell.style.clone())
+            .unwrap_or_default();
+        let mut frame = Self::new_styled(min_width, self.height, style);
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let source = y * self.width + x;
+                let target = y * min_width + x;
+                frame.cells[target] = self.cells[source].clone();
+            }
+        }
+        frame.markers = self.markers.clone();
+        frame
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -826,6 +848,29 @@ mod tests {
         assert_eq!(written, 3);
         assert_eq!(frame.cell(1, 0).unwrap().glyph, 'a');
         assert!(frame.cell(3, 0).unwrap().style.bold);
+    }
+
+    #[test]
+    fn can_extend_frame_width_without_moving_content() {
+        let mut frame = Frame::new(2, 1);
+        frame.write_text(0, 0, "AB", CellStyle::default()).unwrap();
+        frame.add_marker(KeyFrameMarker {
+            id: "active".to_owned(),
+            kind: KeyFrameMarkerKind::Active,
+            region: FrameRegion {
+                x: 0,
+                y: 0,
+                width: 2,
+                height: 1,
+            },
+        });
+
+        let widened = frame.with_min_width(4);
+
+        assert_eq!(widened.width(), 4);
+        assert_eq!(widened.to_lines(), vec!["AB  "]);
+        assert_eq!(widened.markers(), frame.markers());
+        assert_eq!(frame.with_min_width(1), frame);
     }
 
     #[test]

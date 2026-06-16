@@ -38,6 +38,18 @@ impl Animator {
         diagram: &Diagram,
         options: AnimationOptions,
     ) -> Result<Timeline, AnimationConfigParseError> {
+        Self::animate_diagram_with_options_and_renderer(
+            diagram,
+            options,
+            StaticFrameRenderer::default(),
+        )
+    }
+
+    pub fn animate_diagram_with_options_and_renderer(
+        diagram: &Diagram,
+        options: AnimationOptions,
+        renderer: StaticFrameRenderer,
+    ) -> Result<Timeline, AnimationConfigParseError> {
         let config = AnimationConfig::from_diagram(diagram)?;
         let mode = config.as_ref().map_or_else(
             || default_animation_mode(&diagram.kind),
@@ -56,19 +68,19 @@ impl Animator {
             .unwrap_or_else(|| config.as_ref().is_some_and(|config| config.repeat));
 
         let timeline = match (&diagram.kind, mode) {
-            (_, AnimationMode::None) => static_timeline(diagram),
+            (_, AnimationMode::None) => static_timeline(diagram, renderer),
             (DiagramKind::Sequence(ast), AnimationMode::Playback) => SequencePlaybackAnimator::new(
                 scaled_duration(SequencePlaybackAnimator::default_frame_duration(), speed),
             )
-            .animate(ast),
+            .animate_with_renderer(ast, renderer),
             (DiagramKind::Flowchart(ast), AnimationMode::Trace) => FlowchartTraceAnimator::new(
                 scaled_duration(FlowchartTraceAnimator::default_frame_duration(), speed),
             )
-            .animate(ast),
+            .animate_with_renderer(ast, renderer),
             (DiagramKind::State(ast), AnimationMode::Transitions) => StateTransitionAnimator::new(
                 scaled_duration(StateTransitionAnimator::default_frame_duration(), speed),
             )
-            .animate(ast),
+            .animate_with_renderer(ast, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -431,9 +443,9 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
     }
 }
 
-fn static_timeline(diagram: &Diagram) -> Timeline {
+fn static_timeline(diagram: &Diagram, renderer: StaticFrameRenderer) -> Timeline {
     Timeline::from_frame(
-        StaticFrameRenderer::default().render_diagram(diagram),
+        renderer.render_diagram(diagram),
         default_animation_duration(&diagram.kind),
     )
 }
@@ -571,8 +583,16 @@ impl FlowchartTraceAnimator {
 
     #[must_use]
     pub fn animate(self, ast: &FlowchartAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &FlowchartAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
         let layout = FlowLayoutEngine::default().layout(ast);
-        let renderer = StaticFrameRenderer::default();
         let mut timeline =
             Timeline::from_frame(renderer.render_flowchart(ast), self.frame_duration);
 
@@ -774,8 +794,12 @@ impl StateTransitionAnimator {
 
     #[must_use]
     pub fn animate(self, ast: &StateAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(self, ast: &StateAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = StateLayoutEngine::default().layout(ast);
-        let renderer = StaticFrameRenderer::default();
         let mut timeline = Timeline::from_frame(renderer.render_state(ast), self.frame_duration);
 
         for (index, edge) in layout.graph.edges.iter().enumerate() {
@@ -909,8 +933,16 @@ impl SequencePlaybackAnimator {
 
     #[must_use]
     pub fn animate(self, ast: &SequenceAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &SequenceAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
         let layout = SequenceLayoutEngine::default().layout(ast);
-        let renderer = StaticFrameRenderer::default();
         let mut timeline = Timeline::new();
         let mut static_frame = renderer.render_sequence(ast);
         add_participant_enter_markers(&mut static_frame, ast, &layout);

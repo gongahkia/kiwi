@@ -6,6 +6,7 @@ use kumeyuri_core::{animator::Timeline, frame::Frame};
 pub struct SvgRenderConfig {
     pub char_width: u16,
     pub line_height: u16,
+    pub padding: u16,
     pub font_size: u16,
     pub font_family: String,
     pub foreground: String,
@@ -20,6 +21,7 @@ impl Default for SvgRenderConfig {
         Self {
             char_width: 8,
             line_height: 16,
+            padding: 0,
             font_size: 14,
             font_family: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace".to_owned(),
             foreground: "#111827".to_owned(),
@@ -112,10 +114,12 @@ impl SvgRenderer {
     fn open_svg(&self, frame: &Frame) -> String {
         let width = frame
             .width()
-            .saturating_mul(usize::from(self.config.char_width));
+            .saturating_mul(usize::from(self.config.char_width))
+            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
         let height = frame
             .height()
-            .saturating_mul(usize::from(self.config.line_height));
+            .saturating_mul(usize::from(self.config.line_height))
+            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
         format!(
             r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
 "#
@@ -137,10 +141,12 @@ impl SvgRenderer {
     fn push_background(&self, svg: &mut String, frame: &Frame) {
         let width = frame
             .width()
-            .saturating_mul(usize::from(self.config.char_width));
+            .saturating_mul(usize::from(self.config.char_width))
+            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
         let height = frame
             .height()
-            .saturating_mul(usize::from(self.config.line_height));
+            .saturating_mul(usize::from(self.config.line_height))
+            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
         svg.push_str(&format!(
             r#"<rect width="{width}" height="{height}" fill="{}"/>
 "#,
@@ -193,9 +199,11 @@ impl SvgRenderer {
         ));
         svg.push_str(animate);
         for (row, line) in frame.to_lines().into_iter().enumerate() {
-            let y = (row + 1).saturating_mul(usize::from(self.config.line_height));
+            let x = usize::from(self.config.padding);
+            let y = usize::from(self.config.padding)
+                .saturating_add((row + 1).saturating_mul(usize::from(self.config.line_height)));
             svg.push_str(&format!(
-                r#"<text x="0" y="{y}" xml:space="preserve" font-family="{}" font-size="{}" fill="{}">{}</text>
+                r#"<text x="{x}" y="{y}" xml:space="preserve" font-family="{}" font-size="{}" fill="{}">{}</text>
 "#,
                 escape_attr(&self.config.font_family),
                 self.config.font_size,
