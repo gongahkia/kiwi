@@ -17,10 +17,17 @@ use kumeyuri_core::{
 #[cfg(not(target_arch = "wasm32"))]
 use {
     crossterm::{
+        cursor::MoveTo,
         execute,
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+        terminal::{
+            Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+            enable_raw_mode,
+        },
     },
     kumeyuri_render_tui::{TuiRenderConfig, TuiRenderer, TuiTransitionEffect},
+    notify::{
+        Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+    },
     ratatui::{Terminal, backend::CrosstermBackend},
 };
 
@@ -73,10 +80,7 @@ fn run() -> Result<(), String> {
 
     match cli.command {
         Command::Render { file, format } => render_file(&file, format),
-        Command::Watch { file } => {
-            let _ = file;
-            Ok(())
-        }
+        Command::Watch { file } => watch_file(&file),
         Command::Play { file } => play_file(&file),
     }
 }
@@ -109,6 +113,70 @@ fn play_file(path: &Path) -> Result<(), String> {
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let timeline = timeline_from_source(&source)?;
     play_timeline(&timeline)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn watch_file(path: &Path) -> Result<(), String> {
+    let watch_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    redraw_watched_file(&watch_path)?;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(
+        move |event| {
+            let _ = tx.send(event);
+        },
+        NotifyConfig::default(),
+    )
+    .map_err(|error| format!("failed to create watcher: {error}"))?;
+    watcher
+        .watch(&watch_path, RecursiveMode::NonRecursive)
+        .map_err(|error| format!("failed to watch {}: {error}", watch_path.display()))?;
+
+    for event in rx {
+        match event {
+            Ok(event) if should_rerender(&event, &watch_path) => {
+                redraw_watched_file(&watch_path)?;
+            }
+            Ok(_) => {}
+            Err(error) => redraw_message(&format!("watch error: {error}\n"))?,
+        }
+    }
+    Err("file watcher stopped".to_owned())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn watch_file(_path: &Path) -> Result<(), String> {
+    Err("watch is unsupported on wasm32".to_owned())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn should_rerender(event: &Event, path: &Path) -> bool {
+    matches!(
+        event.kind,
+        EventKind::Any | EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+    ) && (event.paths.is_empty() || event.paths.iter().any(|event_path| event_path == path))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn redraw_watched_file(path: &Path) -> Result<(), String> {
+    let output = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))
+        .and_then(|source| render_source(&source, RenderFormat::Text))
+        .unwrap_or_else(|error| format!("{error}\n"));
+    redraw_message(&output)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn redraw_message(output: &str) -> Result<(), String> {
+    let mut stdout = io::stdout();
+    execute!(stdout, Clear(ClearType::All), MoveTo(0, 0))
+        .map_err(|error| format!("failed to redraw terminal: {error}"))?;
+    stdout
+        .write_all(output.as_bytes())
+        .map_err(|error| format!("failed to write stdout: {error}"))?;
+    stdout
+        .flush()
+        .map_err(|error| format!("failed to flush stdout: {error}"))
 }
 
 fn timeline_from_source(source: &str) -> Result<Timeline, String> {
@@ -171,7 +239,16 @@ fn play_timeline(_timeline: &Timeline) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_arch = "wasm32"))]
+    use super::should_rerender;
     use super::{RenderFormat, render_source, timeline_from_source};
+    #[cfg(not(target_arch = "wasm32"))]
+    use notify::{
+        Event, EventKind,
+        event::{DataChange, ModifyKind},
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    use std::path::Path;
 
     #[test]
     fn renders_mermaid_source_to_text() {
@@ -195,5 +272,15 @@ mod tests {
         let timeline = timeline_from_source("%%{ animate: 'none' }%%\ngraph TD\nA --> B").unwrap();
 
         assert_eq!(timeline.len(), 1);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn watch_rerenders_relevant_modify_events() {
+        let event = Event::new(EventKind::Modify(ModifyKind::Data(DataChange::Content)))
+            .add_path("diagram.mmd".into());
+
+        assert!(should_rerender(&event, Path::new("diagram.mmd")));
+        assert!(!should_rerender(&event, Path::new("other.mmd")));
     }
 }
