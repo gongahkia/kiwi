@@ -61,11 +61,19 @@ const STATE_NAMES: [&str; 10] = [
     "10_composite_opening",
 ];
 
+const CLASS_NAMES: [&str; 4] = [
+    "01_basic_class",
+    "02_inheritance_members",
+    "03_relationship_kinds",
+    "04_direction_lr",
+];
+
 #[test]
 fn animation_timeline_hashes_match() {
     assert_timeline_hashes("flowchart", &FLOWCHART_NAMES);
     assert_timeline_hashes("sequence", &SEQUENCE_NAMES);
     assert_timeline_hashes("state", &STATE_NAMES);
+    assert_timeline_hashes("class", &CLASS_NAMES);
 }
 
 fn assert_timeline_hashes(kind: &str, names: &[&str]) {
@@ -147,6 +155,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Flowchart(_) => ("flowchart", "trace"),
         DiagramKind::Sequence(_) => ("sequence", "playback"),
         DiagramKind::State(_) => ("state", "transitions"),
+        DiagramKind::Class(_) => ("class", "trace"),
     }
 }
 

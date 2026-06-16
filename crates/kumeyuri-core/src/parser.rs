@@ -1,8 +1,10 @@
 use crate::ast::{
-    ArrowHead, Diagram, DiagramKind, DiagramMetadata, Direction, FlowClassApply, FlowClassDef,
-    FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
-    FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label,
-    LabelKind, MermaidComment, MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber,
+    ArrowHead, ClassAst, ClassHeader, ClassMember, ClassMemberAssignment, ClassMemberKind,
+    ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
+    Diagram, DiagramKind, DiagramMetadata, Direction, FlowClassApply, FlowClassDef, FlowEdge,
+    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration,
+    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind,
+    MermaidComment, MermaidDirective, SequenceArrow, SequenceAst, SequenceAutoNumber,
     SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
     SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
     Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
@@ -56,6 +58,10 @@ pub enum ParseErrorKind {
     UnknownStateStatement,
     ExpectedStateId,
     ExpectedStateTransition,
+    ExpectedClassHeader,
+    UnknownClassStatement,
+    ExpectedClassMember,
+    ExpectedClassRelationship,
     TrailingInput,
 }
 
@@ -80,6 +86,10 @@ impl Parser {
 
     pub fn parse_state(source: &str) -> Result<StateAst, ParseError> {
         DiagramParser::new(source).parse_state_only()
+    }
+
+    pub fn parse_class(source: &str) -> Result<ClassAst, ParseError> {
+        DiagramParser::new(source).parse_class_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -148,6 +158,14 @@ impl Parser {
     pub fn parse_state_statement(source: &str) -> Result<StateStatement, ParseError> {
         StateStatementParser::new(source).parse()
     }
+
+    pub fn parse_class_header(source: &str) -> Result<ClassHeader, ParseError> {
+        ClassHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_class_statement(source: &str) -> Result<ClassStatement, ParseError> {
+        ClassStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -189,6 +207,11 @@ impl<'source> DiagramParser<'source> {
             let ast = self.parse_state_body(shift_state_header(state_header, header.start))?;
             return Ok(self.diagram(DiagramKind::State(Box::new(ast))));
         }
+        if let Ok(class_header) = Parser::parse_class_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_class_body(shift_class_header(class_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Class(Box::new(ast))));
+        }
 
         Err(ParseError {
             kind: ParseErrorKind::ExpectedDiagramHeader,
@@ -227,6 +250,17 @@ impl<'source> DiagramParser<'source> {
         let state_header = Parser::parse_state_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_state_body(shift_state_header(state_header, header.start))
+    }
+
+    fn parse_class_only(mut self) -> Result<ClassAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedClassHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let class_header = Parser::parse_class_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_class_body(shift_class_header(class_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -358,6 +392,71 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_class_body(&mut self, header: ClassHeader) -> Result<ClassAst, ParseError> {
+        let mut ast = ClassAst {
+            header,
+            direction: None,
+            statements: Vec::new(),
+            classes: Vec::new(),
+            relationships: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if is_class_block_header(line.text) {
+                let class = self.parse_class_block(line)?;
+                push_class_statement(&mut ast, ClassStatement::Class(Box::new(class)));
+                continue;
+            }
+            if line.text == "}" {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let statement =
+                shift_class_statement(Parser::parse_class_statement(line.text)?, line.start);
+            push_class_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_class_block(
+        &mut self,
+        header_line: TrimmedSourceLine<'source>,
+    ) -> Result<ClassNode, ParseError> {
+        let mut class = parse_class_declaration(
+            header_line.text,
+            0,
+            header_line.text.len().saturating_sub(1),
+            ParseErrorKind::ExpectedClassName,
+        )?;
+        class = shift_class_node(class, header_line.start);
+        self.cursor = header_line.line.next;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                class.span = Span::new(class.span.start, line.end);
+                self.cursor = line.line.next;
+                return Ok(class);
+            }
+            if let Some(annotation) = parse_class_annotation(line.text, 0, line.text.len()) {
+                class.annotations.push(shift_label(annotation, line.start));
+            } else {
+                class.members.push(shift_class_member(
+                    parse_class_member(line.text, 0, line.text.len())?,
+                    line.start,
+                ));
+            }
+            self.cursor = line.line.next;
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedClassMember,
+            span: Span::new(class.span.start, self.source.len()),
+        })
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -444,6 +543,59 @@ fn push_flow_statement(ast: &mut FlowchartAst, statement: FlowStatement) {
         FlowStatement::ClassApply(_) | FlowStatement::Comment(_) | FlowStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
+}
+
+fn push_class_statement(ast: &mut ClassAst, statement: ClassStatement) {
+    match &statement {
+        ClassStatement::Class(class) => merge_class_node(&mut ast.classes, class),
+        ClassStatement::Member(member) => {
+            merge_class_member(&mut ast.classes, member);
+        }
+        ClassStatement::Relationship(relationship) => {
+            ensure_class_id(&mut ast.classes, &relationship.from);
+            ensure_class_id(&mut ast.classes, &relationship.to);
+            ast.relationships.push((**relationship).clone());
+        }
+        ClassStatement::Direction(direction) => ast.direction = Some(*direction),
+        ClassStatement::Comment(_) | ClassStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn merge_class_node(classes: &mut Vec<ClassNode>, class: &ClassNode) {
+    if let Some(existing) = classes
+        .iter_mut()
+        .find(|value| value.id.value == class.id.value)
+    {
+        existing.annotations.extend(class.annotations.clone());
+        existing.members.extend(class.members.clone());
+        existing.span = Span::new(existing.span.start.min(class.span.start), class.span.end);
+        return;
+    }
+    classes.push(class.clone());
+}
+
+fn merge_class_member(classes: &mut Vec<ClassNode>, member: &ClassMemberAssignment) {
+    ensure_class_id(classes, &member.class_id);
+    if let Some(class) = classes
+        .iter_mut()
+        .find(|value| value.id.value == member.class_id.value)
+    {
+        class.members.push(member.member.clone());
+        class.span = Span::new(class.span.start.min(member.span.start), member.span.end);
+    }
+}
+
+fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
+    if classes.iter().any(|class| class.id.value == id.value) {
+        return;
+    }
+    classes.push(ClassNode {
+        id: id.clone(),
+        annotations: Vec::new(),
+        members: Vec::new(),
+        span: id.span,
+    });
 }
 
 fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
@@ -1160,6 +1312,156 @@ impl<'source> StateStatementParser<'source> {
             _ => StateNodeKind::Default,
         };
         Ok((id, None, kind))
+    }
+}
+
+struct ClassHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> ClassHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ClassHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "classDiagram" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedClassHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(ClassHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct ClassStatementParser<'source> {
+    source: &'source str,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ClassRelationshipOperator {
+    token: &'static str,
+    line: ClassRelationshipLine,
+    start_marker: ClassRelationshipMarker,
+    end_marker: ClassRelationshipMarker,
+}
+
+impl<'source> ClassStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ClassStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownClassStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(ClassStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(ClassStatement::Comment(shift_comment(comment, start)));
+        }
+        if let Some(direction) = parse_direction_statement(trimmed, start)? {
+            return Ok(ClassStatement::Direction(direction));
+        }
+        if let Some(relationship) = self.parse_relationship(start, end)? {
+            return Ok(ClassStatement::Relationship(Box::new(relationship)));
+        }
+        if let Some(member) = self.parse_inline_member(start, end)? {
+            return Ok(ClassStatement::Member(Box::new(member)));
+        }
+        if has_keyword(self.source, start, "class") {
+            let end = if self.source.as_bytes().get(end.saturating_sub(1)) == Some(&b'{') {
+                end - 1
+            } else {
+                end
+            };
+            return Ok(ClassStatement::Class(Box::new(parse_class_declaration(
+                self.source,
+                start,
+                end,
+                ParseErrorKind::ExpectedClassName,
+            )?)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownClassStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_inline_member(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ClassMemberAssignment>, ParseError> {
+        let Some(colon) = self.source[start..end].find(':') else {
+            return Ok(None);
+        };
+        let colon = start + colon;
+        let class_id =
+            parse_single_identifier(self.source, start, colon, ParseErrorKind::ExpectedClassName)?;
+        let member = parse_class_member(self.source, colon + 1, end)?;
+        Ok(Some(ClassMemberAssignment {
+            class_id,
+            member,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_relationship(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ClassRelationship>, ParseError> {
+        let Some((operator_start, operator)) =
+            find_class_relationship_operator(self.source, start, end)
+        else {
+            return Ok(None);
+        };
+        let operator_end = operator_start + operator.token.len();
+        let from = parse_single_identifier(
+            self.source,
+            start,
+            operator_start,
+            ParseErrorKind::ExpectedClassRelationship,
+        )?;
+        let label_start = self.source[operator_end..end]
+            .find(':')
+            .map(|offset| operator_end + offset);
+        let to_end = label_start.unwrap_or(end);
+        let to = parse_single_identifier(
+            self.source,
+            operator_end,
+            to_end,
+            ParseErrorKind::ExpectedClassRelationship,
+        )?;
+        let label = label_start.and_then(|offset| label_from_trimmed(self.source, offset + 1, end));
+        Ok(Some(ClassRelationship {
+            from,
+            to,
+            line: operator.line,
+            start_marker: operator.start_marker,
+            end_marker: operator.end_marker,
+            label,
+            span: Span::new(start, end),
+        }))
     }
 }
 
@@ -2320,6 +2622,302 @@ fn parse_direction_statement(
     )))
 }
 
+fn is_class_block_header(source: &str) -> bool {
+    let Some((start, end)) = trim_ascii_range(source) else {
+        return false;
+    };
+    source[start..end].ends_with('{') && has_keyword(source, start, "class")
+}
+
+fn parse_class_declaration(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<ClassNode, ParseError> {
+    let keyword = "class";
+    if !has_keyword(source, start, keyword) {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    }
+    let rest_start = start + keyword.len();
+    let Some((rest_trim_start, rest_trim_end)) = trim_ascii_range(&source[rest_start..end]) else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(rest_start, end),
+        });
+    };
+    let absolute_start = rest_start + rest_trim_start;
+    let absolute_end = rest_start + rest_trim_end;
+    let id_end = source[absolute_start..absolute_end]
+        .find(|value: char| value.is_ascii_whitespace())
+        .map_or(absolute_end, |offset| absolute_start + offset);
+    let id = parse_single_identifier(source, absolute_start, id_end, error_kind)?;
+    let mut annotations = Vec::new();
+    if id_end < absolute_end {
+        let Some((trim_start, trim_end)) = trim_ascii_range(&source[id_end..absolute_end]) else {
+            return Ok(ClassNode {
+                id,
+                annotations,
+                members: Vec::new(),
+                span: Span::new(start, end),
+            });
+        };
+        let annotation_start = id_end + trim_start;
+        let annotation_end = id_end + trim_end;
+        if let Some(annotation) = parse_class_annotation(source, annotation_start, annotation_end) {
+            annotations.push(annotation);
+        } else {
+            return Err(ParseError {
+                kind: error_kind,
+                span: Span::new(annotation_start, annotation_end),
+            });
+        }
+    }
+    Ok(ClassNode {
+        id,
+        annotations,
+        members: Vec::new(),
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_class_annotation(source: &str, start: usize, end: usize) -> Option<Label> {
+    let (trim_start, trim_end) = trim_ascii_range(&source[start..end])?;
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let value = &source[absolute_start..absolute_end];
+    (value.starts_with("<<") && value.ends_with(">>"))
+        .then(|| label_from_body(source, absolute_start, absolute_end))
+}
+
+fn parse_class_member(source: &str, start: usize, end: usize) -> Result<ClassMember, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedClassMember,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let mut body_start = absolute_start;
+    let visibility = source
+        .as_bytes()
+        .get(body_start)
+        .copied()
+        .and_then(|value| match value {
+            b'+' | b'-' | b'#' | b'~' => {
+                body_start += 1;
+                Some(value as char)
+            }
+            _ => None,
+        });
+    let body = &source[body_start..absolute_end];
+    let kind = if body.contains('(') {
+        ClassMemberKind::Method
+    } else {
+        ClassMemberKind::Field
+    };
+    let (name, ty) = match kind {
+        ClassMemberKind::Method => parse_class_method_parts(source, body_start, absolute_end)?,
+        ClassMemberKind::Field => parse_class_field_parts(source, body_start, absolute_end)?,
+    };
+    Ok(ClassMember {
+        visibility,
+        name,
+        ty,
+        kind,
+        span: Span::new(absolute_start, absolute_end),
+    })
+}
+
+fn parse_class_method_parts(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    let Some(open) = source[start..end].find('(') else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedClassMember,
+            span: Span::new(start, end),
+        });
+    };
+    let name = parse_single_identifier(
+        source,
+        start,
+        start + open,
+        ParseErrorKind::ExpectedClassMember,
+    )?;
+    let close = source[start + open..end]
+        .find(')')
+        .map(|offset| start + open + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedClassMember,
+            span: Span::new(start + open, end),
+        })?;
+    let ty = label_from_trimmed(source, close + 1, end);
+    Ok((name, ty))
+}
+
+fn parse_class_field_parts(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    if let Some(colon) = source[start..end].find(':') {
+        let colon = start + colon;
+        let name =
+            parse_single_identifier(source, start, colon, ParseErrorKind::ExpectedClassMember)?;
+        let ty = label_from_trimmed(source, colon + 1, end);
+        return Ok((name, ty));
+    }
+    let parts = source[start..end]
+        .split_ascii_whitespace()
+        .collect::<Vec<_>>();
+    match parts.as_slice() {
+        [] => Err(ParseError {
+            kind: ParseErrorKind::ExpectedClassMember,
+            span: Span::new(start, end),
+        }),
+        [name] => {
+            let name_start = source[start..end]
+                .find(name)
+                .map_or(start, |offset| start + offset);
+            let name = parse_single_identifier(
+                source,
+                name_start,
+                name_start + name.len(),
+                ParseErrorKind::ExpectedClassMember,
+            )?;
+            Ok((name, None))
+        }
+        [ty, name, ..] => {
+            let ty_start = source[start..end]
+                .find(ty)
+                .map_or(start, |offset| start + offset);
+            let name_start = source[ty_start + ty.len()..end]
+                .find(name)
+                .map_or(ty_start + ty.len(), |offset| ty_start + ty.len() + offset);
+            let name = parse_single_identifier(
+                source,
+                name_start,
+                name_start + name.len(),
+                ParseErrorKind::ExpectedClassMember,
+            )?;
+            let ty = label_from_body(source, ty_start, ty_start + ty.len());
+            Ok((name, Some(ty)))
+        }
+    }
+}
+
+fn find_class_relationship_operator(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<(usize, ClassRelationshipOperator)> {
+    class_relationship_operators()
+        .into_iter()
+        .filter_map(|operator| {
+            source[start..end]
+                .find(operator.token)
+                .map(|offset| (start + offset, operator))
+        })
+        .min_by_key(|(offset, operator)| (*offset, std::cmp::Reverse(operator.token.len())))
+}
+
+fn class_relationship_operators() -> [ClassRelationshipOperator; 14] {
+    use ClassRelationshipLine::{Dotted, Solid};
+    use ClassRelationshipMarker::{Aggregation, Arrow, Composition, Inheritance, None};
+    [
+        ClassRelationshipOperator {
+            token: "<|--",
+            line: Solid,
+            start_marker: Inheritance,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "--|>",
+            line: Solid,
+            start_marker: None,
+            end_marker: Inheritance,
+        },
+        ClassRelationshipOperator {
+            token: "<|..",
+            line: Dotted,
+            start_marker: Inheritance,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "..|>",
+            line: Dotted,
+            start_marker: None,
+            end_marker: Inheritance,
+        },
+        ClassRelationshipOperator {
+            token: "*--",
+            line: Solid,
+            start_marker: Composition,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "--*",
+            line: Solid,
+            start_marker: None,
+            end_marker: Composition,
+        },
+        ClassRelationshipOperator {
+            token: "o--",
+            line: Solid,
+            start_marker: Aggregation,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "--o",
+            line: Solid,
+            start_marker: None,
+            end_marker: Aggregation,
+        },
+        ClassRelationshipOperator {
+            token: "<--",
+            line: Solid,
+            start_marker: Arrow,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "-->",
+            line: Solid,
+            start_marker: None,
+            end_marker: Arrow,
+        },
+        ClassRelationshipOperator {
+            token: "<..",
+            line: Dotted,
+            start_marker: Arrow,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "..>",
+            line: Dotted,
+            start_marker: None,
+            end_marker: Arrow,
+        },
+        ClassRelationshipOperator {
+            token: "--",
+            line: Solid,
+            start_marker: None,
+            end_marker: None,
+        },
+        ClassRelationshipOperator {
+            token: "..",
+            line: Dotted,
+            start_marker: None,
+            end_marker: None,
+        },
+    ]
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -2638,6 +3236,83 @@ fn shift_state_class_apply(class_apply: StateClassApply, offset: usize) -> State
     }
 }
 
+fn shift_class_header(header: ClassHeader, offset: usize) -> ClassHeader {
+    ClassHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_class_statement(statement: ClassStatement, offset: usize) -> ClassStatement {
+    match statement {
+        ClassStatement::Class(class) => {
+            ClassStatement::Class(Box::new(shift_class_node(*class, offset)))
+        }
+        ClassStatement::Member(member) => {
+            ClassStatement::Member(Box::new(shift_class_member_assignment(*member, offset)))
+        }
+        ClassStatement::Relationship(relationship) => {
+            ClassStatement::Relationship(Box::new(shift_class_relationship(*relationship, offset)))
+        }
+        ClassStatement::Direction(direction) => {
+            ClassStatement::Direction(shift_spanned(direction, offset))
+        }
+        ClassStatement::Comment(comment) => ClassStatement::Comment(shift_comment(comment, offset)),
+        ClassStatement::Directive(directive) => {
+            ClassStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_class_node(class: ClassNode, offset: usize) -> ClassNode {
+    ClassNode {
+        id: shift_spanned(class.id, offset),
+        annotations: class
+            .annotations
+            .into_iter()
+            .map(|annotation| shift_label(annotation, offset))
+            .collect(),
+        members: class
+            .members
+            .into_iter()
+            .map(|member| shift_class_member(member, offset))
+            .collect(),
+        span: shift_span(class.span, offset),
+    }
+}
+
+fn shift_class_member_assignment(
+    member: ClassMemberAssignment,
+    offset: usize,
+) -> ClassMemberAssignment {
+    ClassMemberAssignment {
+        class_id: shift_spanned(member.class_id, offset),
+        member: shift_class_member(member.member, offset),
+        span: shift_span(member.span, offset),
+    }
+}
+
+fn shift_class_member(member: ClassMember, offset: usize) -> ClassMember {
+    ClassMember {
+        visibility: member.visibility,
+        name: shift_spanned(member.name, offset),
+        ty: member.ty.map(|label| shift_label(label, offset)),
+        kind: member.kind,
+        span: shift_span(member.span, offset),
+    }
+}
+
+fn shift_class_relationship(relationship: ClassRelationship, offset: usize) -> ClassRelationship {
+    ClassRelationship {
+        from: shift_spanned(relationship.from, offset),
+        to: shift_spanned(relationship.to, offset),
+        line: relationship.line,
+        start_marker: relationship.start_marker,
+        end_marker: relationship.end_marker,
+        label: relationship.label.map(|label| shift_label(label, offset)),
+        span: shift_span(relationship.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -2904,8 +3579,9 @@ mod tests {
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
     use crate::ast::{
-        ArrowHead, DiagramKind, Direction, FlowEdgeStroke, FlowShape, FlowStatement,
-        FlowchartDirective, LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
+        DiagramKind, Direction, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
+        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
         SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
         StateStatement,
     };
@@ -3010,6 +3686,26 @@ mod tests {
         };
         assert_eq!(ast.direction.unwrap().value, Direction::LeftRight);
         assert_eq!(ast.transitions.len(), 1);
+    }
+
+    #[test]
+    fn parses_class_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "classDiagram\nclass Animal {\n+String name\n+eat() void\n}\nAnimal <|-- Dog",
+        )
+        .unwrap();
+
+        let DiagramKind::Class(ast) = diagram.kind else {
+            panic!("expected class diagram");
+        };
+        assert_eq!(ast.classes.len(), 2);
+        assert_eq!(ast.classes[0].id.value, "Animal");
+        assert_eq!(ast.classes[0].members.len(), 2);
+        assert_eq!(ast.relationships.len(), 1);
+        assert_eq!(
+            ast.relationships[0].start_marker,
+            ClassRelationshipMarker::Inheritance,
+        );
     }
 
     #[test]
@@ -3615,6 +4311,35 @@ mod tests {
         assert_eq!(
             Parser::parse_state_statement("elsewhere").unwrap_err().kind,
             ParseErrorKind::UnknownStateStatement,
+        );
+    }
+
+    #[test]
+    fn parses_class_members_and_relationships() {
+        let member = Parser::parse_class_statement("Animal : +String name").unwrap();
+        let relationship = Parser::parse_class_statement("Client ..> Server : uses").unwrap();
+
+        let ClassStatement::Member(member) = member else {
+            panic!("expected member statement");
+        };
+        let ClassStatement::Relationship(relationship) = relationship else {
+            panic!("expected relationship statement");
+        };
+        assert_eq!(member.class_id.value, "Animal");
+        assert_eq!(member.member.visibility, Some('+'));
+        assert_eq!(member.member.name.value, "name");
+        assert_eq!(member.member.ty.unwrap().text, "String");
+        assert_eq!(member.member.kind, ClassMemberKind::Field);
+        assert_eq!(relationship.line, ClassRelationshipLine::Dotted);
+        assert_eq!(relationship.end_marker, ClassRelationshipMarker::Arrow);
+        assert_eq!(relationship.label.unwrap().text, "uses");
+    }
+
+    #[test]
+    fn rejects_unknown_class_statement() {
+        assert_eq!(
+            Parser::parse_class_statement("elsewhere").unwrap_err().kind,
+            ParseErrorKind::UnknownClassStatement,
         );
     }
 }

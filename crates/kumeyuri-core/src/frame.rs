@@ -1,6 +1,10 @@
-use crate::ast::{ArrowHead, Diagram, DiagramKind, FlowchartAst, SequenceAst, StateAst};
+use crate::ast::{
+    ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
+    FlowchartAst, SequenceAst, StateAst,
+};
 use crate::layout::{
-    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowSubgraph,
+    ClassLayout, ClassLayoutEngine, FlowLayout, FlowLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
     PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
     StateLayoutEngine,
 };
@@ -319,6 +323,7 @@ pub struct StaticFrameRenderer {
     flow: FlowLayoutEngine,
     sequence: SequenceLayoutEngine,
     state: StateLayoutEngine,
+    class: ClassLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -334,6 +339,7 @@ impl StaticFrameRenderer {
             flow,
             sequence,
             state,
+            class: ClassLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -350,6 +356,7 @@ impl StaticFrameRenderer {
             flow,
             sequence,
             state,
+            class: ClassLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -366,6 +373,7 @@ impl StaticFrameRenderer {
             flow,
             sequence,
             state,
+            class: ClassLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -405,6 +413,7 @@ impl StaticFrameRenderer {
             DiagramKind::Flowchart(ast) => self.render_flowchart(ast),
             DiagramKind::Sequence(ast) => self.render_sequence(ast),
             DiagramKind::State(ast) => self.render_state(ast),
+            DiagramKind::Class(ast) => self.render_class(ast),
         }
     }
 
@@ -421,6 +430,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_state(&self, ast: &StateAst) -> Frame {
         render_flow_layout(&self.state.layout(ast).graph, self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_class(&self, ast: &ClassAst) -> Frame {
+        render_class_layout(&self.class.layout(ast), self.palette, self.theme)
     }
 }
 
@@ -550,6 +564,250 @@ fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme:
         );
     }
     frame
+}
+
+fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    for relationship in &layout.relationships {
+        draw_class_relationship(
+            &mut frame,
+            relationship,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for node in &layout.nodes {
+        draw_class_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_class_node(
+    frame: &mut Frame,
+    node: &PositionedClassNode,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    fill_rect(frame, node.rect, ' ', box_style.clone());
+    draw_vertical(
+        frame,
+        node.rect.origin.x,
+        node.rect.origin.y,
+        node.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_vertical(
+        frame,
+        node.rect.right().saturating_sub(1),
+        node.rect.origin.y,
+        node.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    let mut y = node.rect.origin.y;
+    draw_class_border(frame, node.rect, y, palette, box_style.clone());
+    y += 1;
+    for annotation in &node.annotations {
+        write_text_safe(
+            frame,
+            node.rect.origin.x + 1,
+            y,
+            annotation,
+            text_style.clone(),
+        );
+        y += 1;
+    }
+    write_text_safe(
+        frame,
+        node.rect.origin.x + 1,
+        y,
+        &node.id,
+        text_style.clone(),
+    );
+    y += 1;
+    draw_class_border(frame, node.rect, y, palette, box_style.clone());
+    y += 1;
+
+    let field_rows = if node.methods.is_empty() {
+        node.fields.len()
+    } else {
+        node.fields.len().max(1)
+    };
+    for field in &node.fields {
+        write_text_safe(frame, node.rect.origin.x + 1, y, field, text_style.clone());
+        y += 1;
+    }
+    for _ in node.fields.len()..field_rows {
+        y += 1;
+    }
+    if !node.fields.is_empty() || !node.methods.is_empty() {
+        draw_class_border(frame, node.rect, y, palette, box_style.clone());
+        y += 1;
+    }
+    for method in &node.methods {
+        write_text_safe(frame, node.rect.origin.x + 1, y, method, text_style.clone());
+        y += 1;
+    }
+    if !node.methods.is_empty() {
+        draw_class_border(frame, node.rect, y, palette, box_style);
+    }
+}
+
+fn fill_rect(frame: &mut Frame, rect: Rect, glyph: char, style: CellStyle) {
+    for y in rect.origin.y..rect.bottom() {
+        draw_horizontal(
+            frame,
+            rect.origin.x,
+            rect.right() - 1,
+            y,
+            glyph,
+            style.clone(),
+        );
+    }
+}
+
+fn draw_class_border(
+    frame: &mut Frame,
+    rect: Rect,
+    y: i32,
+    palette: GlyphPalette,
+    style: CellStyle,
+) {
+    let left = rect.origin.x;
+    let right = rect.right().saturating_sub(1);
+    draw_horizontal(frame, left, right, y, palette.horizontal, style.clone());
+    let (left_glyph, right_glyph) = if y == rect.origin.y {
+        (palette.top_left, palette.top_right)
+    } else if y == rect.bottom().saturating_sub(1) {
+        (palette.bottom_left, palette.bottom_right)
+    } else {
+        (palette.crossing, palette.crossing)
+    };
+    put_safe(frame, left, y, left_glyph, style.clone());
+    put_safe(frame, right, y, right_glyph, style);
+}
+
+fn draw_class_relationship(
+    frame: &mut Frame,
+    relationship: &PositionedClassRelationship,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    let mut line_palette = palette;
+    if relationship.line == ClassRelationshipLine::Dotted {
+        line_palette.horizontal = ':';
+        line_palette.vertical = ':';
+    }
+    draw_polyline(
+        frame,
+        &relationship.points,
+        line_palette,
+        edge_style.clone(),
+    );
+    if let Some(first) = relationship.points.first().copied()
+        && let Some(glyph) =
+            class_start_marker_for_points(relationship.start_marker, &relationship.points, palette)
+    {
+        put_safe(frame, first.x, first.y, glyph, edge_style.clone());
+    }
+    if let Some(last) = relationship.points.last().copied()
+        && let Some(glyph) =
+            class_end_marker_for_points(relationship.end_marker, &relationship.points, palette)
+    {
+        put_safe(frame, last.x, last.y, glyph, edge_style.clone());
+    }
+    if let Some(label) = &relationship.label
+        && let Some(point) = class_relationship_label_point(&relationship.points)
+    {
+        let x = point.x - (label.chars().count() as i32 / 2);
+        write_text_safe(frame, x.max(0), point.y, label, text_style);
+    }
+}
+
+fn class_relationship_label_point(points: &[Point]) -> Option<Point> {
+    let first = points.first()?;
+    let last = points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2,
+        y: (first.y + last.y) / 2,
+    })
+}
+
+fn class_start_marker_for_points(
+    marker: ClassRelationshipMarker,
+    points: &[Point],
+    palette: GlyphPalette,
+) -> Option<char> {
+    match marker {
+        ClassRelationshipMarker::None => None,
+        ClassRelationshipMarker::Arrow | ClassRelationshipMarker::Inheritance => {
+            dominant_start_arrowhead_for_points(points, palette)
+        }
+        ClassRelationshipMarker::Aggregation => Some('o'),
+        ClassRelationshipMarker::Composition => Some('*'),
+    }
+}
+
+fn class_end_marker_for_points(
+    marker: ClassRelationshipMarker,
+    points: &[Point],
+    palette: GlyphPalette,
+) -> Option<char> {
+    match marker {
+        ClassRelationshipMarker::None => None,
+        ClassRelationshipMarker::Arrow | ClassRelationshipMarker::Inheritance => {
+            dominant_end_arrowhead_for_points(points, palette)
+        }
+        ClassRelationshipMarker::Aggregation => Some('o'),
+        ClassRelationshipMarker::Composition => Some('*'),
+    }
+}
+
+fn dominant_start_arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> Option<char> {
+    match points {
+        [first, next, ..] => Some(dominant_arrowhead_for_segment(*next, *first, palette)),
+        _ => Some(palette.arrow_left),
+    }
+}
+
+fn dominant_end_arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> Option<char> {
+    match points {
+        [.., previous, last] => Some(dominant_arrowhead_for_segment(*previous, *last, palette)),
+        _ => Some(palette.arrow_right),
+    }
+}
+
+fn dominant_arrowhead_for_segment(previous: Point, last: Point, palette: GlyphPalette) -> char {
+    let dx = last.x - previous.x;
+    let dy = last.y - previous.y;
+    if dy.abs() >= dx.abs() {
+        if dy < 0 {
+            palette.arrow_up
+        } else {
+            palette.arrow_down
+        }
+    } else if dx < 0 {
+        palette.arrow_left
+    } else {
+        palette.arrow_right
+    }
 }
 
 fn draw_sequence_note(
@@ -776,6 +1034,7 @@ mod tests {
         SequenceHeader, SequenceMessage, SequenceStatement, Span, Spanned, StateAst,
         StateDirective, StateHeader, StateStatement, StateTransition,
     };
+    use crate::parser::Parser;
     use crate::theme::Theme;
 
     #[test]
@@ -1049,6 +1308,21 @@ mod tests {
 
         assert!(output.contains("[*]"));
         assert!(output.contains("Idle"));
+    }
+
+    #[test]
+    fn renders_class_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "classDiagram\nclass Animal {\n+String name\n+eat() void\n}\nAnimal <|-- Dog",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Animal"));
+        assert!(output.contains("+name: String"));
+        assert!(output.contains("+eat: void"));
+        assert!(output.contains("Dog"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

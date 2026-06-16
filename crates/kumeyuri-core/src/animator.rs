@@ -1,12 +1,13 @@
 use crate::ast::{
-    Diagram, DiagramKind, FlowStatement, FlowchartAst, MermaidDirective, SequenceAst,
-    SequenceStatement, StateAst, StateStatement,
+    ClassAst, ClassStatement, Diagram, DiagramKind, FlowStatement, FlowchartAst, MermaidDirective,
+    SequenceAst, SequenceStatement, StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
-    FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowNode,
-    PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
-    StateLayout, StateLayoutEngine,
+    ClassLayout, ClassLayoutEngine, FlowLayout, FlowLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedSequenceMessage,
+    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
+    StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -28,6 +29,11 @@ impl Animator {
     #[must_use]
     pub fn state_transitions(ast: &StateAst) -> Timeline {
         StateTransitionAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn class_trace(ast: &ClassAst) -> Timeline {
+        ClassRelationshipAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -79,6 +85,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::State(ast), AnimationMode::Transitions) => StateTransitionAnimator::new(
                 scaled_duration(StateTransitionAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Class(ast), AnimationMode::Trace) => ClassRelationshipAnimator::new(
+                scaled_duration(ClassRelationshipAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -159,6 +169,11 @@ impl AnimationConfig {
                     apply_state_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Class(ast) => {
+                for statement in &ast.statements {
+                    apply_class_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -234,6 +249,7 @@ pub enum AnimationDiagramKind {
     Flowchart,
     Sequence,
     State,
+    Class,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -242,6 +258,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Flowchart(_) => Self::Flowchart,
             DiagramKind::Sequence(_) => Self::Sequence,
             DiagramKind::State(_) => Self::State,
+            DiagramKind::Class(_) => Self::Class,
         }
     }
 }
@@ -333,6 +350,25 @@ fn apply_state_animation_directives(
         | StateStatement::ClassApply(_)
         | StateStatement::Direction(_)
         | StateStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_class_animation_directives(
+    statement: &ClassStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        ClassStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        ClassStatement::Class(_)
+        | ClassStatement::Member(_)
+        | ClassStatement::Relationship(_)
+        | ClassStatement::Direction(_)
+        | ClassStatement::Comment(_) => {}
     }
     Ok(())
 }
@@ -440,6 +476,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Flowchart(_) => AnimationMode::Trace,
         DiagramKind::Sequence(_) => AnimationMode::Playback,
         DiagramKind::State(_) => AnimationMode::Transitions,
+        DiagramKind::Class(_) => AnimationMode::Trace,
     }
 }
 
@@ -455,6 +492,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Flowchart(_) => FlowchartTraceAnimator::default_frame_duration(),
         DiagramKind::Sequence(_) => SequencePlaybackAnimator::default_frame_duration(),
         DiagramKind::State(_) => StateTransitionAnimator::default_frame_duration(),
+        DiagramKind::Class(_) => ClassRelationshipAnimator::default_frame_duration(),
     }
 }
 
@@ -888,6 +926,125 @@ fn add_state_composite_markers(frame: &mut Frame, layout: &StateLayout, from: &s
 
 fn state_node_marker_id(node_id: &str) -> String {
     format!("state-node-{node_id}")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClassRelationshipAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for ClassRelationshipAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl ClassRelationshipAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &ClassAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(self, ast: &ClassAst, renderer: StaticFrameRenderer) -> Timeline {
+        let layout = ClassLayoutEngine::default().layout(ast);
+        let mut timeline = Timeline::from_frame(renderer.render_class(ast), self.frame_duration);
+
+        for (index, relationship) in layout.relationships.iter().enumerate() {
+            let mut frame = renderer.render_class(ast);
+            add_class_relationship_markers(&mut frame, &layout, relationship, index);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_class_relationship_markers(
+    frame: &mut Frame,
+    layout: &ClassLayout,
+    relationship: &PositionedClassRelationship,
+    index: usize,
+) {
+    add_class_node_marker(
+        frame,
+        layout,
+        &relationship.from,
+        KeyFrameMarkerKind::Exit,
+        &format!("{}-exit", class_node_marker_id(&relationship.from)),
+    );
+    add_polyline_marker(
+        frame,
+        &relationship.points,
+        &format!(
+            "class-relationship-{index}-{}-{}",
+            relationship.from, relationship.to
+        ),
+        KeyFrameMarkerKind::Active,
+    );
+    add_class_node_marker(
+        frame,
+        layout,
+        &relationship.to,
+        KeyFrameMarkerKind::Enter,
+        &format!("{}-enter", class_node_marker_id(&relationship.to)),
+    );
+}
+
+fn add_class_node_marker(
+    frame: &mut Frame,
+    layout: &ClassLayout,
+    node_id: &str,
+    kind: KeyFrameMarkerKind,
+    marker_id: &str,
+) {
+    let Some(node) = layout.nodes.iter().find(|node| node.id == node_id) else {
+        return;
+    };
+    add_positioned_class_node_marker(frame, node, kind, marker_id);
+}
+
+fn add_positioned_class_node_marker(
+    frame: &mut Frame,
+    node: &PositionedClassNode,
+    kind: KeyFrameMarkerKind,
+    marker_id: &str,
+) {
+    let Some(region) = rect_region(
+        node.rect.origin.x,
+        node.rect.origin.y,
+        node.rect.right(),
+        node.rect.bottom(),
+    ) else {
+        return;
+    };
+    frame.add_marker(KeyFrameMarker {
+        id: marker_id.to_owned(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, marker_id);
+}
+
+fn class_node_marker_id(node_id: &str) -> String {
+    format!("class-node-{node_id}")
 }
 
 fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyFrameMarkerKind) {

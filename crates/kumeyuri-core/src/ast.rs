@@ -11,6 +11,7 @@ pub enum DiagramKind {
     Flowchart(Box<FlowchartAst>),
     Sequence(Box<SequenceAst>),
     State(Box<StateAst>),
+    Class(Box<ClassAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -416,11 +417,92 @@ pub struct StateClassApply {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassAst {
+    pub header: ClassHeader,
+    pub direction: Option<Spanned<Direction>>,
+    pub statements: Vec<ClassStatement>,
+    pub classes: Vec<ClassNode>,
+    pub relationships: Vec<ClassRelationship>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClassHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClassStatement {
+    Class(Box<ClassNode>),
+    Member(Box<ClassMemberAssignment>),
+    Relationship(Box<ClassRelationship>),
+    Direction(Spanned<Direction>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassNode {
+    pub id: Spanned<String>,
+    pub annotations: Vec<Label>,
+    pub members: Vec<ClassMember>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassMemberAssignment {
+    pub class_id: Spanned<String>,
+    pub member: ClassMember,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassMember {
+    pub visibility: Option<char>,
+    pub name: Spanned<String>,
+    pub ty: Option<Label>,
+    pub kind: ClassMemberKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassMemberKind {
+    Field,
+    Method,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassRelationship {
+    pub from: Spanned<String>,
+    pub to: Spanned<String>,
+    pub line: ClassRelationshipLine,
+    pub start_marker: ClassRelationshipMarker,
+    pub end_marker: ClassRelationshipMarker,
+    pub label: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassRelationshipLine {
+    Solid,
+    Dotted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassRelationshipMarker {
+    None,
+    Arrow,
+    Inheritance,
+    Aggregation,
+    Composition,
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        Diagram, DiagramKind, DiagramMetadata, Direction, FlowchartAst, FlowchartDirective,
-        FlowchartHeader, Span, Spanned,
+        ClassAst, ClassHeader, Diagram, DiagramKind, DiagramMetadata, Direction, FlowchartAst,
+        FlowchartDirective, FlowchartHeader, Span, Spanned,
     };
 
     #[test]
@@ -452,5 +534,32 @@ mod tests {
         };
 
         assert!(matches!(diagram.kind, DiagramKind::Flowchart(_)));
+    }
+
+    #[test]
+    fn builds_class_diagram_root() {
+        let class = ClassAst {
+            header: ClassHeader {
+                span: Span::new(0, 12),
+            },
+            direction: None,
+            statements: Vec::new(),
+            classes: Vec::new(),
+            relationships: Vec::new(),
+            span: Span::new(0, 12),
+        };
+        let diagram = Diagram {
+            metadata: DiagramMetadata {
+                title: None,
+                accessibility_title: None,
+                accessibility_description: None,
+                span: Span::new(0, 0),
+            },
+            directives: Vec::new(),
+            kind: DiagramKind::Class(Box::new(class)),
+            span: Span::new(0, 12),
+        };
+
+        assert!(matches!(diagram.kind, DiagramKind::Class(_)));
     }
 }

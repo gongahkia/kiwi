@@ -1,8 +1,10 @@
 use crate::ast::{
-    ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
-    FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, Label,
-    LabelKind, SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
-    Spanned, StateAst, StateNode, StateStatement, StateTransition,
+    ArrowHead, ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship,
+    ClassRelationshipLine, ClassRelationshipMarker, Direction, FlowEdge, FlowEdgeLink,
+    FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
+    FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceAst, SequenceMessage,
+    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
+    StateStatement, StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -178,6 +180,62 @@ pub struct PositionedStateComposite {
     pub child_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClassLayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub horizontal_padding: i32,
+    pub min_node_width: i32,
+}
+
+impl Default for ClassLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl ClassLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 12,
+            vertical_spacing: 5,
+            horizontal_padding: 4,
+            min_node_width: 7,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedClassNode {
+    pub id: String,
+    pub annotations: Vec<String>,
+    pub fields: Vec<String>,
+    pub methods: Vec<String>,
+    pub rect: Rect,
+    pub layer: usize,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedClassRelationship {
+    pub from: String,
+    pub to: String,
+    pub line: ClassRelationshipLine,
+    pub start_marker: ClassRelationshipMarker,
+    pub end_marker: ClassRelationshipMarker,
+    pub label: Option<String>,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassLayout {
+    pub direction: Direction,
+    pub nodes: Vec<PositionedClassNode>,
+    pub relationships: Vec<PositionedClassRelationship>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -191,6 +249,11 @@ pub struct SequenceLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct StateLayoutEngine {
     flow: FlowLayoutEngine,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ClassLayoutEngine {
+    config: ClassLayoutConfig,
 }
 
 impl FlowLayoutEngine {
@@ -447,6 +510,138 @@ impl StateLayoutEngine {
             graph: self.flow.layout(&flow_ast),
             composites,
         }
+    }
+}
+
+impl ClassLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: ClassLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: ClassLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &ClassAst) -> ClassLayout {
+        let direction = ast
+            .direction
+            .map_or(Direction::TopDown, |value| value.value);
+        let graph = LayoutGraph::from_class_ast(ast);
+        let layers = assign_layers(&graph);
+        let order = minimise_crossings(&graph, &layers);
+        let sizes = graph
+            .nodes
+            .iter()
+            .filter_map(|node| ast.classes.iter().find(|class| class.id.value == node.id))
+            .map(|class| class_node_size(class, self.config))
+            .collect::<Vec<_>>();
+        let placement_config = FlowLayoutConfig {
+            horizontal_spacing: self.config.horizontal_spacing,
+            vertical_spacing: self.config.vertical_spacing,
+            horizontal_padding: self.config.horizontal_padding,
+            min_node_width: self.config.min_node_width,
+            node_height: 3,
+        };
+        let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
+        transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
+        let mut size = layout_size(&rects);
+
+        let nodes = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, node)| {
+                let class = ast.classes.iter().find(|class| class.id.value == node.id)?;
+                Some(PositionedClassNode {
+                    id: class.id.value.clone(),
+                    annotations: class
+                        .annotations
+                        .iter()
+                        .map(|annotation| annotation.text.clone())
+                        .collect(),
+                    fields: class_member_lines(class, ClassMemberKind::Field),
+                    methods: class_member_lines(class, ClassMemberKind::Method),
+                    rect: rects[index],
+                    layer: layers[index],
+                    order: order[index],
+                })
+            })
+            .collect::<Vec<_>>();
+        let relationships = ast
+            .relationships
+            .iter()
+            .filter_map(|relationship| {
+                let from = graph.node_index(&relationship.from.value)?;
+                let to = graph.node_index(&relationship.to.value)?;
+                Some(PositionedClassRelationship {
+                    from: relationship.from.value.clone(),
+                    to: relationship.to.value.clone(),
+                    line: relationship.line,
+                    start_marker: relationship.start_marker,
+                    end_marker: relationship.end_marker,
+                    label: relationship.label.as_ref().map(|label| label.text.clone()),
+                    points: route_class_relationship(
+                        rects[from],
+                        rects[to],
+                        direction,
+                        closes_existing_path(&graph, to, from, (from, to)),
+                    ),
+                })
+            })
+            .collect::<Vec<_>>();
+        size = layout_size_with_class_relationships(size, &relationships);
+
+        ClassLayout {
+            direction,
+            nodes,
+            relationships,
+            size,
+        }
+    }
+}
+
+fn route_class_relationship(
+    from: Rect,
+    to: Rect,
+    direction: Direction,
+    back_edge_below: bool,
+) -> Vec<Point> {
+    let routed_direction = class_route_direction(from, to, direction);
+    let points = route_edge(from, to, routed_direction, back_edge_below);
+    match (routed_direction, points.as_slice()) {
+        (Direction::TopDown | Direction::BottomTop, [first, last]) if first.x != last.x => {
+            let mid_y = (first.y + last.y) / 2;
+            vec![
+                *first,
+                Point {
+                    x: first.x,
+                    y: mid_y,
+                },
+                Point {
+                    x: last.x,
+                    y: mid_y,
+                },
+                *last,
+            ]
+        }
+        _ => points,
+    }
+}
+
+fn class_route_direction(from: Rect, to: Rect, preferred: Direction) -> Direction {
+    let from_center = from.center();
+    let to_center = to.center();
+    match preferred {
+        Direction::TopDown if from_center.y > to_center.y => Direction::BottomTop,
+        Direction::BottomTop if from_center.y < to_center.y => Direction::TopDown,
+        Direction::LeftRight if from_center.x > to_center.x => Direction::RightLeft,
+        Direction::RightLeft if from_center.x < to_center.x => Direction::LeftRight,
+        _ => preferred,
     }
 }
 
@@ -723,6 +918,42 @@ impl LayoutGraph {
         graph
     }
 
+    fn from_class_ast(ast: &ClassAst) -> Self {
+        let mut graph = Self {
+            nodes: ast
+                .classes
+                .iter()
+                .map(|class| LayoutNode {
+                    id: class.id.value.clone(),
+                    label: class.id.value.clone(),
+                })
+                .collect(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+        };
+        for relationship in &ast.relationships {
+            let (from_id, to_id) = class_layout_edge_ids(relationship);
+            let Some(from) = graph.node_index(from_id) else {
+                continue;
+            };
+            let Some(to) = graph.node_index(to_id) else {
+                continue;
+            };
+            graph.edges.push(LayoutGraphEdge {
+                from,
+                to,
+                arrow_start: ArrowHead::None,
+                arrow_end: ArrowHead::None,
+                min_length: 1,
+            });
+        }
+        graph
+    }
+
+    fn node_index(&self, id: &str) -> Option<usize> {
+        self.nodes.iter().position(|node| node.id == id)
+    }
+
     fn add_statement(&mut self, statement: &FlowStatement) {
         match statement {
             FlowStatement::Node(node) => {
@@ -789,6 +1020,19 @@ impl LayoutGraph {
             label,
         });
         self.nodes.len() - 1
+    }
+}
+
+fn class_layout_edge_ids(relationship: &ClassRelationship) -> (&str, &str) {
+    if matches!(
+        relationship.end_marker,
+        ClassRelationshipMarker::Inheritance
+            | ClassRelationshipMarker::Aggregation
+            | ClassRelationshipMarker::Composition
+    ) {
+        (&relationship.to.value, &relationship.from.value)
+    } else {
+        (&relationship.from.value, &relationship.to.value)
     }
 }
 
@@ -1409,6 +1653,111 @@ fn node_size(label: &str, config: FlowLayoutConfig) -> Size {
     }
 }
 
+fn class_node_size(class: &ClassNode, config: ClassLayoutConfig) -> Size {
+    let fields = class_member_lines(class, ClassMemberKind::Field);
+    let methods = class_member_lines(class, ClassMemberKind::Method);
+    let title_height = class.annotations.len() as i32 + 1;
+    let field_height = if methods.is_empty() {
+        fields.len() as i32
+    } else {
+        fields.len().max(1) as i32
+    };
+    let method_height = methods.len() as i32;
+    let separators = if fields.is_empty() && methods.is_empty() {
+        2
+    } else if methods.is_empty() {
+        3
+    } else {
+        4
+    };
+    let width = std::iter::once(class.id.value.as_str())
+        .chain(
+            class
+                .annotations
+                .iter()
+                .map(|annotation| annotation.text.as_str()),
+        )
+        .chain(fields.iter().map(String::as_str))
+        .chain(methods.iter().map(String::as_str))
+        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .max()
+        .unwrap_or(config.min_node_width)
+        .max(config.min_node_width);
+    Size {
+        width,
+        height: title_height + field_height + method_height + separators,
+    }
+}
+
+fn class_member_lines(class: &ClassNode, kind: ClassMemberKind) -> Vec<String> {
+    class
+        .members
+        .iter()
+        .filter(|member| member.kind == kind)
+        .map(class_member_line)
+        .collect()
+}
+
+fn class_member_line(member: &ClassMember) -> String {
+    let mut line = String::new();
+    if let Some(visibility) = member.visibility {
+        line.push(visibility);
+    }
+    line.push_str(&member.name.value);
+    match (&member.ty, member.kind) {
+        (Some(ty), _) => {
+            line.push_str(": ");
+            line.push_str(&ty.text);
+        }
+        (None, ClassMemberKind::Method) => line.push_str("()"),
+        (None, ClassMemberKind::Field) => {}
+    }
+    line
+}
+
+fn transform_rects_for_direction(
+    rects: &mut [Rect],
+    layers: &[usize],
+    direction: Direction,
+    config: FlowLayoutConfig,
+) {
+    let size = layout_size(rects);
+    match direction {
+        Direction::TopDown => {}
+        Direction::BottomTop => {
+            for rect in rects {
+                rect.origin.y = size.height - rect.bottom();
+            }
+        }
+        Direction::LeftRight | Direction::RightLeft => {
+            let max_layer = layers.iter().copied().max().unwrap_or(0);
+            let mut layer_widths = vec![0i32; max_layer + 1];
+            for (index, layer) in layers.iter().copied().enumerate() {
+                layer_widths[layer] = layer_widths[layer].max(rects[index].size.width);
+            }
+            let mut layer_offsets = vec![0i32; max_layer + 1];
+            let mut next_x = 0i32;
+            for (layer, width) in layer_widths.iter().copied().enumerate() {
+                layer_offsets[layer] = next_x;
+                next_x += width + config.horizontal_spacing;
+            }
+            for (index, rect) in rects.iter_mut().enumerate() {
+                let y = rect.origin.x;
+                rect.origin = Point {
+                    x: layer_offsets[layers[index]],
+                    y,
+                };
+            }
+            if direction == Direction::RightLeft {
+                let size = layout_size(rects);
+                for rect in rects {
+                    rect.origin.x = size.width - rect.right();
+                }
+            }
+        }
+    }
+}
+
 fn layout_size(rects: &[Rect]) -> Size {
     Size {
         width: rects.iter().map(|rect| rect.right()).max().unwrap_or(0),
@@ -1425,6 +1774,22 @@ fn layout_size_with_edges(size: Size, edges: &[PositionedFlowEdge]) -> Size {
         height: edges
             .iter()
             .flat_map(|edge| edge.points.iter().map(|point| point.y + 1))
+            .fold(size.height, i32::max),
+    }
+}
+
+fn layout_size_with_class_relationships(
+    size: Size,
+    relationships: &[PositionedClassRelationship],
+) -> Size {
+    Size {
+        width: relationships
+            .iter()
+            .flat_map(|relationship| relationship.points.iter().map(|point| point.x + 1))
+            .fold(size.width, i32::max),
+        height: relationships
+            .iter()
+            .flat_map(|relationship| relationship.points.iter().map(|point| point.y + 1))
             .fold(size.height, i32::max),
     }
 }
