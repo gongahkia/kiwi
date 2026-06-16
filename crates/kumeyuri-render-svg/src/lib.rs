@@ -10,6 +10,7 @@ pub struct SvgRenderConfig {
     pub font_family: String,
     pub foreground: String,
     pub background: String,
+    pub animation: SvgAnimationMode,
 }
 
 impl Default for SvgRenderConfig {
@@ -21,8 +22,16 @@ impl Default for SvgRenderConfig {
             font_family: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace".to_owned(),
             foreground: "#111827".to_owned(),
             background: "#ffffff".to_owned(),
+            animation: SvgAnimationMode::Smil,
         }
     }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SvgAnimationMode {
+    #[default]
+    Smil,
+    CssKeyframes,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,9 +74,16 @@ impl SvgRenderer {
         self.push_background(&mut svg, first.frame());
         let boundaries = animation_boundaries(timeline);
         let total = animation_duration(timeline);
+        if self.config.animation == SvgAnimationMode::CssKeyframes {
+            self.push_css_keyframes(&mut svg, timeline, &boundaries, total);
+        }
         for (index, keyframe) in timeline.keyframes().iter().enumerate() {
-            let animate =
-                opacity_animation(index, timeline.len(), timeline.repeat(), &boundaries, total);
+            let animate = match self.config.animation {
+                SvgAnimationMode::Smil => {
+                    opacity_animation(index, timeline.len(), timeline.repeat(), &boundaries, total)
+                }
+                SvgAnimationMode::CssKeyframes => String::new(),
+            };
             self.push_frame_group(
                 &mut svg,
                 keyframe.frame(),
@@ -114,6 +130,36 @@ impl SvgRenderer {
         ));
     }
 
+    fn push_css_keyframes(
+        &self,
+        svg: &mut String,
+        timeline: &Timeline,
+        boundaries: &[f64],
+        total: Duration,
+    ) {
+        svg.push_str("<style>\n");
+        for index in 0..timeline.len() {
+            svg.push_str(&format!(
+                "#frame-{index} {{ animation: kumeyuri-frame-{index} "
+            ));
+            svg.push_str(&format!(
+                "{}ms step-end {} forwards; }}\n",
+                total.as_millis().max(1),
+                if timeline.repeat() { "infinite" } else { "1" },
+            ));
+            svg.push_str(&format!("@keyframes kumeyuri-frame-{index} {{\n"));
+            for (boundary, time) in boundaries.iter().enumerate() {
+                svg.push_str(&format!(
+                    "  {}% {{ opacity: {}; }}\n",
+                    format_percent(*time),
+                    opacity_value(index, timeline.len(), timeline.repeat(), boundary),
+                ));
+            }
+            svg.push_str("}\n");
+        }
+        svg.push_str("</style>\n");
+    }
+
     fn push_frame_group(
         &self,
         svg: &mut String,
@@ -141,6 +187,24 @@ impl SvgRenderer {
         }
         svg.push_str("</g>\n");
     }
+}
+
+fn opacity_value(
+    frame_index: usize,
+    frame_count: usize,
+    repeat: bool,
+    boundary: usize,
+) -> &'static str {
+    let active = if boundary == frame_count {
+        if repeat {
+            frame_index == 0
+        } else {
+            frame_index + 1 == frame_count
+        }
+    } else {
+        boundary == frame_index
+    };
+    if active { "1" } else { "0" }
 }
 
 fn animation_boundaries(timeline: &Timeline) -> Vec<f64> {
@@ -188,18 +252,7 @@ fn opacity_animation(
         .collect::<Vec<_>>()
         .join(";");
     let values = (0..=frame_count)
-        .map(|boundary| {
-            let active = if boundary == frame_count {
-                if repeat {
-                    frame_index == 0
-                } else {
-                    frame_index + 1 == frame_count
-                }
-            } else {
-                boundary == frame_index
-            };
-            if active { "1" } else { "0" }
-        })
+        .map(|boundary| opacity_value(frame_index, frame_count, repeat, boundary))
         .collect::<Vec<_>>()
         .join(";");
     let repeat_count = if repeat { "indefinite" } else { "1" };
@@ -217,6 +270,19 @@ fn format_normalized_time(value: f64) -> String {
         "1".to_owned()
     } else {
         format!("{value:.6}")
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_owned()
+    }
+}
+
+fn format_percent(value: f64) -> String {
+    if value == 0.0 {
+        "0".to_owned()
+    } else if value == 1.0 {
+        "100".to_owned()
+    } else {
+        format!("{:.4}", value * 100.0)
             .trim_end_matches('0')
             .trim_end_matches('.')
             .to_owned()
@@ -243,7 +309,7 @@ mod tests {
         frame::Frame,
     };
 
-    use super::SvgRenderer;
+    use super::{SvgAnimationMode, SvgRenderConfig, SvgRenderer};
 
     #[test]
     fn renders_static_frame_as_svg_text() {
@@ -278,5 +344,31 @@ mod tests {
         assert!(svg.contains(r#"keyTimes="0;0.25;1""#));
         assert!(svg.contains(r#"dur="400ms""#));
         assert!(svg.contains(r#"repeatCount="indefinite""#));
+    }
+
+    #[test]
+    fn renders_timeline_with_css_keyframe_fallback() {
+        let mut first = Frame::new(1, 1);
+        first.write_text(0, 0, "A", Default::default()).unwrap();
+        let mut second = Frame::new(1, 1);
+        second.write_text(0, 0, "B", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![
+            KeyFrame::new(first, Duration::from_millis(100)),
+            KeyFrame::new(second, Duration::from_millis(300)),
+        ]);
+        let renderer = SvgRenderer::new(SvgRenderConfig {
+            animation: SvgAnimationMode::CssKeyframes,
+            ..SvgRenderConfig::default()
+        });
+
+        let svg = renderer.render_timeline(&timeline);
+
+        assert!(svg.contains("<style>"));
+        assert!(svg.contains("@keyframes kumeyuri-frame-0"));
+        assert!(
+            svg.contains("#frame-0 { animation: kumeyuri-frame-0 400ms step-end 1 forwards; }")
+        );
+        assert!(svg.contains("25% { opacity: 0; }"));
+        assert!(!svg.contains(r#"<animate attributeName="opacity""#));
     }
 }
