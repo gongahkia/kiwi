@@ -7,7 +7,7 @@ const window = new JSDOM("").window;
 const purify = createDOMPurify(window);
 
 const githubSvgAllowlist = {
-  ALLOWED_TAGS: ["svg", "rect", "g", "text", "animate", "style"],
+  ALLOWED_TAGS: ["svg", "title", "desc", "metadata", "rect", "g", "text", "animate", "style"],
   ALLOWED_ATTR: [
     "xmlns",
     "width",
@@ -15,7 +15,9 @@ const githubSvgAllowlist = {
     "viewBox",
     "viewbox",
     "role",
+    "aria-labelledby",
     "id",
+    "data-format",
     "opacity",
     "x",
     "y",
@@ -76,6 +78,9 @@ function parseFixtures(source) {
 
 function assertClean(mode, sanitized) {
   assertIncludes(mode, sanitized, /<svg\b/i, "SVG root stripped");
+  assertIncludes(mode, sanitized, /<title\b/i, "title stripped");
+  assertIncludes(mode, sanitized, /<desc\b/i, "description stripped");
+  assertIncludes(mode, sanitized, /<metadata\b/i, "text fallback stripped");
   assertIncludes(mode, sanitized, /<g\b/i, "frame groups stripped");
   assertIncludes(mode, sanitized, /<text\b/i, "text output stripped");
 }

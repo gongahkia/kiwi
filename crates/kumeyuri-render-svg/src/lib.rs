@@ -11,6 +11,8 @@ pub struct SvgRenderConfig {
     pub foreground: String,
     pub background: String,
     pub animation: SvgAnimationMode,
+    pub title: String,
+    pub description: String,
 }
 
 impl Default for SvgRenderConfig {
@@ -23,6 +25,8 @@ impl Default for SvgRenderConfig {
             foreground: "#111827".to_owned(),
             background: "#ffffff".to_owned(),
             animation: SvgAnimationMode::Smil,
+            title: "kumeyuri diagram".to_owned(),
+            description: "text-rendered Mermaid diagram".to_owned(),
         }
     }
 }
@@ -59,6 +63,7 @@ impl SvgRenderer {
     #[must_use]
     pub fn render_frame(&self, frame: &Frame) -> String {
         let mut svg = self.open_svg(frame);
+        self.push_accessibility(&mut svg, &frame_fallback(frame));
         self.push_background(&mut svg, frame);
         self.push_frame_group(&mut svg, frame, "frame-0", 1.0, "");
         svg.push_str("</svg>\n");
@@ -71,6 +76,7 @@ impl SvgRenderer {
             return self.empty_svg();
         };
         let mut svg = self.open_svg(first.frame());
+        self.push_accessibility(&mut svg, &timeline_fallback(timeline));
         self.push_background(&mut svg, first.frame());
         let boundaries = animation_boundaries(timeline);
         let total = animation_duration(timeline);
@@ -111,9 +117,21 @@ impl SvgRenderer {
             .height()
             .saturating_mul(usize::from(self.config.line_height));
         format!(
-            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
 "#
         )
+    }
+
+    fn push_accessibility(&self, svg: &mut String, fallback: &str) {
+        svg.push_str(&format!(
+            r#"<title id="kumeyuri-title">{}</title>
+<desc id="kumeyuri-desc">{}</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">{}</metadata>
+"#,
+            escape_text(&self.config.title),
+            escape_text(&self.config.description),
+            escape_text(fallback),
+        ));
     }
 
     fn push_background(&self, svg: &mut String, frame: &Frame) {
@@ -187,6 +205,22 @@ impl SvgRenderer {
         }
         svg.push_str("</g>\n");
     }
+}
+
+fn frame_fallback(frame: &Frame) -> String {
+    frame.to_lines().join("\n")
+}
+
+fn timeline_fallback(timeline: &Timeline) -> String {
+    let mut fallback = String::new();
+    for (index, keyframe) in timeline.keyframes().iter().enumerate() {
+        if index > 0 {
+            fallback.push_str("\n\n");
+        }
+        fallback.push_str(&format!("frame {index}\n"));
+        fallback.push_str(&frame_fallback(keyframe.frame()));
+    }
+    fallback
 }
 
 fn opacity_value(
@@ -319,6 +353,11 @@ mod tests {
         let svg = SvgRenderer::default().render_frame(&frame);
 
         assert!(svg.starts_with("<svg "));
+        assert!(svg.contains(r#"<title id="kumeyuri-title">kumeyuri diagram</title>"#));
+        assert!(svg.contains(r#"<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>"#));
+        assert!(svg.contains(
+            r#"<metadata id="kumeyuri-text-fallback" data-format="text/plain">A&lt;&amp;B </metadata>"#
+        ));
         assert!(svg.contains(r#"<g id="frame-0" opacity="1">"#));
         assert!(svg.contains("A&lt;&amp;B"));
         assert!(svg.ends_with("</svg>\n"));
@@ -344,6 +383,7 @@ mod tests {
         assert!(svg.contains(r#"keyTimes="0;0.25;1""#));
         assert!(svg.contains(r#"dur="400ms""#));
         assert!(svg.contains(r#"repeatCount="indefinite""#));
+        assert!(svg.contains("frame 0\nA\n\nframe 1\nB"));
     }
 
     #[test]
