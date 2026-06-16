@@ -1,0 +1,13 @@
+[book]
+title = "kumeyuri"
+authors = ["gongahkia"]
+language = "en"
+src = "docs/book"
+
+[build]
+build-dir = "target/mdbook"
+
+[output.html]
+git-repository-url = "https://github.com/gongahkia/kumeyuri"
+edit-url-template = "https://github.com/gongahkia/kumeyuri/edit/main/{path}"
+site-url = "/"

@@ -112,7 +112,7 @@
 
 - [x] Build landing page at `kumeyuri.dev` (Vite + Astro or plain HTML) with hero animation
 - [x] Add interactive playground (textarea ↔ live diagram via WASM)
-- [ ] Author full docs site with mdBook: install, quickstart, syntax, directives, themes, embedding, recipes
+- [x] Author full docs site with mdBook: install, quickstart, syntax, directives, themes, embedding, recipes
 - [ ] Curate `examples/` gallery with 15 polished `.mmd` files + rendered SVG/GIFs
 - [ ] Write five "wow" demo diagrams: HTTP request lifecycle, OAuth flow, OS scheduler state machine, microservice fan-out, sorting algorithm trace
 - [ ] Record a 60-second screencast showing CLI + watch mode + web embed

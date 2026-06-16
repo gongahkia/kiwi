@@ -5,3 +5,5 @@
 Mermaid, animated. Anywhere text renders.
 
 Project direction: [NORTHSTAR.md](./NORTHSTAR.md)
+
+Docs: [docs/book](./docs/book/index.md)
