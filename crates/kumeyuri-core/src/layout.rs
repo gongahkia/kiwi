@@ -21,11 +21,11 @@ pub struct FlowLayoutConfig {
 impl Default for FlowLayoutConfig {
     fn default() -> Self {
         Self {
-            horizontal_spacing: 4,
-            vertical_spacing: 2,
-            horizontal_padding: 2,
+            horizontal_spacing: 5,
+            vertical_spacing: 5,
+            horizontal_padding: 4,
             min_node_width: 5,
-            node_height: 3,
+            node_height: 5,
         }
     }
 }
@@ -1141,7 +1141,7 @@ mod tests {
 
         assert!(node(&layout, "LongerName1").rect.size.width >= 11);
         assert!(node(&layout, "LongerName2").rect.size.width >= 11);
-        assert_eq!(node(&layout, "LongerName1").rect.size.height, 3);
+        assert_eq!(node(&layout, "LongerName1").rect.size.height, 5);
     }
 
     #[test]
@@ -1263,7 +1263,7 @@ mod tests {
         .rect
         .center();
 
-        assert_eq!(center, Point { x: 2, y: 1 });
+        assert_eq!(center, Point { x: 2, y: 2 });
     }
 
     #[test]
