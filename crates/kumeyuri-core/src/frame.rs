@@ -579,6 +579,9 @@ fn draw_box(frame: &mut Frame, rect: Rect, palette: GlyphPalette, style: CellSty
     let right = rect.right().saturating_sub(1);
     let top = rect.origin.y;
     let bottom = rect.bottom().saturating_sub(1);
+    for y in top + 1..bottom {
+        draw_horizontal(frame, left + 1, right - 1, y, ' ', style.clone());
+    }
     draw_horizontal(frame, left, right, top, palette.horizontal, style.clone());
     draw_horizontal(
         frame,

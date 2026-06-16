@@ -61,7 +61,7 @@
 - [x] Snapshot-test state static output against 10 examples
 - [x] Visual-diff CI job: render each fixture, compare against `tests/golden/`, fail on mismatch
 - [x] Side-by-side comparison doc generator: produce a markdown page showing kumeyuri vs `beautiful-mermaid` vs `AlexanderGrooff/mermaid-ascii` on the same input
-- [ ] Resolve every static-parity regression flagged by the comparison doc before tagging `v0.1.0-static`
+- [x] Resolve every static-parity regression flagged by the comparison doc before tagging `v0.1.0-static`
 - [ ] Publish `v0.1.0-static` to crates.io (CLI only, text output only)
 
 ## Phase 2 — Animation engine (weeks 4–7)

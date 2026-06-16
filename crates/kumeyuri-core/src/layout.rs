@@ -919,7 +919,7 @@ fn sweep(graph: &LayoutGraph, layers: &[usize], order: &mut [usize], forward: bo
         nodes.sort_by_key(|index| {
             barycenter(graph, layers, order, *index, forward)
                 .map(|(sum, count)| (sum / count, sum % count, 0usize))
-                .unwrap_or((order[*index], 0, 1))
+                .unwrap_or((order[*index], 0, 0))
         });
         for (next_order, index) in nodes.into_iter().enumerate() {
             order[index] = next_order;
@@ -1029,7 +1029,12 @@ fn place_graph(
             to: graph.nodes[edge.to].id.clone(),
             arrow_start: edge.arrow_start,
             arrow_end: edge.arrow_end,
-            points: route_edge(rects[edge.from], rects[edge.to], direction),
+            points: route_edge(
+                rects[edge.from],
+                rects[edge.to],
+                direction,
+                closes_existing_path(graph, edge.to, edge.from, (edge.from, edge.to)),
+            ),
         })
         .collect::<Vec<_>>();
     size = layout_size_with_edges(size, &edges);
@@ -1098,7 +1103,32 @@ fn bounding_rect(rects: impl IntoIterator<Item = Rect>) -> Option<Rect> {
     })
 }
 
-fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
+fn closes_existing_path(
+    graph: &LayoutGraph,
+    start: usize,
+    goal: usize,
+    skip: (usize, usize),
+) -> bool {
+    let mut stack = vec![start];
+    let mut seen = vec![false; graph.nodes.len()];
+    while let Some(index) = stack.pop() {
+        if index == goal {
+            return true;
+        }
+        if seen[index] {
+            continue;
+        }
+        seen[index] = true;
+        for edge in &graph.edges {
+            if (edge.from, edge.to) != skip && edge.from == index {
+                stack.push(edge.to);
+            }
+        }
+    }
+    false
+}
+
+fn route_edge(from: Rect, to: Rect, direction: Direction, back_edge_below: bool) -> Vec<Point> {
     let from_center = from.center();
     let to_center = to.center();
     match direction {
@@ -1122,10 +1152,11 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to.bottom(),
             },
         ],
+        Direction::LeftRight if from == to => horizontal_self_edge(from),
         Direction::LeftRight if from.origin.x == to.origin.x && from_center.y != to_center.y => {
             vertical_same_layer_edge(from, to)
         }
-        Direction::LeftRight if to.origin.x < from.origin.x => {
+        Direction::LeftRight if to.origin.x < from.origin.x && back_edge_below => {
             let y = from.bottom().max(to.bottom()) + 1;
             vec![
                 Point {
@@ -1143,6 +1174,20 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 },
             ]
         }
+        Direction::LeftRight if to.origin.x < from.origin.x => vec![
+            Point {
+                x: from.origin.x - 1,
+                y: from_center.y,
+            },
+            Point {
+                x: (from.origin.x + to.right()) / 2,
+                y: from_center.y,
+            },
+            Point {
+                x: to.right(),
+                y: to_center.y,
+            },
+        ],
         Direction::LeftRight if from_center.y == to_center.y => vec![
             Point {
                 x: from.right(),
@@ -1153,24 +1198,15 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
-        Direction::LeftRight => vec![
-            Point {
-                x: from_center.x,
-                y: vertical_exit_y(from, to_center),
-            },
-            Point {
-                x: from_center.x,
-                y: to_center.y,
-            },
-            Point {
-                x: to.origin.x - 1,
-                y: to_center.y,
-            },
-        ],
+        Direction::LeftRight if to_center.y > from_center.y => {
+            lower_target_edge(from, to, to.origin.x - 1)
+        }
+        Direction::LeftRight => upper_target_edge(from, to, from.right()),
+        Direction::RightLeft if from == to => horizontal_self_edge(from),
         Direction::RightLeft if from.origin.x == to.origin.x && from_center.y != to_center.y => {
             vertical_same_layer_edge(from, to)
         }
-        Direction::RightLeft if to.origin.x > from.origin.x => {
+        Direction::RightLeft if to.origin.x > from.origin.x && back_edge_below => {
             let y = from.bottom().max(to.bottom()) + 1;
             vec![
                 Point {
@@ -1188,6 +1224,20 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 },
             ]
         }
+        Direction::RightLeft if to.origin.x > from.origin.x => vec![
+            Point {
+                x: from.right(),
+                y: from_center.y,
+            },
+            Point {
+                x: (from.right() + to.origin.x) / 2,
+                y: from_center.y,
+            },
+            Point {
+                x: to.origin.x - 1,
+                y: to_center.y,
+            },
+        ],
         Direction::RightLeft if from_center.y == to_center.y => vec![
             Point {
                 x: from.origin.x - 1,
@@ -1198,20 +1248,10 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
-        Direction::RightLeft => vec![
-            Point {
-                x: from_center.x,
-                y: vertical_exit_y(from, to_center),
-            },
-            Point {
-                x: from_center.x,
-                y: to_center.y,
-            },
-            Point {
-                x: to.right(),
-                y: to_center.y,
-            },
-        ],
+        Direction::RightLeft if to_center.y > from_center.y => {
+            lower_target_edge(from, to, to.right())
+        }
+        Direction::RightLeft => upper_target_edge(from, to, from.origin.x - 1),
     }
 }
 
@@ -1221,6 +1261,44 @@ fn vertical_exit_y(from: Rect, to_center: Point) -> i32 {
     } else {
         from.origin.y - 1
     }
+}
+
+fn lower_target_edge(from: Rect, to: Rect, target_x: i32) -> Vec<Point> {
+    let from_center = from.center();
+    let to_center = to.center();
+    vec![
+        Point {
+            x: from_center.x,
+            y: vertical_exit_y(from, to_center),
+        },
+        Point {
+            x: from_center.x,
+            y: to_center.y,
+        },
+        Point {
+            x: target_x,
+            y: to_center.y,
+        },
+    ]
+}
+
+fn upper_target_edge(from: Rect, to: Rect, exit_x: i32) -> Vec<Point> {
+    let from_center = from.center();
+    let to_center = to.center();
+    vec![
+        Point {
+            x: exit_x,
+            y: from_center.y,
+        },
+        Point {
+            x: to_center.x,
+            y: from_center.y,
+        },
+        Point {
+            x: to_center.x,
+            y: to.bottom(),
+        },
+    ]
 }
 
 fn vertical_same_layer_edge(from: Rect, to: Rect) -> Vec<Point> {
@@ -1249,6 +1327,30 @@ fn vertical_same_layer_edge(from: Rect, to: Rect) -> Vec<Point> {
             },
         ]
     }
+}
+
+fn horizontal_self_edge(rect: Rect) -> Vec<Point> {
+    let center = rect.center();
+    let loop_x = rect.right() + 2;
+    let loop_y = rect.bottom() + 2;
+    vec![
+        Point {
+            x: loop_x,
+            y: center.y,
+        },
+        Point {
+            x: loop_x,
+            y: loop_y,
+        },
+        Point {
+            x: center.x,
+            y: loop_y,
+        },
+        Point {
+            x: center.x,
+            y: rect.bottom(),
+        },
+    ]
 }
 
 fn place_top_down(
