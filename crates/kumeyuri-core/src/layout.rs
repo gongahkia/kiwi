@@ -899,14 +899,22 @@ fn place_graph(
             }
         }
         Direction::LeftRight | Direction::RightLeft => {
-            for rect in &mut rects {
+            let max_layer = layers.iter().copied().max().unwrap_or(0);
+            let mut layer_widths = vec![0i32; max_layer + 1];
+            for (index, layer) in layers.iter().copied().enumerate() {
+                layer_widths[layer] = layer_widths[layer].max(rects[index].size.width);
+            }
+            let mut layer_offsets = vec![0i32; max_layer + 1];
+            let mut next_x = 0i32;
+            for (layer, width) in layer_widths.iter().copied().enumerate() {
+                layer_offsets[layer] = next_x;
+                next_x += width + config.horizontal_spacing;
+            }
+            for (index, rect) in rects.iter_mut().enumerate() {
+                let y = rect.origin.x;
                 rect.origin = Point {
-                    x: rect.origin.y,
-                    y: rect.origin.x,
-                };
-                rect.size = Size {
-                    width: rect.size.height,
-                    height: rect.size.width,
+                    x: layer_offsets[layers[index]],
+                    y,
                 };
             }
             size = layout_size(&rects);
@@ -936,7 +944,7 @@ fn place_graph(
         .map(|edge| PositionedFlowEdge {
             from: graph.nodes[edge.from].id.clone(),
             to: graph.nodes[edge.to].id.clone(),
-            points: vec![rects[edge.from].center(), rects[edge.to].center()],
+            points: route_edge(rects[edge.from], rects[edge.to], direction),
         })
         .collect();
 
@@ -945,6 +953,53 @@ fn place_graph(
         nodes,
         edges,
         size,
+    }
+}
+
+fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
+    let from_center = from.center();
+    let to_center = to.center();
+    match direction {
+        Direction::TopDown => vec![
+            Point {
+                x: from_center.x,
+                y: from.bottom(),
+            },
+            Point {
+                x: to_center.x,
+                y: to.origin.y - 1,
+            },
+        ],
+        Direction::BottomTop => vec![
+            Point {
+                x: from_center.x,
+                y: from.origin.y - 1,
+            },
+            Point {
+                x: to_center.x,
+                y: to.bottom(),
+            },
+        ],
+        Direction::LeftRight => vec![
+            Point {
+                x: from.right(),
+                y: from_center.y,
+            },
+            Point {
+                x: to.origin.x - 1,
+                y: to_center.y,
+            },
+        ],
+        Direction::RightLeft => vec![
+            Point {
+                x: from.origin.x - 1,
+                y: from_center.y,
+            },
+            Point {
+                x: to.right(),
+                y: to_center.y,
+            },
+        ],
     }
 }
 
@@ -1062,6 +1117,23 @@ mod tests {
 
         assert!(node(&layout, "A").rect.origin.x < node(&layout, "B").rect.origin.x);
         assert!(node(&layout, "B").rect.origin.x < node(&layout, "C").rect.origin.x);
+    }
+
+    #[test]
+    fn preserves_node_widths_in_left_right_layouts() {
+        let ast = flowchart(
+            Direction::LeftRight,
+            vec![FlowStatement::Edge(Box::new(edge(
+                "LongerName1",
+                "LongerName2",
+            )))],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+
+        assert!(node(&layout, "LongerName1").rect.size.width >= 11);
+        assert!(node(&layout, "LongerName2").rect.size.width >= 11);
+        assert_eq!(node(&layout, "LongerName1").rect.size.height, 3);
     }
 
     #[test]
