@@ -12,3 +12,4 @@ path = "src/lib.rs"
 [dependencies]
 kumeyuri-core = { path = "../kumeyuri-core" }
 ratatui = { version = "0.30.1", default-features = false, features = ["std"] }
+tachyonfx = { version = "0.25.0", default-features = false, features = ["std"] }

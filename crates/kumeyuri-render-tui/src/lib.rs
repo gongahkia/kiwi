@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread, time::Duration as StdDuration};
 
 use kumeyuri_core::{
     animator::Timeline,
@@ -8,13 +8,56 @@ use kumeyuri_core::{
 use ratatui::{
     Frame, Terminal,
     backend::Backend,
+    style::Color,
     widgets::{Block, Borders, Paragraph},
 };
+use tachyonfx::{Effect, EffectRenderer, EffectTimer, Interpolation, Motion, fx, fx::Glitch};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TuiRenderConfig {
     pub trim_trailing_whitespace: bool,
     pub border: bool,
+    pub transition: TuiTransitionEffect,
+    pub transition_tick: StdDuration,
+}
+
+impl Default for TuiRenderConfig {
+    fn default() -> Self {
+        Self {
+            trim_trailing_whitespace: false,
+            border: false,
+            transition: TuiTransitionEffect::None,
+            transition_tick: StdDuration::from_millis(80),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum TuiTransitionEffect {
+    #[default]
+    None,
+    Fade,
+    Slide,
+    Glitch,
+}
+
+impl TuiTransitionEffect {
+    #[must_use]
+    pub fn build(self, duration: StdDuration) -> Option<Effect> {
+        let timer = effect_timer(duration);
+        match self {
+            Self::None => None,
+            Self::Fade => Some(fx::fade_from_fg(Color::Black, timer)),
+            Self::Slide => Some(fx::slide_in(Motion::LeftToRight, 2, 0, Color::Black, timer)),
+            Self::Glitch => Some(Effect::new(
+                Glitch::builder()
+                    .cell_glitch_ratio(0.08)
+                    .action_start_delay_ms(0..1)
+                    .action_ms(1..effect_duration_ms(duration).max(2))
+                    .build(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,18 +120,30 @@ impl TuiRenderer {
     }
 
     fn render(self, area: &mut Frame<'_>, frame: &CoreFrame) {
+        let area_rect = area.area();
         let text = self.frame_text(frame);
         let mut paragraph = Paragraph::new(text);
         if self.config.border {
             paragraph = paragraph.block(Block::default().borders(Borders::ALL));
         }
-        area.render_widget(paragraph, area.area());
+        area.render_widget(paragraph, area_rect);
+        if let Some(mut effect) = self.config.transition.build(self.config.transition_tick) {
+            area.render_effect(&mut effect, area_rect, self.config.transition_tick.into());
+        }
     }
+}
+
+fn effect_timer(duration: StdDuration) -> EffectTimer {
+    EffectTimer::from_ms(effect_duration_ms(duration), Interpolation::Linear)
+}
+
+fn effect_duration_ms(duration: StdDuration) -> u32 {
+    duration.as_millis().clamp(1, u128::from(u32::MAX)) as u32
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{TuiRenderConfig, TuiRenderer};
+    use super::{TuiRenderConfig, TuiRenderer, TuiTransitionEffect};
     use kumeyuri_core::{
         animator::{KeyFrame, Timeline},
         frame::Frame,
@@ -112,6 +167,7 @@ mod tests {
         let renderer = TuiRenderer::new(TuiRenderConfig {
             trim_trailing_whitespace: true,
             border: false,
+            ..TuiRenderConfig::default()
         });
 
         assert_eq!(renderer.frame_text(&frame), "A");
@@ -150,5 +206,32 @@ mod tests {
             .unwrap();
 
         assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "B");
+    }
+
+    #[test]
+    fn builds_supported_transition_effects() {
+        let duration = Duration::from_millis(20);
+
+        assert!(TuiTransitionEffect::None.build(duration).is_none());
+        assert!(TuiTransitionEffect::Fade.build(duration).is_some());
+        assert!(TuiTransitionEffect::Slide.build(duration).is_some());
+        assert!(TuiTransitionEffect::Glitch.build(duration).is_some());
+    }
+
+    #[test]
+    fn applies_transition_effect_during_draw() {
+        let mut frame = Frame::new(3, 1);
+        frame.write_text(0, 0, "ABC", Default::default()).unwrap();
+        let backend = TestBackend::new(5, 2);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let renderer = TuiRenderer::new(TuiRenderConfig {
+            transition: TuiTransitionEffect::Fade,
+            transition_tick: Duration::from_millis(20),
+            ..TuiRenderConfig::default()
+        });
+
+        renderer.draw(&mut terminal, &frame).unwrap();
+
+        assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "A");
     }
 }
