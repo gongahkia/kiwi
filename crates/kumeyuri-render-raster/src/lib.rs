@@ -1,4 +1,5 @@
 use font8x8::{BASIC_FONTS, BLOCK_FONTS, BOX_FONTS, MISC_FONTS, UnicodeFonts};
+use gif::{Encoder as GifEncoder, Frame as GifFrame, Repeat};
 use kumeyuri_core::{animator::Timeline, frame::Frame};
 use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
 
@@ -99,9 +100,44 @@ impl RasterRenderer {
             .collect()
     }
 
+    pub fn render_gif(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
+        let (width, height) = timeline_canvas_size(timeline, self.config)?;
+        let width_u16 = u16::try_from(width).map_err(|_| RasterRenderError::ImageTooLarge)?;
+        let height_u16 = u16::try_from(height).map_err(|_| RasterRenderError::ImageTooLarge)?;
+        let mut output = Vec::new();
+        {
+            let mut encoder = GifEncoder::new(&mut output, width_u16, height_u16, &[])
+                .map_err(|error| RasterRenderError::GifEncode(error.to_string()))?;
+            if timeline.repeat() {
+                encoder
+                    .set_repeat(Repeat::Infinite)
+                    .map_err(|error| RasterRenderError::GifEncode(error.to_string()))?;
+            }
+            for keyframe in timeline.keyframes() {
+                let pixmap = self.frame_pixmap_with_canvas(keyframe.frame(), width, height)?;
+                let mut pixels = pixmap.data().to_vec();
+                let mut frame = GifFrame::from_rgba_speed(width_u16, height_u16, &mut pixels, 10);
+                frame.delay = gif_delay(keyframe.duration());
+                encoder
+                    .write_frame(&frame)
+                    .map_err(|error| RasterRenderError::GifEncode(error.to_string()))?;
+            }
+        }
+        Ok(output)
+    }
+
     fn frame_pixmap(&self, frame: &Frame) -> Result<Pixmap, RasterRenderError> {
         let width = raster_extent(frame.width(), self.config.scale, self.config.padding)?;
         let height = raster_extent(frame.height(), self.config.scale, self.config.padding)?;
+        self.frame_pixmap_with_canvas(frame, width, height)
+    }
+
+    fn frame_pixmap_with_canvas(
+        &self,
+        frame: &Frame,
+        width: u32,
+        height: u32,
+    ) -> Result<Pixmap, RasterRenderError> {
         let mut pixmap = Pixmap::new(width, height).ok_or(RasterRenderError::ImageTooLarge)?;
         pixmap.fill(self.config.background.to_skia());
 
@@ -155,9 +191,37 @@ impl RasterRenderer {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RasterRenderError {
     InvalidScale,
+    EmptyTimeline,
     ImageTooLarge,
     InvalidRect,
+    GifEncode(String),
     PngEncode(String),
+}
+
+fn timeline_canvas_size(
+    timeline: &Timeline,
+    config: RasterRenderConfig,
+) -> Result<(u32, u32), RasterRenderError> {
+    let Some(first) = timeline.keyframes().first() else {
+        return Err(RasterRenderError::EmptyTimeline);
+    };
+    let (mut max_width, mut max_height) = (first.frame().width(), first.frame().height());
+    for keyframe in timeline.keyframes().iter().skip(1) {
+        max_width = max_width.max(keyframe.frame().width());
+        max_height = max_height.max(keyframe.frame().height());
+    }
+    Ok((
+        raster_extent(max_width, config.scale, config.padding)?,
+        raster_extent(max_height, config.scale, config.padding)?,
+    ))
+}
+
+fn gif_delay(duration: std::time::Duration) -> u16 {
+    let centiseconds = duration
+        .as_millis()
+        .div_ceil(10)
+        .clamp(1, u128::from(u16::MAX));
+    centiseconds as u16
 }
 
 fn raster_extent(cells: usize, scale: u32, padding: u32) -> Result<u32, RasterRenderError> {
@@ -187,6 +251,7 @@ fn glyph_bitmap(glyph: char) -> Option<[u8; 8]> {
 mod tests {
     use std::time::Duration;
 
+    use gif::DecodeOptions;
     use kumeyuri_core::{
         animator::{KeyFrame, Timeline},
         frame::Frame,
@@ -226,6 +291,41 @@ mod tests {
 
         assert_eq!(pngs.len(), 2);
         assert!(pngs.iter().all(|png| png.starts_with(b"\x89PNG")));
+    }
+
+    #[test]
+    fn renders_timeline_to_animated_gif() {
+        let mut first = Frame::new(1, 1);
+        first.write_text(0, 0, "A", Default::default()).unwrap();
+        let mut second = Frame::new(1, 1);
+        second.write_text(0, 0, "B", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![
+            KeyFrame::new(first, Duration::from_millis(20)),
+            KeyFrame::new(second, Duration::from_millis(30)),
+        ])
+        .with_repeat(true);
+
+        let gif = RasterRenderer::default().render_gif(&timeline).unwrap();
+        let mut options = DecodeOptions::new();
+        options.set_color_output(gif::ColorOutput::RGBA);
+        let mut decoder = options.read_info(gif.as_slice()).unwrap();
+
+        assert!(gif.starts_with(b"GIF89a"));
+        assert_eq!(decoder.width(), 32);
+        assert_eq!(decoder.height(), 32);
+        assert!(decoder.read_next_frame().unwrap().is_some());
+        assert!(decoder.read_next_frame().unwrap().is_some());
+        assert!(decoder.read_next_frame().unwrap().is_none());
+    }
+
+    #[test]
+    fn gif_render_rejects_empty_timeline() {
+        assert_eq!(
+            RasterRenderer::default()
+                .render_gif(&Timeline::new())
+                .unwrap_err(),
+            RasterRenderError::EmptyTimeline,
+        );
     }
 
     #[test]
