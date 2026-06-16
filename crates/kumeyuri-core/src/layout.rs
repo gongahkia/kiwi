@@ -3,7 +3,7 @@ use crate::ast::{
     ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
     ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
     FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
-    GanttTaskTag, Label, LabelKind, SequenceAst, SequenceMessage, SequenceNote,
+    GanttTaskTag, Label, LabelKind, PieAst, SequenceAst, SequenceMessage, SequenceNote,
     SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
     StateTransition,
 };
@@ -291,6 +291,57 @@ pub struct GanttLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PieLayoutConfig {
+    pub radius_x: i32,
+    pub radius_y: i32,
+    pub top_padding: i32,
+    pub legend_gap: i32,
+}
+
+impl Default for PieLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl PieLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            radius_x: 12,
+            radius_y: 6,
+            top_padding: 2,
+            legend_gap: 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieCell {
+    pub point: Point,
+    pub slice_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedPieSlice {
+    pub label: String,
+    pub value_text: String,
+    pub value_units: u64,
+    pub percent_basis_points: u16,
+    pub legend_origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieLayout {
+    pub title: Option<String>,
+    pub show_data: bool,
+    pub center: Point,
+    pub slices: Vec<PositionedPieSlice>,
+    pub cells: Vec<PieCell>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -319,6 +370,11 @@ pub struct ErLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct GanttLayoutEngine {
     config: GanttLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct PieLayoutEngine {
+    config: PieLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -990,6 +1046,139 @@ fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
     let doy = (153 * month + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146_097 + doe - 719_468
+}
+
+impl PieLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: PieLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: PieLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &PieAst) -> PieLayout {
+        let total = ast
+            .slices
+            .iter()
+            .map(|slice| slice.value_units.value)
+            .sum::<u64>();
+        let center = Point {
+            x: self.config.radius_x,
+            y: self.config.top_padding + self.config.radius_y,
+        };
+        let legend_x = self.config.radius_x * 2 + self.config.legend_gap;
+        let mut slices = Vec::new();
+        let mut cumulative = Vec::new();
+        let mut running = 0u64;
+        for (index, slice) in ast.slices.iter().enumerate() {
+            running = running.saturating_add(slice.value_units.value);
+            cumulative.push(running);
+            slices.push(PositionedPieSlice {
+                label: slice.label.text.clone(),
+                value_text: slice.value_text.value.clone(),
+                value_units: slice.value_units.value,
+                percent_basis_points: pie_percent_basis_points(slice.value_units.value, total),
+                legend_origin: Point {
+                    x: legend_x,
+                    y: self.config.top_padding + index as i32,
+                },
+            });
+        }
+        let cells = pie_cells(&self.config, center, total, &cumulative);
+        let title_width = ast
+            .title
+            .as_ref()
+            .map_or(0, |title| title.text.chars().count() as i32);
+        let legend_width = slices
+            .iter()
+            .map(|slice| pie_legend_width(slice, ast.show_data))
+            .max()
+            .unwrap_or(0);
+        let pie_width = self.config.radius_x * 2 + 1;
+        let pie_height = self.config.top_padding + self.config.radius_y * 2 + 1;
+        let legend_height = self.config.top_padding + slices.len() as i32;
+
+        PieLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            show_data: ast.show_data,
+            center,
+            slices,
+            cells,
+            size: Size {
+                width: pie_width.max(legend_x + legend_width).max(title_width),
+                height: pie_height.max(legend_height),
+            },
+        }
+    }
+}
+
+fn pie_cells(
+    config: &PieLayoutConfig,
+    center: Point,
+    total: u64,
+    cumulative: &[u64],
+) -> Vec<PieCell> {
+    if total == 0 || cumulative.is_empty() {
+        return Vec::new();
+    }
+    let mut cells = Vec::new();
+    let start_y = center.y - config.radius_y;
+    let end_y = center.y + config.radius_y;
+    let start_x = center.x - config.radius_x;
+    let end_x = center.x + config.radius_x;
+    for y in start_y..=end_y {
+        for x in start_x..=end_x {
+            let dx = f64::from(x - center.x) / f64::from(config.radius_x);
+            let dy = f64::from(y - center.y) / f64::from(config.radius_y);
+            if dx.mul_add(dx, dy * dy) > 1.0 {
+                continue;
+            }
+            let mut angle = dx.atan2(-dy);
+            if angle < 0.0 {
+                angle += std::f64::consts::PI * 2.0;
+            }
+            let units_at_angle = ((angle / (std::f64::consts::PI * 2.0)) * total as f64) as u64;
+            let slice_index = cumulative
+                .iter()
+                .position(|end| units_at_angle < *end)
+                .unwrap_or(cumulative.len() - 1);
+            cells.push(PieCell {
+                point: Point { x, y },
+                slice_index,
+            });
+        }
+    }
+    cells
+}
+
+fn pie_percent_basis_points(value: u64, total: u64) -> u16 {
+    if total == 0 {
+        return 0;
+    }
+    ((value.saturating_mul(10_000).saturating_add(total / 2)) / total) as u16
+}
+
+fn pie_legend_width(slice: &PositionedPieSlice, show_data: bool) -> i32 {
+    let mut width = 2 + slice.label.chars().count() as i32;
+    if show_data {
+        width += 2
+            + slice.value_text.chars().count() as i32
+            + 3
+            + pie_percent_label(slice.percent_basis_points)
+                .chars()
+                .count() as i32;
+    }
+    width
+}
+
+fn pie_percent_label(basis_points: u16) -> String {
+    format!("{}.{:02}%", basis_points / 100, basis_points % 100)
 }
 
 fn er_cardinality_marker(cardinality: ErCardinality) -> ClassRelationshipMarker {

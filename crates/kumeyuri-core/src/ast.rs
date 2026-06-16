@@ -14,6 +14,7 @@ pub enum DiagramKind {
     Class(Box<ClassAst>),
     Er(Box<ErAst>),
     Gantt(Box<GanttAst>),
+    Pie(Box<PieAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -611,6 +612,39 @@ pub enum GanttTaskTag {
     Done,
     Crit,
     Milestone,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieAst {
+    pub header: PieHeader,
+    pub title: Option<Label>,
+    pub show_data: bool,
+    pub statements: Vec<PieStatement>,
+    pub slices: Vec<PieSlice>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieHeader {
+    pub show_data: bool,
+    pub title: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PieStatement {
+    Title(Label),
+    Slice(PieSlice),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieSlice {
+    pub label: Label,
+    pub value_units: Spanned<u64>,
+    pub value_text: Spanned<String>,
+    pub span: Span,
 }
 
 #[cfg(test)]

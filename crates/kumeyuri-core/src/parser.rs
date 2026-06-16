@@ -6,11 +6,11 @@ use crate::ast::{
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
     GanttStatement, GanttTask, GanttTaskTag, Label, LabelKind, MermaidComment, MermaidDirective,
-    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock, SequenceControlKind,
-    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
-    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
-    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
-    StateTransition,
+    PieAst, PieHeader, PieSlice, PieStatement, SequenceArrow, SequenceAst, SequenceAutoNumber,
+    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
+    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
+    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
+    StateNote, StateStatement, StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +73,10 @@ pub enum ParseErrorKind {
     UnknownGanttStatement,
     ExpectedGanttTask,
     ExpectedGanttMetadata,
+    ExpectedPieHeader,
+    UnknownPieStatement,
+    ExpectedPieSlice,
+    ExpectedPieValue,
     TrailingInput,
 }
 
@@ -109,6 +113,10 @@ impl Parser {
 
     pub fn parse_gantt(source: &str) -> Result<GanttAst, ParseError> {
         DiagramParser::new(source).parse_gantt_only()
+    }
+
+    pub fn parse_pie(source: &str) -> Result<PieAst, ParseError> {
+        DiagramParser::new(source).parse_pie_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -201,6 +209,14 @@ impl Parser {
     pub fn parse_gantt_statement(source: &str) -> Result<GanttStatement, ParseError> {
         GanttStatementParser::new(source).parse()
     }
+
+    pub fn parse_pie_header(source: &str) -> Result<PieHeader, ParseError> {
+        PieHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_pie_statement(source: &str) -> Result<PieStatement, ParseError> {
+        PieStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -256,6 +272,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Gantt(Box::new(ast))));
+        }
+        if let Ok(pie_header) = Parser::parse_pie_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_pie_body(shift_pie_header(pie_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Pie(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -328,6 +349,17 @@ impl<'source> DiagramParser<'source> {
         let gantt_header = Parser::parse_gantt_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))
+    }
+
+    fn parse_pie_only(mut self) -> Result<PieAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedPieHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let pie_header = Parser::parse_pie_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_pie_body(shift_pie_header(pie_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -610,6 +642,27 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_pie_body(&mut self, header: PieHeader) -> Result<PieAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = PieAst {
+            title: header.title.clone(),
+            show_data: header.show_data,
+            header,
+            statements: Vec::new(),
+            slices: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement =
+                shift_pie_statement(Parser::parse_pie_statement(line.text)?, line.start);
+            push_pie_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -797,6 +850,15 @@ fn push_gantt_statement(ast: &mut GanttAst, statement: GanttStatement) {
         | GanttStatement::Config(_)
         | GanttStatement::Comment(_)
         | GanttStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_pie_statement(ast: &mut PieAst, statement: PieStatement) {
+    match &statement {
+        PieStatement::Title(title) => ast.title = Some(title.clone()),
+        PieStatement::Slice(slice) => ast.slices.push(slice.clone()),
+        PieStatement::Comment(_) | PieStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -1953,6 +2015,130 @@ impl<'source> GanttStatementParser<'source> {
     }
 }
 
+struct PieHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> PieHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<PieHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPieHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if !has_exact_keyword(self.source, start, end, "pie") {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPieHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let mut cursor = start + "pie".len();
+        let mut show_data = false;
+        let mut title = None;
+        if let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[cursor..end]) {
+            cursor += trim_start;
+            let rest_end = cursor + (trim_end - trim_start);
+            if has_exact_keyword(self.source, cursor, rest_end, "showData") {
+                show_data = true;
+                cursor += "showData".len();
+                if let Some((inner_start, inner_end)) = trim_ascii_range(&self.source[cursor..end])
+                {
+                    cursor += inner_start;
+                    let inner_absolute_end = cursor + (inner_end - inner_start);
+                    if has_exact_keyword(self.source, cursor, inner_absolute_end, "title") {
+                        title = label_from_trimmed(self.source, cursor + "title".len(), end);
+                    } else if inner_absolute_end != cursor {
+                        return Err(ParseError {
+                            kind: ParseErrorKind::ExpectedPieHeader,
+                            span: Span::new(cursor, inner_absolute_end),
+                        });
+                    }
+                }
+            } else if has_exact_keyword(self.source, cursor, rest_end, "title") {
+                title = label_from_trimmed(self.source, cursor + "title".len(), end);
+            } else if rest_end != cursor {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedPieHeader,
+                    span: Span::new(cursor, rest_end),
+                });
+            }
+        }
+        Ok(PieHeader {
+            show_data,
+            title,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct PieStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> PieStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<PieStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownPieStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(PieStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(PieStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownPieStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(PieStatement::Title(label));
+        }
+        if let Some(slice) = self.parse_slice(start, end)? {
+            return Ok(PieStatement::Slice(slice));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownPieStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_slice(&self, start: usize, end: usize) -> Result<Option<PieSlice>, ParseError> {
+        let Some(colon) = self.source[start..end].find(':') else {
+            return Ok(None);
+        };
+        let colon = start + colon;
+        let label = label_from_trimmed(self.source, start, colon).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedPieSlice,
+            span: Span::new(start, colon),
+        })?;
+        let (value_units, value_text) = parse_pie_value(self.source, colon + 1, end)?;
+        Ok(Some(PieSlice {
+            label,
+            value_units,
+            value_text,
+            span: Span::new(start, end),
+        }))
+    }
+}
+
 impl<'source> FlowClassApplyParser<'source> {
     fn new(source: &'source str) -> Self {
         Self {
@@ -2714,6 +2900,10 @@ fn has_keyword(source: &str, start: usize, keyword: &str) -> bool {
             .as_bytes()
             .get(start + keyword.len())
             .is_some_and(u8::is_ascii_whitespace)
+}
+
+fn has_exact_keyword(source: &str, start: usize, end: usize, keyword: &str) -> bool {
+    &source[start..end] == keyword || has_keyword(source, start, keyword)
 }
 
 fn parse_csv_identifiers(
@@ -3591,6 +3781,54 @@ fn gantt_tag(value: &str) -> Option<GanttTaskTag> {
     }
 }
 
+fn parse_pie_value(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<u64>, Spanned<String>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPieValue,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let raw = &source[absolute_start..absolute_end];
+    let Some(units) = parse_pie_value_units(raw) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPieValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    Ok((
+        Spanned::new(units, Span::new(absolute_start, absolute_end)),
+        Spanned::new(raw.to_owned(), Span::new(absolute_start, absolute_end)),
+    ))
+}
+
+fn parse_pie_value_units(value: &str) -> Option<u64> {
+    let (whole, fraction) = value
+        .split_once('.')
+        .map_or((value, ""), |(whole, fraction)| (whole, fraction));
+    if whole.is_empty()
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.len() > 2
+        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let whole_units = whole.parse::<u64>().ok()?.checked_mul(100)?;
+    let fraction_units = match fraction.len() {
+        0 => 0,
+        1 => fraction.parse::<u64>().ok()?.checked_mul(10)?,
+        2 => fraction.parse::<u64>().ok()?,
+        _ => return None,
+    };
+    let units = whole_units.checked_add(fraction_units)?;
+    (units > 0).then_some(units)
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -4092,6 +4330,34 @@ fn shift_gantt_task(task: GanttTask, offset: usize) -> GanttTask {
     }
 }
 
+fn shift_pie_header(header: PieHeader, offset: usize) -> PieHeader {
+    PieHeader {
+        show_data: header.show_data,
+        title: header.title.map(|title| shift_label(title, offset)),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_pie_statement(statement: PieStatement, offset: usize) -> PieStatement {
+    match statement {
+        PieStatement::Title(title) => PieStatement::Title(shift_label(title, offset)),
+        PieStatement::Slice(slice) => PieStatement::Slice(shift_pie_slice(slice, offset)),
+        PieStatement::Comment(comment) => PieStatement::Comment(shift_comment(comment, offset)),
+        PieStatement::Directive(directive) => {
+            PieStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_pie_slice(slice: PieSlice, offset: usize) -> PieSlice {
+    PieSlice {
+        label: shift_label(slice.label, offset),
+        value_units: shift_spanned(slice.value_units, offset),
+        value_text: shift_spanned(slice.value_text, offset),
+        span: shift_span(slice.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -4523,6 +4789,23 @@ mod tests {
         assert_eq!(ast.tasks[0].tags, vec![GanttTaskTag::Done]);
         assert_eq!(ast.tasks[1].tags, vec![GanttTaskTag::Active]);
         assert_eq!(ast.tasks[1].metadata[0].value, "after api");
+    }
+
+    #[test]
+    fn parses_pie_document_to_diagram() {
+        let diagram =
+            Parser::parse_diagram("pie showData title Pets\n\"Dogs\" : 386\n\"Cats\" : 85.50")
+                .unwrap();
+
+        let DiagramKind::Pie(ast) = diagram.kind else {
+            panic!("expected pie diagram");
+        };
+        assert!(ast.show_data);
+        assert_eq!(ast.title.unwrap().text, "Pets");
+        assert_eq!(ast.slices.len(), 2);
+        assert_eq!(ast.slices[0].label.text, "Dogs");
+        assert_eq!(ast.slices[0].value_units.value, 38_600);
+        assert_eq!(ast.slices[1].value_units.value, 8_550);
     }
 
     #[test]

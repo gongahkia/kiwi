@@ -1,15 +1,15 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, SequenceAst, SequenceStatement,
-    StateAst, StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, PieAst, PieStatement, SequenceAst,
+    SequenceStatement, StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
-    PositionedFlowNode, PositionedGanttTask, PositionedSequenceMessage,
-    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
-    StateLayoutEngine,
+    GanttLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedGanttTask,
+    PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
+    StateLayout, StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -46,6 +46,11 @@ impl Animator {
     #[must_use]
     pub fn gantt_sweep(ast: &GanttAst) -> Timeline {
         GanttSweepAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn pie_growth(ast: &PieAst) -> Timeline {
+        PieSliceGrowthAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -109,6 +114,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Gantt(ast), AnimationMode::Trace) => GanttSweepAnimator::new(
                 scaled_duration(GanttSweepAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Pie(ast), AnimationMode::Trace) => PieSliceGrowthAnimator::new(
+                scaled_duration(PieSliceGrowthAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -204,6 +213,11 @@ impl AnimationConfig {
                     apply_gantt_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Pie(ast) => {
+                for statement in &ast.statements {
+                    apply_pie_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -282,6 +296,7 @@ pub enum AnimationDiagramKind {
     Class,
     Er,
     Gantt,
+    Pie,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -293,6 +308,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Class(_) => Self::Class,
             DiagramKind::Er(_) => Self::Er,
             DiagramKind::Gantt(_) => Self::Gantt,
+            DiagramKind::Pie(_) => Self::Pie,
         }
     }
 }
@@ -443,6 +459,21 @@ fn apply_gantt_animation_directives(
     Ok(())
 }
 
+fn apply_pie_animation_directives(
+    statement: &PieStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        PieStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        PieStatement::Title(_) | PieStatement::Slice(_) | PieStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -549,6 +580,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Class(_) => AnimationMode::Trace,
         DiagramKind::Er(_) => AnimationMode::Trace,
         DiagramKind::Gantt(_) => AnimationMode::Trace,
+        DiagramKind::Pie(_) => AnimationMode::Trace,
     }
 }
 
@@ -567,6 +599,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Class(_) => ClassRelationshipAnimator::default_frame_duration(),
         DiagramKind::Er(_) => ErRelationshipAnimator::default_frame_duration(),
         DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
+        DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
     }
 }
 
@@ -1292,6 +1325,99 @@ fn add_gantt_task_marker(
         region,
     });
     mark_region_cells(frame, region, &id);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PieSliceGrowthAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for PieSliceGrowthAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl PieSliceGrowthAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &PieAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(self, ast: &PieAst, renderer: StaticFrameRenderer) -> Timeline {
+        let layout = PieLayoutEngine::default().layout(ast);
+        let mut timeline =
+            Timeline::from_frame(renderer.render_pie_progress(ast, 0), self.frame_duration);
+
+        for index in 0..layout.slices.len() {
+            let mut frame = renderer.render_pie_progress(ast, index + 1);
+            add_pie_slice_marker(&mut frame, &layout, index, KeyFrameMarkerKind::Active);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_pie_slice_marker(
+    frame: &mut Frame,
+    layout: &PieLayout,
+    slice_index: usize,
+    kind: KeyFrameMarkerKind,
+) {
+    let Some(region) = pie_slice_region(layout, slice_index) else {
+        return;
+    };
+    let id = format!("pie-slice-{slice_index}");
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    for cell in layout
+        .cells
+        .iter()
+        .filter(|cell| cell.slice_index == slice_index)
+    {
+        mark_point_cell(frame, cell.point, &id);
+    }
+}
+
+fn pie_slice_region(layout: &PieLayout, slice_index: usize) -> Option<FrameRegion> {
+    let mut cells = layout
+        .cells
+        .iter()
+        .filter(|cell| cell.slice_index == slice_index);
+    let first = cells.next()?;
+    let mut min_x = first.point.x;
+    let mut min_y = first.point.y;
+    let mut max_x = first.point.x;
+    let mut max_y = first.point.y;
+    for cell in cells {
+        min_x = min_x.min(cell.point.x);
+        min_y = min_y.min(cell.point.y);
+        max_x = max_x.max(cell.point.x);
+        max_y = max_y.max(cell.point.y);
+    }
+    region_from_bounds(min_x, min_y, max_x, max_y)
 }
 
 fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyFrameMarkerKind) {

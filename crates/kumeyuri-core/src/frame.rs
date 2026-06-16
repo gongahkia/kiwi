@@ -1,12 +1,13 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, GanttAst, GanttTaskTag, SequenceAst, StateAst,
+    ErAst, FlowchartAst, GanttAst, GanttTaskTag, PieAst, SequenceAst, StateAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
-    PositionedFlowSubgraph, PositionedGanttTask, PositionedSequenceMessage, PositionedSequenceNote,
-    Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    GanttLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
+    PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout,
+    SequenceLayoutEngine, StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -326,6 +327,7 @@ pub struct StaticFrameRenderer {
     class: ClassLayoutEngine,
     er: ErLayoutEngine,
     gantt: GanttLayoutEngine,
+    pie: PieLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -344,6 +346,7 @@ impl StaticFrameRenderer {
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
+            pie: PieLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -363,6 +366,7 @@ impl StaticFrameRenderer {
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
+            pie: PieLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -382,6 +386,7 @@ impl StaticFrameRenderer {
             class: ClassLayoutEngine::default_values(),
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
+            pie: PieLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -424,6 +429,7 @@ impl StaticFrameRenderer {
             DiagramKind::Class(ast) => self.render_class(ast),
             DiagramKind::Er(ast) => self.render_er(ast),
             DiagramKind::Gantt(ast) => self.render_gantt(ast),
+            DiagramKind::Pie(ast) => self.render_pie(ast),
         }
     }
 
@@ -455,6 +461,21 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_gantt(&self, ast: &GanttAst) -> Frame {
         render_gantt_layout(&self.gantt.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_pie(&self, ast: &PieAst) -> Frame {
+        self.render_pie_progress(ast, ast.slices.len())
+    }
+
+    #[must_use]
+    pub fn render_pie_progress(&self, ast: &PieAst, visible_slices: usize) -> Frame {
+        render_pie_layout(
+            &self.pie.layout(ast),
+            self.palette,
+            self.theme,
+            visible_slices,
+        )
     }
 }
 
@@ -754,6 +775,78 @@ fn gantt_chart_left(layout: &GanttLayout) -> i32 {
         .map(|task| task.rect.origin.x - (task.start - layout.min_day) * 2)
         .min()
         .unwrap_or(18)
+}
+
+fn render_pie_layout(
+    layout: &PieLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+    visible_slices: usize,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for cell in &layout.cells {
+        if cell.slice_index >= visible_slices {
+            continue;
+        }
+        put_safe(
+            &mut frame,
+            cell.point.x,
+            cell.point.y,
+            pie_slice_glyph(cell.slice_index, palette),
+            node_style.clone(),
+        );
+    }
+    for (index, slice) in layout.slices.iter().enumerate() {
+        write_text_safe(
+            &mut frame,
+            slice.legend_origin.x,
+            slice.legend_origin.y,
+            &pie_legend_text(index, slice, layout.show_data, palette),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn pie_legend_text(
+    index: usize,
+    slice: &PositionedPieSlice,
+    show_data: bool,
+    palette: GlyphPalette,
+) -> String {
+    let glyph = pie_slice_glyph(index, palette);
+    if show_data {
+        format!(
+            "{glyph} {}: {} ({})",
+            slice.label,
+            slice.value_text,
+            pie_percent_label(slice.percent_basis_points)
+        )
+    } else {
+        format!("{glyph} {}", slice.label)
+    }
+}
+
+fn pie_percent_label(basis_points: u16) -> String {
+    format!("{}.{:02}%", basis_points / 100, basis_points % 100)
+}
+
+fn pie_slice_glyph(index: usize, palette: GlyphPalette) -> char {
+    const GLYPHS: [char; 12] = ['#', '+', '=', '*', '%', '@', 'o', 'x', '~', ':', ';', '?'];
+    if index == 0 {
+        palette.block
+    } else {
+        GLYPHS[index % GLYPHS.len()]
+    }
 }
 
 fn draw_class_node(
@@ -1519,6 +1612,21 @@ mod tests {
         assert!(output.contains("Build"));
         assert!(output.contains("Design API"));
         assert!(output.contains("Implement core"));
+    }
+
+    #[test]
+    fn renders_pie_ast_to_single_frame_through_diagram_root() {
+        let diagram =
+            Parser::parse_diagram("pie showData title Pets\n\"Dogs\" : 386\n\"Cats\" : 85.50")
+                .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Pets"));
+        assert!(output.contains("Dogs"));
+        assert!(output.contains("386"));
+        assert!(output.contains("Cats"));
+        assert!(output.contains("85.50"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

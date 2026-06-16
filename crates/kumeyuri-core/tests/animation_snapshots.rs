@@ -80,6 +80,8 @@ const GANTT_NAMES: [&str; 3] = [
     "03_config_comments",
 ];
 
+const PIE_NAMES: [&str; 3] = ["01_basic", "02_show_data", "03_comments_directive"];
+
 #[test]
 fn animation_timeline_hashes_match() {
     assert_timeline_hashes("flowchart", &FLOWCHART_NAMES);
@@ -88,6 +90,7 @@ fn animation_timeline_hashes_match() {
     assert_timeline_hashes("class", &CLASS_NAMES);
     assert_timeline_hashes("er", &ER_NAMES);
     assert_timeline_hashes("gantt", &GANTT_NAMES);
+    assert_timeline_hashes("pie", &PIE_NAMES);
 }
 
 fn assert_timeline_hashes(kind: &str, names: &[&str]) {
@@ -172,6 +175,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Class(_) => ("class", "trace"),
         DiagramKind::Er(_) => ("er", "trace"),
         DiagramKind::Gantt(_) => ("gantt", "trace"),
+        DiagramKind::Pie(_) => ("pie", "trace"),
     }
 }
 
