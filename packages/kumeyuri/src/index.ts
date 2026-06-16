@@ -35,6 +35,11 @@ export interface KumeyuriClient {
   render(source: string, options?: KumeyuriRenderOptions): KumeyuriRenderOutput;
 }
 
+export interface KumeyuriElementOptions {
+  tagName?: string;
+  registry?: CustomElementRegistry;
+}
+
 let activeClient: KumeyuriClient | undefined;
 
 export function createKumeyuri(wasm: KumeyuriWasmBindings): KumeyuriClient {
@@ -62,6 +67,99 @@ export function render(source: string, options: KumeyuriRenderOptions = {}): Kum
     throw new Error("kumeyuri WASM module is not initialized; call initKumeyuri() first");
   }
   return activeClient.render(source, options);
+}
+
+export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): CustomElementConstructor {
+  const tagName = options.tagName ?? "kumeyuri-diagram";
+  const registry = options.registry ?? globalThis.customElements;
+  if (!registry) {
+    throw new Error("customElements registry is unavailable");
+  }
+  const existing = registry.get(tagName);
+  if (existing) {
+    return existing;
+  }
+  class KumeyuriDiagramElement extends HTMLElement {
+    static get observedAttributes(): string[] {
+      return ["src", "inline", "animate", "theme", "speed", "autoplay", "controls"];
+    }
+
+    #inlineSource: string | null = null;
+    #queued = false;
+
+    connectedCallback(): void {
+      this.#inlineSource ??= this.textContent ?? "";
+      this.#queueRender();
+    }
+
+    attributeChangedCallback(): void {
+      if (this.isConnected) {
+        this.#queueRender();
+      }
+    }
+
+    #queueRender(): void {
+      if (this.#queued) {
+        return;
+      }
+      this.#queued = true;
+      queueMicrotask(() => {
+        this.#queued = false;
+        void this.#renderNow();
+      });
+    }
+
+    async #renderNow(): Promise<void> {
+      try {
+        const source = await this.#source();
+        if (source.trim().length === 0) {
+          return;
+        }
+        const output = render(withAnimationDirective(source, this.getAttribute("animate")), this.#renderOptions());
+        this.dataset.autoplay = String(this.hasAttribute("autoplay"));
+        this.dataset.controls = String(this.hasAttribute("controls"));
+        this.removeAttribute("data-error");
+        this.innerHTML = output.svg;
+      } catch (error) {
+        this.dataset.error = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    async #source(): Promise<string> {
+      const src = this.getAttribute("src");
+      if (src) {
+        const response = await fetch(src);
+        if (!response.ok) {
+          throw new Error(`failed to fetch ${src}: ${response.status}`);
+        }
+        return response.text();
+      }
+      const inline = this.getAttribute("inline");
+      if (inline !== null && inline.length > 0) {
+        return inline;
+      }
+      return this.#inlineSource ?? "";
+    }
+
+    #renderOptions(): KumeyuriRenderOptions {
+      const options: KumeyuriRenderOptions = {};
+      const theme = this.getAttribute("theme");
+      if (theme) {
+        options.theme = theme as KumeyuriTheme;
+      }
+      const speed = this.getAttribute("speed");
+      if (speed) {
+        const parsed = Number(speed);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(`invalid speed ${JSON.stringify(speed)}: expected finite number > 0`);
+        }
+        options.speed = parsed;
+      }
+      return options;
+    }
+  }
+  registry.define(tagName, KumeyuriDiagramElement);
+  return KumeyuriDiagramElement;
 }
 
 async function resolveWasmModule(
@@ -107,4 +205,14 @@ function normalizeFrame(value: unknown): KumeyuriFrame {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function withAnimationDirective(source: string, animate: string | null): string {
+  if (!animate) {
+    return source;
+  }
+  if (!["trace", "playback", "transitions", "none"].includes(animate)) {
+    throw new Error(`invalid animate ${JSON.stringify(animate)}`);
+  }
+  return `%%{ animate: '${animate}' }%%\n${source}`;
 }
