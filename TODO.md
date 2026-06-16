@@ -57,7 +57,7 @@
 - [x] Implement text-output backend in `kumeyuri-core` (`Frame` → `String`)
 - [x] Add CLI `kumeyuri render <file> --format text` end-to-end
 - [x] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
-- [ ] Snapshot-test sequence static output against 15 examples
+- [x] Snapshot-test sequence static output against 15 examples
 - [ ] Snapshot-test state static output against 10 examples
 - [ ] Visual-diff CI job: render each fixture, compare against `tests/golden/`, fail on mismatch
 - [ ] Side-by-side comparison doc generator: produce a markdown page showing kumeyuri vs `beautiful-mermaid` vs `AlexanderGrooff/mermaid-ascii` on the same input
