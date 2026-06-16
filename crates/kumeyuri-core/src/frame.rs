@@ -1,13 +1,14 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, GanttAst, GanttTaskTag, PieAst, SequenceAst, StateAst,
+    ErAst, FlowchartAst, GanttAst, GanttTaskTag, MindmapAst, MindmapShape, PieAst, SequenceAst,
+    StateAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
-    PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout,
-    SequenceLayoutEngine, StateLayoutEngine,
+    GanttLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
+    PositionedGanttTask, PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage,
+    PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -328,6 +329,7 @@ pub struct StaticFrameRenderer {
     er: ErLayoutEngine,
     gantt: GanttLayoutEngine,
     pie: PieLayoutEngine,
+    mindmap: MindmapLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -347,6 +349,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            mindmap: MindmapLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -367,6 +370,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            mindmap: MindmapLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -387,6 +391,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            mindmap: MindmapLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -430,6 +435,7 @@ impl StaticFrameRenderer {
             DiagramKind::Er(ast) => self.render_er(ast),
             DiagramKind::Gantt(ast) => self.render_gantt(ast),
             DiagramKind::Pie(ast) => self.render_pie(ast),
+            DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
         }
     }
 
@@ -475,6 +481,21 @@ impl StaticFrameRenderer {
             self.palette,
             self.theme,
             visible_slices,
+        )
+    }
+
+    #[must_use]
+    pub fn render_mindmap(&self, ast: &MindmapAst) -> Frame {
+        self.render_mindmap_progress(ast, usize::MAX)
+    }
+
+    #[must_use]
+    pub fn render_mindmap_progress(&self, ast: &MindmapAst, visible_depth: usize) -> Frame {
+        render_mindmap_layout(
+            &self.mindmap.layout(ast),
+            self.palette,
+            self.theme,
+            visible_depth,
         )
     }
 }
@@ -847,6 +868,88 @@ fn pie_slice_glyph(index: usize, palette: GlyphPalette) -> char {
     } else {
         GLYPHS[index % GLYPHS.len()]
     }
+}
+
+fn render_mindmap_layout(
+    layout: &MindmapLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+    visible_depth: usize,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    for edge in &layout.edges {
+        if layout.nodes[edge.from].depth >= visible_depth || layout.nodes[edge.to].depth > visible_depth
+        {
+            continue;
+        }
+        draw_polyline(&mut frame, &edge.points, palette, edge_style.clone());
+    }
+    for node in &layout.nodes {
+        if node.depth > visible_depth {
+            continue;
+        }
+        draw_mindmap_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_mindmap_node(
+    frame: &mut Frame,
+    node: &PositionedMindmapNode,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, node.rect, palette, node_style.clone());
+    decorate_mindmap_shape(frame, node, node_style);
+    let label = mindmap_node_label(node);
+    let x = node.rect.origin.x + ((node.rect.size.width - label.chars().count() as i32) / 2).max(1);
+    write_text_safe(frame, x, node.rect.center().y, &label, text_style);
+}
+
+fn decorate_mindmap_shape(frame: &mut Frame, node: &PositionedMindmapNode, style: CellStyle) {
+    let y = node.rect.center().y;
+    let left = node.rect.origin.x;
+    let right = node.rect.right().saturating_sub(1);
+    match node.shape {
+        MindmapShape::Default | MindmapShape::Square | MindmapShape::Rounded => {}
+        MindmapShape::Circle => {
+            put_safe(frame, left, y, '(', style.clone());
+            put_safe(frame, right, y, ')', style);
+        }
+        MindmapShape::Bang => {
+            put_safe(frame, left, y, '!', style.clone());
+            put_safe(frame, right, y, '!', style);
+        }
+        MindmapShape::Cloud => {
+            put_safe(frame, left, y, '~', style.clone());
+            put_safe(frame, right, y, '~', style);
+        }
+        MindmapShape::Hexagon => {
+            put_safe(frame, left, y, '<', style.clone());
+            put_safe(frame, right, y, '>', style);
+        }
+    }
+}
+
+fn mindmap_node_label(node: &PositionedMindmapNode) -> String {
+    node.icon.as_ref().map_or_else(
+        || node.label.clone(),
+        |icon| format!("{icon} {}", node.label),
+    )
 }
 
 fn draw_class_node(

@@ -1,15 +1,16 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, PieAst, PieStatement, SequenceAst,
-    SequenceStatement, StateAst, StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, MindmapAst, MindmapStatement,
+    PieAst, PieStatement, SequenceAst, SequenceStatement, StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedGanttTask,
-    PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
-    StateLayout, StateLayoutEngine,
+    GanttLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
+    PositionedGanttTask, PositionedMindmapNode, PositionedSequenceMessage,
+    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
+    StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -51,6 +52,11 @@ impl Animator {
     #[must_use]
     pub fn pie_growth(ast: &PieAst) -> Timeline {
         PieSliceGrowthAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn mindmap_expand(ast: &MindmapAst) -> Timeline {
+        MindmapExpandAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -118,6 +124,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Pie(ast), AnimationMode::Trace) => PieSliceGrowthAnimator::new(
                 scaled_duration(PieSliceGrowthAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Mindmap(ast), AnimationMode::Trace) => MindmapExpandAnimator::new(
+                scaled_duration(MindmapExpandAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -218,6 +228,11 @@ impl AnimationConfig {
                     apply_pie_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Mindmap(ast) => {
+                for statement in &ast.statements {
+                    apply_mindmap_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -297,6 +312,7 @@ pub enum AnimationDiagramKind {
     Er,
     Gantt,
     Pie,
+    Mindmap,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -309,6 +325,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Er(_) => Self::Er,
             DiagramKind::Gantt(_) => Self::Gantt,
             DiagramKind::Pie(_) => Self::Pie,
+            DiagramKind::Mindmap(_) => Self::Mindmap,
         }
     }
 }
@@ -474,6 +491,21 @@ fn apply_pie_animation_directives(
     Ok(())
 }
 
+fn apply_mindmap_animation_directives(
+    statement: &MindmapStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        MindmapStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        MindmapStatement::Node(_) | MindmapStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -581,6 +613,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Er(_) => AnimationMode::Trace,
         DiagramKind::Gantt(_) => AnimationMode::Trace,
         DiagramKind::Pie(_) => AnimationMode::Trace,
+        DiagramKind::Mindmap(_) => AnimationMode::Trace,
     }
 }
 
@@ -600,6 +633,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Er(_) => ErRelationshipAnimator::default_frame_duration(),
         DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
+        DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
     }
 }
 

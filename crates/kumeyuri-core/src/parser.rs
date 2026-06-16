@@ -6,11 +6,12 @@ use crate::ast::{
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
     GanttStatement, GanttTask, GanttTaskTag, Label, LabelKind, MermaidComment, MermaidDirective,
-    PieAst, PieHeader, PieSlice, PieStatement, SequenceArrow, SequenceAst, SequenceAutoNumber,
-    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
-    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
-    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
-    StateNote, StateStatement, StateTransition,
+    MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement, PieAst, PieHeader,
+    PieSlice, PieStatement, SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock,
+    SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
+    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
+    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
+    StateStatement, StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +78,9 @@ pub enum ParseErrorKind {
     UnknownPieStatement,
     ExpectedPieSlice,
     ExpectedPieValue,
+    ExpectedMindmapHeader,
+    UnknownMindmapStatement,
+    ExpectedMindmapNode,
     TrailingInput,
 }
 
@@ -117,6 +121,10 @@ impl Parser {
 
     pub fn parse_pie(source: &str) -> Result<PieAst, ParseError> {
         DiagramParser::new(source).parse_pie_only()
+    }
+
+    pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
+        DiagramParser::new(source).parse_mindmap_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -217,6 +225,10 @@ impl Parser {
     pub fn parse_pie_statement(source: &str) -> Result<PieStatement, ParseError> {
         PieStatementParser::new(source).parse()
     }
+
+    pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
+        MindmapHeaderParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -277,6 +289,12 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_pie_body(shift_pie_header(pie_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Pie(Box::new(ast))));
+        }
+        if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Mindmap(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -360,6 +378,17 @@ impl<'source> DiagramParser<'source> {
         let pie_header = Parser::parse_pie_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_pie_body(shift_pie_header(pie_header, header.start))
+    }
+
+    fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let mindmap_header = Parser::parse_mindmap_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -661,6 +690,70 @@ impl<'source> DiagramParser<'source> {
         }
 
         Ok(ast)
+    }
+
+    fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
+        let span_start = header.span.start;
+        let mut parsed = Vec::<ParsedMindmapNode>::new();
+        let mut roots = Vec::<usize>::new();
+        let mut stack = Vec::<(usize, usize)>::new();
+        let mut statements = Vec::new();
+
+        while let Some(line) = self.current_trimmed_line() {
+            let indent = line.start.saturating_sub(line.line.start);
+            let trimmed = line.text;
+            if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+                statements.push(MindmapStatement::Directive(shift_directive(
+                    directive, line.start,
+                )));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+                statements.push(MindmapStatement::Comment(shift_comment(comment, line.start)));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Some(icon) = parse_mindmap_icon(trimmed, line.start)? {
+                if let Some((_, index)) = stack.iter().rev().find(|(level, _)| *level <= indent) {
+                    parsed[*index].node.icon = Some(icon);
+                }
+                self.cursor = line.line.next;
+                continue;
+            }
+            while stack.last().is_some_and(|(level, _)| *level >= indent) {
+                stack.pop();
+            }
+            let parent = stack.last().map(|(_, index)| *index);
+            let index = parsed.len();
+            let node = parse_mindmap_node(trimmed, line.start)?;
+            if let Some(parent) = parent {
+                parsed[parent].children.push(index);
+            } else {
+                roots.push(index);
+            }
+            parsed.push(ParsedMindmapNode {
+                node,
+                children: Vec::new(),
+            });
+            stack.push((indent, index));
+            self.cursor = line.line.next;
+        }
+
+        let roots = roots
+            .into_iter()
+            .map(|index| build_mindmap_node(index, &parsed))
+            .collect::<Vec<_>>();
+        for root in &roots {
+            statements.push(MindmapStatement::Node(Box::new(root.clone())));
+        }
+
+        Ok(MindmapAst {
+            header,
+            statements,
+            roots,
+            span: Span::new(span_start, self.source.len()),
+        })
     }
 
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
@@ -2073,6 +2166,36 @@ impl<'source> PieHeaderParser<'source> {
         Ok(PieHeader {
             show_data,
             title,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct MindmapHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> MindmapHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<MindmapHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedMindmapHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "mindmap" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedMindmapHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(MindmapHeader {
             span: Span::new(start, end),
         })
     }
@@ -3829,6 +3952,142 @@ fn parse_pie_value_units(value: &str) -> Option<u64> {
     (units > 0).then_some(units)
 }
 
+#[derive(Debug, Clone)]
+struct ParsedMindmapNode {
+    node: MindmapNode,
+    children: Vec<usize>,
+}
+
+fn parse_mindmap_icon(
+    source: &str,
+    offset: usize,
+) -> Result<Option<Spanned<String>>, ParseError> {
+    let Some(rest) = source.strip_prefix("::icon(") else {
+        return Ok(None);
+    };
+    if !rest.ends_with(')') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset, offset + source.len()),
+        });
+    }
+    let start = "::icon(".len();
+    let end = source.len() - 1;
+    if start == end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset + start, offset + end),
+        });
+    }
+    Ok(Some(Spanned::new(
+        source[start..end].to_owned(),
+        Span::new(offset + start, offset + end),
+    )))
+}
+
+fn parse_mindmap_node(source: &str, offset: usize) -> Result<MindmapNode, ParseError> {
+    let Some((body_start, body_end)) = trim_ascii_range(source) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset, offset),
+        });
+    };
+    let mut node_end = body_end;
+    let classes = if let Some(class_start) = source[body_start..body_end].find(":::") {
+        let class_start = body_start + class_start;
+        node_end = class_start;
+        parse_mindmap_classes(source, class_start + 3, body_end, offset)
+    } else {
+        Vec::new()
+    };
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[body_start..node_end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset + body_start, offset + node_end),
+        });
+    };
+    let node_start = body_start + trim_start;
+    let node_end = body_start + trim_end;
+    let (shape, label_start, label_end) = mindmap_shape_label_bounds(source, node_start, node_end);
+    if label_start == label_end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset + node_start, offset + node_end),
+        });
+    }
+    let label = shift_label(label_from_body(source, label_start, label_end), offset);
+    Ok(MindmapNode {
+        label,
+        shape,
+        icon: None,
+        classes,
+        children: Vec::new(),
+        span: Span::new(offset + body_start, offset + body_end),
+    })
+}
+
+fn parse_mindmap_classes(
+    source: &str,
+    start: usize,
+    end: usize,
+    offset: usize,
+) -> Vec<Spanned<String>> {
+    let mut classes = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        let token_start = cursor;
+        while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        if token_start < cursor {
+            classes.push(Spanned::new(
+                source[token_start..cursor].to_owned(),
+                Span::new(offset + token_start, offset + cursor),
+            ));
+        }
+    }
+    classes
+}
+
+fn mindmap_shape_label_bounds(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> (MindmapShape, usize, usize) {
+    for (open, close, shape) in [
+        ("{{", "}}", MindmapShape::Hexagon),
+        ("((", "))", MindmapShape::Circle),
+        ("))", "((", MindmapShape::Bang),
+        ("[", "]", MindmapShape::Square),
+        ("(", ")", MindmapShape::Rounded),
+        (")", "(", MindmapShape::Cloud),
+    ] {
+        if source[start..end].starts_with(open) && source[start..end].ends_with(close) {
+            return (shape, start + open.len(), end - close.len());
+        }
+        if let Some(relative) = source[start..end].find(open) {
+            if source[start..end].ends_with(close) {
+                let label_start = start + relative + open.len();
+                return (shape, label_start, end - close.len());
+            }
+        }
+    }
+    (MindmapShape::Default, start, end)
+}
+
+fn build_mindmap_node(index: usize, parsed: &[ParsedMindmapNode]) -> MindmapNode {
+    let mut node = parsed[index].node.clone();
+    node.children = parsed[index]
+        .children
+        .iter()
+        .map(|child| build_mindmap_node(*child, parsed))
+        .collect();
+    node
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -4355,6 +4614,12 @@ fn shift_pie_slice(slice: PieSlice, offset: usize) -> PieSlice {
         value_units: shift_spanned(slice.value_units, offset),
         value_text: shift_spanned(slice.value_text, offset),
         span: shift_span(slice.span, offset),
+    }
+}
+
+fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
+    MindmapHeader {
+        span: shift_span(header.span, offset),
     }
 }
 

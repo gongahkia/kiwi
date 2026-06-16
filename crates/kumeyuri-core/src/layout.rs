@@ -3,9 +3,9 @@ use crate::ast::{
     ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
     ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
     FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
-    GanttTaskTag, Label, LabelKind, PieAst, SequenceAst, SequenceMessage, SequenceNote,
-    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
-    StateTransition,
+    GanttTaskTag, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, SequenceAst,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
+    StateNode, StateStatement, StateTransition,
 };
 use std::collections::VecDeque;
 
@@ -342,6 +342,59 @@ pub struct PieLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MindmapLayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub node_padding: i32,
+    pub min_node_width: i32,
+    pub node_height: i32,
+}
+
+impl Default for MindmapLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl MindmapLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 8,
+            vertical_spacing: 4,
+            node_padding: 2,
+            min_node_width: 9,
+            node_height: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedMindmapNode {
+    pub id: usize,
+    pub label: String,
+    pub shape: MindmapShape,
+    pub icon: Option<String>,
+    pub classes: Vec<String>,
+    pub depth: usize,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedMindmapEdge {
+    pub from: usize,
+    pub to: usize,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MindmapLayout {
+    pub nodes: Vec<PositionedMindmapNode>,
+    pub edges: Vec<PositionedMindmapEdge>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -375,6 +428,11 @@ pub struct GanttLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct PieLayoutEngine {
     config: PieLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct MindmapLayoutEngine {
+    config: MindmapLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -1179,6 +1237,142 @@ fn pie_legend_width(slice: &PositionedPieSlice, show_data: bool) -> i32 {
 
 fn pie_percent_label(basis_points: u16) -> String {
     format!("{}.{:02}%", basis_points / 100, basis_points % 100)
+}
+
+impl MindmapLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: MindmapLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: MindmapLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &MindmapAst) -> MindmapLayout {
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
+        let mut next_y = 0;
+        for root in &ast.roots {
+            layout_mindmap_node(
+                root,
+                0,
+                &self.config,
+                &mut next_y,
+                &mut nodes,
+                &mut edges,
+            );
+            next_y += self.config.vertical_spacing;
+        }
+        let width = nodes
+            .iter()
+            .map(|node| node.rect.right())
+            .max()
+            .unwrap_or(1);
+        let height = nodes
+            .iter()
+            .map(|node| node.rect.bottom())
+            .max()
+            .unwrap_or(1);
+        MindmapLayout {
+            nodes,
+            edges,
+            size: Size { width, height },
+        }
+    }
+}
+
+fn layout_mindmap_node(
+    node: &MindmapNode,
+    depth: usize,
+    config: &MindmapLayoutConfig,
+    next_y: &mut i32,
+    nodes: &mut Vec<PositionedMindmapNode>,
+    edges: &mut Vec<PositionedMindmapEdge>,
+) -> (usize, i32) {
+    let index = nodes.len();
+    let width = mindmap_node_width(node, config);
+    nodes.push(PositionedMindmapNode {
+        id: index,
+        label: node.label.text.clone(),
+        shape: node.shape,
+        icon: node.icon.as_ref().map(|icon| icon.value.clone()),
+        classes: node
+            .classes
+            .iter()
+            .map(|class| class.value.clone())
+            .collect(),
+        depth,
+        rect: Rect {
+            origin: Point { x: 0, y: 0 },
+            size: Size {
+                width,
+                height: config.node_height,
+            },
+        },
+    });
+    let mut child_centers = Vec::new();
+    let mut child_indices = Vec::new();
+    for child in &node.children {
+        let (child_index, child_center) =
+            layout_mindmap_node(child, depth + 1, config, next_y, nodes, edges);
+        child_indices.push(child_index);
+        child_centers.push(child_center);
+    }
+    let center_y = if child_centers.is_empty() {
+        let center = *next_y + config.node_height / 2;
+        *next_y += config.node_height + config.vertical_spacing;
+        center
+    } else {
+        child_centers.iter().sum::<i32>() / child_centers.len() as i32
+    };
+    let x = depth as i32 * (config.min_node_width + config.horizontal_spacing);
+    nodes[index].rect = Rect {
+        origin: Point {
+            x,
+            y: center_y - config.node_height / 2,
+        },
+        size: Size {
+            width,
+            height: config.node_height,
+        },
+    };
+    for child_index in child_indices {
+        edges.push(mindmap_edge(index, child_index, nodes));
+    }
+    (index, center_y)
+}
+
+fn mindmap_node_width(node: &MindmapNode, config: &MindmapLayoutConfig) -> i32 {
+    let icon_width = node
+        .icon
+        .as_ref()
+        .map_or(0, |icon| icon.value.chars().count() as i32 + 1);
+    (node.label.text.chars().count() as i32 + icon_width + config.node_padding * 2)
+        .max(config.min_node_width)
+}
+
+fn mindmap_edge(from: usize, to: usize, nodes: &[PositionedMindmapNode]) -> PositionedMindmapEdge {
+    let from_rect = nodes[from].rect;
+    let to_rect = nodes[to].rect;
+    let start = Point {
+        x: from_rect.right().saturating_sub(1),
+        y: from_rect.center().y,
+    };
+    let end = Point {
+        x: to_rect.origin.x,
+        y: to_rect.center().y,
+    };
+    let mid_x = (start.x + end.x) / 2;
+    PositionedMindmapEdge {
+        from,
+        to,
+        points: vec![start, Point { x: mid_x, y: start.y }, Point { x: mid_x, y: end.y }, end],
+    }
 }
 
 fn er_cardinality_marker(cardinality: ErCardinality) -> ClassRelationshipMarker {

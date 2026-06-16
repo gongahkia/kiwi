@@ -15,6 +15,7 @@ pub enum DiagramKind {
     Er(Box<ErAst>),
     Gantt(Box<GanttAst>),
     Pie(Box<PieAst>),
+    Mindmap(Box<MindmapAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -645,6 +646,47 @@ pub struct PieSlice {
     pub value_units: Spanned<u64>,
     pub value_text: Spanned<String>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MindmapAst {
+    pub header: MindmapHeader,
+    pub statements: Vec<MindmapStatement>,
+    pub roots: Vec<MindmapNode>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MindmapHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MindmapStatement {
+    Node(Box<MindmapNode>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MindmapNode {
+    pub label: Label,
+    pub shape: MindmapShape,
+    pub icon: Option<Spanned<String>>,
+    pub classes: Vec<Spanned<String>>,
+    pub children: Vec<MindmapNode>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MindmapShape {
+    Default,
+    Square,
+    Rounded,
+    Circle,
+    Bang,
+    Cloud,
+    Hexagon,
 }
 
 #[cfg(test)]
