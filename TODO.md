@@ -73,7 +73,7 @@
 - [x] Implement state-transition animator: pulse current state, light up transition arrows
 - [x] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
 - [x] Parse directives into `AnimationConfig` and feed into animator
-- [ ] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame
+- [x] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame
 - [ ] Integrate `tachyonfx` for transition effects (fade, slide, glitch) between frames
 - [ ] Implement `kumeyuri play <file>` CLI subcommand for one-shot TUI playback
 - [ ] Implement `kumeyuri watch <file>` with `notify`-based filesystem watcher and in-place re-render
