@@ -885,7 +885,8 @@ fn render_mindmap_layout(
     let node_style = theme.style_for(ThemeRole::Node);
     let text_style = theme.style_for(ThemeRole::Text);
     for edge in &layout.edges {
-        if layout.nodes[edge.from].depth >= visible_depth || layout.nodes[edge.to].depth > visible_depth
+        if layout.nodes[edge.from].depth >= visible_depth
+            || layout.nodes[edge.to].depth > visible_depth
         {
             continue;
         }

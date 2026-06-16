@@ -710,7 +710,9 @@ impl<'source> DiagramParser<'source> {
                 continue;
             }
             if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
-                statements.push(MindmapStatement::Comment(shift_comment(comment, line.start)));
+                statements.push(MindmapStatement::Comment(shift_comment(
+                    comment, line.start,
+                )));
                 self.cursor = line.line.next;
                 continue;
             }
@@ -3958,10 +3960,7 @@ struct ParsedMindmapNode {
     children: Vec<usize>,
 }
 
-fn parse_mindmap_icon(
-    source: &str,
-    offset: usize,
-) -> Result<Option<Spanned<String>>, ParseError> {
+fn parse_mindmap_icon(source: &str, offset: usize) -> Result<Option<Spanned<String>>, ParseError> {
     let Some(rest) = source.strip_prefix("::icon(") else {
         return Ok(None);
     };

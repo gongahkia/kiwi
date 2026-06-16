@@ -1258,14 +1258,7 @@ impl MindmapLayoutEngine {
         let mut edges = Vec::new();
         let mut next_y = 0;
         for root in &ast.roots {
-            layout_mindmap_node(
-                root,
-                0,
-                &self.config,
-                &mut next_y,
-                &mut nodes,
-                &mut edges,
-            );
+            layout_mindmap_node(root, 0, &self.config, &mut next_y, &mut nodes, &mut edges);
             next_y += self.config.vertical_spacing;
         }
         let width = nodes
@@ -1371,7 +1364,15 @@ fn mindmap_edge(from: usize, to: usize, nodes: &[PositionedMindmapNode]) -> Posi
     PositionedMindmapEdge {
         from,
         to,
-        points: vec![start, Point { x: mid_x, y: start.y }, Point { x: mid_x, y: end.y }, end],
+        points: vec![
+            start,
+            Point {
+                x: mid_x,
+                y: start.y,
+            },
+            Point { x: mid_x, y: end.y },
+            end,
+        ],
     }
 }
 

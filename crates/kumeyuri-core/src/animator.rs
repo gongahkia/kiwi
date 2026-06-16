@@ -1,7 +1,7 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, MindmapAst, MindmapStatement,
-    PieAst, PieStatement, SequenceAst, SequenceStatement, StateAst, StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst,
+    PieStatement, SequenceAst, SequenceStatement, StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -1452,6 +1452,92 @@ fn pie_slice_region(layout: &PieLayout, slice_index: usize) -> Option<FrameRegio
         max_y = max_y.max(cell.point.y);
     }
     region_from_bounds(min_x, min_y, max_x, max_y)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MindmapExpandAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for MindmapExpandAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl MindmapExpandAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &MindmapAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &MindmapAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
+        let layout = MindmapLayoutEngine::default().layout(ast);
+        let max_depth = layout
+            .nodes
+            .iter()
+            .map(|node| node.depth)
+            .max()
+            .unwrap_or(0);
+        let mut timeline = Timeline::from_frame(
+            renderer.render_mindmap_progress(ast, 0),
+            self.frame_duration,
+        );
+
+        for depth in 1..=max_depth {
+            let mut frame = renderer.render_mindmap_progress(ast, depth);
+            for node in layout.nodes.iter().filter(|node| node.depth == depth) {
+                add_mindmap_node_marker(&mut frame, node, KeyFrameMarkerKind::Enter);
+            }
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_mindmap_node_marker(
+    frame: &mut Frame,
+    node: &PositionedMindmapNode,
+    kind: KeyFrameMarkerKind,
+) {
+    let Some(region) = rect_region(
+        node.rect.origin.x,
+        node.rect.origin.y,
+        node.rect.right(),
+        node.rect.bottom(),
+    ) else {
+        return;
+    };
+    let id = format!("mindmap-node-{}", node.id);
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, &id);
 }
 
 fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyFrameMarkerKind) {
