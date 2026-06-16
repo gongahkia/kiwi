@@ -13,6 +13,7 @@
       <nav aria-label="Primary">
         <a href="#formats">Formats</a>
         <a href="#embed">Embed</a>
+        <a href="#playground">Playground</a>
         <a href="https://github.com/gongahkia/kumeyuri">GitHub</a>
       </nav>
     </header>
@@ -73,6 +74,46 @@ cargo run -q -p kumeyuri-cli -- play site/assets/hero.mmd --loop</code></pre>
           <p>Static SVG works without JavaScript; the browser component adds playback controls when the WASM bundle is loaded.</p>
         </div>
       </section>
+
+      <section id="playground" class="playground" aria-labelledby="playground-title">
+        <div>
+          <p class="section-kicker">Playground</p>
+          <h2 id="playground-title">Edit Mermaid and watch the WASM renderer update.</h2>
+        </div>
+        <div class="playground-shell">
+          <div class="playground-controls" aria-label="Playground controls">
+            <label>
+              Theme
+              <select id="playground-theme">
+                <option value="github">github</option>
+                <option value="tokyo-night">tokyo-night</option>
+                <option value="dracula">dracula</option>
+                <option value="mono">mono</option>
+              </select>
+            </label>
+            <label>
+              Animation
+              <select id="playground-animate">
+                <option value="trace">trace</option>
+                <option value="playback">playback</option>
+                <option value="transitions">transitions</option>
+                <option value="none">none</option>
+              </select>
+            </label>
+            <label>
+              Speed
+              <input id="playground-speed" type="range" min="0.5" max="2" step="0.25" value="1">
+            </label>
+          </div>
+          <textarea id="playground-source" spellcheck="false">graph TD
+  Source[Mermaid source] --> Core[Rust frame stream]
+  Core --> SVG[animated SVG]
+  Core --> Browser[WASM player]</textarea>
+          <div class="playground-preview" id="playground-output" aria-live="polite"></div>
+          <p class="playground-status" id="playground-status">Loading WASM...</p>
+        </div>
+      </section>
     </main>
+    <script type="module" src="./playground.js"></script>
   </body>
 </html>
