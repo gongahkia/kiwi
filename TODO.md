@@ -90,7 +90,7 @@
 - [x] Add CSS-keyframe fallback path for SVG (GitHub sanitizer test required)
 - [x] CI test: pipe generated SVG through `DOMPurify` with GitHub's allowlist; fail if animation strips
 - [x] Embed accessible `<title>` + `<desc>` + plain-text fallback inside every SVG
-- [ ] Implement `kumeyuri-render-raster`: composite frames to PNG via `tiny-skia` or `cosmic-text` + glyph atlas
+- [x] Implement `kumeyuri-render-raster`: composite frames to PNG via `tiny-skia` or `cosmic-text` + glyph atlas
 - [ ] Implement GIF encoder path (`gif` crate or `gifski` bindings)
 - [ ] Implement APNG encoder path (`png` crate with animation chunks)
 - [ ] Implement WebP encoder path (`webp` crate, animated mode)

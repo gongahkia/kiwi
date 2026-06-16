@@ -10,4 +10,6 @@ description = "Raster renderer for kumeyuri frames and timelines."
 path = "src/lib.rs"
 
 [dependencies]
+font8x8 = "0.3.1"
 kumeyuri-core = { path = "../kumeyuri-core" }
+tiny-skia = "0.12.0"
