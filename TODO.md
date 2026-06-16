@@ -86,7 +86,7 @@
 
 ## Phase 3 — Web / embed renderers (weeks 7–10)
 
-- [ ] Implement `kumeyuri-render-svg`: emit SVG with `<g>` per frame and SMIL `<animate>` elements
+- [x] Implement `kumeyuri-render-svg`: emit SVG with `<g>` per frame and SMIL `<animate>` elements
 - [ ] Add CSS-keyframe fallback path for SVG (GitHub sanitizer test required)
 - [ ] CI test: pipe generated SVG through `DOMPurify` with GitHub's allowlist; fail if animation strips
 - [ ] Embed accessible `<title>` + `<desc>` + plain-text fallback inside every SVG
