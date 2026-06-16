@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="244" viewBox="0 0 180 244" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+<title id="kumeyuri-title">kumeyuri diagram</title>
+<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">┌───────┐   ┌───────┐
+│ Alice │   │  Bob  │
+└───────┘   └───────┘
+    │           │
+    │request    │
+    ────────────▶
+    │           │
+    │           │
+    │response   │
+    ◀────────────
+    │           │
+    │           │
+    │ack        │
+    ────────────▶
+    │           │     </metadata>
+<rect width="180" height="244" fill="#ffffff"/>
+<g id="frame-0" opacity="1">
+<text x="2" y="18" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐ </text>
+<text x="2" y="34" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ Alice │   │  Bob  │ </text>
+<text x="2" y="50" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘ </text>
+<text x="2" y="66" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+<text x="2" y="82" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │request    │     </text>
+<text x="2" y="98" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶     </text>
+<text x="2" y="114" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+<text x="2" y="130" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+<text x="2" y="146" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │response   │     </text>
+<text x="2" y="162" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────     </text>
+<text x="2" y="178" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+<text x="2" y="194" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+<text x="2" y="210" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │ack        │     </text>
+<text x="2" y="226" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶     </text>
+<text x="2" y="242" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │     </text>
+</g>
+</svg>
