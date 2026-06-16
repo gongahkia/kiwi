@@ -58,7 +58,7 @@
 - [x] Add CLI `kumeyuri render <file> --format text` end-to-end
 - [x] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
 - [x] Snapshot-test sequence static output against 15 examples
-- [ ] Snapshot-test state static output against 10 examples
+- [x] Snapshot-test state static output against 10 examples
 - [ ] Visual-diff CI job: render each fixture, compare against `tests/golden/`, fail on mismatch
 - [ ] Side-by-side comparison doc generator: produce a markdown page showing kumeyuri vs `beautiful-mermaid` vs `AlexanderGrooff/mermaid-ascii` on the same input
 - [ ] Resolve every static-parity regression flagged by the comparison doc before tagging `v0.1.0-static`
