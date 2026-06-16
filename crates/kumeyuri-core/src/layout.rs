@@ -988,7 +988,7 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to.bottom(),
             },
         ],
-        Direction::LeftRight => vec![
+        Direction::LeftRight if from_center.y == to_center.y => vec![
             Point {
                 x: from.right(),
                 y: from_center.y,
@@ -998,7 +998,21 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
-        Direction::RightLeft => vec![
+        Direction::LeftRight => vec![
+            Point {
+                x: from_center.x,
+                y: vertical_exit_y(from, to_center),
+            },
+            Point {
+                x: from_center.x,
+                y: to_center.y,
+            },
+            Point {
+                x: to.origin.x - 1,
+                y: to_center.y,
+            },
+        ],
+        Direction::RightLeft if from_center.y == to_center.y => vec![
             Point {
                 x: from.origin.x - 1,
                 y: from_center.y,
@@ -1008,6 +1022,28 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
+        Direction::RightLeft => vec![
+            Point {
+                x: from_center.x,
+                y: vertical_exit_y(from, to_center),
+            },
+            Point {
+                x: from_center.x,
+                y: to_center.y,
+            },
+            Point {
+                x: to.right(),
+                y: to_center.y,
+            },
+        ],
+    }
+}
+
+fn vertical_exit_y(from: Rect, to_center: Point) -> i32 {
+    if to_center.y >= from.center().y {
+        from.bottom()
+    } else {
+        from.origin.y - 1
     }
 }
 
@@ -1142,6 +1178,40 @@ mod tests {
         assert!(node(&layout, "LongerName1").rect.size.width >= 11);
         assert!(node(&layout, "LongerName2").rect.size.width >= 11);
         assert_eq!(node(&layout, "LongerName1").rect.size.height, 5);
+    }
+
+    #[test]
+    fn routes_left_right_staggered_edges_from_source_side() {
+        let ast = flowchart(
+            Direction::LeftRight,
+            vec![
+                FlowStatement::Edge(Box::new(edge("A", "B"))),
+                FlowStatement::Edge(Box::new(edge("A", "C"))),
+            ],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+        let source = node(&layout, "A").rect;
+        let target = node(&layout, "C").rect;
+        let edge = layout.edges.iter().find(|edge| edge.to == "C").unwrap();
+
+        assert_eq!(
+            edge.points,
+            vec![
+                Point {
+                    x: source.center().x,
+                    y: source.bottom(),
+                },
+                Point {
+                    x: source.center().x,
+                    y: target.center().y,
+                },
+                Point {
+                    x: target.origin.x - 1,
+                    y: target.center().y,
+                },
+            ]
+        );
     }
 
     #[test]

@@ -609,6 +609,9 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette, sty
             put_safe(frame, end.x, start.y, palette.crossing, style.clone());
         }
     }
+    for point in points.iter().skip(1).take(points.len().saturating_sub(2)) {
+        put_safe(frame, point.x, point.y, palette.crossing, style.clone());
+    }
 }
 
 fn arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> char {
