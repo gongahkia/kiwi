@@ -2,11 +2,16 @@
   "name": "kumeyuri-repo",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/kumeyuri"
+  ],
   "scripts": {
-    "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs"
+    "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
+    "test:ts-package": "npm --workspace kumeyuri run test"
   },
   "devDependencies": {
     "dompurify": "3.4.10",
-    "jsdom": "29.1.1"
+    "jsdom": "29.1.1",
+    "typescript": "6.0.3"
   }
 }
