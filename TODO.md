@@ -67,7 +67,7 @@
 ## Phase 2 — Animation engine (weeks 4–7)
 
 - [x] Define `KeyFrame` type and `Timeline` model in `kumeyuri-core::animator`
-- [ ] Specify default animation per diagram type in `docs/animations.md`
+- [x] Specify default animation per diagram type in `docs/animations.md`
 - [ ] Implement sequence-playback animator: emit one frame per message activation
 - [ ] Implement flowchart-trace animator: highlight path BFS/DFS through nodes
 - [ ] Implement state-transition animator: pulse current state, light up transition arrows
