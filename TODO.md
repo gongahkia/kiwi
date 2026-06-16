@@ -116,7 +116,7 @@
 - [x] Curate `examples/` gallery with 15 polished `.mmd` files + rendered SVG/GIFs
 - [x] Write five "wow" demo diagrams: HTTP request lifecycle, OAuth flow, OS scheduler state machine, microservice fan-out, sorting algorithm trace
 - [x] Record a 60-second screencast showing CLI + watch mode + web embed
-- [ ] Author launch blog post explaining the wedge, with embedded animations
+- [x] Author launch blog post explaining the wedge, with embedded animations
 - [ ] Write Hacker News submission title + first comment (technical depth, no marketing fluff)
 - [ ] Draft X launch thread (3 posts max) with one GIF per post; schedule for Tue/Wed 9–11am PT
 - [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR

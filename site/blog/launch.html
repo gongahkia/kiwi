@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kumeyuri launch notes</title>
+    <meta name="description" content="Why kumeyuri renders animated Mermaid diagrams from one frame stream.">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="kumeyuri home">kumeyuri</a>
+      <nav aria-label="Primary">
+        <a href="../index.html#formats">Formats</a>
+        <a href="../index.html#embed">Embed</a>
+        <a href="../index.html#playground">Playground</a>
+        <a href="https://github.com/gongahkia/kumeyuri">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="blog-page">
+      <article class="post">
+        <header class="post-header">
+          <p class="section-kicker">Launch notes</p>
+          <h1>Kumeyuri: animated Mermaid from one frame stream</h1>
+          <p class="lede">Mermaid is already the lowest-friction way to sketch systems in text. Kumeyuri keeps that source format and adds motion that can survive terminals, READMEs, docs sites, static assets, and browser embeds.</p>
+        </header>
+
+        <figure class="post-figure">
+          <img src="../assets/blog/http-request-lifecycle.svg" alt="Animated HTTP request lifecycle sequence diagram">
+          <figcaption>One Mermaid source can become terminal playback, animated SVG, raster fallback, or a WASM-powered embed.</figcaption>
+        </figure>
+
+        <section>
+          <h2>The wedge</h2>
+          <p>Most diagram tools split along a hard line: either the source is easy to write, or the output is expressive enough to explain time. Kumeyuri tries to keep both. The input stays close to Mermaid, but the renderer lowers every supported diagram into a deterministic frame stream before any backend sees it.</p>
+          <p>That frame stream is the wedge. Once the core knows what each frame means, terminal playback, SVG animation, GIF/APNG/WebP export, and browser rendering become output choices instead of separate products.</p>
+        </section>
+
+        <section>
+          <h2>Why not just SVG?</h2>
+          <p>SVG is a good publishing target, but it is not where every diagram is read. Engineers inspect diagrams in terminals, issue comments, READMEs, static sites, slides, and local previews. Kumeyuri treats SVG as one backend, not the center of the architecture.</p>
+          <p>The current core supports flowcharts, sequence diagrams, and state diagrams. Each parser produces semantic AST data, layout produces stable coordinates, and animation produces ordered frames with marker metadata. Renderers can then pick the best surface for their environment.</p>
+        </section>
+
+        <figure class="post-figure">
+          <img src="../assets/blog/microservice-fan-out.svg" alt="Animated microservice fan-out flowchart">
+          <figcaption>Flowchart trace mode highlights graph reachability without changing layout.</figcaption>
+        </figure>
+
+        <section>
+          <h2>What ships now</h2>
+          <p>The CLI can render text, SVG, GIF, APNG, and WebP, and it has an interactive TUI player for animated timelines. <code>kumeyuri watch</code> redraws a file as it changes, which keeps the authoring loop short enough for live docs work.</p>
+          <p>The web side exposes a wasm-bindgen renderer, a typed TypeScript wrapper, and a <code>&lt;kumeyuri-diagram&gt;</code> custom element with controls. Static sites can use generated SVGs with no JavaScript, while richer docs can load the WASM player for live rendering and playback.</p>
+        </section>
+
+        <section>
+          <h2>Design constraints</h2>
+          <p>Kumeyuri deliberately starts narrow. It does not try to cover every Mermaid diagram type yet. The first target is a dependable subset with clear behavior across renderers: flowcharts for graph traces, sequence diagrams for message playback, and state diagrams for transition animation.</p>
+          <p>That constraint keeps parity testable. Static snapshots, animation hashes, sanitizer checks, raster snapshots, Playwright browser coverage, and a WASM bundle budget all run against the same source tree.</p>
+        </section>
+
+        <figure class="post-figure">
+          <img src="../assets/blog/os-scheduler-state-machine.svg" alt="Animated OS scheduler state machine">
+          <figcaption>State transition mode pulses source states, active transitions, and target states in source order.</figcaption>
+        </figure>
+
+        <section>
+          <h2>Try it</h2>
+          <pre><code>cargo install --path crates/kumeyuri-cli
+kumeyuri render demos/http-request-lifecycle.mmd --format svg \
+  --theme github --dark-theme tokyo-night &gt; request.svg
+kumeyuri play demos/os-scheduler-state-machine.mmd --loop</code></pre>
+          <p>The repo also includes a docs site, example gallery, launch demos, and a 60-second asciinema screencast covering CLI render, watch mode, and the web embed path.</p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/gongahkia/kumeyuri">View source</a>
+            <a class="button" href="https://github.com/gongahkia/kumeyuri/tree/main/demos">Demos</a>
+            <a class="button" href="https://github.com/gongahkia/kumeyuri/tree/main/docs/book">Docs</a>
+          </div>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>
