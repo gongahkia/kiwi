@@ -8,6 +8,7 @@
   "scripts": {
     "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
     "test:ts-package": "npm --workspace kumeyuri run test",
+    "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs"
   },
   "devDependencies": {

@@ -105,7 +105,7 @@
 - [x] Write `docs/embedding.md` showing GitHub README, Hugo, Docusaurus, mdBook, plain HTML usage
 - [x] Snapshot-test SVG and raster outputs (image-diff via `image-compare` crate)
 - [x] Cross-browser test the web component (Chrome, Safari, Firefox, mobile) via Playwright
-- [ ] Performance budget: WASM bundle < 500 KB gzipped; document in CI
+- [x] Performance budget: WASM bundle < 500 KB gzipped; document in CI
 - [ ] Publish `v0.3.0-embed` to crates.io and `kumeyuri` to npm
 
 ## Phase 4 — Public launch (weeks 10–11)

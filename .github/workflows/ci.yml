@@ -69,6 +69,12 @@ jobs:
       - name: Check wasm32
         run: cargo check --workspace --target wasm32-unknown-unknown
 
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked --version 0.13.1
+
+      - name: Enforce WASM bundle budget (<500 KB gzip)
+        run: scripts/check-wasm-budget.sh
+
   visual-diff:
     name: Visual Diff
     runs-on: ubuntu-latest
