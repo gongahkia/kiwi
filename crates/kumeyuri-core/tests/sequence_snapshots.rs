@@ -39,7 +39,7 @@ fn sequence_static_snapshots_match() {
             .join("tests/snapshots/sequence/input")
             .join(format!("{name}.mmd"));
         let expected_path = root
-            .join("tests/snapshots/sequence/output")
+            .join("tests/golden/kumeyuri-static/sequence")
             .join(format!("{name}.txt"));
         let source = fs::read_to_string(&source_path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", source_path.display()));

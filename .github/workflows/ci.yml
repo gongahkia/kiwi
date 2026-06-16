@@ -69,6 +69,32 @@ jobs:
       - name: Check wasm32
         run: cargo check --workspace --target wasm32-unknown-unknown
 
+  visual-diff:
+    name: Visual Diff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Cache Cargo
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ runner.os }}-visual-diff-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-visual-diff-cargo-
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Compare static fixtures against golden outputs
+        run: cargo test -p kumeyuri-core --test visual_diff
+
   dependency-policy:
     name: Dependency Policy
     runs-on: ubuntu-latest

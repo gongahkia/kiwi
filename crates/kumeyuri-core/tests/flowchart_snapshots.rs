@@ -44,7 +44,7 @@ fn flowchart_static_snapshots_match() {
             .join("tests/snapshots/flowchart/input")
             .join(format!("{name}.mmd"));
         let expected_path = root
-            .join("tests/snapshots/flowchart/output")
+            .join("tests/golden/kumeyuri-static/flowchart")
             .join(format!("{name}.txt"));
         let source = fs::read_to_string(&source_path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", source_path.display()));

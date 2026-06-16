@@ -1,8 +1,9 @@
 # Golden Reference Corpora
 
-These corpora are third-party reference outputs for visual parity benchmarking.
-They are vendored at pinned upstream commits so diffs are reviewable and
-repeatable.
+These corpora are reference outputs for visual parity benchmarking. Third-party
+corpora are vendored at pinned upstream commits so diffs are reviewable and
+repeatable. `kumeyuri-static/` contains first-party locked outputs generated from
+the fixtures in `tests/snapshots/*/input/` and checked by the visual-diff CI job.
 
 Do not edit vendored files in place. Refresh by replacing a full source subtree
 from the pinned upstream commit and updating `corpora.toml`.
