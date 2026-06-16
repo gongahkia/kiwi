@@ -1,0 +1,11 @@
+%%{ animate: 'trace', speed: 1.05, loop: true }%%
+graph TD
+  Alert[alert fires] --> Triage{customer impact}
+  Triage -- yes --> Page[page on-call]
+  Triage -- no --> Ticket[file ticket]
+  Page --> Mitigate[mitigate]
+  Mitigate --> Update[status update]
+  Update --> Review[post-incident review]
+  Ticket --> Review
+  classDef urgent fill:#ffeef0,stroke:#cf222e,stroke-width:2px
+  class Alert,Page urgent

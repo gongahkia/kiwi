@@ -1,0 +1,11 @@
+%%{ animate: 'trace', speed: 1.2, loop: true, easing: 'ease' }%%
+graph LR
+  Draft[Draft flag] --> Review[peer review]
+  Review --> Canary{1 percent canary}
+  Canary -- healthy --> Ramp[25 percent]
+  Canary -- noisy --> Hold[hold rollout]
+  Ramp --> Full[100 percent]
+  Hold --> Fix[patch config]
+  Fix --> Canary
+  classDef focus fill:#e7f5ff,stroke:#0969da,stroke-width:2px
+  class Canary,Full focus

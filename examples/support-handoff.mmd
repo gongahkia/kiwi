@@ -1,0 +1,14 @@
+%%{ animate: 'playback', speed: 1.1, loop: true }%%
+sequenceDiagram
+  actor Customer
+  participant Bot
+  participant Agent
+  participant CRM
+  Customer->>Bot: describe issue
+  Bot->>CRM: lookup account
+  CRM-->>Bot: account context
+  Bot-->>Customer: collect details
+  Bot->>Agent: handoff summary
+  Agent->>CRM: add note
+  Agent-->>Customer: resolution steps
+  Note over Bot,Agent: context stays attached

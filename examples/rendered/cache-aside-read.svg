@@ -1,0 +1,495 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="296" height="536" viewBox="0 0 296 536" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+<title id="kumeyuri-title">kumeyuri diagram</title>
+<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">frame 0
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 1
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 2
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 3
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 4
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 5
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     
+
+frame 6
+┌───────┐   ┌───────┐   ┌───────┐ 
+│  API  │   │ Cache │   │  DB   │ 
+└───────┘   └───────┘   └───────┘ 
+    │           │           │     
+    │get user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │miss       │           │     
+    ◀────────────           │     
+    │           │           │     
+    │           │           │     
+    │select user│           │     
+    ────────────────────────▶     
+    │           │           │     
+    │           │           │     
+    │row        │           │     
+    ◀────────────────────────     
+    │           │           │     
+    │           │           │     
+    │set user   │           │     
+    ────────────▶           │     
+    │           │           │     
+    │           │           │     
+    │map response           │     
+    ──────┼     │           │     
+    │     │     │           │     
+    ◀─────┼     │           │     
+┌────────────────┐          │     
+│next read is hot│          │     
+└────────────────┘          │     
+    │           │           │     </metadata>
+<style>
+rect { fill: #ffffff; }
+text { fill: #24292f; }
+@media (prefers-color-scheme: dark) {
+  rect { fill: #1a1b26; }
+  text { fill: #c0caf5; }
+}
+</style>
+<rect width="296" height="536" fill="#ffffff"/>
+<g id="frame-0" opacity="1">
+<animate attributeName="opacity" values="1;0;0;0;0;0;0;1" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-1" opacity="0">
+<animate attributeName="opacity" values="0;1;0;0;0;0;0;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-2" opacity="0">
+<animate attributeName="opacity" values="0;0;1;0;0;0;0;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-3" opacity="0">
+<animate attributeName="opacity" values="0;0;0;1;0;0;0;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-4" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;1;0;0;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-5" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;0;1;0;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+<g id="frame-6" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;0;0;1;0" keyTimes="0;0.142857;0.285714;0.428571;0.571429;0.714286;0.857143;1" dur="3920ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────┐   ┌───────┐   ┌───────┐ </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│  API  │   │ Cache │   │  DB   │ </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────┘   └───────┘   └───────┘ </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │get user   │           │     </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │miss       │           │     </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────           │     </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │select user│           │     </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────────────────▶     </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │row        │           │     </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀────────────────────────     </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │set user   │           │     </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ────────────▶           │     </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │map response           │     </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ──────┼     │           │     </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │     │     │           │     </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    ◀─────┼     │           │     </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌────────────────┐          │     </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│next read is hot│          │     </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└────────────────┘          │     </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">    │           │           │     </text>
+</g>
+</svg>

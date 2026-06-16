@@ -1,0 +1,12 @@
+%%{ animate: 'trace', speed: 1.1, loop: true }%%
+graph TD
+  subgraph edge [Edge collectors]
+    Web[webhook] --> Queue[(event queue)]
+    Batch[batch import] --> Queue
+  end
+  Queue --> Normalize[normalize payload]
+  Normalize --> Validate{valid}
+  Validate -- yes --> Warehouse[(warehouse)]
+  Validate -- no --> Dead[dead letter]
+  classDef store fill:#fff8dc,stroke:#bf8700,stroke-width:2px
+  class Queue,Warehouse store

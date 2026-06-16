@@ -1,0 +1,12 @@
+%%{ animate: 'trace', speed: 1.1, loop: true, easing: 'ease' }%%
+flowchart TD
+  Cart[cart] --> Inventory{inventory}
+  Inventory -- available --> Fraud{fraud score}
+  Inventory -- missing --> Backorder[offer backorder]
+  Fraud -- clear --> Payment[authorize payment]
+  Fraud -- review --> Manual[manual review]
+  Payment --> Receipt[send receipt]
+  Backorder --> Receipt
+  Manual --> Receipt
+  classDef decision fill:#fff8dc,stroke:#bf8700,stroke-width:2px
+  class Inventory,Fraud decision

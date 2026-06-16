@@ -1,0 +1,14 @@
+%%{ animate: 'playback', speed: 1.15, loop: true }%%
+sequenceDiagram
+  participant Client
+  participant Gateway
+  participant Worker
+  Client->>Gateway: connect
+  Gateway->>Worker: allocate session
+  Worker-->>Gateway: session id
+  Gateway-->>Client: websocket open
+  par heartbeat
+    Client-->Gateway: ping
+  end
+  Gateway->>Worker: publish event
+  Worker-->>Client: push update

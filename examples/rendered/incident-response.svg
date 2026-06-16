@@ -1,0 +1,804 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="776" viewBox="0 0 360 776" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+<title id="kumeyuri-title">kumeyuri diagram</title>
+<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">frame 0
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 1
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 2
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 3
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 4
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 5
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 6
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          
+
+frame 7
+┌─────────────┐                           
+│             │                           
+│ alert fires │                           
+│             │                           
+└─────────────┘                           
+       ──┼                                
+         │                                
+         │                                
+         │                                
+         ▶                                
+┌─────────────────┐                       
+│                 │                       
+│ customer impact │                       
+│                 │                       
+└─────────────────┘                       
+        ┼───────────────────┼             
+        │                   │             
+        │                   │             
+        │                   │             
+        ◀                   ▶             
+┌──────────────┐     ┌─────────────┐      
+│              │     │             │      
+│ page on-call │     │ file ticket │      
+│              │     │             │      
+└──────────────┘     └─────────────┘      
+      ┼──                   ─┼            
+      │                      │            
+      │                      │            
+      │                      │            
+      ◀                      ▶            
+┌──────────┐     ┌──────────────────────┐ 
+│          │     │                      │ 
+│ mitigate │     │ post-incident review │ 
+│          │     │                      │ 
+└──────────┘     └──────────────────────┘ 
+      ──┼                    │            
+        │                    │            
+        │                    │            
+        │                    │            
+        ▶                    │            
+┌───────────────┐            │            
+│               │            │            
+│ status update │            │            
+│               │            │            
+└───────────────┘            │            
+        ─────────────────────┼            
+                                          </metadata>
+<style>
+rect { fill: #ffffff; }
+text { fill: #24292f; }
+@media (prefers-color-scheme: dark) {
+  rect { fill: #1a1b26; }
+  text { fill: #c0caf5; }
+}
+</style>
+<rect width="360" height="776" fill="#ffffff"/>
+<g id="frame-0" opacity="1">
+<animate attributeName="opacity" values="1;0;0;0;0;0;0;0;1" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-1" opacity="0">
+<animate attributeName="opacity" values="0;1;0;0;0;0;0;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-2" opacity="0">
+<animate attributeName="opacity" values="0;0;1;0;0;0;0;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-3" opacity="0">
+<animate attributeName="opacity" values="0;0;0;1;0;0;0;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-4" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;1;0;0;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-5" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;0;1;0;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-6" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;0;0;1;0;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+<g id="frame-7" opacity="0">
+<animate attributeName="opacity" values="0;0;0;0;0;0;0;1;0" keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1" dur="4190ms" repeatCount="indefinite" fill="freeze" calcMode="discrete"/>
+<text x="12" y="28" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────┐                           </text>
+<text x="12" y="44" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="60" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ alert fires │                           </text>
+<text x="12" y="76" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│             │                           </text>
+<text x="12" y="92" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────┘                           </text>
+<text x="12" y="108" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">       ──┼                                </text>
+<text x="12" y="124" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="140" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="156" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         │                                </text>
+<text x="12" y="172" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">         ▶                                </text>
+<text x="12" y="188" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌─────────────────┐                       </text>
+<text x="12" y="204" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="220" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ customer impact │                       </text>
+<text x="12" y="236" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                 │                       </text>
+<text x="12" y="252" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└─────────────────┘                       </text>
+<text x="12" y="268" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ┼───────────────────┼             </text>
+<text x="12" y="284" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="300" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="316" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                   │             </text>
+<text x="12" y="332" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ◀                   ▶             </text>
+<text x="12" y="348" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────┐     ┌─────────────┐      </text>
+<text x="12" y="364" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="380" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ page on-call │     │ file ticket │      </text>
+<text x="12" y="396" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│              │     │             │      </text>
+<text x="12" y="412" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────┘     └─────────────┘      </text>
+<text x="12" y="428" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ┼──                   ─┼            </text>
+<text x="12" y="444" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="460" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="476" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      │                      │            </text>
+<text x="12" y="492" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ◀                      ▶            </text>
+<text x="12" y="508" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────┐     ┌──────────────────────┐ </text>
+<text x="12" y="524" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="540" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ mitigate │     │ post-incident review │ </text>
+<text x="12" y="556" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│          │     │                      │ </text>
+<text x="12" y="572" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────┘     └──────────────────────┘ </text>
+<text x="12" y="588" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">      ──┼                    │            </text>
+<text x="12" y="604" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="620" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="636" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        │                    │            </text>
+<text x="12" y="652" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ▶                    │            </text>
+<text x="12" y="668" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌───────────────┐            │            </text>
+<text x="12" y="684" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="700" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ status update │            │            </text>
+<text x="12" y="716" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│               │            │            </text>
+<text x="12" y="732" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└───────────────┘            │            </text>
+<text x="12" y="748" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">        ─────────────────────┼            </text>
+<text x="12" y="764" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                          </text>
+</g>
+</svg>

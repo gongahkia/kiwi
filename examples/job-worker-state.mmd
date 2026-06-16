@@ -1,0 +1,11 @@
+%%{ animate: 'transitions', speed: 1.1, loop: true }%%
+stateDiagram-v2
+  direction LR
+  [*] --> Queued
+  Queued --> Running: lease
+  Running --> Succeeded: complete
+  Running --> Retrying: timeout
+  Retrying --> Queued: backoff elapsed
+  Running --> Failed: max retries
+  Succeeded --> [*]
+  Failed --> [*]

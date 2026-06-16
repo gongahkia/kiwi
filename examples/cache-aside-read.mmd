@@ -1,0 +1,12 @@
+%%{ animate: 'playback', speed: 1.25, loop: true }%%
+sequenceDiagram
+  participant API
+  participant Cache
+  participant DB
+  API->>Cache: get user
+  Cache-->>API: miss
+  API->>DB: select user
+  DB-->>API: row
+  API->>Cache: set user
+  API-->>API: map response
+  Note left of API: next read is hot

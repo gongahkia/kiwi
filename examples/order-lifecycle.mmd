@@ -1,0 +1,12 @@
+%%{ animate: 'transitions', speed: 1.15, loop: true, easing: 'ease' }%%
+stateDiagram-v2
+  direction LR
+  state "Awaiting Payment" as awaiting_payment
+  state "Ready to Ship" as ready_to_ship
+  [*] --> awaiting_payment
+  awaiting_payment --> ready_to_ship: paid
+  awaiting_payment --> Cancelled: expired
+  ready_to_ship --> Shipped: label created
+  Shipped --> Delivered: carrier scan
+  Delivered --> [*]
+  Cancelled --> [*]

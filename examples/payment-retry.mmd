@@ -1,0 +1,14 @@
+%%{ animate: 'playback', speed: 1.2, loop: true, easing: 'ease' }%%
+sequenceDiagram
+  participant Shop
+  participant Payments
+  actor Bank
+  Shop->>Payments: create charge
+  loop retry window
+    Payments->>Bank: authorize
+    Bank-->>Payments: temporary decline
+  end
+  Payments->>Bank: authorize
+  Bank-->>Payments: approved
+  Payments-->>Shop: charge captured
+  Note right of Payments: idempotency key reused

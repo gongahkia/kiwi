@@ -1,0 +1,12 @@
+%%{ animate: 'transitions', speed: 1.1, loop: true }%%
+stateDiagram-v2
+  direction LR
+  state "Draft" as draft
+  state "In Review" as review
+  state "Needs Changes" as changes
+  draft --> review: submit
+  review --> Approved: approve
+  review --> changes: request changes
+  changes --> draft: revise
+  Approved --> Published: publish
+  Published --> [*]

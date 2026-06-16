@@ -1,0 +1,10 @@
+%%{ animate: 'transitions', speed: 1.2, loop: true }%%
+stateDiagram-v2
+  direction LR
+  state probe <<choice>>
+  Closed --> probe: error threshold
+  probe --> Open: trip
+  Open --> HalfOpen: cooldown
+  HalfOpen --> Closed: probe ok
+  HalfOpen --> Open: probe failed
+  Closed --> [*]

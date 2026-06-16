@@ -1,0 +1,11 @@
+%%{ animate: 'trace', speed: 1.25, loop: true }%%
+graph LR
+  Client[client] --> Cache{cache hit}
+  Cache -- hit --> Response[return cached]
+  Cache -- miss --> Origin[load origin]
+  Origin --> Store[(store value)]
+  Store --> Response
+  Origin -. stale .-> Revalidate[background revalidate]
+  Revalidate --> Store
+  classDef data fill:#ddf4ff,stroke:#0969da,stroke-width:2px
+  class Cache,Store data

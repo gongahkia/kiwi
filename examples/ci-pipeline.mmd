@@ -1,0 +1,10 @@
+%%{ animate: 'trace', speed: 1.15, loop: true, easing: 'ease' }%%
+graph LR
+  Commit[Commit] --> Lint[lint + fmt]
+  Lint --> Tests{tests pass}
+  Tests -- yes --> Build[build artifacts]
+  Tests -- no --> Fix[fix failure]
+  Fix --> Commit
+  Build --> Publish[release draft]
+  classDef hot fill:#e8f1ff,stroke:#0969da,stroke-width:2px
+  class Tests,Publish hot

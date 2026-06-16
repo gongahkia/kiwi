@@ -1,0 +1,16 @@
+%%{ animate: 'playback', speed: 1.15, loop: true }%%
+sequenceDiagram
+  participant User
+  participant Browser
+  participant App
+  participant IdP as Identity Provider
+  User->>Browser: click sign in
+  Browser->>App: GET /login
+  App-->>Browser: redirect to IdP
+  Browser->>IdP: authorize
+  IdP-->>Browser: code
+  Browser->>App: callback code
+  App->>IdP: exchange code
+  IdP-->>App: tokens
+  App-->>Browser: session cookie
+  Note over Browser,App: session established
