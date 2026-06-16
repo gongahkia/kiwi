@@ -486,11 +486,13 @@ A --> B --> C --> A
 <table>
 <thead><tr><th>Kumeyuri</th><th>beautiful-mermaid</th><th>mermaid-ascii</th></tr></thead>
 <tbody><tr>
-<td><pre><code>     +---+     +---+     +---+
-     |   |     |   |     |   |
-    &lt;|-B-|----&gt;|-C-|----&gt;|-A-|-
-     |   |     |   |     |   |
-     +---+     +---+     +---+
+<td><pre><code>+---+     +---+     +---+
+|   |     |   |     |   |
+| A |----&gt;| B |----&gt;| C |
+|   |     |   |     |   |
++---+     +---+     +---+
+  ^                   |
+  +-------------------+
 </code></pre></td>
 <td><pre><code>+---+     +---+     +---+
 |   |     |   |     |   |
@@ -526,11 +528,23 @@ C --> A
 <table>
 <thead><tr><th>Kumeyuri</th><th>beautiful-mermaid</th><th>mermaid-ascii</th></tr></thead>
 <tbody><tr>
-<td><pre><code>+---+     +---+          +---+
-|   |     |   |          |   |
-| B |----&gt;|-C-|---------&gt;|-A-|-
-|   |     |   |          |   |
-+---+     +---+          +---+
+<td><pre><code>+---+     +---+
+|   |     |   |
+| B |----&gt;| C |
+|   |     |   |
++---+     +---+
+  |         |
+  |         |
+  |         |
+  |         |
+  |         |
++---+       |
+| | |       |
+|-A-|-      |
+|   |       |
++---+       |
+  ^         |
+  +---------+
 </code></pre></td>
 <td><pre><code>+---+     +---+
 |   |     |   |

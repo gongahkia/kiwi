@@ -790,25 +790,38 @@ fn assign_layers(graph: &LayoutGraph) -> Vec<usize> {
     }
 
     if visited != graph.nodes.len() {
-        place_cyclic_remainder(graph, &mut layers);
+        layers = assign_layers_with_cycle_breaks(graph);
     }
     layers
 }
 
-fn place_cyclic_remainder(graph: &LayoutGraph, layers: &mut [usize]) {
-    for _ in 0..graph.nodes.len() {
-        let mut changed = false;
-        for edge in &graph.edges {
-            let target = layers[edge.from] + edge.min_length;
-            if target > layers[edge.to] && target <= graph.nodes.len() {
-                layers[edge.to] = target;
-                changed = true;
+fn assign_layers_with_cycle_breaks(graph: &LayoutGraph) -> Vec<usize> {
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Visit {
+        Unseen,
+        Active,
+        Done,
+    }
+
+    fn visit(index: usize, graph: &LayoutGraph, layers: &mut [usize], visits: &mut [Visit]) {
+        visits[index] = Visit::Active;
+        for edge in graph.edges.iter().filter(|edge| edge.from == index) {
+            if visits[edge.to] == Visit::Unseen {
+                layers[edge.to] = layers[edge.to].max(layers[index] + edge.min_length);
+                visit(edge.to, graph, layers, visits);
             }
         }
-        if !changed {
-            break;
+        visits[index] = Visit::Done;
+    }
+
+    let mut layers = vec![0usize; graph.nodes.len()];
+    let mut visits = vec![Visit::Unseen; graph.nodes.len()];
+    for index in 0..graph.nodes.len() {
+        if visits[index] == Visit::Unseen {
+            visit(index, graph, &mut layers, &mut visits);
         }
     }
+    layers
 }
 
 fn minimise_crossings(graph: &LayoutGraph, layers: &[usize]) -> Vec<usize> {
@@ -954,7 +967,8 @@ fn place_graph(
             arrow_end: edge.arrow_end,
             points: route_edge(rects[edge.from], rects[edge.to], direction),
         })
-        .collect();
+        .collect::<Vec<_>>();
+    size = layout_size_with_edges(size, &edges);
 
     FlowLayout {
         direction,
@@ -988,6 +1002,24 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to.bottom(),
             },
         ],
+        Direction::LeftRight if to.origin.x < from.origin.x => {
+            let y = from.bottom().max(to.bottom()) + 1;
+            vec![
+                Point {
+                    x: from_center.x,
+                    y: from.bottom(),
+                },
+                Point {
+                    x: from_center.x,
+                    y,
+                },
+                Point { x: to_center.x, y },
+                Point {
+                    x: to_center.x,
+                    y: to.bottom(),
+                },
+            ]
+        }
         Direction::LeftRight if from_center.y == to_center.y => vec![
             Point {
                 x: from.right(),
@@ -1012,6 +1044,24 @@ fn route_edge(from: Rect, to: Rect, direction: Direction) -> Vec<Point> {
                 y: to_center.y,
             },
         ],
+        Direction::RightLeft if to.origin.x > from.origin.x => {
+            let y = from.bottom().max(to.bottom()) + 1;
+            vec![
+                Point {
+                    x: from_center.x,
+                    y: from.bottom(),
+                },
+                Point {
+                    x: from_center.x,
+                    y,
+                },
+                Point { x: to_center.x, y },
+                Point {
+                    x: to_center.x,
+                    y: to.bottom(),
+                },
+            ]
+        }
         Direction::RightLeft if from_center.y == to_center.y => vec![
             Point {
                 x: from.origin.x - 1,
@@ -1107,6 +1157,19 @@ fn layout_size(rects: &[Rect]) -> Size {
     Size {
         width: rects.iter().map(|rect| rect.right()).max().unwrap_or(0),
         height: rects.iter().map(|rect| rect.bottom()).max().unwrap_or(0),
+    }
+}
+
+fn layout_size_with_edges(size: Size, edges: &[PositionedFlowEdge]) -> Size {
+    Size {
+        width: edges
+            .iter()
+            .flat_map(|edge| edge.points.iter().map(|point| point.x + 1))
+            .fold(size.width, i32::max),
+        height: edges
+            .iter()
+            .flat_map(|edge| edge.points.iter().map(|point| point.y + 1))
+            .fold(size.height, i32::max),
     }
 }
 
@@ -1212,6 +1275,28 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn routes_left_right_back_edges_below_nodes() {
+        let ast = flowchart(
+            Direction::LeftRight,
+            vec![
+                FlowStatement::Edge(Box::new(edge("A", "B"))),
+                FlowStatement::Edge(Box::new(edge("B", "C"))),
+                FlowStatement::Edge(Box::new(edge("C", "A"))),
+            ],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+        let a = node(&layout, "A").rect;
+        let b = node(&layout, "B").rect;
+        let c = node(&layout, "C").rect;
+        let edge = layout.edges.iter().find(|edge| edge.to == "A").unwrap();
+
+        assert!(a.origin.x < b.origin.x);
+        assert!(b.origin.x < c.origin.x);
+        assert!(edge.points.iter().any(|point| point.y > c.bottom()));
     }
 
     #[test]
