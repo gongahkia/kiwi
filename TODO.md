@@ -100,7 +100,7 @@
 - [x] Build `kumeyuri-render-wasm` exposing `render(source, options) -> {svg, frames}` for browsers
 - [x] Wrap WASM in TypeScript package `kumeyuri` (npm) with typed API
 - [x] Implement `<kumeyuri-diagram>` web component (custom element) supporting `src`, `inline`, `animate`, `theme`, `speed`, `autoplay`, `controls` attributes
-- [ ] Add interactive controls overlay (play/pause/scrub/restart) to the web component
+- [x] Add interactive controls overlay (play/pause/scrub/restart) to the web component
 - [ ] Set up CDN distribution (Cloudflare R2 + Cloudflare Pages, or jsDelivr via npm)
 - [ ] Write `docs/embedding.md` showing GitHub README, Hugo, Docusaurus, mdBook, plain HTML usage
 - [ ] Snapshot-test SVG and raster outputs (image-diff via `image-compare` crate)

@@ -12,7 +12,10 @@ const wasm = {
     calls.push({ source, options });
     return {
       svg: `<svg data-theme="${options.theme ?? "default"}"></svg>`,
-      frames: [{ text: "A --> B", durationMs: 550 }],
+      frames: [
+        { text: "A", durationMs: 550 },
+        { text: "B", durationMs: 650 },
+      ],
     };
   },
 };
@@ -20,7 +23,10 @@ const wasm = {
 const client = createKumeyuri(wasm);
 const output = client.render("graph TD\\nA --> B", { theme: "github" });
 assert.equal(output.svg, '<svg data-theme="github"></svg>');
-assert.deepEqual(output.frames, [{ text: "A --> B", durationMs: 550 }]);
+assert.deepEqual(output.frames, [
+  { text: "A", durationMs: 550 },
+  { text: "B", durationMs: 650 },
+]);
 
 await initKumeyuri(async () => wasm);
 assert.equal(wasm.initialized, true);
@@ -57,6 +63,11 @@ assert.equal(inlineElement.dataset.controls, "true");
 assert.equal(inlineElement.querySelector("svg")?.getAttribute("data-theme"), "github");
 assert.match(calls.at(-1).source, /^%%\{ animate: 'trace' \}%%\n/);
 assert.equal(calls.at(-1).options.speed, 1.5);
+assert.equal(inlineElement.querySelector("[data-kumeyuri-controls]") !== null, true);
+assert.equal(inlineElement.querySelector("input[type='range']")?.getAttribute("max"), "1");
+assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "pause");
+inlineElement.querySelector("button[data-action='play']")?.click();
+assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "play");
 
 const srcElement = document.createElement("kumeyuri-diagram");
 srcElement.setAttribute("src", "remote.mmd");

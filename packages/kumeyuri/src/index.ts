@@ -85,11 +85,16 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
     }
 
     #inlineSource: string | null = null;
+    #playbackTimer: number | undefined;
     #queued = false;
 
     connectedCallback(): void {
       this.#inlineSource ??= this.textContent ?? "";
       this.#queueRender();
+    }
+
+    disconnectedCallback(): void {
+      this.#stopPlayback();
     }
 
     attributeChangedCallback(): void {
@@ -111,6 +116,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
 
     async #renderNow(): Promise<void> {
       try {
+        this.#stopPlayback();
         const source = await this.#source();
         if (source.trim().length === 0) {
           return;
@@ -120,6 +126,9 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         this.dataset.controls = String(this.hasAttribute("controls"));
         this.removeAttribute("data-error");
         this.innerHTML = output.svg;
+        if (this.hasAttribute("controls")) {
+          this.#mountControls(output);
+        }
       } catch (error) {
         this.dataset.error = error instanceof Error ? error.message : String(error);
       }
@@ -156,6 +165,83 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         options.speed = parsed;
       }
       return options;
+    }
+
+    #mountControls(output: KumeyuriRenderOutput): void {
+      if (output.frames.length === 0) {
+        return;
+      }
+      if (!this.style.position) {
+        this.style.position = "relative";
+      }
+      const svg = this.querySelector("svg") as SVGSVGElement | null;
+      svg?.pauseAnimations?.();
+      const controls = document.createElement("div");
+      controls.dataset.kumeyuriControls = "true";
+      controls.style.cssText =
+        "position:absolute;right:0.5rem;bottom:0.5rem;display:flex;gap:0.25rem;align-items:center;padding:0.25rem;background:rgba(255,255,255,0.9);border:1px solid currentColor;font:12px system-ui,sans-serif;";
+      const play = document.createElement("button");
+      play.type = "button";
+      play.dataset.action = "play";
+      const restart = document.createElement("button");
+      restart.type = "button";
+      restart.dataset.action = "restart";
+      restart.textContent = "restart";
+      const scrub = document.createElement("input");
+      scrub.type = "range";
+      scrub.min = "0";
+      scrub.max = String(output.frames.length - 1);
+      scrub.step = "1";
+      scrub.value = "0";
+      controls.append(play, scrub, restart);
+      this.append(controls);
+
+      let index = 0;
+      let playing = this.hasAttribute("autoplay");
+      const setPlaying = (next: boolean): void => {
+        playing = next;
+        play.textContent = playing ? "pause" : "play";
+        this.#stopPlayback();
+        if (playing) {
+          schedule();
+        }
+      };
+      const showFrame = (next: number): void => {
+        index = Math.max(0, Math.min(output.frames.length - 1, next));
+        scrub.value = String(index);
+        for (const group of this.querySelectorAll<SVGGElement>("svg > g[id^='frame-']")) {
+          group.setAttribute("opacity", group.id === `frame-${index}` ? "1" : "0");
+        }
+      };
+      const schedule = (): void => {
+        if (!playing || output.frames.length < 2) {
+          return;
+        }
+        const delay = Math.max(1, output.frames[index]?.durationMs ?? 1);
+        this.#playbackTimer = window.setTimeout(() => {
+          showFrame(index + 1 >= output.frames.length ? 0 : index + 1);
+          schedule();
+        }, delay);
+      };
+
+      play.addEventListener("click", () => setPlaying(!playing));
+      restart.addEventListener("click", () => {
+        showFrame(0);
+        setPlaying(this.hasAttribute("autoplay"));
+      });
+      scrub.addEventListener("input", () => {
+        setPlaying(false);
+        showFrame(Number(scrub.value));
+      });
+      showFrame(0);
+      setPlaying(playing);
+    }
+
+    #stopPlayback(): void {
+      if (this.#playbackTimer !== undefined) {
+        window.clearTimeout(this.#playbackTimer);
+        this.#playbackTimer = undefined;
+      }
     }
   }
   registry.define(tagName, KumeyuriDiagramElement);
