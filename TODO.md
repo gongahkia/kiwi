@@ -56,7 +56,7 @@
 - [x] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
 - [x] Implement text-output backend in `kumeyuri-core` (`Frame` → `String`)
 - [x] Add CLI `kumeyuri render <file> --format text` end-to-end
-- [ ] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
+- [x] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
 - [ ] Snapshot-test sequence static output against 15 examples
 - [ ] Snapshot-test state static output against 10 examples
 - [ ] Visual-diff CI job: render each fixture, compare against `tests/golden/`, fail on mismatch

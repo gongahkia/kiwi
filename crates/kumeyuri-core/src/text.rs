@@ -48,6 +48,9 @@ impl TextOutputBackend {
             for line in &mut lines {
                 trim_trailing_spaces(line);
             }
+            while lines.last().is_some_and(String::is_empty) {
+                lines.pop();
+            }
         }
 
         let mut output = lines.join("\n");
@@ -90,6 +93,14 @@ mod tests {
         frame.write_text(0, 0, "x", Default::default()).unwrap();
 
         assert_eq!(TextOutputBackend::exact().render_frame(&frame), "x  ");
+    }
+
+    #[test]
+    fn trimmed_backend_drops_empty_bottom_rows() {
+        let mut frame = Frame::new(3, 3);
+        frame.write_text(0, 0, "x", Default::default()).unwrap();
+
+        assert_eq!(frame_to_text(&frame), "x");
     }
 
     #[test]
