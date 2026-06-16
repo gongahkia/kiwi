@@ -95,6 +95,30 @@ jobs:
       - name: Compare static fixtures against golden outputs
         run: cargo test -p kumeyuri-core --test visual_diff
 
+  svg-sanitizer:
+    name: SVG Sanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Verify sanitized SVG animations
+        run: npm run test:svg-sanitizer
+
   dependency-policy:
     name: Dependency Policy
     runs-on: ubuntu-latest
