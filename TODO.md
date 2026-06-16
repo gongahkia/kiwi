@@ -70,7 +70,7 @@
 - [x] Specify default animation per diagram type in `docs/animations.md`
 - [x] Implement sequence-playback animator: emit one frame per message activation
 - [x] Implement flowchart-trace animator: highlight path BFS/DFS through nodes
-- [ ] Implement state-transition animator: pulse current state, light up transition arrows
+- [x] Implement state-transition animator: pulse current state, light up transition arrows
 - [ ] Define directive schema: `%%{ animate: 'trace' | 'playback' | 'transitions' | 'none', speed: f32, loop: bool, easing: 'linear'|'ease' }%%`
 - [ ] Parse directives into `AnimationConfig` and feed into animator
 - [ ] Add `kumeyuri-render-tui`: ratatui app that renders a `Timeline` frame-by-frame

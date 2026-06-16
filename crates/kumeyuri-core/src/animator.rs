@@ -1,8 +1,9 @@
-use crate::ast::{FlowchartAst, SequenceAst};
+use crate::ast::{FlowchartAst, SequenceAst, StateAst};
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     FlowLayout, FlowLayoutEngine, Point, PositionedFlowEdge, PositionedFlowNode,
     PositionedSequenceMessage, PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine,
+    StateLayout, StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -19,6 +20,11 @@ impl Animator {
     #[must_use]
     pub fn flowchart_trace(ast: &FlowchartAst) -> Timeline {
         FlowchartTraceAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn state_transitions(ast: &StateAst) -> Timeline {
+        StateTransitionAnimator::default().animate(ast)
     }
 }
 
@@ -307,20 +313,147 @@ fn add_flow_node_marker(
 }
 
 fn add_flow_edge_marker(frame: &mut Frame, edge: &PositionedFlowEdge, edge_index: usize) {
-    let Some(region) = polyline_region(&edge.points) else {
-        return;
-    };
     let id = format!("flow-edge-{edge_index}-{}-{}", edge.from, edge.to);
-    frame.add_marker(KeyFrameMarker {
-        id: id.clone(),
-        kind: KeyFrameMarkerKind::Active,
-        region,
-    });
-    mark_polyline_cells(frame, &edge.points, &id);
+    add_polyline_marker(frame, &edge.points, &id, KeyFrameMarkerKind::Active);
 }
 
 fn flow_node_marker_id(node_id: &str) -> String {
     format!("flow-node-{node_id}")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StateTransitionAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for StateTransitionAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl StateTransitionAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &StateAst) -> Timeline {
+        let layout = StateLayoutEngine::default().layout(ast);
+        let renderer = StaticFrameRenderer::default();
+        let mut timeline = Timeline::from_frame(renderer.render_state(ast), self.frame_duration);
+
+        for (index, edge) in layout.graph.edges.iter().enumerate() {
+            let mut frame = renderer.render_state(ast);
+            add_state_transition_markers(&mut frame, &layout, edge, index);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_state_transition_markers(
+    frame: &mut Frame,
+    layout: &StateLayout,
+    edge: &PositionedFlowEdge,
+    index: usize,
+) {
+    if edge.from == "[*]" {
+        add_state_node_marker(
+            frame,
+            &layout.graph,
+            &edge.from,
+            KeyFrameMarkerKind::Enter,
+            &format!("{}-enter", state_node_marker_id(&edge.from)),
+        );
+    }
+    add_state_node_marker(
+        frame,
+        &layout.graph,
+        &edge.from,
+        KeyFrameMarkerKind::Exit,
+        &state_node_marker_id(&edge.from),
+    );
+    add_state_transition_edge_marker(frame, edge, index);
+    add_state_node_marker(
+        frame,
+        &layout.graph,
+        &edge.to,
+        KeyFrameMarkerKind::Enter,
+        &format!("{}-enter", state_node_marker_id(&edge.to)),
+    );
+    add_state_composite_markers(frame, layout, &edge.from, &edge.to);
+}
+
+fn add_state_node_marker(
+    frame: &mut Frame,
+    graph: &FlowLayout,
+    node_id: &str,
+    kind: KeyFrameMarkerKind,
+    marker_id: &str,
+) {
+    let Some(node) = graph.nodes.iter().find(|node| node.id == node_id) else {
+        return;
+    };
+    add_flow_node_marker(frame, node, kind, marker_id);
+}
+
+fn add_state_transition_edge_marker(
+    frame: &mut Frame,
+    edge: &PositionedFlowEdge,
+    edge_index: usize,
+) {
+    let id = format!("state-transition-{edge_index}-{}-{}", edge.from, edge.to);
+    add_polyline_marker(frame, &edge.points, &id, KeyFrameMarkerKind::Active);
+}
+
+fn add_state_composite_markers(frame: &mut Frame, layout: &StateLayout, from: &str, to: &str) {
+    for composite in &layout.composites {
+        if !composite
+            .child_ids
+            .iter()
+            .any(|child| child == from || child == to)
+        {
+            continue;
+        }
+        add_state_node_marker(
+            frame,
+            &layout.graph,
+            &composite.id,
+            KeyFrameMarkerKind::Hold,
+            &format!("state-composite-{}", composite.id),
+        );
+    }
+}
+
+fn state_node_marker_id(node_id: &str) -> String {
+    format!("state-node-{node_id}")
+}
+
+fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyFrameMarkerKind) {
+    let Some(region) = polyline_region(points) else {
+        return;
+    };
+    frame.add_marker(KeyFrameMarker {
+        id: id.to_owned(),
+        kind,
+        region,
+    });
+    mark_polyline_cells(frame, points, id);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -545,12 +678,16 @@ fn mark_point_cell(frame: &mut Frame, point: Point, marker_id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Animator, FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator, Timeline};
+    use super::{
+        Animator, FlowchartTraceAnimator, KeyFrame, SequencePlaybackAnimator,
+        StateTransitionAnimator, Timeline,
+    };
     use crate::ast::{
         ArrowHead, Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
         FlowStatement, FlowchartAst, FlowchartDirective, FlowchartHeader, Label, LabelKind,
         SequenceArrow, SequenceAst, SequenceHeader, SequenceMessage, SequenceParticipant,
-        SequenceParticipantKind, SequenceStatement, Span, Spanned,
+        SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateDirective,
+        StateHeader, StateNode, StateNodeKind, StateStatement, StateTransition,
     };
     use crate::frame::{Frame, KeyFrameMarkerKind};
     use std::time::Duration;
@@ -668,6 +805,89 @@ mod tests {
     }
 
     #[test]
+    fn state_transitions_emit_static_frame_plus_transition_frames() {
+        let ast = state(vec![
+            StateStatement::Transition(Box::new(state_transition("[*]", "Idle", "boot"))),
+            StateStatement::Transition(Box::new(state_transition("Idle", "Active", "start"))),
+        ]);
+
+        let timeline = Animator::state_transitions(&ast);
+
+        assert_eq!(timeline.len(), 3);
+        assert_eq!(timeline.total_duration(), Duration::from_millis(1950));
+        assert!(
+            timeline
+                .keyframes()
+                .iter()
+                .all(|keyframe| keyframe.duration() == Duration::from_millis(650))
+        );
+
+        let first_step = timeline.keyframes()[1].frame();
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "state-node-[*]-enter" && marker.kind == KeyFrameMarkerKind::Enter
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "state-node-[*]" && marker.kind == KeyFrameMarkerKind::Exit
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "state-transition-0-[*]-Idle" && marker.kind == KeyFrameMarkerKind::Active
+        }));
+        assert!(first_step.markers().iter().any(|marker| {
+            marker.id == "state-node-Idle-enter" && marker.kind == KeyFrameMarkerKind::Enter
+        }));
+
+        let second_step = timeline.keyframes()[2].frame();
+        assert!(second_step.markers().iter().any(|marker| {
+            marker.id == "state-node-Idle" && marker.kind == KeyFrameMarkerKind::Exit
+        }));
+        assert!(second_step.markers().iter().any(|marker| {
+            marker.id == "state-transition-1-Idle-Active"
+                && marker.kind == KeyFrameMarkerKind::Active
+        }));
+    }
+
+    #[test]
+    fn state_transitions_mark_composite_parent_hold() {
+        let composite = StateNode {
+            id: Spanned::new("Composite".to_owned(), Span::new(0, 0)),
+            label: None,
+            kind: StateNodeKind::Default,
+            descriptions: Vec::new(),
+            note: None,
+            children: vec![
+                StateStatement::State(Box::new(state_node("A"))),
+                StateStatement::State(Box::new(state_node("B"))),
+                StateStatement::Transition(Box::new(state_transition("A", "B", "next"))),
+            ],
+            span: Span::new(0, 0),
+        };
+        let ast = state(vec![StateStatement::Composite(Box::new(composite))]);
+        let timeline = StateTransitionAnimator::default().animate(&ast);
+
+        assert_eq!(timeline.len(), 2);
+        assert!(
+            timeline.keyframes()[1]
+                .frame()
+                .markers()
+                .iter()
+                .any(|marker| {
+                    marker.id == "state-composite-Composite"
+                        && marker.kind == KeyFrameMarkerKind::Hold
+                })
+        );
+    }
+
+    #[test]
+    fn state_transitions_keep_empty_state_diagram_to_one_frame() {
+        let timeline =
+            StateTransitionAnimator::new(Duration::from_millis(80)).animate(&state(Vec::new()));
+
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(timeline.total_duration(), Duration::from_millis(80));
+        assert!(timeline.keyframes()[0].frame().markers().is_empty());
+    }
+
+    #[test]
     fn sequence_playback_emits_static_frame_plus_message_frames() {
         let ast = sequence(
             vec![participant("Alice"), participant("Bob")],
@@ -778,6 +998,42 @@ mod tests {
             label: Some(label(text)),
             span: Span::new(0, 0),
         }))
+    }
+
+    fn state(statements: Vec<StateStatement>) -> StateAst {
+        StateAst {
+            header: StateHeader {
+                directive: StateDirective::StateDiagramV2,
+                span: Span::new(0, 15),
+            },
+            direction: Some(Spanned::new(Direction::TopDown, Span::new(0, 0))),
+            statements,
+            states: Vec::new(),
+            transitions: Vec::new(),
+            classes: Vec::new(),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn state_transition(from: &str, to: &str, text: &str) -> StateTransition {
+        StateTransition {
+            from: Spanned::new(from.to_owned(), Span::new(0, 0)),
+            to: Spanned::new(to.to_owned(), Span::new(0, 0)),
+            label: Some(label(text)),
+            span: Span::new(0, 0),
+        }
+    }
+
+    fn state_node(id: &str) -> StateNode {
+        StateNode {
+            id: Spanned::new(id.to_owned(), Span::new(0, 0)),
+            label: None,
+            kind: StateNodeKind::Default,
+            descriptions: Vec::new(),
+            note: None,
+            children: Vec::new(),
+            span: Span::new(0, 0),
+        }
     }
 
     fn label(text: &str) -> Label {
