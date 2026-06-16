@@ -3,6 +3,7 @@ use crate::layout::{
     FlowLayout, FlowLayoutEngine, Point, PositionedSequenceMessage, PositionedSequenceNote, Rect,
     SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
 };
+use crate::theme::{Theme, ThemeRole};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
@@ -19,6 +20,23 @@ impl Frame {
             width,
             height,
             cells: vec![GlyphCell::default(); width.saturating_mul(height)],
+            markers: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn new_styled(width: usize, height: usize, style: CellStyle) -> Self {
+        Self {
+            width,
+            height,
+            cells: vec![
+                GlyphCell {
+                    glyph: ' ',
+                    style,
+                    marker: None,
+                };
+                width.saturating_mul(height)
+            ],
             markers: Vec::new(),
         }
     }
@@ -57,6 +75,19 @@ impl Frame {
     pub fn put_glyph(&mut self, x: usize, y: usize, glyph: char) -> Result<(), FrameError> {
         let index = self.index(x, y)?;
         self.cells[index].glyph = glyph;
+        Ok(())
+    }
+
+    pub fn put_styled_glyph(
+        &mut self,
+        x: usize,
+        y: usize,
+        glyph: char,
+        style: CellStyle,
+    ) -> Result<(), FrameError> {
+        let index = self.index(x, y)?;
+        self.cells[index].glyph = glyph;
+        self.cells[index].style = style;
         Ok(())
     }
 
@@ -266,6 +297,7 @@ pub struct StaticFrameRenderer {
     sequence: SequenceLayoutEngine,
     state: StateLayoutEngine,
     palette: GlyphPalette,
+    theme: Theme,
 }
 
 impl StaticFrameRenderer {
@@ -280,6 +312,7 @@ impl StaticFrameRenderer {
             sequence,
             state,
             palette: GlyphPalette::ascii(),
+            theme: Theme::default_theme(),
         }
     }
 
@@ -295,6 +328,23 @@ impl StaticFrameRenderer {
             sequence,
             state,
             palette,
+            theme: Theme::default_theme(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new_with_theme(
+        flow: FlowLayoutEngine,
+        sequence: SequenceLayoutEngine,
+        state: StateLayoutEngine,
+        theme: Theme,
+    ) -> Self {
+        Self {
+            flow,
+            sequence,
+            state,
+            palette: GlyphPalette::for_charset(theme.charset),
+            theme,
         }
     }
 
@@ -310,8 +360,20 @@ impl StaticFrameRenderer {
     }
 
     #[must_use]
+    pub const fn with_theme(mut self, theme: Theme) -> Self {
+        self.palette = GlyphPalette::for_charset(theme.charset);
+        self.theme = theme;
+        self
+    }
+
+    #[must_use]
     pub const fn palette(&self) -> GlyphPalette {
         self.palette
+    }
+
+    #[must_use]
+    pub const fn theme(&self) -> Theme {
+        self.theme
     }
 
     #[must_use]
@@ -325,85 +387,132 @@ impl StaticFrameRenderer {
 
     #[must_use]
     pub fn render_flowchart(&self, ast: &FlowchartAst) -> Frame {
-        render_flow_layout(&self.flow.layout(ast), self.palette)
+        render_flow_layout(&self.flow.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
     pub fn render_sequence(&self, ast: &SequenceAst) -> Frame {
-        render_sequence_layout(&self.sequence.layout(ast), self.palette)
+        render_sequence_layout(&self.sequence.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
     pub fn render_state(&self, ast: &StateAst) -> Frame {
-        render_flow_layout(&self.state.layout(ast).graph, self.palette)
+        render_flow_layout(&self.state.layout(ast).graph, self.palette, self.theme)
     }
 }
 
-fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette) -> Frame {
-    let mut frame = Frame::new(
+fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
         layout.size.width as usize + 1,
         layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
     );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
     for edge in &layout.edges {
         if edge.points.len() >= 2 {
-            draw_polyline(&mut frame, &edge.points, palette);
+            draw_polyline(&mut frame, &edge.points, palette, edge_style.clone());
         }
     }
     for node in &layout.nodes {
-        draw_box(&mut frame, node.rect, palette);
-        write_centered(&mut frame, node.rect, &node.label);
+        draw_box(&mut frame, node.rect, palette, node_style.clone());
+        write_centered(&mut frame, node.rect, &node.label, text_style.clone());
     }
     frame
 }
 
-fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette) -> Frame {
-    let mut frame = Frame::new(
+fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
         layout.size.width as usize + 1,
         layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
     );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
     for participant in &layout.participants {
-        draw_box(&mut frame, participant.header, palette);
-        write_centered(&mut frame, participant.header, &participant.label);
+        draw_box(&mut frame, participant.header, palette, node_style.clone());
+        write_centered(
+            &mut frame,
+            participant.header,
+            &participant.label,
+            text_style.clone(),
+        );
         draw_vertical(
             &mut frame,
             participant.lane_x,
             participant.header.bottom(),
             layout.size.height,
             palette.vertical,
+            muted_style.clone(),
         );
     }
     for control in &layout.controls {
-        draw_box(&mut frame, control.rect, palette);
+        draw_box(&mut frame, control.rect, palette, muted_style.clone());
         if let Some(label) = &control.label {
-            write_text_safe(&mut frame, control.rect.origin.x + 1, control.y, label);
+            write_text_safe(
+                &mut frame,
+                control.rect.origin.x + 1,
+                control.y,
+                label,
+                text_style.clone(),
+            );
         }
     }
     for note in &layout.notes {
-        draw_sequence_note(&mut frame, note, palette);
+        draw_sequence_note(
+            &mut frame,
+            note,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
     }
     for message in &layout.messages {
-        draw_sequence_message(&mut frame, message, palette);
+        draw_sequence_message(
+            &mut frame,
+            message,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
     }
     frame
 }
 
-fn draw_sequence_note(frame: &mut Frame, note: &PositionedSequenceNote, palette: GlyphPalette) {
-    draw_box(frame, note.rect, palette);
-    write_text_safe(frame, note.rect.origin.x + 1, note.y, &note.label);
+fn draw_sequence_note(
+    frame: &mut Frame,
+    note: &PositionedSequenceNote,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, note.rect, palette, box_style);
+    write_text_safe(
+        frame,
+        note.rect.origin.x + 1,
+        note.y,
+        &note.label,
+        text_style,
+    );
 }
 
 fn draw_sequence_message(
     frame: &mut Frame,
     message: &PositionedSequenceMessage,
     palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
 ) {
-    draw_polyline(frame, &message.points, palette);
+    draw_polyline(frame, &message.points, palette, edge_style.clone());
     if let Some(label) = &message.label {
         let first = message.points.first().copied();
         let last = message.points.last().copied();
         if let (Some(first), Some(last)) = (first, last) {
             let x = first.x.min(last.x) + 1;
-            write_text_safe(frame, x, message.y.saturating_sub(1), label);
+            write_text_safe(frame, x, message.y.saturating_sub(1), label, text_style);
         }
     }
     if let Some(last) = message.points.last() {
@@ -412,26 +521,34 @@ fn draw_sequence_message(
             last.x,
             last.y,
             arrowhead_for_points(&message.points, palette),
+            edge_style,
         );
     }
 }
 
-fn draw_box(frame: &mut Frame, rect: Rect, palette: GlyphPalette) {
+fn draw_box(frame: &mut Frame, rect: Rect, palette: GlyphPalette, style: CellStyle) {
     let left = rect.origin.x;
     let right = rect.right().saturating_sub(1);
     let top = rect.origin.y;
     let bottom = rect.bottom().saturating_sub(1);
-    draw_horizontal(frame, left, right, top, palette.horizontal);
-    draw_horizontal(frame, left, right, bottom, palette.horizontal);
-    draw_vertical(frame, left, top, bottom, palette.vertical);
-    draw_vertical(frame, right, top, bottom, palette.vertical);
-    put_safe(frame, left, top, palette.top_left);
-    put_safe(frame, right, top, palette.top_right);
-    put_safe(frame, left, bottom, palette.bottom_left);
-    put_safe(frame, right, bottom, palette.bottom_right);
+    draw_horizontal(frame, left, right, top, palette.horizontal, style.clone());
+    draw_horizontal(
+        frame,
+        left,
+        right,
+        bottom,
+        palette.horizontal,
+        style.clone(),
+    );
+    draw_vertical(frame, left, top, bottom, palette.vertical, style.clone());
+    draw_vertical(frame, right, top, bottom, palette.vertical, style.clone());
+    put_safe(frame, left, top, palette.top_left, style.clone());
+    put_safe(frame, right, top, palette.top_right, style.clone());
+    put_safe(frame, left, bottom, palette.bottom_left, style.clone());
+    put_safe(frame, right, bottom, palette.bottom_right, style);
 }
 
-fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
+fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette, style: CellStyle) {
     for pair in points.windows(2) {
         let start = pair[0];
         let end = pair[1];
@@ -442,6 +559,7 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
                 start.y.min(end.y),
                 start.y.max(end.y),
                 palette.vertical,
+                style.clone(),
             );
         } else if start.y == end.y {
             draw_horizontal(
@@ -450,6 +568,7 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
                 start.x.max(end.x),
                 start.y,
                 palette.horizontal,
+                style.clone(),
             );
         } else {
             draw_horizontal(
@@ -458,6 +577,7 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
                 start.x.max(end.x),
                 start.y,
                 palette.horizontal,
+                style.clone(),
             );
             draw_vertical(
                 frame,
@@ -465,8 +585,9 @@ fn draw_polyline(frame: &mut Frame, points: &[Point], palette: GlyphPalette) {
                 start.y.min(end.y),
                 start.y.max(end.y),
                 palette.vertical,
+                style.clone(),
             );
-            put_safe(frame, end.x, start.y, palette.crossing);
+            put_safe(frame, end.x, start.y, palette.crossing, style.clone());
         }
     }
 }
@@ -481,34 +602,48 @@ fn arrowhead_for_points(points: &[Point], palette: GlyphPalette) -> char {
     }
 }
 
-fn draw_horizontal(frame: &mut Frame, start_x: i32, end_x: i32, y: i32, glyph: char) {
+fn draw_horizontal(
+    frame: &mut Frame,
+    start_x: i32,
+    end_x: i32,
+    y: i32,
+    glyph: char,
+    style: CellStyle,
+) {
     for x in start_x..=end_x {
-        put_safe(frame, x, y, glyph);
+        put_safe(frame, x, y, glyph, style.clone());
     }
 }
 
-fn draw_vertical(frame: &mut Frame, x: i32, start_y: i32, end_y: i32, glyph: char) {
+fn draw_vertical(
+    frame: &mut Frame,
+    x: i32,
+    start_y: i32,
+    end_y: i32,
+    glyph: char,
+    style: CellStyle,
+) {
     for y in start_y..=end_y {
-        put_safe(frame, x, y, glyph);
+        put_safe(frame, x, y, glyph, style.clone());
     }
 }
 
-fn write_centered(frame: &mut Frame, rect: Rect, text: &str) {
+fn write_centered(frame: &mut Frame, rect: Rect, text: &str, style: CellStyle) {
     let width = text.chars().count() as i32;
     let x = rect.origin.x + (rect.size.width - width).max(0) / 2;
     let y = rect.origin.y + rect.size.height / 2;
-    write_text_safe(frame, x, y, text);
+    write_text_safe(frame, x, y, text, style);
 }
 
-fn write_text_safe(frame: &mut Frame, x: i32, y: i32, text: &str) {
+fn write_text_safe(frame: &mut Frame, x: i32, y: i32, text: &str, style: CellStyle) {
     if let (Ok(x), Ok(y)) = (usize::try_from(x), usize::try_from(y)) {
-        let _ = frame.write_text(x, y, text, CellStyle::default());
+        let _ = frame.write_text(x, y, text, style);
     }
 }
 
-fn put_safe(frame: &mut Frame, x: i32, y: i32, glyph: char) {
+fn put_safe(frame: &mut Frame, x: i32, y: i32, glyph: char, style: CellStyle) {
     if let (Ok(x), Ok(y)) = (usize::try_from(x), usize::try_from(y)) {
-        let _ = frame.put_glyph(x, y, glyph);
+        let _ = frame.put_styled_glyph(x, y, glyph, style);
     }
 }
 
@@ -525,6 +660,7 @@ mod tests {
         SequenceMessage, SequenceStatement, Span, Spanned, StateAst, StateDirective, StateHeader,
         StateStatement, StateTransition,
     };
+    use crate::theme::Theme;
 
     #[test]
     fn creates_blank_frame_grid() {
@@ -560,6 +696,22 @@ mod tests {
             frame.put_glyph(2, 0, 'B').unwrap_err(),
             FrameError::OutOfBounds { x: 2, y: 0 },
         );
+    }
+
+    #[test]
+    fn creates_styled_frame_grid() {
+        let style = CellStyle {
+            background: Some(Color::Rgb {
+                red: 1,
+                green: 2,
+                blue: 3,
+            }),
+            ..CellStyle::default()
+        };
+        let frame = Frame::new_styled(2, 1, style.clone());
+
+        assert_eq!(frame.cell(0, 0).unwrap().style, style);
+        assert_eq!(frame.cell(1, 0).unwrap().glyph, ' ');
     }
 
     #[test]
@@ -636,6 +788,25 @@ mod tests {
         assert!(output.contains('┌'));
         assert!(output.contains('─'));
         assert!(output.contains('│'));
+    }
+
+    #[test]
+    fn renders_flowchart_with_theme_styles() {
+        let theme = Theme::tokyo_night();
+        let renderer = StaticFrameRenderer::default().with_theme(theme);
+        let frame = renderer.render_flowchart(&flowchart(vec![FlowStatement::Edge(Box::new(
+            flow_edge("A", "B"),
+        ))]));
+        let output = frame.to_lines().join("\n");
+
+        assert_eq!(renderer.theme(), theme);
+        assert_eq!(renderer.palette(), GlyphPalette::unicode());
+        assert!(output.contains('┌'));
+        assert!(frame.cells().iter().any(|cell| {
+            cell.style.background == Some(Color::from(theme.colors.background))
+                && cell.style.foreground == Some(Color::from(theme.colors.accent))
+                && cell.style.bold
+        }));
     }
 
     #[test]

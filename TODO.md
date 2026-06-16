@@ -53,7 +53,7 @@
 - [x] Define `Frame` type: 2D grid of glyph cells + style metadata + animation keyframe markers
 - [x] Implement static-frame renderer: AST → single Frame
 - [x] Implement glyph palette: ASCII set + Unicode set (box-drawing, block, arrows)
-- [ ] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
+- [x] Implement theming layer with 5 starter themes (default, mono, tokyo-night, github, dracula)
 - [ ] Implement text-output backend in `kumeyuri-core` (`Frame` → `String`)
 - [ ] Add CLI `kumeyuri render <file> --format text` end-to-end
 - [ ] Snapshot-test flowchart static output against 20 hand-picked Mermaid examples
