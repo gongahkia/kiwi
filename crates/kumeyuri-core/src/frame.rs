@@ -1733,6 +1733,21 @@ mod tests {
         assert!(output.contains("85.50"));
     }
 
+    #[test]
+    fn renders_mindmap_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Root"));
+        assert!(output.contains("Branch A"));
+        assert!(output.contains("Leaf A1"));
+        assert!(output.contains("fa fa-code Branch B"));
+    }
+
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {
         FlowchartAst {
             header: FlowchartHeader {

@@ -6,11 +6,10 @@ use crate::ast::{
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
-    PositionedGanttTask, PositionedMindmapNode, PositionedSequenceMessage,
-    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
-    StateLayoutEngine,
+    GanttLayoutEngine, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedGanttTask,
+    PositionedMindmapNode, PositionedSequenceMessage, PositionedSequenceParticipant,
+    SequenceLayout, SequenceLayoutEngine, StateLayout, StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;

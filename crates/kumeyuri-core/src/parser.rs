@@ -4067,11 +4067,11 @@ fn mindmap_shape_label_bounds(
         if source[start..end].starts_with(open) && source[start..end].ends_with(close) {
             return (shape, start + open.len(), end - close.len());
         }
-        if let Some(relative) = source[start..end].find(open) {
-            if source[start..end].ends_with(close) {
-                let label_start = start + relative + open.len();
-                return (shape, label_start, end - close.len());
-            }
+        if let Some(relative) = source[start..end].find(open)
+            && source[start..end].ends_with(close)
+        {
+            let label_start = start + relative + open.len();
+            return (shape, label_start, end - close.len());
         }
     }
     (MindmapShape::Default, start, end)
@@ -5070,6 +5070,26 @@ mod tests {
         assert_eq!(ast.slices[0].label.text, "Dogs");
         assert_eq!(ast.slices[0].value_units.value, 38_600);
         assert_eq!(ast.slices[1].value_units.value, 8_550);
+    }
+
+    #[test]
+    fn parses_mindmap_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
+        )
+        .unwrap();
+
+        let DiagramKind::Mindmap(ast) = diagram.kind else {
+            panic!("expected mindmap diagram");
+        };
+        assert_eq!(ast.roots.len(), 1);
+        assert_eq!(ast.roots[0].label.text, "Root");
+        assert_eq!(ast.roots[0].children.len(), 2);
+        assert_eq!(ast.roots[0].children[0].children[0].label.text, "Leaf A1");
+        assert_eq!(
+            ast.roots[0].children[1].icon.as_ref().unwrap().value,
+            "fa fa-code",
+        );
     }
 
     #[test]
