@@ -19,20 +19,21 @@ use crate::ast::{
     MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement,
     PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig,
     PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
-    QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement,
-    RequirementAst, RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
-    RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
-    RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader, SankeyLink,
-    SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst, SequenceAutoNumber,
-    SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate, SequenceDestroy,
-    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
-    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
-    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
-    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, XyChartAst,
-    XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation,
-    XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment,
-    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
-    ZenUmlStatement,
+    QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst,
+    RadarAxis, RadarCurve, RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind,
+    RadarStatement, RequirementAst, RequirementElement, RequirementHeader, RequirementKind,
+    RequirementNode, RequirementRelationship, RequirementRelationshipKind, RequirementRisk,
+    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader,
+    SankeyLink, SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
+    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
+    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
+    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
+    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
+    TimelineStatement, XyChartAst, XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader,
+    XyChartOrientation, XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst,
+    ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind,
+    ZenUmlParticipant, ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,6 +137,12 @@ pub enum ParseErrorKind {
     ExpectedArchitectureEdge,
     ExpectedArchitectureSide,
     ExpectedArchitectureAlignment,
+    ExpectedRadarHeader,
+    UnknownRadarStatement,
+    ExpectedRadarAxis,
+    ExpectedRadarCurve,
+    ExpectedRadarValue,
+    ExpectedRadarOption,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -239,6 +246,10 @@ impl Parser {
 
     pub fn parse_architecture(source: &str) -> Result<ArchitectureAst, ParseError> {
         DiagramParser::new(source).parse_architecture_only()
+    }
+
+    pub fn parse_radar(source: &str) -> Result<RadarAst, ParseError> {
+        DiagramParser::new(source).parse_radar_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -420,6 +431,14 @@ impl Parser {
         ArchitectureStatementParser::new(source).parse()
     }
 
+    pub fn parse_radar_header(source: &str) -> Result<RadarHeader, ParseError> {
+        RadarHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_radar_statements(source: &str) -> Result<Vec<RadarStatement>, ParseError> {
+        RadarStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -570,6 +589,11 @@ impl<'source> DiagramParser<'source> {
                 header.start,
             ))?;
             return Ok(self.diagram(DiagramKind::Architecture(Box::new(ast))));
+        }
+        if let Ok(radar_header) = Parser::parse_radar_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_radar_body(shift_radar_header(radar_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Radar(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -795,6 +819,18 @@ impl<'source> DiagramParser<'source> {
         let architecture_header = Parser::parse_architecture_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_architecture_body(shift_architecture_header(architecture_header, header.start))
+    }
+
+    fn parse_radar_only(mut self) -> Result<RadarAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedRadarHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let radar_header = Parser::parse_radar_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_radar_body(shift_radar_header(radar_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1576,6 +1612,33 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_radar_body(&mut self, header: RadarHeader) -> Result<RadarAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = RadarAst {
+            header,
+            title: None,
+            axes: Vec::new(),
+            curves: Vec::new(),
+            options: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statements = Parser::parse_radar_statements(line.text)
+                .map_err(|error| shift_error(error, line.start))?
+                .into_iter()
+                .map(|statement| shift_radar_statement(statement, line.start))
+                .collect::<Vec<_>>();
+            for statement in statements {
+                push_radar_statement(&mut ast, statement);
+            }
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
         let span_start = header.span.start;
         let mut parsed = Vec::<ParsedMindmapNode>::new();
@@ -2239,6 +2302,17 @@ fn push_architecture_statement(ast: &mut ArchitectureAst, statement: Architectur
         ArchitectureStatement::Edge(edge) => ast.edges.push((**edge).clone()),
         ArchitectureStatement::Alignment(alignment) => ast.alignments.push((**alignment).clone()),
         ArchitectureStatement::Comment(_) | ArchitectureStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_radar_statement(ast: &mut RadarAst, statement: RadarStatement) {
+    match &statement {
+        RadarStatement::Title(title) => ast.title = Some(title.clone()),
+        RadarStatement::Axis(axis) => ast.axes.push((**axis).clone()),
+        RadarStatement::Curve(curve) => ast.curves.push((**curve).clone()),
+        RadarStatement::Option(option) => ast.options.push((**option).clone()),
+        RadarStatement::Comment(_) | RadarStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -4109,6 +4183,36 @@ impl<'source> ArchitectureHeaderParser<'source> {
             });
         }
         Ok(ArchitectureHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct RadarHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RadarHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<RadarHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRadarHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "radar-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRadarHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(RadarHeader {
             span: Span::new(start, end),
         })
     }
@@ -8411,6 +8515,375 @@ fn skip_ascii_ws(source: &str, mut cursor: usize, end: usize) -> usize {
     cursor
 }
 
+struct RadarStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RadarStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<Vec<RadarStatement>, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownRadarStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(vec![RadarStatement::Directive(shift_directive(
+                directive, start,
+            ))]);
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(vec![RadarStatement::Comment(shift_comment(comment, start))]);
+        }
+        if has_keyword(self.source, start, "title") {
+            let label_start = skip_ascii_ws(self.source, start + "title".len(), end);
+            let label = label_from_trimmed(self.source, label_start, end).ok_or(ParseError {
+                kind: ParseErrorKind::UnknownRadarStatement,
+                span: Span::new(start, end),
+            })?;
+            return Ok(vec![RadarStatement::Title(label)]);
+        }
+        if has_keyword(self.source, start, "axis") {
+            return parse_radar_axes(self.source, start + "axis".len(), end);
+        }
+        if has_keyword(self.source, start, "curve") {
+            return parse_radar_curves(self.source, start + "curve".len(), end);
+        }
+        if let Some(option) = parse_radar_option(self.source, start, end)? {
+            return Ok(vec![RadarStatement::Option(Box::new(option))]);
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownRadarStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+fn parse_radar_axes(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<RadarStatement>, ParseError> {
+    let fields = split_radar_fields(source, start, end)?;
+    if fields.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarAxis,
+            span: Span::new(start, end),
+        });
+    }
+    fields
+        .into_iter()
+        .map(|span| {
+            parse_radar_labelled_id(source, span, ParseErrorKind::ExpectedRadarAxis)
+                .map(|(id, label)| RadarStatement::Axis(Box::new(RadarAxis { id, label, span })))
+        })
+        .collect()
+}
+
+fn parse_radar_curves(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<RadarStatement>, ParseError> {
+    let fields = split_radar_fields(source, start, end)?;
+    if fields.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarCurve,
+            span: Span::new(start, end),
+        });
+    }
+    fields
+        .into_iter()
+        .map(|span| {
+            parse_radar_curve(source, span).map(|curve| RadarStatement::Curve(Box::new(curve)))
+        })
+        .collect()
+}
+
+fn parse_radar_curve(source: &str, span: Span) -> Result<RadarCurve, ParseError> {
+    let open = find_radar_top_level_byte(source, span.start, span.end, b'{').ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedRadarCurve,
+        span,
+    })?;
+    if source.as_bytes().get(span.end.saturating_sub(1)) != Some(&b'}') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarCurve,
+            span,
+        });
+    }
+    let (id, label) = parse_radar_labelled_id(
+        source,
+        Span::new(span.start, open),
+        ParseErrorKind::ExpectedRadarCurve,
+    )?;
+    let values = split_radar_fields(source, open + 1, span.end - 1)?
+        .into_iter()
+        .map(|value_span| parse_radar_curve_value(source, value_span))
+        .collect::<Result<Vec<_>, _>>()?;
+    if values.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarValue,
+            span: Span::new(open + 1, span.end - 1),
+        });
+    }
+    Ok(RadarCurve {
+        id,
+        label,
+        values,
+        span,
+    })
+}
+
+fn parse_radar_curve_value(source: &str, span: Span) -> Result<RadarCurveValue, ParseError> {
+    let colon = find_radar_top_level_byte(source, span.start, span.end, b':');
+    let (axis, value_start) = if let Some(colon) = colon {
+        let axis = parse_radar_id(
+            source,
+            span.start,
+            colon,
+            ParseErrorKind::ExpectedRadarValue,
+        )?;
+        (Some(axis), colon + 1)
+    } else {
+        (None, span.start)
+    };
+    let value = parse_radar_number(source, value_start, span.end)?;
+    Ok(RadarCurveValue { axis, value, span })
+}
+
+fn parse_radar_option(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Option<RadarOption>, ParseError> {
+    let keyword_end = source[start..end]
+        .find(|value: char| value.is_ascii_whitespace())
+        .map_or(end, |offset| start + offset);
+    let Some(kind_value) = RadarOptionKind::from_mermaid(&source[start..keyword_end]) else {
+        return Ok(None);
+    };
+    let value_start = skip_ascii_ws(source, keyword_end, end);
+    let value = match kind_value {
+        RadarOptionKind::ShowLegend => parse_radar_keyword_value(
+            source,
+            value_start,
+            end,
+            ParseErrorKind::ExpectedRadarOption,
+            &["true", "false"],
+        )?,
+        RadarOptionKind::Max | RadarOptionKind::Min => {
+            parse_radar_number(source, value_start, end)?
+        }
+        RadarOptionKind::Graticule => parse_radar_keyword_value(
+            source,
+            value_start,
+            end,
+            ParseErrorKind::ExpectedRadarOption,
+            &["circle", "polygon"],
+        )?,
+        RadarOptionKind::Ticks => {
+            let value = parse_radar_number(source, value_start, end)?;
+            if value.value.parse::<u32>().is_err() {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedRadarOption,
+                    span: value.span,
+                });
+            }
+            value
+        }
+    };
+    Ok(Some(RadarOption {
+        kind: Spanned::new(kind_value, Span::new(start, keyword_end)),
+        value,
+        span: Span::new(start, end),
+    }))
+}
+
+fn parse_radar_labelled_id(
+    source: &str,
+    span: Span,
+    kind: ParseErrorKind,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[span.start..span.end]) else {
+        return Err(ParseError { kind, span });
+    };
+    let start = span.start + trim_start;
+    let end = span.start + trim_end;
+    if let Some(open) = find_radar_top_level_byte(source, start, end, b'[') {
+        if source.as_bytes().get(end.saturating_sub(1)) != Some(&b']') {
+            return Err(ParseError {
+                kind,
+                span: Span::new(open, end),
+            });
+        }
+        let id = parse_radar_id(source, start, open, kind)?;
+        return Ok((id, Some(label_from_body(source, open + 1, end - 1))));
+    }
+    Ok((parse_radar_id(source, start, end, kind)?, None))
+}
+
+fn parse_radar_id(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    };
+    let id_start = start + trim_start;
+    let id_end = start + trim_end;
+    if source[id_start..id_end]
+        .chars()
+        .any(|value| value.is_ascii_whitespace() || matches!(value, '[' | ']' | '{' | '}' | ','))
+    {
+        return Err(ParseError {
+            kind,
+            span: Span::new(id_start, id_end),
+        });
+    }
+    Ok(Spanned::new(
+        source[id_start..id_end].to_owned(),
+        Span::new(id_start, id_end),
+    ))
+}
+
+fn parse_radar_number(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarValue,
+            span: Span::new(start, end),
+        });
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let value = &source[value_start..value_end];
+    if value.parse::<f64>().is_err() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRadarValue,
+            span: Span::new(value_start, value_end),
+        });
+    }
+    Ok(Spanned::new(
+        value.to_owned(),
+        Span::new(value_start, value_end),
+    ))
+}
+
+fn parse_radar_keyword_value(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+    allowed: &[&str],
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let value = &source[value_start..value_end];
+    if !allowed.contains(&value) {
+        return Err(ParseError {
+            kind,
+            span: Span::new(value_start, value_end),
+        });
+    }
+    Ok(Spanned::new(
+        value.to_owned(),
+        Span::new(value_start, value_end),
+    ))
+}
+
+fn split_radar_fields(source: &str, start: usize, end: usize) -> Result<Vec<Span>, ParseError> {
+    let mut fields = Vec::new();
+    let mut cursor = start;
+    let mut field_start = start;
+    let mut quote = None;
+    let mut square = 0u16;
+    let mut curly = 0u16;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if quote == Some(byte) {
+            quote = None;
+        } else if quote.is_none() && matches!(byte, b'\'' | b'"' | b'`') {
+            quote = Some(byte);
+        } else if quote.is_none() {
+            match byte {
+                b'[' => square += 1,
+                b']' => square = square.saturating_sub(1),
+                b'{' => curly += 1,
+                b'}' => curly = curly.saturating_sub(1),
+                b',' if square == 0 && curly == 0 => {
+                    push_radar_field(source, field_start, cursor, &mut fields);
+                    field_start = cursor + 1;
+                }
+                _ => {}
+            }
+        }
+        cursor += 1;
+    }
+    if quote.is_some() || square != 0 || curly != 0 {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownRadarStatement,
+            span: Span::new(start, end),
+        });
+    }
+    push_radar_field(source, field_start, end, &mut fields);
+    Ok(fields)
+}
+
+fn push_radar_field(source: &str, start: usize, end: usize, fields: &mut Vec<Span>) {
+    if let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) {
+        fields.push(Span::new(start + trim_start, start + trim_end));
+    }
+}
+
+fn find_radar_top_level_byte(source: &str, start: usize, end: usize, target: u8) -> Option<usize> {
+    let mut cursor = start;
+    let mut quote = None;
+    let mut square = 0u16;
+    let mut curly = 0u16;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if quote == Some(byte) {
+            quote = None;
+        } else if quote.is_none() && matches!(byte, b'\'' | b'"' | b'`') {
+            quote = Some(byte);
+        } else if quote.is_none() {
+            if byte == target && square == 0 && curly == 0 {
+                return Some(cursor);
+            }
+            match byte {
+                b'[' => square += 1,
+                b']' => square = square.saturating_sub(1),
+                b'{' => curly += 1,
+                b'}' => curly = curly.saturating_sub(1),
+                _ => {}
+            }
+        }
+        cursor += 1;
+    }
+    None
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -11274,6 +11747,68 @@ fn shift_architecture_alignment(
     }
 }
 
+fn shift_radar_header(header: RadarHeader, offset: usize) -> RadarHeader {
+    RadarHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_radar_statement(statement: RadarStatement, offset: usize) -> RadarStatement {
+    match statement {
+        RadarStatement::Title(title) => RadarStatement::Title(shift_label(title, offset)),
+        RadarStatement::Axis(axis) => {
+            RadarStatement::Axis(Box::new(shift_radar_axis(*axis, offset)))
+        }
+        RadarStatement::Curve(curve) => {
+            RadarStatement::Curve(Box::new(shift_radar_curve(*curve, offset)))
+        }
+        RadarStatement::Option(option) => {
+            RadarStatement::Option(Box::new(shift_radar_option(*option, offset)))
+        }
+        RadarStatement::Comment(comment) => RadarStatement::Comment(shift_comment(comment, offset)),
+        RadarStatement::Directive(directive) => {
+            RadarStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_radar_axis(axis: RadarAxis, offset: usize) -> RadarAxis {
+    RadarAxis {
+        id: shift_spanned(axis.id, offset),
+        label: axis.label.map(|label| shift_label(label, offset)),
+        span: shift_span(axis.span, offset),
+    }
+}
+
+fn shift_radar_curve(curve: RadarCurve, offset: usize) -> RadarCurve {
+    RadarCurve {
+        id: shift_spanned(curve.id, offset),
+        label: curve.label.map(|label| shift_label(label, offset)),
+        values: curve
+            .values
+            .into_iter()
+            .map(|value| shift_radar_curve_value(value, offset))
+            .collect(),
+        span: shift_span(curve.span, offset),
+    }
+}
+
+fn shift_radar_curve_value(value: RadarCurveValue, offset: usize) -> RadarCurveValue {
+    RadarCurveValue {
+        axis: value.axis.map(|axis| shift_spanned(axis, offset)),
+        value: shift_spanned(value.value, offset),
+        span: shift_span(value.span, offset),
+    }
+}
+
+fn shift_radar_option(option: RadarOption, offset: usize) -> RadarOption {
+    RadarOption {
+        kind: shift_spanned(option.kind, offset),
+        value: shift_spanned(option.value, offset),
+        span: shift_span(option.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -12142,9 +12677,9 @@ mod tests {
         ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
         DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
         FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
-        LabelKind, QuadrantAxisKind, SequenceActivation, SequenceArrow, SequenceControlKind,
-        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
-        StateNodeKind, StateStatement, ZenUmlMessageKind,
+        LabelKind, QuadrantAxisKind, RadarOptionKind, SequenceActivation, SequenceArrow,
+        SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind, SequenceStatement,
+        Span, StateDirective, StateNodeKind, StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -12519,6 +13054,40 @@ mod tests {
     }
 
     #[test]
+    fn parses_radar_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            r#"radar-beta
+title Skill Matrix
+axis speed["Speed"], quality["Quality"], docs
+curve teamA["Team A"]{speed: 80, quality: 70, docs: 60}
+curve teamB{40, 90, 50}
+showLegend true
+max 100
+min 0
+graticule polygon
+ticks 4"#,
+        )
+        .unwrap();
+
+        let DiagramKind::Radar(ast) = diagram.kind else {
+            panic!("expected Radar diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Skill Matrix");
+        assert_eq!(ast.axes.len(), 3);
+        assert_eq!(ast.axes[0].id.value, "speed");
+        assert_eq!(ast.axes[0].label.as_ref().unwrap().text, "Speed");
+        assert_eq!(ast.curves.len(), 2);
+        assert_eq!(ast.curves[0].label.as_ref().unwrap().text, "Team A");
+        assert_eq!(
+            ast.curves[0].values[0].axis.as_ref().unwrap().value,
+            "speed"
+        );
+        assert_eq!(ast.curves[1].values[1].value.value, "90");
+        assert_eq!(ast.options.len(), 5);
+        assert_eq!(ast.options[3].kind.value, RadarOptionKind::Graticule);
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -12617,7 +13186,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Radar", "radar-beta"),
             ("Event Modeling", "eventmodeling"),
             ("Treemap", "treemap-beta"),
             ("Venn", "venn-beta"),

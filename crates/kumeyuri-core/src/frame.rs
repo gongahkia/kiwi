@@ -2,7 +2,7 @@ use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
     FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    KanbanAst, MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RequirementAst,
+    KanbanAst, MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
     TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
@@ -17,14 +17,14 @@ use crate::layout::{
     PositionedC4Relationship, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
     PositionedFlowNode, PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit,
     PositionedJourneyTask, PositionedKanbanTask, PositionedMindmapNode, PositionedPacketField,
-    PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
+    PositionedPieSlice, PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
     PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
-    QuadrantLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout,
-    SankeyLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
-    TimelineLayout, TimelineLayoutEngine, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout,
-    ZenUmlLayoutEngine,
+    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
+    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    XyChartLayout, XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -353,6 +353,7 @@ pub struct StaticFrameRenderer {
     packet: PacketLayoutEngine,
     kanban: KanbanLayoutEngine,
     architecture: ArchitectureLayoutEngine,
+    radar: RadarLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -386,6 +387,7 @@ impl StaticFrameRenderer {
             packet: PacketLayoutEngine::default_values(),
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
+            radar: RadarLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -420,6 +422,7 @@ impl StaticFrameRenderer {
             packet: PacketLayoutEngine::default_values(),
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
+            radar: RadarLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -454,6 +457,7 @@ impl StaticFrameRenderer {
             packet: PacketLayoutEngine::default_values(),
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
+            radar: RadarLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -511,6 +515,7 @@ impl StaticFrameRenderer {
             DiagramKind::Packet(ast) => self.render_packet(ast),
             DiagramKind::Kanban(ast) => self.render_kanban(ast),
             DiagramKind::Architecture(ast) => self.render_architecture(ast),
+            DiagramKind::Radar(ast) => self.render_radar(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -613,6 +618,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_architecture(&self, ast: &crate::ast::ArchitectureAst) -> Frame {
         render_architecture_layout(&self.architecture.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_radar(&self, ast: &RadarAst) -> Frame {
+        render_radar_layout(&self.radar.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1642,6 +1652,122 @@ fn draw_architecture_arrowheads(
             style,
         );
     }
+}
+
+fn render_radar_layout(layout: &RadarLayout, _palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let alt_style = theme.style_for(ThemeRole::EdgeAlt);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let highlight_style = theme.style_for(ThemeRole::Highlight);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_centered(
+            &mut frame,
+            Rect {
+                origin: Point { x: 0, y: 0 },
+                size: Size {
+                    width: layout.size.width,
+                    height: 1,
+                },
+            },
+            title,
+            text_style.clone(),
+        );
+    }
+    for ring in &layout.rings {
+        draw_closed_radar_path(&mut frame, ring, '.', muted_style.clone());
+    }
+    for axis in &layout.axes {
+        draw_straight_line(&mut frame, layout.center, axis.end, '+', edge_style.clone());
+        write_text_safe(
+            &mut frame,
+            axis.label_origin.x,
+            axis.label_origin.y,
+            &axis.label,
+            text_style.clone(),
+        );
+    }
+    put_safe(
+        &mut frame,
+        layout.center.x,
+        layout.center.y,
+        '+',
+        edge_style.clone(),
+    );
+    for curve in &layout.curves {
+        draw_radar_curve(&mut frame, curve, alt_style.clone());
+    }
+    if layout.show_legend {
+        for curve in &layout.curves {
+            if let Some(origin) = curve.legend_origin {
+                write_text_safe(
+                    &mut frame,
+                    origin.x,
+                    origin.y,
+                    &radar_frame_legend_label(curve),
+                    highlight_style.clone(),
+                );
+            }
+        }
+    }
+    write_text_safe(
+        &mut frame,
+        layout.center.x + 1,
+        layout.center.y,
+        &layout.min_value,
+        muted_style.clone(),
+    );
+    write_text_safe(
+        &mut frame,
+        layout.center.x + 1,
+        layout.center.y.saturating_sub(
+            layout.center.y.saturating_sub(
+                layout
+                    .axes
+                    .first()
+                    .map_or(layout.center.y, |axis| axis.end.y),
+            ),
+        ),
+        &layout.max_value,
+        muted_style,
+    );
+    frame
+}
+
+fn draw_radar_curve(frame: &mut Frame, curve: &PositionedRadarCurve, style: CellStyle) {
+    let points = curve
+        .points
+        .iter()
+        .map(|point| point.point)
+        .collect::<Vec<_>>();
+    draw_closed_radar_path(frame, &points, curve.marker, style.clone());
+    for point in &points {
+        put_safe(frame, point.x, point.y, curve.marker, style.clone());
+    }
+}
+
+fn draw_closed_radar_path(frame: &mut Frame, points: &[Point], glyph: char, style: CellStyle) {
+    for pair in points.windows(2) {
+        draw_straight_line(frame, pair[0], pair[1], glyph, style.clone());
+    }
+    if points.len() > 2 {
+        draw_straight_line(frame, *points.last().unwrap(), points[0], glyph, style);
+    }
+}
+
+fn radar_frame_legend_label(curve: &PositionedRadarCurve) -> String {
+    let values = curve
+        .points
+        .iter()
+        .map(|point| point.value.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{} {}: {}", curve.marker, curve.label, values)
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {
@@ -3317,6 +3443,31 @@ fn draw_horizontal(
 ) {
     for x in start_x..=end_x {
         put_safe(frame, x, y, glyph, style.clone());
+    }
+}
+
+fn draw_straight_line(frame: &mut Frame, start: Point, end: Point, glyph: char, style: CellStyle) {
+    let mut x = start.x;
+    let mut y = start.y;
+    let dx = (end.x - start.x).abs();
+    let sx = if start.x < end.x { 1 } else { -1 };
+    let dy = -(end.y - start.y).abs();
+    let sy = if start.y < end.y { 1 } else { -1 };
+    let mut error = dx + dy;
+    loop {
+        put_safe(frame, x, y, glyph, style.clone());
+        if x == end.x && y == end.y {
+            break;
+        }
+        let doubled = 2 * error;
+        if doubled >= dy {
+            error += dy;
+            x += sx;
+        }
+        if doubled <= dx {
+            error += dx;
+            y += sy;
+        }
     }
 }
 

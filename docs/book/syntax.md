@@ -202,6 +202,33 @@ square brackets. Edges use side endpoints `T`, `B`, `L`, and `R`, plus `--`,
 `-->`, `<--`, or `<-->`. Mermaid icon pack registration and ELK/fcose layout
 config are not interpreted yet.
 
+## Radar diagrams
+
+Header:
+
+```mermaid
+radar-beta
+```
+
+Axes, curves, and options:
+
+```mermaid
+radar-beta
+title Delivery Radar
+axis speed["Speed"], quality["Quality"], docs
+curve teamA["Team A"]{speed: 80, quality: 70, docs: 60}
+curve teamB{40, 90, 50}
+showLegend true
+max 100
+min 0
+graticule polygon
+ticks 4
+```
+
+Curve values may be positional or keyed with `axis: value`. `showLegend`,
+`max`, `min`, `graticule`, and `ticks` are parsed. Mermaid radar dimensions,
+theme variables, color scales, and curve tension are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

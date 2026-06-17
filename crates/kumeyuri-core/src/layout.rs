@@ -9,13 +9,13 @@ use crate::ast::{
     FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst,
     GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst,
     KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
-    MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
-    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
-    RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
-    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
-    StateTransition, TimelineAst, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
-    ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RadarAst, RadarCurve,
+    RadarOptionKind, RequirementAst, RequirementElement, RequirementKind, RequirementNode,
+    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
+    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
+    StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst, XyChartAxisScale,
+    XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -629,6 +629,67 @@ pub struct ArchitectureLayout {
     pub nodes: Vec<PositionedArchitectureNode>,
     pub edges: Vec<PositionedArchitectureEdge>,
     pub alignments: Vec<PositionedArchitectureAlignment>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RadarLayoutConfig {
+    pub radius: i32,
+    pub title_spacing: i32,
+    pub legend_spacing: i32,
+}
+
+impl Default for RadarLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl RadarLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            radius: 8,
+            title_spacing: 2,
+            legend_spacing: 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedRadarAxis {
+    pub id: String,
+    pub label: String,
+    pub end: Point,
+    pub label_origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedRadarPoint {
+    pub axis_id: String,
+    pub value: String,
+    pub point: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedRadarCurve {
+    pub id: String,
+    pub label: String,
+    pub marker: char,
+    pub points: Vec<PositionedRadarPoint>,
+    pub legend_origin: Option<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarLayout {
+    pub title: Option<String>,
+    pub axes: Vec<PositionedRadarAxis>,
+    pub curves: Vec<PositionedRadarCurve>,
+    pub rings: Vec<Vec<Point>>,
+    pub center: Point,
+    pub show_legend: bool,
+    pub min_value: String,
+    pub max_value: String,
     pub size: Size,
 }
 
@@ -1301,6 +1362,11 @@ pub struct KanbanLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ArchitectureLayoutEngine {
     config: ArchitectureLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct RadarLayoutEngine {
+    config: RadarLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -3455,6 +3521,301 @@ fn architecture_side_point(rect: Rect, side: ArchitectureSide) -> Point {
             x: rect.right(),
             y: rect.center().y,
         },
+    }
+}
+
+impl RadarLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: RadarLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: RadarLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &RadarAst) -> RadarLayout {
+        let axis_labels = ast
+            .axes
+            .iter()
+            .map(|axis| {
+                axis.label
+                    .as_ref()
+                    .map_or_else(|| axis.id.value.clone(), |label| label.text.clone())
+            })
+            .collect::<Vec<_>>();
+        let label_pad = axis_labels
+            .iter()
+            .map(|label| label_width(label))
+            .max()
+            .unwrap_or(0)
+            .max(4);
+        let title_offset = ast.title.as_ref().map_or(0, |_| self.config.title_spacing);
+        let center = Point {
+            x: label_pad + self.config.radius + 2,
+            y: title_offset + self.config.radius + 1,
+        };
+        let (min, max) = radar_scale(ast);
+        let axes = ast
+            .axes
+            .iter()
+            .enumerate()
+            .map(|(index, axis)| {
+                let angle = radar_angle(index, ast.axes.len());
+                let end = radar_point(center, angle, self.config.radius);
+                let label = axis
+                    .label
+                    .as_ref()
+                    .map_or_else(|| axis.id.value.clone(), |label| label.text.clone());
+                let label_origin = radar_label_origin(center, end, &label);
+                PositionedRadarAxis {
+                    id: axis.id.value.clone(),
+                    label,
+                    end,
+                    label_origin,
+                }
+            })
+            .collect::<Vec<_>>();
+        let axis_index = ast
+            .axes
+            .iter()
+            .enumerate()
+            .map(|(index, axis)| (axis.id.value.as_str(), index))
+            .collect::<HashMap<_, _>>();
+        let show_legend = radar_show_legend(ast);
+        let legend_x = center.x + self.config.radius + label_pad + self.config.legend_spacing;
+        let legend_y = title_offset;
+        let curves = ast
+            .curves
+            .iter()
+            .enumerate()
+            .map(|(curve_index, curve)| {
+                let marker = radar_curve_marker(curve_index);
+                let label = curve
+                    .label
+                    .as_ref()
+                    .map_or_else(|| curve.id.value.clone(), |label| label.text.clone());
+                let points = radar_curve_points(
+                    curve,
+                    &axis_index,
+                    ast.axes.len(),
+                    center,
+                    min,
+                    max,
+                    self.config.radius,
+                );
+                PositionedRadarCurve {
+                    id: curve.id.value.clone(),
+                    label,
+                    marker,
+                    points,
+                    legend_origin: show_legend.then_some(Point {
+                        x: legend_x,
+                        y: legend_y + curve_index as i32,
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
+        let rings = radar_rings(center, ast.axes.len(), self.config.radius, radar_ticks(ast));
+        let mut size = Size {
+            width: center.x + self.config.radius + label_pad + 1,
+            height: center.y + self.config.radius + 1,
+        };
+        if let Some(title) = &ast.title {
+            size.width = size.width.max(label_width(&title.text) + 1);
+        }
+        for axis in &axes {
+            size.width = size
+                .width
+                .max(axis.label_origin.x + label_width(&axis.label) + 1);
+            size.height = size.height.max(axis.label_origin.y + 1);
+        }
+        if show_legend {
+            for curve in &curves {
+                if let Some(origin) = curve.legend_origin {
+                    size.width = size
+                        .width
+                        .max(origin.x + label_width(&radar_legend_label(curve)) + 1);
+                    size.height = size.height.max(origin.y + 1);
+                }
+            }
+        }
+        RadarLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            axes,
+            curves,
+            rings,
+            center,
+            show_legend,
+            min_value: radar_number_label(min),
+            max_value: radar_number_label(max),
+            size,
+        }
+    }
+}
+
+fn radar_scale(ast: &RadarAst) -> (f64, f64) {
+    let mut min = radar_option_number(ast, RadarOptionKind::Min).unwrap_or(0.0);
+    let mut max = radar_option_number(ast, RadarOptionKind::Max).unwrap_or_else(|| {
+        ast.curves
+            .iter()
+            .flat_map(|curve| &curve.values)
+            .filter_map(|value| value.value.value.parse::<f64>().ok())
+            .fold(0.0_f64, f64::max)
+    });
+    if max <= min {
+        max = min + 1.0;
+    }
+    if !min.is_finite() {
+        min = 0.0;
+    }
+    if !max.is_finite() {
+        max = 1.0;
+    }
+    (min, max)
+}
+
+fn radar_option_number(ast: &RadarAst, kind: RadarOptionKind) -> Option<f64> {
+    ast.options
+        .iter()
+        .rev()
+        .find(|option| option.kind.value == kind)
+        .and_then(|option| option.value.value.parse::<f64>().ok())
+}
+
+fn radar_show_legend(ast: &RadarAst) -> bool {
+    ast.options
+        .iter()
+        .rev()
+        .find(|option| option.kind.value == RadarOptionKind::ShowLegend)
+        .is_none_or(|option| option.value.value == "true")
+}
+
+fn radar_ticks(ast: &RadarAst) -> usize {
+    ast.options
+        .iter()
+        .rev()
+        .find(|option| option.kind.value == RadarOptionKind::Ticks)
+        .and_then(|option| option.value.value.parse::<usize>().ok())
+        .filter(|ticks| *ticks > 0)
+        .unwrap_or(5)
+}
+
+fn radar_curve_points(
+    curve: &RadarCurve,
+    axis_index: &HashMap<&str, usize>,
+    axis_count: usize,
+    center: Point,
+    min: f64,
+    max: f64,
+    radius: i32,
+) -> Vec<PositionedRadarPoint> {
+    curve
+        .values
+        .iter()
+        .enumerate()
+        .filter_map(|(value_index, value)| {
+            let axis_position = value
+                .axis
+                .as_ref()
+                .and_then(|axis| axis_index.get(axis.value.as_str()).copied())
+                .unwrap_or(value_index);
+            (axis_position < axis_count).then(|| {
+                let raw = value.value.value.parse::<f64>().unwrap_or(min);
+                let scaled = ((raw - min) / (max - min)).clamp(0.0, 1.0);
+                let point = radar_point(
+                    center,
+                    radar_angle(axis_position, axis_count),
+                    (scaled * f64::from(radius)).round() as i32,
+                );
+                PositionedRadarPoint {
+                    axis_id: value
+                        .axis
+                        .as_ref()
+                        .map_or_else(|| axis_position.to_string(), |axis| axis.value.clone()),
+                    value: value.value.value.clone(),
+                    point,
+                }
+            })
+        })
+        .collect()
+}
+
+fn radar_rings(center: Point, axis_count: usize, radius: i32, ticks: usize) -> Vec<Vec<Point>> {
+    if axis_count == 0 {
+        return Vec::new();
+    }
+    (1..=ticks)
+        .map(|tick| {
+            let ring_radius = ((tick as f64 / ticks as f64) * f64::from(radius)).round() as i32;
+            (0..axis_count)
+                .map(|index| radar_point(center, radar_angle(index, axis_count), ring_radius))
+                .collect()
+        })
+        .collect()
+}
+
+fn radar_angle(index: usize, count: usize) -> f64 {
+    if count == 0 {
+        return 0.0;
+    }
+    -std::f64::consts::FRAC_PI_2 + std::f64::consts::TAU * (index as f64 / count as f64)
+}
+
+fn radar_point(center: Point, angle: f64, radius: i32) -> Point {
+    Point {
+        x: center.x + (angle.cos() * f64::from(radius)).round() as i32,
+        y: center.y + (angle.sin() * f64::from(radius)).round() as i32,
+    }
+}
+
+fn radar_label_origin(center: Point, end: Point, label: &str) -> Point {
+    let width = label_width(label);
+    let x = if end.x < center.x {
+        end.x - width - 1
+    } else if end.x > center.x {
+        end.x + 1
+    } else {
+        end.x - width / 2
+    };
+    let y = if end.y < center.y {
+        end.y.saturating_sub(1)
+    } else if end.y > center.y {
+        end.y + 1
+    } else {
+        end.y
+    };
+    Point {
+        x: x.max(0),
+        y: y.max(0),
+    }
+}
+
+fn radar_curve_marker(index: usize) -> char {
+    const MARKERS: &[u8] = b"123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    MARKERS.get(index).copied().map(char::from).unwrap_or('*')
+}
+
+fn radar_legend_label(curve: &PositionedRadarCurve) -> String {
+    let values = curve
+        .points
+        .iter()
+        .map(|point| point.value.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{} {}: {}", curve.marker, curve.label, values)
+}
+
+fn radar_number_label(value: f64) -> String {
+    let rounded = value.round();
+    if (value - rounded).abs() < f64::EPSILON {
+        format!("{rounded:.0}")
+    } else {
+        value.to_string()
     }
 }
 

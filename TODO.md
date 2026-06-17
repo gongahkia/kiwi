@@ -183,7 +183,7 @@
 - [x] Packet: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Kanban: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Architecture: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] Radar: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] Radar: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Event Modeling: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Treemap: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Venn: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

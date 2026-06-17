@@ -138,6 +138,14 @@
       "rootType": "architecture",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/radar.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/radar.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "radar",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

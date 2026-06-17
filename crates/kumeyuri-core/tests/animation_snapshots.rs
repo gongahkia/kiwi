@@ -235,6 +235,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Packet(_) => ("packet", "none"),
         DiagramKind::Kanban(_) => ("kanban", "none"),
         DiagramKind::Architecture(_) => ("architecture", "none"),
+        DiagramKind::Radar(_) => ("radar", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

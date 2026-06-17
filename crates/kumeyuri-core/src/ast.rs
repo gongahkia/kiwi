@@ -23,6 +23,7 @@ pub enum DiagramKind {
     Packet(Box<PacketAst>),
     Kanban(Box<KanbanAst>),
     Architecture(Box<ArchitectureAst>),
+    Radar(Box<RadarAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1274,6 +1275,95 @@ impl ArchitectureAlignAxis {
         match self {
             Self::Row => "row",
             Self::Column => "column",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarAst {
+    pub header: RadarHeader,
+    pub title: Option<Label>,
+    pub axes: Vec<RadarAxis>,
+    pub curves: Vec<RadarCurve>,
+    pub options: Vec<RadarOption>,
+    pub statements: Vec<RadarStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RadarHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RadarStatement {
+    Title(Label),
+    Axis(Box<RadarAxis>),
+    Curve(Box<RadarCurve>),
+    Option(Box<RadarOption>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarAxis {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarCurve {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub values: Vec<RadarCurveValue>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarCurveValue {
+    pub axis: Option<Spanned<String>>,
+    pub value: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RadarOption {
+    pub kind: Spanned<RadarOptionKind>,
+    pub value: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RadarOptionKind {
+    ShowLegend,
+    Max,
+    Min,
+    Graticule,
+    Ticks,
+}
+
+impl RadarOptionKind {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"showLegend" => Some(Self::ShowLegend),
+            b"max" => Some(Self::Max),
+            b"min" => Some(Self::Min),
+            b"graticule" => Some(Self::Graticule),
+            b"ticks" => Some(Self::Ticks),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn as_mermaid(self) -> &'static str {
+        match self {
+            Self::ShowLegend => "showLegend",
+            Self::Max => "max",
+            Self::Min => "min",
+            Self::Graticule => "graticule",
+            Self::Ticks => "ticks",
         }
     }
 }
