@@ -1,0 +1,5 @@
+architecture-beta
+group api(cloud)[API]
+service gateway(server)[Gateway] in api
+service db(database)[Database]
+gateway:R --> L:db

@@ -59,6 +59,10 @@ const FIXTURES: &[(&str, &str)] = &[
         include_str!("../../../tests/fuzz/official-mermaid/kanban.mmd"),
     ),
     (
+        "architecture",
+        include_str!("../../../tests/fuzz/official-mermaid/architecture.mmd"),
+    ),
+    (
         "mindmap",
         include_str!("../../../tests/fuzz/official-mermaid/mindmap.mmd"),
     ),
@@ -142,6 +146,7 @@ fn diagram_kind_name(kind: &DiagramKind) -> &'static str {
         DiagramKind::Block(_) => "block",
         DiagramKind::Packet(_) => "packet",
         DiagramKind::Kanban(_) => "kanban",
+        DiagramKind::Architecture(_) => "architecture",
         DiagramKind::Mindmap(_) => "mindmap",
         DiagramKind::Journey(_) => "journey",
         DiagramKind::GitGraph(_) => "gitgraph",

@@ -130,6 +130,14 @@
       "rootType": "kanban",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/architecture.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/architecture.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "architecture",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

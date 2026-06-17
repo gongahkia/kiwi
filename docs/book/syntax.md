@@ -177,6 +177,31 @@ metadata supports key/value rows inside `@{ ... }`; values may be bare,
 single-quoted, or double-quoted. Mermaid frontmatter config such as
 `ticketBaseUrl` is not interpreted yet.
 
+## Architecture diagrams
+
+Header:
+
+```mermaid
+architecture-beta
+```
+
+Groups, services, junctions, edges, and alignment statements are accepted:
+
+```mermaid
+architecture-beta
+group api(cloud)[API]
+service gateway(server)[Gateway] in api
+service db(database)[Database]
+junction join in api
+gateway:R --> L:db
+align row gateway join
+```
+
+Services and groups accept optional icon text in parentheses and titles in
+square brackets. Edges use side endpoints `T`, `B`, `L`, and `R`, plus `--`,
+`-->`, `<--`, or `<-->`. Mermaid icon pack registration and ELK/fcose layout
+config are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

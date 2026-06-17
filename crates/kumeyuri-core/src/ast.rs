@@ -22,6 +22,7 @@ pub enum DiagramKind {
     Block(Box<BlockDiagramAst>),
     Packet(Box<PacketAst>),
     Kanban(Box<KanbanAst>),
+    Architecture(Box<ArchitectureAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1142,6 +1143,139 @@ pub struct KanbanMetadata {
     pub key: Spanned<String>,
     pub value: Label,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureAst {
+    pub header: ArchitectureHeader,
+    pub groups: Vec<ArchitectureGroup>,
+    pub services: Vec<ArchitectureService>,
+    pub junctions: Vec<ArchitectureJunction>,
+    pub edges: Vec<ArchitectureEdge>,
+    pub alignments: Vec<ArchitectureAlignment>,
+    pub statements: Vec<ArchitectureStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArchitectureStatement {
+    Group(Box<ArchitectureGroup>),
+    Service(Box<ArchitectureService>),
+    Junction(Box<ArchitectureJunction>),
+    Edge(Box<ArchitectureEdge>),
+    Alignment(Box<ArchitectureAlignment>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureGroup {
+    pub id: Spanned<String>,
+    pub icon: Option<Label>,
+    pub title: Option<Label>,
+    pub parent: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureService {
+    pub id: Spanned<String>,
+    pub icon: Option<Label>,
+    pub title: Option<Label>,
+    pub parent: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureJunction {
+    pub id: Spanned<String>,
+    pub parent: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureEdge {
+    pub from: ArchitectureEndpoint,
+    pub to: ArchitectureEndpoint,
+    pub arrow_start: bool,
+    pub arrow_end: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureEndpoint {
+    pub id: Spanned<String>,
+    pub side: Spanned<ArchitectureSide>,
+    pub group: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchitectureSide {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl ArchitectureSide {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"T" => Some(Self::Top),
+            b"B" => Some(Self::Bottom),
+            b"L" => Some(Self::Left),
+            b"R" => Some(Self::Right),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn as_mermaid(self) -> &'static str {
+        match self {
+            Self::Top => "T",
+            Self::Bottom => "B",
+            Self::Left => "L",
+            Self::Right => "R",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureAlignment {
+    pub axis: Spanned<ArchitectureAlignAxis>,
+    pub members: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchitectureAlignAxis {
+    Row,
+    Column,
+}
+
+impl ArchitectureAlignAxis {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"row" => Some(Self::Row),
+            b"column" => Some(Self::Column),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn as_mermaid(self) -> &'static str {
+        match self {
+            Self::Row => "row",
+            Self::Column => "column",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

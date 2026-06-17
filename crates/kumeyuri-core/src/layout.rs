@@ -1,12 +1,14 @@
 use crate::ast::{
-    ArrowHead, BlockDiagramAst, BlockShape, BlockStatement, C4Ast, C4Boundary, C4BoundaryKind,
-    C4CallArg, C4Element, C4ElementKind, C4Relationship, C4RelationshipKind, C4Statement, ClassAst,
-    ClassMember, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
-    ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge,
-    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
-    FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
-    GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
+    ArchitectureAlignAxis, ArchitectureAst, ArchitectureEdge, ArchitectureGroup,
+    ArchitectureJunction, ArchitectureService, ArchitectureSide, ArrowHead, BlockDiagramAst,
+    BlockShape, BlockStatement, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4Element,
+    C4ElementKind, C4Relationship, C4RelationshipKind, C4Statement, ClassAst, ClassMember,
+    ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker,
+    Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
+    FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective,
+    FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst,
+    GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst,
+    KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
     MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
     RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
     RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
@@ -539,6 +541,94 @@ pub struct PositionedKanbanTask {
 pub struct KanbanLayout {
     pub columns: Vec<PositionedKanbanColumn>,
     pub tasks: Vec<PositionedKanbanTask>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureLayoutConfig {
+    pub node_min_width: i32,
+    pub node_height: i32,
+    pub junction_height: i32,
+    pub group_min_width: i32,
+    pub group_title_height: i32,
+    pub group_padding: i32,
+    pub item_spacing: i32,
+    pub group_spacing: i32,
+}
+
+impl Default for ArchitectureLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl ArchitectureLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            node_min_width: 16,
+            node_height: 5,
+            junction_height: 3,
+            group_min_width: 22,
+            group_title_height: 3,
+            group_padding: 2,
+            item_spacing: 2,
+            group_spacing: 5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchitectureNodeKind {
+    Service,
+    Junction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedArchitectureGroup {
+    pub id: String,
+    pub label: String,
+    pub icon: Option<String>,
+    pub parent: Option<String>,
+    pub rect: Rect,
+    pub header: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedArchitectureNode {
+    pub id: String,
+    pub label: String,
+    pub icon: Option<String>,
+    pub parent: Option<String>,
+    pub kind: ArchitectureNodeKind,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedArchitectureEdge {
+    pub from: String,
+    pub to: String,
+    pub from_side: ArchitectureSide,
+    pub to_side: ArchitectureSide,
+    pub from_group: bool,
+    pub to_group: bool,
+    pub arrow_start: bool,
+    pub arrow_end: bool,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedArchitectureAlignment {
+    pub axis: ArchitectureAlignAxis,
+    pub members: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchitectureLayout {
+    pub groups: Vec<PositionedArchitectureGroup>,
+    pub nodes: Vec<PositionedArchitectureNode>,
+    pub edges: Vec<PositionedArchitectureEdge>,
+    pub alignments: Vec<PositionedArchitectureAlignment>,
     pub size: Size,
 }
 
@@ -1206,6 +1296,11 @@ pub struct PacketLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct KanbanLayoutEngine {
     config: KanbanLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureLayoutEngine {
+    config: ArchitectureLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2972,6 +3067,395 @@ impl KanbanLayoutEngine {
 
 fn kanban_metadata_pair(metadata: &KanbanMetadata) -> (String, String) {
     (metadata.key.value.clone(), metadata.value.text.clone())
+}
+
+impl ArchitectureLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: ArchitectureLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: ArchitectureLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &ArchitectureAst) -> ArchitectureLayout {
+        let context = ArchitectureLayoutContext::new(ast);
+        let mut groups = Vec::new();
+        let mut nodes = Vec::new();
+        let mut size = Size {
+            width: self.config.node_min_width,
+            height: self.config.node_height,
+        };
+        let mut x = 0i32;
+        for item in context.top_level_items() {
+            let item_size = self.measure_item(&context, item);
+            self.place_item(&context, item, Point { x, y: 0 }, &mut groups, &mut nodes);
+            size.width = size.width.max(x + item_size.width);
+            size.height = size.height.max(item_size.height);
+            x += item_size.width + self.config.group_spacing;
+        }
+        let mut lookup = HashMap::new();
+        for group in &groups {
+            lookup.insert(group.id.clone(), group.rect);
+        }
+        for node in &nodes {
+            lookup.insert(node.id.clone(), node.rect);
+        }
+        let edges = ast
+            .edges
+            .iter()
+            .map(|edge| self.position_edge(edge, &lookup))
+            .collect::<Vec<_>>();
+        for edge in &edges {
+            for point in &edge.points {
+                size.width = size.width.max(point.x + 1);
+                size.height = size.height.max(point.y + 1);
+            }
+        }
+        let alignments = ast
+            .alignments
+            .iter()
+            .map(|alignment| PositionedArchitectureAlignment {
+                axis: alignment.axis.value,
+                members: alignment
+                    .members
+                    .iter()
+                    .map(|member| member.value.clone())
+                    .collect(),
+            })
+            .collect();
+        ArchitectureLayout {
+            groups,
+            nodes,
+            edges,
+            alignments,
+            size,
+        }
+    }
+
+    fn measure_item(
+        &self,
+        context: &ArchitectureLayoutContext<'_>,
+        item: ArchitectureLayoutItem<'_>,
+    ) -> Size {
+        match item {
+            ArchitectureLayoutItem::Group(group) => self.measure_group(context, group),
+            ArchitectureLayoutItem::Service(service) => self.measure_service(service),
+            ArchitectureLayoutItem::Junction(junction) => self.measure_junction(junction),
+        }
+    }
+
+    fn measure_group(
+        &self,
+        context: &ArchitectureLayoutContext<'_>,
+        group: &ArchitectureGroup,
+    ) -> Size {
+        let mut width = self
+            .config
+            .group_min_width
+            .max(label_width(&architecture_group_label(group)) + self.config.group_padding * 2);
+        if let Some(icon) = &group.icon {
+            width = width.max(
+                label_width(&architecture_icon_label(&icon.text)) + self.config.group_padding * 2,
+            );
+        }
+        let mut height = self.config.group_title_height + self.config.group_padding;
+        let children = context.child_items(&group.id.value);
+        if children.is_empty() {
+            height += self.config.group_padding;
+        } else {
+            for (index, child) in children.iter().enumerate() {
+                let size = self.measure_item(context, *child);
+                width = width.max(size.width + self.config.group_padding * 2);
+                height += size.height;
+                if index + 1 < children.len() {
+                    height += self.config.item_spacing;
+                }
+            }
+            height += self.config.group_padding;
+        }
+        Size { width, height }
+    }
+
+    fn measure_service(&self, service: &ArchitectureService) -> Size {
+        let mut width = self
+            .config
+            .node_min_width
+            .max(label_width(&architecture_service_label(service)) + 4);
+        if let Some(icon) = &service.icon {
+            width = width.max(label_width(&architecture_icon_label(&icon.text)) + 4);
+        }
+        Size {
+            width,
+            height: self.config.node_height,
+        }
+    }
+
+    fn measure_junction(&self, junction: &ArchitectureJunction) -> Size {
+        Size {
+            width: self
+                .config
+                .node_min_width
+                .max(label_width(&junction.id.value) + 6),
+            height: self.config.junction_height,
+        }
+    }
+
+    fn place_item(
+        &self,
+        context: &ArchitectureLayoutContext<'_>,
+        item: ArchitectureLayoutItem<'_>,
+        origin: Point,
+        groups: &mut Vec<PositionedArchitectureGroup>,
+        nodes: &mut Vec<PositionedArchitectureNode>,
+    ) {
+        match item {
+            ArchitectureLayoutItem::Group(group) => {
+                let size = self.measure_group(context, group);
+                let rect = Rect { origin, size };
+                groups.push(PositionedArchitectureGroup {
+                    id: group.id.value.clone(),
+                    label: architecture_group_label(group),
+                    icon: group
+                        .icon
+                        .as_ref()
+                        .map(|icon| architecture_icon_label(&icon.text)),
+                    parent: group.parent.as_ref().map(|parent| parent.value.clone()),
+                    header: Rect {
+                        origin,
+                        size: Size {
+                            width: size.width,
+                            height: self.config.group_title_height,
+                        },
+                    },
+                    rect,
+                });
+                let mut y = origin.y + self.config.group_title_height + self.config.group_padding;
+                for child in context.child_items(&group.id.value) {
+                    let child_size = self.measure_item(context, child);
+                    self.place_item(
+                        context,
+                        child,
+                        Point {
+                            x: origin.x + self.config.group_padding,
+                            y,
+                        },
+                        groups,
+                        nodes,
+                    );
+                    y += child_size.height + self.config.item_spacing;
+                }
+            }
+            ArchitectureLayoutItem::Service(service) => {
+                nodes.push(PositionedArchitectureNode {
+                    id: service.id.value.clone(),
+                    label: architecture_service_label(service),
+                    icon: service
+                        .icon
+                        .as_ref()
+                        .map(|icon| architecture_icon_label(&icon.text)),
+                    parent: service.parent.as_ref().map(|parent| parent.value.clone()),
+                    kind: ArchitectureNodeKind::Service,
+                    rect: Rect {
+                        origin,
+                        size: self.measure_service(service),
+                    },
+                });
+            }
+            ArchitectureLayoutItem::Junction(junction) => {
+                nodes.push(PositionedArchitectureNode {
+                    id: junction.id.value.clone(),
+                    label: junction.id.value.clone(),
+                    icon: None,
+                    parent: junction.parent.as_ref().map(|parent| parent.value.clone()),
+                    kind: ArchitectureNodeKind::Junction,
+                    rect: Rect {
+                        origin,
+                        size: self.measure_junction(junction),
+                    },
+                });
+            }
+        }
+    }
+
+    fn position_edge(
+        &self,
+        edge: &ArchitectureEdge,
+        lookup: &HashMap<String, Rect>,
+    ) -> PositionedArchitectureEdge {
+        let from_rect = lookup.get(&edge.from.id.value).copied().unwrap_or(Rect {
+            origin: Point { x: 0, y: 0 },
+            size: Size {
+                width: self.config.node_min_width,
+                height: self.config.node_height,
+            },
+        });
+        let to_rect = lookup.get(&edge.to.id.value).copied().unwrap_or(from_rect);
+        let from = architecture_side_point(from_rect, edge.from.side.value);
+        let to = architecture_side_point(to_rect, edge.to.side.value);
+        let mid_x = (from.x + to.x) / 2;
+        let points = if from.x == to.x || from.y == to.y {
+            vec![from, to]
+        } else {
+            vec![
+                from,
+                Point {
+                    x: mid_x,
+                    y: from.y,
+                },
+                Point { x: mid_x, y: to.y },
+                to,
+            ]
+        };
+        PositionedArchitectureEdge {
+            from: edge.from.id.value.clone(),
+            to: edge.to.id.value.clone(),
+            from_side: edge.from.side.value,
+            to_side: edge.to.side.value,
+            from_group: edge.from.group,
+            to_group: edge.to.group,
+            arrow_start: edge.arrow_start,
+            arrow_end: edge.arrow_end,
+            points,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ArchitectureLayoutItem<'a> {
+    Group(&'a ArchitectureGroup),
+    Service(&'a ArchitectureService),
+    Junction(&'a ArchitectureJunction),
+}
+
+struct ArchitectureLayoutContext<'a> {
+    groups: &'a [ArchitectureGroup],
+    services: &'a [ArchitectureService],
+    junctions: &'a [ArchitectureJunction],
+    group_ids: HashSet<&'a str>,
+}
+
+impl<'a> ArchitectureLayoutContext<'a> {
+    fn new(ast: &'a ArchitectureAst) -> Self {
+        Self {
+            groups: &ast.groups,
+            services: &ast.services,
+            junctions: &ast.junctions,
+            group_ids: ast
+                .groups
+                .iter()
+                .map(|group| group.id.value.as_str())
+                .collect(),
+        }
+    }
+
+    fn top_level_items(&self) -> Vec<ArchitectureLayoutItem<'a>> {
+        let mut items = Vec::new();
+        for group in self.groups {
+            if group
+                .parent
+                .as_ref()
+                .is_none_or(|parent| !self.group_ids.contains(parent.value.as_str()))
+            {
+                items.push(ArchitectureLayoutItem::Group(group));
+            }
+        }
+        for service in self.services {
+            if service
+                .parent
+                .as_ref()
+                .is_none_or(|parent| !self.group_ids.contains(parent.value.as_str()))
+            {
+                items.push(ArchitectureLayoutItem::Service(service));
+            }
+        }
+        for junction in self.junctions {
+            if junction
+                .parent
+                .as_ref()
+                .is_none_or(|parent| !self.group_ids.contains(parent.value.as_str()))
+            {
+                items.push(ArchitectureLayoutItem::Junction(junction));
+            }
+        }
+        items
+    }
+
+    fn child_items(&self, group_id: &str) -> Vec<ArchitectureLayoutItem<'a>> {
+        let mut items = Vec::new();
+        for group in self.groups {
+            if group
+                .parent
+                .as_ref()
+                .is_some_and(|parent| parent.value == group_id)
+            {
+                items.push(ArchitectureLayoutItem::Group(group));
+            }
+        }
+        for service in self.services {
+            if service
+                .parent
+                .as_ref()
+                .is_some_and(|parent| parent.value == group_id)
+            {
+                items.push(ArchitectureLayoutItem::Service(service));
+            }
+        }
+        for junction in self.junctions {
+            if junction
+                .parent
+                .as_ref()
+                .is_some_and(|parent| parent.value == group_id)
+            {
+                items.push(ArchitectureLayoutItem::Junction(junction));
+            }
+        }
+        items
+    }
+}
+
+fn architecture_group_label(group: &ArchitectureGroup) -> String {
+    group
+        .title
+        .as_ref()
+        .map_or_else(|| group.id.value.clone(), |title| title.text.clone())
+}
+
+fn architecture_service_label(service: &ArchitectureService) -> String {
+    service
+        .title
+        .as_ref()
+        .map_or_else(|| service.id.value.clone(), |title| title.text.clone())
+}
+
+fn architecture_icon_label(icon: &str) -> String {
+    format!("({icon})")
+}
+
+fn architecture_side_point(rect: Rect, side: ArchitectureSide) -> Point {
+    match side {
+        ArchitectureSide::Top => Point {
+            x: rect.center().x,
+            y: rect.origin.y,
+        },
+        ArchitectureSide::Bottom => Point {
+            x: rect.center().x,
+            y: rect.bottom(),
+        },
+        ArchitectureSide::Left => Point {
+            x: rect.origin.x,
+            y: rect.center().y,
+        },
+        ArchitectureSide::Right => Point {
+            x: rect.right(),
+            y: rect.center().y,
+        },
+    }
 }
 
 impl StateLayoutEngine {

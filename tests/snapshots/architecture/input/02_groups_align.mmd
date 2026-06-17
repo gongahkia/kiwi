@@ -1,0 +1,13 @@
+%%{ animate: 'none' }%%
+architecture-beta
+group api(cloud)[API]
+group storage(database)[Storage] in api
+service gateway(server)[Gateway] in api
+service cache(disk)[Cache] in storage
+service db(database)[Database] in storage
+junction join in api
+gateway:R --> L:cache
+cache:R -- L:db
+gateway:B --> T:join
+align row gateway join
+align column cache db

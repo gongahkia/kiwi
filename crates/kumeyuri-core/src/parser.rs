@@ -1,21 +1,24 @@
 use crate::ast::{
-    ArrowHead, BlockArrowDirection, BlockContainer, BlockDiagramAst, BlockDiagramHeader, BlockEdge,
-    BlockNode, BlockShape, BlockSpace, BlockStatement, BlockStyle, C4Ast, C4Boundary,
-    C4BoundaryKind, C4CallArg, C4DiagramType, C4Element, C4ElementKind, C4Header, C4LayoutConfig,
-    C4Relationship, C4RelationshipKind, C4Statement, C4StyleUpdate, ClassAst, ClassHeader,
-    ClassMember, ClassMemberAssignment, ClassMemberKind, ClassNode, ClassRelationship,
-    ClassRelationshipLine, ClassRelationshipMarker, ClassStatement, Diagram, DiagramKind,
-    DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader,
-    ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
-    FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
-    FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
-    GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick,
-    GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
-    GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, KanbanAst,
-    KanbanColumn, KanbanHeader, KanbanMetadata, KanbanStatement, KanbanTask, Label, LabelKind,
-    MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
-    MindmapStatement, PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst,
-    PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
+    ArchitectureAlignAxis, ArchitectureAlignment, ArchitectureAst, ArchitectureEdge,
+    ArchitectureEndpoint, ArchitectureGroup, ArchitectureHeader, ArchitectureJunction,
+    ArchitectureService, ArchitectureSide, ArchitectureStatement, ArrowHead, BlockArrowDirection,
+    BlockContainer, BlockDiagramAst, BlockDiagramHeader, BlockEdge, BlockNode, BlockShape,
+    BlockSpace, BlockStatement, BlockStyle, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg,
+    C4DiagramType, C4Element, C4ElementKind, C4Header, C4LayoutConfig, C4Relationship,
+    C4RelationshipKind, C4Statement, C4StyleUpdate, ClassAst, ClassHeader, ClassMember,
+    ClassMemberAssignment, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
+    ClassRelationshipMarker, ClassStatement, Diagram, DiagramKind, DiagramMetadata, Direction,
+    ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader, ErRelationship, ErStatement,
+    FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
+    FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective,
+    FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader, GanttStatement, GanttTask,
+    GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick, GitGraphCommit,
+    GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation, GitGraphStatement,
+    JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, KanbanAst, KanbanColumn,
+    KanbanHeader, KanbanMetadata, KanbanStatement, KanbanTask, Label, LabelKind, MermaidComment,
+    MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement,
+    PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig,
+    PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
     QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement,
     RequirementAst, RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
     RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
@@ -127,6 +130,12 @@ pub enum ParseErrorKind {
     UnknownKanbanStatement,
     ExpectedKanbanItem,
     ExpectedKanbanMetadata,
+    ExpectedArchitectureHeader,
+    UnknownArchitectureStatement,
+    ExpectedArchitectureNode,
+    ExpectedArchitectureEdge,
+    ExpectedArchitectureSide,
+    ExpectedArchitectureAlignment,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -226,6 +235,10 @@ impl Parser {
 
     pub fn parse_kanban(source: &str) -> Result<KanbanAst, ParseError> {
         DiagramParser::new(source).parse_kanban_only()
+    }
+
+    pub fn parse_architecture(source: &str) -> Result<ArchitectureAst, ParseError> {
+        DiagramParser::new(source).parse_architecture_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -399,6 +412,14 @@ impl Parser {
         KanbanHeaderParser::new(source).parse()
     }
 
+    pub fn parse_architecture_header(source: &str) -> Result<ArchitectureHeader, ParseError> {
+        ArchitectureHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_architecture_statement(source: &str) -> Result<ArchitectureStatement, ParseError> {
+        ArchitectureStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -541,6 +562,14 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Kanban(Box::new(ast))));
+        }
+        if let Ok(architecture_header) = Parser::parse_architecture_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_architecture_body(shift_architecture_header(
+                architecture_header,
+                header.start,
+            ))?;
+            return Ok(self.diagram(DiagramKind::Architecture(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -754,6 +783,18 @@ impl<'source> DiagramParser<'source> {
         let kanban_header = Parser::parse_kanban_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))
+    }
+
+    fn parse_architecture_only(mut self) -> Result<ArchitectureAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let architecture_header = Parser::parse_architecture_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_architecture_body(shift_architecture_header(architecture_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1506,6 +1547,35 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_architecture_body(
+        &mut self,
+        header: ArchitectureHeader,
+    ) -> Result<ArchitectureAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = ArchitectureAst {
+            header,
+            groups: Vec::new(),
+            services: Vec::new(),
+            junctions: Vec::new(),
+            edges: Vec::new(),
+            alignments: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_architecture_statement(
+                Parser::parse_architecture_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            push_architecture_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
         let span_start = header.span.start;
         let mut parsed = Vec::<ParsedMindmapNode>::new();
@@ -2157,6 +2227,18 @@ fn push_packet_statement(ast: &mut PacketAst, statement: PacketStatement) {
         PacketStatement::Title(title) => ast.title = Some(title.clone()),
         PacketStatement::Field(field) => ast.fields.push((**field).clone()),
         PacketStatement::Comment(_) | PacketStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_architecture_statement(ast: &mut ArchitectureAst, statement: ArchitectureStatement) {
+    match &statement {
+        ArchitectureStatement::Group(group) => ast.groups.push((**group).clone()),
+        ArchitectureStatement::Service(service) => ast.services.push((**service).clone()),
+        ArchitectureStatement::Junction(junction) => ast.junctions.push((**junction).clone()),
+        ArchitectureStatement::Edge(edge) => ast.edges.push((**edge).clone()),
+        ArchitectureStatement::Alignment(alignment) => ast.alignments.push((**alignment).clone()),
+        ArchitectureStatement::Comment(_) | ArchitectureStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -3997,6 +4079,36 @@ impl<'source> KanbanHeaderParser<'source> {
             });
         }
         Ok(KanbanHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct ArchitectureHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> ArchitectureHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ArchitectureHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedArchitectureHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "architecture-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedArchitectureHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(ArchitectureHeader {
             span: Span::new(start, end),
         })
     }
@@ -7879,6 +7991,426 @@ fn kanban_metadata_value(source: &str, start: usize, end: usize) -> Result<Label
     Ok(label_from_body(source, value_start, value_end))
 }
 
+struct ArchitectureStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> ArchitectureStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ArchitectureStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownArchitectureStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(ArchitectureStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(ArchitectureStatement::Comment(shift_comment(
+                comment, start,
+            )));
+        }
+        if has_keyword(self.source, start, "group") {
+            return parse_architecture_component(self.source, start, end, "group")
+                .map(|component| ArchitectureStatement::Group(Box::new(component.into_group())));
+        }
+        if has_keyword(self.source, start, "service") {
+            return parse_architecture_component(self.source, start, end, "service").map(
+                |component| ArchitectureStatement::Service(Box::new(component.into_service())),
+            );
+        }
+        if has_keyword(self.source, start, "junction") {
+            return parse_architecture_junction(self.source, start, end)
+                .map(|junction| ArchitectureStatement::Junction(Box::new(junction)));
+        }
+        if has_keyword(self.source, start, "align") {
+            return parse_architecture_alignment(self.source, start, end)
+                .map(|alignment| ArchitectureStatement::Alignment(Box::new(alignment)));
+        }
+        if self.source[start..end].contains("--") {
+            return parse_architecture_edge(self.source, start, end)
+                .map(|edge| ArchitectureStatement::Edge(Box::new(edge)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownArchitectureStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ArchitectureComponent {
+    id: Spanned<String>,
+    icon: Option<Label>,
+    title: Option<Label>,
+    parent: Option<Spanned<String>>,
+    span: Span,
+}
+
+impl ArchitectureComponent {
+    fn into_group(self) -> ArchitectureGroup {
+        ArchitectureGroup {
+            id: self.id,
+            icon: self.icon,
+            title: self.title,
+            parent: self.parent,
+            span: self.span,
+        }
+    }
+
+    fn into_service(self) -> ArchitectureService {
+        ArchitectureService {
+            id: self.id,
+            icon: self.icon,
+            title: self.title,
+            parent: self.parent,
+            span: self.span,
+        }
+    }
+}
+
+fn parse_architecture_component(
+    source: &str,
+    start: usize,
+    end: usize,
+    keyword: &str,
+) -> Result<ArchitectureComponent, ParseError> {
+    let mut cursor = start + keyword.len();
+    cursor = skip_ascii_ws(source, cursor, end);
+    let id = parse_architecture_id(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedArchitectureNode,
+    )?;
+    cursor = id.span.end;
+    let icon = if source.as_bytes().get(cursor) == Some(&b'(') {
+        let close = source[cursor + 1..end]
+            .find(')')
+            .map(|offset| cursor + 1 + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedArchitectureNode,
+                span: Span::new(cursor, end),
+            })?;
+        let icon = label_from_body(source, cursor + 1, close);
+        cursor = close + 1;
+        Some(icon)
+    } else {
+        None
+    };
+    let title = if source.as_bytes().get(cursor) == Some(&b'[') {
+        let close = source[cursor + 1..end]
+            .find(']')
+            .map(|offset| cursor + 1 + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedArchitectureNode,
+                span: Span::new(cursor, end),
+            })?;
+        let title = label_from_body(source, cursor + 1, close);
+        cursor = close + 1;
+        Some(title)
+    } else {
+        None
+    };
+    let parent = parse_architecture_optional_parent(source, cursor, end)?;
+    Ok(ArchitectureComponent {
+        id,
+        icon,
+        title,
+        parent,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_architecture_junction(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<ArchitectureJunction, ParseError> {
+    let mut cursor = start + "junction".len();
+    cursor = skip_ascii_ws(source, cursor, end);
+    let id = parse_architecture_id(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedArchitectureNode,
+    )?;
+    let parent = parse_architecture_optional_parent(source, id.span.end, end)?;
+    Ok(ArchitectureJunction {
+        id,
+        parent,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_architecture_optional_parent(
+    source: &str,
+    cursor: usize,
+    end: usize,
+) -> Result<Option<Spanned<String>>, ParseError> {
+    let cursor = skip_ascii_ws(source, cursor, end);
+    if cursor >= end {
+        return Ok(None);
+    }
+    if !has_keyword(source, cursor, "in") {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureNode,
+            span: Span::new(cursor, end),
+        });
+    }
+    let parent_start = skip_ascii_ws(source, cursor + 2, end);
+    let parent = parse_architecture_id(
+        source,
+        parent_start,
+        end,
+        ParseErrorKind::ExpectedArchitectureNode,
+    )?;
+    if trim_ascii_range(&source[parent.span.end..end]).is_some() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureNode,
+            span: Span::new(parent.span.end, end),
+        });
+    }
+    Ok(Some(parent))
+}
+
+fn parse_architecture_edge(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<ArchitectureEdge, ParseError> {
+    let tokens = architecture_tokens(source, start, end);
+    let [left, link, right] = tokens.as_slice() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span: Span::new(start, end),
+        });
+    };
+    let (arrow_start, arrow_end) = parse_architecture_link(source, *link)?;
+    Ok(ArchitectureEdge {
+        from: parse_architecture_left_endpoint(source, *left)?,
+        to: parse_architecture_right_endpoint(source, *right)?,
+        arrow_start,
+        arrow_end,
+        span: Span::new(start, end),
+    })
+}
+
+fn architecture_tokens(source: &str, start: usize, end: usize) -> Vec<Span> {
+    let mut tokens = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        cursor = skip_ascii_ws(source, cursor, end);
+        if cursor >= end {
+            break;
+        }
+        let token_start = cursor;
+        while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        tokens.push(Span::new(token_start, cursor));
+    }
+    tokens
+}
+
+fn parse_architecture_link(source: &str, span: Span) -> Result<(bool, bool), ParseError> {
+    let link = &source[span.start..span.end];
+    let body = link.strip_prefix('<').map_or(link, |stripped| stripped);
+    let arrow_start = body.len() != link.len();
+    let body_without_end = body.strip_suffix('>').map_or(body, |stripped| stripped);
+    let arrow_end = body_without_end.len() != body.len();
+    if body_without_end != "--" {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span,
+        });
+    }
+    Ok((arrow_start, arrow_end))
+}
+
+fn parse_architecture_left_endpoint(
+    source: &str,
+    span: Span,
+) -> Result<ArchitectureEndpoint, ParseError> {
+    let colon = source[span.start..span.end]
+        .find(':')
+        .map(|offset| span.start + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span,
+        })?;
+    let (id, group) = parse_architecture_endpoint_id(source, span.start, colon)?;
+    let side = parse_architecture_side(source, colon + 1, span.end)?;
+    Ok(ArchitectureEndpoint {
+        id,
+        side,
+        group,
+        span,
+    })
+}
+
+fn parse_architecture_right_endpoint(
+    source: &str,
+    span: Span,
+) -> Result<ArchitectureEndpoint, ParseError> {
+    let colon = source[span.start..span.end]
+        .find(':')
+        .map(|offset| span.start + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span,
+        })?;
+    let side = parse_architecture_side(source, span.start, colon)?;
+    let (id, group) = parse_architecture_endpoint_id(source, colon + 1, span.end)?;
+    Ok(ArchitectureEndpoint {
+        id,
+        side,
+        group,
+        span,
+    })
+}
+
+fn parse_architecture_endpoint_id(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<String>, bool), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span: Span::new(start, end),
+        });
+    };
+    let mut id_start = start + trim_start;
+    let mut id_end = start + trim_end;
+    let mut group = false;
+    if source[id_start..id_end].ends_with("{group}") {
+        id_end -= "{group}".len();
+        group = true;
+        let Some((inner_start, inner_end)) = trim_ascii_range(&source[id_start..id_end]) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedArchitectureEdge,
+                span: Span::new(start, end),
+            });
+        };
+        id_start += inner_start;
+        id_end = start + trim_start + inner_end;
+    }
+    if id_start >= id_end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureEdge,
+            span: Span::new(start, end),
+        });
+    }
+    Ok((
+        Spanned::new(
+            source[id_start..id_end].to_owned(),
+            Span::new(id_start, id_end),
+        ),
+        group,
+    ))
+}
+
+fn parse_architecture_side(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<ArchitectureSide>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureSide,
+            span: Span::new(start, end),
+        });
+    };
+    let side_start = start + trim_start;
+    let side_end = start + trim_end;
+    let Some(side) = ArchitectureSide::from_mermaid(&source[side_start..side_end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureSide,
+            span: Span::new(side_start, side_end),
+        });
+    };
+    Ok(Spanned::new(side, Span::new(side_start, side_end)))
+}
+
+fn parse_architecture_alignment(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<ArchitectureAlignment, ParseError> {
+    let tokens = architecture_tokens(source, start, end);
+    if tokens.len() < 4 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureAlignment,
+            span: Span::new(start, end),
+        });
+    }
+    let axis_span = tokens[1];
+    let Some(axis) = ArchitectureAlignAxis::from_mermaid(&source[axis_span.start..axis_span.end])
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedArchitectureAlignment,
+            span: axis_span,
+        });
+    };
+    let members = tokens[2..]
+        .iter()
+        .map(|span| {
+            Spanned::new(
+                source[span.start..span.end].to_owned(),
+                Span::new(span.start, span.end),
+            )
+        })
+        .collect();
+    Ok(ArchitectureAlignment {
+        axis: Spanned::new(axis, axis_span),
+        members,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_architecture_id(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+) -> Result<Spanned<String>, ParseError> {
+    let mut cursor = start;
+    while cursor < end
+        && !source.as_bytes()[cursor].is_ascii_whitespace()
+        && !matches!(source.as_bytes()[cursor], b'(' | b'[')
+    {
+        cursor += 1;
+    }
+    if cursor == start {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(Spanned::new(
+        source[start..cursor].to_owned(),
+        Span::new(start, cursor),
+    ))
+}
+
+fn skip_ascii_ws(source: &str, mut cursor: usize, end: usize) -> usize {
+    while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    cursor
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -10639,6 +11171,109 @@ fn shift_kanban_metadata(metadata: KanbanMetadata, offset: usize) -> KanbanMetad
     }
 }
 
+fn shift_architecture_header(header: ArchitectureHeader, offset: usize) -> ArchitectureHeader {
+    ArchitectureHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_architecture_statement(
+    statement: ArchitectureStatement,
+    offset: usize,
+) -> ArchitectureStatement {
+    match statement {
+        ArchitectureStatement::Group(group) => {
+            ArchitectureStatement::Group(Box::new(shift_architecture_group(*group, offset)))
+        }
+        ArchitectureStatement::Service(service) => {
+            ArchitectureStatement::Service(Box::new(shift_architecture_service(*service, offset)))
+        }
+        ArchitectureStatement::Junction(junction) => ArchitectureStatement::Junction(Box::new(
+            shift_architecture_junction(*junction, offset),
+        )),
+        ArchitectureStatement::Edge(edge) => {
+            ArchitectureStatement::Edge(Box::new(shift_architecture_edge(*edge, offset)))
+        }
+        ArchitectureStatement::Alignment(alignment) => ArchitectureStatement::Alignment(Box::new(
+            shift_architecture_alignment(*alignment, offset),
+        )),
+        ArchitectureStatement::Comment(comment) => {
+            ArchitectureStatement::Comment(shift_comment(comment, offset))
+        }
+        ArchitectureStatement::Directive(directive) => {
+            ArchitectureStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_architecture_group(group: ArchitectureGroup, offset: usize) -> ArchitectureGroup {
+    ArchitectureGroup {
+        id: shift_spanned(group.id, offset),
+        icon: group.icon.map(|icon| shift_label(icon, offset)),
+        title: group.title.map(|title| shift_label(title, offset)),
+        parent: group.parent.map(|parent| shift_spanned(parent, offset)),
+        span: shift_span(group.span, offset),
+    }
+}
+
+fn shift_architecture_service(service: ArchitectureService, offset: usize) -> ArchitectureService {
+    ArchitectureService {
+        id: shift_spanned(service.id, offset),
+        icon: service.icon.map(|icon| shift_label(icon, offset)),
+        title: service.title.map(|title| shift_label(title, offset)),
+        parent: service.parent.map(|parent| shift_spanned(parent, offset)),
+        span: shift_span(service.span, offset),
+    }
+}
+
+fn shift_architecture_junction(
+    junction: ArchitectureJunction,
+    offset: usize,
+) -> ArchitectureJunction {
+    ArchitectureJunction {
+        id: shift_spanned(junction.id, offset),
+        parent: junction.parent.map(|parent| shift_spanned(parent, offset)),
+        span: shift_span(junction.span, offset),
+    }
+}
+
+fn shift_architecture_edge(edge: ArchitectureEdge, offset: usize) -> ArchitectureEdge {
+    ArchitectureEdge {
+        from: shift_architecture_endpoint(edge.from, offset),
+        to: shift_architecture_endpoint(edge.to, offset),
+        arrow_start: edge.arrow_start,
+        arrow_end: edge.arrow_end,
+        span: shift_span(edge.span, offset),
+    }
+}
+
+fn shift_architecture_endpoint(
+    endpoint: ArchitectureEndpoint,
+    offset: usize,
+) -> ArchitectureEndpoint {
+    ArchitectureEndpoint {
+        id: shift_spanned(endpoint.id, offset),
+        side: shift_spanned(endpoint.side, offset),
+        group: endpoint.group,
+        span: shift_span(endpoint.span, offset),
+    }
+}
+
+fn shift_architecture_alignment(
+    alignment: ArchitectureAlignment,
+    offset: usize,
+) -> ArchitectureAlignment {
+    ArchitectureAlignment {
+        axis: shift_spanned(alignment.axis, offset),
+        members: alignment
+            .members
+            .into_iter()
+            .map(|member| shift_spanned(member, offset))
+            .collect(),
+        span: shift_span(alignment.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -11503,12 +12138,13 @@ mod tests {
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
     use crate::ast::{
-        ArrowHead, BlockArrowDirection, BlockShape, ClassMemberKind, ClassRelationshipLine,
-        ClassRelationshipMarker, ClassStatement, DiagramKind, Direction, ErCardinality,
-        ErStatement, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective, GanttTaskTag,
-        GitGraphCommitKind, GitGraphOrientation, LabelKind, QuadrantAxisKind, SequenceActivation,
-        SequenceArrow, SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind,
-        SequenceStatement, Span, StateDirective, StateNodeKind, StateStatement, ZenUmlMessageKind,
+        ArchitectureAlignAxis, ArchitectureSide, ArrowHead, BlockArrowDirection, BlockShape,
+        ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
+        DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
+        FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
+        LabelKind, QuadrantAxisKind, SequenceActivation, SequenceArrow, SequenceControlKind,
+        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
+        StateNodeKind, StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -11858,6 +12494,31 @@ mod tests {
     }
 
     #[test]
+    fn parses_architecture_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "architecture-beta\ngroup api(cloud)[API]\nservice gateway(server)[Gateway] in api\nservice db(database)[Database]\njunction join in api\ngateway:R --> L:db\nalign row gateway join",
+        )
+        .unwrap();
+
+        let DiagramKind::Architecture(ast) = diagram.kind else {
+            panic!("expected Architecture diagram");
+        };
+        assert_eq!(ast.groups.len(), 1);
+        assert_eq!(ast.groups[0].id.value, "api");
+        assert_eq!(ast.groups[0].icon.as_ref().unwrap().text, "cloud");
+        assert_eq!(ast.groups[0].title.as_ref().unwrap().text, "API");
+        assert_eq!(ast.services.len(), 2);
+        assert_eq!(ast.services[0].parent.as_ref().unwrap().value, "api");
+        assert_eq!(ast.junctions[0].id.value, "join");
+        assert_eq!(ast.edges.len(), 1);
+        assert!(ast.edges[0].arrow_end);
+        assert_eq!(ast.edges[0].from.side.value, ArchitectureSide::Right);
+        assert_eq!(ast.edges[0].to.side.value, ArchitectureSide::Left);
+        assert_eq!(ast.alignments[0].axis.value, ArchitectureAlignAxis::Row);
+        assert_eq!(ast.alignments[0].members.len(), 2);
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -11956,7 +12617,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Architecture", "architecture-beta"),
             ("Radar", "radar-beta"),
             ("Event Modeling", "eventmodeling"),
             ("Treemap", "treemap-beta"),
