@@ -1,0 +1,9 @@
+{
+  "name": "kumeyuri-claude-code-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/render-mermaid-blocks.test.mjs"
+  }
+}
