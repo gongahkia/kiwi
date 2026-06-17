@@ -19,7 +19,7 @@ const FIXTURES: &[(&str, &str, ParseErrorKind)] = &[
     (
         "malformed_frontmatter",
         include_str!("../../../tests/fuzz/negative-mermaid/malformed_frontmatter.mmd"),
-        ParseErrorKind::ExpectedDiagramHeader,
+        ParseErrorKind::UnsupportedMermaidConfig,
     ),
     (
         "unknown_root_typo",

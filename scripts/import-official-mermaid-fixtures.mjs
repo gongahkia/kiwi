@@ -32,7 +32,6 @@ const fixtures = [
     expectedParserStatus: "pass",
     expectedRenderStatus: "pass",
     source: `%% generated from official Mermaid flowchart examples
-%%{ init: { 'theme': 'base' } }%%
 flowchart LR
 A[Start] --> B{Ready?}
 B -- Yes --> C[Ship]

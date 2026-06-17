@@ -117,6 +117,7 @@ pub enum ParseErrorKind {
     ExpectedC4Argument,
     ExpectedC4Name,
     ExpectedC4Relationship,
+    UnsupportedMermaidConfig,
     TrailingInput,
 }
 
@@ -344,12 +345,14 @@ impl<'source> DiagramParser<'source> {
 
     fn parse(mut self) -> Result<Diagram, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedDiagramHeader,
             span: Span::new(self.source.len(), self.source.len()),
         })?;
 
         if let Ok(flow_header) = Parser::parse_flowchart_header(header.text) {
+            reject_unsupported_flowchart_config_directives(&self.directives)?;
             self.cursor = header.line.next;
             let ast =
                 self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))?;
@@ -432,17 +435,20 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_flowchart_only(mut self) -> Result<FlowchartAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedFlowchartDirective,
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let flow_header = Parser::parse_flowchart_header(header.text)?;
+        reject_unsupported_flowchart_config_directives(&self.directives)?;
         self.cursor = header.line.next;
         self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))
     }
 
     fn parse_sequence_only(mut self) -> Result<SequenceAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedSequenceHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -454,6 +460,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_state_only(mut self) -> Result<StateAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedStateHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -465,6 +472,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_class_only(mut self) -> Result<ClassAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedClassHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -476,6 +484,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_er_only(mut self) -> Result<ErAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedErHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -487,6 +496,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_gantt_only(mut self) -> Result<GanttAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedGanttHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -498,6 +508,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_pie_only(mut self) -> Result<PieAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedPieHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -509,6 +520,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedMindmapHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -520,6 +532,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_journey_only(mut self) -> Result<JourneyAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedJourneyHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -531,6 +544,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_gitgraph_only(mut self) -> Result<GitGraphAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedGitGraphHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -542,6 +556,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_timeline_only(mut self) -> Result<TimelineAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedTimelineHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -553,6 +568,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_requirement_only(mut self) -> Result<RequirementAst, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedRequirementHeader,
             span: Span::new(self.source.len(), self.source.len()),
@@ -564,6 +580,7 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_c4_only(mut self) -> Result<C4Ast, ParseError> {
         self.skip_preamble();
+        self.reject_frontmatter()?;
         let header = self.current_trimmed_line().ok_or(ParseError {
             kind: ParseErrorKind::ExpectedC4Header,
             span: Span::new(self.source.len(), self.source.len()),
@@ -600,6 +617,31 @@ impl<'source> DiagramParser<'source> {
             }
             break;
         }
+    }
+
+    fn reject_frontmatter(&self) -> Result<(), ParseError> {
+        let Some(line) = self.current_trimmed_line() else {
+            return Ok(());
+        };
+        if line.text != "---" {
+            return Ok(());
+        }
+        let mut cursor = line.line.next;
+        let mut end = line.end;
+        while let Some(next) = source_line(self.source, cursor) {
+            end = next.next;
+            if let Some((trim_start, trim_end)) = trim_ascii_range(next.text)
+                && &next.text[trim_start..trim_end] == "---"
+            {
+                end = next.start + trim_end;
+                break;
+            }
+            cursor = next.next;
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnsupportedMermaidConfig,
+            span: Span::new(line.start, end),
+        })
     }
 
     fn parse_flowchart_body(
@@ -1236,9 +1278,9 @@ fn parse_flow_document_statements(
     offset: usize,
 ) -> Result<Vec<FlowStatement>, ParseError> {
     if let Ok(directive) = Parser::parse_mermaid_directive(statement) {
-        return Ok(vec![FlowStatement::Directive(shift_directive(
-            directive, offset,
-        ))]);
+        let directive = shift_directive(directive, offset);
+        reject_unsupported_flowchart_config_directive(&directive)?;
+        return Ok(vec![FlowStatement::Directive(directive)]);
     }
     if let Ok(comment) = Parser::parse_mermaid_comment(statement) {
         return Ok(vec![FlowStatement::Comment(shift_comment(comment, offset))]);
@@ -7668,6 +7710,44 @@ fn reject_reserved_flow_label(label: &Label) -> Result<(), ParseError> {
         });
     }
     Ok(())
+}
+
+fn reject_unsupported_flowchart_config_directives(
+    directives: &[MermaidDirective],
+) -> Result<(), ParseError> {
+    for directive in directives {
+        reject_unsupported_flowchart_config_directive(directive)?;
+    }
+    Ok(())
+}
+
+fn reject_unsupported_flowchart_config_directive(
+    directive: &MermaidDirective,
+) -> Result<(), ParseError> {
+    if is_unsupported_flowchart_config_directive(directive) {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnsupportedMermaidConfig,
+            span: directive.span,
+        });
+    }
+    Ok(())
+}
+
+fn is_unsupported_flowchart_config_directive(directive: &MermaidDirective) -> bool {
+    let key = directive.key.as_ref().map(|key| key.value.as_str());
+    if matches!(
+        key,
+        Some("layout" | "look" | "theme" | "themeVariables" | "curve" | "elk" | "ELK")
+    ) {
+        return true;
+    }
+    if !matches!(key, Some("init" | "initialize")) {
+        return false;
+    }
+    let raw = directive.raw.to_ascii_lowercase();
+    ["layout", "look", "theme", "themevariables", "curve", "elk"]
+        .iter()
+        .any(|field| raw.contains(field))
 }
 
 #[cfg(test)]
