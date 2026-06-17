@@ -16,6 +16,7 @@ pub enum DiagramKind {
     Gantt(Box<GanttAst>),
     Pie(Box<PieAst>),
     Quadrant(Box<QuadrantAst>),
+    ZenUml(Box<ZenUmlAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -780,6 +781,79 @@ pub enum QuadrantStatement {
     Point(Box<QuadrantPoint>),
     ClassDef(FlowClassDef),
     ClassApply(FlowClassApply),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZenUmlAst {
+    pub header: ZenUmlHeader,
+    pub title: Option<Label>,
+    pub participants: Vec<ZenUmlParticipant>,
+    pub messages: Vec<ZenUmlMessage>,
+    pub fragments: Vec<ZenUmlFragment>,
+    pub statements: Vec<ZenUmlStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ZenUmlHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZenUmlParticipant {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub annotator: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ZenUmlMessageKind {
+    Sync,
+    Async,
+    Create,
+    Reply,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZenUmlMessage {
+    pub from: Option<Spanned<String>>,
+    pub to: Spanned<String>,
+    pub label: Option<Label>,
+    pub kind: Spanned<ZenUmlMessageKind>,
+    pub depth: u16,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ZenUmlFragmentKind {
+    Loop,
+    Alt,
+    Opt,
+    Parallel,
+    Try,
+    Catch,
+    Finally,
+    Block,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZenUmlFragment {
+    pub kind: Spanned<ZenUmlFragmentKind>,
+    pub label: Option<Label>,
+    pub depth: u16,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ZenUmlStatement {
+    Title(Label),
+    Participant(ZenUmlParticipant),
+    Message(Box<ZenUmlMessage>),
+    Fragment(ZenUmlFragment),
+    BlockEnd(Span),
     Comment(MermaidComment),
     Directive(MermaidDirective),
 }

@@ -21,7 +21,9 @@ use crate::ast::{
     SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
     SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
     StateNode, StateNodeKind, StateNote, StateStatement, StateTransition, TimelineAst,
-    TimelineHeader, TimelinePeriod, TimelineStatement,
+    TimelineHeader, TimelinePeriod, TimelineStatement, ZenUmlAst, ZenUmlFragment,
+    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
+    ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +96,10 @@ pub enum ParseErrorKind {
     ExpectedQuadrantAxis,
     ExpectedQuadrantPoint,
     ExpectedQuadrantValue,
+    ExpectedZenUmlHeader,
+    UnknownZenUmlStatement,
+    ExpectedZenUmlParticipant,
+    ExpectedZenUmlMessage,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -169,6 +175,10 @@ impl Parser {
 
     pub fn parse_quadrant(source: &str) -> Result<QuadrantAst, ParseError> {
         DiagramParser::new(source).parse_quadrant_only()
+    }
+
+    pub fn parse_zenuml(source: &str) -> Result<ZenUmlAst, ParseError> {
+        DiagramParser::new(source).parse_zenuml_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -302,6 +312,14 @@ impl Parser {
         QuadrantStatementParser::new(source).parse()
     }
 
+    pub fn parse_zenuml_header(source: &str) -> Result<ZenUmlHeader, ParseError> {
+        ZenUmlHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_zenuml_statement(source: &str) -> Result<ZenUmlStatement, ParseError> {
+        ZenUmlStatementParser::new(source, 0).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -414,6 +432,11 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Quadrant(Box::new(ast))));
+        }
+        if let Ok(zenuml_header) = Parser::parse_zenuml_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::ZenUml(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -555,6 +578,18 @@ impl<'source> DiagramParser<'source> {
         let quadrant_header = Parser::parse_quadrant_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))
+    }
+
+    fn parse_zenuml_only(mut self) -> Result<ZenUmlAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedZenUmlHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let zenuml_header = Parser::parse_zenuml_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1035,6 +1070,69 @@ impl<'source> DiagramParser<'source> {
                 line.start,
             );
             push_quadrant_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_zenuml_body(&mut self, header: ZenUmlHeader) -> Result<ZenUmlAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = ZenUmlAst {
+            header,
+            title: None,
+            participants: Vec::new(),
+            messages: Vec::new(),
+            fragments: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut depth = 0u16;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let mut start = line.start;
+            let mut text = line.text;
+            let mut closed_only = false;
+            loop {
+                let leading = text.len() - text.trim_start().len();
+                start += leading;
+                text = text.trim_start();
+                if !text.starts_with('}') {
+                    break;
+                }
+                depth = depth.saturating_sub(1);
+                let close_span = Span::new(start, start + 1);
+                start += 1;
+                text = &text[1..];
+                if text.trim().is_empty() {
+                    ast.statements.push(ZenUmlStatement::BlockEnd(close_span));
+                    closed_only = true;
+                    break;
+                }
+            }
+            if closed_only {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let trimmed_end = text.trim_end();
+            let opens_block = trimmed_end.ends_with('{');
+            let statement_text = if opens_block {
+                trimmed_end[..trimmed_end.len() - 1].trim_end()
+            } else {
+                trimmed_end
+            };
+            if !statement_text.is_empty() {
+                let statement = shift_zenuml_statement(
+                    ZenUmlStatementParser::new(statement_text, depth)
+                        .parse()
+                        .map_err(|error| shift_error(error, start))?,
+                    start,
+                );
+                push_zenuml_statement(&mut ast, statement);
+            }
+            if opens_block {
+                depth = depth.saturating_add(1);
+            }
             self.cursor = line.line.next;
         }
 
@@ -1602,6 +1700,57 @@ fn push_quadrant_statement(ast: &mut QuadrantAst, statement: QuadrantStatement) 
         | QuadrantStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
+}
+
+fn push_zenuml_statement(ast: &mut ZenUmlAst, statement: ZenUmlStatement) {
+    match &statement {
+        ZenUmlStatement::Title(title) => ast.title = Some(title.clone()),
+        ZenUmlStatement::Participant(participant) => {
+            ensure_zenuml_participant(ast, participant.clone());
+        }
+        ZenUmlStatement::Message(message) => {
+            if let Some(from) = &message.from {
+                ensure_zenuml_participant(
+                    ast,
+                    ZenUmlParticipant {
+                        id: from.clone(),
+                        label: None,
+                        annotator: None,
+                        span: from.span,
+                    },
+                );
+            }
+            ensure_zenuml_participant(
+                ast,
+                ZenUmlParticipant {
+                    id: message.to.clone(),
+                    label: None,
+                    annotator: None,
+                    span: message.to.span,
+                },
+            );
+            ast.messages.push((**message).clone());
+        }
+        ZenUmlStatement::Fragment(fragment) => ast.fragments.push(fragment.clone()),
+        ZenUmlStatement::BlockEnd(_)
+        | ZenUmlStatement::Comment(_)
+        | ZenUmlStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn ensure_zenuml_participant(ast: &mut ZenUmlAst, participant: ZenUmlParticipant) {
+    if let Some(existing) = ast
+        .participants
+        .iter_mut()
+        .find(|existing| existing.id.value == participant.id.value)
+    {
+        if participant.label.is_some() {
+            *existing = participant;
+        }
+    } else {
+        ast.participants.push(participant);
+    }
 }
 
 fn push_journey_statement(ast: &mut JourneyAst, statement: JourneyStatement) {
@@ -3196,6 +3345,36 @@ impl<'source> QuadrantHeaderParser<'source> {
     }
 }
 
+struct ZenUmlHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> ZenUmlHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<ZenUmlHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedZenUmlHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "zenuml" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedZenUmlHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(ZenUmlHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -3513,6 +3692,250 @@ impl<'source> QuadrantStatementParser<'source> {
             y: parse_quadrant_value(self.source, comma + 1, inner_end)?,
             span: Span::new(start, end),
         }))
+    }
+}
+
+struct ZenUmlStatementParser<'source> {
+    source: &'source str,
+    depth: u16,
+}
+
+impl<'source> ZenUmlStatementParser<'source> {
+    fn new(source: &'source str, depth: u16) -> Self {
+        Self {
+            source: first_line(source),
+            depth,
+        }
+    }
+
+    fn parse(&self) -> Result<ZenUmlStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownZenUmlStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(ZenUmlStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Some(comment) = self.parse_comment(start, end) {
+            return Ok(ZenUmlStatement::Comment(comment));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownZenUmlStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(ZenUmlStatement::Title(label));
+        }
+        if let Some(fragment) = self.parse_fragment(start, end)? {
+            return Ok(ZenUmlStatement::Fragment(fragment));
+        }
+        if let Some(message) = self.parse_message(start, end)? {
+            return Ok(ZenUmlStatement::Message(Box::new(message)));
+        }
+        if let Some(participant) = self.parse_participant(start, end)? {
+            return Ok(ZenUmlStatement::Participant(participant));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownZenUmlStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_comment(&self, start: usize, end: usize) -> Option<MermaidComment> {
+        if self.source[start..end].starts_with("//") {
+            return Some(MermaidComment {
+                text: self.source[start + 2..end].trim().to_owned(),
+                span: Span::new(start, end),
+            });
+        }
+        Parser::parse_mermaid_comment(&self.source[start..end])
+            .ok()
+            .map(|comment| shift_comment(comment, start))
+    }
+
+    fn parse_fragment(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ZenUmlFragment>, ParseError> {
+        let Some((keyword, kind)) = zenuml_fragment_keyword(&self.source[start..end]) else {
+            return Ok(None);
+        };
+        let label = label_from_trimmed(self.source, start + keyword.len(), end);
+        Ok(Some(ZenUmlFragment {
+            kind: Spanned::new(kind, Span::new(start, start + keyword.len())),
+            label,
+            depth: self.depth,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_message(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ZenUmlMessage>, ParseError> {
+        if has_keyword(self.source, start, "return") {
+            let label = label_from_trimmed(self.source, start + "return".len(), end);
+            return Ok(Some(ZenUmlMessage {
+                from: None,
+                to: Spanned::new("return".to_owned(), Span::new(start, start + "return".len())),
+                label,
+                kind: Spanned::new(
+                    ZenUmlMessageKind::Reply,
+                    Span::new(start, start + "return".len()),
+                ),
+                depth: self.depth,
+                span: Span::new(start, end),
+            }));
+        }
+        if has_keyword(self.source, start, "new") {
+            return Ok(Some(self.parse_create_message(start, end)?));
+        }
+        let mut message_start = start;
+        let mut kind_override = None;
+        if self.source[start..end].starts_with("@return") {
+            message_start = start + "@return".len();
+            kind_override = Some(ZenUmlMessageKind::Reply);
+        }
+        if let Some(message) = self.parse_arrow_message(message_start, end, kind_override)? {
+            return Ok(Some(message.with_span_start(start)));
+        }
+        if let Some(message) = self.parse_call_message(start, end)? {
+            return Ok(Some(message));
+        }
+        Ok(None)
+    }
+
+    fn parse_create_message(&self, start: usize, end: usize) -> Result<ZenUmlMessage, ParseError> {
+        let target_start = start + "new".len();
+        let target = parse_zenuml_target(self.source, target_start, end)?;
+        Ok(ZenUmlMessage {
+            from: None,
+            label: label_from_trimmed(self.source, start, end),
+            kind: Spanned::new(ZenUmlMessageKind::Create, Span::new(start, start + "new".len())),
+            depth: self.depth,
+            span: Span::new(start, end),
+            to: target,
+        })
+    }
+
+    fn parse_arrow_message(
+        &self,
+        start: usize,
+        end: usize,
+        kind_override: Option<ZenUmlMessageKind>,
+    ) -> Result<Option<ZenUmlMessage>, ParseError> {
+        let Some(arrow_offset) = self.source[start..end].find("->") else {
+            return Ok(None);
+        };
+        let arrow = start + arrow_offset;
+        let from = parse_zenuml_target(self.source, start, arrow)?;
+        let rhs_start = arrow + "->".len();
+        let (to_end, label) = if let Some(colon) = self.source[rhs_start..end].find(':') {
+            let colon = rhs_start + colon;
+            (
+                colon,
+                label_from_trimmed(self.source, colon + 1, end).or_else(|| {
+                    label_from_trimmed(self.source, rhs_start, end)
+                }),
+            )
+        } else {
+            let target_end = zenuml_target_end(self.source, rhs_start, end);
+            (
+                target_end,
+                label_from_trimmed(self.source, target_end, end)
+                    .or_else(|| zenuml_method_label(self.source, rhs_start, end)),
+            )
+        };
+        let to = parse_zenuml_target(self.source, rhs_start, to_end)?;
+        Ok(Some(ZenUmlMessage {
+            from: Some(from),
+            to,
+            label,
+            kind: Spanned::new(
+                kind_override.unwrap_or(ZenUmlMessageKind::Async),
+                Span::new(arrow, arrow + "->".len()),
+            ),
+            depth: self.depth,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_call_message(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ZenUmlMessage>, ParseError> {
+        let expression_start = self.source[start..end]
+            .find('=')
+            .map_or(start, |offset| start + offset + 1);
+        let Some(dot_offset) = self.source[expression_start..end].find('.') else {
+            return Ok(None);
+        };
+        let dot = expression_start + dot_offset;
+        let to = parse_zenuml_target(self.source, expression_start, dot)?;
+        let label = label_from_trimmed(self.source, dot + 1, end)
+            .or_else(|| label_from_trimmed(self.source, expression_start, end));
+        Ok(Some(ZenUmlMessage {
+            from: None,
+            to,
+            label,
+            kind: Spanned::new(ZenUmlMessageKind::Sync, Span::new(dot, dot + 1)),
+            depth: self.depth,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_participant(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<ZenUmlParticipant>, ParseError> {
+        let mut participant_start = start;
+        let mut annotator = None;
+        if has_keyword(self.source, start, "participant") {
+            participant_start = start + "participant".len();
+        } else if self.source[start..end].starts_with('@') {
+            let annotator_end = self.source[start..end]
+                .find(|value: char| value.is_ascii_whitespace())
+                .map_or(end, |offset| start + offset);
+            annotator = Some(Spanned::new(
+                self.source[start + 1..annotator_end].to_owned(),
+                Span::new(start + 1, annotator_end),
+            ));
+            participant_start = annotator_end;
+        }
+        let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[participant_start..end])
+        else {
+            return Ok(None);
+        };
+        let id_start = participant_start + trim_start;
+        let rest_end = participant_start + trim_end;
+        if !zenuml_decl_like(&self.source[id_start..rest_end], annotator.is_some()) {
+            return Ok(None);
+        }
+        Ok(Some(parse_zenuml_participant_decl(
+            self.source,
+            id_start,
+            rest_end,
+            annotator,
+        )?))
+    }
+}
+
+trait ZenUmlMessageSpan {
+    fn with_span_start(self, start: usize) -> Self;
+}
+
+impl ZenUmlMessageSpan for ZenUmlMessage {
+    fn with_span_start(mut self, start: usize) -> Self {
+        self.span = Span::new(start, self.span.end);
+        self
     }
 }
 
@@ -5814,6 +6237,134 @@ fn parse_quadrant_value(
         (value * 1000.0).round() as u16,
         Span::new(absolute_start, absolute_end),
     ))
+}
+
+fn zenuml_fragment_keyword(source: &str) -> Option<(&'static str, ZenUmlFragmentKind)> {
+    const KEYWORDS: [(&str, ZenUmlFragmentKind); 9] = [
+        ("while", ZenUmlFragmentKind::Loop),
+        ("for", ZenUmlFragmentKind::Loop),
+        ("if", ZenUmlFragmentKind::Alt),
+        ("else", ZenUmlFragmentKind::Alt),
+        ("opt", ZenUmlFragmentKind::Opt),
+        ("par", ZenUmlFragmentKind::Parallel),
+        ("try", ZenUmlFragmentKind::Try),
+        ("catch", ZenUmlFragmentKind::Catch),
+        ("finally", ZenUmlFragmentKind::Finally),
+    ];
+    KEYWORDS
+        .into_iter()
+        .find(|(keyword, _)| source == *keyword || source.starts_with(&format!("{keyword} ")))
+}
+
+fn parse_zenuml_target(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedZenUmlMessage,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let trimmed_end = start + trim_end;
+    let absolute_end = zenuml_target_end(source, absolute_start, trimmed_end);
+    if absolute_start >= absolute_end || !is_zenuml_identifier(&source[absolute_start..absolute_end])
+    {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedZenUmlMessage,
+            span: Span::new(absolute_start, trimmed_end),
+        });
+    }
+    Ok(Spanned::new(
+        source[absolute_start..absolute_end].to_owned(),
+        Span::new(absolute_start, absolute_end),
+    ))
+}
+
+fn zenuml_target_end(source: &str, start: usize, end: usize) -> usize {
+    source[start..end]
+        .find(|value: char| value == '.' || value == '(' || value == ':' || value.is_whitespace())
+        .map_or(end, |offset| start + offset)
+}
+
+fn zenuml_method_label(source: &str, start: usize, end: usize) -> Option<Label> {
+    let dot = source[start..end].find('.')?;
+    label_from_trimmed(source, start + dot + 1, end)
+}
+
+fn zenuml_decl_like(source: &str, has_annotator: bool) -> bool {
+    has_annotator
+        || source.split_ascii_whitespace().any(|part| part == "as")
+        || is_zenuml_identifier(source.trim())
+}
+
+fn parse_zenuml_participant_decl(
+    source: &str,
+    start: usize,
+    end: usize,
+    annotator: Option<Spanned<String>>,
+) -> Result<ZenUmlParticipant, ParseError> {
+    let Some(as_start) = find_zenuml_as(source, start, end) else {
+        let id = parse_zenuml_target(source, start, end).map_err(|_| ParseError {
+            kind: ParseErrorKind::ExpectedZenUmlParticipant,
+            span: Span::new(start, end),
+        })?;
+        return Ok(ZenUmlParticipant {
+            id,
+            label: None,
+            annotator,
+            span: Span::new(start, end),
+        });
+    };
+    let id = parse_zenuml_target(source, start, as_start).map_err(|_| ParseError {
+        kind: ParseErrorKind::ExpectedZenUmlParticipant,
+        span: Span::new(start, as_start),
+    })?;
+    let label = label_from_trimmed(source, as_start + "as".len(), end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedZenUmlParticipant,
+        span: Span::new(as_start + "as".len(), end),
+    })?;
+    Ok(ZenUmlParticipant {
+        id,
+        label: Some(label),
+        annotator,
+        span: Span::new(start, end),
+    })
+}
+
+fn find_zenuml_as(source: &str, start: usize, end: usize) -> Option<usize> {
+    let mut cursor = start;
+    while cursor < end {
+        let Some(offset) = source[cursor..end].find("as") else {
+            return None;
+        };
+        let absolute = cursor + offset;
+        let before = absolute == start
+            || source
+                .as_bytes()
+                .get(absolute.saturating_sub(1))
+                .is_some_and(u8::is_ascii_whitespace);
+        let after = source
+            .as_bytes()
+            .get(absolute + "as".len())
+            .is_some_and(u8::is_ascii_whitespace);
+        if before && after {
+            return Some(absolute);
+        }
+        cursor = absolute + "as".len();
+    }
+    None
+}
+
+fn is_zenuml_identifier(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == b'_' || first == b'$')
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$')
 }
 
 #[derive(Debug, Clone)]
