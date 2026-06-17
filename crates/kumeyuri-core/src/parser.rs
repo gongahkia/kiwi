@@ -366,6 +366,7 @@ impl<'source> DiagramParser<'source> {
             return Ok(self.diagram(DiagramKind::Sequence(Box::new(ast))));
         }
         if let Ok(state_header) = Parser::parse_state_header(header.text) {
+            reject_unsupported_state_config_directives(&self.directives)?;
             self.cursor = header.line.next;
             let ast = self.parse_state_body(shift_state_header(state_header, header.start))?;
             return Ok(self.diagram(DiagramKind::State(Box::new(ast))));
@@ -467,6 +468,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let state_header = Parser::parse_state_header(header.text)?;
+        reject_unsupported_state_config_directives(&self.directives)?;
         self.cursor = header.line.next;
         self.parse_state_body(shift_state_header(state_header, header.start))
     }
@@ -771,9 +773,10 @@ impl<'source> DiagramParser<'source> {
                 }
                 StateStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
                 StateStatement::Direction(direction) => ast.direction = Some(*direction),
-                StateStatement::ClassApply(_)
-                | StateStatement::Comment(_)
-                | StateStatement::Directive(_) => {}
+                StateStatement::Directive(directive) => {
+                    reject_unsupported_state_config_directive(directive)?;
+                }
+                StateStatement::ClassApply(_) | StateStatement::Comment(_) => {}
             }
             ast.statements.push(statement);
             self.cursor = line.line.next;
@@ -8007,6 +8010,39 @@ fn is_unsupported_flowchart_config_directive(directive: &MermaidDirective) -> bo
     ["layout", "look", "theme", "themevariables", "curve", "elk"]
         .iter()
         .any(|field| raw.contains(field))
+}
+
+fn reject_unsupported_state_config_directives(
+    directives: &[MermaidDirective],
+) -> Result<(), ParseError> {
+    for directive in directives {
+        reject_unsupported_state_config_directive(directive)?;
+    }
+    Ok(())
+}
+
+fn reject_unsupported_state_config_directive(
+    directive: &MermaidDirective,
+) -> Result<(), ParseError> {
+    if is_unsupported_state_config_directive(directive) {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnsupportedMermaidConfig,
+            span: directive.span,
+        });
+    }
+    Ok(())
+}
+
+fn is_unsupported_state_config_directive(directive: &MermaidDirective) -> bool {
+    let key = directive.key.as_ref().map(|key| key.value.as_str());
+    if matches!(key, Some("layout" | "look")) {
+        return true;
+    }
+    if !matches!(key, Some("init" | "initialize")) {
+        return false;
+    }
+    let raw = directive.raw.to_ascii_lowercase();
+    ["layout", "look"].iter().any(|field| raw.contains(field))
 }
 
 #[cfg(test)]
