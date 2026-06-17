@@ -47,6 +47,7 @@ pub enum ParseErrorKind {
     ExpectedFlowNodeId,
     MissingFlowNodeShape,
     UnknownFlowNodeShape,
+    ReservedFlowNodeLabel,
     UnterminatedFlowNodeShape,
     ExpectedFlowEdge,
     ExpectedSubgraphHeader,
@@ -1236,8 +1237,15 @@ fn parse_flow_document_statements(
             edge, offset,
         )))]);
     }
-    if let Ok(node) = Parser::parse_flow_node(statement) {
-        return Ok(vec![FlowStatement::Node(shift_node(node, offset))]);
+    match Parser::parse_flow_node(statement) {
+        Ok(node) => return Ok(vec![FlowStatement::Node(shift_node(node, offset))]),
+        Err(error) if error.kind == ParseErrorKind::ReservedFlowNodeLabel => {
+            return Err(ParseError {
+                kind: error.kind,
+                span: shift_span(error.span, offset),
+            });
+        }
+        Err(_) => {}
     }
     Err(ParseError {
         kind: ParseErrorKind::UnknownFlowStatement,
@@ -3736,6 +3744,9 @@ impl<'source> FlowNodeParser<'source> {
                 id.span.end,
             ),
         };
+        if let Some(label) = &label {
+            reject_reserved_flow_label(label)?;
+        }
 
         Ok(FlowNode {
             span: Span::new(id.span.start, node_end),
@@ -7608,6 +7619,16 @@ fn label_from_body(source: &str, start: usize, end: usize) -> Label {
     }
 }
 
+fn reject_reserved_flow_label(label: &Label) -> Result<(), ParseError> {
+    if label.kind == LabelKind::Plain && label.text == "end" {
+        return Err(ParseError {
+            kind: ParseErrorKind::ReservedFlowNodeLabel,
+            span: label.span,
+        });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -8024,6 +8045,25 @@ cherry-pick id: "feat" parent: "base""#,
         let markdown_label = markdown.label.unwrap();
         assert_eq!(markdown_label.kind, LabelKind::Markdown);
         assert_eq!(markdown_label.text, "strong");
+    }
+
+    #[test]
+    fn rejects_unquoted_reserved_end_flow_label() {
+        assert_eq!(
+            Parser::parse_flow_node("A[end]").unwrap_err(),
+            ParseError {
+                kind: ParseErrorKind::ReservedFlowNodeLabel,
+                span: Span::new(2, 5),
+            },
+        );
+        assert_eq!(
+            Parser::parse_flow_node(r#"A["end"]"#)
+                .unwrap()
+                .label
+                .unwrap()
+                .text,
+            "end",
+        );
     }
 
     #[test]
