@@ -5,7 +5,8 @@ use crate::ast::{
     GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, IshikawaAst, JourneyAst, KanbanAst,
     MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, TreemapAst, VennAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    TimelineAst, TreemapAst, VennAst, WardleyAst, WardleyComponentKind, WardleyDecorator,
+    WardleyLinkKind, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
@@ -25,11 +26,14 @@ use crate::layout::{
     PositionedSankeyLink, PositionedSequenceActivation, PositionedSequenceBox,
     PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
     PositionedTreemapNode, PositionedVennSet, PositionedVennStyle, PositionedVennUnion,
-    PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine,
-    RadarLayout, RadarLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout,
-    SankeyLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
-    TimelineLayout, TimelineLayoutEngine, TreemapLayout, TreemapLayoutEngine, VennLayout,
-    VennLayoutEngine, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
+    PositionedWardleyComponent, PositionedWardleyEvolve, PositionedWardleyLink,
+    PositionedWardleyText, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
+    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
+    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    TreemapLayout, TreemapLayoutEngine, VennLayout, VennLayoutEngine, WardleyLayout,
+    WardleyLayoutEngine, WardleyTextKind, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout,
+    ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -363,6 +367,7 @@ pub struct StaticFrameRenderer {
     treemap: TreemapLayoutEngine,
     venn: VennLayoutEngine,
     ishikawa: IshikawaLayoutEngine,
+    wardley: WardleyLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -401,6 +406,7 @@ impl StaticFrameRenderer {
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
+            wardley: WardleyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -440,6 +446,7 @@ impl StaticFrameRenderer {
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
+            wardley: WardleyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -479,6 +486,7 @@ impl StaticFrameRenderer {
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
+            wardley: WardleyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -541,6 +549,7 @@ impl StaticFrameRenderer {
             DiagramKind::Treemap(ast) => self.render_treemap(ast),
             DiagramKind::Venn(ast) => self.render_venn(ast),
             DiagramKind::Ishikawa(ast) => self.render_ishikawa(ast),
+            DiagramKind::Wardley(ast) => self.render_wardley(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -668,6 +677,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_ishikawa(&self, ast: &IshikawaAst) -> Frame {
         render_ishikawa_layout(&self.ishikawa.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_wardley(&self, ast: &WardleyAst) -> Frame {
+        render_wardley_layout(&self.wardley.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -2283,6 +2297,202 @@ fn draw_ishikawa_node(
 ) {
     draw_box(frame, node.rect, palette, node_style);
     write_centered(frame, node.rect, &node.label, text_style);
+}
+
+fn render_wardley_layout(layout: &WardleyLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_centered_row(&mut frame, 0, title, text_style.clone());
+    }
+    draw_wardley_axes(&mut frame, layout, palette, edge_style.clone(), muted_style.clone());
+    for link in &layout.links {
+        draw_wardley_link(&mut frame, link, edge_style.clone());
+    }
+    for evolve in &layout.evolves {
+        draw_wardley_evolve(&mut frame, evolve, edge_style.clone(), muted_style.clone());
+    }
+    for text in &layout.texts {
+        draw_wardley_text(&mut frame, text, muted_style.clone());
+    }
+    for component in &layout.components {
+        draw_wardley_component(
+            &mut frame,
+            component,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    if let Some(origin) = layout.annotations_origin {
+        write_text_safe(&mut frame, origin.x, origin.y, "annotations", muted_style);
+    }
+    frame
+}
+
+fn draw_wardley_axes(
+    frame: &mut Frame,
+    layout: &WardleyLayout,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, layout.plot, palette, edge_style.clone());
+    let stage_count = layout.stages.len().max(1);
+    for (index, stage) in layout.stages.iter().enumerate() {
+        let x = layout.plot.origin.x
+            + ((index as i32 * layout.plot.size.width) / stage_count as i32).min(layout.plot.size.width - 1);
+        draw_vertical(
+            frame,
+            x,
+            layout.plot.origin.y,
+            layout.plot.bottom().saturating_sub(1),
+            ':',
+            edge_style.clone(),
+        );
+        write_text_safe(
+            frame,
+            x,
+            layout.plot.bottom() + 1,
+            &event_modeling_fit(stage, 14),
+            text_style.clone(),
+        );
+    }
+    write_text_safe(
+        frame,
+        layout.plot.origin.x,
+        layout.plot.origin.y.saturating_sub(1),
+        "visible",
+        text_style.clone(),
+    );
+    write_text_safe(
+        frame,
+        layout.plot.right().saturating_sub(9),
+        layout.plot.bottom() + 2,
+        "evolved",
+        text_style,
+    );
+}
+
+fn draw_wardley_link(frame: &mut Frame, link: &PositionedWardleyLink, style: CellStyle) {
+    let glyph = match link.kind {
+        WardleyLinkKind::Dashed => '.',
+        WardleyLinkKind::Flow | WardleyLinkKind::ReverseFlow | WardleyLinkKind::BidirectionalFlow => '=',
+        WardleyLinkKind::Dependency => '-',
+    };
+    draw_straight_line(frame, link.from, link.to, glyph, style.clone());
+    put_safe(frame, link.to.x, link.to.y, '>', style.clone());
+    if matches!(link.kind, WardleyLinkKind::ReverseFlow | WardleyLinkKind::BidirectionalFlow) {
+        put_safe(frame, link.from.x, link.from.y, '<', style.clone());
+    }
+    if let Some(label) = &link.label {
+        let midpoint = Point {
+            x: (link.from.x + link.to.x) / 2,
+            y: (link.from.y + link.to.y) / 2,
+        };
+        write_text_safe(frame, midpoint.x + 1, midpoint.y, label, style);
+    }
+}
+
+fn draw_wardley_evolve(
+    frame: &mut Frame,
+    evolve: &PositionedWardleyEvolve,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_straight_line(frame, evolve.from, evolve.to, '.', edge_style.clone());
+    put_safe(frame, evolve.to.x, evolve.to.y, '>', edge_style);
+    write_text_safe(frame, evolve.to.x + 1, evolve.to.y, &evolve.name, text_style);
+}
+
+fn draw_wardley_text(frame: &mut Frame, text: &PositionedWardleyText, style: CellStyle) {
+    let prefix = match text.kind {
+        WardleyTextKind::Note => "note",
+        WardleyTextKind::Annotation => "#",
+        WardleyTextKind::Accelerator => "accel",
+        WardleyTextKind::Deaccelerator => "decel",
+    };
+    write_text_safe(
+        frame,
+        text.point.x + 1,
+        text.point.y,
+        &format!("{prefix}: {}", text.text),
+        style,
+    );
+}
+
+fn draw_wardley_component(
+    frame: &mut Frame,
+    component: &PositionedWardleyComponent,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    let glyph = match component.kind {
+        WardleyComponentKind::Anchor => '@',
+        WardleyComponentKind::Component => wardley_component_glyph(&component.decorators),
+    };
+    put_safe(frame, component.point.x, component.point.y, glyph, node_style);
+    let mut label = component.name.clone();
+    if let Some(pipeline) = &component.pipeline {
+        label = format!("{pipeline}/{label}");
+    }
+    if !component.decorators.is_empty() {
+        label.push_str(" [");
+        label.push_str(
+            &component
+                .decorators
+                .iter()
+                .map(wardley_decorator_label)
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+        label.push(']');
+    }
+    write_text_safe(
+        frame,
+        component.label_origin.x,
+        component.label_origin.y,
+        &label,
+        if component.kind == WardleyComponentKind::Anchor {
+            text_style
+        } else {
+            muted_style
+        },
+    );
+}
+
+fn wardley_component_glyph(decorators: &[WardleyDecorator]) -> char {
+    if decorators.contains(&WardleyDecorator::Build) {
+        '^'
+    } else if decorators.contains(&WardleyDecorator::Buy) {
+        '<'
+    } else if decorators.contains(&WardleyDecorator::Outsource) {
+        '#'
+    } else if decorators.contains(&WardleyDecorator::Market) {
+        'o'
+    } else if decorators.contains(&WardleyDecorator::Inertia) {
+        '!'
+    } else {
+        '*'
+    }
+}
+
+fn wardley_decorator_label(decorator: &WardleyDecorator) -> &'static str {
+    match decorator {
+        WardleyDecorator::Inertia => "inertia",
+        WardleyDecorator::Build => "build",
+        WardleyDecorator::Buy => "buy",
+        WardleyDecorator::Outsource => "outsource",
+        WardleyDecorator::Market => "market",
+    }
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

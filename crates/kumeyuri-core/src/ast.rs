@@ -28,6 +28,7 @@ pub enum DiagramKind {
     Treemap(Box<TreemapAst>),
     Venn(Box<VennAst>),
     Ishikawa(Box<IshikawaAst>),
+    Wardley(Box<WardleyAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1584,6 +1585,159 @@ pub enum IshikawaStatement {
 pub struct IshikawaNode {
     pub label: Label,
     pub causes: Vec<IshikawaNode>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyAst {
+    pub header: WardleyHeader,
+    pub title: Option<Label>,
+    pub size: Option<WardleySize>,
+    pub components: Vec<WardleyComponent>,
+    pub links: Vec<WardleyLink>,
+    pub evolves: Vec<WardleyEvolve>,
+    pub notes: Vec<WardleyNote>,
+    pub annotations_position: Option<WardleyCoord>,
+    pub annotations: Vec<WardleyAnnotation>,
+    pub forces: Vec<WardleyForce>,
+    pub evolution: Option<WardleyEvolution>,
+    pub statements: Vec<WardleyStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WardleyHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WardleyStatement {
+    Title(Label),
+    Size(WardleySize),
+    Component(Box<WardleyComponent>),
+    Link(WardleyLink),
+    Evolve(WardleyEvolve),
+    Note(WardleyNote),
+    Annotations(WardleyCoord),
+    Annotation(WardleyAnnotation),
+    Force(WardleyForce),
+    Evolution(WardleyEvolution),
+    Pipeline(Label),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WardleySize {
+    pub width: u32,
+    pub height: u32,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyComponent {
+    pub kind: WardleyComponentKind,
+    pub name: Label,
+    pub coord: WardleyCoord,
+    pub label_offset: Option<WardleyLabelOffset>,
+    pub decorators: Vec<WardleyDecorator>,
+    pub pipeline: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WardleyComponentKind {
+    Component,
+    Anchor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyCoord {
+    pub visibility: Spanned<String>,
+    pub evolution: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WardleyLabelOffset {
+    pub x: i32,
+    pub y: i32,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WardleyDecorator {
+    Inertia,
+    Build,
+    Buy,
+    Outsource,
+    Market,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyLink {
+    pub from: Label,
+    pub to: Label,
+    pub kind: WardleyLinkKind,
+    pub label: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WardleyLinkKind {
+    Dependency,
+    Dashed,
+    Flow,
+    ReverseFlow,
+    BidirectionalFlow,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyEvolve {
+    pub name: Label,
+    pub target_evolution: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyNote {
+    pub text: Label,
+    pub coord: WardleyCoord,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyAnnotation {
+    pub number: Spanned<String>,
+    pub coord: WardleyCoord,
+    pub text: Label,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyForce {
+    pub kind: WardleyForceKind,
+    pub text: Label,
+    pub coord: WardleyCoord,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WardleyForceKind {
+    Accelerator,
+    Deaccelerator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyEvolution {
+    pub stages: Vec<WardleyEvolutionStage>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyEvolutionStage {
+    pub label: Label,
+    pub boundary: Option<Spanned<String>>,
     pub span: Span,
 }
 

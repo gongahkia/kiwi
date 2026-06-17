@@ -16,7 +16,8 @@ use crate::ast::{
     RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst, SequenceAutoNumber,
     SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
     SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
-    TreemapAst, TreemapNode, VennAst, VennSet, VennStyle, VennText, VennUnion, XyChartAst,
+    TreemapAst, TreemapNode, VennAst, VennSet, VennStyle, VennText, VennUnion, WardleyAst,
+    WardleyComponentKind, WardleyDecorator, WardleyForceKind, WardleyLinkKind, XyChartAst,
     XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
     ZenUmlStatement,
 };
@@ -933,6 +934,89 @@ pub struct IshikawaLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WardleyLayoutConfig {
+    pub width: i32,
+    pub height: i32,
+    pub margin_left: i32,
+    pub margin_top: i32,
+    pub plot_width: i32,
+    pub plot_height: i32,
+}
+
+impl Default for WardleyLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl WardleyLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            width: 96,
+            height: 31,
+            margin_left: 5,
+            margin_top: 3,
+            plot_width: 78,
+            plot_height: 21,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedWardleyComponent {
+    pub name: String,
+    pub kind: WardleyComponentKind,
+    pub point: Point,
+    pub label_origin: Point,
+    pub decorators: Vec<WardleyDecorator>,
+    pub pipeline: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedWardleyLink {
+    pub from: Point,
+    pub to: Point,
+    pub kind: WardleyLinkKind,
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedWardleyEvolve {
+    pub from: Point,
+    pub to: Point,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedWardleyText {
+    pub text: String,
+    pub point: Point,
+    pub kind: WardleyTextKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WardleyTextKind {
+    Note,
+    Annotation,
+    Accelerator,
+    Deaccelerator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WardleyLayout {
+    pub title: Option<String>,
+    pub plot: Rect,
+    pub components: Vec<PositionedWardleyComponent>,
+    pub links: Vec<PositionedWardleyLink>,
+    pub evolves: Vec<PositionedWardleyEvolve>,
+    pub texts: Vec<PositionedWardleyText>,
+    pub stages: Vec<String>,
+    pub annotations_origin: Option<Point>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1627,6 +1711,11 @@ pub struct VennLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct IshikawaLayoutEngine {
     config: IshikawaLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct WardleyLayoutEngine {
+    config: WardleyLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -4903,6 +4992,179 @@ fn normalize_ishikawa_layout(layout: &mut IshikawaLayout) {
         width: layout.size.width.max(max_right + 1),
         height: layout.size.height.max(max_bottom + 1),
     };
+}
+
+impl WardleyLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: WardleyLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: WardleyLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &WardleyAst) -> WardleyLayout {
+        let title_offset = ast.title.as_ref().map_or(0, |_| 2);
+        let plot = Rect {
+            origin: Point {
+                x: self.config.margin_left,
+                y: self.config.margin_top + title_offset,
+            },
+            size: Size {
+                width: self.config.plot_width,
+                height: self.config.plot_height,
+            },
+        };
+        let components = ast
+            .components
+            .iter()
+            .map(|component| {
+                let point = wardley_point(&component.coord, plot);
+                let label_origin = Point {
+                    x: point.x
+                        + component
+                            .label_offset
+                            .as_ref()
+                            .map_or(1, |offset| offset.x / 10),
+                    y: point.y
+                        + component
+                            .label_offset
+                            .as_ref()
+                            .map_or(-1, |offset| offset.y / 10),
+                };
+                PositionedWardleyComponent {
+                    name: component.name.text.clone(),
+                    kind: component.kind,
+                    point,
+                    label_origin,
+                    decorators: component.decorators.clone(),
+                    pipeline: component.pipeline.as_ref().map(|pipeline| pipeline.text.clone()),
+                }
+            })
+            .collect::<Vec<_>>();
+        let index = components
+            .iter()
+            .map(|component| (component.name.as_str(), component.point))
+            .collect::<HashMap<_, _>>();
+        let links = ast
+            .links
+            .iter()
+            .filter_map(|link| {
+                Some(PositionedWardleyLink {
+                    from: *index.get(link.from.text.as_str())?,
+                    to: *index.get(link.to.text.as_str())?,
+                    kind: link.kind,
+                    label: link.label.as_ref().map(|label| label.text.clone()),
+                })
+            })
+            .collect::<Vec<_>>();
+        let evolves = ast
+            .evolves
+            .iter()
+            .filter_map(|evolve| {
+                let from = *index.get(evolve.name.text.as_str())?;
+                let target = wardley_axis_value(&evolve.target_evolution.value)?;
+                Some(PositionedWardleyEvolve {
+                    from,
+                    to: Point {
+                        x: plot.origin.x + (target * f64::from(plot.size.width - 1)).round() as i32,
+                        y: from.y,
+                    },
+                    name: evolve.name.text.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let mut texts = Vec::new();
+        texts.extend(ast.notes.iter().map(|note| PositionedWardleyText {
+            text: note.text.text.clone(),
+            point: wardley_point(&note.coord, plot),
+            kind: WardleyTextKind::Note,
+        }));
+        texts.extend(ast.annotations.iter().map(|annotation| PositionedWardleyText {
+            text: format!("{} {}", annotation.number.value, annotation.text.text),
+            point: wardley_point(&annotation.coord, plot),
+            kind: WardleyTextKind::Annotation,
+        }));
+        texts.extend(ast.forces.iter().map(|force| PositionedWardleyText {
+            text: force.text.text.clone(),
+            point: wardley_point(&force.coord, plot),
+            kind: match force.kind {
+                WardleyForceKind::Accelerator => WardleyTextKind::Accelerator,
+                WardleyForceKind::Deaccelerator => WardleyTextKind::Deaccelerator,
+            },
+        }));
+        let stages = ast.evolution.as_ref().map_or_else(
+            || {
+                ["Genesis", "Custom", "Product", "Commodity"]
+                    .iter()
+                    .map(|stage| (*stage).to_owned())
+                    .collect::<Vec<_>>()
+            },
+            |evolution| {
+                evolution
+                    .stages
+                    .iter()
+                    .map(|stage| stage.label.text.clone())
+                    .collect::<Vec<_>>()
+            },
+        );
+        let annotations_origin = ast
+            .annotations_position
+            .as_ref()
+            .map(|coord| wardley_point(coord, plot));
+        let mut layout = WardleyLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            plot,
+            components,
+            links,
+            evolves,
+            texts,
+            stages,
+            annotations_origin,
+            size: Size {
+                width: self.config.width,
+                height: self.config.height + title_offset,
+            },
+        };
+        normalize_wardley_layout(&mut layout);
+        layout
+    }
+}
+
+fn wardley_point(coord: &crate::ast::WardleyCoord, plot: Rect) -> Point {
+    let visibility = wardley_axis_value(&coord.visibility.value).unwrap_or(0.5);
+    let evolution = wardley_axis_value(&coord.evolution.value).unwrap_or(0.5);
+    Point {
+        x: plot.origin.x + (evolution * f64::from(plot.size.width - 1)).round() as i32,
+        y: plot.origin.y + ((1.0 - visibility) * f64::from(plot.size.height - 1)).round() as i32,
+    }
+}
+
+fn wardley_axis_value(value: &str) -> Option<f64> {
+    let parsed = value.parse::<f64>().ok()?;
+    parsed.is_finite().then_some(parsed.clamp(0.0, 1.0))
+}
+
+fn normalize_wardley_layout(layout: &mut WardleyLayout) {
+    let mut width = layout.size.width.max(layout.plot.right() + 3);
+    let mut height = layout.size.height.max(layout.plot.bottom() + 4);
+    if let Some(title) = &layout.title {
+        width = width.max(label_width(title) + 2);
+    }
+    for component in &layout.components {
+        width = width.max(component.label_origin.x + label_width(&component.name) + 4);
+        height = height.max(component.label_origin.y + 2);
+    }
+    for text in &layout.texts {
+        width = width.max(text.point.x + label_width(&text.text) + 4);
+        height = height.max(text.point.y + 2);
+    }
+    layout.size = Size { width, height };
 }
 
 impl StateLayoutEngine {

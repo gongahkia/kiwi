@@ -34,10 +34,13 @@ use crate::ast::{
     StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
     StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, TreemapAst,
     TreemapHeader, TreemapNode, TreemapStatement, VennAst, VennHeader, VennSet, VennStatement,
-    VennStyle, VennText, VennTextOwner, VennUnion, XyChartAst, XyChartAxis, XyChartAxisKind,
-    XyChartAxisScale, XyChartHeader, XyChartOrientation, XyChartSeries, XyChartSeriesKind,
-    XyChartStatement, ZenUmlAst, ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage,
-    ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
+    VennStyle, VennText, VennTextOwner, VennUnion, WardleyAnnotation, WardleyAst, WardleyComponent,
+    WardleyComponentKind, WardleyCoord, WardleyDecorator, WardleyEvolution, WardleyEvolutionStage,
+    WardleyEvolve, WardleyForce, WardleyForceKind, WardleyHeader, WardleyLabelOffset, WardleyLink,
+    WardleyLinkKind, WardleyNote, WardleySize, WardleyStatement, XyChartAst, XyChartAxis,
+    XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation, XyChartSeries,
+    XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment, ZenUmlFragmentKind,
+    ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +170,13 @@ pub enum ParseErrorKind {
     UnknownIshikawaStatement,
     ExpectedIshikawaEvent,
     ExpectedIshikawaCause,
+    ExpectedWardleyHeader,
+    UnknownWardleyStatement,
+    ExpectedWardleyName,
+    ExpectedWardleyCoord,
+    ExpectedWardleyValue,
+    ExpectedWardleyDecorator,
+    ExpectedWardleyLink,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -290,6 +300,10 @@ impl Parser {
 
     pub fn parse_ishikawa(source: &str) -> Result<IshikawaAst, ParseError> {
         DiagramParser::new(source).parse_ishikawa_only()
+    }
+
+    pub fn parse_wardley(source: &str) -> Result<WardleyAst, ParseError> {
+        DiagramParser::new(source).parse_wardley_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -513,6 +527,14 @@ impl Parser {
         IshikawaStatementParser::new(source).parse()
     }
 
+    pub fn parse_wardley_header(source: &str) -> Result<WardleyHeader, ParseError> {
+        WardleyHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_wardley_statement(source: &str) -> Result<WardleyStatement, ParseError> {
+        WardleyStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -693,6 +715,12 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Ishikawa(Box::new(ast))));
+        }
+        if let Ok(wardley_header) = Parser::parse_wardley_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Wardley(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -981,6 +1009,18 @@ impl<'source> DiagramParser<'source> {
         let ishikawa_header = Parser::parse_ishikawa_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))
+    }
+
+    fn parse_wardley_only(mut self) -> Result<WardleyAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let wardley_header = Parser::parse_wardley_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -2016,6 +2056,73 @@ impl<'source> DiagramParser<'source> {
             statements,
             span: Span::new(span_start, self.source.len()),
         })
+    }
+
+    fn parse_wardley_body(&mut self, header: WardleyHeader) -> Result<WardleyAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = WardleyAst {
+            header,
+            title: None,
+            size: None,
+            components: Vec::new(),
+            links: Vec::new(),
+            evolves: Vec::new(),
+            notes: Vec::new(),
+            annotations_position: None,
+            annotations: Vec::new(),
+            forces: Vec::new(),
+            evolution: None,
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut pipeline = None::<Label>;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                pipeline = None;
+                self.cursor = line.line.next;
+                continue;
+            }
+            let mut statement = shift_wardley_statement(
+                Parser::parse_wardley_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            if let WardleyStatement::Component(component) = &mut statement
+                && component.pipeline.is_none()
+                && let Some(parent) = &pipeline
+            {
+                component.pipeline = Some(parent.clone());
+            }
+            match &statement {
+                WardleyStatement::Title(title) => ast.title = Some(title.clone()),
+                WardleyStatement::Size(size) => ast.size = Some(*size),
+                WardleyStatement::Component(component) => {
+                    ast.components.push((**component).clone())
+                }
+                WardleyStatement::Link(link) => ast.links.push(link.clone()),
+                WardleyStatement::Evolve(evolve) => ast.evolves.push(evolve.clone()),
+                WardleyStatement::Note(note) => ast.notes.push(note.clone()),
+                WardleyStatement::Annotations(coord) => {
+                    ast.annotations_position = Some(coord.clone());
+                }
+                WardleyStatement::Annotation(annotation) => {
+                    ast.annotations.push(annotation.clone());
+                }
+                WardleyStatement::Force(force) => ast.forces.push(force.clone()),
+                WardleyStatement::Evolution(evolution) => ast.evolution = Some(evolution.clone()),
+                WardleyStatement::Pipeline(_)
+                | WardleyStatement::Comment(_)
+                | WardleyStatement::Directive(_) => {}
+            }
+            if let Some(next_pipeline) = wardley_pipeline_start(line.text, line.start)? {
+                pipeline = Some(next_pipeline);
+            }
+            ast.statements.push(statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
     }
 
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
@@ -4745,6 +4852,32 @@ impl<'source> IshikawaHeaderParser<'source> {
             });
         }
         Ok(IshikawaHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct WardleyHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> WardleyHeaderParser<'source> {
+    const fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<WardleyHeader, ParseError> {
+        let (start, end) = trim_ascii_range(self.source).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyHeader,
+            span: Span::new(0, self.source.len()),
+        })?;
+        if &self.source[start..end] != "wardley-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedWardleyHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(WardleyHeader {
             span: Span::new(start, end),
         })
     }
@@ -10088,6 +10221,622 @@ fn build_ishikawa_node(index: usize, parsed: &[ParsedIshikawaNode]) -> IshikawaN
     node
 }
 
+struct WardleyStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> WardleyStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<WardleyStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownWardleyStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(WardleyStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(WardleyStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label_start = skip_ascii_ws(self.source, start + "title".len(), end);
+            let label = label_from_trimmed(self.source, label_start, end).ok_or(ParseError {
+                kind: ParseErrorKind::UnknownWardleyStatement,
+                span: Span::new(start, end),
+            })?;
+            return Ok(WardleyStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "size") {
+            return parse_wardley_size(self.source, start, end).map(WardleyStatement::Size);
+        }
+        if has_keyword(self.source, start, "component") {
+            return parse_wardley_component(
+                self.source,
+                start,
+                end,
+                WardleyComponentKind::Component,
+                false,
+            )
+            .map(|component| WardleyStatement::Component(Box::new(component)));
+        }
+        if has_keyword(self.source, start, "anchor") {
+            return parse_wardley_component(
+                self.source,
+                start,
+                end,
+                WardleyComponentKind::Anchor,
+                false,
+            )
+            .map(|component| WardleyStatement::Component(Box::new(component)));
+        }
+        if has_keyword(self.source, start, "pipeline") {
+            return wardley_pipeline_start(self.source, start)?
+                .map(WardleyStatement::Pipeline)
+                .ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownWardleyStatement,
+                    span: Span::new(start, end),
+                });
+        }
+        if has_keyword(self.source, start, "evolve") {
+            return parse_wardley_evolve(self.source, start, end).map(WardleyStatement::Evolve);
+        }
+        if has_keyword(self.source, start, "note") {
+            return parse_wardley_note(self.source, start, end).map(WardleyStatement::Note);
+        }
+        if has_keyword(self.source, start, "annotations") {
+            return parse_wardley_annotations(self.source, start, end)
+                .map(WardleyStatement::Annotations);
+        }
+        if has_keyword(self.source, start, "annotation") {
+            return parse_wardley_annotation(self.source, start, end)
+                .map(WardleyStatement::Annotation);
+        }
+        if has_keyword(self.source, start, "accelerator") {
+            return parse_wardley_force(self.source, start, end, WardleyForceKind::Accelerator)
+                .map(WardleyStatement::Force);
+        }
+        if has_keyword(self.source, start, "deaccelerator") {
+            return parse_wardley_force(self.source, start, end, WardleyForceKind::Deaccelerator)
+                .map(WardleyStatement::Force);
+        }
+        if has_keyword(self.source, start, "evolution") {
+            return parse_wardley_evolution(self.source, start, end)
+                .map(WardleyStatement::Evolution);
+        }
+        parse_wardley_link(self.source, start, end).map(WardleyStatement::Link)
+    }
+}
+
+fn parse_wardley_size(source: &str, start: usize, end: usize) -> Result<WardleySize, ParseError> {
+    let cursor = skip_ascii_ws(source, start + "size".len(), end);
+    let (values, span, cursor) = parse_wardley_bracket_values(source, cursor, end, 2)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyValue,
+            span: Span::new(cursor, end),
+        });
+    }
+    let width = values[0]
+        .value
+        .parse::<u32>()
+        .map_err(|_| wardley_value_error(values[0].span))?;
+    let height = values[1]
+        .value
+        .parse::<u32>()
+        .map_err(|_| wardley_value_error(values[1].span))?;
+    Ok(WardleySize {
+        width,
+        height,
+        span,
+    })
+}
+
+fn parse_wardley_component(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: WardleyComponentKind,
+    pipeline_component: bool,
+) -> Result<WardleyComponent, ParseError> {
+    let keyword = if kind == WardleyComponentKind::Anchor {
+        "anchor"
+    } else {
+        "component"
+    };
+    let name_start = skip_ascii_ws(source, start + keyword.len(), end);
+    let coord_open = source[name_start..end]
+        .find('[')
+        .map(|offset| name_start + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyCoord,
+            span: Span::new(name_start, end),
+        })?;
+    let name = wardley_name_label(source, name_start, coord_open)?;
+    let (coord, mut cursor) = if pipeline_component {
+        parse_wardley_pipeline_coord(source, coord_open, end)?
+    } else {
+        parse_wardley_coord(source, coord_open, end)?
+    };
+    let mut label_offset = None;
+    let mut decorators = Vec::new();
+    loop {
+        cursor = skip_ascii_ws(source, cursor, end);
+        if cursor == end {
+            break;
+        }
+        if has_keyword(source, cursor, "label") {
+            let next = skip_ascii_ws(source, cursor + "label".len(), end);
+            let (offset, after) = parse_wardley_label_offset(source, next, end)?;
+            label_offset = Some(offset);
+            cursor = after;
+            continue;
+        }
+        if source.as_bytes().get(cursor) == Some(&b'(') {
+            let close = source[cursor + 1..end]
+                .find(')')
+                .map(|offset| cursor + 1 + offset)
+                .ok_or(ParseError {
+                    kind: ParseErrorKind::ExpectedWardleyDecorator,
+                    span: Span::new(cursor, end),
+                })?;
+            decorators.push(parse_wardley_decorator(
+                &source[cursor + 1..close],
+                cursor + 1,
+            )?);
+            cursor = close + 1;
+            continue;
+        }
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(WardleyComponent {
+        kind,
+        name,
+        coord,
+        label_offset,
+        decorators,
+        pipeline: None,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_evolve(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<WardleyEvolve, ParseError> {
+    let body_start = skip_ascii_ws(source, start + "evolve".len(), end);
+    let value_start = source[..end]
+        .rfind(char::is_whitespace)
+        .map(|index| skip_ascii_ws(source, index, end))
+        .filter(|index| *index > body_start)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyValue,
+            span: Span::new(body_start, end),
+        })?;
+    let name = wardley_name_label(source, body_start, value_start)?;
+    let value = parse_wardley_scalar(source, value_start, end)?;
+    Ok(WardleyEvolve {
+        name,
+        target_evolution: value,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_note(source: &str, start: usize, end: usize) -> Result<WardleyNote, ParseError> {
+    let cursor = skip_ascii_ws(source, start + "note".len(), end);
+    let (text, cursor) = parse_wardley_quoted_label(source, cursor, end)?;
+    let cursor = skip_ascii_ws(source, cursor, end);
+    let (coord, cursor) = parse_wardley_coord(source, cursor, end)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(WardleyNote {
+        text,
+        coord,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_annotations(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<WardleyCoord, ParseError> {
+    let cursor = skip_ascii_ws(source, start + "annotations".len(), end);
+    let (coord, cursor) = parse_wardley_coord(source, cursor, end)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(coord)
+}
+
+fn parse_wardley_annotation(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<WardleyAnnotation, ParseError> {
+    let mut cursor = skip_ascii_ws(source, start + "annotation".len(), end);
+    let number_start = cursor;
+    while cursor < end && source.as_bytes()[cursor].is_ascii_digit() {
+        cursor += 1;
+    }
+    if cursor == number_start || source.as_bytes().get(cursor) != Some(&b',') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyValue,
+            span: Span::new(number_start, end),
+        });
+    }
+    let number = Spanned::new(
+        source[number_start..cursor].to_owned(),
+        Span::new(number_start, cursor),
+    );
+    cursor = skip_ascii_ws(source, cursor + 1, end);
+    let (coord, cursor_after_coord) = parse_wardley_coord(source, cursor, end)?;
+    cursor = skip_ascii_ws(source, cursor_after_coord, end);
+    let (text, cursor) = parse_wardley_quoted_label(source, cursor, end)?;
+    if skip_ascii_ws(source, cursor, end) != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(WardleyAnnotation {
+        number,
+        coord,
+        text,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_force(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: WardleyForceKind,
+) -> Result<WardleyForce, ParseError> {
+    let keyword = match kind {
+        WardleyForceKind::Accelerator => "accelerator",
+        WardleyForceKind::Deaccelerator => "deaccelerator",
+    };
+    let cursor = skip_ascii_ws(source, start + keyword.len(), end);
+    let (text, cursor) = parse_wardley_quoted_label(source, cursor, end)?;
+    let cursor = skip_ascii_ws(source, cursor, end);
+    let (coord, cursor) = parse_wardley_coord(source, cursor, end)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(WardleyForce {
+        kind,
+        text,
+        coord,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_evolution(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<WardleyEvolution, ParseError> {
+    let body_start = skip_ascii_ws(source, start + "evolution".len(), end);
+    let mut stages = Vec::new();
+    let mut cursor = body_start;
+    for raw in source[body_start..end].split("->") {
+        let stage_start = cursor;
+        let stage_end = cursor + raw.len();
+        let label = wardley_evolution_stage(source, stage_start, stage_end)?;
+        stages.push(label);
+        cursor = stage_end + 2;
+    }
+    if stages.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyName,
+            span: Span::new(body_start, end),
+        });
+    }
+    Ok(WardleyEvolution {
+        stages,
+        span: Span::new(start, end),
+    })
+}
+
+fn wardley_evolution_stage(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<WardleyEvolutionStage, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyName,
+            span: Span::new(start, end),
+        });
+    };
+    let stage_start = start + trim_start;
+    let stage_end = start + trim_end;
+    let at = source[stage_start..stage_end]
+        .rfind('@')
+        .map(|offset| stage_start + offset);
+    let (label_end, boundary) = if let Some(at) = at {
+        let boundary = parse_wardley_scalar(source, at + 1, stage_end)?;
+        (at, Some(boundary))
+    } else {
+        (stage_end, None)
+    };
+    Ok(WardleyEvolutionStage {
+        label: wardley_name_label(source, stage_start, label_end)?,
+        boundary,
+        span: Span::new(stage_start, stage_end),
+    })
+}
+
+fn parse_wardley_link(source: &str, start: usize, end: usize) -> Result<WardleyLink, ParseError> {
+    if let Some(open) = source[start..end].find("+'").map(|offset| start + offset) {
+        let close = source[open + 2..end]
+            .find("'>")
+            .map(|offset| open + 2 + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedWardleyLink,
+                span: Span::new(open, end),
+            })?;
+        let from = wardley_name_label(source, start, open)?;
+        let label = Some(label_from_body(source, open + 2, close));
+        let to = wardley_name_label(source, close + 2, end)?;
+        return Ok(WardleyLink {
+            from,
+            to,
+            kind: WardleyLinkKind::Flow,
+            label,
+            span: Span::new(start, end),
+        });
+    }
+    const OPERATORS: [(&str, WardleyLinkKind); 6] = [
+        ("+<>", WardleyLinkKind::BidirectionalFlow),
+        ("-.->", WardleyLinkKind::Dashed),
+        ("-->", WardleyLinkKind::Dependency),
+        ("+>", WardleyLinkKind::Flow),
+        ("+<", WardleyLinkKind::ReverseFlow),
+        ("->", WardleyLinkKind::Dependency),
+    ];
+    let (body_end, label) = if let Some(index) = source[start..end].find(';') {
+        let semicolon = start + index;
+        (semicolon, label_from_trimmed(source, semicolon + 1, end))
+    } else {
+        (end, None)
+    };
+    for (operator, kind) in OPERATORS {
+        if let Some(index) = source[start..body_end].find(operator) {
+            let operator_start = start + index;
+            let from = wardley_name_label(source, start, operator_start)?;
+            let to = wardley_name_label(source, operator_start + operator.len(), body_end)?;
+            return Ok(WardleyLink {
+                from,
+                to,
+                kind,
+                label,
+                span: Span::new(start, end),
+            });
+        }
+    }
+    Err(ParseError {
+        kind: ParseErrorKind::UnknownWardleyStatement,
+        span: Span::new(start, end),
+    })
+}
+
+fn wardley_pipeline_start(source: &str, offset: usize) -> Result<Option<Label>, ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Ok(None);
+    };
+    if !has_keyword(source, start, "pipeline") {
+        return Ok(None);
+    }
+    let body_start = skip_ascii_ws(source, start + "pipeline".len(), end);
+    if source.as_bytes().get(end.saturating_sub(1)) != Some(&b'{') {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownWardleyStatement,
+            span: Span::new(offset + start, offset + end),
+        });
+    }
+    let label = wardley_name_label(source, body_start, end - 1)?;
+    Ok(Some(shift_label(label, offset)))
+}
+
+fn parse_wardley_coord(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(WardleyCoord, usize), ParseError> {
+    let (values, span, cursor) = parse_wardley_bracket_values(source, start, end, 2)?;
+    validate_wardley_scalar(&values[0])?;
+    validate_wardley_scalar(&values[1])?;
+    Ok((
+        WardleyCoord {
+            visibility: values[0].clone(),
+            evolution: values[1].clone(),
+            span,
+        },
+        cursor,
+    ))
+}
+
+fn parse_wardley_pipeline_coord(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(WardleyCoord, usize), ParseError> {
+    let (values, span, cursor) = parse_wardley_bracket_values(source, start, end, 1)?;
+    validate_wardley_scalar(&values[0])?;
+    Ok((
+        WardleyCoord {
+            visibility: Spanned::new("0.5".to_owned(), values[0].span),
+            evolution: values[0].clone(),
+            span,
+        },
+        cursor,
+    ))
+}
+
+fn parse_wardley_label_offset(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(WardleyLabelOffset, usize), ParseError> {
+    let (values, span, cursor) = parse_wardley_bracket_values(source, start, end, 2)?;
+    let x = values[0]
+        .value
+        .parse::<i32>()
+        .map_err(|_| wardley_value_error(values[0].span))?;
+    let y = values[1]
+        .value
+        .parse::<i32>()
+        .map_err(|_| wardley_value_error(values[1].span))?;
+    Ok((WardleyLabelOffset { x, y, span }, cursor))
+}
+
+fn parse_wardley_bracket_values(
+    source: &str,
+    start: usize,
+    end: usize,
+    expected: usize,
+) -> Result<(Vec<Spanned<String>>, Span, usize), ParseError> {
+    let start = skip_ascii_ws(source, start, end);
+    if source.as_bytes().get(start) != Some(&b'[') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyCoord,
+            span: Span::new(start, end),
+        });
+    }
+    let close = source[start + 1..end]
+        .find(']')
+        .map(|offset| start + 1 + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyCoord,
+            span: Span::new(start, end),
+        })?;
+    let mut values = Vec::new();
+    let mut cursor = start + 1;
+    for raw in source[start + 1..close].split(',') {
+        let value_start = cursor;
+        let value_end = cursor + raw.len();
+        values.push(parse_wardley_scalar(source, value_start, value_end)?);
+        cursor = value_end + 1;
+    }
+    if values.len() != expected {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyCoord,
+            span: Span::new(start, close + 1),
+        });
+    }
+    Ok((
+        values,
+        Span::new(start, close + 1),
+        skip_ascii_ws(source, close + 1, end),
+    ))
+}
+
+fn parse_wardley_scalar(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(wardley_value_error(Span::new(start, end)));
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let value = &source[value_start..value_end];
+    let parsed = value
+        .parse::<f64>()
+        .map_err(|_| wardley_value_error(Span::new(value_start, value_end)))?;
+    if !parsed.is_finite() {
+        return Err(wardley_value_error(Span::new(value_start, value_end)));
+    }
+    Ok(Spanned::new(
+        value.to_owned(),
+        Span::new(value_start, value_end),
+    ))
+}
+
+fn validate_wardley_scalar(value: &Spanned<String>) -> Result<(), ParseError> {
+    let parsed = value
+        .value
+        .parse::<f64>()
+        .map_err(|_| wardley_value_error(value.span))?;
+    if !(0.0..=1.0).contains(&parsed) {
+        return Err(wardley_value_error(value.span));
+    }
+    Ok(())
+}
+
+fn wardley_value_error(span: Span) -> ParseError {
+    ParseError {
+        kind: ParseErrorKind::ExpectedWardleyValue,
+        span,
+    }
+}
+
+fn wardley_name_label(source: &str, start: usize, end: usize) -> Result<Label, ParseError> {
+    label_from_trimmed(source, start, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedWardleyName,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_wardley_quoted_label(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Label, usize), ParseError> {
+    let start = skip_ascii_ws(source, start, end);
+    if source.as_bytes().get(start) != Some(&b'"') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyName,
+            span: Span::new(start, end),
+        });
+    }
+    let close = find_treemap_quote_end(source, start + 1, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedWardleyName,
+        span: Span::new(start, end),
+    })?;
+    Ok((label_from_body(source, start, close + 1), close + 1))
+}
+
+fn parse_wardley_decorator(source: &str, offset: usize) -> Result<WardleyDecorator, ParseError> {
+    match source.trim() {
+        "inertia" => Ok(WardleyDecorator::Inertia),
+        "build" => Ok(WardleyDecorator::Build),
+        "buy" => Ok(WardleyDecorator::Buy),
+        "outsource" => Ok(WardleyDecorator::Outsource),
+        "market" => Ok(WardleyDecorator::Market),
+        _ => Err(ParseError {
+            kind: ParseErrorKind::ExpectedWardleyDecorator,
+            span: Span::new(offset, offset + source.len()),
+        }),
+    }
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -13381,6 +14130,150 @@ fn shift_venn_style(style: VennStyle, offset: usize) -> VennStyle {
 fn shift_ishikawa_header(header: IshikawaHeader, offset: usize) -> IshikawaHeader {
     IshikawaHeader {
         span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_wardley_header(header: WardleyHeader, offset: usize) -> WardleyHeader {
+    WardleyHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_wardley_statement(statement: WardleyStatement, offset: usize) -> WardleyStatement {
+    match statement {
+        WardleyStatement::Title(title) => WardleyStatement::Title(shift_label(title, offset)),
+        WardleyStatement::Size(size) => WardleyStatement::Size(shift_wardley_size(size, offset)),
+        WardleyStatement::Component(component) => {
+            WardleyStatement::Component(Box::new(shift_wardley_component(*component, offset)))
+        }
+        WardleyStatement::Link(link) => WardleyStatement::Link(shift_wardley_link(link, offset)),
+        WardleyStatement::Evolve(evolve) => {
+            WardleyStatement::Evolve(shift_wardley_evolve(evolve, offset))
+        }
+        WardleyStatement::Note(note) => WardleyStatement::Note(shift_wardley_note(note, offset)),
+        WardleyStatement::Annotations(coord) => {
+            WardleyStatement::Annotations(shift_wardley_coord(coord, offset))
+        }
+        WardleyStatement::Annotation(annotation) => {
+            WardleyStatement::Annotation(shift_wardley_annotation(annotation, offset))
+        }
+        WardleyStatement::Force(force) => {
+            WardleyStatement::Force(shift_wardley_force(force, offset))
+        }
+        WardleyStatement::Evolution(evolution) => {
+            WardleyStatement::Evolution(shift_wardley_evolution(evolution, offset))
+        }
+        WardleyStatement::Pipeline(label) => WardleyStatement::Pipeline(shift_label(label, offset)),
+        WardleyStatement::Comment(comment) => {
+            WardleyStatement::Comment(shift_comment(comment, offset))
+        }
+        WardleyStatement::Directive(directive) => {
+            WardleyStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_wardley_size(size: WardleySize, offset: usize) -> WardleySize {
+    WardleySize {
+        width: size.width,
+        height: size.height,
+        span: shift_span(size.span, offset),
+    }
+}
+
+fn shift_wardley_component(component: WardleyComponent, offset: usize) -> WardleyComponent {
+    WardleyComponent {
+        kind: component.kind,
+        name: shift_label(component.name, offset),
+        coord: shift_wardley_coord(component.coord, offset),
+        label_offset: component
+            .label_offset
+            .map(|label_offset| shift_wardley_label_offset(label_offset, offset)),
+        decorators: component.decorators,
+        pipeline: component
+            .pipeline
+            .map(|pipeline| shift_label(pipeline, offset)),
+        span: shift_span(component.span, offset),
+    }
+}
+
+fn shift_wardley_coord(coord: WardleyCoord, offset: usize) -> WardleyCoord {
+    WardleyCoord {
+        visibility: shift_spanned(coord.visibility, offset),
+        evolution: shift_spanned(coord.evolution, offset),
+        span: shift_span(coord.span, offset),
+    }
+}
+
+fn shift_wardley_label_offset(
+    label_offset: WardleyLabelOffset,
+    offset: usize,
+) -> WardleyLabelOffset {
+    WardleyLabelOffset {
+        x: label_offset.x,
+        y: label_offset.y,
+        span: shift_span(label_offset.span, offset),
+    }
+}
+
+fn shift_wardley_link(link: WardleyLink, offset: usize) -> WardleyLink {
+    WardleyLink {
+        from: shift_label(link.from, offset),
+        to: shift_label(link.to, offset),
+        kind: link.kind,
+        label: link.label.map(|label| shift_label(label, offset)),
+        span: shift_span(link.span, offset),
+    }
+}
+
+fn shift_wardley_evolve(evolve: WardleyEvolve, offset: usize) -> WardleyEvolve {
+    WardleyEvolve {
+        name: shift_label(evolve.name, offset),
+        target_evolution: shift_spanned(evolve.target_evolution, offset),
+        span: shift_span(evolve.span, offset),
+    }
+}
+
+fn shift_wardley_note(note: WardleyNote, offset: usize) -> WardleyNote {
+    WardleyNote {
+        text: shift_label(note.text, offset),
+        coord: shift_wardley_coord(note.coord, offset),
+        span: shift_span(note.span, offset),
+    }
+}
+
+fn shift_wardley_annotation(annotation: WardleyAnnotation, offset: usize) -> WardleyAnnotation {
+    WardleyAnnotation {
+        number: shift_spanned(annotation.number, offset),
+        coord: shift_wardley_coord(annotation.coord, offset),
+        text: shift_label(annotation.text, offset),
+        span: shift_span(annotation.span, offset),
+    }
+}
+
+fn shift_wardley_force(force: WardleyForce, offset: usize) -> WardleyForce {
+    WardleyForce {
+        kind: force.kind,
+        text: shift_label(force.text, offset),
+        coord: shift_wardley_coord(force.coord, offset),
+        span: shift_span(force.span, offset),
+    }
+}
+
+fn shift_wardley_evolution(evolution: WardleyEvolution, offset: usize) -> WardleyEvolution {
+    WardleyEvolution {
+        stages: evolution
+            .stages
+            .into_iter()
+            .map(|stage| WardleyEvolutionStage {
+                label: shift_label(stage.label, offset),
+                boundary: stage
+                    .boundary
+                    .map(|boundary| shift_spanned(boundary, offset)),
+                span: shift_span(stage.span, offset),
+            })
+            .collect(),
+        span: shift_span(evolution.span, offset),
     }
 }
 
