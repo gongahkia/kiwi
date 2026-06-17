@@ -1,17 +1,17 @@
 use crate::ast::{
     ArrowHead, C4Ast, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram,
-    DiagramKind, ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind,
-    JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst, StateAst,
-    TimelineAst,
+    DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
+    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst,
+    StateAst, TimelineAst,
 };
 use crate::layout::{
     C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
     GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout,
     JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
-    PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode,
-    PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote, Rect,
-    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
+    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
+    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote,
+    Rect, RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
     TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
@@ -611,10 +611,95 @@ fn render_flow_layout(layout: &FlowLayout, palette: GlyphPalette, theme: Theme) 
         }
     }
     for node in &layout.nodes {
-        draw_box(&mut frame, node.rect, palette, node_style.clone());
-        write_centered(&mut frame, node.rect, &node.label, text_style.clone());
+        draw_flow_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
     }
     frame
+}
+
+fn draw_flow_node(
+    frame: &mut Frame,
+    node: &PositionedFlowNode,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, node.rect, palette, node_style.clone());
+    decorate_flow_shape(frame, node, node_style);
+    write_centered(frame, node.rect, &node.label, text_style);
+}
+
+fn decorate_flow_shape(frame: &mut Frame, node: &PositionedFlowNode, style: CellStyle) {
+    let rect = node.rect;
+    let left = rect.origin.x;
+    let right = rect.right().saturating_sub(1);
+    let top = rect.origin.y;
+    let bottom = rect.bottom().saturating_sub(1);
+    let middle_y = rect.center().y;
+    match &node.shape {
+        FlowShape::Rectangle | FlowShape::Named(_) => {}
+        FlowShape::Round | FlowShape::Circle => {
+            put_safe(frame, left, middle_y, '(', style.clone());
+            put_safe(frame, right, middle_y, ')', style);
+        }
+        FlowShape::Stadium => {
+            put_safe(frame, left, top + 1, '(', style.clone());
+            put_safe(frame, left, bottom.saturating_sub(1), '(', style.clone());
+            put_safe(frame, right, top + 1, ')', style.clone());
+            put_safe(frame, right, bottom.saturating_sub(1), ')', style);
+        }
+        FlowShape::Subroutine => {
+            draw_vertical(frame, left + 1, top, bottom, '|', style.clone());
+            draw_vertical(frame, right.saturating_sub(1), top, bottom, '|', style);
+        }
+        FlowShape::Cylinder => {
+            put_safe(frame, left + 1, top, '(', style.clone());
+            put_safe(frame, right.saturating_sub(1), top, ')', style.clone());
+            put_safe(frame, left + 1, bottom, '(', style.clone());
+            put_safe(frame, right.saturating_sub(1), bottom, ')', style);
+        }
+        FlowShape::Asymmetric => {
+            put_safe(frame, left, middle_y, '>', style.clone());
+            put_safe(frame, right, middle_y, ']', style);
+        }
+        FlowShape::Rhombus => {
+            put_safe(frame, left, middle_y, '<', style.clone());
+            put_safe(frame, right, middle_y, '>', style);
+        }
+        FlowShape::Hexagon => {
+            put_safe(frame, left, top + 1, '<', style.clone());
+            put_safe(frame, right, top + 1, '>', style.clone());
+            put_safe(frame, left, bottom.saturating_sub(1), '<', style.clone());
+            put_safe(frame, right, bottom.saturating_sub(1), '>', style);
+        }
+        FlowShape::Parallelogram => {
+            put_safe(frame, left, top, '/', style.clone());
+            put_safe(frame, right, bottom, '/', style);
+        }
+        FlowShape::ParallelogramAlt => {
+            put_safe(frame, right, top, '\\', style.clone());
+            put_safe(frame, left, bottom, '\\', style);
+        }
+        FlowShape::Trapezoid => {
+            put_safe(frame, left, top, '/', style.clone());
+            put_safe(frame, right, top, '\\', style);
+        }
+        FlowShape::TrapezoidAlt => {
+            put_safe(frame, left, bottom, '\\', style.clone());
+            put_safe(frame, right, bottom, '/', style);
+        }
+        FlowShape::DoubleCircle => {
+            put_safe(frame, left, middle_y, '(', style.clone());
+            put_safe(frame, left + 1, middle_y, '(', style.clone());
+            put_safe(frame, right.saturating_sub(1), middle_y, ')', style.clone());
+            put_safe(frame, right, middle_y, ')', style);
+        }
+    }
 }
 
 fn draw_flow_subgraph(

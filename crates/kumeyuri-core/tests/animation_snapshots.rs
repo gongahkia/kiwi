@@ -7,7 +7,7 @@ use kumeyuri_core::{
     parser::Parser,
 };
 
-const FLOWCHART_NAMES: [&str; 20] = [
+const FLOWCHART_NAMES: [&str; 21] = [
     "01_single_node",
     "02_two_nodes_linked",
     "03_three_node_chain",
@@ -28,6 +28,7 @@ const FLOWCHART_NAMES: [&str; 20] = [
     "18_class_styles",
     "19_directive_comment",
     "20_disconnected_roots",
+    "21_classic_shapes",
 ];
 
 const SEQUENCE_NAMES: [&str; 15] = [

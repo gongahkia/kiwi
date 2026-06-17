@@ -78,6 +78,7 @@ impl Rect {
 pub struct PositionedFlowNode {
     pub id: String,
     pub label: String,
+    pub shape: FlowShape,
     pub rect: Rect,
     pub layer: usize,
     pub order: usize,
@@ -2927,6 +2928,7 @@ struct LayoutGraph {
 struct LayoutNode {
     id: String,
     label: String,
+    shape: FlowShape,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2972,6 +2974,7 @@ impl LayoutGraph {
                 .map(|class| LayoutNode {
                     id: class.id.value.clone(),
                     label: class.id.value.clone(),
+                    shape: FlowShape::Rectangle,
                 })
                 .collect(),
             edges: Vec::new(),
@@ -3004,6 +3007,7 @@ impl LayoutGraph {
                 .map(|entity| LayoutNode {
                     id: entity.id.value.clone(),
                     label: entity.id.value.clone(),
+                    shape: FlowShape::Rectangle,
                 })
                 .collect(),
             edges: Vec::new(),
@@ -3086,6 +3090,11 @@ impl LayoutGraph {
             {
                 self.nodes[index].label = label.text.clone();
             }
+            if self.nodes[index].shape == FlowShape::Rectangle
+                || node.shape.value != FlowShape::Rectangle
+            {
+                self.nodes[index].shape = node.shape.value.clone();
+            }
             return index;
         }
         let label = node
@@ -3095,6 +3104,7 @@ impl LayoutGraph {
         self.nodes.push(LayoutNode {
             id: node.id.value.clone(),
             label,
+            shape: node.shape.value.clone(),
         });
         self.nodes.len() - 1
     }
@@ -3337,6 +3347,7 @@ fn place_graph(
         .map(|(index, node)| PositionedFlowNode {
             id: node.id.clone(),
             label: node.label.clone(),
+            shape: node.shape.clone(),
             rect: rects[index],
             layer: layers[index],
             order: order[index],

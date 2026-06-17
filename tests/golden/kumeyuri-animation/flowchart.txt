@@ -11,10 +11,11 @@
 11_dotted_edge 122d5581b3b18aa8
 12_thick_edge 122d5581b3b18aa8
 13_bidirectional_edge 87664e2f677d781e
-14_mixed_shapes 28d1c93aeddcd1fc
-15_round_and_stadium 47753eff6cc88b7a
+14_mixed_shapes a18e18c72312ce0e
+15_round_and_stadium 95d6c7d70463b2f4
 16_subgraph_simple 888f6e0dccd52fb1
 17_nested_subgraph 49b23222696f45db
 18_class_styles 122d5581b3b18aa8
 19_directive_comment 122d5581b3b18aa8
 20_disconnected_roots 9840ba19b58a91b1
+21_classic_shapes 9def8dfc88420079
