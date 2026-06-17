@@ -32,7 +32,8 @@ use crate::ast::{
     SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
     StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
     StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement, TreemapAst, TreemapHeader, TreemapNode, TreemapStatement, XyChartAst,
+    TimelineStatement, TreemapAst, TreemapHeader, TreemapNode, TreemapStatement, VennAst,
+    VennHeader, VennSet, VennStatement, VennStyle, VennText, VennTextOwner, VennUnion, XyChartAst,
     XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation,
     XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment,
     ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
@@ -155,6 +156,13 @@ pub enum ParseErrorKind {
     UnknownTreemapStatement,
     ExpectedTreemapNode,
     ExpectedTreemapValue,
+    ExpectedVennHeader,
+    UnknownVennStatement,
+    ExpectedVennSet,
+    ExpectedVennUnion,
+    ExpectedVennText,
+    ExpectedVennStyle,
+    ExpectedVennValue,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -270,6 +278,10 @@ impl Parser {
 
     pub fn parse_treemap(source: &str) -> Result<TreemapAst, ParseError> {
         DiagramParser::new(source).parse_treemap_only()
+    }
+
+    pub fn parse_venn(source: &str) -> Result<VennAst, ParseError> {
+        DiagramParser::new(source).parse_venn_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -477,6 +489,14 @@ impl Parser {
         TreemapStatementParser::new(source).parse()
     }
 
+    pub fn parse_venn_header(source: &str) -> Result<VennHeader, ParseError> {
+        VennHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_venn_statement(source: &str) -> Result<VennStatement, ParseError> {
+        VennStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -646,6 +666,11 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Treemap(Box::new(ast))));
+        }
+        if let Ok(venn_header) = Parser::parse_venn_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_venn_body(shift_venn_header(venn_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Venn(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -910,6 +935,18 @@ impl<'source> DiagramParser<'source> {
         let treemap_header = Parser::parse_treemap_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))
+    }
+
+    fn parse_venn_only(mut self) -> Result<VennAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedVennHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let venn_header = Parser::parse_venn_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_venn_body(shift_venn_header(venn_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1818,6 +1855,58 @@ impl<'source> DiagramParser<'source> {
         })
     }
 
+    fn parse_venn_body(&mut self, header: VennHeader) -> Result<VennAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = VennAst {
+            header,
+            title: None,
+            sets: Vec::new(),
+            unions: Vec::new(),
+            texts: Vec::new(),
+            styles: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut current_owner = None::<VennTextOwner>;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let mut statement = shift_venn_statement(
+                Parser::parse_venn_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            match &mut statement {
+                VennStatement::Set(set) => {
+                    current_owner = Some(VennTextOwner::Set(set.id.value.clone()));
+                    ast.sets.push((**set).clone());
+                }
+                VennStatement::Union(union) => {
+                    let members = union
+                        .members
+                        .iter()
+                        .map(|member| member.value.clone())
+                        .collect::<Vec<_>>();
+                    current_owner = Some(VennTextOwner::Union(members));
+                    ast.unions.push((**union).clone());
+                }
+                VennStatement::Text(text) => {
+                    text.owner = current_owner.clone();
+                    if let Some(owner) = &text.owner {
+                        attach_venn_text(&mut ast, owner, (**text).clone());
+                    }
+                    ast.texts.push((**text).clone());
+                }
+                VennStatement::Title(title) => ast.title = Some(title.clone()),
+                VennStatement::Style(style) => ast.styles.push(style.clone()),
+                VennStatement::Comment(_) | VennStatement::Directive(_) => {}
+            }
+            ast.statements.push(statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
         let span_start = header.span.start;
         let mut parsed = Vec::<ParsedMindmapNode>::new();
@@ -2503,6 +2592,34 @@ fn push_event_modeling_statement(ast: &mut EventModelingAst, statement: EventMod
         EventModelingStatement::Comment(_) | EventModelingStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
+}
+
+fn attach_venn_text(ast: &mut VennAst, owner: &VennTextOwner, text: VennText) {
+    match owner {
+        VennTextOwner::Set(id) => {
+            if let Some(set) = ast.sets.iter_mut().rev().find(|set| set.id.value == *id) {
+                set.texts.push(text);
+            }
+        }
+        VennTextOwner::Union(members) => {
+            if let Some(union) = ast
+                .unions
+                .iter_mut()
+                .rev()
+                .find(|union| venn_members_match(&union.members, members))
+            {
+                union.texts.push(text);
+            }
+        }
+    }
+}
+
+fn venn_members_match(actual: &[Spanned<String>], expected: &[String]) -> bool {
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(expected)
+            .all(|(actual, expected)| actual.value == *expected)
 }
 
 fn upsert_block_node(nodes: &mut Vec<BlockNode>, node: BlockNode) {
@@ -4461,6 +4578,36 @@ impl<'source> TreemapHeaderParser<'source> {
             });
         }
         Ok(TreemapHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct VennHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> VennHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<VennHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedVennHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "venn-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedVennHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(VennHeader {
             span: Span::new(start, end),
         })
     }
@@ -9477,6 +9624,259 @@ impl<'source> TreemapStatementParser<'source> {
     }
 }
 
+struct VennStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> VennStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<VennStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownVennStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(VennStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(VennStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label_start = skip_ascii_ws(self.source, start + "title".len(), end);
+            let label = label_from_trimmed(self.source, label_start, end).ok_or(ParseError {
+                kind: ParseErrorKind::UnknownVennStatement,
+                span: Span::new(start, end),
+            })?;
+            return Ok(VennStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "set") {
+            return parse_venn_set(self.source, start, end)
+                .map(|set| VennStatement::Set(Box::new(set)));
+        }
+        if has_keyword(self.source, start, "union") {
+            return parse_venn_union(self.source, start, end)
+                .map(|union| VennStatement::Union(Box::new(union)));
+        }
+        if has_keyword(self.source, start, "text") {
+            return parse_venn_text(self.source, start, end)
+                .map(|text| VennStatement::Text(Box::new(text)));
+        }
+        if has_keyword(self.source, start, "style") {
+            return parse_venn_style(self.source, start, end).map(VennStatement::Style);
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownVennStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+fn parse_venn_set(source: &str, start: usize, end: usize) -> Result<VennSet, ParseError> {
+    let cursor = start + "set".len();
+    let (id, cursor) = parse_venn_identifier(source, cursor, end, ParseErrorKind::ExpectedVennSet)?;
+    let (label, size, cursor) =
+        parse_venn_label_size(source, cursor, end, ParseErrorKind::ExpectedVennSet)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennSet,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(VennSet {
+        id,
+        label,
+        size,
+        texts: Vec::new(),
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_venn_union(source: &str, start: usize, end: usize) -> Result<VennUnion, ParseError> {
+    let mut cursor = start + "union".len();
+    let mut members = Vec::new();
+    loop {
+        let (member, next) =
+            parse_venn_identifier(source, cursor, end, ParseErrorKind::ExpectedVennUnion)?;
+        members.push(member);
+        cursor = skip_ascii_ws(source, next, end);
+        if source.as_bytes().get(cursor) != Some(&b',') {
+            break;
+        }
+        cursor += 1;
+    }
+    if members.len() < 2 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennUnion,
+            span: Span::new(start, end),
+        });
+    }
+    let (label, size, cursor) =
+        parse_venn_label_size(source, cursor, end, ParseErrorKind::ExpectedVennUnion)?;
+    if cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennUnion,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(VennUnion {
+        members,
+        label,
+        size,
+        texts: Vec::new(),
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_venn_text(source: &str, start: usize, end: usize) -> Result<VennText, ParseError> {
+    let cursor = start + "text".len();
+    let (id, cursor) =
+        parse_venn_identifier(source, cursor, end, ParseErrorKind::ExpectedVennText)?;
+    let (label, size, cursor) =
+        parse_venn_label_size(source, cursor, end, ParseErrorKind::ExpectedVennText)?;
+    if size.is_some() || cursor != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennText,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(VennText {
+        id,
+        label,
+        owner: None,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_venn_style(source: &str, start: usize, end: usize) -> Result<VennStyle, ParseError> {
+    let target_start = skip_ascii_ws(source, start + "style".len(), end);
+    let target_end = source[target_start..end]
+        .find(|value: char| value.is_ascii_whitespace())
+        .map_or(end, |offset| target_start + offset);
+    let targets = parse_csv_identifiers(
+        source,
+        target_start,
+        target_end,
+        ParseErrorKind::ExpectedVennStyle,
+    )?;
+    let declaration_start = skip_ascii_ws(source, target_end, end);
+    let declarations = parse_style_declarations(source, declaration_start, end)?;
+    Ok(VennStyle {
+        targets,
+        declarations,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_venn_identifier(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+) -> Result<(Spanned<String>, usize), ParseError> {
+    let start = skip_ascii_ws(source, start, end);
+    if start >= end {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    }
+    if source.as_bytes().get(start) == Some(&b'"') {
+        let close = find_treemap_quote_end(source, start + 1, end).ok_or(ParseError {
+            kind,
+            span: Span::new(start, end),
+        })?;
+        return Ok((
+            Spanned::new(
+                source[start + 1..close].to_owned(),
+                Span::new(start + 1, close),
+            ),
+            close + 1,
+        ));
+    }
+    let mut cursor = start;
+    while cursor < end
+        && !source.as_bytes()[cursor].is_ascii_whitespace()
+        && !matches!(source.as_bytes()[cursor], b',' | b'[' | b':' | b']')
+    {
+        cursor += 1;
+    }
+    if cursor == start {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    }
+    Ok((
+        Spanned::new(source[start..cursor].to_owned(), Span::new(start, cursor)),
+        cursor,
+    ))
+}
+
+fn parse_venn_label_size(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+) -> Result<(Option<Label>, Option<Spanned<String>>, usize), ParseError> {
+    let mut cursor = skip_ascii_ws(source, start, end);
+    let mut label = None;
+    if source.as_bytes().get(cursor) == Some(&b'[') {
+        let close = source[cursor + 1..end]
+            .find(']')
+            .map(|offset| cursor + 1 + offset)
+            .ok_or(ParseError {
+                kind,
+                span: Span::new(cursor, end),
+            })?;
+        label = Some(label_from_body(source, cursor + 1, close));
+        cursor = skip_ascii_ws(source, close + 1, end);
+    }
+    let mut size = None;
+    if source.as_bytes().get(cursor) == Some(&b':') {
+        let value_start = skip_ascii_ws(source, cursor + 1, end);
+        let value_end = source[value_start..end]
+            .find(|value: char| value.is_ascii_whitespace())
+            .map_or(end, |offset| value_start + offset);
+        size = Some(parse_venn_value(source, value_start, value_end)?);
+        cursor = skip_ascii_ws(source, value_end, end);
+    }
+    Ok((label, size, cursor))
+}
+
+fn parse_venn_value(source: &str, start: usize, end: usize) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennValue,
+            span: Span::new(start, end),
+        });
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let value = &source[value_start..value_end];
+    let parsed = value.parse::<f64>().map_err(|_| ParseError {
+        kind: ParseErrorKind::ExpectedVennValue,
+        span: Span::new(value_start, value_end),
+    })?;
+    if !parsed.is_finite() || parsed < 0.0 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedVennValue,
+            span: Span::new(value_start, value_end),
+        });
+    }
+    Ok(Spanned::new(
+        value.to_owned(),
+        Span::new(value_start, value_end),
+    ))
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -12688,6 +13088,85 @@ fn shift_treemap_node(node: TreemapNode, offset: usize) -> TreemapNode {
     }
 }
 
+fn shift_venn_header(header: VennHeader, offset: usize) -> VennHeader {
+    VennHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_venn_statement(statement: VennStatement, offset: usize) -> VennStatement {
+    match statement {
+        VennStatement::Title(title) => VennStatement::Title(shift_label(title, offset)),
+        VennStatement::Set(set) => VennStatement::Set(Box::new(shift_venn_set(*set, offset))),
+        VennStatement::Union(union) => {
+            VennStatement::Union(Box::new(shift_venn_union(*union, offset)))
+        }
+        VennStatement::Text(text) => VennStatement::Text(Box::new(shift_venn_text(*text, offset))),
+        VennStatement::Style(style) => VennStatement::Style(shift_venn_style(style, offset)),
+        VennStatement::Comment(comment) => VennStatement::Comment(shift_comment(comment, offset)),
+        VennStatement::Directive(directive) => {
+            VennStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_venn_set(set: VennSet, offset: usize) -> VennSet {
+    VennSet {
+        id: shift_spanned(set.id, offset),
+        label: set.label.map(|label| shift_label(label, offset)),
+        size: set.size.map(|size| shift_spanned(size, offset)),
+        texts: set
+            .texts
+            .into_iter()
+            .map(|text| shift_venn_text(text, offset))
+            .collect(),
+        span: shift_span(set.span, offset),
+    }
+}
+
+fn shift_venn_union(union: VennUnion, offset: usize) -> VennUnion {
+    VennUnion {
+        members: union
+            .members
+            .into_iter()
+            .map(|member| shift_spanned(member, offset))
+            .collect(),
+        label: union.label.map(|label| shift_label(label, offset)),
+        size: union.size.map(|size| shift_spanned(size, offset)),
+        texts: union
+            .texts
+            .into_iter()
+            .map(|text| shift_venn_text(text, offset))
+            .collect(),
+        span: shift_span(union.span, offset),
+    }
+}
+
+fn shift_venn_text(text: VennText, offset: usize) -> VennText {
+    VennText {
+        id: shift_spanned(text.id, offset),
+        label: text.label.map(|label| shift_label(label, offset)),
+        owner: text.owner,
+        span: shift_span(text.span, offset),
+    }
+}
+
+fn shift_venn_style(style: VennStyle, offset: usize) -> VennStyle {
+    VennStyle {
+        targets: style
+            .targets
+            .into_iter()
+            .map(|target| shift_spanned(target, offset))
+            .collect(),
+        declarations: style
+            .declarations
+            .into_iter()
+            .map(|declaration| shift_style_declaration(declaration, offset))
+            .collect(),
+        span: shift_span(style.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -14117,9 +14596,30 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_venn_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "venn-beta\ntitle \"Team overlap\"\nset A[\"Alpha\"]:20\ntext A1[\"React\"]\nset B[\"Beta\"]:12\nunion A,B[\"AB\"]:3\ntext AB1[\"OpenAPI\"]\nstyle A,B color:#333",
+        )
+        .unwrap();
+
+        let DiagramKind::Venn(ast) = diagram.kind else {
+            panic!("expected Venn diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Team overlap");
+        assert_eq!(ast.sets.len(), 2);
+        assert_eq!(ast.sets[0].label.as_ref().unwrap().text, "Alpha");
+        assert_eq!(ast.sets[0].texts[0].label.as_ref().unwrap().text, "React");
+        assert_eq!(ast.unions[0].members[1].value, "B");
+        assert_eq!(
+            ast.unions[0].texts[0].label.as_ref().unwrap().text,
+            "OpenAPI"
+        );
+        assert_eq!(ast.styles[0].targets.len(), 2);
+    }
+
+    #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Venn", "venn-beta"),
             ("Ishikawa", "ishikawa-beta"),
             ("Wardley", "wardley-beta"),
             ("TreeView", "treeView-beta"),

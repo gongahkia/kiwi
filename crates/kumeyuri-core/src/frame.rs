@@ -5,7 +5,7 @@ use crate::ast::{
     GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, KanbanAst, MindmapAst,
     MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, TreemapAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    TimelineAst, TreemapAst, VennAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
@@ -23,12 +23,13 @@ use crate::layout::{
     PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
-    PositionedSequenceNote, PositionedTreemapNode, PositionedXyChartSeries,
-    PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine,
-    Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine,
-    SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout,
-    TimelineLayoutEngine, TreemapLayout, TreemapLayoutEngine, XyChartLayout, XyChartLayoutEngine,
-    ZenUmlLayout, ZenUmlLayoutEngine,
+    PositionedSequenceNote, PositionedTreemapNode, PositionedVennSet, PositionedVennStyle,
+    PositionedVennUnion, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
+    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
+    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    TreemapLayout, TreemapLayoutEngine, VennLayout, VennLayoutEngine, XyChartLayout,
+    XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -360,6 +361,7 @@ pub struct StaticFrameRenderer {
     radar: RadarLayoutEngine,
     event_modeling: EventModelingLayoutEngine,
     treemap: TreemapLayoutEngine,
+    venn: VennLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -396,6 +398,7 @@ impl StaticFrameRenderer {
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
+            venn: VennLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -433,6 +436,7 @@ impl StaticFrameRenderer {
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
+            venn: VennLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -470,6 +474,7 @@ impl StaticFrameRenderer {
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
+            venn: VennLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -530,6 +535,7 @@ impl StaticFrameRenderer {
             DiagramKind::Radar(ast) => self.render_radar(ast),
             DiagramKind::EventModeling(ast) => self.render_event_modeling(ast),
             DiagramKind::Treemap(ast) => self.render_treemap(ast),
+            DiagramKind::Venn(ast) => self.render_venn(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -647,6 +653,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_treemap(&self, ast: &TreemapAst) -> Frame {
         render_treemap_layout(&self.treemap.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_venn(&self, ast: &VennAst) -> Frame {
+        render_venn_layout(&self.venn.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -2045,6 +2056,161 @@ fn treemap_node_label(node: &PositionedTreemapNode) -> String {
         return node.label.clone();
     }
     format!("{} [{}]", node.label, node.classes.join(","))
+}
+
+fn render_venn_layout(layout: &VennLayout, _palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_centered_row(&mut frame, 0, title, text_style.clone());
+    }
+    for set in &layout.sets {
+        draw_venn_set(
+            &mut frame,
+            set,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    for union in &layout.unions {
+        draw_venn_union(&mut frame, union, text_style.clone(), muted_style.clone());
+    }
+    for style in &layout.styles {
+        write_text_safe(
+            &mut frame,
+            style.origin.x,
+            style.origin.y,
+            &venn_style_frame_label(style),
+            muted_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_venn_set(
+    frame: &mut Frame,
+    set: &PositionedVennSet,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    draw_venn_ellipse(
+        frame,
+        set.center,
+        set.radius_x,
+        set.radius_y,
+        node_style.clone(),
+    );
+    let inner_width = (set.radius_x.saturating_mul(2).saturating_sub(3)).max(1) as usize;
+    let frame_center = frame.width as i32 / 2;
+    let label_x = if set.center.x < frame_center {
+        set.center.x - set.radius_x / 2
+    } else if set.center.x > frame_center {
+        set.center.x + set.radius_x / 2
+    } else {
+        set.center.x
+    };
+    write_centered_point(
+        frame,
+        label_x,
+        set.center.y - 1,
+        &event_modeling_fit(&venn_set_frame_label(set), inner_width),
+        text_style,
+    );
+    for (index, text) in set.texts.iter().enumerate() {
+        write_centered_point(
+            frame,
+            label_x,
+            set.center.y + index as i32,
+            &event_modeling_fit(text, inner_width),
+            muted_style.clone(),
+        );
+    }
+}
+
+fn draw_venn_union(
+    frame: &mut Frame,
+    union: &PositionedVennUnion,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    let label = venn_union_frame_label(union);
+    write_centered_point(frame, union.point.x, union.point.y, &label, text_style);
+    for (index, text) in union.texts.iter().enumerate() {
+        write_centered_point(
+            frame,
+            union.point.x,
+            union.point.y + 1 + index as i32,
+            text,
+            muted_style.clone(),
+        );
+    }
+}
+
+fn draw_venn_ellipse(
+    frame: &mut Frame,
+    center: Point,
+    radius_x: i32,
+    radius_y: i32,
+    style: CellStyle,
+) {
+    if radius_x <= 0 || radius_y <= 0 {
+        return;
+    }
+    for y in center.y - radius_y..=center.y + radius_y {
+        for x in center.x - radius_x..=center.x + radius_x {
+            let dx = f64::from(x - center.x) / f64::from(radius_x);
+            let dy = f64::from(y - center.y) / f64::from(radius_y);
+            let distance = dx.mul_add(dx, dy * dy);
+            if (0.82..=1.16).contains(&distance) {
+                put_safe(frame, x, y, 'o', style.clone());
+            }
+        }
+    }
+}
+
+fn write_centered_row(frame: &mut Frame, y: i32, text: &str, style: CellStyle) {
+    let x = (frame.width as i32 - text.chars().count() as i32).max(0) / 2;
+    write_text_safe(frame, x, y, text, style);
+}
+
+fn write_centered_point(frame: &mut Frame, x: i32, y: i32, text: &str, style: CellStyle) {
+    let padded = format!(" {text} ");
+    let start_x = x - padded.chars().count() as i32 / 2;
+    write_text_safe(frame, start_x, y, &padded, style);
+}
+
+fn venn_set_frame_label(set: &PositionedVennSet) -> String {
+    set.size.as_ref().map_or_else(
+        || set.label.clone(),
+        |size| format!("{} ({size})", set.label),
+    )
+}
+
+fn venn_union_frame_label(union: &PositionedVennUnion) -> String {
+    let label = union
+        .label
+        .clone()
+        .unwrap_or_else(|| union.members.join("&"));
+    union
+        .size
+        .as_ref()
+        .map_or(label.clone(), |size| format!("{label} ({size})"))
+}
+
+fn venn_style_frame_label(style: &PositionedVennStyle) -> String {
+    format!(
+        "style {}: {}",
+        style.targets.join(","),
+        style.declarations.join(", ")
+    )
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

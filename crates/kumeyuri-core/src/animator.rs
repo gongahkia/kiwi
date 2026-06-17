@@ -5,7 +5,7 @@ use crate::ast::{
     MermaidDirective, MindmapAst, MindmapStatement, PacketStatement, PieAst, PieStatement,
     QuadrantStatement, RadarStatement, RequirementStatement, SankeyStatement, SequenceAst,
     SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement, TreemapStatement,
-    XyChartStatement, ZenUmlStatement,
+    VennStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -175,6 +175,7 @@ impl Animator {
             (DiagramKind::Radar(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::EventModeling(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Treemap(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Venn(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -328,6 +329,11 @@ impl AnimationConfig {
                     apply_treemap_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Venn(ast) => {
+                for statement in &ast.statements {
+                    apply_venn_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -448,6 +454,7 @@ pub enum AnimationDiagramKind {
     Radar,
     EventModeling,
     Treemap,
+    Venn,
     Mindmap,
     Journey,
     GitGraph,
@@ -477,6 +484,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Radar(_) => Self::Radar,
             DiagramKind::EventModeling(_) => Self::EventModeling,
             DiagramKind::Treemap(_) => Self::Treemap,
+            DiagramKind::Venn(_) => Self::Venn,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -855,6 +863,26 @@ fn apply_treemap_animation_directives(
     Ok(())
 }
 
+fn apply_venn_animation_directives(
+    statement: &VennStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        VennStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        VennStatement::Title(_)
+        | VennStatement::Set(_)
+        | VennStatement::Union(_)
+        | VennStatement::Text(_)
+        | VennStatement::Style(_)
+        | VennStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -1088,6 +1116,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Radar(_) => AnimationMode::None,
         DiagramKind::EventModeling(_) => AnimationMode::None,
         DiagramKind::Treemap(_) => AnimationMode::None,
+        DiagramKind::Venn(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -1124,6 +1153,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Radar(_) => Duration::from_millis(700),
         DiagramKind::EventModeling(_) => Duration::from_millis(700),
         DiagramKind::Treemap(_) => Duration::from_millis(700),
+        DiagramKind::Venn(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

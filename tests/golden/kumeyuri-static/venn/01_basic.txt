@@ -1,0 +1,20 @@
+                                Team overlap
+
+
+
+
+
+
+                       ooooooooooo       ooooooooooo
+                   ooooo         ooooooooo         ooooo
+                 ooo               ooooo               ooo
+               ooo               ooo   ooo               ooo
+              ooo               ooo     ooo               ooo
+              oo Frontend       oo       oo       Backend  oo
+              oo                oo APIs  oo                oo
+              oo                oo       oo                oo
+              ooo               ooo     ooo               ooo
+               ooo               ooo   ooo               ooo
+                 ooo               ooooo               ooo
+                   ooooo         ooooooooo         ooooo
+                       ooooooooooo       ooooooooooo

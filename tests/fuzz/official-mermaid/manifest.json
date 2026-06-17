@@ -162,6 +162,14 @@
       "rootType": "treemap",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/venn.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/venn.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "venn",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

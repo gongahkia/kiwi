@@ -284,6 +284,32 @@ Values must be non-negative numbers. `classDef` and inline classes are retained
 semantically, but Mermaid treemap padding, node size, border/font settings,
 `showValues`, `valueFormat`, and theme color mapping are not interpreted yet.
 
+## Venn diagrams
+
+Header:
+
+```mermaid
+venn-beta
+```
+
+Sets, unions, labels, sizes, text entries, and style statements:
+
+```mermaid
+venn-beta
+title "Team overlap"
+set A["Alpha"]:20
+text A1["React"]
+set B["Beta"]:12
+union A,B["AB"]:3
+text AB1["OpenAPI"]
+style A fill:#ff6b6b
+style A,B color:#333
+```
+
+Set and union sizes must be non-negative numbers. `style` statements are
+retained and rendered as text rows, but Mermaid Venn proportional areas, color
+fills, opacity, and stroke styling are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

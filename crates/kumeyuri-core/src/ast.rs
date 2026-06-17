@@ -26,6 +26,7 @@ pub enum DiagramKind {
     Radar(Box<RadarAst>),
     EventModeling(Box<EventModelingAst>),
     Treemap(Box<TreemapAst>),
+    Venn(Box<VennAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1486,6 +1487,73 @@ pub struct TreemapNode {
     pub value: Option<Spanned<String>>,
     pub classes: Vec<Spanned<String>>,
     pub children: Vec<TreemapNode>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennAst {
+    pub header: VennHeader,
+    pub title: Option<Label>,
+    pub sets: Vec<VennSet>,
+    pub unions: Vec<VennUnion>,
+    pub texts: Vec<VennText>,
+    pub styles: Vec<VennStyle>,
+    pub statements: Vec<VennStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VennHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VennStatement {
+    Title(Label),
+    Set(Box<VennSet>),
+    Union(Box<VennUnion>),
+    Text(Box<VennText>),
+    Style(VennStyle),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennSet {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub size: Option<Spanned<String>>,
+    pub texts: Vec<VennText>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennUnion {
+    pub members: Vec<Spanned<String>>,
+    pub label: Option<Label>,
+    pub size: Option<Spanned<String>>,
+    pub texts: Vec<VennText>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennText {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub owner: Option<VennTextOwner>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VennTextOwner {
+    Set(String),
+    Union(Vec<String>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennStyle {
+    pub targets: Vec<Spanned<String>>,
+    pub declarations: Vec<FlowStyleDeclaration>,
     pub span: Span,
 }
 

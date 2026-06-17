@@ -238,6 +238,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Radar(_) => ("radar", "none"),
         DiagramKind::EventModeling(_) => ("eventmodeling", "none"),
         DiagramKind::Treemap(_) => ("treemap", "none"),
+        DiagramKind::Venn(_) => ("venn", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

@@ -15,9 +15,9 @@ use crate::ast::{
     RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
     SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
     SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition, TimelineAst, TreemapAst, TreemapNode, XyChartAst,
-    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
-    ZenUmlStatement,
+    StateNode, StateStatement, StateTransition, TimelineAst, TreemapAst, TreemapNode, VennAst,
+    VennSet, VennStyle, VennText, VennUnion, XyChartAst, XyChartAxisScale, XyChartSeriesKind,
+    ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -810,6 +810,70 @@ pub struct TreemapLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VennLayoutConfig {
+    pub width: i32,
+    pub height: i32,
+    pub radius_x: i32,
+    pub radius_y: i32,
+    pub title_spacing: i32,
+}
+
+impl Default for VennLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl VennLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            width: 74,
+            height: 22,
+            radius_x: 14,
+            radius_y: 6,
+            title_spacing: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedVennSet {
+    pub id: String,
+    pub label: String,
+    pub size: Option<String>,
+    pub center: Point,
+    pub radius_x: i32,
+    pub radius_y: i32,
+    pub texts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedVennUnion {
+    pub members: Vec<String>,
+    pub label: Option<String>,
+    pub size: Option<String>,
+    pub point: Point,
+    pub texts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedVennStyle {
+    pub targets: Vec<String>,
+    pub declarations: Vec<String>,
+    pub origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VennLayout {
+    pub title: Option<String>,
+    pub sets: Vec<PositionedVennSet>,
+    pub unions: Vec<PositionedVennUnion>,
+    pub styles: Vec<PositionedVennStyle>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1494,6 +1558,11 @@ pub struct EventModelingLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct TreemapLayoutEngine {
     config: TreemapLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct VennLayoutEngine {
+    config: VennLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -4345,6 +4414,204 @@ fn treemap_number_label(value: f64) -> String {
     } else {
         value.to_string()
     }
+}
+
+impl VennLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: VennLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: VennLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &VennAst) -> VennLayout {
+        let title_offset = ast.title.as_ref().map_or(0, |_| self.config.title_spacing);
+        let centers = venn_centers(
+            ast.sets.len(),
+            self.config.width,
+            self.config.height,
+            title_offset,
+        );
+        let sets = ast
+            .sets
+            .iter()
+            .zip(centers.iter())
+            .map(|(set, center)| positioned_venn_set(set, *center, self.config))
+            .collect::<Vec<_>>();
+        let set_index = sets
+            .iter()
+            .enumerate()
+            .map(|(index, set)| (set.id.as_str(), index))
+            .collect::<HashMap<_, _>>();
+        let unions = ast
+            .unions
+            .iter()
+            .map(|union| positioned_venn_union(union, &sets, &set_index))
+            .collect::<Vec<_>>();
+        let style_y = title_offset + self.config.height + 1;
+        let styles = ast
+            .styles
+            .iter()
+            .enumerate()
+            .map(|(index, style)| positioned_venn_style(style, style_y + index as i32))
+            .collect::<Vec<_>>();
+        let mut size = Size {
+            width: self.config.width + 1,
+            height: title_offset + self.config.height + 1,
+        };
+        if let Some(title) = &ast.title {
+            size.width = size.width.max(label_width(&title.text) + 1);
+        }
+        for style in &styles {
+            size.width = size
+                .width
+                .max(style.origin.x + label_width(&venn_style_label(style)) + 1);
+            size.height = size.height.max(style.origin.y + 1);
+        }
+        VennLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            sets,
+            unions,
+            styles,
+            size,
+        }
+    }
+}
+
+fn positioned_venn_set(
+    set: &VennSet,
+    center: Point,
+    config: VennLayoutConfig,
+) -> PositionedVennSet {
+    PositionedVennSet {
+        id: set.id.value.clone(),
+        label: set
+            .label
+            .as_ref()
+            .map_or_else(|| set.id.value.clone(), |label| label.text.clone()),
+        size: set.size.as_ref().map(|size| size.value.clone()),
+        center,
+        radius_x: config.radius_x,
+        radius_y: config.radius_y,
+        texts: set.texts.iter().map(venn_text_label).collect(),
+    }
+}
+
+fn positioned_venn_union(
+    union: &VennUnion,
+    sets: &[PositionedVennSet],
+    set_index: &HashMap<&str, usize>,
+) -> PositionedVennUnion {
+    let members = union
+        .members
+        .iter()
+        .map(|member| member.value.clone())
+        .collect::<Vec<_>>();
+    let points = union
+        .members
+        .iter()
+        .filter_map(|member| {
+            set_index
+                .get(member.value.as_str())
+                .map(|index| sets[*index].center)
+        })
+        .collect::<Vec<_>>();
+    let point = if points.is_empty() {
+        Point { x: 0, y: 0 }
+    } else {
+        Point {
+            x: points.iter().map(|point| point.x).sum::<i32>() / points.len() as i32,
+            y: points.iter().map(|point| point.y).sum::<i32>() / points.len() as i32,
+        }
+    };
+    PositionedVennUnion {
+        members,
+        label: union.label.as_ref().map(|label| label.text.clone()),
+        size: union.size.as_ref().map(|size| size.value.clone()),
+        point,
+        texts: union.texts.iter().map(venn_text_label).collect(),
+    }
+}
+
+fn positioned_venn_style(style: &VennStyle, y: i32) -> PositionedVennStyle {
+    PositionedVennStyle {
+        targets: style
+            .targets
+            .iter()
+            .map(|target| target.value.clone())
+            .collect(),
+        declarations: style
+            .declarations
+            .iter()
+            .map(|declaration| format!("{}={}", declaration.key.value, declaration.value.value))
+            .collect(),
+        origin: Point { x: 0, y },
+    }
+}
+
+fn venn_centers(count: usize, width: i32, height: i32, title_offset: i32) -> Vec<Point> {
+    let center_y = title_offset + height / 2;
+    match count {
+        0 => Vec::new(),
+        1 => vec![Point {
+            x: width / 2,
+            y: center_y,
+        }],
+        2 => vec![
+            Point {
+                x: width / 2 - 9,
+                y: center_y,
+            },
+            Point {
+                x: width / 2 + 9,
+                y: center_y,
+            },
+        ],
+        3 => vec![
+            Point {
+                x: width / 2 - 10,
+                y: center_y - 3,
+            },
+            Point {
+                x: width / 2 + 10,
+                y: center_y - 3,
+            },
+            Point {
+                x: width / 2,
+                y: center_y + 4,
+            },
+        ],
+        _ => (0..count)
+            .map(|index| {
+                let angle = -std::f64::consts::FRAC_PI_2
+                    + std::f64::consts::TAU * (index as f64 / count as f64);
+                Point {
+                    x: width / 2 + (angle.cos() * f64::from(width / 4)).round() as i32,
+                    y: center_y + (angle.sin() * f64::from(height / 4)).round() as i32,
+                }
+            })
+            .collect(),
+    }
+}
+
+fn venn_text_label(text: &VennText) -> String {
+    text.label
+        .as_ref()
+        .map_or_else(|| text.id.value.clone(), |label| label.text.clone())
+}
+
+fn venn_style_label(style: &PositionedVennStyle) -> String {
+    format!(
+        "style {}: {}",
+        style.targets.join(","),
+        style.declarations.join(", ")
+    )
 }
 
 impl StateLayoutEngine {

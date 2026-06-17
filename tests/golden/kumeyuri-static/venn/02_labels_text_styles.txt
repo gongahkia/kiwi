@@ -1,0 +1,26 @@
+
+
+
+
+
+                       ooooooooooo       ooooooooooo
+                   ooooo         ooooooooo         ooooo
+                 ooo               ooooo               ooo
+               ooo               ooo   ooo               ooo
+              ooo               ooo     ooo               ooo
+              o Alpha (20)      oo       oo      Beta (12) oo
+              oo   React        o AB (3) oo                oo
+              Design Systems    o OpenAPI o                oo
+              ooo               ooo     ooo               ooo
+               ooo               ooo   ooo               ooo
+                 ooo               ooooo               ooo
+                   ooooo         ooooooooo         ooooo
+                       ooooooooooo       ooooooooooo
+
+
+
+
+
+style A: fill=#ff6b6b
+style A,B: color=#333
+style A1: color=red
