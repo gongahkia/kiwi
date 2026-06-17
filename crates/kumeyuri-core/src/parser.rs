@@ -1009,6 +1009,13 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
+            if let Some(classes) = parse_mindmap_class_apply(trimmed, line.start)? {
+                if let Some((_, index)) = stack.iter().rev().find(|(level, _)| *level <= indent) {
+                    parsed[*index].node.classes.extend(classes);
+                }
+                self.cursor = line.line.next;
+                continue;
+            }
             while stack.last().is_some_and(|(level, _)| *level >= indent) {
                 stack.pop();
             }
@@ -5485,6 +5492,23 @@ fn parse_mindmap_icon(source: &str, offset: usize) -> Result<Option<Spanned<Stri
         source[start..end].to_owned(),
         Span::new(offset + start, offset + end),
     )))
+}
+
+fn parse_mindmap_class_apply(
+    source: &str,
+    offset: usize,
+) -> Result<Option<Vec<Spanned<String>>>, ParseError> {
+    if !source.starts_with(":::") {
+        return Ok(None);
+    }
+    let classes = parse_mindmap_classes(source, 3, source.len(), offset);
+    if classes.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedMindmapNode,
+            span: Span::new(offset, offset + source.len()),
+        });
+    }
+    Ok(Some(classes))
 }
 
 fn parse_mindmap_node(source: &str, offset: usize) -> Result<MindmapNode, ParseError> {

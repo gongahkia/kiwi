@@ -101,7 +101,12 @@ const PIE_NAMES: [&str; 4] = [
     "04_config_legend_bottom",
 ];
 
-const MINDMAP_NAMES: [&str; 3] = ["01_basic_tree", "02_shapes_icons", "03_directive_comment"];
+const MINDMAP_NAMES: [&str; 4] = [
+    "01_basic_tree",
+    "02_shapes_icons",
+    "03_directive_comment",
+    "04_parity_shapes_markdown",
+];
 
 const JOURNEY_NAMES: [&str; 4] = [
     "01_basic",

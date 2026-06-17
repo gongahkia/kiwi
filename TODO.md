@@ -170,7 +170,7 @@
 - [x] Journey: add actor color/style parity, section ordering, score bounds validation, and Mermaid theme/config fixtures
 - [x] GitGraph: add fixtures for branch ordering, checkout/switch aliases, merge/cherry-pick options, commit tags/types, orientation, and theme/config parity
 - [x] Timeline: add fixtures for multi-event periods, empty sections, long labels, ordering, and Mermaid theme/config parity
-- [ ] Mindmap: add parity for icon registration fallback, Markdown labels, all supported shapes, class styling, indentation edge cases, and deep-tree layout
+- [x] Mindmap: add parity for icon registration fallback, Markdown labels, all supported shapes, class styling, indentation edge cases, and deep-tree layout
 - [ ] Requirement: replace class-layout rendering with requirement-specific geometry and relationship glyphs
 - [ ] Requirement: add fixtures for all requirement kinds, risk values, verify methods, element types, relationships, styles, and invalid field validation
 - [ ] C4: replace class-layout rendering with C4-specific boundaries, containers, deployment nodes, relationship labels, layout calls, and style updates

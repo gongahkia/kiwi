@@ -7,7 +7,12 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 3] = ["01_basic_tree", "02_shapes_icons", "03_directive_comment"];
+const SNAPSHOT_NAMES: [&str; 4] = [
+    "01_basic_tree",
+    "02_shapes_icons",
+    "03_directive_comment",
+    "04_parity_shapes_markdown",
+];
 
 #[test]
 fn mindmap_static_snapshots_match() {
