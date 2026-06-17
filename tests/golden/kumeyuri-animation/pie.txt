@@ -1,3 +1,4 @@
-01_basic dc04650375e05beb
-02_show_data 5fa732d052067233
-03_comments_directive b12d276c03bb2cac
+01_basic 6648f4f832478783
+02_show_data 60ba2fdc2ee8404b
+03_comments_directive 435c82bcf6cb23f0
+04_config_legend_bottom 93ac7198c99f4e22

@@ -1029,6 +1029,18 @@ fn render_pie_layout(
         );
     }
     for (index, slice) in layout.slices.iter().enumerate() {
+        if index >= visible_slices {
+            continue;
+        }
+        write_text_safe(
+            &mut frame,
+            slice.label_origin.x,
+            slice.label_origin.y,
+            &pie_slice_percent_label(slice.percent_basis_points),
+            text_style.clone(),
+        );
+    }
+    for (index, slice) in layout.slices.iter().enumerate() {
         write_text_safe(
             &mut frame,
             slice.legend_origin.x,
@@ -1048,19 +1060,14 @@ fn pie_legend_text(
 ) -> String {
     let glyph = pie_slice_glyph(index, palette);
     if show_data {
-        format!(
-            "{glyph} {}: {} ({})",
-            slice.label,
-            slice.value_text,
-            pie_percent_label(slice.percent_basis_points)
-        )
+        format!("{glyph} {} [{}]", slice.label, slice.value_text)
     } else {
         format!("{glyph} {}", slice.label)
     }
 }
 
-fn pie_percent_label(basis_points: u16) -> String {
-    format!("{}.{:02}%", basis_points / 100, basis_points % 100)
+fn pie_slice_percent_label(basis_points: u16) -> String {
+    format!("{}%", (basis_points + 50) / 100)
 }
 
 fn pie_slice_glyph(index: usize, palette: GlyphPalette) -> char {

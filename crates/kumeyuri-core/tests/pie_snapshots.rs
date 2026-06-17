@@ -7,7 +7,12 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 3] = ["01_basic", "02_show_data", "03_comments_directive"];
+const SNAPSHOT_NAMES: [&str; 4] = [
+    "01_basic",
+    "02_show_data",
+    "03_comments_directive",
+    "04_config_legend_bottom",
+];
 
 #[test]
 fn pie_static_snapshots_match() {

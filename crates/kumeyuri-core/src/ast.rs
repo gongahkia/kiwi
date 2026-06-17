@@ -650,6 +650,7 @@ pub struct PieAst {
     pub header: PieHeader,
     pub title: Option<Label>,
     pub show_data: bool,
+    pub config: PieConfig,
     pub statements: Vec<PieStatement>,
     pub slices: Vec<PieSlice>,
     pub span: Span,
@@ -660,6 +661,51 @@ pub struct PieHeader {
     pub show_data: bool,
     pub title: Option<Label>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PieConfig {
+    pub text_position_milli: u16,
+    pub legend_position: PieLegendPosition,
+}
+
+impl Default for PieConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl PieConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            text_position_milli: 750,
+            legend_position: PieLegendPosition::Right,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PieLegendPosition {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    Center,
+}
+
+impl PieLegendPosition {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"top" => Some(Self::Top),
+            b"bottom" => Some(Self::Bottom),
+            b"left" => Some(Self::Left),
+            b"right" => Some(Self::Right),
+            b"center" => Some(Self::Center),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

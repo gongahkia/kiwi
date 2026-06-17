@@ -11,8 +11,8 @@ use crate::ast::{
     GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
     GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
     MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
-    MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement, RequirementAst,
-    RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
+    MindmapStatement, PieAst, PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement,
+    RequirementAst, RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
     RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
     RequirementStyle, RequirementVerifyMethod, SequenceActivation, SequenceArrow, SequenceAst,
     SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
@@ -950,9 +950,12 @@ impl<'source> DiagramParser<'source> {
 
     fn parse_pie_body(&mut self, header: PieHeader) -> Result<PieAst, ParseError> {
         let span_start = header.span.start;
+        let mut config = PieConfig::default_values();
+        apply_pie_config_directives(&mut config, &self.directives);
         let mut ast = PieAst {
             title: header.title.clone(),
             show_data: header.show_data,
+            config,
             header,
             statements: Vec::new(),
             slices: Vec::new(),
@@ -965,6 +968,9 @@ impl<'source> DiagramParser<'source> {
                     .map_err(|error| shift_error(error, line.start))?,
                 line.start,
             );
+            if let PieStatement::Directive(directive) = &statement {
+                apply_pie_config_directive(&mut ast.config, directive);
+            }
             push_pie_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
@@ -8126,6 +8132,158 @@ fn is_unsupported_state_config_directive(directive: &MermaidDirective) -> bool {
     }
     let raw = directive.raw.to_ascii_lowercase();
     ["layout", "look"].iter().any(|field| raw.contains(field))
+}
+
+fn apply_pie_config_directives(config: &mut PieConfig, directives: &[MermaidDirective]) {
+    for directive in directives {
+        apply_pie_config_directive(config, directive);
+    }
+}
+
+fn apply_pie_config_directive(config: &mut PieConfig, directive: &MermaidDirective) {
+    let key = directive.key.as_ref().map(|key| key.value.as_str());
+    if !matches!(
+        key,
+        Some("init" | "initialize" | "config" | "pie" | "theme" | "themeVariables")
+    ) {
+        return;
+    }
+    let raw = if matches!(key, Some("pie")) {
+        directive.raw.as_str()
+    } else {
+        config_object_value(&directive.raw, "pie").unwrap_or(&directive.raw)
+    };
+    if let Some(value) = config_number_value(raw, "textPosition")
+        && let Some(position) = pie_text_position_milli(value)
+    {
+        config.text_position_milli = position;
+    }
+    if let Some(value) = config_string_value(raw, "legendPosition")
+        && let Some(position) = PieLegendPosition::from_mermaid(value)
+    {
+        config.legend_position = position;
+    }
+}
+
+fn config_object_value<'source>(source: &'source str, key: &str) -> Option<&'source str> {
+    let start = config_value_start(source, key)?;
+    let bytes = source.as_bytes();
+    let mut cursor = skip_config_whitespace(source, start);
+    if bytes.get(cursor).copied()? != b'{' {
+        return None;
+    }
+    cursor += 1;
+    let body_start = cursor;
+    let mut depth = 1usize;
+    let mut quote = None;
+    while cursor < source.len() {
+        let byte = bytes[cursor];
+        if let Some(close) = quote {
+            if byte == b'\\' {
+                cursor = (cursor + 2).min(source.len());
+                continue;
+            }
+            if byte == close {
+                quote = None;
+            }
+            cursor += 1;
+            continue;
+        }
+        match byte {
+            b'\'' | b'"' => quote = Some(byte),
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&source[body_start..cursor]);
+                }
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn config_number_value<'source>(source: &'source str, key: &str) -> Option<&'source str> {
+    let start = config_value_start(source, key)?;
+    let end = source[start..]
+        .find(|ch: char| !(ch.is_ascii_digit() || ch == '.'))
+        .map_or(source.len(), |offset| start + offset);
+    (end > start).then_some(&source[start..end])
+}
+
+fn config_string_value<'source>(source: &'source str, key: &str) -> Option<&'source str> {
+    let start = config_value_start(source, key)?;
+    let bytes = source.as_bytes();
+    match bytes.get(start).copied()? {
+        b'\'' | b'"' => {
+            let quote = bytes[start];
+            let value_start = start + 1;
+            let mut cursor = value_start;
+            while cursor < source.len() {
+                if bytes[cursor] == b'\\' {
+                    cursor = (cursor + 2).min(source.len());
+                    continue;
+                }
+                if bytes[cursor] == quote {
+                    return Some(&source[value_start..cursor]);
+                }
+                cursor += 1;
+            }
+            None
+        }
+        _ => {
+            let end = source[start..]
+                .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'))
+                .map_or(source.len(), |offset| start + offset);
+            (end > start).then_some(&source[start..end])
+        }
+    }
+}
+
+fn config_value_start(source: &str, key: &str) -> Option<usize> {
+    for (start, _) in source.match_indices(key) {
+        let before = source[..start].bytes().next_back();
+        let after_index = start + key.len();
+        let after = source.as_bytes().get(after_index).copied();
+        let colon_start = if matches!(before, Some(b'\'' | b'"')) && after == before {
+            after_index + 1
+        } else {
+            if before.is_some_and(is_identifier_byte) || after.is_some_and(is_identifier_byte) {
+                continue;
+            }
+            after_index
+        };
+        let colon = skip_config_whitespace(source, colon_start);
+        if source.as_bytes().get(colon).copied() != Some(b':') {
+            continue;
+        }
+        return Some(skip_config_whitespace(source, colon + 1));
+    }
+    None
+}
+
+fn skip_config_whitespace(source: &str, mut cursor: usize) -> usize {
+    while source
+        .as_bytes()
+        .get(cursor)
+        .is_some_and(u8::is_ascii_whitespace)
+    {
+        cursor += 1;
+    }
+    cursor
+}
+
+fn is_identifier_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+fn pie_text_position_milli(value: &str) -> Option<u16> {
+    let parsed = value.parse::<f64>().ok()?;
+    (0.0..=1.0)
+        .contains(&parsed)
+        .then_some((parsed * 1000.0).round() as u16)
 }
 
 #[cfg(test)]

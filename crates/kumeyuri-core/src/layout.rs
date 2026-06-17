@@ -5,11 +5,12 @@ use crate::ast::{
     FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
     FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
     GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst,
-    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
-    RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox,
-    SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
-    Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition,
+    RequirementAst, RequirementElement, RequirementKind, RequirementNode,
+    RequirementRelationshipKind, RequirementVerifyMethod, SequenceActivation, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
+    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
+    StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -371,6 +372,7 @@ pub struct PositionedPieSlice {
     pub value_text: String,
     pub value_units: u64,
     pub percent_basis_points: u16,
+    pub label_origin: Point,
     pub legend_origin: Point,
 }
 
@@ -2378,41 +2380,66 @@ impl PieLayoutEngine {
             .iter()
             .map(|slice| slice.value_units.value)
             .sum::<u64>();
-        let center = Point {
-            x: self.config.radius_x,
-            y: self.config.top_padding + self.config.radius_y,
-        };
-        let legend_x = self.config.radius_x * 2 + self.config.legend_gap;
-        let mut slices = Vec::new();
         let mut cumulative = Vec::new();
+        let mut slice_inputs = Vec::new();
         let mut running = 0u64;
-        for (index, slice) in ast.slices.iter().enumerate() {
+        for slice in &ast.slices {
+            let start_units = running;
             running = running.saturating_add(slice.value_units.value);
             cumulative.push(running);
-            slices.push(PositionedPieSlice {
+            slice_inputs.push(PieSliceLayoutInput {
                 label: slice.label.text.clone(),
                 value_text: slice.value_text.value.clone(),
                 value_units: slice.value_units.value,
                 percent_basis_points: pie_percent_basis_points(slice.value_units.value, total),
-                legend_origin: Point {
-                    x: legend_x,
-                    y: self.config.top_padding + index as i32,
-                },
+                start_units,
+                end_units: running,
             });
         }
-        let cells = pie_cells(&self.config, center, total, &cumulative);
         let title_width = ast
             .title
             .as_ref()
             .map_or(0, |title| title.text.chars().count() as i32);
-        let legend_width = slices
+        let legend_width = slice_inputs
             .iter()
             .map(|slice| pie_legend_width(slice, ast.show_data))
             .max()
             .unwrap_or(0);
-        let pie_width = self.config.radius_x * 2 + 1;
-        let pie_height = self.config.top_padding + self.config.radius_y * 2 + 1;
-        let legend_height = self.config.top_padding + slices.len() as i32;
+        let regions = pie_layout_regions(
+            self.config,
+            ast.config.legend_position,
+            legend_width,
+            slice_inputs.len() as i32,
+            title_width,
+        );
+        let center = Point {
+            x: regions.pie_origin.x + self.config.radius_x,
+            y: regions.pie_origin.y + self.config.top_padding + self.config.radius_y,
+        };
+        let cells = pie_cells(&self.config, center, total, &cumulative);
+        let slices = slice_inputs
+            .into_iter()
+            .enumerate()
+            .map(|(index, slice)| PositionedPieSlice {
+                label_origin: pie_label_origin(
+                    self.config,
+                    center,
+                    total,
+                    slice.start_units,
+                    slice.end_units,
+                    slice.percent_basis_points,
+                    ast.config.text_position_milli,
+                ),
+                legend_origin: Point {
+                    x: regions.legend_origin.x,
+                    y: regions.legend_origin.y + index as i32,
+                },
+                label: slice.label,
+                value_text: slice.value_text,
+                value_units: slice.value_units,
+                percent_basis_points: slice.percent_basis_points,
+            })
+            .collect();
 
         PieLayout {
             title: ast.title.as_ref().map(|title| title.text.clone()),
@@ -2420,10 +2447,127 @@ impl PieLayoutEngine {
             center,
             slices,
             cells,
-            size: Size {
-                width: pie_width.max(legend_x + legend_width).max(title_width),
-                height: pie_height.max(legend_height),
-            },
+            size: regions.size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PieSliceLayoutInput {
+    label: String,
+    value_text: String,
+    value_units: u64,
+    percent_basis_points: u16,
+    start_units: u64,
+    end_units: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PieLayoutRegions {
+    pie_origin: Point,
+    legend_origin: Point,
+    size: Size,
+}
+
+fn pie_layout_regions(
+    config: PieLayoutConfig,
+    legend_position: PieLegendPosition,
+    legend_width: i32,
+    legend_rows: i32,
+    title_width: i32,
+) -> PieLayoutRegions {
+    let pie_width = config.radius_x * 2 + 1;
+    let pie_height = config.top_padding + config.radius_y * 2 + 1;
+    let vertical_gap = 1;
+    match legend_position {
+        PieLegendPosition::Left => {
+            let pie_origin = Point {
+                x: legend_width + config.legend_gap,
+                y: 0,
+            };
+            let legend_origin = Point {
+                x: 0,
+                y: config.top_padding,
+            };
+            PieLayoutRegions {
+                pie_origin,
+                legend_origin,
+                size: Size {
+                    width: (pie_origin.x + pie_width).max(title_width),
+                    height: pie_height.max(legend_origin.y + legend_rows),
+                },
+            }
+        }
+        PieLegendPosition::Top => {
+            let pie_origin = Point {
+                x: 0,
+                y: config.top_padding + legend_rows + vertical_gap,
+            };
+            let legend_origin = Point {
+                x: 0,
+                y: config.top_padding,
+            };
+            PieLayoutRegions {
+                pie_origin,
+                legend_origin,
+                size: Size {
+                    width: pie_width.max(legend_width).max(title_width),
+                    height: pie_origin.y + pie_height,
+                },
+            }
+        }
+        PieLegendPosition::Bottom => {
+            let pie_origin = Point { x: 0, y: 0 };
+            let legend_origin = Point {
+                x: 0,
+                y: pie_height + vertical_gap,
+            };
+            PieLayoutRegions {
+                pie_origin,
+                legend_origin,
+                size: Size {
+                    width: pie_width.max(legend_width).max(title_width),
+                    height: legend_origin.y + legend_rows,
+                },
+            }
+        }
+        PieLegendPosition::Center => {
+            let pie_origin = Point { x: 0, y: 0 };
+            let center = Point {
+                x: config.radius_x,
+                y: config.top_padding + config.radius_y,
+            };
+            let legend_origin = Point {
+                x: (center.x - legend_width / 2).max(0),
+                y: (center.y - legend_rows / 2).max(config.top_padding),
+            };
+            PieLayoutRegions {
+                pie_origin,
+                legend_origin,
+                size: Size {
+                    width: pie_width
+                        .max(legend_origin.x + legend_width)
+                        .max(title_width),
+                    height: pie_height.max(legend_origin.y + legend_rows),
+                },
+            }
+        }
+        PieLegendPosition::Right => {
+            let pie_origin = Point { x: 0, y: 0 };
+            let legend_origin = Point {
+                x: config.radius_x * 2 + config.legend_gap,
+                y: config.top_padding,
+            };
+            PieLayoutRegions {
+                pie_origin,
+                legend_origin,
+                size: Size {
+                    width: pie_width
+                        .max(legend_origin.x + legend_width)
+                        .max(title_width),
+                    height: pie_height.max(legend_origin.y + legend_rows),
+                },
+            }
         }
     }
 }
@@ -2474,21 +2618,39 @@ fn pie_percent_basis_points(value: u64, total: u64) -> u16 {
     ((value.saturating_mul(10_000).saturating_add(total / 2)) / total) as u16
 }
 
-fn pie_legend_width(slice: &PositionedPieSlice, show_data: bool) -> i32 {
+fn pie_label_origin(
+    config: PieLayoutConfig,
+    center: Point,
+    total: u64,
+    start_units: u64,
+    end_units: u64,
+    percent_basis_points: u16,
+    text_position_milli: u16,
+) -> Point {
+    if total == 0 {
+        return center;
+    }
+    let midpoint = start_units as f64 + (end_units.saturating_sub(start_units) as f64 / 2.0);
+    let angle = midpoint / total as f64 * std::f64::consts::PI * 2.0;
+    let ratio = f64::from(text_position_milli) / 1000.0;
+    let label = pie_slice_percent_label(percent_basis_points);
+    Point {
+        x: (f64::from(center.x) + angle.sin() * f64::from(config.radius_x) * ratio).round() as i32
+            - (label.chars().count() as i32 / 2),
+        y: (f64::from(center.y) - angle.cos() * f64::from(config.radius_y) * ratio).round() as i32,
+    }
+}
+
+fn pie_legend_width(slice: &PieSliceLayoutInput, show_data: bool) -> i32 {
     let mut width = 2 + slice.label.chars().count() as i32;
     if show_data {
-        width += 2
-            + slice.value_text.chars().count() as i32
-            + 3
-            + pie_percent_label(slice.percent_basis_points)
-                .chars()
-                .count() as i32;
+        width += 3 + slice.value_text.chars().count() as i32;
     }
     width
 }
 
-fn pie_percent_label(basis_points: u16) -> String {
-    format!("{}.{:02}%", basis_points / 100, basis_points % 100)
+fn pie_slice_percent_label(basis_points: u16) -> String {
+    format!("{}%", (basis_points + 50) / 100)
 }
 
 impl MindmapLayoutEngine {
