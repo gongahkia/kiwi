@@ -136,9 +136,8 @@ impl PreprocessorOptions {
                 .map(parse_charset)
                 .transpose()?,
             width: config_usize(ctx, "width")?,
-            padding: config_usize(ctx, "padding")?.map(|padding| {
-                u16::try_from(padding).unwrap_or(u16::MAX)
-            }),
+            padding: config_usize(ctx, "padding")?
+                .map(|padding| u16::try_from(padding).unwrap_or(u16::MAX)),
             font: config_string(ctx, "font")?,
         })
     }
