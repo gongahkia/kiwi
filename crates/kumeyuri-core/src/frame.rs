@@ -3,6 +3,7 @@ use crate::ast::{
     Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
     GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst,
     RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
+    ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
@@ -13,9 +14,10 @@ use crate::layout::{
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
     PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSequenceActivation, PositionedSequenceBox,
-    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote, QuadrantLayout,
-    QuadrantLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SequenceLayout,
-    SequenceLayoutEngine, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
+    PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect, RequirementLayout,
+    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
+    TimelineLayout, TimelineLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -337,6 +339,7 @@ pub struct StaticFrameRenderer {
     gantt: GanttLayoutEngine,
     pie: PieLayoutEngine,
     quadrant: QuadrantLayoutEngine,
+    zenuml: ZenUmlLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -363,6 +366,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
+            zenuml: ZenUmlLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -390,6 +394,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
+            zenuml: ZenUmlLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -417,6 +422,7 @@ impl StaticFrameRenderer {
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
+            zenuml: ZenUmlLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -467,6 +473,7 @@ impl StaticFrameRenderer {
             DiagramKind::Gantt(ast) => self.render_gantt(ast),
             DiagramKind::Pie(ast) => self.render_pie(ast),
             DiagramKind::Quadrant(ast) => self.render_quadrant(ast),
+            DiagramKind::ZenUml(ast) => self.render_zenuml(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -534,6 +541,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_quadrant(&self, ast: &QuadrantAst) -> Frame {
         render_quadrant_layout(&self.quadrant.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_zenuml(&self, ast: &ZenUmlAst) -> Frame {
+        render_zenuml_layout(&self.zenuml.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -826,6 +838,129 @@ fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme:
         draw_sequence_destroy(&mut frame, destroy, text_style.clone());
     }
     frame
+}
+
+fn render_zenuml_layout(layout: &ZenUmlLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for participant in &layout.participants {
+        draw_box(&mut frame, participant.header, palette, node_style.clone());
+        if let Some(annotator) = &participant.annotator {
+            write_centered(
+                &mut frame,
+                Rect {
+                    origin: Point {
+                        x: participant.header.origin.x,
+                        y: participant.header.origin.y + 1,
+                    },
+                    size: Size {
+                        width: participant.header.size.width,
+                        height: 1,
+                    },
+                },
+                &format!("@{annotator}"),
+                muted_style.clone(),
+            );
+            write_text_safe(
+                &mut frame,
+                participant.header.origin.x + 1,
+                participant.header.origin.y + 2,
+                &participant.label,
+                text_style.clone(),
+            );
+        } else {
+            write_centered(
+                &mut frame,
+                participant.header,
+                &participant.label,
+                text_style.clone(),
+            );
+        }
+        draw_vertical(
+            &mut frame,
+            participant.lane_x,
+            participant.header.bottom(),
+            layout.size.height,
+            palette.vertical,
+            muted_style.clone(),
+        );
+    }
+    for fragment in &layout.fragments {
+        write_text_safe(
+            &mut frame,
+            i32::from(fragment.depth) * 2,
+            fragment.y,
+            &format!("[{}]", fragment.label),
+            muted_style.clone(),
+        );
+    }
+    for message in &layout.messages {
+        draw_zenuml_message(
+            &mut frame,
+            message,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_zenuml_message(
+    frame: &mut Frame,
+    message: &PositionedZenUmlMessage,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_polyline(frame, &message.points, palette, edge_style.clone());
+    if let Some(last) = message.points.last() {
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            zenuml_message_arrowhead(message, palette),
+            edge_style,
+        );
+    }
+    let Some((first, last)) = message.points.first().zip(message.points.last()) else {
+        return;
+    };
+    let x = first.x.min(last.x) + 1 + i32::from(message.depth) * 2;
+    let label = match message.kind {
+        ZenUmlMessageKind::Create => format!("new {}", message.to),
+        ZenUmlMessageKind::Reply => {
+            if message.label.is_empty() {
+                "return".to_owned()
+            } else {
+                format!("return {}", message.label)
+            }
+        }
+        ZenUmlMessageKind::Sync | ZenUmlMessageKind::Async => message.label.clone(),
+    };
+    if !label.is_empty() {
+        write_text_safe(frame, x, message.y.saturating_sub(1), &label, text_style);
+    }
+}
+
+fn zenuml_message_arrowhead(message: &PositionedZenUmlMessage, palette: GlyphPalette) -> char {
+    match message.kind {
+        ZenUmlMessageKind::Reply => '<',
+        ZenUmlMessageKind::Create => 'o',
+        ZenUmlMessageKind::Sync | ZenUmlMessageKind::Async => {
+            arrowhead_for_points(&message.points, palette)
+        }
+    }
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

@@ -176,7 +176,7 @@
 - [x] C4: replace class-layout rendering with C4-specific boundaries, containers, deployment nodes, relationship labels, layout calls, and style updates
 - [x] C4: add fixtures for all C4 root variants, boundary nesting, `Rel_*` indexed calls, tags, legends, sprites/icons, and unsupported macro rejection
 - [x] Quadrant Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] ZenUML: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] ZenUML: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Sankey: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] XY Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Block Diagram: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

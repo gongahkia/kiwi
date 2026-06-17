@@ -35,6 +35,10 @@ const FIXTURES: &[(&str, &str)] = &[
         include_str!("../../../tests/fuzz/official-mermaid/quadrant.mmd"),
     ),
     (
+        "zenuml",
+        include_str!("../../../tests/fuzz/official-mermaid/zenuml.mmd"),
+    ),
+    (
         "mindmap",
         include_str!("../../../tests/fuzz/official-mermaid/mindmap.mmd"),
     ),
@@ -112,6 +116,7 @@ fn diagram_kind_name(kind: &DiagramKind) -> &'static str {
         DiagramKind::Gantt(_) => "gantt",
         DiagramKind::Pie(_) => "pie",
         DiagramKind::Quadrant(_) => "quadrant",
+        DiagramKind::ZenUml(_) => "zenuml",
         DiagramKind::Mindmap(_) => "mindmap",
         DiagramKind::Journey(_) => "journey",
         DiagramKind::GitGraph(_) => "gitgraph",

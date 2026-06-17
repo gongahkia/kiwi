@@ -3,7 +3,7 @@ use crate::ast::{
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
     QuadrantStatement, RequirementStatement, SequenceAst, SequenceStatement, StateAst,
-    StateStatement, TimelineAst, TimelineStatement,
+    StateStatement, TimelineAst, TimelineStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -163,6 +163,7 @@ impl Animator {
             (DiagramKind::Requirement(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::C4(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Quadrant(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::ZenUml(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -264,6 +265,11 @@ impl AnimationConfig {
             DiagramKind::Quadrant(ast) => {
                 for statement in &ast.statements {
                     apply_quadrant_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::ZenUml(ast) => {
+                for statement in &ast.statements {
+                    apply_zenuml_animation_directives(statement, &mut config)?;
                 }
             }
             DiagramKind::Mindmap(ast) => {
@@ -376,6 +382,7 @@ pub enum AnimationDiagramKind {
     Gantt,
     Pie,
     Quadrant,
+    ZenUml,
     Mindmap,
     Journey,
     GitGraph,
@@ -395,6 +402,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Gantt(_) => Self::Gantt,
             DiagramKind::Pie(_) => Self::Pie,
             DiagramKind::Quadrant(_) => Self::Quadrant,
+            DiagramKind::ZenUml(_) => Self::ZenUml,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -586,6 +594,26 @@ fn apply_quadrant_animation_directives(
         | QuadrantStatement::ClassDef(_)
         | QuadrantStatement::ClassApply(_)
         | QuadrantStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_zenuml_animation_directives(
+    statement: &ZenUmlStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        ZenUmlStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        ZenUmlStatement::Title(_)
+        | ZenUmlStatement::Participant(_)
+        | ZenUmlStatement::Message(_)
+        | ZenUmlStatement::Fragment(_)
+        | ZenUmlStatement::BlockEnd(_)
+        | ZenUmlStatement::Comment(_) => {}
     }
     Ok(())
 }
@@ -813,6 +841,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Gantt(_) => AnimationMode::Trace,
         DiagramKind::Pie(_) => AnimationMode::Trace,
         DiagramKind::Quadrant(_) => AnimationMode::None,
+        DiagramKind::ZenUml(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -839,6 +868,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
         DiagramKind::Quadrant(_) => Duration::from_millis(700),
+        DiagramKind::ZenUml(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

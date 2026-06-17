@@ -1,0 +1,9 @@
+zenuml
+title Book checkout
+@Actor Alice
+BookService as Service
+BookRepository as Repository
+Alice->BookService.checkout(book)
+BookService.reserve(book)
+BookService->BookRepository: find copy
+return copy

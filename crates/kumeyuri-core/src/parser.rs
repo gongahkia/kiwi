@@ -1720,15 +1720,17 @@ fn push_zenuml_statement(ast: &mut ZenUmlAst, statement: ZenUmlStatement) {
                     },
                 );
             }
-            ensure_zenuml_participant(
-                ast,
-                ZenUmlParticipant {
-                    id: message.to.clone(),
-                    label: None,
-                    annotator: None,
-                    span: message.to.span,
-                },
-            );
+            if message.to.value != "return" {
+                ensure_zenuml_participant(
+                    ast,
+                    ZenUmlParticipant {
+                        id: message.to.clone(),
+                        label: None,
+                        annotator: None,
+                        span: message.to.span,
+                    },
+                );
+            }
             ast.messages.push((**message).clone());
         }
         ZenUmlStatement::Fragment(fragment) => ast.fragments.push(fragment.clone()),
@@ -3717,7 +3719,9 @@ impl<'source> ZenUmlStatementParser<'source> {
         };
         let trimmed = &self.source[start..end];
         if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
-            return Ok(ZenUmlStatement::Directive(shift_directive(directive, start)));
+            return Ok(ZenUmlStatement::Directive(shift_directive(
+                directive, start,
+            )));
         }
         if let Some(comment) = self.parse_comment(start, end) {
             return Ok(ZenUmlStatement::Comment(comment));
@@ -3774,16 +3778,15 @@ impl<'source> ZenUmlStatementParser<'source> {
         }))
     }
 
-    fn parse_message(
-        &self,
-        start: usize,
-        end: usize,
-    ) -> Result<Option<ZenUmlMessage>, ParseError> {
+    fn parse_message(&self, start: usize, end: usize) -> Result<Option<ZenUmlMessage>, ParseError> {
         if has_keyword(self.source, start, "return") {
             let label = label_from_trimmed(self.source, start + "return".len(), end);
             return Ok(Some(ZenUmlMessage {
                 from: None,
-                to: Spanned::new("return".to_owned(), Span::new(start, start + "return".len())),
+                to: Spanned::new(
+                    "return".to_owned(),
+                    Span::new(start, start + "return".len()),
+                ),
                 label,
                 kind: Spanned::new(
                     ZenUmlMessageKind::Reply,
@@ -3817,7 +3820,10 @@ impl<'source> ZenUmlStatementParser<'source> {
         Ok(ZenUmlMessage {
             from: None,
             label: label_from_trimmed(self.source, start, end),
-            kind: Spanned::new(ZenUmlMessageKind::Create, Span::new(start, start + "new".len())),
+            kind: Spanned::new(
+                ZenUmlMessageKind::Create,
+                Span::new(start, start + "new".len()),
+            ),
             depth: self.depth,
             span: Span::new(start, end),
             to: target,
@@ -3840,16 +3846,15 @@ impl<'source> ZenUmlStatementParser<'source> {
             let colon = rhs_start + colon;
             (
                 colon,
-                label_from_trimmed(self.source, colon + 1, end).or_else(|| {
-                    label_from_trimmed(self.source, rhs_start, end)
-                }),
+                label_from_trimmed(self.source, colon + 1, end)
+                    .or_else(|| label_from_trimmed(self.source, rhs_start, end)),
             )
         } else {
             let target_end = zenuml_target_end(self.source, rhs_start, end);
             (
                 target_end,
-                label_from_trimmed(self.source, target_end, end)
-                    .or_else(|| zenuml_method_label(self.source, rhs_start, end)),
+                zenuml_method_label(self.source, rhs_start, end)
+                    .or_else(|| label_from_trimmed(self.source, target_end, end)),
             )
         };
         let to = parse_zenuml_target(self.source, rhs_start, to_end)?;
@@ -6270,7 +6275,8 @@ fn parse_zenuml_target(
     let absolute_start = start + trim_start;
     let trimmed_end = start + trim_end;
     let absolute_end = zenuml_target_end(source, absolute_start, trimmed_end);
-    if absolute_start >= absolute_end || !is_zenuml_identifier(&source[absolute_start..absolute_end])
+    if absolute_start >= absolute_end
+        || !is_zenuml_identifier(&source[absolute_start..absolute_end])
     {
         return Err(ParseError {
             kind: ParseErrorKind::ExpectedZenUmlMessage,
@@ -8413,6 +8419,65 @@ fn shift_quadrant_point(point: QuadrantPoint, offset: usize) -> QuadrantPoint {
     }
 }
 
+fn shift_zenuml_header(header: ZenUmlHeader, offset: usize) -> ZenUmlHeader {
+    ZenUmlHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_zenuml_statement(statement: ZenUmlStatement, offset: usize) -> ZenUmlStatement {
+    match statement {
+        ZenUmlStatement::Title(title) => ZenUmlStatement::Title(shift_label(title, offset)),
+        ZenUmlStatement::Participant(participant) => {
+            ZenUmlStatement::Participant(shift_zenuml_participant(participant, offset))
+        }
+        ZenUmlStatement::Message(message) => {
+            ZenUmlStatement::Message(Box::new(shift_zenuml_message(*message, offset)))
+        }
+        ZenUmlStatement::Fragment(fragment) => {
+            ZenUmlStatement::Fragment(shift_zenuml_fragment(fragment, offset))
+        }
+        ZenUmlStatement::BlockEnd(span) => ZenUmlStatement::BlockEnd(shift_span(span, offset)),
+        ZenUmlStatement::Comment(comment) => {
+            ZenUmlStatement::Comment(shift_comment(comment, offset))
+        }
+        ZenUmlStatement::Directive(directive) => {
+            ZenUmlStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_zenuml_participant(participant: ZenUmlParticipant, offset: usize) -> ZenUmlParticipant {
+    ZenUmlParticipant {
+        id: shift_spanned(participant.id, offset),
+        label: participant.label.map(|label| shift_label(label, offset)),
+        annotator: participant
+            .annotator
+            .map(|annotator| shift_spanned(annotator, offset)),
+        span: shift_span(participant.span, offset),
+    }
+}
+
+fn shift_zenuml_message(message: ZenUmlMessage, offset: usize) -> ZenUmlMessage {
+    ZenUmlMessage {
+        from: message.from.map(|from| shift_spanned(from, offset)),
+        to: shift_spanned(message.to, offset),
+        label: message.label.map(|label| shift_label(label, offset)),
+        kind: shift_spanned(message.kind, offset),
+        depth: message.depth,
+        span: shift_span(message.span, offset),
+    }
+}
+
+fn shift_zenuml_fragment(fragment: ZenUmlFragment, offset: usize) -> ZenUmlFragment {
+    ZenUmlFragment {
+        kind: shift_spanned(fragment.kind, offset),
+        label: fragment.label.map(|label| shift_label(label, offset)),
+        depth: fragment.depth,
+        span: shift_span(fragment.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -9282,7 +9347,7 @@ mod tests {
         FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
         LabelKind, QuadrantAxisKind, SequenceActivation, SequenceArrow, SequenceControlKind,
         SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
-        StateNodeKind, StateStatement,
+        StateNodeKind, StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -9485,6 +9550,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_zenuml_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "zenuml\ntitle Calls\n@Actor Alice\nService as API\nAlice->Service.fetch(id) {\n  if cache miss {\n    new Record\n  }\n  return done\n}",
+        )
+        .unwrap();
+
+        let DiagramKind::ZenUml(ast) = diagram.kind else {
+            panic!("expected ZenUML diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Calls");
+        assert_eq!(ast.participants[0].id.value, "Alice");
+        assert_eq!(
+            ast.participants[0].annotator.as_ref().unwrap().value,
+            "Actor"
+        );
+        assert_eq!(ast.participants[1].label.as_ref().unwrap().text, "API");
+        assert_eq!(ast.messages[0].from.as_ref().unwrap().value, "Alice");
+        assert_eq!(ast.messages[0].to.value, "Service");
+        assert_eq!(ast.messages[0].label.as_ref().unwrap().text, "fetch(id)");
+        assert_eq!(ast.messages[1].kind.value, ZenUmlMessageKind::Create);
+        assert_eq!(ast.fragments[0].label.as_ref().unwrap().text, "cache miss");
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -9583,7 +9672,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("ZenUML", "zenuml"),
             ("Sankey", "sankey"),
             ("XY Chart", "xychart"),
             ("XY Chart beta", "xychart-beta"),

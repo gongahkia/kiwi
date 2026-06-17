@@ -1,0 +1,8 @@
+zenuml
+title Book service
+@Actor Alice
+BookService as Service
+Alice->BookService.getBook(id) {
+  BookService->BookRepository: find book
+  return book
+}

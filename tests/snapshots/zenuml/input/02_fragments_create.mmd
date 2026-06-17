@@ -1,0 +1,12 @@
+%%{ animate: { "mode": "none" } }%%
+zenuml
+// docs-style comments are preserved semantically
+Client->OrderService.create(order) {
+  new Order
+  if stock available {
+    OrderService->Warehouse.reserve()
+  } else {
+    OrderService->Client: out of stock
+  }
+  return confirmation
+}

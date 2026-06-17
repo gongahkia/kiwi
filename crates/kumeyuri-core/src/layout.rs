@@ -11,6 +11,7 @@ use crate::ast::{
     RequirementRisk, RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber,
     SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
     SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -196,6 +197,71 @@ pub struct SequenceLayout {
     pub controls: Vec<PositionedSequenceControl>,
     pub activations: Vec<PositionedSequenceActivation>,
     pub destroys: Vec<PositionedSequenceDestroy>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ZenUmlLayoutConfig {
+    pub lane_spacing: i32,
+    pub participant_width: i32,
+    pub participant_height: i32,
+    pub event_spacing: i32,
+    pub top_padding: i32,
+}
+
+impl Default for ZenUmlLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl ZenUmlLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            lane_spacing: 14,
+            participant_width: 11,
+            participant_height: 4,
+            event_spacing: 3,
+            top_padding: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedZenUmlParticipant {
+    pub id: String,
+    pub label: String,
+    pub annotator: Option<String>,
+    pub lane_x: i32,
+    pub header: Rect,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedZenUmlMessage {
+    pub from: Option<String>,
+    pub to: String,
+    pub label: String,
+    pub kind: ZenUmlMessageKind,
+    pub depth: u16,
+    pub y: i32,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedZenUmlFragment {
+    pub label: String,
+    pub depth: u16,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZenUmlLayout {
+    pub title: Option<String>,
+    pub participants: Vec<PositionedZenUmlParticipant>,
+    pub messages: Vec<PositionedZenUmlMessage>,
+    pub fragments: Vec<PositionedZenUmlFragment>,
     pub size: Size,
 }
 
@@ -836,6 +902,11 @@ pub struct SequenceLayoutEngine {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ZenUmlLayoutEngine {
+    config: ZenUmlLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct StateLayoutEngine {
     flow: FlowLayoutEngine,
 }
@@ -1430,6 +1501,259 @@ fn sequence_message_text_width(message: &PositionedSequenceMessage) -> Option<us
         (None, Some(label)) => Some(label),
         (None, None) => None,
     }
+}
+
+impl ZenUmlLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: ZenUmlLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: ZenUmlLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &ZenUmlAst) -> ZenUmlLayout {
+        let title_height = i32::from(ast.title.is_some()) * 2;
+        let participants = self.position_participants(ast, title_height);
+        let mut messages = Vec::new();
+        let mut fragments = Vec::new();
+        let mut event_index = 0i32;
+
+        for statement in &ast.statements {
+            match statement {
+                ZenUmlStatement::Message(message) => {
+                    messages.push(self.position_message(
+                        message,
+                        &participants,
+                        event_index,
+                        title_height,
+                    ));
+                    event_index += 1;
+                }
+                ZenUmlStatement::Fragment(fragment) => {
+                    fragments.push(PositionedZenUmlFragment {
+                        label: zenuml_fragment_label(fragment.kind.value, &fragment.label),
+                        depth: fragment.depth,
+                        y: self.event_y(event_index, title_height),
+                    });
+                    event_index += 1;
+                }
+                ZenUmlStatement::Title(_)
+                | ZenUmlStatement::Participant(_)
+                | ZenUmlStatement::BlockEnd(_)
+                | ZenUmlStatement::Comment(_)
+                | ZenUmlStatement::Directive(_) => {}
+            }
+        }
+
+        let mut size = Size {
+            width: zenuml_width(&participants, self.config),
+            height: title_height + self.config.participant_height + self.config.top_padding,
+        };
+        if let Some(title) = &ast.title {
+            size.width = size.width.max(label_width(&title.text));
+        }
+        for participant in &participants {
+            size.width = size.width.max(participant.header.right());
+            size.height = size.height.max(participant.header.bottom());
+        }
+        for message in &messages {
+            for point in &message.points {
+                size.width = size.width.max(point.x + 1);
+                size.height = size.height.max(point.y + 1);
+            }
+            let x = message
+                .points
+                .first()
+                .zip(message.points.last())
+                .map_or(0, |(first, last)| first.x.min(last.x) + 1);
+            size.width = size
+                .width
+                .max(x + i32::from(message.depth) * 2 + label_width(&message.label) + 2);
+        }
+        for fragment in &fragments {
+            size.width = size
+                .width
+                .max(i32::from(fragment.depth) * 2 + label_width(&fragment.label) + 2);
+            size.height = size.height.max(fragment.y + 1);
+        }
+        size.height = size
+            .height
+            .max(self.event_y(event_index, title_height) + self.config.top_padding);
+
+        ZenUmlLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            participants,
+            messages,
+            fragments,
+            size,
+        }
+    }
+
+    fn position_participants(
+        &self,
+        ast: &ZenUmlAst,
+        title_height: i32,
+    ) -> Vec<PositionedZenUmlParticipant> {
+        let labels = ast
+            .participants
+            .iter()
+            .map(|participant| {
+                let label = participant
+                    .label
+                    .as_ref()
+                    .map_or_else(|| participant.id.value.clone(), |label| label.text.clone());
+                let width = self
+                    .config
+                    .participant_width
+                    .max(label_width(&label) + 2)
+                    .max(
+                        participant
+                            .annotator
+                            .as_ref()
+                            .map_or(0, |annotator| label_width(&annotator.value) + 3),
+                    );
+                (label, width)
+            })
+            .collect::<Vec<_>>();
+        let max_width = labels
+            .iter()
+            .map(|(_, width)| *width)
+            .max()
+            .unwrap_or(self.config.participant_width);
+        let lane_spacing = self.config.lane_spacing.max(max_width + 4);
+        ast.participants
+            .iter()
+            .zip(labels)
+            .enumerate()
+            .map(|(order, (participant, (label, width)))| {
+                let lane_x = order as i32 * lane_spacing + max_width / 2;
+                PositionedZenUmlParticipant {
+                    id: participant.id.value.clone(),
+                    label,
+                    annotator: participant
+                        .annotator
+                        .as_ref()
+                        .map(|annotator| annotator.value.clone()),
+                    lane_x,
+                    header: Rect {
+                        origin: Point {
+                            x: lane_x - width / 2,
+                            y: title_height,
+                        },
+                        size: Size {
+                            width,
+                            height: self.config.participant_height,
+                        },
+                    },
+                    order,
+                }
+            })
+            .collect()
+    }
+
+    fn position_message(
+        &self,
+        message: &crate::ast::ZenUmlMessage,
+        participants: &[PositionedZenUmlParticipant],
+        event_index: i32,
+        title_height: i32,
+    ) -> PositionedZenUmlMessage {
+        let to_x = if message.to.value == "return" {
+            participants
+                .first()
+                .map_or(0, |participant| participant.lane_x)
+        } else {
+            zenuml_participant_lane(participants, &message.to.value)
+        };
+        let from_x = message.from.as_ref().map_or(to_x, |from| {
+            zenuml_participant_lane(participants, &from.value)
+        });
+        let y = self.event_y(event_index, title_height);
+        let points = if from_x == to_x {
+            vec![
+                Point { x: from_x, y },
+                Point {
+                    x: from_x + self.config.lane_spacing / 2,
+                    y,
+                },
+                Point {
+                    x: from_x + self.config.lane_spacing / 2,
+                    y: y + 1,
+                },
+                Point {
+                    x: from_x,
+                    y: y + 1,
+                },
+            ]
+        } else {
+            vec![Point { x: from_x, y }, Point { x: to_x, y }]
+        };
+        PositionedZenUmlMessage {
+            from: message.from.as_ref().map(|from| from.value.clone()),
+            to: message.to.value.clone(),
+            label: zenuml_message_label(message),
+            kind: message.kind.value,
+            depth: message.depth,
+            y,
+            points,
+        }
+    }
+
+    const fn event_y(&self, index: i32, title_height: i32) -> i32 {
+        title_height
+            + self.config.participant_height
+            + self.config.top_padding
+            + index * self.config.event_spacing
+    }
+}
+
+fn zenuml_width(participants: &[PositionedZenUmlParticipant], config: ZenUmlLayoutConfig) -> i32 {
+    participants
+        .iter()
+        .map(|participant| participant.header.right())
+        .max()
+        .unwrap_or(config.participant_width)
+}
+
+fn zenuml_participant_lane(participants: &[PositionedZenUmlParticipant], id: &str) -> i32 {
+    participants
+        .iter()
+        .find(|participant| participant.id == id)
+        .map_or(0, |participant| participant.lane_x)
+}
+
+fn zenuml_message_label(message: &crate::ast::ZenUmlMessage) -> String {
+    if let Some(label) = &message.label {
+        return label.text.clone();
+    }
+    match message.kind.value {
+        ZenUmlMessageKind::Create => format!("new {}", message.to.value),
+        ZenUmlMessageKind::Reply => "return".to_owned(),
+        ZenUmlMessageKind::Sync | ZenUmlMessageKind::Async => String::new(),
+    }
+}
+
+fn zenuml_fragment_label(kind: ZenUmlFragmentKind, label: &Option<Label>) -> String {
+    let prefix = match kind {
+        ZenUmlFragmentKind::Loop => "loop",
+        ZenUmlFragmentKind::Alt => "alt",
+        ZenUmlFragmentKind::Opt => "opt",
+        ZenUmlFragmentKind::Parallel => "par",
+        ZenUmlFragmentKind::Try => "try",
+        ZenUmlFragmentKind::Catch => "catch",
+        ZenUmlFragmentKind::Finally => "finally",
+        ZenUmlFragmentKind::Block => "block",
+    };
+    label.as_ref().map_or_else(
+        || prefix.to_owned(),
+        |label| format!("{prefix} {}", label.text),
+    )
 }
 
 impl StateLayoutEngine {
