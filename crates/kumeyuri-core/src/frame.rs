@@ -1,7 +1,7 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
     ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    MindmapAst, MindmapShape, PieAst, SequenceAst, StateAst,
+    MindmapAst, MindmapShape, PieAst, SequenceAst, StateAst, TimelineAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
@@ -10,7 +10,7 @@ use crate::layout::{
     PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
     PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode, PositionedPieSlice,
     PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
-    StateLayoutEngine,
+    StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -334,6 +334,7 @@ pub struct StaticFrameRenderer {
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
+    timeline: TimelineLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -356,6 +357,7 @@ impl StaticFrameRenderer {
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
+            timeline: TimelineLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -379,6 +381,7 @@ impl StaticFrameRenderer {
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
+            timeline: TimelineLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -402,6 +405,7 @@ impl StaticFrameRenderer {
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
+            timeline: TimelineLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -448,6 +452,7 @@ impl StaticFrameRenderer {
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
+            DiagramKind::Timeline(ast) => self.render_timeline(ast),
         }
     }
 
@@ -541,6 +546,21 @@ impl StaticFrameRenderer {
             self.palette,
             self.theme,
             visible_commits,
+        )
+    }
+
+    #[must_use]
+    pub fn render_timeline(&self, ast: &TimelineAst) -> Frame {
+        self.render_timeline_progress(ast, ast.periods.len())
+    }
+
+    #[must_use]
+    pub fn render_timeline_progress(&self, ast: &TimelineAst, visible_periods: usize) -> Frame {
+        render_timeline_layout(
+            &self.timeline.layout(ast),
+            self.palette,
+            self.theme,
+            visible_periods,
         )
     }
 }
@@ -1115,6 +1135,92 @@ fn gitgraph_commit_glyph(commit: &PositionedGitGraphCommit) -> char {
             GitGraphCommitKind::Reverse => 'x',
             GitGraphCommitKind::Highlight => '#',
         }
+    }
+}
+
+fn render_timeline_layout(
+    layout: &TimelineLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+    visible_periods: usize,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for section in &layout.sections {
+        if let Some(label) = &section.label {
+            write_text_safe(&mut frame, 0, section.y, label, muted_style.clone());
+        }
+        draw_horizontal(
+            &mut frame,
+            section.axis_start.x,
+            section.axis_end.x,
+            section.axis_start.y,
+            palette.horizontal,
+            edge_style.clone(),
+        );
+    }
+    for period in layout.periods.iter().take(visible_periods) {
+        draw_timeline_period(
+            &mut frame,
+            period,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_timeline_period(
+    frame: &mut Frame,
+    period: &crate::layout::PositionedTimelinePeriod,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+) {
+    put_safe(
+        frame,
+        period.point.x,
+        period.point.y,
+        'o',
+        node_style.clone(),
+    );
+    if !period.events.is_empty() {
+        draw_vertical(
+            frame,
+            period.point.x,
+            period.point.y,
+            period.point.y + period.events.len() as i32,
+            palette.vertical,
+            node_style,
+        );
+        put_safe(
+            frame,
+            period.point.x,
+            period.point.y,
+            'o',
+            text_style.clone(),
+        );
+    }
+    write_text_safe(
+        frame,
+        period.label_origin.x,
+        period.label_origin.y,
+        &period.label,
+        text_style.clone(),
+    );
+    for (event, origin) in period.events.iter().zip(&period.event_origins) {
+        write_text_safe(frame, origin.x, origin.y, event, text_style.clone());
     }
 }
 
@@ -1996,6 +2102,23 @@ merge develop id: "merge""#,
         assert!(output.contains("feat"));
         assert!(output.contains("[v1]"));
         assert!(output.contains("merge"));
+    }
+
+    #[test]
+    fn renders_timeline_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            "timeline\ntitle Release Train\nsection Alpha\n2024 Q1 : Design : Prototype\n        : Validate",
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("Release Train"));
+        assert!(output.contains("Alpha"));
+        assert!(output.contains("2024 Q1"));
+        assert!(output.contains("Design"));
+        assert!(output.contains("Prototype"));
+        assert!(output.contains("Validate"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

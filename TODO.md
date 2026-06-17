@@ -135,7 +135,7 @@
 - [x] Implement mindmap parser, layout, static + animated rendering (radial expand animation)
 - [x] Implement journey diagram parser, layout, static + animated rendering
 - [x] Implement gitGraph parser, layout, static + animated rendering (commit graph growth)
-- [ ] Implement timeline parser, layout, static + animated rendering (scroll/reveal animation)
+- [x] Implement timeline parser, layout, static + animated rendering (scroll/reveal animation)
 - [ ] Implement requirement diagram parser, layout, static rendering
 - [ ] Implement C4 diagram parser, layout, static rendering
 - [ ] Ship each as a minor release (`v1.1`, `v1.2`, ...) with its own demo GIF and changelog entry

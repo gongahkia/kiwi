@@ -13,7 +13,8 @@ use crate::ast::{
     SequenceAutoNumber, SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage,
     SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
     SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
-    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition,
+    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition, TimelineAst,
+    TimelineHeader, TimelinePeriod, TimelineStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,6 +93,10 @@ pub enum ParseErrorKind {
     ExpectedGitGraphName,
     ExpectedGitGraphAttribute,
     ExpectedGitGraphCommitKind,
+    ExpectedTimelineHeader,
+    UnknownTimelineStatement,
+    ExpectedTimelinePeriod,
+    ExpectedTimelineEvent,
     TrailingInput,
 }
 
@@ -144,6 +149,10 @@ impl Parser {
 
     pub fn parse_gitgraph(source: &str) -> Result<GitGraphAst, ParseError> {
         DiagramParser::new(source).parse_gitgraph_only()
+    }
+
+    pub fn parse_timeline(source: &str) -> Result<TimelineAst, ParseError> {
+        DiagramParser::new(source).parse_timeline_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -264,6 +273,14 @@ impl Parser {
     pub fn parse_gitgraph_statement(source: &str) -> Result<GitGraphStatement, ParseError> {
         GitGraphStatementParser::new(source).parse()
     }
+
+    pub fn parse_timeline_header(source: &str) -> Result<TimelineHeader, ParseError> {
+        TimelineHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_timeline_statement(source: &str) -> Result<TimelineStatement, ParseError> {
+        TimelineStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -342,6 +359,12 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))?;
             return Ok(self.diagram(DiagramKind::GitGraph(Box::new(ast))));
+        }
+        if let Ok(timeline_header) = Parser::parse_timeline_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Timeline(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -458,6 +481,17 @@ impl<'source> DiagramParser<'source> {
         let gitgraph_header = Parser::parse_gitgraph_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))
+    }
+
+    fn parse_timeline_only(mut self) -> Result<TimelineAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTimelineHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let timeline_header = Parser::parse_timeline_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -874,6 +908,32 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_timeline_body(&mut self, header: TimelineHeader) -> Result<TimelineAst, ParseError> {
+        let mut ast = TimelineAst {
+            header,
+            title: None,
+            statements: Vec::new(),
+            periods: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+        let mut current_section = None;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let mut statement =
+                shift_timeline_statement(Parser::parse_timeline_statement(line.text)?, line.start);
+            if let TimelineStatement::Period(period) = &mut statement {
+                period.section = current_section.clone();
+            }
+            if let TimelineStatement::Section(section) = &statement {
+                current_section = Some(section.clone());
+            }
+            push_timeline_statement(&mut ast, statement)?;
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -1098,6 +1158,30 @@ fn push_gitgraph_statement(ast: &mut GitGraphAst, statement: GitGraphStatement) 
         | GitGraphStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
+}
+
+fn push_timeline_statement(
+    ast: &mut TimelineAst,
+    statement: TimelineStatement,
+) -> Result<(), ParseError> {
+    match &statement {
+        TimelineStatement::Title(title) => ast.title = Some(title.clone()),
+        TimelineStatement::Period(period) => ast.periods.push((**period).clone()),
+        TimelineStatement::Event(event) => {
+            let Some(period) = ast.periods.last_mut() else {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedTimelinePeriod,
+                    span: event.span,
+                });
+            };
+            period.events.push(event.clone());
+        }
+        TimelineStatement::Section(_)
+        | TimelineStatement::Comment(_)
+        | TimelineStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+    Ok(())
 }
 
 fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
@@ -2605,6 +2689,94 @@ impl<'source> GitGraphStatementParser<'source> {
         }
         Err(ParseError {
             kind: ParseErrorKind::UnknownGitGraphStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct TimelineHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TimelineHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<TimelineHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedTimelineHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "timeline" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedTimelineHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(TimelineHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct TimelineStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TimelineStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<TimelineStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownTimelineStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(TimelineStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(TimelineStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownTimelineStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(TimelineStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "section") {
+            let label = label_from_trimmed(self.source, start + "section".len(), end).ok_or(
+                ParseError {
+                    kind: ParseErrorKind::UnknownTimelineStatement,
+                    span: Span::new(start, end),
+                },
+            )?;
+            return Ok(TimelineStatement::Section(label));
+        }
+        if self.source.as_bytes()[start] == b':' {
+            let event = parse_timeline_event(self.source, start + 1, end)?;
+            return Ok(TimelineStatement::Event(event));
+        }
+        if let Some(period) = parse_timeline_period(self.source, start, end)? {
+            return Ok(TimelineStatement::Period(Box::new(period)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownTimelineStatement,
             span: Span::new(start, end),
         })
     }
@@ -4497,6 +4669,59 @@ fn parse_journey_actors(source: &str, start: usize, end: usize) -> Vec<Spanned<S
     actors
 }
 
+fn parse_timeline_period(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Option<TimelinePeriod>, ParseError> {
+    let Some(colon) = source[start..end].find(':') else {
+        return Ok(None);
+    };
+    let colon = start + colon;
+    let label = label_from_trimmed(source, start, colon).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedTimelinePeriod,
+        span: Span::new(start, colon),
+    })?;
+    let events = parse_timeline_events(source, colon + 1, end)?;
+    Ok(Some(TimelinePeriod {
+        label,
+        section: None,
+        events,
+        span: Span::new(start, end),
+    }))
+}
+
+fn parse_timeline_events(source: &str, start: usize, end: usize) -> Result<Vec<Label>, ParseError> {
+    let mut events = Vec::new();
+    let mut cursor = start;
+    while cursor <= end {
+        let event_end = source[cursor..end]
+            .find(':')
+            .map_or(end, |offset| cursor + offset);
+        if let Some(event) = label_from_trimmed(source, cursor, event_end) {
+            events.push(event);
+        }
+        if event_end == end {
+            break;
+        }
+        cursor = event_end + 1;
+    }
+    if events.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTimelineEvent,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(events)
+}
+
+fn parse_timeline_event(source: &str, start: usize, end: usize) -> Result<Label, ParseError> {
+    label_from_trimmed(source, start, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedTimelineEvent,
+        span: Span::new(start, end),
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedGitGraphName {
     value: Spanned<String>,
@@ -5466,6 +5691,44 @@ fn shift_gitgraph_cherry_pick(
     }
 }
 
+fn shift_timeline_header(header: TimelineHeader, offset: usize) -> TimelineHeader {
+    TimelineHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_timeline_statement(statement: TimelineStatement, offset: usize) -> TimelineStatement {
+    match statement {
+        TimelineStatement::Title(title) => TimelineStatement::Title(shift_label(title, offset)),
+        TimelineStatement::Section(section) => {
+            TimelineStatement::Section(shift_label(section, offset))
+        }
+        TimelineStatement::Period(period) => {
+            TimelineStatement::Period(Box::new(shift_timeline_period(*period, offset)))
+        }
+        TimelineStatement::Event(event) => TimelineStatement::Event(shift_label(event, offset)),
+        TimelineStatement::Comment(comment) => {
+            TimelineStatement::Comment(shift_comment(comment, offset))
+        }
+        TimelineStatement::Directive(directive) => {
+            TimelineStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_timeline_period(period: TimelinePeriod, offset: usize) -> TimelinePeriod {
+    TimelinePeriod {
+        label: shift_label(period.label, offset),
+        section: period.section.map(|section| shift_label(section, offset)),
+        events: period
+            .events
+            .into_iter()
+            .map(|event| shift_label(event, offset))
+            .collect(),
+        span: shift_span(period.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -5991,6 +6254,26 @@ cherry-pick id: "feat" parent: "base""#,
         assert_eq!(ast.merges[0].kind.value, GitGraphCommitKind::Reverse);
         assert_eq!(ast.cherry_picks[0].id.value, "feat");
         assert_eq!(ast.cherry_picks[0].parent.as_ref().unwrap().value, "base");
+    }
+
+    #[test]
+    fn parses_timeline_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "timeline\ntitle Release Train\nsection Alpha\n2024 Q1 : Design : Prototype\n        : Validate\nsection Beta\n2024 Q2 : Launch",
+        )
+        .unwrap();
+
+        let DiagramKind::Timeline(ast) = diagram.kind else {
+            panic!("expected Timeline diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Release Train");
+        assert_eq!(ast.periods.len(), 2);
+        assert_eq!(ast.periods[0].label.text, "2024 Q1");
+        assert_eq!(ast.periods[0].section.as_ref().unwrap().text, "Alpha");
+        assert_eq!(ast.periods[0].events[0].text, "Design");
+        assert_eq!(ast.periods[0].events[1].text, "Prototype");
+        assert_eq!(ast.periods[0].events[2].text, "Validate");
+        assert_eq!(ast.periods[1].section.as_ref().unwrap().text, "Beta");
     }
 
     #[test]

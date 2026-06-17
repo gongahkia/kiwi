@@ -2,7 +2,7 @@ use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
-    SequenceAst, SequenceStatement, StateAst, StateStatement,
+    SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -11,7 +11,8 @@ use crate::layout::{
     PieLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
     PositionedFlowNode, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
     PositionedMindmapNode, PositionedSequenceMessage, PositionedSequenceParticipant,
-    SequenceLayout, SequenceLayoutEngine, StateLayout, StateLayoutEngine,
+    PositionedTimelinePeriod, SequenceLayout, SequenceLayoutEngine, StateLayout, StateLayoutEngine,
+    TimelineLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -68,6 +69,11 @@ impl Animator {
     #[must_use]
     pub fn gitgraph_trace(ast: &GitGraphAst) -> Timeline {
         GitGraphTraceAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn timeline_reveal(ast: &TimelineAst) -> Timeline {
+        TimelineRevealAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -147,6 +153,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::GitGraph(ast), AnimationMode::Trace) => GitGraphTraceAnimator::new(
                 scaled_duration(GitGraphTraceAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::Timeline(ast), AnimationMode::Trace) => TimelineRevealAnimator::new(
+                scaled_duration(TimelineRevealAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -262,6 +272,11 @@ impl AnimationConfig {
                     apply_gitgraph_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Timeline(ast) => {
+                for statement in &ast.statements {
+                    apply_timeline_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -344,6 +359,7 @@ pub enum AnimationDiagramKind {
     Mindmap,
     Journey,
     GitGraph,
+    Timeline,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -359,6 +375,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
+            DiagramKind::Timeline(_) => Self::Timeline,
         }
     }
 }
@@ -577,6 +594,25 @@ fn apply_gitgraph_animation_directives(
     Ok(())
 }
 
+fn apply_timeline_animation_directives(
+    statement: &TimelineStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        TimelineStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        TimelineStatement::Title(_)
+        | TimelineStatement::Section(_)
+        | TimelineStatement::Period(_)
+        | TimelineStatement::Event(_)
+        | TimelineStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -687,6 +723,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
+        DiagramKind::Timeline(_) => AnimationMode::Trace,
     }
 }
 
@@ -709,6 +746,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),
+        DiagramKind::Timeline(_) => TimelineRevealAnimator::default_frame_duration(),
     }
 }
 
@@ -1783,6 +1821,93 @@ fn add_gitgraph_commit_marker(
         return;
     };
     let id = format!("gitgraph-commit-{}", commit.index);
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, &id);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimelineRevealAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for TimelineRevealAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl TimelineRevealAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &TimelineAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &TimelineAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
+        let layout = TimelineLayoutEngine::default().layout(ast);
+        let mut timeline = Timeline::from_frame(
+            renderer.render_timeline_progress(ast, 0),
+            self.frame_duration,
+        );
+
+        for (index, period) in layout.periods.iter().enumerate() {
+            let mut frame = renderer.render_timeline_progress(ast, index + 1);
+            for previous in layout.periods.iter().take(index) {
+                add_timeline_period_marker(&mut frame, previous, KeyFrameMarkerKind::Hold);
+            }
+            add_timeline_period_marker(&mut frame, period, KeyFrameMarkerKind::Active);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_timeline_period_marker(
+    frame: &mut Frame,
+    period: &PositionedTimelinePeriod,
+    kind: KeyFrameMarkerKind,
+) {
+    let label_right = period.label_origin.x + period.label.chars().count() as i32;
+    let mut min_x = period.point.x.min(period.label_origin.x);
+    let mut min_y = period.point.y.min(period.label_origin.y);
+    let mut max_x = period.point.x.max(label_right - 1);
+    let mut max_y = period.point.y.max(period.label_origin.y);
+    for (event, origin) in period.events.iter().zip(&period.event_origins) {
+        min_x = min_x.min(origin.x);
+        min_y = min_y.min(origin.y);
+        max_x = max_x.max(origin.x + event.chars().count() as i32 - 1);
+        max_y = max_y.max(origin.y);
+    }
+    let Some(region) = region_from_bounds(min_x, min_y, max_x, max_y) else {
+        return;
+    };
+    let id = format!("timeline-period-{}", period.index);
     frame.add_marker(KeyFrameMarker {
         id: id.clone(),
         kind,

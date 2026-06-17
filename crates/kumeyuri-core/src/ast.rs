@@ -18,6 +18,7 @@ pub enum DiagramKind {
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
+    Timeline(Box<TimelineAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -793,6 +794,38 @@ pub struct GitGraphMerge {
 pub struct GitGraphCherryPick {
     pub id: Spanned<String>,
     pub parent: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimelineAst {
+    pub header: TimelineHeader,
+    pub title: Option<Label>,
+    pub statements: Vec<TimelineStatement>,
+    pub periods: Vec<TimelinePeriod>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimelineHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TimelineStatement {
+    Title(Label),
+    Section(Label),
+    Period(Box<TimelinePeriod>),
+    Event(Label),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimelinePeriod {
+    pub label: Label,
+    pub section: Option<Label>,
+    pub events: Vec<Label>,
     pub span: Span,
 }
 

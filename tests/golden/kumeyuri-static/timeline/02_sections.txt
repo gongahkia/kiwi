@@ -1,0 +1,16 @@
+Release Train
+
+
+Alpha
+2024 Q1
+  o
+  | Design
+  | Prototype
+  | Validate
+
+
+Beta
+2024 Q2            2024 Q3
+  o-------------------o
+  | Build             | Ship
+                      | Measure

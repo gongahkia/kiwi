@@ -6,7 +6,7 @@ use crate::ast::{
     GanttTaskTag, GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation,
     GitGraphStatement, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
     SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
-    StateAst, StateNode, StateStatement, StateTransition,
+    StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -521,6 +521,59 @@ pub struct GitGraphLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimelineLayoutConfig {
+    pub period_spacing: i32,
+    pub section_gap: i32,
+    pub top_padding: i32,
+    pub left_padding: i32,
+}
+
+impl Default for TimelineLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl TimelineLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            period_spacing: 20,
+            section_gap: 3,
+            top_padding: 3,
+            left_padding: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedTimelineSection {
+    pub label: Option<String>,
+    pub y: i32,
+    pub axis_start: Point,
+    pub axis_end: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedTimelinePeriod {
+    pub index: usize,
+    pub label: String,
+    pub section: Option<String>,
+    pub events: Vec<String>,
+    pub point: Point,
+    pub label_origin: Point,
+    pub event_origins: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimelineLayout {
+    pub title: Option<String>,
+    pub sections: Vec<PositionedTimelineSection>,
+    pub periods: Vec<PositionedTimelinePeriod>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -569,6 +622,11 @@ pub struct JourneyLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct GitGraphLayoutEngine {
     config: GitGraphLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TimelineLayoutEngine {
+    config: TimelineLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -1912,6 +1970,176 @@ fn gitgraph_layout_size(
         for point in &edge.points {
             width = width.max(point.x + 1);
             height = height.max(point.y + 1);
+        }
+    }
+    Size {
+        width: width + 2,
+        height: height + 2,
+    }
+}
+
+impl TimelineLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: TimelineLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: TimelineLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &TimelineAst) -> TimelineLayout {
+        let groups = timeline_groups(ast);
+        let mut sections = Vec::new();
+        let mut periods = Vec::new();
+        let mut y = self.config.top_padding;
+
+        for group in groups {
+            let start_index = periods.len();
+            let axis_y = y + if group.section.is_some() { 2 } else { 1 };
+            if let Some(label) = &group.section {
+                sections.push(PositionedTimelineSection {
+                    label: Some(label.clone()),
+                    y,
+                    axis_start: Point { x: 0, y: axis_y },
+                    axis_end: Point { x: 0, y: axis_y },
+                });
+            }
+
+            let mut max_events = 1usize;
+            for (offset, period) in group.periods.iter().enumerate() {
+                let x = self.config.left_padding + offset as i32 * self.config.period_spacing;
+                max_events = max_events.max(period.events.len());
+                periods.push(PositionedTimelinePeriod {
+                    index: period.index,
+                    label: period.label.clone(),
+                    section: group.section.clone(),
+                    events: period.events.clone(),
+                    point: Point { x, y: axis_y },
+                    label_origin: centered_origin(x, axis_y - 1, &period.label),
+                    event_origins: period
+                        .events
+                        .iter()
+                        .enumerate()
+                        .map(|(event_index, _)| Point {
+                            x: x + 2,
+                            y: axis_y + 1 + event_index as i32,
+                        })
+                        .collect(),
+                });
+            }
+
+            if let Some(section) = sections.last_mut()
+                && group.section.is_some()
+            {
+                let group_periods = &periods[start_index..];
+                let start = group_periods
+                    .first()
+                    .map_or(self.config.left_padding, |p| p.point.x);
+                let end = group_periods.last().map_or(start, |p| p.point.x);
+                section.axis_start = Point {
+                    x: start,
+                    y: axis_y,
+                };
+                section.axis_end = Point { x: end, y: axis_y };
+            } else if group.section.is_none() {
+                let group_periods = &periods[start_index..];
+                let start = group_periods
+                    .first()
+                    .map_or(self.config.left_padding, |p| p.point.x);
+                let end = group_periods.last().map_or(start, |p| p.point.x);
+                sections.push(PositionedTimelineSection {
+                    label: None,
+                    y,
+                    axis_start: Point {
+                        x: start,
+                        y: axis_y,
+                    },
+                    axis_end: Point { x: end, y: axis_y },
+                });
+            }
+
+            y = axis_y + max_events as i32 + self.config.section_gap;
+        }
+
+        let size = timeline_layout_size(
+            ast.title.as_ref().map(|title| title.text.as_str()),
+            &periods,
+        );
+
+        TimelineLayout {
+            title: ast.title.as_ref().map(|title| title.text.clone()),
+            sections,
+            periods,
+            size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TimelineGroup {
+    section: Option<String>,
+    periods: Vec<TimelineGroupPeriod>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TimelineGroupPeriod {
+    index: usize,
+    label: String,
+    events: Vec<String>,
+}
+
+fn timeline_groups(ast: &TimelineAst) -> Vec<TimelineGroup> {
+    let mut groups = Vec::new();
+    let mut current_section = None::<String>;
+    for (index, period) in ast.periods.iter().enumerate() {
+        let section = period.section.as_ref().map(|section| section.text.clone());
+        if groups.is_empty() || section != current_section {
+            groups.push(TimelineGroup {
+                section: section.clone(),
+                periods: Vec::new(),
+            });
+            current_section = section.clone();
+        }
+        groups
+            .last_mut()
+            .expect("group exists")
+            .periods
+            .push(TimelineGroupPeriod {
+                index,
+                label: period.label.text.clone(),
+                events: period
+                    .events
+                    .iter()
+                    .map(|event| event.text.clone())
+                    .collect(),
+            });
+    }
+    groups
+}
+
+fn centered_origin(center_x: i32, y: i32, label: &str) -> Point {
+    Point {
+        x: (center_x - label.chars().count() as i32 / 2).max(0),
+        y,
+    }
+}
+
+fn timeline_layout_size(title: Option<&str>, periods: &[PositionedTimelinePeriod]) -> Size {
+    let mut width = title.map_or(1, |title| title.chars().count() as i32);
+    let mut height = 1;
+    for period in periods {
+        width = width.max(period.point.x + 1);
+        height = height.max(period.point.y + 1);
+        width = width.max(period.label_origin.x + period.label.chars().count() as i32);
+        height = height.max(period.label_origin.y + 1);
+        for (event, origin) in period.events.iter().zip(&period.event_origins) {
+            width = width.max(origin.x + event.chars().count() as i32);
+            height = height.max(origin.y + 1);
         }
     }
     Size {

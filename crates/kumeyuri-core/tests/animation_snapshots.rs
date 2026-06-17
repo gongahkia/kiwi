@@ -92,6 +92,8 @@ const GITGRAPH_NAMES: [&str; 3] = [
     "03_orientation_directive",
 ];
 
+const TIMELINE_NAMES: [&str; 3] = ["01_basic", "02_sections", "03_directive_comment"];
+
 #[test]
 fn animation_timeline_hashes_match() {
     assert_timeline_hashes("flowchart", &FLOWCHART_NAMES);
@@ -104,6 +106,7 @@ fn animation_timeline_hashes_match() {
     assert_timeline_hashes("mindmap", &MINDMAP_NAMES);
     assert_timeline_hashes("journey", &JOURNEY_NAMES);
     assert_timeline_hashes("gitgraph", &GITGRAPH_NAMES);
+    assert_timeline_hashes("timeline", &TIMELINE_NAMES);
 }
 
 fn assert_timeline_hashes(kind: &str, names: &[&str]) {
@@ -192,6 +195,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),
+        DiagramKind::Timeline(_) => ("timeline", "trace"),
     }
 }
 
