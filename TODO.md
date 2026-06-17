@@ -163,7 +163,7 @@
 - [ ] Keep visual-diff golden snapshots up to date on every renderer change
 - [ ] Maintain `CHANGELOG.md` via release-please
 - [ ] Maintain `docs/adr/` decision log for any non-obvious architectural choice
-- [ ] Run `cargo audit` weekly via Dependabot/Renovate
+- [x] Run `cargo audit` weekly via Dependabot/Renovate
 - [x] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
 - [ ] Triage incoming GitHub Issues within 7 days
 - [ ] Publish a public roadmap pinned issue and update monthly

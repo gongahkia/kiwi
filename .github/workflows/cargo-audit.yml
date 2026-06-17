@@ -1,0 +1,54 @@
+name: Cargo Audit
+
+on:
+  schedule:
+    - cron: "23 8 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**/Cargo.toml"
+      - ".github/workflows/cargo-audit.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "crates/**/Cargo.toml"
+      - ".github/workflows/cargo-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Cache Cargo
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            ~/.cargo/advisory-db
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked --version 0.22.1
+
+      - name: Audit dependencies
+        run: cargo audit -D warnings
