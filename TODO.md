@@ -185,7 +185,7 @@
 - [x] Architecture: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Radar: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Event Modeling: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] Treemap: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] Treemap: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Venn: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Ishikawa: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Wardley: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

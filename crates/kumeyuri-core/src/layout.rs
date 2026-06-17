@@ -15,8 +15,9 @@ use crate::ast::{
     RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
     SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
     SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst, XyChartAxisScale,
-    XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    StateNode, StateStatement, StateTransition, TimelineAst, TreemapAst, TreemapNode, XyChartAst,
+    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
+    ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -769,6 +770,46 @@ pub struct EventModelingLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TreemapLayoutConfig {
+    pub width: i32,
+    pub height: i32,
+    pub padding: i32,
+}
+
+impl Default for TreemapLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl TreemapLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            width: 78,
+            height: 22,
+            padding: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedTreemapNode {
+    pub label: String,
+    pub value: Option<String>,
+    pub aggregate_value: String,
+    pub classes: Vec<String>,
+    pub rect: Rect,
+    pub depth: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreemapLayout {
+    pub nodes: Vec<PositionedTreemapNode>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1448,6 +1489,11 @@ pub struct RadarLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct EventModelingLayoutEngine {
     config: EventModelingLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TreemapLayoutEngine {
+    config: TreemapLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -4119,6 +4165,185 @@ fn event_modeling_data_block_label(block: &PositionedEventModelingDataBlock) -> 
     match &block.ty {
         Some(ty) => format!("data {}({ty}): {}", block.id, block.summary),
         None => format!("data {}: {}", block.id, block.summary),
+    }
+}
+
+impl TreemapLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: TreemapLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: TreemapLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &TreemapAst) -> TreemapLayout {
+        let mut nodes = Vec::new();
+        let root_rect = Rect {
+            origin: Point { x: 0, y: 0 },
+            size: Size {
+                width: self.config.width,
+                height: self.config.height,
+            },
+        };
+        layout_treemap_nodes(
+            &ast.roots,
+            root_rect,
+            0,
+            true,
+            self.config.padding,
+            &mut nodes,
+        );
+        let mut size = Size {
+            width: self.config.width,
+            height: self.config.height,
+        };
+        for node in &nodes {
+            size.width = size.width.max(node.rect.right() + 1);
+            size.height = size.height.max(node.rect.bottom() + 1);
+        }
+        TreemapLayout { nodes, size }
+    }
+}
+
+fn layout_treemap_nodes(
+    source: &[TreemapNode],
+    rect: Rect,
+    depth: usize,
+    horizontal: bool,
+    padding: i32,
+    out: &mut Vec<PositionedTreemapNode>,
+) {
+    if source.is_empty() || rect.size.width <= 0 || rect.size.height <= 0 {
+        return;
+    }
+    let weights = source.iter().map(treemap_weight).collect::<Vec<_>>();
+    let rects = split_treemap_rects(rect, &weights, horizontal);
+    for (node, rect) in source.iter().zip(rects) {
+        let aggregate = treemap_weight(node);
+        out.push(PositionedTreemapNode {
+            label: node.label.text.clone(),
+            value: node.value.as_ref().map(|value| value.value.clone()),
+            aggregate_value: treemap_number_label(aggregate),
+            classes: node
+                .classes
+                .iter()
+                .map(|class| class.value.clone())
+                .collect(),
+            rect,
+            depth,
+        });
+        if let Some(child_rect) = treemap_child_rect(rect, padding) {
+            layout_treemap_nodes(
+                &node.children,
+                child_rect,
+                depth + 1,
+                !horizontal,
+                padding,
+                out,
+            );
+        }
+    }
+}
+
+fn split_treemap_rects(rect: Rect, weights: &[f64], horizontal: bool) -> Vec<Rect> {
+    if weights.len() <= 1 {
+        return vec![rect; weights.len()];
+    }
+    let total = weights
+        .iter()
+        .copied()
+        .filter(|value| *value > 0.0)
+        .sum::<f64>()
+        .max(1.0);
+    let mut offset = 0;
+    let mut remaining = if horizontal {
+        rect.size.width
+    } else {
+        rect.size.height
+    };
+    let mut rects = Vec::with_capacity(weights.len());
+    for (index, weight) in weights.iter().enumerate() {
+        let last = index + 1 == weights.len();
+        let extent = if last {
+            remaining
+        } else {
+            let raw = ((if horizontal {
+                rect.size.width
+            } else {
+                rect.size.height
+            }) as f64
+                * (*weight / total))
+                .round() as i32;
+            raw.max(1).min(remaining.saturating_sub(1))
+        };
+        let child = if horizontal {
+            Rect {
+                origin: Point {
+                    x: rect.origin.x + offset,
+                    y: rect.origin.y,
+                },
+                size: Size {
+                    width: extent,
+                    height: rect.size.height,
+                },
+            }
+        } else {
+            Rect {
+                origin: Point {
+                    x: rect.origin.x,
+                    y: rect.origin.y + offset,
+                },
+                size: Size {
+                    width: rect.size.width,
+                    height: extent,
+                },
+            }
+        };
+        rects.push(child);
+        offset += extent;
+        remaining = remaining.saturating_sub(extent);
+    }
+    rects
+}
+
+fn treemap_child_rect(rect: Rect, padding: i32) -> Option<Rect> {
+    let child = Rect {
+        origin: Point {
+            x: rect.origin.x + padding,
+            y: rect.origin.y + 2,
+        },
+        size: Size {
+            width: rect.size.width - padding * 2,
+            height: rect.size.height - padding - 2,
+        },
+    };
+    (child.size.width >= 4 && child.size.height >= 3).then_some(child)
+}
+
+fn treemap_weight(node: &TreemapNode) -> f64 {
+    if let Some(value) = &node.value
+        && let Ok(parsed) = value.value.parse::<f64>()
+        && parsed.is_finite()
+        && parsed > 0.0
+    {
+        return parsed;
+    }
+    let child_total = node.children.iter().map(treemap_weight).sum::<f64>();
+    if child_total > 0.0 { child_total } else { 1.0 }
+}
+
+fn treemap_number_label(value: f64) -> String {
+    let rounded = value.round();
+    if (value - rounded).abs() < f64::EPSILON {
+        format!("{rounded:.0}")
+    } else {
+        value.to_string()
     }
 }
 

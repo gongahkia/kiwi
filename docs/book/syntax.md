@@ -255,6 +255,35 @@ Entity aliases `ui`, `pcr`/`processor`, `cmd`/`command`,
 swimlane groups. Mermaid Event Modeling `padding` and `rowHeight` config are
 not interpreted yet.
 
+## Treemap diagrams
+
+Header:
+
+```mermaid
+treemap-beta
+```
+
+Quoted parent nodes, numeric leaf values, hierarchy by indentation, and inline
+classes:
+
+```mermaid
+treemap-beta
+"North America":::region
+  "USA"
+    "Enterprise": 120
+    "SMB": 80
+  "Canada": 50:::focus
+"Europe"
+  "Germany": 70
+  "France": 65
+classDef region fill:#ddeeff
+classDef focus fill:#ffeeaa
+```
+
+Values must be non-negative numbers. `classDef` and inline classes are retained
+semantically, but Mermaid treemap padding, node size, border/font settings,
+`showValues`, `valueFormat`, and theme color mapping are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

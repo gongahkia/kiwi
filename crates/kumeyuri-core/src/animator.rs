@@ -4,8 +4,8 @@ use crate::ast::{
     GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst, JourneyStatement, KanbanStatement,
     MermaidDirective, MindmapAst, MindmapStatement, PacketStatement, PieAst, PieStatement,
     QuadrantStatement, RadarStatement, RequirementStatement, SankeyStatement, SequenceAst,
-    SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement, XyChartStatement,
-    ZenUmlStatement,
+    SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement, TreemapStatement,
+    XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -174,6 +174,7 @@ impl Animator {
             (DiagramKind::Architecture(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Radar(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::EventModeling(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Treemap(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -322,6 +323,11 @@ impl AnimationConfig {
                     apply_event_modeling_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Treemap(ast) => {
+                for statement in &ast.statements {
+                    apply_treemap_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -441,6 +447,7 @@ pub enum AnimationDiagramKind {
     Architecture,
     Radar,
     EventModeling,
+    Treemap,
     Mindmap,
     Journey,
     GitGraph,
@@ -469,6 +476,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Architecture(_) => Self::Architecture,
             DiagramKind::Radar(_) => Self::Radar,
             DiagramKind::EventModeling(_) => Self::EventModeling,
+            DiagramKind::Treemap(_) => Self::Treemap,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -830,6 +838,23 @@ fn apply_event_modeling_animation_directives(
     Ok(())
 }
 
+fn apply_treemap_animation_directives(
+    statement: &TreemapStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        TreemapStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        TreemapStatement::Node(_)
+        | TreemapStatement::ClassDef(_)
+        | TreemapStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -1062,6 +1087,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Architecture(_) => AnimationMode::None,
         DiagramKind::Radar(_) => AnimationMode::None,
         DiagramKind::EventModeling(_) => AnimationMode::None,
+        DiagramKind::Treemap(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -1097,6 +1123,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Architecture(_) => Duration::from_millis(700),
         DiagramKind::Radar(_) => Duration::from_millis(700),
         DiagramKind::EventModeling(_) => Duration::from_millis(700),
+        DiagramKind::Treemap(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

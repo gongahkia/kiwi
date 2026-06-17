@@ -5,7 +5,7 @@ use crate::ast::{
     GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, KanbanAst, MindmapAst,
     MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    TimelineAst, TreemapAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
@@ -23,11 +23,12 @@ use crate::layout::{
     PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
-    PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
-    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
-    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
-    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
-    XyChartLayout, XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
+    PositionedSequenceNote, PositionedTreemapNode, PositionedXyChartSeries,
+    PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine,
+    Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine,
+    SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout,
+    TimelineLayoutEngine, TreemapLayout, TreemapLayoutEngine, XyChartLayout, XyChartLayoutEngine,
+    ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -358,6 +359,7 @@ pub struct StaticFrameRenderer {
     architecture: ArchitectureLayoutEngine,
     radar: RadarLayoutEngine,
     event_modeling: EventModelingLayoutEngine,
+    treemap: TreemapLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -393,6 +395,7 @@ impl StaticFrameRenderer {
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
+            treemap: TreemapLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -429,6 +432,7 @@ impl StaticFrameRenderer {
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
+            treemap: TreemapLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -465,6 +469,7 @@ impl StaticFrameRenderer {
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
             event_modeling: EventModelingLayoutEngine::default_values(),
+            treemap: TreemapLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -524,6 +529,7 @@ impl StaticFrameRenderer {
             DiagramKind::Architecture(ast) => self.render_architecture(ast),
             DiagramKind::Radar(ast) => self.render_radar(ast),
             DiagramKind::EventModeling(ast) => self.render_event_modeling(ast),
+            DiagramKind::Treemap(ast) => self.render_treemap(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -636,6 +642,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_event_modeling(&self, ast: &EventModelingAst) -> Frame {
         render_event_modeling_layout(&self.event_modeling.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_treemap(&self, ast: &TreemapAst) -> Frame {
+        render_treemap_layout(&self.treemap.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1969,6 +1980,71 @@ fn event_modeling_data_block_label(block: &PositionedEventModelingDataBlock) -> 
         Some(ty) => format!("data {}({ty}): {}", block.id, block.summary),
         None => format!("data {}: {}", block.id, block.summary),
     }
+}
+
+fn render_treemap_layout(layout: &TreemapLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    for node in &layout.nodes {
+        draw_treemap_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_treemap_node(
+    frame: &mut Frame,
+    node: &PositionedTreemapNode,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    if node.rect.size.width < 2 || node.rect.size.height < 2 {
+        return;
+    }
+    draw_box(frame, node.rect, palette, node_style);
+    let inner_width = node.rect.size.width.saturating_sub(2) as usize;
+    let label = treemap_node_label(node);
+    write_text_safe(
+        frame,
+        node.rect.origin.x + 1,
+        node.rect.origin.y + 1,
+        &event_modeling_fit(&label, inner_width),
+        text_style,
+    );
+    if node.rect.size.height > 3 {
+        let value = node.value.as_ref().map_or_else(
+            || format!("sum {}", node.aggregate_value),
+            |value| value.clone(),
+        );
+        write_text_safe(
+            frame,
+            node.rect.origin.x + 1,
+            node.rect.bottom().saturating_sub(2),
+            &event_modeling_fit(&value, inner_width),
+            muted_style,
+        );
+    }
+}
+
+fn treemap_node_label(node: &PositionedTreemapNode) -> String {
+    if node.classes.is_empty() {
+        return node.label.clone();
+    }
+    format!("{} [{}]", node.label, node.classes.join(","))
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

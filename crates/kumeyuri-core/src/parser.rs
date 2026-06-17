@@ -32,10 +32,11 @@ use crate::ast::{
     SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
     StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
     StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement, XyChartAst, XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader,
-    XyChartOrientation, XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst,
-    ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind,
-    ZenUmlParticipant, ZenUmlStatement,
+    TimelineStatement, TreemapAst, TreemapHeader, TreemapNode, TreemapStatement, XyChartAst,
+    XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation,
+    XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment,
+    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
+    ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,6 +151,10 @@ pub enum ParseErrorKind {
     ExpectedEventModelingFrame,
     ExpectedEventModelingEntityType,
     ExpectedEventModelingData,
+    ExpectedTreemapHeader,
+    UnknownTreemapStatement,
+    ExpectedTreemapNode,
+    ExpectedTreemapValue,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -261,6 +266,10 @@ impl Parser {
 
     pub fn parse_event_modeling(source: &str) -> Result<EventModelingAst, ParseError> {
         DiagramParser::new(source).parse_event_modeling_only()
+    }
+
+    pub fn parse_treemap(source: &str) -> Result<TreemapAst, ParseError> {
+        DiagramParser::new(source).parse_treemap_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -460,6 +469,14 @@ impl Parser {
         EventModelingStatementParser::new(source).parse()
     }
 
+    pub fn parse_treemap_header(source: &str) -> Result<TreemapHeader, ParseError> {
+        TreemapHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_treemap_statement(source: &str) -> Result<TreemapStatement, ParseError> {
+        TreemapStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -623,6 +640,12 @@ impl<'source> DiagramParser<'source> {
                 header.start,
             ))?;
             return Ok(self.diagram(DiagramKind::EventModeling(Box::new(ast))));
+        }
+        if let Ok(treemap_header) = Parser::parse_treemap_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Treemap(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -875,6 +898,18 @@ impl<'source> DiagramParser<'source> {
             event_modeling_header,
             header.start,
         ))
+    }
+
+    fn parse_treemap_only(mut self) -> Result<TreemapAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let treemap_header = Parser::parse_treemap_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1707,6 +1742,80 @@ impl<'source> DiagramParser<'source> {
         }
 
         Ok(ast)
+    }
+
+    fn parse_treemap_body(&mut self, header: TreemapHeader) -> Result<TreemapAst, ParseError> {
+        let span_start = header.span.start;
+        let mut parsed = Vec::<ParsedTreemapNode>::new();
+        let mut roots = Vec::<usize>::new();
+        let mut stack = Vec::<(usize, usize)>::new();
+        let mut statements = Vec::new();
+        let mut classes = Vec::new();
+
+        while let Some(line) = self.current_trimmed_line() {
+            let indent = line.start.saturating_sub(line.line.start);
+            if let Ok(directive) = Parser::parse_mermaid_directive(line.text) {
+                statements.push(TreemapStatement::Directive(shift_directive(
+                    directive, line.start,
+                )));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(line.text) {
+                statements.push(TreemapStatement::Comment(shift_comment(
+                    comment, line.start,
+                )));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if has_keyword(line.text, 0, "classDef") {
+                let class_def = shift_class_def(
+                    Parser::parse_flow_class_def(line.text)
+                        .map_err(|error| shift_error(error, line.start))?,
+                    line.start,
+                );
+                classes.push(class_def.clone());
+                statements.push(TreemapStatement::ClassDef(class_def));
+                self.cursor = line.line.next;
+                continue;
+            }
+            while stack.last().is_some_and(|(level, _)| *level >= indent) {
+                stack.pop();
+            }
+            let parent = stack.last().map(|(_, index)| *index);
+            let index = parsed.len();
+            let node = shift_treemap_node(
+                parse_treemap_node(line.text).map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            if let Some(parent) = parent {
+                parsed[parent].children.push(index);
+            } else {
+                roots.push(index);
+            }
+            parsed.push(ParsedTreemapNode {
+                node,
+                children: Vec::new(),
+            });
+            stack.push((indent, index));
+            self.cursor = line.line.next;
+        }
+
+        let roots = roots
+            .into_iter()
+            .map(|index| build_treemap_node(index, &parsed))
+            .collect::<Vec<_>>();
+        for root in &roots {
+            statements.push(TreemapStatement::Node(Box::new(root.clone())));
+        }
+
+        Ok(TreemapAst {
+            header,
+            statements,
+            roots,
+            classes,
+            span: Span::new(span_start, self.source.len()),
+        })
     }
 
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
@@ -4322,6 +4431,36 @@ impl<'source> EventModelingHeaderParser<'source> {
             });
         }
         Ok(EventModelingHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct TreemapHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TreemapHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<TreemapHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedTreemapHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "treemap-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedTreemapHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(TreemapHeader {
             span: Span::new(start, end),
         })
     }
@@ -9298,6 +9437,46 @@ fn find_event_modeling_data_close(source: &str, open: usize, end: usize) -> Opti
     None
 }
 
+struct TreemapStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TreemapStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<TreemapStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownTreemapStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(TreemapStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(TreemapStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "classDef") {
+            let class_def = shift_class_def(
+                Parser::parse_flow_class_def(trimmed).map_err(|error| shift_error(error, start))?,
+                start,
+            );
+            return Ok(TreemapStatement::ClassDef(class_def));
+        }
+        parse_treemap_node(&self.source[start..end])
+            .map(|node| TreemapStatement::Node(Box::new(shift_treemap_node(node, start))))
+            .map_err(|error| shift_error(error, start))
+    }
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -9681,6 +9860,199 @@ fn is_zenuml_identifier(value: &str) -> bool {
     };
     (first.is_ascii_alphabetic() || first == b'_' || first == b'$')
         && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$')
+}
+
+#[derive(Debug, Clone)]
+struct ParsedTreemapNode {
+    node: TreemapNode,
+    children: Vec<usize>,
+}
+
+fn parse_treemap_node(source: &str) -> Result<TreemapNode, ParseError> {
+    let Some((body_start, body_end)) = trim_ascii_range(source) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapNode,
+            span: Span::new(0, 0),
+        });
+    };
+    if source.as_bytes().get(body_start) != Some(&b'"') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapNode,
+            span: Span::new(body_start, body_end),
+        });
+    }
+    let label_end = find_treemap_quote_end(source, body_start + 1, body_end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedTreemapNode,
+        span: Span::new(body_start, body_end),
+    })?;
+    let label = label_from_body(source, body_start, label_end + 1);
+    let mut cursor = skip_ascii_ws(source, label_end + 1, body_end);
+    let mut value = None;
+    let mut classes = Vec::new();
+    while cursor < body_end {
+        if source[cursor..body_end].starts_with(":::") {
+            let class_end = treemap_class_token_end(source, cursor + 3, body_end);
+            classes.extend(parse_treemap_classes(source, cursor + 3, class_end)?);
+            cursor = skip_ascii_ws(source, class_end, body_end);
+            continue;
+        }
+        if source.as_bytes().get(cursor) == Some(&b':') {
+            let value_start = skip_ascii_ws(source, cursor + 1, body_end);
+            let value_end = treemap_value_end(source, value_start, body_end);
+            value = Some(parse_treemap_value(source, value_start, value_end)?);
+            cursor = skip_ascii_ws(source, value_end, body_end);
+            continue;
+        }
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownTreemapStatement,
+            span: Span::new(cursor, body_end),
+        });
+    }
+    Ok(TreemapNode {
+        label,
+        value,
+        classes,
+        children: Vec::new(),
+        span: Span::new(body_start, body_end),
+    })
+}
+
+fn find_treemap_quote_end(source: &str, start: usize, end: usize) -> Option<usize> {
+    let mut cursor = start;
+    let mut escaped = false;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if escaped {
+            escaped = false;
+        } else if byte == b'\\' {
+            escaped = true;
+        } else if byte == b'"' {
+            return Some(cursor);
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn treemap_value_end(source: &str, start: usize, end: usize) -> usize {
+    let class_start = source[start..end]
+        .find(":::")
+        .map_or(end, |offset| start + offset);
+    trim_ascii_range(&source[start..class_start]).map_or(start, |(_, trim_end)| start + trim_end)
+}
+
+fn treemap_class_token_end(source: &str, start: usize, end: usize) -> usize {
+    let mut cursor = start;
+    while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    cursor
+}
+
+fn parse_treemap_value(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapValue,
+            span: Span::new(start, end),
+        });
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let value = &source[value_start..value_end];
+    let parsed = value.parse::<f64>().map_err(|_| ParseError {
+        kind: ParseErrorKind::ExpectedTreemapValue,
+        span: Span::new(value_start, value_end),
+    })?;
+    if !parsed.is_finite() || parsed < 0.0 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapValue,
+            span: Span::new(value_start, value_end),
+        });
+    }
+    Ok(Spanned::new(
+        value.to_owned(),
+        Span::new(value_start, value_end),
+    ))
+}
+
+fn parse_treemap_classes(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<Spanned<String>>, ParseError> {
+    let mut classes = Vec::new();
+    let mut token_start = start;
+    let mut cursor = start;
+    while cursor <= end {
+        let split = cursor == end
+            || source.as_bytes().get(cursor) == Some(&b',')
+            || source[cursor..end].starts_with(":::");
+        if split {
+            push_treemap_class(source, token_start, cursor, &mut classes)?;
+            if cursor < end && source[cursor..end].starts_with(":::") {
+                cursor += 3;
+            } else {
+                cursor += 1;
+            }
+            token_start = cursor;
+            continue;
+        }
+        cursor += 1;
+    }
+    if classes.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapNode,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(classes)
+}
+
+fn push_treemap_class(
+    source: &str,
+    start: usize,
+    end: usize,
+    classes: &mut Vec<Spanned<String>>,
+) -> Result<(), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapNode,
+            span: Span::new(start, end),
+        });
+    };
+    let class_start = start + trim_start;
+    let class_end = start + trim_end;
+    if source[class_start..class_end]
+        .chars()
+        .any(|value| value.is_ascii_whitespace())
+    {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreemapNode,
+            span: Span::new(class_start, class_end),
+        });
+    }
+    classes.push(Spanned::new(
+        source[class_start..class_end].to_owned(),
+        Span::new(class_start, class_end),
+    ));
+    Ok(())
+}
+
+fn build_treemap_node(index: usize, parsed: &[ParsedTreemapNode]) -> TreemapNode {
+    let mut node = parsed[index].node.clone();
+    node.children = parsed[index]
+        .children
+        .iter()
+        .map(|child| build_treemap_node(*child, parsed))
+        .collect();
+    if let Some(last) = node.children.last() {
+        node.span = Span::new(node.span.start, last.span.end);
+    }
+    node
 }
 
 #[derive(Debug, Clone)]
@@ -12292,6 +12664,30 @@ fn shift_event_modeling_data(data: EventModelingData, offset: usize) -> EventMod
     }
 }
 
+fn shift_treemap_header(header: TreemapHeader, offset: usize) -> TreemapHeader {
+    TreemapHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_treemap_node(node: TreemapNode, offset: usize) -> TreemapNode {
+    TreemapNode {
+        label: shift_label(node.label, offset),
+        value: node.value.map(|value| shift_spanned(value, offset)),
+        classes: node
+            .classes
+            .into_iter()
+            .map(|class| shift_spanned(class, offset))
+            .collect(),
+        children: node
+            .children
+            .into_iter()
+            .map(|child| shift_treemap_node(child, offset))
+            .collect(),
+        span: shift_span(node.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -13702,9 +14098,27 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_treemap_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "treemap-beta\n\"Sales\":::region\n  \"Product A\": 40\n  \"Product B\": 60:::focus\nclassDef region fill:#ddeeff",
+        )
+        .unwrap();
+
+        let DiagramKind::Treemap(ast) = diagram.kind else {
+            panic!("expected Treemap diagram");
+        };
+        assert_eq!(ast.roots.len(), 1);
+        assert_eq!(ast.roots[0].label.text, "Sales");
+        assert_eq!(ast.roots[0].classes[0].value, "region");
+        assert_eq!(ast.roots[0].children.len(), 2);
+        assert_eq!(ast.roots[0].children[0].value.as_ref().unwrap().value, "40");
+        assert_eq!(ast.roots[0].children[1].classes[0].value, "focus");
+        assert_eq!(ast.classes.len(), 1);
+    }
+
+    #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Treemap", "treemap-beta"),
             ("Venn", "venn-beta"),
             ("Ishikawa", "ishikawa-beta"),
             ("Wardley", "wardley-beta"),

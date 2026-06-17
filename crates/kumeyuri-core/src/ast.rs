@@ -25,6 +25,7 @@ pub enum DiagramKind {
     Architecture(Box<ArchitectureAst>),
     Radar(Box<RadarAst>),
     EventModeling(Box<EventModelingAst>),
+    Treemap(Box<TreemapAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1454,6 +1455,37 @@ pub struct EventModelingDataBlock {
 pub struct EventModelingData {
     pub ty: Option<Spanned<String>>,
     pub body: Label,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreemapAst {
+    pub header: TreemapHeader,
+    pub statements: Vec<TreemapStatement>,
+    pub roots: Vec<TreemapNode>,
+    pub classes: Vec<FlowClassDef>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TreemapHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TreemapStatement {
+    Node(Box<TreemapNode>),
+    ClassDef(FlowClassDef),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreemapNode {
+    pub label: Label,
+    pub value: Option<Spanned<String>>,
+    pub classes: Vec<Spanned<String>>,
+    pub children: Vec<TreemapNode>,
     pub span: Span,
 }
 
