@@ -276,8 +276,8 @@
 - [ ] Audit SVG output sanitiser; verify no `<foreignObject>`, no `<script>`, no `href=external`
 - [ ] Verify `--allow-external` is opt-in and gated
 - [ ] Verify input size limit enforced (default 1 MB; configurable)
-- [ ] Verify `cargo-deny` advisory check passes (no known CVEs)
-- [ ] Verify `cargo-deny` licence check passes (allowlist enforced)
+- [x] Verify `cargo-deny` advisory check passes (no known CVEs)
+- [x] Verify `cargo-deny` licence check passes (allowlist enforced)
 - [ ] Verify SLSA provenance attestation generated per release
 - [ ] Verify all release artefacts signed with sigstore
 - [ ] Verify `SECURITY.md` PGP key still valid; rotate annually
