@@ -3638,6 +3638,7 @@ impl<'source> C4StatementParser<'source> {
         }
         if is_c4_layout_call(&call.name.value) {
             return Ok(C4Statement::Layout(C4LayoutConfig {
+                name: call.name,
                 fields: call.args,
                 span: call.span,
             }));
@@ -7800,6 +7801,7 @@ fn shift_c4_style(style: C4StyleUpdate, offset: usize) -> C4StyleUpdate {
 
 fn shift_c4_layout(layout: C4LayoutConfig, offset: usize) -> C4LayoutConfig {
     C4LayoutConfig {
+        name: shift_spanned(layout.name, offset),
         fields: layout
             .fields
             .into_iter()

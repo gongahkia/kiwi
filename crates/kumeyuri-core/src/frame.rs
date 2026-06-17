@@ -1,13 +1,15 @@
 use crate::ast::{
-    ArrowHead, C4Ast, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram,
-    DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
-    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst,
-    RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
+    ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine,
+    ClassRelationshipMarker, Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst,
+    GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst,
+    RequirementAst, RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst,
+    TimelineAst,
 };
 use crate::layout::{
-    C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout,
-    JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
+    FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine,
+    JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout,
+    PieLayoutEngine, Point, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
     PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
     PositionedMindmapNode, PositionedPieSlice, PositionedRequirementNode,
@@ -502,7 +504,7 @@ impl StaticFrameRenderer {
 
     #[must_use]
     pub fn render_c4(&self, ast: &C4Ast) -> Frame {
-        render_class_layout(&self.c4.layout(ast), self.palette, self.theme)
+        render_c4_layout(&self.c4.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -873,6 +875,49 @@ fn render_requirement_layout(
         draw_requirement_node(
             &mut frame,
             node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn render_c4_layout(layout: &C4Layout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let boundary_style = theme.style_for(ThemeRole::Muted);
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for boundary in &layout.boundaries {
+        draw_c4_boundary(
+            &mut frame,
+            boundary,
+            palette,
+            boundary_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for relationship in &layout.relationships {
+        draw_c4_relationship(
+            &mut frame,
+            relationship,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for element in &layout.elements {
+        draw_c4_element(
+            &mut frame,
+            element,
             palette,
             node_style.clone(),
             text_style.clone(),

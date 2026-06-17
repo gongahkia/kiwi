@@ -1131,6 +1131,7 @@ pub struct C4StyleUpdate {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct C4LayoutConfig {
+    pub name: Spanned<String>,
     pub fields: Vec<C4CallArg>,
     pub span: Span,
 }

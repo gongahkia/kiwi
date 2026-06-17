@@ -1,18 +1,18 @@
 use crate::ast::{
-    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4Element, C4ElementKind, C4RelationshipKind,
-    ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
-    ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge,
-    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
-    FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
-    GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition,
-    RequirementAst, RequirementElement, RequirementKind, RequirementNode,
-    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SequenceActivation,
-    SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage,
-    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
-    StateStatement, StateTransition, TimelineAst,
+    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4Element, C4ElementKind,
+    C4Relationship, C4RelationshipKind, C4Statement, ClassAst, ClassMember, ClassMemberKind,
+    ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst,
+    ErAttribute, ErCardinality, ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode,
+    FlowShape, FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader,
+    GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphCommit,
+    GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label, LabelKind,
+    MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition, RequirementAst,
+    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
+    RequirementRisk, RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber,
+    SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
+    SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
 };
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout;
@@ -328,6 +328,93 @@ pub struct RequirementLayout {
     pub direction: Direction,
     pub nodes: Vec<PositionedRequirementNode>,
     pub relationships: Vec<PositionedRequirementRelationship>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct C4LayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub horizontal_padding: i32,
+    pub boundary_padding_x: i32,
+    pub boundary_padding_y: i32,
+    pub boundary_header_height: i32,
+    pub min_node_width: i32,
+    pub shape_in_row: usize,
+    pub boundary_in_row: usize,
+    pub direction: Direction,
+}
+
+impl Default for C4LayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl C4LayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 8,
+            vertical_spacing: 4,
+            horizontal_padding: 3,
+            boundary_padding_x: 2,
+            boundary_padding_y: 1,
+            boundary_header_height: 4,
+            min_node_width: 18,
+            shape_in_row: 4,
+            boundary_in_row: 2,
+            direction: Direction::TopDown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedC4Element {
+    pub id: String,
+    pub label: String,
+    pub kind_label: String,
+    pub technology: Option<String>,
+    pub description: Option<String>,
+    pub style_rows: Vec<String>,
+    pub parent: Option<String>,
+    pub external: bool,
+    pub rect: Rect,
+    pub layer: usize,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedC4Boundary {
+    pub id: String,
+    pub label: String,
+    pub kind_label: String,
+    pub ty: Option<String>,
+    pub header_height: i32,
+    pub style_rows: Vec<String>,
+    pub parent: Option<String>,
+    pub rect: Rect,
+    pub depth: usize,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedC4Relationship {
+    pub from: String,
+    pub to: String,
+    pub kind: C4RelationshipKind,
+    pub label: String,
+    pub technology: Option<String>,
+    pub style_rows: Vec<String>,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Layout {
+    pub title: Option<String>,
+    pub elements: Vec<PositionedC4Element>,
+    pub boundaries: Vec<PositionedC4Boundary>,
+    pub relationships: Vec<PositionedC4Relationship>,
     pub size: Size,
 }
 
@@ -743,7 +830,7 @@ pub struct RequirementLayoutEngine {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct C4LayoutEngine {
-    class: ClassLayoutEngine,
+    config: C4LayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -1788,207 +1875,621 @@ fn requirement_relationship_label(kind: RequirementRelationshipKind) -> &'static
     }
 }
 
-fn label_from_text(text: impl Into<String>, span: crate::ast::Span) -> Label {
-    Label {
-        text: text.into(),
-        kind: LabelKind::Plain,
-        span,
-    }
-}
-
-fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
-    if classes.iter().any(|class| class.id.value == id.value) {
-        return;
-    }
-    classes.push(ClassNode {
-        id: id.clone(),
-        annotations: Vec::new(),
-        members: Vec::new(),
-        span: id.span,
-    });
-}
-
 impl C4LayoutEngine {
     #[must_use]
     pub const fn default_values() -> Self {
         Self {
-            class: ClassLayoutEngine::default_values(),
+            config: C4LayoutConfig::default_values(),
         }
     }
 
     #[must_use]
-    pub const fn new(class: ClassLayoutEngine) -> Self {
-        Self { class }
+    pub const fn new(config: C4LayoutConfig) -> Self {
+        Self { config }
     }
 
     #[must_use]
-    pub fn layout(&self, ast: &C4Ast) -> ClassLayout {
-        self.class.layout(&c4_to_class_ast(ast))
+    pub fn layout(&self, ast: &C4Ast) -> C4Layout {
+        let config = c4_config_from_statements(self.config, ast);
+        let styles = c4_style_map(ast);
+        let title = ast.title.as_ref().map(|title| title.text.clone());
+        let origin = Point {
+            x: 0,
+            y: if title.is_some() { 2 } else { 0 },
+        };
+        let mut placement = C4Placement::default();
+        let content_size = c4_place_group(ast, None, origin, 0, &config, &styles, &mut placement);
+        let rects = c4_rect_map(&placement.elements, &placement.boundaries);
+        let relationships = c4_position_relationships(ast, &rects, &styles);
+        let mut size = Size {
+            width: content_size.width,
+            height: origin.y + content_size.height,
+        };
+        if let Some(title) = &title {
+            size.width = size.width.max(title.chars().count() as i32);
+            size.height = size.height.max(1);
+        }
+        size = layout_size_with_c4_relationships(size, &relationships);
+        C4Layout {
+            title,
+            elements: placement.elements,
+            boundaries: placement.boundaries,
+            relationships,
+            size,
+        }
     }
 }
 
-fn c4_to_class_ast(ast: &C4Ast) -> ClassAst {
-    let mut classes = ast
-        .boundaries
-        .iter()
-        .map(c4_boundary_to_class)
-        .chain(ast.elements.iter().map(c4_element_to_class))
-        .collect::<Vec<_>>();
-    for relationship in &ast.relationships {
-        ensure_class_id(&mut classes, &relationship.from);
-        ensure_class_id(&mut classes, &relationship.to);
-    }
-    let relationships = ast
-        .relationships
-        .iter()
-        .map(|relationship| {
-            let (start_marker, end_marker) = c4_relationship_markers(relationship.kind.value);
-            ClassRelationship {
-                from: relationship.from.clone(),
-                to: relationship.to.clone(),
-                line: if relationship.kind.value == C4RelationshipKind::Back {
-                    ClassRelationshipLine::Dotted
-                } else {
-                    ClassRelationshipLine::Solid
-                },
-                start_marker,
-                end_marker,
-                start_cardinality: None,
-                end_cardinality: None,
-                label: Some(c4_relationship_label(relationship)),
-                span: relationship.span,
+#[derive(Debug, Default)]
+struct C4Placement {
+    elements: Vec<PositionedC4Element>,
+    boundaries: Vec<PositionedC4Boundary>,
+    order: usize,
+}
+
+fn c4_config_from_statements(mut config: C4LayoutConfig, ast: &C4Ast) -> C4LayoutConfig {
+    for statement in &ast.statements {
+        let C4Statement::Layout(layout) = statement else {
+            continue;
+        };
+        match layout.name.value.as_str() {
+            "LAYOUT_LEFT_RIGHT" => config.direction = Direction::LeftRight,
+            "LAYOUT_TOP_DOWN" => config.direction = Direction::TopDown,
+            "UpdateLayoutConfig" => {
+                for field in &layout.fields {
+                    let Some(name) = field.name.as_ref() else {
+                        continue;
+                    };
+                    let Some(value) = c4_usize_arg(field) else {
+                        continue;
+                    };
+                    match name.value.as_str() {
+                        "c4ShapeInRow" => config.shape_in_row = value.max(1),
+                        "c4BoundaryInRow" => config.boundary_in_row = value.max(1),
+                        _ => {}
+                    }
+                }
             }
-        })
-        .collect();
-    ClassAst {
-        header: crate::ast::ClassHeader {
-            span: ast.header.span,
-        },
-        direction: Some(Spanned::new(Direction::TopDown, ast.header.span)),
-        statements: Vec::new(),
-        classes,
-        relationships,
-        span: ast.span,
+            _ => {}
+        }
+    }
+    config
+}
+
+fn c4_usize_arg(arg: &C4CallArg) -> Option<usize> {
+    arg.value.text.trim().parse::<usize>().ok()
+}
+
+fn c4_style_map(ast: &C4Ast) -> HashMap<String, Vec<String>> {
+    let mut styles = HashMap::<String, Vec<String>>::new();
+    for statement in &ast.statements {
+        let C4Statement::Style(style) = statement else {
+            continue;
+        };
+        let Some(row) = c4_style_row(&style.fields) else {
+            continue;
+        };
+        for target in &style.target_ids {
+            styles
+                .entry(target.value.clone())
+                .or_default()
+                .push(row.clone());
+        }
+    }
+    styles
+}
+
+fn c4_style_row(fields: &[C4CallArg]) -> Option<String> {
+    let values = fields.iter().filter_map(c4_arg_text).collect::<Vec<_>>();
+    if values.is_empty() {
+        None
+    } else {
+        Some(format!("style: {}", values.join(", ")))
     }
 }
 
-fn c4_element_to_class(element: &C4Element) -> ClassNode {
-    let mut members = Vec::new();
+fn c4_arg_text(arg: &C4CallArg) -> Option<String> {
+    let value = arg.value.text.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(match &arg.name {
+        Some(name) => format!("{}={value}", name.value),
+        None => value.to_owned(),
+    })
+}
+
+fn c4_place_group(
+    ast: &C4Ast,
+    parent: Option<&str>,
+    origin: Point,
+    depth: usize,
+    config: &C4LayoutConfig,
+    styles: &HashMap<String, Vec<String>>,
+    placement: &mut C4Placement,
+) -> Size {
+    let elements = c4_child_elements(ast, parent);
+    let element_sizes = elements
+        .iter()
+        .map(|element| c4_element_size(element, config, styles))
+        .collect::<Vec<_>>();
+    let (element_rects, element_size) =
+        c4_pack_rects(&element_sizes, origin, config.shape_in_row, config);
+    for (element, rect) in elements.into_iter().zip(element_rects) {
+        let order = placement.order;
+        placement.order += 1;
+        placement
+            .elements
+            .push(c4_positioned_element(element, rect, depth, order, styles));
+    }
+
+    let boundaries = c4_child_boundaries(ast, parent);
+    let boundary_sizes = boundaries
+        .iter()
+        .map(|boundary| c4_boundary_size(ast, boundary, config, styles))
+        .collect::<Vec<_>>();
+    let boundary_origin = Point {
+        x: origin.x,
+        y: origin.y
+            + element_size.height
+            + if element_size.height > 0 && !boundary_sizes.is_empty() {
+                config.vertical_spacing
+            } else {
+                0
+            },
+    };
+    let (boundary_rects, boundary_size) =
+        c4_pack_rects(&boundary_sizes, boundary_origin, config.boundary_in_row, config);
+    for (boundary, rect) in boundaries.into_iter().zip(boundary_rects) {
+        let order = placement.order;
+        placement.order += 1;
+        let positioned = c4_positioned_boundary(boundary, rect, depth, order, config, styles);
+        let child_origin = Point {
+            x: rect.origin.x + config.boundary_padding_x,
+            y: rect.origin.y + positioned.header_height + config.boundary_padding_y,
+        };
+        let child_parent = positioned.id.clone();
+        placement.boundaries.push(positioned);
+        c4_place_group(
+            ast,
+            Some(&child_parent),
+            child_origin,
+            depth + 1,
+            config,
+            styles,
+            placement,
+        );
+    }
+
+    c4_stack_size(element_size, boundary_size, config.vertical_spacing)
+}
+
+fn c4_group_size(
+    ast: &C4Ast,
+    parent: Option<&str>,
+    config: &C4LayoutConfig,
+    styles: &HashMap<String, Vec<String>>,
+) -> Size {
+    let element_sizes = c4_child_elements(ast, parent)
+        .iter()
+        .map(|element| c4_element_size(element, config, styles))
+        .collect::<Vec<_>>();
+    let element_size = c4_pack_size(&element_sizes, config.shape_in_row, config);
+    let boundary_sizes = c4_child_boundaries(ast, parent)
+        .iter()
+        .map(|boundary| c4_boundary_size(ast, boundary, config, styles))
+        .collect::<Vec<_>>();
+    let boundary_size = c4_pack_size(&boundary_sizes, config.boundary_in_row, config);
+    c4_stack_size(element_size, boundary_size, config.vertical_spacing)
+}
+
+fn c4_stack_size(elements: Size, boundaries: Size, spacing: i32) -> Size {
+    Size {
+        width: elements.width.max(boundaries.width),
+        height: elements.height
+            + boundaries.height
+            + if elements.height > 0 && boundaries.height > 0 {
+                spacing
+            } else {
+                0
+            },
+    }
+}
+
+fn c4_child_elements<'a>(ast: &'a C4Ast, parent: Option<&str>) -> Vec<&'a C4Element> {
+    let mut elements = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for statement in &ast.statements {
+        let C4Statement::Element(element) = statement else {
+            continue;
+        };
+        if c4_parent_matches(&element.parent, parent) && seen.insert(element.alias.value.clone()) {
+            let canonical = ast
+                .elements
+                .iter()
+                .find(|candidate| candidate.alias.value == element.alias.value)
+                .unwrap_or(element);
+            elements.push(canonical);
+        }
+    }
+    for element in &ast.elements {
+        if c4_parent_matches(&element.parent, parent) && seen.insert(element.alias.value.clone()) {
+            elements.push(element);
+        }
+    }
+    elements
+}
+
+fn c4_child_boundaries<'a>(ast: &'a C4Ast, parent: Option<&str>) -> Vec<&'a C4Boundary> {
+    let mut boundaries = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for statement in &ast.statements {
+        let C4Statement::Boundary(boundary) = statement else {
+            continue;
+        };
+        if c4_parent_matches(&boundary.parent, parent) && seen.insert(boundary.alias.value.clone())
+        {
+            let canonical = ast
+                .boundaries
+                .iter()
+                .find(|candidate| candidate.alias.value == boundary.alias.value)
+                .unwrap_or(boundary);
+            boundaries.push(canonical);
+        }
+    }
+    for boundary in &ast.boundaries {
+        if c4_parent_matches(&boundary.parent, parent) && seen.insert(boundary.alias.value.clone())
+        {
+            boundaries.push(boundary);
+        }
+    }
+    boundaries
+}
+
+fn c4_parent_matches(parent: &Option<Spanned<String>>, expected: Option<&str>) -> bool {
+    parent.as_ref().map(|parent| parent.value.as_str()) == expected
+}
+
+fn c4_pack_size(sizes: &[Size], limit: usize, config: &C4LayoutConfig) -> Size {
+    c4_pack_rects(sizes, Point { x: 0, y: 0 }, limit, config).1
+}
+
+fn c4_pack_rects(
+    sizes: &[Size],
+    origin: Point,
+    limit: usize,
+    config: &C4LayoutConfig,
+) -> (Vec<Rect>, Size) {
+    if sizes.is_empty() {
+        return (
+            Vec::new(),
+            Size {
+                width: 0,
+                height: 0,
+            },
+        );
+    }
+    match config.direction {
+        Direction::LeftRight | Direction::RightLeft => {
+            c4_pack_columns(sizes, origin, limit.max(1), config)
+        }
+        Direction::TopDown | Direction::BottomTop => {
+            c4_pack_rows(sizes, origin, limit.max(1), config)
+        }
+    }
+}
+
+fn c4_pack_rows(
+    sizes: &[Size],
+    origin: Point,
+    limit: usize,
+    config: &C4LayoutConfig,
+) -> (Vec<Rect>, Size) {
+    let mut rects = Vec::new();
+    let mut y = origin.y;
+    let mut width = 0;
+    for row in sizes.chunks(limit) {
+        let row_height = row.iter().map(|size| size.height).max().unwrap_or(0);
+        let mut x = origin.x;
+        let mut row_width = 0;
+        for size in row {
+            rects.push(Rect { origin: Point { x, y }, size: *size });
+            x += size.width + config.horizontal_spacing;
+            row_width += size.width + config.horizontal_spacing;
+        }
+        width = width.max(row_width.saturating_sub(config.horizontal_spacing));
+        y += row_height + config.vertical_spacing;
+    }
+    (
+        rects,
+        Size {
+            width,
+            height: (y - origin.y).saturating_sub(config.vertical_spacing),
+        },
+    )
+}
+
+fn c4_pack_columns(
+    sizes: &[Size],
+    origin: Point,
+    limit: usize,
+    config: &C4LayoutConfig,
+) -> (Vec<Rect>, Size) {
+    let mut rects = Vec::new();
+    let mut x = origin.x;
+    let mut height = 0;
+    for column in sizes.chunks(limit) {
+        let column_width = column.iter().map(|size| size.width).max().unwrap_or(0);
+        let mut y = origin.y;
+        let mut column_height = 0;
+        for size in column {
+            rects.push(Rect { origin: Point { x, y }, size: *size });
+            y += size.height + config.vertical_spacing;
+            column_height += size.height + config.vertical_spacing;
+        }
+        height = height.max(column_height.saturating_sub(config.vertical_spacing));
+        x += column_width + config.horizontal_spacing;
+    }
+    (
+        rects,
+        Size {
+            width: (x - origin.x).saturating_sub(config.horizontal_spacing),
+            height,
+        },
+    )
+}
+
+fn c4_element_size(
+    element: &C4Element,
+    config: &C4LayoutConfig,
+    styles: &HashMap<String, Vec<String>>,
+) -> Size {
+    let detail_rows = c4_element_detail_rows(element, styles);
+    let width = c4_max_width(
+        [
+            element.label.text.as_str(),
+            &format!("[{}]", c4_element_kind_label(element.kind.value, element.external)),
+        ]
+        .into_iter()
+        .chain(detail_rows.iter().map(String::as_str)),
+    )
+    .max(config.min_node_width)
+        + config.horizontal_padding * 2;
+    Size {
+        width,
+        height: if detail_rows.is_empty() {
+            4
+        } else {
+            5 + detail_rows.len() as i32
+        },
+    }
+}
+
+fn c4_boundary_size(
+    ast: &C4Ast,
+    boundary: &C4Boundary,
+    config: &C4LayoutConfig,
+    styles: &HashMap<String, Vec<String>>,
+) -> Size {
+    let content_size = c4_group_size(ast, Some(&boundary.alias.value), config, styles);
+    let style_rows = c4_style_rows(styles, &boundary.alias.value);
+    let header_height = c4_boundary_header_height(config, &style_rows);
+    let header_width = c4_max_width(
+        [
+            boundary.label.text.as_str(),
+            &c4_boundary_secondary(boundary),
+        ]
+        .into_iter()
+        .chain(style_rows.iter().map(String::as_str)),
+    ) + config.horizontal_padding * 2;
+    let content_width = if content_size.width == 0 {
+        0
+    } else {
+        content_size.width + config.boundary_padding_x * 2 + 1
+    };
+    let content_height = if content_size.height == 0 {
+        0
+    } else {
+        config.boundary_padding_y + content_size.height + config.boundary_padding_y
+    };
+    Size {
+        width: header_width.max(content_width).max(config.min_node_width),
+        height: (header_height + content_height + 1).max(5),
+    }
+}
+
+fn c4_positioned_element(
+    element: &C4Element,
+    rect: Rect,
+    layer: usize,
+    order: usize,
+    styles: &HashMap<String, Vec<String>>,
+) -> PositionedC4Element {
+    PositionedC4Element {
+        id: element.alias.value.clone(),
+        label: element.label.text.clone(),
+        kind_label: c4_element_kind_label(element.kind.value, element.external),
+        technology: element.technology.as_ref().map(|label| label.text.clone()),
+        description: element.description.as_ref().map(|label| label.text.clone()),
+        style_rows: c4_style_rows(styles, &element.alias.value),
+        parent: element.parent.as_ref().map(|parent| parent.value.clone()),
+        external: element.external,
+        rect,
+        layer,
+        order,
+    }
+}
+
+fn c4_positioned_boundary(
+    boundary: &C4Boundary,
+    rect: Rect,
+    depth: usize,
+    order: usize,
+    config: &C4LayoutConfig,
+    styles: &HashMap<String, Vec<String>>,
+) -> PositionedC4Boundary {
+    let style_rows = c4_style_rows(styles, &boundary.alias.value);
+    PositionedC4Boundary {
+        id: boundary.alias.value.clone(),
+        label: boundary.label.text.clone(),
+        kind_label: c4_boundary_kind_label(boundary.kind.value).to_owned(),
+        ty: boundary.ty.as_ref().map(|label| label.text.clone()),
+        header_height: c4_boundary_header_height(config, &style_rows),
+        style_rows,
+        parent: boundary.parent.as_ref().map(|parent| parent.value.clone()),
+        rect,
+        depth,
+        order,
+    }
+}
+
+fn c4_boundary_header_height(config: &C4LayoutConfig, style_rows: &[String]) -> i32 {
+    config.boundary_header_height + style_rows.len() as i32
+}
+
+fn c4_element_detail_rows(
+    element: &C4Element,
+    styles: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    let mut rows = Vec::new();
     if let Some(technology) = &element.technology {
-        members.push(c4_member("tech", technology.clone(), technology.span));
+        rows.push(format!("technology: {}", technology.text));
     }
     if let Some(description) = &element.description {
-        members.push(c4_member("desc", description.clone(), description.span));
+        rows.push(description.text.clone());
     }
-    if let Some(parent) = &element.parent {
-        members.push(c4_member(
-            "in",
-            label_from_text(parent.value.clone(), parent.span),
-            parent.span,
-        ));
+    rows.extend(c4_style_rows(styles, &element.alias.value));
+    rows
+}
+
+fn c4_style_rows(styles: &HashMap<String, Vec<String>>, id: &str) -> Vec<String> {
+    styles.get(id).cloned().unwrap_or_default()
+}
+
+fn c4_max_width<'a>(rows: impl IntoIterator<Item = &'a str>) -> i32 {
+    rows.into_iter()
+        .map(|row| row.chars().count() as i32)
+        .max()
+        .unwrap_or(0)
+}
+
+fn c4_rect_map(
+    elements: &[PositionedC4Element],
+    boundaries: &[PositionedC4Boundary],
+) -> HashMap<String, Rect> {
+    let mut rects = HashMap::new();
+    for element in elements {
+        rects.insert(element.id.clone(), element.rect);
     }
-    ClassNode {
-        id: element.alias.clone(),
-        annotations: vec![label_from_text(
-            c4_element_annotation(element.kind.value, element.external),
-            element.kind.span,
-        )],
-        members,
-        span: element.span,
+    for boundary in boundaries {
+        rects.insert(boundary.id.clone(), boundary.rect);
+    }
+    rects
+}
+
+fn c4_position_relationships(
+    ast: &C4Ast,
+    rects: &HashMap<String, Rect>,
+    styles: &HashMap<String, Vec<String>>,
+) -> Vec<PositionedC4Relationship> {
+    ast.relationships
+        .iter()
+        .filter_map(|relationship| {
+            let from = *rects.get(&relationship.from.value)?;
+            let to = *rects.get(&relationship.to.value)?;
+            let direction = c4_relationship_direction(relationship.kind.value, from, to);
+            let points =
+                route_class_relationship(from, to, direction, relationship.kind.value == C4RelationshipKind::Back);
+            Some(PositionedC4Relationship {
+                from: relationship.from.value.clone(),
+                to: relationship.to.value.clone(),
+                kind: relationship.kind.value,
+                label: c4_relationship_text(relationship),
+                technology: relationship.technology.as_ref().map(|label| label.text.clone()),
+                style_rows: relationship
+                    .index
+                    .as_ref()
+                    .map_or_else(Vec::new, |index| c4_style_rows(styles, &index.value)),
+                points,
+            })
+        })
+        .collect()
+}
+
+fn c4_relationship_direction(kind: C4RelationshipKind, from: Rect, to: Rect) -> Direction {
+    match kind {
+        C4RelationshipKind::Up => Direction::BottomTop,
+        C4RelationshipKind::Down => Direction::TopDown,
+        C4RelationshipKind::Left => Direction::RightLeft,
+        C4RelationshipKind::Right => Direction::LeftRight,
+        C4RelationshipKind::Back => Direction::TopDown,
+        C4RelationshipKind::Directed
+        | C4RelationshipKind::Bidirectional
+        | C4RelationshipKind::Indexed => c4_auto_direction(from, to),
     }
 }
 
-fn c4_boundary_to_class(boundary: &C4Boundary) -> ClassNode {
-    let mut members = Vec::new();
-    members.push(c4_member(
-        "label",
-        boundary.label.clone(),
-        boundary.label.span,
-    ));
-    if let Some(ty) = &boundary.ty {
-        members.push(c4_member("type", ty.clone(), ty.span));
-    }
-    if let Some(parent) = &boundary.parent {
-        members.push(c4_member(
-            "in",
-            label_from_text(parent.value.clone(), parent.span),
-            parent.span,
-        ));
-    }
-    ClassNode {
-        id: boundary.alias.clone(),
-        annotations: vec![label_from_text(
-            c4_boundary_annotation(boundary.kind.value),
-            boundary.kind.span,
-        )],
-        members,
-        span: boundary.span,
+fn c4_auto_direction(from: Rect, to: Rect) -> Direction {
+    let from_center = from.center();
+    let to_center = to.center();
+    let dx = to_center.x - from_center.x;
+    let dy = to_center.y - from_center.y;
+    if dx.abs() >= dy.abs() {
+        if dx >= 0 {
+            Direction::LeftRight
+        } else {
+            Direction::RightLeft
+        }
+    } else if dy >= 0 {
+        Direction::TopDown
+    } else {
+        Direction::BottomTop
     }
 }
 
-fn c4_member(name: &str, ty: Label, span: crate::ast::Span) -> ClassMember {
-    ClassMember {
-        visibility: None,
-        name: Spanned::new(name.to_owned(), span),
-        ty: Some(ty),
-        kind: ClassMemberKind::Field,
-        span,
-    }
-}
-
-fn c4_element_annotation(kind: C4ElementKind, external: bool) -> String {
+fn c4_element_kind_label(kind: C4ElementKind, external: bool) -> String {
     let base = match kind {
         C4ElementKind::Person | C4ElementKind::PersonExternal => "person",
         C4ElementKind::System | C4ElementKind::SystemExternal => "system",
-        C4ElementKind::SystemDb | C4ElementKind::SystemDbExternal => "systemDb",
-        C4ElementKind::SystemQueue | C4ElementKind::SystemQueueExternal => "systemQueue",
+        C4ElementKind::SystemDb | C4ElementKind::SystemDbExternal => "system database",
+        C4ElementKind::SystemQueue | C4ElementKind::SystemQueueExternal => "system queue",
         C4ElementKind::Container | C4ElementKind::ContainerExternal => "container",
-        C4ElementKind::ContainerDb | C4ElementKind::ContainerDbExternal => "containerDb",
-        C4ElementKind::ContainerQueue | C4ElementKind::ContainerQueueExternal => "containerQueue",
+        C4ElementKind::ContainerDb | C4ElementKind::ContainerDbExternal => "container database",
+        C4ElementKind::ContainerQueue | C4ElementKind::ContainerQueueExternal => "container queue",
         C4ElementKind::Component | C4ElementKind::ComponentExternal => "component",
-        C4ElementKind::ComponentDb | C4ElementKind::ComponentDbExternal => "componentDb",
-        C4ElementKind::ComponentQueue | C4ElementKind::ComponentQueueExternal => "componentQueue",
-        C4ElementKind::DeploymentNode => "deploymentNode",
+        C4ElementKind::ComponentDb | C4ElementKind::ComponentDbExternal => "component database",
+        C4ElementKind::ComponentQueue | C4ElementKind::ComponentQueueExternal => "component queue",
+        C4ElementKind::DeploymentNode => "deployment node",
     };
     if external {
-        format!("<<{base}:external>>")
+        format!("external {base}")
     } else {
-        format!("<<{base}>>")
+        base.to_owned()
     }
 }
 
-fn c4_boundary_annotation(kind: C4BoundaryKind) -> &'static str {
+fn c4_boundary_kind_label(kind: C4BoundaryKind) -> &'static str {
     match kind {
-        C4BoundaryKind::Boundary => "<<boundary>>",
-        C4BoundaryKind::Enterprise => "<<enterpriseBoundary>>",
-        C4BoundaryKind::System => "<<systemBoundary>>",
-        C4BoundaryKind::Container => "<<containerBoundary>>",
-        C4BoundaryKind::DeploymentNode => "<<deploymentNode>>",
+        C4BoundaryKind::Boundary => "boundary",
+        C4BoundaryKind::Enterprise => "enterprise boundary",
+        C4BoundaryKind::System => "system boundary",
+        C4BoundaryKind::Container => "container boundary",
+        C4BoundaryKind::DeploymentNode => "deployment node",
     }
 }
 
-fn c4_relationship_markers(
-    kind: C4RelationshipKind,
-) -> (ClassRelationshipMarker, ClassRelationshipMarker) {
-    match kind {
-        C4RelationshipKind::Bidirectional => (
-            ClassRelationshipMarker::Arrow,
-            ClassRelationshipMarker::Arrow,
+fn c4_boundary_secondary(boundary: &C4Boundary) -> String {
+    match &boundary.ty {
+        Some(ty) => format!(
+            "[{}] {}",
+            c4_boundary_kind_label(boundary.kind.value),
+            ty.text
         ),
-        C4RelationshipKind::Directed
-        | C4RelationshipKind::Up
-        | C4RelationshipKind::Down
-        | C4RelationshipKind::Left
-        | C4RelationshipKind::Right
-        | C4RelationshipKind::Back
-        | C4RelationshipKind::Indexed => (
-            ClassRelationshipMarker::None,
-            ClassRelationshipMarker::Arrow,
-        ),
+        None => format!("[{}]", c4_boundary_kind_label(boundary.kind.value)),
     }
 }
 
-fn c4_relationship_label(relationship: &crate::ast::C4Relationship) -> Label {
+fn c4_relationship_text(relationship: &C4Relationship) -> String {
     let mut text = String::new();
     if let Some(index) = &relationship.index {
         text.push_str(&index.value);
@@ -2000,7 +2501,65 @@ fn c4_relationship_label(relationship: &crate::ast::C4Relationship) -> Label {
         text.push_str(&technology.text);
         text.push(']');
     }
-    label_from_text(text, relationship.label.span)
+    text
+}
+
+fn layout_size_with_c4_relationships(
+    size: Size,
+    relationships: &[PositionedC4Relationship],
+) -> Size {
+    Size {
+        width: relationships
+            .iter()
+            .flat_map(|relationship| {
+                relationship
+                    .points
+                    .iter()
+                    .map(|point| point.x + 1)
+                    .chain(c4_relationship_label_width(relationship).into_iter())
+            })
+            .fold(size.width, i32::max),
+        height: relationships
+            .iter()
+            .flat_map(|relationship| {
+                relationship
+                    .points
+                    .iter()
+                    .map(|point| point.y + 1)
+                    .chain(c4_relationship_label_height(relationship).into_iter())
+            })
+            .fold(size.height, i32::max),
+    }
+}
+
+fn c4_relationship_label_width(relationship: &PositionedC4Relationship) -> Option<i32> {
+    let point = c4_polyline_label_point(&relationship.points)?;
+    let width = c4_relationship_rows(relationship)
+        .iter()
+        .map(|row| row.chars().count() as i32)
+        .max()
+        .unwrap_or(0);
+    Some((point.x - width / 2).max(0) + width + 1)
+}
+
+fn c4_relationship_label_height(relationship: &PositionedC4Relationship) -> Option<i32> {
+    let point = c4_polyline_label_point(&relationship.points)?;
+    Some(point.y + c4_relationship_rows(relationship).len() as i32)
+}
+
+fn c4_relationship_rows(relationship: &PositionedC4Relationship) -> Vec<String> {
+    let mut rows = vec![relationship.label.clone()];
+    rows.extend(relationship.style_rows.clone());
+    rows
+}
+
+fn c4_polyline_label_point(points: &[Point]) -> Option<Point> {
+    let first = points.first()?;
+    let last = points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2,
+        y: (first.y + last.y) / 2,
+    })
 }
 
 impl GanttLayoutEngine {
