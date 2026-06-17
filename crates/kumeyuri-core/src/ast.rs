@@ -247,6 +247,9 @@ pub struct SequenceHeader {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SequenceStatement {
     Participant(Box<SequenceParticipant>),
+    Create(Box<SequenceCreate>),
+    Destroy(Box<SequenceDestroy>),
+    Box(Box<SequenceBox>),
     Message(Box<SequenceMessage>),
     ActivationStart(Spanned<String>),
     ActivationEnd(Spanned<String>),
@@ -272,6 +275,18 @@ pub enum SequenceParticipantKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequenceCreate {
+    pub participant: SequenceParticipant,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequenceDestroy {
+    pub participant: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SequenceBox {
     pub label: Option<Label>,
     pub participants: Vec<Spanned<String>>,
@@ -283,6 +298,7 @@ pub struct SequenceMessage {
     pub from: Spanned<String>,
     pub to: Spanned<String>,
     pub arrow: SequenceArrow,
+    pub activation: Option<Spanned<SequenceActivation>>,
     pub label: Option<Label>,
     pub span: Span,
 }
@@ -299,6 +315,12 @@ pub enum SequenceArrow {
     DottedOpen,
     SolidBidirectional,
     DottedBidirectional,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SequenceActivation {
+    Start,
+    End,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -332,12 +354,13 @@ pub enum SequenceControlKind {
     Par,
     Critical,
     Break,
+    Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SequenceAutoNumber {
-    pub start: Option<u64>,
-    pub step: Option<u64>,
+    pub start: Option<Spanned<String>>,
+    pub step: Option<Spanned<String>>,
     pub span: Span,
 }
 

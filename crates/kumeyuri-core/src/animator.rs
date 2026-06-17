@@ -453,6 +453,9 @@ fn apply_sequence_animation_directives(
             }
         }
         SequenceStatement::Participant(_)
+        | SequenceStatement::Create(_)
+        | SequenceStatement::Destroy(_)
+        | SequenceStatement::Box(_)
         | SequenceStatement::Message(_)
         | SequenceStatement::ActivationStart(_)
         | SequenceStatement::ActivationEnd(_)
@@ -2691,6 +2694,7 @@ mod tests {
             from: Spanned::new(from.to_owned(), Span::new(0, 0)),
             to: Spanned::new(to.to_owned(), Span::new(0, 0)),
             arrow: SequenceArrow::SolidArrow,
+            activation: None,
             label: Some(label(text)),
             span: Span::new(0, 0),
         }))

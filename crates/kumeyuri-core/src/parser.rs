@@ -14,11 +14,12 @@ use crate::ast::{
     MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement, RequirementAst,
     RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
     RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
-    RequirementStyle, RequirementVerifyMethod, SequenceArrow, SequenceAst, SequenceAutoNumber,
-    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
-    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
-    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
-    StateNote, StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
+    RequirementStyle, RequirementVerifyMethod, SequenceActivation, SequenceArrow, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
+    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
+    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
+    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
+    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
     TimelineStatement,
 };
 
@@ -688,9 +689,11 @@ impl<'source> DiagramParser<'source> {
             boxes: Vec::new(),
             span: Span::new(header.span.start, self.source.len()),
         };
+        let mut box_stack = Vec::<(usize, usize)>::new();
 
         while let Some(line) = self.current_trimmed_line() {
             if line.text == "end" {
+                box_stack.pop();
                 self.cursor = line.line.next;
                 continue;
             }
@@ -699,8 +702,37 @@ impl<'source> DiagramParser<'source> {
                     .map_err(|error| shift_error(error, line.start))?,
                 line.start,
             );
-            if let SequenceStatement::Participant(participant) = &statement {
-                ast.participants.push((**participant).clone());
+            match &statement {
+                SequenceStatement::Participant(participant) => {
+                    ast.participants.push((**participant).clone());
+                    push_sequence_box_participant(&mut ast, &box_stack, participant.id.clone());
+                }
+                SequenceStatement::Create(create) => {
+                    ast.participants.push(create.participant.clone());
+                    push_sequence_box_participant(
+                        &mut ast,
+                        &box_stack,
+                        create.participant.id.clone(),
+                    );
+                }
+                SequenceStatement::Box(sequence_box) => {
+                    let box_index = ast.boxes.len();
+                    let statement_index = ast.statements.len();
+                    ast.boxes.push((**sequence_box).clone());
+                    ast.statements.push(statement);
+                    box_stack.push((box_index, statement_index));
+                    self.cursor = line.line.next;
+                    continue;
+                }
+                SequenceStatement::Destroy(_)
+                | SequenceStatement::Message(_)
+                | SequenceStatement::ActivationStart(_)
+                | SequenceStatement::ActivationEnd(_)
+                | SequenceStatement::Note(_)
+                | SequenceStatement::Control(_)
+                | SequenceStatement::AutoNumber(_)
+                | SequenceStatement::Comment(_)
+                | SequenceStatement::Directive(_) => {}
             }
             ast.statements.push(statement);
             self.cursor = line.line.next;
@@ -1271,6 +1303,20 @@ struct TrimmedSourceLine<'source> {
     start: usize,
     end: usize,
     text: &'source str,
+}
+
+fn push_sequence_box_participant(
+    ast: &mut SequenceAst,
+    box_stack: &[(usize, usize)],
+    participant: Spanned<String>,
+) {
+    for (box_index, statement_index) in box_stack {
+        ast.boxes[*box_index].participants.push(participant.clone());
+        if let Some(SequenceStatement::Box(sequence_box)) = ast.statements.get_mut(*statement_index)
+        {
+            sequence_box.participants.push(participant.clone());
+        }
+    }
 }
 
 fn parse_flow_document_statements(
@@ -1997,6 +2043,24 @@ impl<'source> SequenceStatementParser<'source> {
         if has_keyword(self.source, start, "actor") {
             return self.parse_participant(start, end, "actor", SequenceParticipantKind::Actor);
         }
+        if has_keyword(self.source, start, "create") {
+            return self.parse_create(start, end);
+        }
+        if has_keyword(self.source, start, "destroy") {
+            return self.parse_destroy(start, end);
+        }
+        if has_exact_keyword(self.source, start, end, "box") {
+            return self.parse_box(start, end);
+        }
+        if has_exact_keyword(self.source, start, end, "autonumber") {
+            return self.parse_auto_number(start, end);
+        }
+        if has_keyword(self.source, start, "activate") {
+            return self.parse_activation(start, end, "activate", true);
+        }
+        if has_keyword(self.source, start, "deactivate") {
+            return self.parse_activation(start, end, "deactivate", false);
+        }
         if trimmed.starts_with("Note ") {
             return self.parse_note(start, end);
         }
@@ -2051,6 +2115,95 @@ impl<'source> SequenceStatementParser<'source> {
                 span: Span::new(start, end),
             },
         )))
+    }
+
+    fn parse_create(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
+        let rest_start = start + "create".len();
+        let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[rest_start..end]) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceParticipant,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let participant_start = rest_start + trim_start;
+        let participant_end = rest_start + trim_end;
+        let statement = if has_keyword(self.source, participant_start, "participant") {
+            self.parse_participant(
+                participant_start,
+                participant_end,
+                "participant",
+                SequenceParticipantKind::Participant,
+            )?
+        } else if has_keyword(self.source, participant_start, "actor") {
+            self.parse_participant(
+                participant_start,
+                participant_end,
+                "actor",
+                SequenceParticipantKind::Actor,
+            )?
+        } else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSequenceParticipant,
+                span: Span::new(participant_start, participant_end),
+            });
+        };
+        let SequenceStatement::Participant(participant) = statement else {
+            unreachable!("parse_participant returns participant statement");
+        };
+        Ok(SequenceStatement::Create(Box::new(SequenceCreate {
+            participant: *participant,
+            span: Span::new(start, end),
+        })))
+    }
+
+    fn parse_destroy(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
+        let participant = parse_single_identifier(
+            self.source,
+            start + "destroy".len(),
+            end,
+            ParseErrorKind::ExpectedSequenceParticipant,
+        )?;
+        Ok(SequenceStatement::Destroy(Box::new(SequenceDestroy {
+            participant,
+            span: Span::new(start, end),
+        })))
+    }
+
+    fn parse_box(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
+        Ok(SequenceStatement::Box(Box::new(SequenceBox {
+            label: label_from_trimmed(self.source, start + "box".len(), end),
+            participants: Vec::new(),
+            span: Span::new(start, end),
+        })))
+    }
+
+    fn parse_auto_number(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
+        let values = parse_sequence_number_values(self.source, start + "autonumber".len(), end)?;
+        Ok(SequenceStatement::AutoNumber(SequenceAutoNumber {
+            start: values.first().cloned(),
+            step: values.get(1).cloned(),
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_activation(
+        &self,
+        start: usize,
+        end: usize,
+        keyword: &str,
+        is_start: bool,
+    ) -> Result<SequenceStatement, ParseError> {
+        let participant = parse_single_identifier(
+            self.source,
+            start + keyword.len(),
+            end,
+            ParseErrorKind::ExpectedSequenceParticipant,
+        )?;
+        if is_start {
+            Ok(SequenceStatement::ActivationStart(participant))
+        } else {
+            Ok(SequenceStatement::ActivationEnd(participant))
+        }
     }
 
     fn parse_note(&self, start: usize, end: usize) -> Result<SequenceStatement, ParseError> {
@@ -2108,9 +2261,12 @@ impl<'source> SequenceStatementParser<'source> {
             ("alt", SequenceControlKind::Alt),
             ("opt", SequenceControlKind::Opt),
             ("par", SequenceControlKind::Par),
+            ("critical", SequenceControlKind::Critical),
+            ("break", SequenceControlKind::Break),
+            ("rect", SequenceControlKind::Rect),
         ];
         for (keyword, kind) in controls {
-            if !has_keyword(self.source, start, keyword) {
+            if !has_exact_keyword(self.source, start, end, keyword) {
                 continue;
             }
             let label = label_from_trimmed(self.source, start + keyword.len(), end);
@@ -2148,10 +2304,27 @@ impl<'source> SequenceStatementParser<'source> {
                 span: Span::new(start, end),
             });
         };
+        let (activation, to_start) = match self.source.as_bytes().get(message_start) {
+            Some(b'+') => (
+                Some(Spanned::new(
+                    SequenceActivation::Start,
+                    Span::new(message_start, message_start + 1),
+                )),
+                message_start + 1,
+            ),
+            Some(b'-') => (
+                Some(Spanned::new(
+                    SequenceActivation::End,
+                    Span::new(message_start, message_start + 1),
+                )),
+                message_start + 1,
+            ),
+            _ => (None, message_start),
+        };
         let to_end = message_start + colon;
         let to = parse_single_identifier(
             self.source,
-            message_start,
+            to_start,
             to_end,
             ParseErrorKind::ExpectedSequenceMessage,
         )?;
@@ -2160,6 +2333,7 @@ impl<'source> SequenceStatementParser<'source> {
             from,
             to,
             arrow,
+            activation,
             label,
             span: Span::new(start, end),
         }))
@@ -4322,6 +4496,53 @@ fn parse_single_identifier(
         });
     };
     Ok(value)
+}
+
+fn parse_sequence_number_values(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<Spanned<String>>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Ok(Vec::new());
+    };
+    let mut values = Vec::new();
+    let mut cursor = start + trim_start;
+    let end = start + trim_end;
+    while cursor < end {
+        while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        let value_start = cursor;
+        while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        if value_start == cursor {
+            break;
+        }
+        let value = &source[value_start..cursor];
+        if !is_sequence_number(value) || values.len() >= 2 {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSequenceStatement,
+                span: Span::new(value_start, cursor),
+            });
+        }
+        values.push(Spanned::new(
+            value.to_owned(),
+            Span::new(value_start, cursor),
+        ));
+    }
+    Ok(values)
+}
+
+fn is_sequence_number(value: &str) -> bool {
+    let Some((integer, fraction)) = value.split_once('.') else {
+        return !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
+    };
+    !integer.is_empty()
+        && integer.bytes().all(|byte| byte.is_ascii_digit())
+        && (1..=2).contains(&fraction.len())
+        && fraction.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 fn parse_state_endpoint(
@@ -6694,6 +6915,15 @@ fn shift_sequence_statement(statement: SequenceStatement, offset: usize) -> Sequ
         SequenceStatement::Participant(participant) => SequenceStatement::Participant(Box::new(
             shift_sequence_participant(*participant, offset),
         )),
+        SequenceStatement::Create(create) => {
+            SequenceStatement::Create(Box::new(shift_sequence_create(*create, offset)))
+        }
+        SequenceStatement::Destroy(destroy) => {
+            SequenceStatement::Destroy(Box::new(shift_sequence_destroy(*destroy, offset)))
+        }
+        SequenceStatement::Box(sequence_box) => {
+            SequenceStatement::Box(Box::new(shift_sequence_box(*sequence_box, offset)))
+        }
         SequenceStatement::Message(message) => {
             SequenceStatement::Message(Box::new(shift_sequence_message(*message, offset)))
         }
@@ -6721,6 +6951,32 @@ fn shift_sequence_statement(statement: SequenceStatement, offset: usize) -> Sequ
     }
 }
 
+fn shift_sequence_create(create: SequenceCreate, offset: usize) -> SequenceCreate {
+    SequenceCreate {
+        participant: shift_sequence_participant(create.participant, offset),
+        span: shift_span(create.span, offset),
+    }
+}
+
+fn shift_sequence_destroy(destroy: SequenceDestroy, offset: usize) -> SequenceDestroy {
+    SequenceDestroy {
+        participant: shift_spanned(destroy.participant, offset),
+        span: shift_span(destroy.span, offset),
+    }
+}
+
+fn shift_sequence_box(sequence_box: SequenceBox, offset: usize) -> SequenceBox {
+    SequenceBox {
+        label: sequence_box.label.map(|label| shift_label(label, offset)),
+        participants: sequence_box
+            .participants
+            .into_iter()
+            .map(|participant| shift_spanned(participant, offset))
+            .collect(),
+        span: shift_span(sequence_box.span, offset),
+    }
+}
+
 fn shift_sequence_participant(
     participant: SequenceParticipant,
     offset: usize,
@@ -6738,6 +6994,9 @@ fn shift_sequence_message(message: SequenceMessage, offset: usize) -> SequenceMe
         from: shift_spanned(message.from, offset),
         to: shift_spanned(message.to, offset),
         arrow: message.arrow,
+        activation: message
+            .activation
+            .map(|activation| shift_spanned(activation, offset)),
         label: message.label.map(|label| shift_label(label, offset)),
         span: shift_span(message.span, offset),
     }
@@ -6774,8 +7033,8 @@ fn shift_sequence_auto_number(
     offset: usize,
 ) -> SequenceAutoNumber {
     SequenceAutoNumber {
-        start: auto_number.start,
-        step: auto_number.step,
+        start: auto_number.start.map(|start| shift_spanned(start, offset)),
+        step: auto_number.step.map(|step| shift_spanned(step, offset)),
         span: shift_span(auto_number.span, offset),
     }
 }
@@ -7759,7 +8018,7 @@ mod tests {
         ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
         DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
         FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
-        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        LabelKind, SequenceActivation, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
         SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
         StateStatement,
     };
@@ -8572,6 +8831,95 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_sequence_message_activation_shorthand() {
+        let start = Parser::parse_sequence_statement("Alice->>+Bob: start").unwrap();
+        let end = Parser::parse_sequence_statement("Bob-->>-Alice: done").unwrap();
+
+        let SequenceStatement::Message(start) = start else {
+            panic!("expected message statement");
+        };
+        let SequenceStatement::Message(end) = end else {
+            panic!("expected message statement");
+        };
+        assert_eq!(start.activation.unwrap().value, SequenceActivation::Start);
+        assert_eq!(start.to.value, "Bob");
+        assert_eq!(end.activation.unwrap().value, SequenceActivation::End);
+        assert_eq!(end.to.value, "Alice");
+    }
+
+    #[test]
+    fn parses_sequence_autonumber() {
+        let bare = Parser::parse_sequence_statement("autonumber").unwrap();
+        let configured = Parser::parse_sequence_statement("autonumber 10.5 0.25").unwrap();
+
+        let SequenceStatement::AutoNumber(bare) = bare else {
+            panic!("expected autonumber statement");
+        };
+        let SequenceStatement::AutoNumber(configured) = configured else {
+            panic!("expected autonumber statement");
+        };
+        assert!(bare.start.is_none());
+        assert_eq!(configured.start.unwrap().value, "10.5");
+        assert_eq!(configured.step.unwrap().value, "0.25");
+        assert_eq!(
+            Parser::parse_sequence_statement("autonumber 1.234")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::UnknownSequenceStatement,
+        );
+    }
+
+    #[test]
+    fn parses_sequence_activation_directives() {
+        let activate = Parser::parse_sequence_statement("activate Bob").unwrap();
+        let deactivate = Parser::parse_sequence_statement("deactivate Bob").unwrap();
+
+        let SequenceStatement::ActivationStart(activate) = activate else {
+            panic!("expected activation start");
+        };
+        let SequenceStatement::ActivationEnd(deactivate) = deactivate else {
+            panic!("expected activation end");
+        };
+        assert_eq!(activate.value, "Bob");
+        assert_eq!(deactivate.value, "Bob");
+    }
+
+    #[test]
+    fn parses_sequence_create_destroy_and_box() {
+        let create =
+            Parser::parse_sequence_statement("create participant Bot as Worker Bot").unwrap();
+        let destroy = Parser::parse_sequence_statement("destroy Bot").unwrap();
+        let sequence_box = Parser::parse_sequence_statement("box Aqua Workers").unwrap();
+
+        let SequenceStatement::Create(create) = create else {
+            panic!("expected create statement");
+        };
+        let SequenceStatement::Destroy(destroy) = destroy else {
+            panic!("expected destroy statement");
+        };
+        let SequenceStatement::Box(sequence_box) = sequence_box else {
+            panic!("expected box statement");
+        };
+        assert_eq!(create.participant.id.value, "Bot");
+        assert_eq!(create.participant.alias.unwrap().text, "Worker Bot");
+        assert_eq!(destroy.participant.value, "Bot");
+        assert_eq!(sequence_box.label.unwrap().text, "Aqua Workers");
+    }
+
+    #[test]
+    fn parses_sequence_box_participants_in_document() {
+        let ast = Parser::parse_sequence(
+            "sequenceDiagram\nbox Workers\nparticipant A\nparticipant B\nend\nA->>B: hi",
+        )
+        .unwrap();
+
+        assert_eq!(ast.boxes.len(), 1);
+        assert_eq!(ast.boxes[0].participants.len(), 2);
+        assert_eq!(ast.boxes[0].participants[0].value, "A");
+        assert_eq!(ast.boxes[0].participants[1].value, "B");
+    }
+
+    #[test]
     fn parses_sequence_note() {
         let statement =
             Parser::parse_sequence_statement("Note over Alice,Bob: Shared state").unwrap();
@@ -8591,6 +8939,9 @@ cherry-pick id: "feat" parent: "base""#,
             ("alt Success", SequenceControlKind::Alt),
             ("opt Cache hit", SequenceControlKind::Opt),
             ("par Worker A", SequenceControlKind::Par),
+            ("critical Commit", SequenceControlKind::Critical),
+            ("break Failure", SequenceControlKind::Break),
+            ("rect rgba(0, 0, 255, .1)", SequenceControlKind::Rect),
         ];
 
         for (source, kind) in cases {

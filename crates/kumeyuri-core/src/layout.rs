@@ -7,8 +7,8 @@ use crate::ast::{
     GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label,
     LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst, RequirementElement,
     RequirementKind, RequirementNode, RequirementRelationshipKind, RequirementVerifyMethod,
-    SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
-    StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    SequenceAst, SequenceBox, SequenceMessage, SequenceNote, SequenceParticipant,
+    SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -724,6 +724,9 @@ impl SequenceLayoutEngine {
                     });
                 }
                 SequenceStatement::Participant(_)
+                | SequenceStatement::Create(_)
+                | SequenceStatement::Destroy(_)
+                | SequenceStatement::Box(_)
                 | SequenceStatement::ActivationStart(_)
                 | SequenceStatement::ActivationEnd(_)
                 | SequenceStatement::AutoNumber(_)
@@ -2810,6 +2813,15 @@ fn sequence_participants(ast: &SequenceAst) -> Vec<SequenceParticipantRef> {
             SequenceStatement::Participant(participant) => {
                 ensure_sequence_participant(&mut participants, participant);
             }
+            SequenceStatement::Create(create) => {
+                ensure_sequence_participant(&mut participants, &create.participant);
+            }
+            SequenceStatement::Destroy(destroy) => {
+                ensure_sequence_id(&mut participants, &destroy.participant.value);
+            }
+            SequenceStatement::Box(sequence_box) => {
+                ensure_sequence_box_participants(&mut participants, sequence_box);
+            }
             SequenceStatement::Message(message) => {
                 ensure_sequence_id(&mut participants, &message.from.value);
                 ensure_sequence_id(&mut participants, &message.to.value);
@@ -2844,6 +2856,15 @@ fn collect_sequence_statement_participants(
         SequenceStatement::Participant(participant) => {
             ensure_sequence_participant(participants, participant);
         }
+        SequenceStatement::Create(create) => {
+            ensure_sequence_participant(participants, &create.participant);
+        }
+        SequenceStatement::Destroy(destroy) => {
+            ensure_sequence_id(participants, &destroy.participant.value);
+        }
+        SequenceStatement::Box(sequence_box) => {
+            ensure_sequence_box_participants(participants, sequence_box);
+        }
         SequenceStatement::Message(message) => {
             ensure_sequence_id(participants, &message.from.value);
             ensure_sequence_id(participants, &message.to.value);
@@ -2865,6 +2886,15 @@ fn collect_sequence_statement_participants(
         SequenceStatement::AutoNumber(_)
         | SequenceStatement::Comment(_)
         | SequenceStatement::Directive(_) => {}
+    }
+}
+
+fn ensure_sequence_box_participants(
+    participants: &mut Vec<SequenceParticipantRef>,
+    sequence_box: &SequenceBox,
+) {
+    for participant in &sequence_box.participants {
+        ensure_sequence_id(participants, &participant.value);
     }
 }
 
@@ -4314,6 +4344,7 @@ mod tests {
             from: Spanned::new(from.to_owned(), Span::new(0, 0)),
             to: Spanned::new(to.to_owned(), Span::new(0, 0)),
             arrow: SequenceArrow::SolidArrow,
+            activation: None,
             label: Some(label(text)),
             span: Span::new(0, 0),
         }
