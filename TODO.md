@@ -148,7 +148,7 @@
 - [x] Add root-dispatch rejection tests for every unsupported Mermaid root listed in `COVERAGE.md`
 - [ ] Add one parser fixture, one static golden, and one animation/static-collapse assertion for every newly supported Mermaid root before marking it Partial or Static-only
 - [x] Split `COVERAGE.md` syntax claims into parser, layout, static-render, animation, config, accessibility, and snapshot-count columns
-- [ ] Build a Mermaid official-example fixture importer that stores source URL, Mermaid version, root type, and expected parser/render status
+- [x] Build a Mermaid official-example fixture importer that stores source URL, Mermaid version, root type, and expected parser/render status
 - [ ] Add official-example parser corpus for every currently supported root, not just flowchart/sequence/state
 - [ ] Add negative fixtures for known Mermaid-breaking inputs: `end` labels, nested shapes, directive-like comments, malformed frontmatter, and unknown root typos
 - [ ] Add source-position parse-error snapshots for representative syntax failures per supported root

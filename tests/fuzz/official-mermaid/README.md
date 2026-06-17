@@ -12,3 +12,7 @@ Sources:
 
 Generation rule: keep the documented diagram headers and statement families,
 rename labels/ids, and combine supported examples into compact parser fixtures.
+
+Run `npm run import:official-mermaid` to refresh the reduced fixtures and
+`npm run import:official-mermaid -- --check` to verify that fixtures and
+`manifest.json` are current.

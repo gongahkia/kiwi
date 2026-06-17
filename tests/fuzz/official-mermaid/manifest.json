@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/import-official-mermaid-fixtures.mjs",
+  "mermaidVersion": "11.15.0",
+  "fixtures": [
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/flowchart.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/flowchart.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "flowchart",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/sequence.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/sequenceDiagram.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "sequence",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/state.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/stateDiagram.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "state",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    }
+  ]
+}
