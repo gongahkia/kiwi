@@ -229,6 +229,32 @@ Curve values may be positional or keyed with `axis: value`. `showLegend`,
 `max`, `min`, `graticule`, and `ticks` are parsed. Mermaid radar dimensions,
 theme variables, color scales, and curve tension are not interpreted yet.
 
+## Event Modeling diagrams
+
+Header:
+
+```mermaid
+eventmodeling
+```
+
+Timeframes, reset frames, data refs, inline data, data blocks, and explicit
+relations:
+
+```mermaid
+eventmodeling
+timeframe 01 ui Cart.CartUI
+timeframe 02 command Cart.AddItem [[AddItem01]]
+timeframe 03 event Cart.ItemAdded `json`{ description: string }
+resetframe 04 event External.InventoryChanged
+timeframe 05 processor Inventory.InventoryProcessor ->> 03 ->> 04
+data AddItem01 { description: 'jack' price: 12.5 }
+```
+
+Entity aliases `ui`, `pcr`/`processor`, `cmd`/`command`,
+`rmo`/`readmodel`, and `evt`/`event` are parsed. Namespaces are rendered as
+swimlane groups. Mermaid Event Modeling `padding` and `rowHeight` config are
+not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

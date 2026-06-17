@@ -146,6 +146,14 @@
       "rootType": "radar",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/eventmodeling.mmd",
+      "sourceUrl": "https://mermaid.ai/open-source/syntax/eventmodeling.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "eventmodeling",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

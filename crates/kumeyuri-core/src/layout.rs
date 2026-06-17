@@ -4,11 +4,12 @@ use crate::ast::{
     BlockShape, BlockStatement, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4Element,
     C4ElementKind, C4Relationship, C4RelationshipKind, C4Statement, ClassAst, ClassMember,
     ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker,
-    Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
-    FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective,
-    FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst,
-    GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst,
-    KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
+    Direction, ErAst, ErAttribute, ErCardinality, ErEntity, EventModelingAst,
+    EventModelingDataBlock, EventModelingEntityType, EventModelingFrameKind, FlowEdge,
+    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
+    FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
+    GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
+    JourneyAst, KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
     MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RadarAst, RadarCurve,
     RadarOptionKind, RequirementAst, RequirementElement, RequirementKind, RequirementNode,
     RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
@@ -693,6 +694,81 @@ pub struct RadarLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EventModelingLayoutConfig {
+    pub column_spacing: i32,
+    pub lane_spacing: i32,
+    pub node_width: i32,
+    pub node_height: i32,
+    pub lane_label_width: i32,
+    pub top_padding: i32,
+}
+
+impl Default for EventModelingLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl EventModelingLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            column_spacing: 6,
+            lane_spacing: 2,
+            node_width: 18,
+            node_height: 5,
+            lane_label_width: 20,
+            top_padding: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedEventModelingLane {
+    pub id: String,
+    pub title: String,
+    pub y: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedEventModelingFrame {
+    pub number: String,
+    pub entity: String,
+    pub entity_type: EventModelingEntityType,
+    pub frame_kind: EventModelingFrameKind,
+    pub data_ref: Option<String>,
+    pub data_summary: Option<String>,
+    pub rect: Rect,
+    pub lane_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedEventModelingRelation {
+    pub from_index: usize,
+    pub to_index: usize,
+    pub points: Vec<Point>,
+    pub explicit: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedEventModelingDataBlock {
+    pub id: String,
+    pub ty: Option<String>,
+    pub summary: String,
+    pub origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventModelingLayout {
+    pub lanes: Vec<PositionedEventModelingLane>,
+    pub frames: Vec<PositionedEventModelingFrame>,
+    pub relations: Vec<PositionedEventModelingRelation>,
+    pub data_blocks: Vec<PositionedEventModelingDataBlock>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1367,6 +1443,11 @@ pub struct ArchitectureLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct RadarLayoutEngine {
     config: RadarLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct EventModelingLayoutEngine {
+    config: EventModelingLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -3816,6 +3897,228 @@ fn radar_number_label(value: f64) -> String {
         format!("{rounded:.0}")
     } else {
         value.to_string()
+    }
+}
+
+impl EventModelingLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: EventModelingLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: EventModelingLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &EventModelingAst) -> EventModelingLayout {
+        let mut lane_ids = Vec::<String>::new();
+        let mut lane_titles = Vec::<String>::new();
+        let mut lane_index_by_id = HashMap::<String, usize>::new();
+        let mut frames = Vec::<PositionedEventModelingFrame>::new();
+        for (index, frame) in ast.timeframes.iter().enumerate() {
+            let lane = event_modeling_lane_id(&frame.entity.value, frame.entity_type.value);
+            let lane_index = if let Some(index) = lane_index_by_id.get(&lane.id) {
+                *index
+            } else {
+                let index = lane_ids.len();
+                lane_index_by_id.insert(lane.id.clone(), index);
+                lane_ids.push(lane.id.clone());
+                lane_titles.push(lane.title.clone());
+                index
+            };
+            let x = self.config.lane_label_width
+                + 2
+                + index as i32 * (self.config.node_width + self.config.column_spacing);
+            let y = self.config.top_padding
+                + lane_index as i32 * (self.config.node_height + self.config.lane_spacing);
+            frames.push(PositionedEventModelingFrame {
+                number: frame.number.value.clone(),
+                entity: frame.entity.value.clone(),
+                entity_type: frame.entity_type.value,
+                frame_kind: frame.kind.value,
+                data_ref: frame
+                    .data_ref
+                    .as_ref()
+                    .map(|data_ref| data_ref.value.clone()),
+                data_summary: frame
+                    .data
+                    .as_ref()
+                    .map(|data| event_modeling_data_summary(&data.body.text)),
+                rect: Rect {
+                    origin: Point { x, y },
+                    size: Size {
+                        width: self.config.node_width,
+                        height: self.config.node_height,
+                    },
+                },
+                lane_index,
+            });
+        }
+        let lane_height = self.config.node_height;
+        let lanes = lane_ids
+            .iter()
+            .enumerate()
+            .map(|(index, id)| PositionedEventModelingLane {
+                id: id.clone(),
+                title: lane_titles[index].clone(),
+                y: self.config.top_padding
+                    + index as i32 * (self.config.node_height + self.config.lane_spacing),
+                height: lane_height,
+            })
+            .collect::<Vec<_>>();
+        let frame_index = ast
+            .timeframes
+            .iter()
+            .enumerate()
+            .map(|(index, frame)| (frame.number.value.as_str(), index))
+            .collect::<HashMap<_, _>>();
+        let mut relations = Vec::new();
+        for index in 1..frames.len() {
+            if ast.timeframes[index - 1].kind.value == EventModelingFrameKind::TimeFrame
+                && ast.timeframes[index].kind.value == EventModelingFrameKind::TimeFrame
+            {
+                relations.push(event_modeling_relation(index - 1, index, &frames, false));
+            }
+        }
+        for (from_index, frame) in ast.timeframes.iter().enumerate() {
+            for relation in &frame.relations {
+                if let Some(to_index) = frame_index.get(relation.value.as_str()).copied() {
+                    relations.push(event_modeling_relation(from_index, to_index, &frames, true));
+                }
+            }
+        }
+        let data_y = self.config.top_padding
+            + lanes.len() as i32 * (self.config.node_height + self.config.lane_spacing)
+            + 1;
+        let data_blocks = ast
+            .data_blocks
+            .iter()
+            .enumerate()
+            .map(|(index, block)| event_modeling_data_block(block, data_y + index as i32))
+            .collect::<Vec<_>>();
+        let mut size = Size {
+            width: self.config.lane_label_width + 4,
+            height: data_y.max(1),
+        };
+        for lane in &lanes {
+            size.width = size
+                .width
+                .max(self.config.lane_label_width.max(label_width(&lane.title)) + 4);
+            size.height = size.height.max(lane.y + lane.height + 1);
+        }
+        for frame in &frames {
+            size.width = size.width.max(frame.rect.right() + 2);
+            size.height = size.height.max(frame.rect.bottom() + 1);
+        }
+        for block in &data_blocks {
+            size.width = size
+                .width
+                .max(block.origin.x + label_width(&event_modeling_data_block_label(block)) + 1);
+            size.height = size.height.max(block.origin.y + 1);
+        }
+        EventModelingLayout {
+            lanes,
+            frames,
+            relations,
+            data_blocks,
+            size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EventModelingLane {
+    id: String,
+    title: String,
+}
+
+fn event_modeling_lane_id(entity: &str, entity_type: EventModelingEntityType) -> EventModelingLane {
+    let group = event_modeling_lane_group(entity_type);
+    if let Some((namespace, _)) = entity.split_once('.') {
+        return EventModelingLane {
+            id: format!("{namespace}:{group}"),
+            title: format!("{namespace} {group}"),
+        };
+    }
+    EventModelingLane {
+        id: group.to_owned(),
+        title: group.to_owned(),
+    }
+}
+
+fn event_modeling_lane_group(entity_type: EventModelingEntityType) -> &'static str {
+    match entity_type {
+        EventModelingEntityType::Ui | EventModelingEntityType::Processor => "UI / Automation",
+        EventModelingEntityType::Command | EventModelingEntityType::ReadModel => {
+            "Command / Read Model"
+        }
+        EventModelingEntityType::Event => "Events",
+    }
+}
+
+fn event_modeling_relation(
+    from_index: usize,
+    to_index: usize,
+    frames: &[PositionedEventModelingFrame],
+    explicit: bool,
+) -> PositionedEventModelingRelation {
+    let from = frames[from_index].rect;
+    let to = frames[to_index].rect;
+    let start = Point {
+        x: from.right(),
+        y: from.center().y,
+    };
+    let end = Point {
+        x: to.origin.x,
+        y: to.center().y,
+    };
+    let mid_x = (start.x + end.x) / 2;
+    PositionedEventModelingRelation {
+        from_index,
+        to_index,
+        points: vec![
+            start,
+            Point {
+                x: mid_x,
+                y: start.y,
+            },
+            Point { x: mid_x, y: end.y },
+            end,
+        ],
+        explicit,
+    }
+}
+
+fn event_modeling_data_block(
+    block: &EventModelingDataBlock,
+    y: i32,
+) -> PositionedEventModelingDataBlock {
+    PositionedEventModelingDataBlock {
+        id: block.id.value.clone(),
+        ty: block.data.ty.as_ref().map(|ty| ty.value.clone()),
+        summary: event_modeling_data_summary(&block.data.body.text),
+        origin: Point { x: 0, y },
+    }
+}
+
+fn event_modeling_data_summary(value: &str) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() > 32 {
+        let prefix = compact.chars().take(29).collect::<String>();
+        format!("{prefix}...")
+    } else {
+        compact
+    }
+}
+
+fn event_modeling_data_block_label(block: &PositionedEventModelingDataBlock) -> String {
+    match &block.ty {
+        Some(ty) => format!("data {}({ty}): {}", block.id, block.summary),
+        None => format!("data {}: {}", block.id, block.summary),
     }
 }
 

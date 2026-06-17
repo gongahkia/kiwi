@@ -9,6 +9,8 @@ use crate::ast::{
     ClassMemberAssignment, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
     ClassRelationshipMarker, ClassStatement, Diagram, DiagramKind, DiagramMetadata, Direction,
     ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader, ErRelationship, ErStatement,
+    EventModelingAst, EventModelingData, EventModelingDataBlock, EventModelingEntityType,
+    EventModelingFrameKind, EventModelingHeader, EventModelingStatement, EventModelingTimeFrame,
     FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
     FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective,
     FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader, GanttStatement, GanttTask,
@@ -143,6 +145,11 @@ pub enum ParseErrorKind {
     ExpectedRadarCurve,
     ExpectedRadarValue,
     ExpectedRadarOption,
+    ExpectedEventModelingHeader,
+    UnknownEventModelingStatement,
+    ExpectedEventModelingFrame,
+    ExpectedEventModelingEntityType,
+    ExpectedEventModelingData,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -250,6 +257,10 @@ impl Parser {
 
     pub fn parse_radar(source: &str) -> Result<RadarAst, ParseError> {
         DiagramParser::new(source).parse_radar_only()
+    }
+
+    pub fn parse_event_modeling(source: &str) -> Result<EventModelingAst, ParseError> {
+        DiagramParser::new(source).parse_event_modeling_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -439,6 +450,16 @@ impl Parser {
         RadarStatementParser::new(source).parse()
     }
 
+    pub fn parse_event_modeling_header(source: &str) -> Result<EventModelingHeader, ParseError> {
+        EventModelingHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_event_modeling_statement(
+        source: &str,
+    ) -> Result<EventModelingStatement, ParseError> {
+        EventModelingStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -594,6 +615,14 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_radar_body(shift_radar_header(radar_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Radar(Box::new(ast))));
+        }
+        if let Ok(event_modeling_header) = Parser::parse_event_modeling_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_event_modeling_body(shift_event_modeling_header(
+                event_modeling_header,
+                header.start,
+            ))?;
+            return Ok(self.diagram(DiagramKind::EventModeling(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -831,6 +860,21 @@ impl<'source> DiagramParser<'source> {
         let radar_header = Parser::parse_radar_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_radar_body(shift_radar_header(radar_header, header.start))
+    }
+
+    fn parse_event_modeling_only(mut self) -> Result<EventModelingAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedEventModelingHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let event_modeling_header = Parser::parse_event_modeling_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_event_modeling_body(shift_event_modeling_header(
+            event_modeling_header,
+            header.start,
+        ))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1639,6 +1683,32 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_event_modeling_body(
+        &mut self,
+        header: EventModelingHeader,
+    ) -> Result<EventModelingAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = EventModelingAst {
+            header,
+            timeframes: Vec::new(),
+            data_blocks: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_event_modeling_statement(
+                Parser::parse_event_modeling_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            push_event_modeling_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
         let span_start = header.span.start;
         let mut parsed = Vec::<ParsedMindmapNode>::new();
@@ -2313,6 +2383,15 @@ fn push_radar_statement(ast: &mut RadarAst, statement: RadarStatement) {
         RadarStatement::Curve(curve) => ast.curves.push((**curve).clone()),
         RadarStatement::Option(option) => ast.options.push((**option).clone()),
         RadarStatement::Comment(_) | RadarStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_event_modeling_statement(ast: &mut EventModelingAst, statement: EventModelingStatement) {
+    match &statement {
+        EventModelingStatement::TimeFrame(frame) => ast.timeframes.push((**frame).clone()),
+        EventModelingStatement::DataBlock(block) => ast.data_blocks.push((**block).clone()),
+        EventModelingStatement::Comment(_) | EventModelingStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -4213,6 +4292,36 @@ impl<'source> RadarHeaderParser<'source> {
             });
         }
         Ok(RadarHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct EventModelingHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> EventModelingHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<EventModelingHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedEventModelingHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "eventmodeling" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedEventModelingHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(EventModelingHeader {
             span: Span::new(start, end),
         })
     }
@@ -8884,6 +8993,311 @@ fn find_radar_top_level_byte(source: &str, start: usize, end: usize, target: u8)
     None
 }
 
+struct EventModelingStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> EventModelingStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<EventModelingStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownEventModelingStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(EventModelingStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(EventModelingStatement::Comment(shift_comment(
+                comment, start,
+            )));
+        }
+        if has_keyword(self.source, start, "data") {
+            return parse_event_modeling_data_block(self.source, start, end)
+                .map(|block| EventModelingStatement::DataBlock(Box::new(block)));
+        }
+        if is_event_modeling_frame_keyword(self.source, start, end) {
+            return parse_event_modeling_timeframe(self.source, start, end)
+                .map(|frame| EventModelingStatement::TimeFrame(Box::new(frame)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownEventModelingStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+fn is_event_modeling_frame_keyword(source: &str, start: usize, end: usize) -> bool {
+    ["tf", "timeframe", "rf", "resetframe"]
+        .iter()
+        .any(|keyword| has_exact_keyword(source, start, end, keyword))
+}
+
+fn parse_event_modeling_timeframe(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<EventModelingTimeFrame, ParseError> {
+    let (kind, mut cursor) = parse_event_modeling_frame_kind(source, start, end)?;
+    let (number, next) = parse_event_modeling_token(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedEventModelingFrame,
+    )?;
+    cursor = next;
+    let (entity_type_token, next) = parse_event_modeling_token(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedEventModelingEntityType,
+    )?;
+    let Some(entity_type) = EventModelingEntityType::from_mermaid(&entity_type_token.value) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedEventModelingEntityType,
+            span: entity_type_token.span,
+        });
+    };
+    cursor = next;
+    let (entity, next) = parse_event_modeling_token(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedEventModelingFrame,
+    )?;
+    cursor = next;
+    let mut data_ref = None;
+    let mut data = None;
+    let mut relations = Vec::new();
+
+    while cursor < end {
+        cursor = skip_ascii_ws(source, cursor, end);
+        if cursor >= end {
+            break;
+        }
+        if source[cursor..end].starts_with("[[") {
+            let close = source[cursor + 2..end]
+                .find("]]")
+                .map(|offset| cursor + 2 + offset)
+                .ok_or(ParseError {
+                    kind: ParseErrorKind::ExpectedEventModelingData,
+                    span: Span::new(cursor, end),
+                })?;
+            let ref_start = cursor + 2;
+            let ref_end = close;
+            if ref_start == ref_end {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedEventModelingData,
+                    span: Span::new(cursor, close + 2),
+                });
+            }
+            data_ref = Some(Spanned::new(
+                source[ref_start..ref_end].to_owned(),
+                Span::new(ref_start, ref_end),
+            ));
+            cursor = close + 2;
+            continue;
+        }
+        if matches!(source.as_bytes().get(cursor), Some(b'`' | b'{')) {
+            let parsed = parse_event_modeling_data(source, cursor, end)?;
+            cursor = parsed.span.end;
+            data = Some(parsed);
+            continue;
+        }
+        if source[cursor..end].starts_with("->>") {
+            cursor += 3;
+            let (target, next) = parse_event_modeling_token(
+                source,
+                cursor,
+                end,
+                ParseErrorKind::ExpectedEventModelingFrame,
+            )?;
+            relations.push(target);
+            cursor = next;
+            continue;
+        }
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedEventModelingFrame,
+            span: Span::new(cursor, end),
+        });
+    }
+
+    Ok(EventModelingTimeFrame {
+        kind,
+        number,
+        entity_type: Spanned::new(entity_type, entity_type_token.span),
+        entity,
+        data_ref,
+        data,
+        relations,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_event_modeling_frame_kind(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<EventModelingFrameKind>, usize), ParseError> {
+    let keyword_end = source[start..end]
+        .find(|value: char| value.is_ascii_whitespace())
+        .map_or(end, |offset| start + offset);
+    let value = match &source[start..keyword_end] {
+        "tf" | "timeframe" => EventModelingFrameKind::TimeFrame,
+        "rf" | "resetframe" => EventModelingFrameKind::ResetFrame,
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedEventModelingFrame,
+                span: Span::new(start, keyword_end),
+            });
+        }
+    };
+    Ok((
+        Spanned::new(value, Span::new(start, keyword_end)),
+        keyword_end,
+    ))
+}
+
+fn parse_event_modeling_token(
+    source: &str,
+    start: usize,
+    end: usize,
+    kind: ParseErrorKind,
+) -> Result<(Spanned<String>, usize), ParseError> {
+    let token_start = skip_ascii_ws(source, start, end);
+    let mut token_end = token_start;
+    while token_end < end && !source.as_bytes()[token_end].is_ascii_whitespace() {
+        token_end += 1;
+    }
+    if token_start == token_end {
+        return Err(ParseError {
+            kind,
+            span: Span::new(start, end),
+        });
+    }
+    let value = &source[token_start..token_end];
+    if value == "->>" || value.starts_with("[[") || value.starts_with('{') || value.starts_with('`')
+    {
+        return Err(ParseError {
+            kind,
+            span: Span::new(token_start, token_end),
+        });
+    }
+    Ok((
+        Spanned::new(value.to_owned(), Span::new(token_start, token_end)),
+        token_end,
+    ))
+}
+
+fn parse_event_modeling_data_block(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<EventModelingDataBlock, ParseError> {
+    let mut cursor = start + "data".len();
+    let (id, next) = parse_event_modeling_token(
+        source,
+        cursor,
+        end,
+        ParseErrorKind::ExpectedEventModelingData,
+    )?;
+    cursor = next;
+    let data = parse_event_modeling_data(source, cursor, end)?;
+    if skip_ascii_ws(source, data.span.end, end) != end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedEventModelingData,
+            span: Span::new(data.span.end, end),
+        });
+    }
+    Ok(EventModelingDataBlock {
+        id,
+        data,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_event_modeling_data(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<EventModelingData, ParseError> {
+    let data_start = skip_ascii_ws(source, start, end);
+    let mut cursor = data_start;
+    let mut ty = None;
+    if source.as_bytes().get(cursor) == Some(&b'`') {
+        let ty_end = source[cursor + 1..end]
+            .find('`')
+            .map(|offset| cursor + 1 + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedEventModelingData,
+                span: Span::new(cursor, end),
+            })?;
+        if cursor + 1 == ty_end {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedEventModelingData,
+                span: Span::new(cursor, ty_end + 1),
+            });
+        }
+        ty = Some(Spanned::new(
+            source[cursor + 1..ty_end].to_owned(),
+            Span::new(cursor + 1, ty_end),
+        ));
+        cursor = skip_ascii_ws(source, ty_end + 1, end);
+    }
+    if source.as_bytes().get(cursor) != Some(&b'{') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedEventModelingData,
+            span: Span::new(cursor, end),
+        });
+    }
+    let close = find_event_modeling_data_close(source, cursor, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedEventModelingData,
+        span: Span::new(cursor, end),
+    })?;
+    Ok(EventModelingData {
+        ty,
+        body: label_from_body(source, cursor + 1, close),
+        span: Span::new(data_start, close + 1),
+    })
+}
+
+fn find_event_modeling_data_close(source: &str, open: usize, end: usize) -> Option<usize> {
+    let mut cursor = open;
+    let mut quote = None;
+    let mut curly = 0u16;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if quote == Some(byte) {
+            quote = None;
+        } else if quote.is_none() && matches!(byte, b'\'' | b'"' | b'`') {
+            quote = Some(byte);
+        } else if quote.is_none() {
+            match byte {
+                b'{' => curly += 1,
+                b'}' => {
+                    curly = curly.saturating_sub(1);
+                    if curly == 0 {
+                        return Some(cursor);
+                    }
+                }
+                _ => {}
+            }
+        }
+        cursor += 1;
+    }
+    None
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -11809,6 +12223,75 @@ fn shift_radar_option(option: RadarOption, offset: usize) -> RadarOption {
     }
 }
 
+fn shift_event_modeling_header(header: EventModelingHeader, offset: usize) -> EventModelingHeader {
+    EventModelingHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_event_modeling_statement(
+    statement: EventModelingStatement,
+    offset: usize,
+) -> EventModelingStatement {
+    match statement {
+        EventModelingStatement::TimeFrame(frame) => EventModelingStatement::TimeFrame(Box::new(
+            shift_event_modeling_timeframe(*frame, offset),
+        )),
+        EventModelingStatement::DataBlock(block) => EventModelingStatement::DataBlock(Box::new(
+            shift_event_modeling_data_block(*block, offset),
+        )),
+        EventModelingStatement::Comment(comment) => {
+            EventModelingStatement::Comment(shift_comment(comment, offset))
+        }
+        EventModelingStatement::Directive(directive) => {
+            EventModelingStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_event_modeling_timeframe(
+    frame: EventModelingTimeFrame,
+    offset: usize,
+) -> EventModelingTimeFrame {
+    EventModelingTimeFrame {
+        kind: shift_spanned(frame.kind, offset),
+        number: shift_spanned(frame.number, offset),
+        entity_type: shift_spanned(frame.entity_type, offset),
+        entity: shift_spanned(frame.entity, offset),
+        data_ref: frame
+            .data_ref
+            .map(|data_ref| shift_spanned(data_ref, offset)),
+        data: frame
+            .data
+            .map(|data| shift_event_modeling_data(data, offset)),
+        relations: frame
+            .relations
+            .into_iter()
+            .map(|relation| shift_spanned(relation, offset))
+            .collect(),
+        span: shift_span(frame.span, offset),
+    }
+}
+
+fn shift_event_modeling_data_block(
+    block: EventModelingDataBlock,
+    offset: usize,
+) -> EventModelingDataBlock {
+    EventModelingDataBlock {
+        id: shift_spanned(block.id, offset),
+        data: shift_event_modeling_data(block.data, offset),
+        span: shift_span(block.span, offset),
+    }
+}
+
+fn shift_event_modeling_data(data: EventModelingData, offset: usize) -> EventModelingData {
+    EventModelingData {
+        ty: data.ty.map(|ty| shift_spanned(ty, offset)),
+        body: shift_label(data.body, offset),
+        span: shift_span(data.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -12675,11 +13158,12 @@ mod tests {
     use crate::ast::{
         ArchitectureAlignAxis, ArchitectureSide, ArrowHead, BlockArrowDirection, BlockShape,
         ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-        DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
-        FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
-        LabelKind, QuadrantAxisKind, RadarOptionKind, SequenceActivation, SequenceArrow,
-        SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind, SequenceStatement,
-        Span, StateDirective, StateNodeKind, StateStatement, ZenUmlMessageKind,
+        DiagramKind, Direction, ErCardinality, ErStatement, EventModelingEntityType,
+        FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective, GanttTaskTag,
+        GitGraphCommitKind, GitGraphOrientation, LabelKind, QuadrantAxisKind, RadarOptionKind,
+        SequenceActivation, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
+        StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -13184,9 +13668,42 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_event_modeling_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "eventmodeling\ntf 01 ui CartUI\ntimeframe 02 command AddItem [[AddItem01]]\ntf 03 evt ItemAdded `json`{ description: string }\ndata AddItem01 { description: 'jack' }",
+        )
+        .unwrap();
+
+        let DiagramKind::EventModeling(ast) = diagram.kind else {
+            panic!("expected Event Modeling diagram");
+        };
+        assert_eq!(ast.timeframes.len(), 3);
+        assert_eq!(ast.timeframes[0].entity.value, "CartUI");
+        assert_eq!(
+            ast.timeframes[1].entity_type.value,
+            EventModelingEntityType::Command
+        );
+        assert_eq!(
+            ast.timeframes[1].data_ref.as_ref().unwrap().value,
+            "AddItem01"
+        );
+        assert_eq!(
+            ast.timeframes[2]
+                .data
+                .as_ref()
+                .unwrap()
+                .ty
+                .as_ref()
+                .unwrap()
+                .value,
+            "json"
+        );
+        assert_eq!(ast.data_blocks[0].id.value, "AddItem01");
+    }
+
+    #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Event Modeling", "eventmodeling"),
             ("Treemap", "treemap-beta"),
             ("Venn", "venn-beta"),
             ("Ishikawa", "ishikawa-beta"),

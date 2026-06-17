@@ -1,0 +1,8 @@
+%%{ animate: 'none' }%%
+eventmodeling
+timeframe 01 ui Cart.CartUI
+timeframe 02 command Cart.AddItem [[AddItem01]]
+timeframe 03 event Cart.ItemAdded `json`{ description: string }
+resetframe 04 event External.InventoryChanged
+timeframe 05 processor Inventory.InventoryProcessor ->> 03 ->> 04
+data AddItem01 { description: 'jack' price: 12.5 }

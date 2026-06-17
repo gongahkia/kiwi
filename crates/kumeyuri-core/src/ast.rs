@@ -24,6 +24,7 @@ pub enum DiagramKind {
     Kanban(Box<KanbanAst>),
     Architecture(Box<ArchitectureAst>),
     Radar(Box<RadarAst>),
+    EventModeling(Box<EventModelingAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1366,6 +1367,94 @@ impl RadarOptionKind {
             Self::Ticks => "ticks",
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventModelingAst {
+    pub header: EventModelingHeader,
+    pub timeframes: Vec<EventModelingTimeFrame>,
+    pub data_blocks: Vec<EventModelingDataBlock>,
+    pub statements: Vec<EventModelingStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EventModelingHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventModelingStatement {
+    TimeFrame(Box<EventModelingTimeFrame>),
+    DataBlock(Box<EventModelingDataBlock>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventModelingTimeFrame {
+    pub kind: Spanned<EventModelingFrameKind>,
+    pub number: Spanned<String>,
+    pub entity_type: Spanned<EventModelingEntityType>,
+    pub entity: Spanned<String>,
+    pub data_ref: Option<Spanned<String>>,
+    pub data: Option<EventModelingData>,
+    pub relations: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventModelingFrameKind {
+    TimeFrame,
+    ResetFrame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventModelingEntityType {
+    Ui,
+    Processor,
+    Command,
+    ReadModel,
+    Event,
+}
+
+impl EventModelingEntityType {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"ui" => Some(Self::Ui),
+            b"pcr" | b"processor" => Some(Self::Processor),
+            b"cmd" | b"command" => Some(Self::Command),
+            b"rmo" | b"readmodel" => Some(Self::ReadModel),
+            b"evt" | b"event" => Some(Self::Event),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn as_mermaid(self) -> &'static str {
+        match self {
+            Self::Ui => "ui",
+            Self::Processor => "processor",
+            Self::Command => "command",
+            Self::ReadModel => "readmodel",
+            Self::Event => "event",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventModelingDataBlock {
+    pub id: Spanned<String>,
+    pub data: EventModelingData,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventModelingData {
+    pub ty: Option<Spanned<String>>,
+    pub body: Label,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

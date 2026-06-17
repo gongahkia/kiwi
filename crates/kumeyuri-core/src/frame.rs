@@ -1,23 +1,26 @@
 use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
-    FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    KanbanAst, MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
+    EventModelingAst, EventModelingEntityType, EventModelingFrameKind, FlowShape, FlowchartAst,
+    GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, KanbanAst, MindmapAst,
+    MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
     TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
     BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine,
-    FlowLayout, FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout,
-    GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine, KanbanLayout, KanbanLayoutEngine,
-    MindmapLayout, MindmapLayoutEngine, PacketLayout, PacketLayoutEngine, PieLayout,
-    PieLayoutEngine, Point, PositionedArchitectureEdge, PositionedArchitectureNode,
-    PositionedBlockEdge, PositionedBlockNode, PositionedC4Boundary, PositionedC4Element,
-    PositionedC4Relationship, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
-    PositionedFlowNode, PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit,
-    PositionedJourneyTask, PositionedKanbanTask, PositionedMindmapNode, PositionedPacketField,
-    PositionedPieSlice, PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
+    EventModelingLayout, EventModelingLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
+    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine,
+    KanbanLayout, KanbanLayoutEngine, MindmapLayout, MindmapLayoutEngine, PacketLayout,
+    PacketLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedArchitectureEdge,
+    PositionedArchitectureNode, PositionedBlockEdge, PositionedBlockNode, PositionedC4Boundary,
+    PositionedC4Element, PositionedC4Relationship, PositionedClassNode,
+    PositionedClassRelationship, PositionedEventModelingDataBlock, PositionedEventModelingFrame,
+    PositionedEventModelingRelation, PositionedFlowEdge, PositionedFlowNode,
+    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
+    PositionedKanbanTask, PositionedMindmapNode, PositionedPacketField, PositionedPieSlice,
+    PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
     PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
@@ -354,6 +357,7 @@ pub struct StaticFrameRenderer {
     kanban: KanbanLayoutEngine,
     architecture: ArchitectureLayoutEngine,
     radar: RadarLayoutEngine,
+    event_modeling: EventModelingLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -388,6 +392,7 @@ impl StaticFrameRenderer {
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
+            event_modeling: EventModelingLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -423,6 +428,7 @@ impl StaticFrameRenderer {
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
+            event_modeling: EventModelingLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -458,6 +464,7 @@ impl StaticFrameRenderer {
             kanban: KanbanLayoutEngine::default_values(),
             architecture: ArchitectureLayoutEngine::default_values(),
             radar: RadarLayoutEngine::default_values(),
+            event_modeling: EventModelingLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -516,6 +523,7 @@ impl StaticFrameRenderer {
             DiagramKind::Kanban(ast) => self.render_kanban(ast),
             DiagramKind::Architecture(ast) => self.render_architecture(ast),
             DiagramKind::Radar(ast) => self.render_radar(ast),
+            DiagramKind::EventModeling(ast) => self.render_event_modeling(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -623,6 +631,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_radar(&self, ast: &RadarAst) -> Frame {
         render_radar_layout(&self.radar.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_event_modeling(&self, ast: &EventModelingAst) -> Frame {
+        render_event_modeling_layout(&self.event_modeling.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1768,6 +1781,194 @@ fn radar_frame_legend_label(curve: &PositionedRadarCurve) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!("{} {}: {}", curve.marker, curve.label, values)
+}
+
+fn render_event_modeling_layout(
+    layout: &EventModelingLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let explicit_edge_style = theme.style_for(ThemeRole::EdgeAlt);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    for lane in &layout.lanes {
+        write_text_safe(
+            &mut frame,
+            0,
+            lane.y + lane.height / 2,
+            &lane.title,
+            muted_style.clone(),
+        );
+        draw_horizontal(
+            &mut frame,
+            0,
+            layout.size.width,
+            lane.y + lane.height,
+            palette.horizontal,
+            muted_style.clone(),
+        );
+    }
+    for relation in &layout.relations {
+        draw_event_modeling_relation(
+            &mut frame,
+            relation,
+            palette,
+            if relation.explicit {
+                explicit_edge_style.clone()
+            } else {
+                edge_style.clone()
+            },
+            false,
+        );
+    }
+    for event_frame in &layout.frames {
+        draw_event_modeling_frame(
+            &mut frame,
+            event_frame,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    for relation in &layout.relations {
+        draw_event_modeling_relation(
+            &mut frame,
+            relation,
+            palette,
+            if relation.explicit {
+                explicit_edge_style.clone()
+            } else {
+                edge_style.clone()
+            },
+            true,
+        );
+    }
+    for block in &layout.data_blocks {
+        write_text_safe(
+            &mut frame,
+            block.origin.x,
+            block.origin.y,
+            &event_modeling_data_block_label(block),
+            muted_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_event_modeling_relation(
+    frame: &mut Frame,
+    relation: &PositionedEventModelingRelation,
+    palette: GlyphPalette,
+    style: CellStyle,
+    arrow_only: bool,
+) {
+    if !arrow_only {
+        draw_polyline(frame, &relation.points, palette, style.clone());
+    }
+    if let Some(last) = relation.points.last() {
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            arrowhead_for_points(&relation.points, palette),
+            style,
+        );
+    }
+}
+
+fn draw_event_modeling_frame(
+    frame: &mut Frame,
+    event_frame: &PositionedEventModelingFrame,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    draw_box(frame, event_frame.rect, palette, node_style.clone());
+    let inner_width = event_frame.rect.size.width.saturating_sub(2) as usize;
+    let header = match event_frame.frame_kind {
+        EventModelingFrameKind::TimeFrame => format!(
+            "{} {}",
+            event_frame.number,
+            event_modeling_entity_type_label(event_frame.entity_type)
+        ),
+        EventModelingFrameKind::ResetFrame => format!("{} reset", event_frame.number),
+    };
+    let data = event_frame
+        .data_ref
+        .as_ref()
+        .map(|value| format!("[[{value}]]"))
+        .or_else(|| event_frame.data_summary.clone())
+        .unwrap_or_default();
+    write_text_safe(
+        frame,
+        event_frame.rect.origin.x + 1,
+        event_frame.rect.origin.y + 1,
+        &event_modeling_fit(&header, inner_width),
+        muted_style.clone(),
+    );
+    write_text_safe(
+        frame,
+        event_frame.rect.origin.x + 1,
+        event_frame.rect.origin.y + 2,
+        &event_modeling_fit(&event_frame.entity, inner_width),
+        text_style,
+    );
+    if !data.is_empty() {
+        write_text_safe(
+            frame,
+            event_frame.rect.origin.x + 1,
+            event_frame.rect.origin.y + 3,
+            &event_modeling_fit(&data, inner_width),
+            muted_style,
+        );
+    }
+    if event_frame.frame_kind == EventModelingFrameKind::ResetFrame {
+        put_safe(
+            frame,
+            event_frame.rect.origin.x + 1,
+            event_frame.rect.origin.y,
+            '!',
+            node_style,
+        );
+    }
+}
+
+fn event_modeling_entity_type_label(entity_type: EventModelingEntityType) -> &'static str {
+    match entity_type {
+        EventModelingEntityType::Ui => "ui",
+        EventModelingEntityType::Processor => "pcr",
+        EventModelingEntityType::Command => "cmd",
+        EventModelingEntityType::ReadModel => "rmo",
+        EventModelingEntityType::Event => "evt",
+    }
+}
+
+fn event_modeling_fit(value: &str, width: usize) -> String {
+    if value.chars().count() <= width {
+        return value.to_owned();
+    }
+    if width <= 3 {
+        return value.chars().take(width).collect();
+    }
+    let mut output = value.chars().take(width - 3).collect::<String>();
+    output.push_str("...");
+    output
+}
+
+fn event_modeling_data_block_label(block: &PositionedEventModelingDataBlock) -> String {
+    match &block.ty {
+        Some(ty) => format!("data {}({ty}): {}", block.id, block.summary),
+        None => format!("data {}: {}", block.id, block.summary),
+    }
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

@@ -9,7 +9,7 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const FIXTURE_KINDS: [&str; 22] = [
+const FIXTURE_KINDS: [&str; 23] = [
     "flowchart",
     "sequence",
     "state",
@@ -26,6 +26,7 @@ const FIXTURE_KINDS: [&str; 22] = [
     "kanban",
     "architecture",
     "radar",
+    "event_modeling",
     "mindmap",
     "journey",
     "gitgraph",
@@ -33,7 +34,7 @@ const FIXTURE_KINDS: [&str; 22] = [
     "requirement",
     "c4",
 ];
-const EXPECTED_FIXTURE_COUNT: usize = 113;
+const EXPECTED_FIXTURE_COUNT: usize = 115;
 
 #[test]
 fn static_fixtures_match_golden_outputs() {
