@@ -1530,12 +1530,55 @@ fn draw_class_relationship(
     {
         put_safe(frame, last.x, last.y, glyph, edge_style.clone());
     }
+    if let Some(cardinality) = &relationship.start_cardinality
+        && let Some([first, next, ..]) = relationship.points.first_chunk::<2>()
+    {
+        draw_class_cardinality(frame, cardinality, *first, *next, true, text_style.clone());
+    }
+    if let Some(cardinality) = &relationship.end_cardinality
+        && let Some([.., previous, last]) = relationship.points.last_chunk::<2>()
+    {
+        draw_class_cardinality(
+            frame,
+            cardinality,
+            *last,
+            *previous,
+            false,
+            text_style.clone(),
+        );
+    }
     if let Some(label) = &relationship.label
         && let Some(point) = class_relationship_label_point(&relationship.points)
     {
         let x = point.x - (label.chars().count() as i32 / 2);
         write_text_safe(frame, x.max(0), point.y, label, text_style);
     }
+}
+
+fn draw_class_cardinality(
+    frame: &mut Frame,
+    cardinality: &str,
+    endpoint: Point,
+    adjacent: Point,
+    is_start: bool,
+    text_style: CellStyle,
+) {
+    let width = cardinality.chars().count() as i32;
+    let dx = adjacent.x - endpoint.x;
+    let dy = adjacent.y - endpoint.y;
+    let (x, y) = if dx.abs() > dy.abs() {
+        let y = endpoint.y.saturating_sub(1);
+        let before_endpoint = if is_start { dx < 0 } else { dx >= 0 };
+        if before_endpoint {
+            (endpoint.x - width - 1, y)
+        } else {
+            (endpoint.x + 1, y)
+        }
+    } else {
+        (endpoint.x + 2, endpoint.y)
+    };
+
+    write_text_safe(frame, x.max(0), y.max(0), cardinality, text_style);
 }
 
 fn class_relationship_label_point(points: &[Point]) -> Option<Point> {

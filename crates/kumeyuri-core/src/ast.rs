@@ -511,6 +511,8 @@ pub struct ClassRelationship {
     pub line: ClassRelationshipLine,
     pub start_marker: ClassRelationshipMarker,
     pub end_marker: ClassRelationshipMarker,
+    pub start_cardinality: Option<Label>,
+    pub end_cardinality: Option<Label>,
     pub label: Option<Label>,
     pub span: Span,
 }

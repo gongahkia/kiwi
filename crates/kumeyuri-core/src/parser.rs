@@ -2684,7 +2684,7 @@ impl<'source> ClassStatementParser<'source> {
             return Ok(None);
         };
         let operator_end = operator_start + operator.token.len();
-        let from = parse_single_identifier(
+        let (from, start_cardinality) = parse_class_source_endpoint(
             self.source,
             start,
             operator_start,
@@ -2694,7 +2694,7 @@ impl<'source> ClassStatementParser<'source> {
             .find(':')
             .map(|offset| operator_end + offset);
         let to_end = label_start.unwrap_or(end);
-        let to = parse_single_identifier(
+        let (to, end_cardinality) = parse_class_target_endpoint(
             self.source,
             operator_end,
             to_end,
@@ -2707,6 +2707,8 @@ impl<'source> ClassStatementParser<'source> {
             line: operator.line,
             start_marker: operator.start_marker,
             end_marker: operator.end_marker,
+            start_cardinality,
+            end_cardinality,
             label,
             span: Span::new(start, end),
         }))
@@ -4914,6 +4916,81 @@ fn parse_class_annotation(source: &str, start: usize, end: usize) -> Option<Labe
     let value = &source[absolute_start..absolute_end];
     (value.starts_with("<<") && value.ends_with(">>"))
         .then(|| label_from_body(source, absolute_start, absolute_end))
+}
+
+fn parse_class_source_endpoint(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let Some(cardinality_start) =
+        trailing_quoted_class_cardinality_start(source, absolute_start, absolute_end)
+    else {
+        return parse_single_identifier(source, absolute_start, absolute_end, error_kind)
+            .map(|id| (id, None));
+    };
+    let id = parse_single_identifier(source, absolute_start, cardinality_start, error_kind)?;
+    let cardinality = label_from_body(source, cardinality_start, absolute_end);
+
+    Ok((id, Some(cardinality)))
+}
+
+fn parse_class_target_endpoint(
+    source: &str,
+    start: usize,
+    end: usize,
+    error_kind: ParseErrorKind,
+) -> Result<(Spanned<String>, Option<Label>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: error_kind,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    if source.as_bytes().get(absolute_start) != Some(&b'"') {
+        return parse_single_identifier(source, absolute_start, absolute_end, error_kind)
+            .map(|id| (id, None));
+    }
+    let close_quote = source[absolute_start + 1..absolute_end]
+        .find('"')
+        .map(|offset| absolute_start + 1 + offset)
+        .ok_or(ParseError {
+            kind: error_kind,
+            span: Span::new(absolute_start, absolute_end),
+        })?;
+    let cardinality = label_from_body(source, absolute_start, close_quote + 1);
+    let id = parse_single_identifier(source, close_quote + 1, absolute_end, error_kind)?;
+
+    Ok((id, Some(cardinality)))
+}
+
+fn trailing_quoted_class_cardinality_start(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Option<usize> {
+    if end <= start || source.as_bytes().get(end - 1) != Some(&b'"') {
+        return None;
+    }
+    let mut cursor = end - 1;
+    while cursor > start {
+        cursor -= 1;
+        if source.as_bytes()[cursor] == b'"' {
+            return Some(cursor);
+        }
+    }
+    None
 }
 
 fn parse_class_member(source: &str, start: usize, end: usize) -> Result<ClassMember, ParseError> {
@@ -7201,6 +7278,12 @@ fn shift_class_relationship(relationship: ClassRelationship, offset: usize) -> C
         line: relationship.line,
         start_marker: relationship.start_marker,
         end_marker: relationship.end_marker,
+        start_cardinality: relationship
+            .start_cardinality
+            .map(|cardinality| shift_label(cardinality, offset)),
+        end_cardinality: relationship
+            .end_cardinality
+            .map(|cardinality| shift_label(cardinality, offset)),
         label: relationship.label.map(|label| shift_label(label, offset)),
         span: shift_span(relationship.span, offset),
     }

@@ -254,6 +254,8 @@ pub struct PositionedClassRelationship {
     pub line: ClassRelationshipLine,
     pub start_marker: ClassRelationshipMarker,
     pub end_marker: ClassRelationshipMarker,
+    pub start_cardinality: Option<String>,
+    pub end_cardinality: Option<String>,
     pub label: Option<String>,
     pub points: Vec<Point>,
 }
@@ -1322,6 +1324,14 @@ impl ClassLayoutEngine {
                     line: relationship.line,
                     start_marker: relationship.start_marker,
                     end_marker: relationship.end_marker,
+                    start_cardinality: relationship
+                        .start_cardinality
+                        .as_ref()
+                        .map(|label| label.text.clone()),
+                    end_cardinality: relationship
+                        .end_cardinality
+                        .as_ref()
+                        .map(|label| label.text.clone()),
                     label: relationship.label.as_ref().map(|label| label.text.clone()),
                     points: route_class_relationship(
                         rects[from],
@@ -1424,6 +1434,8 @@ impl ErLayoutEngine {
                     },
                     start_marker: er_cardinality_marker(relationship.start_cardinality),
                     end_marker: er_cardinality_marker(relationship.end_cardinality),
+                    start_cardinality: None,
+                    end_cardinality: None,
                     label: relationship.label.as_ref().map(|label| label.text.clone()),
                     points: route_class_relationship(
                         rects[from],
@@ -1484,6 +1496,8 @@ fn requirement_to_class_ast(ast: &RequirementAst) -> ClassAst {
             line: ClassRelationshipLine::Solid,
             start_marker: ClassRelationshipMarker::None,
             end_marker: ClassRelationshipMarker::Arrow,
+            start_cardinality: None,
+            end_cardinality: None,
             label: Some(label_from_text(
                 requirement_relationship_label(relationship.kind.value),
                 relationship.kind.span,
@@ -1670,6 +1684,8 @@ fn c4_to_class_ast(ast: &C4Ast) -> ClassAst {
                 },
                 start_marker,
                 end_marker,
+                start_cardinality: None,
+                end_cardinality: None,
                 label: Some(c4_relationship_label(relationship)),
                 span: relationship.span,
             }

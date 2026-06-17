@@ -7,11 +7,12 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 4] = [
+const SNAPSHOT_NAMES: [&str; 5] = [
     "01_basic_class",
     "02_inheritance_members",
     "03_relationship_kinds",
     "04_direction_lr",
+    "05_cardinality_markers",
 ];
 
 #[test]
