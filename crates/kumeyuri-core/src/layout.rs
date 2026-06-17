@@ -1958,7 +1958,9 @@ fn sankey_layers(ast: &SankeyAst, ids: &[String]) -> Vec<usize> {
             ) else {
                 continue;
             };
-            let candidate = layers[source].saturating_add(1).min(ids.len().saturating_sub(1));
+            let candidate = layers[source]
+                .saturating_add(1)
+                .min(ids.len().saturating_sub(1));
             if layers[target] < candidate {
                 layers[target] = candidate;
                 changed = true;
@@ -1991,19 +1993,16 @@ fn sankey_layer_offsets(layer_widths: &[i32], spacing: i32) -> Vec<i32> {
 }
 
 fn sankey_node_rect(nodes: &[PositionedSankeyNode], id: &str) -> Rect {
-    nodes
-        .iter()
-        .find(|node| node.id == id)
-        .map_or(
-            Rect {
-                origin: Point { x: 0, y: 0 },
-                size: Size {
-                    width: 1,
-                    height: 1,
-                },
+    nodes.iter().find(|node| node.id == id).map_or(
+        Rect {
+            origin: Point { x: 0, y: 0 },
+            size: Size {
+                width: 1,
+                height: 1,
             },
-            |node| node.rect,
-        )
+        },
+        |node| node.rect,
+    )
 }
 
 fn sankey_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {

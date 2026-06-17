@@ -13,8 +13,8 @@ use crate::layout::{
     PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
     PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
-    PositionedRequirementRelationship, PositionedSequenceActivation, PositionedSequenceBox,
-    PositionedSankeyLink, PositionedSequenceDestroy, PositionedSequenceMessage,
+    PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
+    PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
     PositionedSequenceNote, PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect,
     RequirementLayout, RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
     SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
@@ -984,17 +984,14 @@ fn render_sankey_layout(layout: &SankeyLayout, palette: GlyphPalette, theme: The
     let node_style = theme.style_for(ThemeRole::Node);
     let text_style = theme.style_for(ThemeRole::Text);
     for link in &layout.links {
-        draw_sankey_link(
-            &mut frame,
-            link,
-            palette,
-            edge_style.clone(),
-            text_style.clone(),
-        );
+        draw_sankey_link(&mut frame, link, palette, edge_style.clone());
     }
     for node in &layout.nodes {
         draw_box(&mut frame, node.rect, palette, node_style.clone());
         write_centered(&mut frame, node.rect, &node.label, text_style.clone());
+    }
+    for link in &layout.links {
+        draw_sankey_link_label(&mut frame, link, text_style.clone());
     }
     frame
 }
@@ -1004,7 +1001,6 @@ fn draw_sankey_link(
     link: &PositionedSankeyLink,
     palette: GlyphPalette,
     edge_style: CellStyle,
-    text_style: CellStyle,
 ) {
     draw_polyline(frame, &link.points, palette, edge_style.clone());
     if let Some(last) = link.points.last() {
@@ -1016,6 +1012,9 @@ fn draw_sankey_link(
             edge_style,
         );
     }
+}
+
+fn draw_sankey_link_label(frame: &mut Frame, link: &PositionedSankeyLink, text_style: CellStyle) {
     if let Some(point) = sankey_frame_link_label_point(link) {
         write_text_safe(frame, point.x, point.y, &link.value_text, text_style);
     }

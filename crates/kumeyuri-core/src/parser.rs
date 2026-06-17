@@ -4057,7 +4057,9 @@ impl<'source> SankeyStatementParser<'source> {
         };
         let trimmed = &self.source[start..end];
         if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
-            return Ok(SankeyStatement::Directive(shift_directive(directive, start)));
+            return Ok(SankeyStatement::Directive(shift_directive(
+                directive, start,
+            )));
         }
         if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
             return Ok(SankeyStatement::Comment(shift_comment(comment, start)));
@@ -8724,7 +8726,9 @@ fn shift_sankey_statement(statement: SankeyStatement, offset: usize) -> SankeySt
         SankeyStatement::Link(link) => {
             SankeyStatement::Link(Box::new(shift_sankey_link(*link, offset)))
         }
-        SankeyStatement::Comment(comment) => SankeyStatement::Comment(shift_comment(comment, offset)),
+        SankeyStatement::Comment(comment) => {
+            SankeyStatement::Comment(shift_comment(comment, offset))
+        }
         SankeyStatement::Directive(directive) => {
             SankeyStatement::Directive(shift_directive(directive, offset))
         }
