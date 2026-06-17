@@ -1,0 +1,13 @@
+block columns 3
+Frontend
+right<["HTTP"]>(right)
+Backend:2
+block:Storage:2 columns 1
+Cache[(Cache)]
+DB[(Database)]
+end
+Frontend -- "calls" --> Backend
+Backend --> DB
+style Backend fill:#969,stroke:#333
+classDef hot fill:#f96
+class Frontend hot

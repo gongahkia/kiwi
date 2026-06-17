@@ -179,7 +179,7 @@
 - [x] ZenUML: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Sankey: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] XY Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] Block Diagram: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] Block Diagram: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Packet: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Kanban: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Architecture: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

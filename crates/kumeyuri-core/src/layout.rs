@@ -1,18 +1,18 @@
 use crate::ast::{
-    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4Element, C4ElementKind,
-    C4Relationship, C4RelationshipKind, C4Statement, ClassAst, ClassMember, ClassMemberKind,
-    ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst,
-    ErAttribute, ErCardinality, ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode,
-    FlowShape, FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader,
-    GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphCommit,
-    GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label, LabelKind,
-    MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
-    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
-    RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
-    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
-    StateTransition, TimelineAst, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
-    ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    ArrowHead, BlockDiagramAst, BlockShape, BlockStatement, C4Ast, C4Boundary, C4BoundaryKind,
+    C4CallArg, C4Element, C4ElementKind, C4Relationship, C4RelationshipKind, C4Statement, ClassAst,
+    ClassMember, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
+    ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge,
+    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
+    FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
+    GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
+    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition,
+    QuadrantAst, RequirementAst, RequirementElement, RequirementKind, RequirementNode,
+    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
+    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
+    StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst, XyChartAxisScale,
+    XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -362,6 +362,73 @@ pub struct XyChartLayout {
     pub y_max_label: String,
     pub plot: Rect,
     pub series: Vec<PositionedXyChartSeries>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockLayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub horizontal_padding: i32,
+    pub min_node_width: i32,
+    pub node_height: i32,
+    pub container_padding: i32,
+    pub default_columns: u16,
+}
+
+impl Default for BlockLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl BlockLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 4,
+            vertical_spacing: 2,
+            horizontal_padding: 2,
+            min_node_width: 7,
+            node_height: 3,
+            container_padding: 2,
+            default_columns: 16,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedBlockNode {
+    pub id: String,
+    pub label: String,
+    pub shape: BlockShape,
+    pub rect: Rect,
+    pub row: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedBlockContainer {
+    pub id: Option<String>,
+    pub label: String,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedBlockEdge {
+    pub from: String,
+    pub to: String,
+    pub label: Option<String>,
+    pub arrow_start: ArrowHead,
+    pub arrow_end: ArrowHead,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockLayout {
+    pub nodes: Vec<PositionedBlockNode>,
+    pub containers: Vec<PositionedBlockContainer>,
+    pub edges: Vec<PositionedBlockEdge>,
     pub size: Size,
 }
 
@@ -1014,6 +1081,11 @@ pub struct SankeyLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct XyChartLayoutEngine {
     config: XyChartLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct BlockLayoutEngine {
+    config: BlockLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2240,6 +2312,334 @@ fn xy_chart_y(plot: Rect, value: i64, y_min: i64, y_max: i64) -> i32 {
     let range = (y_max - y_min).max(1);
     let offset = (y_max - value).clamp(0, range) * inner_height / range;
     plot.origin.y + 1 + offset as i32
+}
+
+impl BlockLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: BlockLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: BlockLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &BlockDiagramAst) -> BlockLayout {
+        let lookup = ast
+            .blocks
+            .iter()
+            .map(|node| (node.id.value.as_str(), node))
+            .collect::<HashMap<_, _>>();
+        let mut layout = BlockLayout {
+            nodes: Vec::new(),
+            containers: Vec::new(),
+            edges: Vec::new(),
+            size: Size {
+                width: self.config.min_node_width,
+                height: self.config.node_height,
+            },
+        };
+        let columns = ast
+            .header
+            .columns
+            .map_or(self.config.default_columns, |columns| columns.value);
+        let size = self.layout_statements(
+            &ast.statements,
+            &lookup,
+            columns,
+            Point { x: 0, y: 0 },
+            &mut layout,
+        );
+        layout.size = size;
+        layout.edges = self.layout_block_edges(ast, &layout.nodes);
+        for edge in &layout.edges {
+            for point in &edge.points {
+                layout.size.width = layout.size.width.max(point.x + 1);
+                layout.size.height = layout.size.height.max(point.y + 1);
+            }
+            if let Some(label) = &edge.label
+                && let Some(point) = block_edge_label_point(edge)
+            {
+                layout.size.width = layout.size.width.max(point.x + label_width(label));
+                layout.size.height = layout.size.height.max(point.y + 1);
+            }
+        }
+        layout
+    }
+
+    fn layout_statements(
+        &self,
+        statements: &[BlockStatement],
+        lookup: &HashMap<&str, &crate::ast::BlockNode>,
+        initial_columns: u16,
+        origin: Point,
+        layout: &mut BlockLayout,
+    ) -> Size {
+        let unit_width = self.block_unit_width(statements, lookup);
+        let mut columns = initial_columns.max(1);
+        let mut column = 0u16;
+        let mut row = 0usize;
+        let mut x = origin.x;
+        let mut y = origin.y;
+        let mut row_height = self.config.node_height;
+        let mut size = Size {
+            width: 0,
+            height: 0,
+        };
+        for statement in statements {
+            match statement {
+                BlockStatement::Columns(next) => {
+                    columns = next.value.max(1);
+                    column = 0;
+                    x = origin.x;
+                    if size.height > 0 {
+                        y += row_height + self.config.vertical_spacing;
+                        row += 1;
+                        row_height = self.config.node_height;
+                    }
+                }
+                BlockStatement::Node(node) => {
+                    let node = lookup
+                        .get(node.id.value.as_str())
+                        .copied()
+                        .unwrap_or(node.as_ref());
+                    let span = node.width.value.max(1).min(columns);
+                    if column > 0 && column.saturating_add(span) > columns {
+                        y += row_height + self.config.vertical_spacing;
+                        row += 1;
+                        column = 0;
+                        x = origin.x;
+                        row_height = self.config.node_height;
+                    }
+                    let rect = Rect {
+                        origin: Point { x, y },
+                        size: Size {
+                            width: block_span_width(
+                                unit_width,
+                                self.config.horizontal_spacing,
+                                span,
+                            )
+                            .max(self.config.min_node_width),
+                            height: self.config.node_height,
+                        },
+                    };
+                    layout.nodes.push(PositionedBlockNode {
+                        id: node.id.value.clone(),
+                        label: block_node_label(node),
+                        shape: node.shape.value.clone(),
+                        rect,
+                        row,
+                        column: column as usize,
+                    });
+                    size.width = size.width.max(rect.right());
+                    size.height = size.height.max(rect.bottom());
+                    column += span;
+                    x += rect.size.width + self.config.horizontal_spacing;
+                    row_height = row_height.max(rect.size.height);
+                }
+                BlockStatement::Space(space) => {
+                    let span = space.width.value.max(1).min(columns);
+                    if column > 0 && column.saturating_add(span) > columns {
+                        y += row_height + self.config.vertical_spacing;
+                        row += 1;
+                        column = 0;
+                        x = origin.x;
+                        row_height = self.config.node_height;
+                    }
+                    let width = block_span_width(unit_width, self.config.horizontal_spacing, span);
+                    size.width = size.width.max(x + width);
+                    size.height = size.height.max(y + self.config.node_height);
+                    column += span;
+                    x += width + self.config.horizontal_spacing;
+                }
+                BlockStatement::Container(container) => {
+                    let span = container.width.value.max(1).min(columns);
+                    if column > 0 && column.saturating_add(span) > columns {
+                        y += row_height + self.config.vertical_spacing;
+                        row += 1;
+                        column = 0;
+                        x = origin.x;
+                        row_height = self.config.node_height;
+                    }
+                    let child_origin = Point {
+                        x: x + self.config.container_padding,
+                        y: y + self.config.container_padding,
+                    };
+                    let child_size = self.layout_statements(
+                        &container.statements,
+                        lookup,
+                        container
+                            .columns
+                            .map_or(columns, |columns| columns.value.max(1)),
+                        child_origin,
+                        layout,
+                    );
+                    let min_width =
+                        block_span_width(unit_width, self.config.horizontal_spacing, span);
+                    let label = container
+                        .id
+                        .as_ref()
+                        .map_or_else(String::new, |id| id.value.clone());
+                    let child_width = child_size.width.saturating_sub(x);
+                    let child_height = child_size.height.saturating_sub(y);
+                    let rect = Rect {
+                        origin: Point { x, y },
+                        size: Size {
+                            width: min_width
+                                .max(child_width + self.config.container_padding)
+                                .max(label_width(&label) + 2),
+                            height: (child_height + self.config.container_padding)
+                                .max(self.config.node_height),
+                        },
+                    };
+                    layout.containers.push(PositionedBlockContainer {
+                        id: container.id.as_ref().map(|id| id.value.clone()),
+                        label,
+                        rect,
+                    });
+                    size.width = size.width.max(rect.right());
+                    size.height = size.height.max(rect.bottom());
+                    column += span;
+                    x += rect.size.width + self.config.horizontal_spacing;
+                    row_height = row_height.max(rect.size.height);
+                }
+                BlockStatement::Edge(_)
+                | BlockStatement::ClassDef(_)
+                | BlockStatement::ClassApply(_)
+                | BlockStatement::Style(_)
+                | BlockStatement::Comment(_)
+                | BlockStatement::Directive(_) => {}
+            }
+        }
+        size
+    }
+
+    fn block_unit_width(
+        &self,
+        statements: &[BlockStatement],
+        lookup: &HashMap<&str, &crate::ast::BlockNode>,
+    ) -> i32 {
+        let mut width = self.config.min_node_width;
+        for statement in statements {
+            match statement {
+                BlockStatement::Node(node) => {
+                    let node = lookup
+                        .get(node.id.value.as_str())
+                        .copied()
+                        .unwrap_or(node.as_ref());
+                    width = width.max(
+                        label_width(&block_node_label(node)) + self.config.horizontal_padding * 2,
+                    );
+                }
+                BlockStatement::Container(container) => {
+                    width = width.max(self.block_unit_width(&container.statements, lookup));
+                }
+                BlockStatement::Columns(_)
+                | BlockStatement::Space(_)
+                | BlockStatement::Edge(_)
+                | BlockStatement::ClassDef(_)
+                | BlockStatement::ClassApply(_)
+                | BlockStatement::Style(_)
+                | BlockStatement::Comment(_)
+                | BlockStatement::Directive(_) => {}
+            }
+        }
+        width
+    }
+
+    fn layout_block_edges(
+        &self,
+        ast: &BlockDiagramAst,
+        nodes: &[PositionedBlockNode],
+    ) -> Vec<PositionedBlockEdge> {
+        ast.edges
+            .iter()
+            .filter_map(|edge| {
+                let from = block_node_rect(nodes, &edge.from.value)?;
+                let to = block_node_rect(nodes, &edge.to.value)?;
+                let (start, end) = block_edge_endpoints(from, to);
+                let points = if start.y == end.y {
+                    vec![start, end]
+                } else {
+                    let mid_x = (start.x + end.x) / 2;
+                    vec![
+                        start,
+                        Point {
+                            x: mid_x,
+                            y: start.y,
+                        },
+                        Point { x: mid_x, y: end.y },
+                        end,
+                    ]
+                };
+                Some(PositionedBlockEdge {
+                    from: edge.from.value.clone(),
+                    to: edge.to.value.clone(),
+                    label: edge.label.as_ref().map(|label| label.text.clone()),
+                    arrow_start: edge.link.value.arrow_start,
+                    arrow_end: edge.link.value.arrow_end,
+                    points,
+                })
+            })
+            .collect()
+    }
+}
+
+fn block_span_width(unit_width: i32, spacing: i32, span: u16) -> i32 {
+    let span = i32::from(span.max(1));
+    unit_width * span + spacing * (span - 1)
+}
+
+fn block_node_label(node: &crate::ast::BlockNode) -> String {
+    node.label
+        .as_ref()
+        .map_or_else(|| node.id.value.clone(), |label| label.text.clone())
+}
+
+fn block_node_rect(nodes: &[PositionedBlockNode], id: &str) -> Option<Rect> {
+    nodes
+        .iter()
+        .find(|node| node.id == id)
+        .map(|node| node.rect)
+}
+
+fn block_edge_endpoints(from: Rect, to: Rect) -> (Point, Point) {
+    if from.center().x <= to.center().x {
+        (
+            Point {
+                x: from.right().saturating_sub(1),
+                y: from.center().y,
+            },
+            Point {
+                x: to.origin.x,
+                y: to.center().y,
+            },
+        )
+    } else {
+        (
+            Point {
+                x: from.origin.x,
+                y: from.center().y,
+            },
+            Point {
+                x: to.right().saturating_sub(1),
+                y: to.center().y,
+            },
+        )
+    }
+}
+
+fn block_edge_label_point(edge: &PositionedBlockEdge) -> Option<Point> {
+    let first = edge.points.first()?;
+    let last = edge.points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2 + 1,
+        y: (first.y + last.y) / 2,
+    })
 }
 
 impl StateLayoutEngine {

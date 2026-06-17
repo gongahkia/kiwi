@@ -19,6 +19,7 @@ pub enum DiagramKind {
     ZenUml(Box<ZenUmlAst>),
     Sankey(Box<SankeyAst>),
     XyChart(Box<XyChartAst>),
+    Block(Box<BlockDiagramAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -956,6 +957,110 @@ pub enum XyChartStatement {
     Series(XyChartSeries),
     Comment(MermaidComment),
     Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockDiagramAst {
+    pub header: BlockDiagramHeader,
+    pub statements: Vec<BlockStatement>,
+    pub blocks: Vec<BlockNode>,
+    pub edges: Vec<BlockEdge>,
+    pub classes: Vec<FlowClassDef>,
+    pub styles: Vec<BlockStyle>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockDiagramHeader {
+    pub columns: Option<Spanned<u16>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BlockStatement {
+    Columns(Spanned<u16>),
+    Node(Box<BlockNode>),
+    Space(BlockSpace),
+    Container(Box<BlockContainer>),
+    Edge(Box<BlockEdge>),
+    ClassDef(FlowClassDef),
+    ClassApply(FlowClassApply),
+    Style(BlockStyle),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockNode {
+    pub id: Spanned<String>,
+    pub label: Option<Label>,
+    pub shape: Spanned<BlockShape>,
+    pub width: Spanned<u16>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BlockShape {
+    Flow(FlowShape),
+    Arrow(Vec<Spanned<BlockArrowDirection>>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockArrowDirection {
+    Left,
+    Right,
+    Up,
+    Down,
+    X,
+    Y,
+}
+
+impl BlockArrowDirection {
+    #[must_use]
+    pub const fn from_mermaid(value: &str) -> Option<Self> {
+        match value.as_bytes() {
+            b"left" => Some(Self::Left),
+            b"right" => Some(Self::Right),
+            b"up" => Some(Self::Up),
+            b"down" => Some(Self::Down),
+            b"x" => Some(Self::X),
+            b"y" => Some(Self::Y),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockSpace {
+    pub width: Spanned<u16>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockContainer {
+    pub id: Option<Spanned<String>>,
+    pub width: Spanned<u16>,
+    pub columns: Option<Spanned<u16>>,
+    pub statements: Vec<BlockStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockEdge {
+    pub from: Spanned<String>,
+    pub to: Spanned<String>,
+    pub from_node: BlockNode,
+    pub to_node: BlockNode,
+    pub link: Spanned<FlowEdgeLink>,
+    pub label: Option<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockStyle {
+    pub target: Spanned<String>,
+    pub styles: Vec<FlowStyleDeclaration>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

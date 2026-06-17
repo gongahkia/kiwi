@@ -91,6 +91,42 @@ graph TD
   A --> B
 ```
 
+## Block diagrams
+
+Header:
+
+```mermaid
+block
+block columns 3
+```
+
+Blocks are placed in source order. `columns n` changes wrapping for following
+items. Node syntax uses the classic flowchart shapes, plus Mermaid block widths,
+spaces, nested blocks, block arrows, links, and style/class declarations:
+
+```mermaid
+block columns 3
+  Frontend
+  right<["HTTP"]>(right)
+  Backend:2
+
+  block:Storage:2 columns 1
+    Cache[(Cache)]
+    DB[(Database)]
+  end
+
+  Frontend -- "calls" --> Backend
+  Backend --> DB
+  space:2
+  classDef hot fill:#f96
+  class Frontend hot
+  style Backend fill:#969,stroke:#333
+```
+
+Supported block-arrow directions are `left`, `right`, `up`, `down`, `x`, and
+`y`. CSS styles and classes are parsed and stored but are not mapped to terminal
+colors yet.
+
 ## Sequence diagrams
 
 Header:

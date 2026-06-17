@@ -106,6 +106,14 @@
       "rootType": "c4",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/block.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/block.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "block",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

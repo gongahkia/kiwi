@@ -1,10 +1,12 @@
 use crate::ast::{
-    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4DiagramType, C4Element,
-    C4ElementKind, C4Header, C4LayoutConfig, C4Relationship, C4RelationshipKind, C4Statement,
-    C4StyleUpdate, ClassAst, ClassHeader, ClassMember, ClassMemberAssignment, ClassMemberKind,
-    ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-    Diagram, DiagramKind, DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity,
-    ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
+    ArrowHead, BlockArrowDirection, BlockContainer, BlockDiagramAst, BlockDiagramHeader, BlockEdge,
+    BlockNode, BlockShape, BlockSpace, BlockStatement, BlockStyle, C4Ast, C4Boundary,
+    C4BoundaryKind, C4CallArg, C4DiagramType, C4Element, C4ElementKind, C4Header, C4LayoutConfig,
+    C4Relationship, C4RelationshipKind, C4Statement, C4StyleUpdate, ClassAst, ClassHeader,
+    ClassMember, ClassMemberAssignment, ClassMemberKind, ClassNode, ClassRelationship,
+    ClassRelationshipLine, ClassRelationshipMarker, ClassStatement, Diagram, DiagramKind,
+    DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader,
+    ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
     GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick,
@@ -111,6 +113,10 @@ pub enum ParseErrorKind {
     ExpectedXyChartAxis,
     ExpectedXyChartSeries,
     ExpectedXyChartValue,
+    ExpectedBlockHeader,
+    UnknownBlockStatement,
+    ExpectedBlockNode,
+    ExpectedBlockEdge,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -198,6 +204,10 @@ impl Parser {
 
     pub fn parse_xy_chart(source: &str) -> Result<XyChartAst, ParseError> {
         DiagramParser::new(source).parse_xy_chart_only()
+    }
+
+    pub fn parse_block_diagram(source: &str) -> Result<BlockDiagramAst, ParseError> {
+        DiagramParser::new(source).parse_block_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -355,6 +365,10 @@ impl Parser {
         XyChartStatementParser::new(source).parse()
     }
 
+    pub fn parse_block_header(source: &str) -> Result<BlockDiagramHeader, ParseError> {
+        BlockHeaderParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -482,6 +496,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))?;
             return Ok(self.diagram(DiagramKind::XyChart(Box::new(ast))));
+        }
+        if let Ok(block_header) = Parser::parse_block_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_block_body(shift_block_header(block_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Block(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -659,6 +678,18 @@ impl<'source> DiagramParser<'source> {
         let xy_header = Parser::parse_xy_chart_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))
+    }
+
+    fn parse_block_only(mut self) -> Result<BlockDiagramAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedBlockHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let block_header = Parser::parse_block_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_block_body(shift_block_header(block_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1253,6 +1284,71 @@ impl<'source> DiagramParser<'source> {
         }
 
         Ok(ast)
+    }
+
+    fn parse_block_body(
+        &mut self,
+        header: BlockDiagramHeader,
+    ) -> Result<BlockDiagramAst, ParseError> {
+        let span_start = header.span.start;
+        let statements = self.parse_block_statements(false)?;
+        let mut ast = BlockDiagramAst {
+            header,
+            statements,
+            blocks: Vec::new(),
+            edges: Vec::new(),
+            classes: Vec::new(),
+            styles: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        for statement in ast.statements.clone() {
+            push_block_statement(&mut ast, statement);
+        }
+        Ok(ast)
+    }
+
+    fn parse_block_statements(
+        &mut self,
+        stop_at_end: bool,
+    ) -> Result<Vec<BlockStatement>, ParseError> {
+        let mut statements = Vec::new();
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "end" {
+                if stop_at_end {
+                    self.cursor = line.line.next;
+                    return Ok(statements);
+                }
+                return Err(ParseError {
+                    kind: ParseErrorKind::UnknownBlockStatement,
+                    span: Span::new(line.start, line.end),
+                });
+            }
+            if let Some(mut container) = parse_block_container_header(line.text)
+                .map_err(|error| shift_error(error, line.start))?
+            {
+                self.cursor = line.line.next;
+                container.statements = self.parse_block_statements(true)?;
+                container.span = Span::new(line.start + container.span.start, self.cursor);
+                statements.push(BlockStatement::Container(Box::new(
+                    shift_block_container_header_only(container, line.start),
+                )));
+                continue;
+            }
+            let mut line_statements = parse_block_line_statements(line.text)
+                .map_err(|error| shift_error(error, line.start))?
+                .into_iter()
+                .map(|statement| shift_block_statement(statement, line.start))
+                .collect::<Vec<_>>();
+            statements.append(&mut line_statements);
+            self.cursor = line.line.next;
+        }
+        if stop_at_end {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownBlockStatement,
+                span: Span::new(self.source.len(), self.source.len()),
+            });
+        }
+        Ok(statements)
     }
 
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
@@ -1876,6 +1972,47 @@ fn push_xy_chart_statement(ast: &mut XyChartAst, statement: XyChartStatement) {
         XyChartStatement::Comment(_) | XyChartStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
+}
+
+fn push_block_statement(ast: &mut BlockDiagramAst, statement: BlockStatement) {
+    match &statement {
+        BlockStatement::Node(node) => upsert_block_node(&mut ast.blocks, (**node).clone()),
+        BlockStatement::Container(container) => {
+            for statement in &container.statements {
+                push_block_statement(ast, statement.clone());
+            }
+        }
+        BlockStatement::Edge(edge) => {
+            upsert_block_node(&mut ast.blocks, edge.from_node.clone());
+            upsert_block_node(&mut ast.blocks, edge.to_node.clone());
+            ast.edges.push((**edge).clone());
+        }
+        BlockStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
+        BlockStatement::Style(style) => ast.styles.push(style.clone()),
+        BlockStatement::Columns(_)
+        | BlockStatement::Space(_)
+        | BlockStatement::ClassApply(_)
+        | BlockStatement::Comment(_)
+        | BlockStatement::Directive(_) => {}
+    }
+}
+
+fn upsert_block_node(nodes: &mut Vec<BlockNode>, node: BlockNode) {
+    if let Some(existing) = nodes
+        .iter_mut()
+        .find(|existing| existing.id.value == node.id.value)
+    {
+        if node.label.is_some() {
+            existing.label = node.label;
+        }
+        existing.shape = node.shape;
+        if node.width.span.start != node.width.span.end {
+            existing.width = node.width;
+        }
+        existing.span = node.span;
+        return;
+    }
+    nodes.push(node);
 }
 
 fn ensure_zenuml_participant(ast: &mut ZenUmlAst, participant: ZenUmlParticipant) {
@@ -3599,6 +3736,48 @@ impl<'source> XyChartHeaderParser<'source> {
     }
 }
 
+struct BlockHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> BlockHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<BlockDiagramHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedBlockHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        let root_end = self.source[start..end]
+            .find(|value: char| value.is_ascii_whitespace())
+            .map_or(end, |offset| start + offset);
+        if &self.source[start..root_end] != "block" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedBlockHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let columns =
+            if let Some((rest_start, rest_end)) = trim_ascii_range(&self.source[root_end..end]) {
+                let rest_start = root_end + rest_start;
+                let rest_end = root_end + rest_end;
+                Some(parse_block_columns(self.source, rest_start, rest_end)?)
+            } else {
+                None
+            };
+        Ok(BlockDiagramHeader {
+            columns,
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -4277,6 +4456,438 @@ impl<'source> XyChartStatementParser<'source> {
             span: Span::new(start, end),
         })
     }
+}
+
+fn parse_block_line_statements(source: &str) -> Result<Vec<BlockStatement>, ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(0, 0),
+        });
+    };
+    let trimmed = &source[start..end];
+    if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+        return Ok(vec![BlockStatement::Directive(shift_directive(
+            directive, start,
+        ))]);
+    }
+    if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+        return Ok(vec![BlockStatement::Comment(shift_comment(comment, start))]);
+    }
+    if has_keyword(source, start, "columns") {
+        return Ok(vec![BlockStatement::Columns(parse_block_columns(
+            source, start, end,
+        )?)]);
+    }
+    if has_keyword(source, start, "classDef") {
+        return Ok(vec![BlockStatement::ClassDef(shift_class_def(
+            Parser::parse_flow_class_def(trimmed)?,
+            start,
+        ))]);
+    }
+    if has_keyword(source, start, "class") {
+        return Ok(vec![BlockStatement::ClassApply(shift_class_apply(
+            Parser::parse_flow_class_apply(trimmed)?,
+            start,
+        ))]);
+    }
+    if has_keyword(source, start, "style") {
+        return Ok(vec![BlockStatement::Style(parse_block_style(
+            source, start, end,
+        )?)]);
+    }
+    if let Ok(edge) = Parser::parse_flow_edge(trimmed) {
+        let edge = shift_edge(edge, start);
+        let from_node = block_node_from_flow(edge.from.clone(), None);
+        let to_node = block_node_from_flow(edge.to.clone(), None);
+        return Ok(vec![BlockStatement::Edge(Box::new(BlockEdge {
+            from: edge.from.id,
+            to: edge.to.id,
+            from_node,
+            to_node,
+            link: edge.link,
+            label: edge.label,
+            span: edge.span,
+        }))]);
+    }
+    parse_block_items(source, start, end)
+}
+
+fn parse_block_columns(source: &str, start: usize, end: usize) -> Result<Spanned<u16>, ParseError> {
+    if !has_keyword(source, start, "columns") {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(start, end),
+        });
+    }
+    parse_block_width(source, start + "columns".len(), end)
+}
+
+fn parse_block_items(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<BlockStatement>, ParseError> {
+    let mut statements = Vec::new();
+    for token in block_item_tokens(source, start, end)? {
+        statements.push(parse_block_item(source, token.start, token.end)?);
+    }
+    if statements.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(statements)
+}
+
+fn parse_block_item(source: &str, start: usize, end: usize) -> Result<BlockStatement, ParseError> {
+    let (base_start, base_end, width) = split_block_width_suffix(source, start, end)?;
+    let raw = &source[base_start..base_end];
+    if raw == "space" {
+        return Ok(BlockStatement::Space(BlockSpace {
+            width,
+            span: Span::new(start, end),
+        }));
+    }
+    if let Some(node) = parse_block_arrow_node(source, base_start, base_end, width)? {
+        return Ok(BlockStatement::Node(Box::new(
+            node.with_span(Span::new(start, end)),
+        )));
+    }
+    let flow = Parser::parse_flow_node(raw).map_err(|error| ParseError {
+        kind: match error.kind {
+            ParseErrorKind::ExpectedFlowNodeId
+            | ParseErrorKind::MissingFlowNodeShape
+            | ParseErrorKind::UnknownFlowNodeShape
+            | ParseErrorKind::ReservedFlowNodeLabel
+            | ParseErrorKind::UnterminatedFlowNodeShape
+            | ParseErrorKind::TrailingInput => ParseErrorKind::ExpectedBlockNode,
+            _ => error.kind,
+        },
+        span: Span::new(base_start + error.span.start, base_start + error.span.end),
+    })?;
+    Ok(BlockStatement::Node(Box::new(block_node_from_flow(
+        shift_node(flow, base_start),
+        Some(width),
+    ))))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BlockItemToken {
+    start: usize,
+    end: usize,
+}
+
+fn block_item_tokens(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<BlockItemToken>, ParseError> {
+    let mut tokens = Vec::new();
+    let mut token_start = None;
+    let mut cursor = start;
+    let mut quote = false;
+    let mut square = 0i32;
+    let mut paren = 0i32;
+    let mut curly = 0i32;
+    let mut angle = 0i32;
+    let bytes = source.as_bytes();
+    while cursor < end {
+        let byte = bytes[cursor];
+        match byte {
+            b'"' => quote = !quote,
+            b'[' if !quote => square += 1,
+            b']' if !quote => square = square.saturating_sub(1),
+            b'(' if !quote => paren += 1,
+            b')' if !quote => paren = paren.saturating_sub(1),
+            b'{' if !quote => curly += 1,
+            b'}' if !quote => curly = curly.saturating_sub(1),
+            b'<' if !quote => angle += 1,
+            b'>' if !quote => angle = angle.saturating_sub(1),
+            value
+                if !quote
+                    && square == 0
+                    && paren == 0
+                    && curly == 0
+                    && angle == 0
+                    && value.is_ascii_whitespace() =>
+            {
+                if let Some(token) = token_start.take() {
+                    tokens.push(BlockItemToken {
+                        start: token,
+                        end: cursor,
+                    });
+                }
+                cursor += 1;
+                continue;
+            }
+            _ => {}
+        }
+        if token_start.is_none() && !byte.is_ascii_whitespace() {
+            token_start = Some(cursor);
+        }
+        cursor += 1;
+    }
+    if quote || square != 0 || paren != 0 || curly != 0 || angle != 0 {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedBlockNode,
+            span: Span::new(start, end),
+        });
+    }
+    if let Some(token) = token_start {
+        tokens.push(BlockItemToken { start: token, end });
+    }
+    Ok(tokens)
+}
+
+fn split_block_width_suffix(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(usize, usize, Spanned<u16>), ParseError> {
+    let Some(colon) = top_level_width_colon(source, start, end) else {
+        return Ok((start, end, Spanned::new(1, Span::new(end, end))));
+    };
+    let width = parse_block_width(source, colon + 1, end)?;
+    Ok((start, colon, width))
+}
+
+fn top_level_width_colon(source: &str, start: usize, end: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut quote = false;
+    let mut square = 0i32;
+    let mut paren = 0i32;
+    let mut curly = 0i32;
+    let mut angle = 0i32;
+    let mut colon = None;
+    let mut cursor = start;
+    while cursor < end {
+        match bytes[cursor] {
+            b'"' => quote = !quote,
+            b'[' if !quote => square += 1,
+            b']' if !quote => square = square.saturating_sub(1),
+            b'(' if !quote => paren += 1,
+            b')' if !quote => paren = paren.saturating_sub(1),
+            b'{' if !quote => curly += 1,
+            b'}' if !quote => curly = curly.saturating_sub(1),
+            b'<' if !quote => angle += 1,
+            b'>' if !quote => angle = angle.saturating_sub(1),
+            b':' if !quote && square == 0 && paren == 0 && curly == 0 && angle == 0 => {
+                colon = Some(cursor);
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    colon.filter(|colon| {
+        *colon + 1 < end
+            && source[*colon + 1..end]
+                .bytes()
+                .all(|byte| byte.is_ascii_digit())
+    })
+}
+
+fn parse_block_width(source: &str, start: usize, end: usize) -> Result<Spanned<u16>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let Ok(value) = source[absolute_start..absolute_end].parse::<u16>() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    if value == 0 {
+        return Err(ParseError {
+            kind: ParseErrorKind::UnknownBlockStatement,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    Ok(Spanned::new(value, Span::new(absolute_start, absolute_end)))
+}
+
+fn parse_block_arrow_node(
+    source: &str,
+    start: usize,
+    end: usize,
+    width: Spanned<u16>,
+) -> Result<Option<BlockNode>, ParseError> {
+    let Some(open_angle) = source[start..end].find("<[") else {
+        return Ok(None);
+    };
+    let open_angle = start + open_angle;
+    let id = parse_single_identifier(source, start, open_angle, ParseErrorKind::ExpectedBlockNode)?;
+    let label_start = open_angle + "<[".len();
+    let Some(label_close_offset) = source[label_start..end].find("]>") else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedBlockNode,
+            span: Span::new(open_angle, end),
+        });
+    };
+    let label_end = label_start + label_close_offset;
+    let close = label_end + "]>".len();
+    if source.as_bytes().get(close) != Some(&b'(')
+        || source.as_bytes().get(end.saturating_sub(1)) != Some(&b')')
+    {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedBlockNode,
+            span: Span::new(close, end),
+        });
+    }
+    let directions = parse_block_arrow_directions(source, close + 1, end - 1)?;
+    Ok(Some(BlockNode {
+        id,
+        label: label_from_trimmed(source, label_start, label_end),
+        shape: Spanned::new(BlockShape::Arrow(directions), Span::new(open_angle, end)),
+        width,
+        span: Span::new(start, end),
+    }))
+}
+
+fn parse_block_arrow_directions(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<Spanned<BlockArrowDirection>>, ParseError> {
+    let mut directions = Vec::new();
+    for field in parse_sankey_csv_fields(source, start, end)? {
+        let Some((trim_start, trim_end)) = trim_ascii_range(&source[field.start..field.end]) else {
+            continue;
+        };
+        let absolute_start = field.start + trim_start;
+        let absolute_end = field.start + trim_end;
+        let Some(direction) =
+            BlockArrowDirection::from_mermaid(&source[absolute_start..absolute_end])
+        else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedBlockNode,
+                span: Span::new(absolute_start, absolute_end),
+            });
+        };
+        directions.push(Spanned::new(
+            direction,
+            Span::new(absolute_start, absolute_end),
+        ));
+    }
+    if directions.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedBlockNode,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(directions)
+}
+
+fn block_node_from_flow(node: FlowNode, width: Option<Spanned<u16>>) -> BlockNode {
+    let span = node.span;
+    BlockNode {
+        id: node.id,
+        label: node.label,
+        shape: Spanned::new(BlockShape::Flow(node.shape.value), node.shape.span),
+        width: width.unwrap_or_else(|| Spanned::new(1, Span::new(span.end, span.end))),
+        span,
+    }
+}
+
+trait BlockNodeSpan {
+    fn with_span(self, span: Span) -> Self;
+}
+
+impl BlockNodeSpan for BlockNode {
+    fn with_span(mut self, span: Span) -> Self {
+        self.span = span;
+        self
+    }
+}
+
+fn parse_block_style(source: &str, start: usize, end: usize) -> Result<BlockStyle, ParseError> {
+    let rest_start = start + "style".len();
+    let target_start = next_non_ws(source, rest_start, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedBlockNode,
+        span: Span::new(rest_start, end),
+    })?;
+    let target_end = source[target_start..end]
+        .find(|value: char| value.is_ascii_whitespace())
+        .map_or(end, |offset| target_start + offset);
+    let target = parse_single_identifier(
+        source,
+        target_start,
+        target_end,
+        ParseErrorKind::ExpectedBlockNode,
+    )?;
+    let styles_start = target_end;
+    let styles = parse_style_declarations(source, styles_start, end)?;
+    Ok(BlockStyle {
+        target,
+        styles,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_block_container_header(source: &str) -> Result<Option<BlockContainer>, ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Ok(None);
+    };
+    if !source[start..end].starts_with("block")
+        || source[start..end]
+            .as_bytes()
+            .get("block".len())
+            .is_some_and(|byte| !byte.is_ascii_whitespace() && *byte != b':')
+    {
+        return Ok(None);
+    }
+    let mut cursor = start + "block".len();
+    let mut id = None;
+    let mut width = Spanned::new(1, Span::new(cursor, cursor));
+    if source.as_bytes().get(cursor) == Some(&b':') {
+        cursor += 1;
+        let id_start = cursor;
+        while source
+            .as_bytes()
+            .get(cursor)
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_' || *byte == b'-')
+        {
+            cursor += 1;
+        }
+        if cursor == id_start {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedBlockNode,
+                span: Span::new(id_start, id_start),
+            });
+        }
+        id = Some(Spanned::new(
+            source[id_start..cursor].to_owned(),
+            Span::new(id_start, cursor),
+        ));
+        if source.as_bytes().get(cursor) == Some(&b':') {
+            let width_start = cursor + 1;
+            let width_end = source[width_start..end]
+                .find(|value: char| value.is_ascii_whitespace())
+                .map_or(end, |offset| width_start + offset);
+            width = parse_block_width(source, width_start, width_end)?;
+            cursor = width_end;
+        }
+    }
+    let columns = if let Some((rest_start, rest_end)) = trim_ascii_range(&source[cursor..end]) {
+        let rest_start = cursor + rest_start;
+        let rest_end = cursor + rest_end;
+        Some(parse_block_columns(source, rest_start, rest_end)?)
+    } else {
+        None
+    };
+    Ok(Some(BlockContainer {
+        id,
+        width,
+        columns,
+        statements: Vec::new(),
+        span: Span::new(start, end),
+    }))
 }
 
 struct JourneyStatementParser<'source> {
@@ -5597,6 +6208,14 @@ fn parse_single_identifier(
         });
     };
     Ok(value)
+}
+
+fn next_non_ws(source: &str, start: usize, end: usize) -> Option<usize> {
+    let mut cursor = start;
+    while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    (cursor < end).then_some(cursor)
 }
 
 fn parse_sequence_number_values(
@@ -9167,6 +9786,118 @@ fn shift_xy_chart_series(series: XyChartSeries, offset: usize) -> XyChartSeries 
     }
 }
 
+fn shift_block_header(header: BlockDiagramHeader, offset: usize) -> BlockDiagramHeader {
+    BlockDiagramHeader {
+        columns: header.columns.map(|columns| shift_spanned(columns, offset)),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_block_statement(statement: BlockStatement, offset: usize) -> BlockStatement {
+    match statement {
+        BlockStatement::Columns(columns) => BlockStatement::Columns(shift_spanned(columns, offset)),
+        BlockStatement::Node(node) => {
+            BlockStatement::Node(Box::new(shift_block_node(*node, offset)))
+        }
+        BlockStatement::Space(space) => BlockStatement::Space(BlockSpace {
+            width: shift_spanned(space.width, offset),
+            span: shift_span(space.span, offset),
+        }),
+        BlockStatement::Container(container) => {
+            BlockStatement::Container(Box::new(shift_block_container(*container, offset)))
+        }
+        BlockStatement::Edge(edge) => {
+            BlockStatement::Edge(Box::new(shift_block_edge(*edge, offset)))
+        }
+        BlockStatement::ClassDef(class_def) => {
+            BlockStatement::ClassDef(shift_class_def(class_def, offset))
+        }
+        BlockStatement::ClassApply(class_apply) => {
+            BlockStatement::ClassApply(shift_class_apply(class_apply, offset))
+        }
+        BlockStatement::Style(style) => BlockStatement::Style(shift_block_style(style, offset)),
+        BlockStatement::Comment(comment) => BlockStatement::Comment(shift_comment(comment, offset)),
+        BlockStatement::Directive(directive) => {
+            BlockStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_block_container_header_only(container: BlockContainer, offset: usize) -> BlockContainer {
+    BlockContainer {
+        id: container.id.map(|id| shift_spanned(id, offset)),
+        width: shift_spanned(container.width, offset),
+        columns: container
+            .columns
+            .map(|columns| shift_spanned(columns, offset)),
+        statements: container.statements,
+        span: container.span,
+    }
+}
+
+fn shift_block_container(container: BlockContainer, offset: usize) -> BlockContainer {
+    BlockContainer {
+        id: container.id.map(|id| shift_spanned(id, offset)),
+        width: shift_spanned(container.width, offset),
+        columns: container
+            .columns
+            .map(|columns| shift_spanned(columns, offset)),
+        statements: container
+            .statements
+            .into_iter()
+            .map(|statement| shift_block_statement(statement, offset))
+            .collect(),
+        span: shift_span(container.span, offset),
+    }
+}
+
+fn shift_block_node(node: BlockNode, offset: usize) -> BlockNode {
+    BlockNode {
+        id: shift_spanned(node.id, offset),
+        label: node.label.map(|label| shift_label(label, offset)),
+        shape: shift_block_shape(node.shape, offset),
+        width: shift_spanned(node.width, offset),
+        span: shift_span(node.span, offset),
+    }
+}
+
+fn shift_block_shape(shape: Spanned<BlockShape>, offset: usize) -> Spanned<BlockShape> {
+    let value = match shape.value {
+        BlockShape::Flow(shape) => BlockShape::Flow(shape),
+        BlockShape::Arrow(directions) => BlockShape::Arrow(
+            directions
+                .into_iter()
+                .map(|direction| shift_spanned(direction, offset))
+                .collect(),
+        ),
+    };
+    Spanned::new(value, shift_span(shape.span, offset))
+}
+
+fn shift_block_edge(edge: BlockEdge, offset: usize) -> BlockEdge {
+    BlockEdge {
+        from: shift_spanned(edge.from, offset),
+        to: shift_spanned(edge.to, offset),
+        from_node: shift_block_node(edge.from_node, offset),
+        to_node: shift_block_node(edge.to_node, offset),
+        link: shift_spanned(edge.link, offset),
+        label: edge.label.map(|label| shift_label(label, offset)),
+        span: shift_span(edge.span, offset),
+    }
+}
+
+fn shift_block_style(style: BlockStyle, offset: usize) -> BlockStyle {
+    BlockStyle {
+        target: shift_spanned(style.target, offset),
+        styles: style
+            .styles
+            .into_iter()
+            .map(|style| shift_style_declaration(style, offset))
+            .collect(),
+        span: shift_span(style.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -10031,12 +10762,12 @@ mod tests {
         FlowchartHeaderToken, FlowchartHeaderTokenKind, ParseError, ParseErrorKind, Parser,
     };
     use crate::ast::{
-        ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-        DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
-        FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
-        LabelKind, QuadrantAxisKind, SequenceActivation, SequenceArrow, SequenceControlKind,
-        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
-        StateNodeKind, StateStatement, ZenUmlMessageKind,
+        ArrowHead, BlockArrowDirection, BlockShape, ClassMemberKind, ClassRelationshipLine,
+        ClassRelationshipMarker, ClassStatement, DiagramKind, Direction, ErCardinality,
+        ErStatement, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective, GanttTaskTag,
+        GitGraphCommitKind, GitGraphOrientation, LabelKind, QuadrantAxisKind, SequenceActivation,
+        SequenceArrow, SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind,
+        SequenceStatement, Span, StateDirective, StateNodeKind, StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -10304,6 +11035,38 @@ mod tests {
     }
 
     #[test]
+    fn parses_block_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "block columns 3\nA[Frontend] arrow<[\"go\"]>(right) B:2\nblock:Backend:2 columns 1\nAPI\nDB[(Database)]\nend\nA --> B\nstyle B fill:#969,stroke:#333\nclassDef hot fill:#f96\nclass A hot",
+        )
+        .unwrap();
+
+        let DiagramKind::Block(ast) = diagram.kind else {
+            panic!("expected Block diagram");
+        };
+        assert_eq!(ast.header.columns.unwrap().value, 3);
+        assert_eq!(ast.blocks.len(), 5);
+        assert_eq!(ast.blocks[0].id.value, "A");
+        assert_eq!(ast.blocks[0].label.as_ref().unwrap().text, "Frontend");
+        assert!(matches!(
+            ast.blocks[0].shape.value,
+            BlockShape::Flow(FlowShape::Rectangle)
+        ));
+        assert_eq!(ast.blocks[1].width.value, 1);
+        let BlockShape::Arrow(directions) = &ast.blocks[1].shape.value else {
+            panic!("expected block arrow");
+        };
+        assert_eq!(directions[0].value, BlockArrowDirection::Right);
+        assert_eq!(ast.blocks[2].id.value, "B");
+        assert_eq!(ast.blocks[2].width.value, 2);
+        assert_eq!(ast.blocks[3].id.value, "API");
+        assert_eq!(ast.edges[0].from.value, "A");
+        assert_eq!(ast.edges[0].to.value, "B");
+        assert_eq!(ast.styles[0].target.value, "B");
+        assert_eq!(ast.classes.len(), 1);
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -10402,7 +11165,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Block Diagram", "block"),
             ("Packet", "packet"),
             ("Kanban", "kanban"),
             ("Architecture", "architecture-beta"),

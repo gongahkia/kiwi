@@ -12,8 +12,8 @@ release-facing compatibility tracker.
 | Status | Mermaid roots/families |
 | --- | --- |
 | Animated partial support | `graph`, `flowchart`, `sequenceDiagram`, `stateDiagram`, `stateDiagram-v2`, `classDiagram`, `erDiagram`, `gantt`, `pie`, `mindmap`, `journey`, `gitGraph`, `timeline` |
-| Static-only partial support | `requirementDiagram`, `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
-| No parser root | Quadrant Chart, ZenUML, Sankey, XY Chart, Block Diagram, Packet, Kanban, Architecture, Radar, Event Modeling, Treemap, Venn, Ishikawa, Wardley, TreeView |
+| Static-only partial support | `quadrantChart`, `zenuml`, `sankey`, `sankey-beta`, `xychart`, `xychart-beta`, `block`, `requirementDiagram`, `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
+| No parser root | Packet, Kanban, Architecture, Radar, Event Modeling, Treemap, Venn, Ishikawa, Wardley, TreeView |
 
 ## Compatibility policy
 

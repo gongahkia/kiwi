@@ -1,18 +1,20 @@
 use crate::ast::{
-    ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine, ClassRelationshipMarker,
-    Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
-    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst,
-    RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
+    ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
+    FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
+    MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst, RequirementRelationshipKind,
+    SankeyAst, SequenceAst, SequenceControlKind, StateAst, TimelineAst, XyChartAst,
+    XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
-    C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
-    FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine,
-    JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout,
-    PieLayoutEngine, Point, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
-    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
-    PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
+    BlockLayout, BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine,
+    ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout,
+    GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine,
+    PieLayout, PieLayoutEngine, Point, PositionedBlockEdge, PositionedBlockNode,
+    PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedFlowSubgraph,
+    PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode,
+    PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
     PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
@@ -344,6 +346,7 @@ pub struct StaticFrameRenderer {
     zenuml: ZenUmlLayoutEngine,
     sankey: SankeyLayoutEngine,
     xy_chart: XyChartLayoutEngine,
+    block: BlockLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -373,6 +376,7 @@ impl StaticFrameRenderer {
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
+            block: BlockLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -403,6 +407,7 @@ impl StaticFrameRenderer {
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
+            block: BlockLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -433,6 +438,7 @@ impl StaticFrameRenderer {
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
+            block: BlockLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -486,6 +492,7 @@ impl StaticFrameRenderer {
             DiagramKind::ZenUml(ast) => self.render_zenuml(ast),
             DiagramKind::Sankey(ast) => self.render_sankey(ast),
             DiagramKind::XyChart(ast) => self.render_xy_chart(ast),
+            DiagramKind::Block(ast) => self.render_block_diagram(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -568,6 +575,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_xy_chart(&self, ast: &XyChartAst) -> Frame {
         render_xy_chart_layout(&self.xy_chart.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_block_diagram(&self, ast: &BlockDiagramAst) -> Frame {
+        render_block_layout(&self.block.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1143,6 +1155,215 @@ fn xy_chart_frame_label_x(plot: Rect, index: usize, len: usize, label: &str) -> 
         plot.origin.x + 1 + index as i32 * inner_width / (len as i32 - 1)
     };
     (x - label.chars().count() as i32 / 2).max(0)
+}
+
+fn render_block_layout(layout: &BlockLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    for edge in &layout.edges {
+        draw_block_edge(
+            &mut frame,
+            edge,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for container in &layout.containers {
+        draw_box(&mut frame, container.rect, palette, muted_style.clone());
+        if !container.label.is_empty() {
+            write_text_safe(
+                &mut frame,
+                container.rect.origin.x + 1,
+                container.rect.origin.y,
+                &container.label,
+                text_style.clone(),
+            );
+        }
+    }
+    for node in &layout.nodes {
+        draw_block_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+            edge_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_block_node(
+    frame: &mut Frame,
+    node: &PositionedBlockNode,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    edge_style: CellStyle,
+) {
+    match &node.shape {
+        BlockShape::Flow(shape) => {
+            draw_flow_node(
+                frame,
+                &PositionedFlowNode {
+                    id: node.id.clone(),
+                    label: node.label.clone(),
+                    shape: shape.clone(),
+                    rect: node.rect,
+                    layer: node.row,
+                    order: node.column,
+                },
+                palette,
+                node_style,
+                text_style,
+            );
+        }
+        BlockShape::Arrow(directions) => {
+            draw_box(frame, node.rect, palette, node_style);
+            write_centered(frame, node.rect, &node.label, text_style);
+            draw_block_arrow_directions(frame, node.rect, directions, palette, edge_style);
+        }
+    }
+}
+
+fn draw_block_arrow_directions(
+    frame: &mut Frame,
+    rect: Rect,
+    directions: &[crate::ast::Spanned<BlockArrowDirection>],
+    palette: GlyphPalette,
+    style: CellStyle,
+) {
+    for direction in directions {
+        let center = rect.center();
+        match direction.value {
+            BlockArrowDirection::Left => {
+                put_safe(
+                    frame,
+                    rect.origin.x,
+                    center.y,
+                    palette.arrow_left,
+                    style.clone(),
+                );
+            }
+            BlockArrowDirection::Right => {
+                put_safe(
+                    frame,
+                    rect.right().saturating_sub(1),
+                    center.y,
+                    palette.arrow_right,
+                    style.clone(),
+                );
+            }
+            BlockArrowDirection::Up => {
+                put_safe(
+                    frame,
+                    center.x,
+                    rect.origin.y,
+                    palette.arrow_up,
+                    style.clone(),
+                );
+            }
+            BlockArrowDirection::Down => {
+                put_safe(
+                    frame,
+                    center.x,
+                    rect.bottom().saturating_sub(1),
+                    palette.arrow_down,
+                    style.clone(),
+                );
+            }
+            BlockArrowDirection::X => {
+                draw_horizontal(
+                    frame,
+                    rect.origin.x,
+                    rect.right().saturating_sub(1),
+                    center.y,
+                    palette.horizontal,
+                    style.clone(),
+                );
+                put_safe(
+                    frame,
+                    rect.origin.x,
+                    center.y,
+                    palette.arrow_left,
+                    style.clone(),
+                );
+                put_safe(
+                    frame,
+                    rect.right().saturating_sub(1),
+                    center.y,
+                    palette.arrow_right,
+                    style.clone(),
+                );
+            }
+            BlockArrowDirection::Y => {
+                draw_vertical(
+                    frame,
+                    center.x,
+                    rect.origin.y,
+                    rect.bottom().saturating_sub(1),
+                    palette.vertical,
+                    style.clone(),
+                );
+                put_safe(
+                    frame,
+                    center.x,
+                    rect.origin.y,
+                    palette.arrow_up,
+                    style.clone(),
+                );
+                put_safe(
+                    frame,
+                    center.x,
+                    rect.bottom().saturating_sub(1),
+                    palette.arrow_down,
+                    style.clone(),
+                );
+            }
+        }
+    }
+}
+
+fn draw_block_edge(
+    frame: &mut Frame,
+    edge: &PositionedBlockEdge,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_polyline(frame, &edge.points, palette, edge_style.clone());
+    if let Some(first) = edge.points.first()
+        && let Some(glyph) = start_arrowhead_for_points(edge.arrow_start, &edge.points, palette)
+    {
+        put_safe(frame, first.x, first.y, glyph, edge_style.clone());
+    }
+    if let Some(last) = edge.points.last()
+        && let Some(glyph) = end_arrowhead_for_points(edge.arrow_end, &edge.points, palette)
+    {
+        put_safe(frame, last.x, last.y, glyph, edge_style);
+    }
+    if let Some(label) = &edge.label
+        && let Some(point) = block_frame_edge_label_point(edge)
+    {
+        write_text_safe(frame, point.x, point.y, label, text_style);
+    }
+}
+
+fn block_frame_edge_label_point(edge: &PositionedBlockEdge) -> Option<Point> {
+    let first = edge.points.first()?;
+    let last = edge.points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2 + 1,
+        y: (first.y + last.y) / 2,
+    })
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {
