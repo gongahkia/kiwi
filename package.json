@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
+    "packages/astro",
     "packages/kumeyuri",
     "packages/docusaurus-plugin-kumeyuri",
     "packages/rehype-kumeyuri"
@@ -10,6 +11,7 @@
   "scripts": {
     "docs:build": "mdbook build",
     "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
+    "test:astro": "npm --workspace @kumeyuri/astro run test",
     "test:ts-package": "npm --workspace kumeyuri run test",
     "test:docusaurus-plugin": "npm --workspace @docusaurus/plugin-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",

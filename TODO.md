@@ -152,7 +152,7 @@
 - [x] Author mdBook preprocessor `mdbook-kumeyuri`
 - [x] Author Hugo shortcode `{{< kumeyuri >}}`
 - [x] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
-- [ ] Add Astro integration `@kumeyuri/astro`
+- [x] Add Astro integration `@kumeyuri/astro`
 - [ ] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
 - [x] Track upstream Mermaid grammar changes; bump compat matrix per release in `docs/compat.md`
 - [ ] Quarterly: post X thread with one new animation demo and download/stars chart

@@ -1,0 +1,38 @@
+{
+  "name": "@kumeyuri/astro",
+  "version": "0.0.0",
+  "description": "Astro integration that injects the kumeyuri browser player.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/astro"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "astro": "^4.0.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "astro": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/astro.test.mjs",
+    "prepack": "npm test"
+  }
+}

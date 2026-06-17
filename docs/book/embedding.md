@@ -150,3 +150,17 @@ export default {
   plugins: [["@docusaurus/plugin-kumeyuri", { scriptUrl: "/kumeyuri/player.js" }]],
 };
 ```
+
+## Astro
+
+Use `@kumeyuri/astro` to inject the browser player, then place
+`<kumeyuri-diagram>` in `.astro` or MDX content:
+
+```js
+import { defineConfig } from "astro/config";
+import kumeyuri from "@kumeyuri/astro";
+
+export default defineConfig({
+  integrations: [kumeyuri({ scriptUrl: "/kumeyuri/player.js" })],
+});
+```
