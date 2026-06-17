@@ -27,6 +27,7 @@ pub enum DiagramKind {
     EventModeling(Box<EventModelingAst>),
     Treemap(Box<TreemapAst>),
     Venn(Box<VennAst>),
+    Ishikawa(Box<IshikawaAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1554,6 +1555,35 @@ pub enum VennTextOwner {
 pub struct VennStyle {
     pub targets: Vec<Spanned<String>>,
     pub declarations: Vec<FlowStyleDeclaration>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IshikawaAst {
+    pub header: IshikawaHeader,
+    pub event: Label,
+    pub causes: Vec<IshikawaNode>,
+    pub statements: Vec<IshikawaStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IshikawaHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IshikawaStatement {
+    Event(Label),
+    Cause(Box<IshikawaNode>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IshikawaNode {
+    pub label: Label,
+    pub causes: Vec<IshikawaNode>,
     pub span: Span,
 }
 

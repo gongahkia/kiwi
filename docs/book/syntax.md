@@ -310,6 +310,33 @@ Set and union sizes must be non-negative numbers. `style` statements are
 retained and rendered as text rows, but Mermaid Venn proportional areas, color
 fills, opacity, and stroke styling are not interpreted yet.
 
+## Ishikawa diagrams
+
+Header:
+
+```mermaid
+ishikawa-beta
+```
+
+The first body line is the problem/event. Later lines are causes nested by
+indentation:
+
+```mermaid
+ishikawa-beta
+Blurry Photo
+  Process
+    Out of focus
+    Shutter speed too slow
+  User
+    Shaky hands
+  Equipment
+    Dirty lens
+```
+
+The renderer uses a fixed fishbone layout with an event head, spine, alternating
+root cause branches, and recursive cause boxes. Mermaid styling and future
+Ishikawa-specific config are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

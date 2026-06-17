@@ -170,6 +170,14 @@
       "rootType": "venn",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/ishikawa.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/ishikawa.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "ishikawa",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

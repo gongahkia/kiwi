@@ -187,7 +187,7 @@
 - [x] Event Modeling: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Treemap: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Venn: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] Ishikawa: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] Ishikawa: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Wardley: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] TreeView: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Add cross-format snapshot coverage for all supported roots: text, SVG, PNG, GIF, APNG, WebP, TUI timeline hashes, and WASM render output

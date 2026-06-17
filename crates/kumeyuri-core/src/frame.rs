@@ -2,8 +2,8 @@ use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
     EventModelingAst, EventModelingEntityType, EventModelingFrameKind, FlowShape, FlowchartAst,
-    GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, KanbanAst, MindmapAst,
-    MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
+    GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, IshikawaAst, JourneyAst, KanbanAst,
+    MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
     TimelineAst, TreemapAst, VennAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
@@ -11,25 +11,25 @@ use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
     BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine,
     EventModelingLayout, EventModelingLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine,
-    KanbanLayout, KanbanLayoutEngine, MindmapLayout, MindmapLayoutEngine, PacketLayout,
-    PacketLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedArchitectureEdge,
-    PositionedArchitectureNode, PositionedBlockEdge, PositionedBlockNode, PositionedC4Boundary,
-    PositionedC4Element, PositionedC4Relationship, PositionedClassNode,
-    PositionedClassRelationship, PositionedEventModelingDataBlock, PositionedEventModelingFrame,
-    PositionedEventModelingRelation, PositionedFlowEdge, PositionedFlowNode,
-    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
-    PositionedKanbanTask, PositionedMindmapNode, PositionedPacketField, PositionedPieSlice,
-    PositionedQuadrantPoint, PositionedRadarCurve, PositionedRequirementNode,
-    PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
-    PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
-    PositionedSequenceNote, PositionedTreemapNode, PositionedVennSet, PositionedVennStyle,
-    PositionedVennUnion, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
-    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
-    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
-    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
-    TreemapLayout, TreemapLayoutEngine, VennLayout, VennLayoutEngine, XyChartLayout,
-    XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
+    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, IshikawaLayout, IshikawaLayoutEngine,
+    JourneyLayout, JourneyLayoutEngine, KanbanLayout, KanbanLayoutEngine, MindmapLayout,
+    MindmapLayoutEngine, PacketLayout, PacketLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    PositionedArchitectureEdge, PositionedArchitectureNode, PositionedBlockEdge,
+    PositionedBlockNode, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
+    PositionedClassNode, PositionedClassRelationship, PositionedEventModelingDataBlock,
+    PositionedEventModelingFrame, PositionedEventModelingRelation, PositionedFlowEdge,
+    PositionedFlowNode, PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit,
+    PositionedIshikawaEdge, PositionedIshikawaNode, PositionedJourneyTask, PositionedKanbanTask,
+    PositionedMindmapNode, PositionedPacketField, PositionedPieSlice, PositionedQuadrantPoint,
+    PositionedRadarCurve, PositionedRequirementNode, PositionedRequirementRelationship,
+    PositionedSankeyLink, PositionedSequenceActivation, PositionedSequenceBox,
+    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
+    PositionedTreemapNode, PositionedVennSet, PositionedVennStyle, PositionedVennUnion,
+    PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine,
+    RadarLayout, RadarLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout,
+    SankeyLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
+    TimelineLayout, TimelineLayoutEngine, TreemapLayout, TreemapLayoutEngine, VennLayout,
+    VennLayoutEngine, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -362,6 +362,7 @@ pub struct StaticFrameRenderer {
     event_modeling: EventModelingLayoutEngine,
     treemap: TreemapLayoutEngine,
     venn: VennLayoutEngine,
+    ishikawa: IshikawaLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -399,6 +400,7 @@ impl StaticFrameRenderer {
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
+            ishikawa: IshikawaLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -437,6 +439,7 @@ impl StaticFrameRenderer {
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
+            ishikawa: IshikawaLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -475,6 +478,7 @@ impl StaticFrameRenderer {
             event_modeling: EventModelingLayoutEngine::default_values(),
             treemap: TreemapLayoutEngine::default_values(),
             venn: VennLayoutEngine::default_values(),
+            ishikawa: IshikawaLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -536,6 +540,7 @@ impl StaticFrameRenderer {
             DiagramKind::EventModeling(ast) => self.render_event_modeling(ast),
             DiagramKind::Treemap(ast) => self.render_treemap(ast),
             DiagramKind::Venn(ast) => self.render_venn(ast),
+            DiagramKind::Ishikawa(ast) => self.render_ishikawa(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -658,6 +663,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_venn(&self, ast: &VennAst) -> Frame {
         render_venn_layout(&self.venn.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_ishikawa(&self, ast: &IshikawaAst) -> Frame {
+        render_ishikawa_layout(&self.ishikawa.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -2211,6 +2221,68 @@ fn venn_style_frame_label(style: &PositionedVennStyle) -> String {
         style.targets.join(","),
         style.declarations.join(", ")
     )
+}
+
+fn render_ishikawa_layout(layout: &IshikawaLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    draw_horizontal(
+        &mut frame,
+        layout.spine_start.x,
+        layout.spine_end.x,
+        layout.spine_start.y,
+        palette.horizontal,
+        edge_style.clone(),
+    );
+    put_safe(
+        &mut frame,
+        layout.spine_end.x,
+        layout.spine_end.y,
+        palette.arrow_right,
+        edge_style.clone(),
+    );
+    for edge in &layout.edges {
+        draw_ishikawa_edge(&mut frame, *edge, edge_style.clone());
+    }
+    draw_box(&mut frame, layout.event_rect, palette, node_style.clone());
+    write_centered(
+        &mut frame,
+        layout.event_rect,
+        &layout.event,
+        text_style.clone(),
+    );
+    for node in &layout.nodes {
+        draw_ishikawa_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_ishikawa_edge(frame: &mut Frame, edge: PositionedIshikawaEdge, style: CellStyle) {
+    let glyph = if edge.to.y < edge.from.y { '/' } else { '\\' };
+    draw_straight_line(frame, edge.from, edge.to, glyph, style);
+}
+
+fn draw_ishikawa_node(
+    frame: &mut Frame,
+    node: &PositionedIshikawaNode,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, node.rect, palette, node_style);
+    write_centered(frame, node.rect, &node.label, text_style);
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

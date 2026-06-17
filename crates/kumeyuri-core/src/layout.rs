@@ -9,15 +9,16 @@ use crate::ast::{
     FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
     FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
     GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
-    MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RadarAst, RadarCurve,
-    RadarOptionKind, RequirementAst, RequirementElement, RequirementKind, RequirementNode,
-    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
-    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition, TimelineAst, TreemapAst, TreemapNode, VennAst,
-    VennSet, VennStyle, VennText, VennUnion, XyChartAst, XyChartAxisScale, XyChartSeriesKind,
-    ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    IshikawaAst, IshikawaNode, JourneyAst, KanbanAst, KanbanColumn, KanbanMetadata, Label,
+    LabelKind, MindmapAst, MindmapNode, MindmapShape, PacketAst, PieAst, PieLegendPosition,
+    QuadrantAst, RadarAst, RadarCurve, RadarOptionKind, RequirementAst, RequirementElement,
+    RequirementKind, RequirementNode, RequirementRelationshipKind, RequirementRisk,
+    RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst, SequenceAutoNumber,
+    SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
+    SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    TreemapAst, TreemapNode, VennAst, VennSet, VennStyle, VennText, VennUnion, XyChartAst,
+    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
+    ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -874,6 +875,64 @@ pub struct VennLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IshikawaLayoutConfig {
+    pub width: i32,
+    pub spine_y: i32,
+    pub root_offset: i32,
+    pub row_spacing: i32,
+    pub child_indent: i32,
+    pub node_padding: i32,
+    pub min_node_width: i32,
+    pub node_height: i32,
+}
+
+impl Default for IshikawaLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl IshikawaLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            width: 118,
+            spine_y: 14,
+            root_offset: 4,
+            row_spacing: 4,
+            child_indent: 7,
+            node_padding: 2,
+            min_node_width: 8,
+            node_height: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedIshikawaNode {
+    pub label: String,
+    pub rect: Rect,
+    pub depth: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PositionedIshikawaEdge {
+    pub from: Point,
+    pub to: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IshikawaLayout {
+    pub event: String,
+    pub event_rect: Rect,
+    pub spine_start: Point,
+    pub spine_end: Point,
+    pub nodes: Vec<PositionedIshikawaNode>,
+    pub edges: Vec<PositionedIshikawaEdge>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1563,6 +1622,11 @@ pub struct TreemapLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct VennLayoutEngine {
     config: VennLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct IshikawaLayoutEngine {
+    config: IshikawaLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -4612,6 +4676,233 @@ fn venn_style_label(style: &PositionedVennStyle) -> String {
         style.targets.join(","),
         style.declarations.join(", ")
     )
+}
+
+impl IshikawaLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: IshikawaLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: IshikawaLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &IshikawaAst) -> IshikawaLayout {
+        let event_width = (label_width(&ast.event.text) + self.config.node_padding * 2)
+            .max(self.config.min_node_width);
+        let spine_start = Point {
+            x: 2,
+            y: self.config.spine_y,
+        };
+        let spine_end = Point {
+            x: self.config.width - event_width - 5,
+            y: self.config.spine_y,
+        };
+        let event_rect = Rect {
+            origin: Point {
+                x: spine_end.x + 2,
+                y: self.config.spine_y - self.config.node_height / 2,
+            },
+            size: Size {
+                width: event_width,
+                height: self.config.node_height,
+            },
+        };
+        let anchors = ishikawa_root_anchors(
+            ast.causes.len(),
+            spine_start.x + 3,
+            spine_end.x.saturating_sub(3),
+        );
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
+        for (index, cause) in ast.causes.iter().enumerate() {
+            let direction = if index % 2 == 0 { -1 } else { 1 };
+            let anchor = Point {
+                x: anchors.get(index).copied().unwrap_or(spine_start.x + 8),
+                y: self.config.spine_y,
+            };
+            let mut slot = 0;
+            layout_ishikawa_branch(
+                cause,
+                0,
+                anchor,
+                direction,
+                &mut slot,
+                None,
+                self.config,
+                &mut nodes,
+                &mut edges,
+            );
+        }
+        let mut layout = IshikawaLayout {
+            event: ast.event.text.clone(),
+            event_rect,
+            spine_start,
+            spine_end,
+            nodes,
+            edges,
+            size: Size {
+                width: self.config.width,
+                height: self.config.spine_y + self.config.root_offset + self.config.node_height + 2,
+            },
+        };
+        normalize_ishikawa_layout(&mut layout);
+        layout
+    }
+}
+
+fn ishikawa_root_anchors(count: usize, start_x: i32, end_x: i32) -> Vec<i32> {
+    if count == 0 {
+        return Vec::new();
+    }
+    let span = (end_x - start_x).max(1);
+    (0..count)
+        .map(|index| start_x + ((index + 1) as i32 * span / (count + 1) as i32))
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn layout_ishikawa_branch(
+    node: &IshikawaNode,
+    depth: usize,
+    anchor: Point,
+    direction: i32,
+    slot: &mut i32,
+    parent: Option<usize>,
+    config: IshikawaLayoutConfig,
+    nodes: &mut Vec<PositionedIshikawaNode>,
+    edges: &mut Vec<PositionedIshikawaEdge>,
+) {
+    let width =
+        (label_width(&node.label.text) + config.node_padding * 2).max(config.min_node_width);
+    let distance = config.root_offset + *slot * config.row_spacing;
+    let center = Point {
+        x: anchor.x - depth as i32 * config.child_indent,
+        y: anchor.y + direction * distance,
+    };
+    let rect = Rect {
+        origin: Point {
+            x: center.x - width / 2,
+            y: center.y - config.node_height / 2,
+        },
+        size: Size {
+            width,
+            height: config.node_height,
+        },
+    };
+    let index = nodes.len();
+    nodes.push(PositionedIshikawaNode {
+        label: node.label.text.clone(),
+        rect,
+        depth,
+    });
+    let from = parent
+        .map(|parent| ishikawa_node_anchor(nodes[parent].rect, direction))
+        .unwrap_or(anchor);
+    edges.push(PositionedIshikawaEdge {
+        from,
+        to: ishikawa_node_anchor(rect, -direction),
+    });
+    *slot += 1;
+    for child in &node.causes {
+        layout_ishikawa_branch(
+            child,
+            depth + 1,
+            anchor,
+            direction,
+            slot,
+            Some(index),
+            config,
+            nodes,
+            edges,
+        );
+    }
+}
+
+fn ishikawa_node_anchor(rect: Rect, direction: i32) -> Point {
+    if direction < 0 {
+        Point {
+            x: rect.center().x,
+            y: rect.origin.y,
+        }
+    } else {
+        Point {
+            x: rect.center().x,
+            y: rect.bottom().saturating_sub(1),
+        }
+    }
+}
+
+fn normalize_ishikawa_layout(layout: &mut IshikawaLayout) {
+    let min_x = layout
+        .nodes
+        .iter()
+        .map(|node| node.rect.origin.x)
+        .min()
+        .unwrap_or(layout.spine_start.x)
+        .min(layout.spine_start.x)
+        .min(layout.event_rect.origin.x)
+        .min(0);
+    if min_x < 0 {
+        let shift = -min_x + 1;
+        layout.spine_start.x += shift;
+        layout.spine_end.x += shift;
+        layout.event_rect.origin.x += shift;
+        for node in &mut layout.nodes {
+            node.rect.origin.x += shift;
+        }
+        for edge in &mut layout.edges {
+            edge.from.x += shift;
+            edge.to.x += shift;
+        }
+    }
+    let mut min_y = layout
+        .nodes
+        .iter()
+        .map(|node| node.rect.origin.y)
+        .min()
+        .unwrap_or(layout.spine_start.y)
+        .min(layout.event_rect.origin.y)
+        .min(layout.spine_start.y);
+    min_y = min_y.min(0);
+    if min_y < 0 {
+        let shift = -min_y + 1;
+        layout.spine_start.y += shift;
+        layout.spine_end.y += shift;
+        layout.event_rect.origin.y += shift;
+        for node in &mut layout.nodes {
+            node.rect.origin.y += shift;
+        }
+        for edge in &mut layout.edges {
+            edge.from.y += shift;
+            edge.to.y += shift;
+        }
+    }
+    let max_right = layout
+        .nodes
+        .iter()
+        .map(|node| node.rect.right())
+        .chain(std::iter::once(layout.event_rect.right()))
+        .chain(std::iter::once(layout.spine_end.x + 1))
+        .max()
+        .unwrap_or(layout.size.width);
+    let max_bottom = layout
+        .nodes
+        .iter()
+        .map(|node| node.rect.bottom())
+        .chain(std::iter::once(layout.event_rect.bottom()))
+        .chain(std::iter::once(layout.spine_start.y + 1))
+        .max()
+        .unwrap_or(layout.size.height);
+    layout.size = Size {
+        width: layout.size.width.max(max_right + 1),
+        height: layout.size.height.max(max_bottom + 1),
+    };
 }
 
 impl StateLayoutEngine {

@@ -16,28 +16,28 @@ use crate::ast::{
     FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader, GanttStatement, GanttTask,
     GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick, GitGraphCommit,
     GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, KanbanAst, KanbanColumn,
-    KanbanHeader, KanbanMetadata, KanbanStatement, KanbanTask, Label, LabelKind, MermaidComment,
-    MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement,
-    PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig,
-    PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
-    QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst,
-    RadarAxis, RadarCurve, RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind,
-    RadarStatement, RequirementAst, RequirementElement, RequirementHeader, RequirementKind,
-    RequirementNode, RequirementRelationship, RequirementRelationshipKind, RequirementRisk,
-    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader,
-    SankeyLink, SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
-    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
-    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
-    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
-    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement, TreemapAst, TreemapHeader, TreemapNode, TreemapStatement, VennAst,
-    VennHeader, VennSet, VennStatement, VennStyle, VennText, VennTextOwner, VennUnion, XyChartAst,
-    XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation,
-    XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment,
-    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
-    ZenUmlStatement,
+    IshikawaAst, IshikawaHeader, IshikawaNode, IshikawaStatement, JourneyAst, JourneyHeader,
+    JourneyStatement, JourneyTask, KanbanAst, KanbanColumn, KanbanHeader, KanbanMetadata,
+    KanbanStatement, KanbanTask, Label, LabelKind, MermaidComment, MermaidDirective, MindmapAst,
+    MindmapHeader, MindmapNode, MindmapShape, MindmapStatement, PacketAst, PacketField,
+    PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig, PieHeader, PieLegendPosition,
+    PieSlice, PieStatement, QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader,
+    QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst, RadarAxis, RadarCurve,
+    RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind, RadarStatement, RequirementAst,
+    RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
+    RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
+    RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader, SankeyLink,
+    SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst, SequenceAutoNumber,
+    SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate, SequenceDestroy,
+    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
+    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
+    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
+    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, TreemapAst,
+    TreemapHeader, TreemapNode, TreemapStatement, VennAst, VennHeader, VennSet, VennStatement,
+    VennStyle, VennText, VennTextOwner, VennUnion, XyChartAst, XyChartAxis, XyChartAxisKind,
+    XyChartAxisScale, XyChartHeader, XyChartOrientation, XyChartSeries, XyChartSeriesKind,
+    XyChartStatement, ZenUmlAst, ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage,
+    ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,6 +163,10 @@ pub enum ParseErrorKind {
     ExpectedVennText,
     ExpectedVennStyle,
     ExpectedVennValue,
+    ExpectedIshikawaHeader,
+    UnknownIshikawaStatement,
+    ExpectedIshikawaEvent,
+    ExpectedIshikawaCause,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -282,6 +286,10 @@ impl Parser {
 
     pub fn parse_venn(source: &str) -> Result<VennAst, ParseError> {
         DiagramParser::new(source).parse_venn_only()
+    }
+
+    pub fn parse_ishikawa(source: &str) -> Result<IshikawaAst, ParseError> {
+        DiagramParser::new(source).parse_ishikawa_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -497,6 +505,14 @@ impl Parser {
         VennStatementParser::new(source).parse()
     }
 
+    pub fn parse_ishikawa_header(source: &str) -> Result<IshikawaHeader, ParseError> {
+        IshikawaHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_ishikawa_statement(source: &str) -> Result<IshikawaStatement, ParseError> {
+        IshikawaStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -671,6 +687,12 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_venn_body(shift_venn_header(venn_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Venn(Box::new(ast))));
+        }
+        if let Ok(ishikawa_header) = Parser::parse_ishikawa_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Ishikawa(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -947,6 +969,18 @@ impl<'source> DiagramParser<'source> {
         let venn_header = Parser::parse_venn_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_venn_body(shift_venn_header(venn_header, header.start))
+    }
+
+    fn parse_ishikawa_only(mut self) -> Result<IshikawaAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedIshikawaHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let ishikawa_header = Parser::parse_ishikawa_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1905,6 +1939,83 @@ impl<'source> DiagramParser<'source> {
         }
 
         Ok(ast)
+    }
+
+    fn parse_ishikawa_body(&mut self, header: IshikawaHeader) -> Result<IshikawaAst, ParseError> {
+        let span_start = header.span.start;
+        let mut event = None::<Label>;
+        let mut parsed = Vec::<ParsedIshikawaNode>::new();
+        let mut roots = Vec::<usize>::new();
+        let mut stack = Vec::<(usize, usize)>::new();
+        let mut statements = Vec::new();
+
+        while let Some(line) = self.current_trimmed_line() {
+            if let Ok(directive) = Parser::parse_mermaid_directive(line.text) {
+                statements.push(IshikawaStatement::Directive(shift_directive(
+                    directive, line.start,
+                )));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(line.text) {
+                statements.push(IshikawaStatement::Comment(shift_comment(
+                    comment, line.start,
+                )));
+                self.cursor = line.line.next;
+                continue;
+            }
+
+            if event.is_none() {
+                let label = parse_ishikawa_label(
+                    line.text,
+                    line.start,
+                    ParseErrorKind::ExpectedIshikawaEvent,
+                )?;
+                statements.push(IshikawaStatement::Event(label.clone()));
+                event = Some(label);
+                self.cursor = line.line.next;
+                continue;
+            }
+
+            let indent = line.start.saturating_sub(line.line.start);
+            while stack.last().is_some_and(|(level, _)| *level >= indent) {
+                stack.pop();
+            }
+            let parent = stack.last().map(|(_, index)| *index);
+            let index = parsed.len();
+            let node = parse_ishikawa_node(line.text, line.start)?;
+            if let Some(parent) = parent {
+                parsed[parent].children.push(index);
+            } else {
+                roots.push(index);
+            }
+            parsed.push(ParsedIshikawaNode {
+                node,
+                children: Vec::new(),
+            });
+            stack.push((indent, index));
+            self.cursor = line.line.next;
+        }
+
+        let event = event.ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedIshikawaEvent,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let causes = roots
+            .into_iter()
+            .map(|index| build_ishikawa_node(index, &parsed))
+            .collect::<Vec<_>>();
+        for cause in &causes {
+            statements.push(IshikawaStatement::Cause(Box::new(cause.clone())));
+        }
+
+        Ok(IshikawaAst {
+            header,
+            event,
+            causes,
+            statements,
+            span: Span::new(span_start, self.source.len()),
+        })
     }
 
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
@@ -4608,6 +4719,32 @@ impl<'source> VennHeaderParser<'source> {
             });
         }
         Ok(VennHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct IshikawaHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> IshikawaHeaderParser<'source> {
+    const fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<IshikawaHeader, ParseError> {
+        let (start, end) = trim_ascii_range(self.source).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedIshikawaHeader,
+            span: Span::new(0, self.source.len()),
+        })?;
+        if &self.source[start..end] != "ishikawa-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedIshikawaHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(IshikawaHeader {
             span: Span::new(start, end),
         })
     }
@@ -9877,6 +10014,80 @@ fn parse_venn_value(source: &str, start: usize, end: usize) -> Result<Spanned<St
     ))
 }
 
+struct IshikawaStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> IshikawaStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<IshikawaStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownIshikawaStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(IshikawaStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(IshikawaStatement::Comment(shift_comment(comment, start)));
+        }
+        parse_ishikawa_node(trimmed, start)
+            .map(|node| IshikawaStatement::Cause(Box::new(node)))
+            .map_err(|_| ParseError {
+                kind: ParseErrorKind::UnknownIshikawaStatement,
+                span: Span::new(start, end),
+            })
+    }
+}
+
+fn parse_ishikawa_node(source: &str, offset: usize) -> Result<IshikawaNode, ParseError> {
+    let label = parse_ishikawa_label(source, offset, ParseErrorKind::ExpectedIshikawaCause)?;
+    Ok(IshikawaNode {
+        span: label.span,
+        label,
+        causes: Vec::new(),
+    })
+}
+
+fn parse_ishikawa_label(
+    source: &str,
+    offset: usize,
+    kind: ParseErrorKind,
+) -> Result<Label, ParseError> {
+    label_from_trimmed(source, 0, source.len())
+        .map(|label| shift_label(label, offset))
+        .ok_or(ParseError {
+            kind,
+            span: Span::new(offset, offset + source.len()),
+        })
+}
+
+struct ParsedIshikawaNode {
+    node: IshikawaNode,
+    children: Vec<usize>,
+}
+
+fn build_ishikawa_node(index: usize, parsed: &[ParsedIshikawaNode]) -> IshikawaNode {
+    let parsed_node = &parsed[index];
+    let mut node = parsed_node.node.clone();
+    node.causes = parsed_node
+        .children
+        .iter()
+        .map(|child| build_ishikawa_node(*child, parsed))
+        .collect();
+    node
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -13167,6 +13378,12 @@ fn shift_venn_style(style: VennStyle, offset: usize) -> VennStyle {
     }
 }
 
+fn shift_ishikawa_header(header: IshikawaHeader, offset: usize) -> IshikawaHeader {
+    IshikawaHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -14618,12 +14835,25 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_ishikawa_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "ishikawa-beta\nBlurry Photo\n  Process\n    Out of focus\n  Equipment\n    Lens\n      Dirty lens",
+        )
+        .unwrap();
+
+        let DiagramKind::Ishikawa(ast) = diagram.kind else {
+            panic!("expected Ishikawa diagram");
+        };
+        assert_eq!(ast.event.text, "Blurry Photo");
+        assert_eq!(ast.causes.len(), 2);
+        assert_eq!(ast.causes[0].label.text, "Process");
+        assert_eq!(ast.causes[0].causes[0].label.text, "Out of focus");
+        assert_eq!(ast.causes[1].causes[0].causes[0].label.text, "Dirty lens");
+    }
+
+    #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
-        let cases = [
-            ("Ishikawa", "ishikawa-beta"),
-            ("Wardley", "wardley-beta"),
-            ("TreeView", "treeView-beta"),
-        ];
+        let cases = [("Wardley", "wardley-beta"), ("TreeView", "treeView-beta")];
 
         for (name, source) in cases {
             let error = Parser::parse_diagram(source).unwrap_err();

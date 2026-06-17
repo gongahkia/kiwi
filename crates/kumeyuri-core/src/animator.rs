@@ -1,11 +1,11 @@
 use crate::ast::{
     ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement, Diagram,
     DiagramKind, ErAst, ErStatement, EventModelingStatement, FlowStatement, FlowchartAst, GanttAst,
-    GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst, JourneyStatement, KanbanStatement,
-    MermaidDirective, MindmapAst, MindmapStatement, PacketStatement, PieAst, PieStatement,
-    QuadrantStatement, RadarStatement, RequirementStatement, SankeyStatement, SequenceAst,
-    SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement, TreemapStatement,
-    VennStatement, XyChartStatement, ZenUmlStatement,
+    GanttStatement, GitGraphAst, GitGraphStatement, IshikawaStatement, JourneyAst,
+    JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst, MindmapStatement,
+    PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement, RequirementStatement,
+    SankeyStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
+    TimelineStatement, TreemapStatement, VennStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -176,6 +176,7 @@ impl Animator {
             (DiagramKind::EventModeling(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Treemap(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Venn(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Ishikawa(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -334,6 +335,11 @@ impl AnimationConfig {
                     apply_venn_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Ishikawa(ast) => {
+                for statement in &ast.statements {
+                    apply_ishikawa_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -455,6 +461,7 @@ pub enum AnimationDiagramKind {
     EventModeling,
     Treemap,
     Venn,
+    Ishikawa,
     Mindmap,
     Journey,
     GitGraph,
@@ -485,6 +492,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::EventModeling(_) => Self::EventModeling,
             DiagramKind::Treemap(_) => Self::Treemap,
             DiagramKind::Venn(_) => Self::Venn,
+            DiagramKind::Ishikawa(_) => Self::Ishikawa,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -883,6 +891,23 @@ fn apply_venn_animation_directives(
     Ok(())
 }
 
+fn apply_ishikawa_animation_directives(
+    statement: &IshikawaStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        IshikawaStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        IshikawaStatement::Event(_)
+        | IshikawaStatement::Cause(_)
+        | IshikawaStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -1117,6 +1142,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::EventModeling(_) => AnimationMode::None,
         DiagramKind::Treemap(_) => AnimationMode::None,
         DiagramKind::Venn(_) => AnimationMode::None,
+        DiagramKind::Ishikawa(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -1154,6 +1180,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::EventModeling(_) => Duration::from_millis(700),
         DiagramKind::Treemap(_) => Duration::from_millis(700),
         DiagramKind::Venn(_) => Duration::from_millis(700),
+        DiagramKind::Ishikawa(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),
