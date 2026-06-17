@@ -2,18 +2,19 @@ use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
     FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RequirementAst,
+    KanbanAst, MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
     TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     BlockLayout, BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine,
     ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout,
-    GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine,
-    PacketLayout, PacketLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedBlockEdge,
-    PositionedBlockNode, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
-    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
+    GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine, KanbanLayout, KanbanLayoutEngine,
+    MindmapLayout, MindmapLayoutEngine, PacketLayout, PacketLayoutEngine, PieLayout,
+    PieLayoutEngine, Point, PositionedBlockEdge, PositionedBlockNode, PositionedC4Boundary,
+    PositionedC4Element, PositionedC4Relationship, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedFlowSubgraph,
+    PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask, PositionedKanbanTask,
     PositionedMindmapNode, PositionedPacketField, PositionedPieSlice, PositionedQuadrantPoint,
     PositionedRequirementNode, PositionedRequirementRelationship, PositionedSankeyLink,
     PositionedSequenceActivation, PositionedSequenceBox, PositionedSequenceDestroy,
@@ -348,6 +349,7 @@ pub struct StaticFrameRenderer {
     xy_chart: XyChartLayoutEngine,
     block: BlockLayoutEngine,
     packet: PacketLayoutEngine,
+    kanban: KanbanLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -379,6 +381,7 @@ impl StaticFrameRenderer {
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
             packet: PacketLayoutEngine::default_values(),
+            kanban: KanbanLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -411,6 +414,7 @@ impl StaticFrameRenderer {
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
             packet: PacketLayoutEngine::default_values(),
+            kanban: KanbanLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -443,6 +447,7 @@ impl StaticFrameRenderer {
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
             packet: PacketLayoutEngine::default_values(),
+            kanban: KanbanLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -498,6 +503,7 @@ impl StaticFrameRenderer {
             DiagramKind::XyChart(ast) => self.render_xy_chart(ast),
             DiagramKind::Block(ast) => self.render_block_diagram(ast),
             DiagramKind::Packet(ast) => self.render_packet(ast),
+            DiagramKind::Kanban(ast) => self.render_kanban(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -590,6 +596,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_packet(&self, ast: &PacketAst) -> Frame {
         render_packet_layout(&self.packet.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_kanban(&self, ast: &KanbanAst) -> Frame {
+        render_kanban_layout(&self.kanban.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1433,6 +1444,67 @@ fn draw_packet_field(
         &field.range_label,
         muted_style,
     );
+}
+
+fn render_kanban_layout(layout: &KanbanLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    for column in &layout.columns {
+        draw_box(&mut frame, column.rect, palette, node_style.clone());
+        write_centered(&mut frame, column.header, &column.title, text_style.clone());
+        draw_horizontal(
+            &mut frame,
+            column.rect.origin.x,
+            column.rect.right().saturating_sub(1),
+            column.header.bottom().saturating_sub(1),
+            palette.horizontal,
+            node_style.clone(),
+        );
+    }
+    for task in &layout.tasks {
+        draw_kanban_task(
+            &mut frame,
+            task,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_kanban_task(
+    frame: &mut Frame,
+    task: &PositionedKanbanTask,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    draw_box(frame, task.rect, palette, node_style);
+    write_text_safe(
+        frame,
+        task.rect.origin.x + 1,
+        task.rect.origin.y + 1,
+        &task.label,
+        text_style,
+    );
+    for (index, (key, value)) in task.metadata.iter().enumerate() {
+        write_text_safe(
+            frame,
+            task.rect.origin.x + 1,
+            task.rect.origin.y + 2 + index as i32,
+            &format!("{key}: {value}"),
+            muted_style.clone(),
+        );
+    }
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

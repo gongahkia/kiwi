@@ -233,6 +233,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::XyChart(_) => ("xychart", "none"),
         DiagramKind::Block(_) => ("block", "none"),
         DiagramKind::Packet(_) => ("packet", "none"),
+        DiagramKind::Kanban(_) => ("kanban", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

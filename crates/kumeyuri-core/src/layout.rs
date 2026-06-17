@@ -6,14 +6,14 @@ use crate::ast::{
     FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
     FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
     GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PacketAst, PieAst,
-    PieLegendPosition, QuadrantAst, RequirementAst, RequirementElement, RequirementKind,
-    RequirementNode, RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod,
-    SankeyAst, SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox,
-    SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
-    Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst,
-    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
-    ZenUmlStatement,
+    JourneyAst, KanbanAst, KanbanColumn, KanbanMetadata, Label, LabelKind, MindmapAst, MindmapNode,
+    MindmapShape, PacketAst, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
+    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
+    RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
+    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
+    StateTransition, TimelineAst, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
+    ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -485,6 +485,60 @@ pub struct PacketLayout {
     pub title: Option<String>,
     pub rows: Vec<PositionedPacketRow>,
     pub fields: Vec<PositionedPacketField>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KanbanLayoutConfig {
+    pub column_spacing: i32,
+    pub card_spacing: i32,
+    pub horizontal_padding: i32,
+    pub column_min_width: i32,
+    pub header_height: i32,
+    pub card_base_height: i32,
+}
+
+impl Default for KanbanLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl KanbanLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            column_spacing: 4,
+            card_spacing: 1,
+            horizontal_padding: 2,
+            column_min_width: 18,
+            header_height: 3,
+            card_base_height: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedKanbanColumn {
+    pub id: Option<String>,
+    pub title: String,
+    pub rect: Rect,
+    pub header: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedKanbanTask {
+    pub column_index: usize,
+    pub id: Option<String>,
+    pub label: String,
+    pub metadata: Vec<(String, String)>,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KanbanLayout {
+    pub columns: Vec<PositionedKanbanColumn>,
+    pub tasks: Vec<PositionedKanbanTask>,
     pub size: Size,
 }
 
@@ -1147,6 +1201,11 @@ pub struct BlockLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct PacketLayoutEngine {
     config: PacketLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct KanbanLayoutEngine {
+    config: KanbanLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2809,6 +2868,110 @@ fn packet_range_label(start: u32, end: u32) -> String {
     } else {
         format!("{start}-{end}")
     }
+}
+
+impl KanbanLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: KanbanLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: KanbanLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &KanbanAst) -> KanbanLayout {
+        let mut columns = Vec::new();
+        let mut tasks = Vec::new();
+        let mut x = 0i32;
+        let mut size = Size {
+            width: self.config.column_min_width,
+            height: self.config.header_height,
+        };
+        for (column_index, column) in ast.columns.iter().enumerate() {
+            let column_width = self.kanban_column_width(column);
+            let mut y = self.config.header_height + self.config.card_spacing;
+            for task in &column.tasks {
+                let metadata = task
+                    .metadata
+                    .iter()
+                    .map(kanban_metadata_pair)
+                    .collect::<Vec<_>>();
+                let card_height = self.config.card_base_height + metadata.len() as i32;
+                let rect = Rect {
+                    origin: Point {
+                        x: x + self.config.horizontal_padding,
+                        y,
+                    },
+                    size: Size {
+                        width: column_width - self.config.horizontal_padding * 2,
+                        height: card_height,
+                    },
+                };
+                tasks.push(PositionedKanbanTask {
+                    column_index,
+                    id: task.id.as_ref().map(|id| id.value.clone()),
+                    label: task.label.text.clone(),
+                    metadata,
+                    rect,
+                });
+                y += card_height + self.config.card_spacing;
+            }
+            let column_height = y.max(self.config.header_height + self.config.card_spacing);
+            let rect = Rect {
+                origin: Point { x, y: 0 },
+                size: Size {
+                    width: column_width,
+                    height: column_height,
+                },
+            };
+            columns.push(PositionedKanbanColumn {
+                id: column.id.as_ref().map(|id| id.value.clone()),
+                title: column.title.text.clone(),
+                header: Rect {
+                    origin: rect.origin,
+                    size: Size {
+                        width: rect.size.width,
+                        height: self.config.header_height,
+                    },
+                },
+                rect,
+            });
+            size.width = size.width.max(rect.right());
+            size.height = size.height.max(rect.bottom());
+            x += column_width + self.config.column_spacing;
+        }
+        KanbanLayout {
+            columns,
+            tasks,
+            size,
+        }
+    }
+
+    fn kanban_column_width(&self, column: &KanbanColumn) -> i32 {
+        let mut width = self
+            .config
+            .column_min_width
+            .max(label_width(&column.title.text) + self.config.horizontal_padding * 2);
+        for task in &column.tasks {
+            width = width.max(label_width(&task.label.text) + self.config.horizontal_padding * 4);
+            for metadata in &task.metadata {
+                let (key, value) = kanban_metadata_pair(metadata);
+                width = width.max(
+                    label_width(&format!("{key}: {value}")) + self.config.horizontal_padding * 4,
+                );
+            }
+        }
+        width
+    }
+}
+
+fn kanban_metadata_pair(metadata: &KanbanMetadata) -> (String, String) {
+    (metadata.key.value.clone(), metadata.value.text.clone())
 }
 
 impl StateLayoutEngine {

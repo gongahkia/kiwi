@@ -1,0 +1,9 @@
+%%{ animate: 'none' }%%
+kanban
+  todo[Todo]
+    docs[Create Documentation]@{ ticket: MC-2038, assigned: 'K.Sveidqvist', priority: 'High' }
+    [Review docs]@{ assigned: 'knsv', priority: 'Low' }
+  deploy[Ready for deploy]
+    grammar[Design grammar]@{ assigned: 'knsv' }
+  [Done]
+    [define getData]@{ ticket: MC-2036, priority: 'Very High' }

@@ -11,7 +11,8 @@ use crate::ast::{
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
     GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick,
     GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
-    GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
+    GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, KanbanAst,
+    KanbanColumn, KanbanHeader, KanbanMetadata, KanbanStatement, KanbanTask, Label, LabelKind,
     MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
     MindmapStatement, PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst,
     PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
@@ -122,6 +123,10 @@ pub enum ParseErrorKind {
     UnknownPacketStatement,
     ExpectedPacketField,
     ExpectedPacketRange,
+    ExpectedKanbanHeader,
+    UnknownKanbanStatement,
+    ExpectedKanbanItem,
+    ExpectedKanbanMetadata,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -217,6 +222,10 @@ impl Parser {
 
     pub fn parse_packet(source: &str) -> Result<PacketAst, ParseError> {
         DiagramParser::new(source).parse_packet_only()
+    }
+
+    pub fn parse_kanban(source: &str) -> Result<KanbanAst, ParseError> {
+        DiagramParser::new(source).parse_kanban_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -386,6 +395,10 @@ impl Parser {
         PacketStatementParser::new(source, 0).parse()
     }
 
+    pub fn parse_kanban_header(source: &str) -> Result<KanbanHeader, ParseError> {
+        KanbanHeaderParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -523,6 +536,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_packet_body(shift_packet_header(packet_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Packet(Box::new(ast))));
+        }
+        if let Ok(kanban_header) = Parser::parse_kanban_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Kanban(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -724,6 +742,18 @@ impl<'source> DiagramParser<'source> {
         let packet_header = Parser::parse_packet_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_packet_body(shift_packet_header(packet_header, header.start))
+    }
+
+    fn parse_kanban_only(mut self) -> Result<KanbanAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let kanban_header = Parser::parse_kanban_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1408,6 +1438,69 @@ impl<'source> DiagramParser<'source> {
             }
             push_packet_statement(&mut ast, statement);
             self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_kanban_body(&mut self, header: KanbanHeader) -> Result<KanbanAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = KanbanAst {
+            header,
+            columns: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut current_column: Option<(usize, usize, usize)> = None;
+
+        while let Some(line) = source_line(self.source, self.cursor) {
+            self.cursor = line.next;
+            let Some((trim_start, trim_end)) = trim_ascii_range(line.text) else {
+                continue;
+            };
+            let start = line.start + trim_start;
+            let end = line.start + trim_end;
+            let text = &self.source[start..end];
+            if let Ok(directive) = Parser::parse_mermaid_directive(text) {
+                ast.statements
+                    .push(KanbanStatement::Directive(shift_directive(
+                        directive, start,
+                    )));
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(text) {
+                ast.statements
+                    .push(KanbanStatement::Comment(shift_comment(comment, start)));
+                continue;
+            }
+            let item = shift_kanban_item(
+                parse_kanban_item(line.text, trim_start, trim_end)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            let is_task = current_column.is_some_and(|(_, indent, _)| trim_start > indent);
+            if is_task {
+                let task = item.into_task();
+                if let Some((column_index, _, statement_index)) = current_column {
+                    ast.columns[column_index].span =
+                        Span::new(ast.columns[column_index].span.start, task.span.end);
+                    ast.columns[column_index].tasks.push(task.clone());
+                    if let Some(KanbanStatement::Column(column)) =
+                        ast.statements.get_mut(statement_index)
+                    {
+                        column.span = ast.columns[column_index].span;
+                        column.tasks.push(task);
+                    }
+                }
+                continue;
+            }
+            let column = item.into_column();
+            ast.columns.push(column.clone());
+            let column_index = ast.columns.len() - 1;
+            let statement_index = ast.statements.len();
+            ast.statements
+                .push(KanbanStatement::Column(Box::new(column)));
+            current_column = Some((column_index, trim_start, statement_index));
         }
 
         Ok(ast)
@@ -3874,6 +3967,36 @@ impl<'source> PacketHeaderParser<'source> {
             });
         }
         Ok(PacketHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct KanbanHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> KanbanHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<KanbanHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedKanbanHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "kanban" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedKanbanHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(KanbanHeader {
             span: Span::new(start, end),
         })
     }
@@ -7488,6 +7611,274 @@ fn parse_packet_bit_number(
     Ok(Spanned::new(value, Span::new(absolute_start, absolute_end)))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct KanbanParsedItem {
+    id: Option<Spanned<String>>,
+    label: Label,
+    metadata: Vec<KanbanMetadata>,
+    span: Span,
+}
+
+impl KanbanParsedItem {
+    fn into_column(self) -> KanbanColumn {
+        KanbanColumn {
+            id: self.id,
+            title: self.label,
+            tasks: Vec::new(),
+            span: self.span,
+        }
+    }
+
+    fn into_task(self) -> KanbanTask {
+        KanbanTask {
+            id: self.id,
+            label: self.label,
+            metadata: self.metadata,
+            span: self.span,
+        }
+    }
+}
+
+fn parse_kanban_item(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<KanbanParsedItem, ParseError> {
+    let content_end = kanban_item_content_end(source, start, end);
+    let metadata_start = find_kanban_metadata_start(source, start, content_end);
+    let metadata = if let Some(metadata_start) = metadata_start {
+        parse_kanban_metadata(source, metadata_start, content_end)?
+    } else {
+        Vec::new()
+    };
+    let item_end = metadata_start.unwrap_or(content_end).min(content_end);
+    let Some((item_start, item_end)) = trim_ascii_range(&source[start..item_end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanItem,
+            span: Span::new(start, end),
+        });
+    };
+    let item_start = start + item_start;
+    let item_end = start + item_end;
+    let (id, label) = parse_kanban_item_label(source, item_start, item_end)?;
+    Ok(KanbanParsedItem {
+        id,
+        label,
+        metadata,
+        span: Span::new(item_start, content_end),
+    })
+}
+
+fn kanban_item_content_end(source: &str, start: usize, end: usize) -> usize {
+    let mut content_end = end;
+    while content_end > start && source.as_bytes()[content_end - 1].is_ascii_whitespace() {
+        content_end -= 1;
+    }
+    if source.as_bytes().get(content_end.saturating_sub(1)) == Some(&b';') {
+        content_end -= 1;
+        while content_end > start && source.as_bytes()[content_end - 1].is_ascii_whitespace() {
+            content_end -= 1;
+        }
+    }
+    content_end
+}
+
+fn parse_kanban_item_label(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Option<Spanned<String>>, Label), ParseError> {
+    if source.as_bytes().get(start) == Some(&b'[') {
+        if source.as_bytes().get(end.saturating_sub(1)) != Some(&b']') {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedKanbanItem,
+                span: Span::new(start, end),
+            });
+        }
+        return Ok((None, label_from_body(source, start + 1, end - 1)));
+    }
+    if let Some(open) = find_kanban_label_open(source, start, end) {
+        if source.as_bytes().get(end.saturating_sub(1)) != Some(&b']') {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedKanbanItem,
+                span: Span::new(open, end),
+            });
+        }
+        let id = parse_kanban_id(source, start, open)?;
+        let label = label_from_body(source, open + 1, end - 1);
+        return Ok((Some(id), label));
+    }
+    let label = label_from_trimmed(source, start, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedKanbanItem,
+        span: Span::new(start, end),
+    })?;
+    Ok((None, label))
+}
+
+fn parse_kanban_id(source: &str, start: usize, end: usize) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanItem,
+            span: Span::new(start, end),
+        });
+    };
+    let id_start = start + trim_start;
+    let id_end = start + trim_end;
+    Ok(Spanned::new(
+        source[id_start..id_end].to_owned(),
+        Span::new(id_start, id_end),
+    ))
+}
+
+fn find_kanban_label_open(source: &str, start: usize, end: usize) -> Option<usize> {
+    source[start..end].find('[').map(|offset| start + offset)
+}
+
+fn find_kanban_metadata_start(source: &str, start: usize, end: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut cursor = start;
+    let mut quote = None;
+    let mut square = 0u16;
+    while cursor + 1 < end {
+        match bytes[cursor] {
+            byte if quote == Some(byte) => quote = None,
+            b'\'' | b'"' if quote.is_none() => quote = Some(bytes[cursor]),
+            b'[' if quote.is_none() => square += 1,
+            b']' if quote.is_none() => square = square.saturating_sub(1),
+            b'@' if quote.is_none() && square == 0 && bytes[cursor + 1] == b'{' => {
+                return Some(cursor);
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn parse_kanban_metadata(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<KanbanMetadata>, ParseError> {
+    if !source[start..end].starts_with("@{") || source.as_bytes().get(end - 1) != Some(&b'}') {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanMetadata,
+            span: Span::new(start, end),
+        });
+    }
+    let mut metadata = Vec::new();
+    for field in split_kanban_metadata_fields(source, start + 2, end - 1)? {
+        let Some(colon) = find_kanban_metadata_colon(source, field.start, field.end) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedKanbanMetadata,
+                span: Span::new(field.start, field.end),
+            });
+        };
+        let key = parse_kanban_id(source, field.start, colon).map_err(|_| ParseError {
+            kind: ParseErrorKind::ExpectedKanbanMetadata,
+            span: Span::new(field.start, colon),
+        })?;
+        let value = kanban_metadata_value(source, colon + 1, field.end)?;
+        metadata.push(KanbanMetadata {
+            span: Span::new(field.start, field.end),
+            key,
+            value,
+        });
+    }
+    Ok(metadata)
+}
+
+#[derive(Debug, Clone, Copy)]
+struct KanbanMetadataField {
+    start: usize,
+    end: usize,
+}
+
+fn split_kanban_metadata_fields(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<KanbanMetadataField>, ParseError> {
+    let mut fields = Vec::new();
+    let mut cursor = start;
+    let mut field_start = start;
+    let mut quote = None;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if quote == Some(byte) {
+            quote = None;
+        } else if quote.is_none() && matches!(byte, b'\'' | b'"') {
+            quote = Some(byte);
+        } else if quote.is_none() && byte == b',' {
+            push_kanban_metadata_field(source, field_start, cursor, &mut fields);
+            field_start = cursor + 1;
+        }
+        cursor += 1;
+    }
+    if quote.is_some() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanMetadata,
+            span: Span::new(start, end),
+        });
+    }
+    push_kanban_metadata_field(source, field_start, end, &mut fields);
+    Ok(fields)
+}
+
+fn push_kanban_metadata_field(
+    source: &str,
+    start: usize,
+    end: usize,
+    fields: &mut Vec<KanbanMetadataField>,
+) {
+    if let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) {
+        fields.push(KanbanMetadataField {
+            start: start + trim_start,
+            end: start + trim_end,
+        });
+    }
+}
+
+fn find_kanban_metadata_colon(source: &str, start: usize, end: usize) -> Option<usize> {
+    let mut cursor = start;
+    let mut quote = None;
+    while cursor < end {
+        let byte = source.as_bytes()[cursor];
+        if quote == Some(byte) {
+            quote = None;
+        } else if quote.is_none() && matches!(byte, b'\'' | b'"') {
+            quote = Some(byte);
+        } else if quote.is_none() && byte == b':' {
+            return Some(cursor);
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn kanban_metadata_value(source: &str, start: usize, end: usize) -> Result<Label, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedKanbanMetadata,
+            span: Span::new(start, end),
+        });
+    };
+    let value_start = start + trim_start;
+    let value_end = start + trim_end;
+    let bytes = source.as_bytes();
+    if value_end > value_start + 1
+        && matches!(bytes[value_start], b'\'' | b'"')
+        && bytes[value_end - 1] == bytes[value_start]
+    {
+        return Ok(Label {
+            text: source[value_start + 1..value_end - 1].to_owned(),
+            kind: LabelKind::String,
+            span: Span::new(value_start + 1, value_end - 1),
+        });
+    }
+    Ok(label_from_body(source, value_start, value_end))
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -10221,6 +10612,33 @@ fn shift_packet_field(field: PacketField, offset: usize) -> PacketField {
     }
 }
 
+fn shift_kanban_header(header: KanbanHeader, offset: usize) -> KanbanHeader {
+    KanbanHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_kanban_item(item: KanbanParsedItem, offset: usize) -> KanbanParsedItem {
+    KanbanParsedItem {
+        id: item.id.map(|id| shift_spanned(id, offset)),
+        label: shift_label(item.label, offset),
+        metadata: item
+            .metadata
+            .into_iter()
+            .map(|metadata| shift_kanban_metadata(metadata, offset))
+            .collect(),
+        span: shift_span(item.span, offset),
+    }
+}
+
+fn shift_kanban_metadata(metadata: KanbanMetadata, offset: usize) -> KanbanMetadata {
+    KanbanMetadata {
+        key: shift_spanned(metadata.key, offset),
+        value: shift_label(metadata.value, offset),
+        span: shift_span(metadata.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -11413,6 +11831,33 @@ mod tests {
     }
 
     #[test]
+    fn parses_kanban_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "kanban\n  todo[Todo]\n    docs[Create Documentation]\n    bug[Fix Login]@{ ticket: MC-2038, assigned: 'K.Sveidqvist', priority: 'High' }\n  [Done]\n    [Ship release]",
+        )
+        .unwrap();
+
+        let DiagramKind::Kanban(ast) = diagram.kind else {
+            panic!("expected Kanban diagram");
+        };
+        assert_eq!(ast.columns.len(), 2);
+        assert_eq!(ast.columns[0].id.as_ref().unwrap().value, "todo");
+        assert_eq!(ast.columns[0].title.text, "Todo");
+        assert_eq!(ast.columns[0].tasks.len(), 2);
+        assert_eq!(ast.columns[0].tasks[0].id.as_ref().unwrap().value, "docs");
+        assert_eq!(ast.columns[0].tasks[0].label.text, "Create Documentation");
+        assert_eq!(ast.columns[0].tasks[1].metadata.len(), 3);
+        assert_eq!(ast.columns[0].tasks[1].metadata[0].key.value, "ticket");
+        assert_eq!(
+            ast.columns[0].tasks[1].metadata[1].value.text,
+            "K.Sveidqvist"
+        );
+        assert_eq!(ast.columns[1].id, None);
+        assert_eq!(ast.columns[1].title.text, "Done");
+        assert_eq!(ast.columns[1].tasks[0].label.text, "Ship release");
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -11511,7 +11956,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Kanban", "kanban"),
             ("Architecture", "architecture-beta"),
             ("Radar", "radar-beta"),
             ("Event Modeling", "eventmodeling"),

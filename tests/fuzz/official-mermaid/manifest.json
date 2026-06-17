@@ -122,6 +122,14 @@
       "rootType": "packet",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/kanban.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/kanban.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "kanban",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

@@ -153,6 +153,30 @@ Single-bit fields are accepted with `106: "URG"`. Ranges where the end bit is
 less than the start bit are rejected. Packet rendering is a fixed 32-bit row
 table; Mermaid packet config fields are not interpreted yet.
 
+## Kanban diagrams
+
+Header:
+
+```mermaid
+kanban
+```
+
+Columns and tasks are indentation based:
+
+```mermaid
+kanban
+  todo[Todo]
+    docs[Create Documentation]
+    [Review docs]@{ assigned: 'knsv', priority: 'Low' }
+  done[Done]
+    release[Ship Release]@{ ticket: MC-2036, priority: 'High' }
+```
+
+Column and task labels can be `id[label]`, `[label]`, or bare labels. Task
+metadata supports key/value rows inside `@{ ... }`; values may be bare,
+single-quoted, or double-quoted. Mermaid frontmatter config such as
+`ticketBaseUrl` is not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

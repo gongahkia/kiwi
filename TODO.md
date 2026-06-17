@@ -181,7 +181,7 @@
 - [x] XY Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Block Diagram: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Packet: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
-- [ ] Kanban: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [x] Kanban: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Architecture: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Radar: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] Event Modeling: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

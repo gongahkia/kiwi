@@ -1,7 +1,7 @@
 use crate::ast::{
     BlockStatement, C4Statement, ClassAst, ClassStatement, Diagram, DiagramKind, ErAst,
     ErStatement, FlowStatement, FlowchartAst, GanttAst, GanttStatement, GitGraphAst,
-    GitGraphStatement, JourneyAst, JourneyStatement, MermaidDirective, MindmapAst,
+    GitGraphStatement, JourneyAst, JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst,
     MindmapStatement, PacketStatement, PieAst, PieStatement, QuadrantStatement,
     RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement, StateAst,
     StateStatement, TimelineAst, TimelineStatement, XyChartStatement, ZenUmlStatement,
@@ -169,6 +169,7 @@ impl Animator {
             (DiagramKind::XyChart(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Block(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Packet(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Kanban(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -297,6 +298,11 @@ impl AnimationConfig {
                     apply_packet_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Kanban(ast) => {
+                for statement in &ast.statements {
+                    apply_kanban_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -412,6 +418,7 @@ pub enum AnimationDiagramKind {
     XyChart,
     Block,
     Packet,
+    Kanban,
     Mindmap,
     Journey,
     GitGraph,
@@ -436,6 +443,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::XyChart(_) => Self::XyChart,
             DiagramKind::Block(_) => Self::Block,
             DiagramKind::Packet(_) => Self::Packet,
+            DiagramKind::Kanban(_) => Self::Kanban,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -726,6 +734,21 @@ fn apply_packet_animation_directives(
     Ok(())
 }
 
+fn apply_kanban_animation_directives(
+    statement: &KanbanStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        KanbanStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        KanbanStatement::Column(_) | KanbanStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -954,6 +977,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::XyChart(_) => AnimationMode::None,
         DiagramKind::Block(_) => AnimationMode::None,
         DiagramKind::Packet(_) => AnimationMode::None,
+        DiagramKind::Kanban(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -985,6 +1009,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::XyChart(_) => Duration::from_millis(700),
         DiagramKind::Block(_) => Duration::from_millis(700),
         DiagramKind::Packet(_) => Duration::from_millis(700),
+        DiagramKind::Kanban(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

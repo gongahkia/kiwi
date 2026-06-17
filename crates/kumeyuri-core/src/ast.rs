@@ -21,6 +21,7 @@ pub enum DiagramKind {
     XyChart(Box<XyChartAst>),
     Block(Box<BlockDiagramAst>),
     Packet(Box<PacketAst>),
+    Kanban(Box<KanbanAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1097,6 +1098,49 @@ pub struct PacketField {
 pub struct PacketRange {
     pub start: Spanned<u32>,
     pub end: Spanned<u32>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KanbanAst {
+    pub header: KanbanHeader,
+    pub columns: Vec<KanbanColumn>,
+    pub statements: Vec<KanbanStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KanbanHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KanbanStatement {
+    Column(Box<KanbanColumn>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KanbanColumn {
+    pub id: Option<Spanned<String>>,
+    pub title: Label,
+    pub tasks: Vec<KanbanTask>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KanbanTask {
+    pub id: Option<Spanned<String>>,
+    pub label: Label,
+    pub metadata: Vec<KanbanMetadata>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KanbanMetadata {
+    pub key: Spanned<String>,
+    pub value: Label,
     pub span: Span,
 }
 
