@@ -1,0 +1,23 @@
+[package]
+name = "mdbook-kumeyuri"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gongahkia/kumeyuri"
+description = "mdBook preprocessor for rendering Mermaid fences with kumeyuri."
+
+[[bin]]
+name = "mdbook-kumeyuri"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = "4.6.1"
+kumeyuri-core = { path = "../kumeyuri-core" }
+kumeyuri-render-svg = { path = "../kumeyuri-render-svg" }
+mdbook-preprocessor = "0.5.3"
+semver = "1.0.27"
+serde_json = "1.0.145"
+
+[dev-dependencies]
+tempfile = "3.23.0"

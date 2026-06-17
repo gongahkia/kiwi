@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/mdbook-kumeyuri",
     "crates/kumeyuri-cli",
     "crates/kumeyuri-core",
     "crates/kumeyuri-render-raster",
