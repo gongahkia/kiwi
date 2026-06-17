@@ -2,8 +2,8 @@ use crate::ast::{
     ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine, ClassRelationshipMarker,
     Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
     GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst,
-    RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
-    ZenUmlAst, ZenUmlMessageKind,
+    RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
+    TimelineAst, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
@@ -14,10 +14,11 @@ use crate::layout::{
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
     PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSequenceActivation, PositionedSequenceBox,
-    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
-    PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect, RequirementLayout,
-    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
-    TimelineLayout, TimelineLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
+    PositionedSankeyLink, PositionedSequenceDestroy, PositionedSequenceMessage,
+    PositionedSequenceNote, PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect,
+    RequirementLayout, RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -340,6 +341,7 @@ pub struct StaticFrameRenderer {
     pie: PieLayoutEngine,
     quadrant: QuadrantLayoutEngine,
     zenuml: ZenUmlLayoutEngine,
+    sankey: SankeyLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -367,6 +369,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
+            sankey: SankeyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -395,6 +398,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
+            sankey: SankeyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -423,6 +427,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
+            sankey: SankeyLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -474,6 +479,7 @@ impl StaticFrameRenderer {
             DiagramKind::Pie(ast) => self.render_pie(ast),
             DiagramKind::Quadrant(ast) => self.render_quadrant(ast),
             DiagramKind::ZenUml(ast) => self.render_zenuml(ast),
+            DiagramKind::Sankey(ast) => self.render_sankey(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -546,6 +552,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_zenuml(&self, ast: &ZenUmlAst) -> Frame {
         render_zenuml_layout(&self.zenuml.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_sankey(&self, ast: &SankeyAst) -> Frame {
+        render_sankey_layout(&self.sankey.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -961,6 +972,62 @@ fn zenuml_message_arrowhead(message: &PositionedZenUmlMessage, palette: GlyphPal
             arrowhead_for_points(&message.points, palette)
         }
     }
+}
+
+fn render_sankey_layout(layout: &SankeyLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    for link in &layout.links {
+        draw_sankey_link(
+            &mut frame,
+            link,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for node in &layout.nodes {
+        draw_box(&mut frame, node.rect, palette, node_style.clone());
+        write_centered(&mut frame, node.rect, &node.label, text_style.clone());
+    }
+    frame
+}
+
+fn draw_sankey_link(
+    frame: &mut Frame,
+    link: &PositionedSankeyLink,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_polyline(frame, &link.points, palette, edge_style.clone());
+    if let Some(last) = link.points.last() {
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            arrowhead_for_points(&link.points, palette),
+            edge_style,
+        );
+    }
+    if let Some(point) = sankey_frame_link_label_point(link) {
+        write_text_safe(frame, point.x, point.y, &link.value_text, text_style);
+    }
+}
+
+fn sankey_frame_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {
+    let first = link.points.first()?;
+    let last = link.points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2 + 1,
+        y: (first.y + last.y) / 2,
+    })
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

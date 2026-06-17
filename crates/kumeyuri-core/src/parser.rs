@@ -15,15 +15,15 @@ use crate::ast::{
     QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection,
     QuadrantStatement, RequirementAst, RequirementElement, RequirementHeader, RequirementKind,
     RequirementNode, RequirementRelationship, RequirementRelationshipKind, RequirementRisk,
-    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SequenceActivation,
-    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlBlock,
-    SequenceControlKind, SequenceCreate, SequenceDestroy, SequenceHeader, SequenceMessage,
-    SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
-    SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
-    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition, TimelineAst,
-    TimelineHeader, TimelinePeriod, TimelineStatement, ZenUmlAst, ZenUmlFragment,
-    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
-    ZenUmlStatement,
+    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader,
+    SankeyLink, SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
+    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
+    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
+    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
+    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
+    TimelineStatement, ZenUmlAst, ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage,
+    ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +100,10 @@ pub enum ParseErrorKind {
     UnknownZenUmlStatement,
     ExpectedZenUmlParticipant,
     ExpectedZenUmlMessage,
+    ExpectedSankeyHeader,
+    UnknownSankeyStatement,
+    ExpectedSankeyLink,
+    ExpectedSankeyValue,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -179,6 +183,10 @@ impl Parser {
 
     pub fn parse_zenuml(source: &str) -> Result<ZenUmlAst, ParseError> {
         DiagramParser::new(source).parse_zenuml_only()
+    }
+
+    pub fn parse_sankey(source: &str) -> Result<SankeyAst, ParseError> {
+        DiagramParser::new(source).parse_sankey_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -320,6 +328,14 @@ impl Parser {
         ZenUmlStatementParser::new(source, 0).parse()
     }
 
+    pub fn parse_sankey_header(source: &str) -> Result<SankeyHeader, ParseError> {
+        SankeyHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_sankey_statement(source: &str) -> Result<SankeyStatement, ParseError> {
+        SankeyStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -437,6 +453,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))?;
             return Ok(self.diagram(DiagramKind::ZenUml(Box::new(ast))));
+        }
+        if let Ok(sankey_header) = Parser::parse_sankey_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Sankey(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -590,6 +611,18 @@ impl<'source> DiagramParser<'source> {
         let zenuml_header = Parser::parse_zenuml_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))
+    }
+
+    fn parse_sankey_only(mut self) -> Result<SankeyAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let sankey_header = Parser::parse_sankey_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1133,6 +1166,28 @@ impl<'source> DiagramParser<'source> {
             if opens_block {
                 depth = depth.saturating_add(1);
             }
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_sankey_body(&mut self, header: SankeyHeader) -> Result<SankeyAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = SankeyAst {
+            header,
+            links: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_sankey_statement(
+                Parser::parse_sankey_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            push_sankey_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
 
@@ -1737,6 +1792,14 @@ fn push_zenuml_statement(ast: &mut ZenUmlAst, statement: ZenUmlStatement) {
         ZenUmlStatement::BlockEnd(_)
         | ZenUmlStatement::Comment(_)
         | ZenUmlStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_sankey_statement(ast: &mut SankeyAst, statement: SankeyStatement) {
+    match &statement {
+        SankeyStatement::Link(link) => ast.links.push((**link).clone()),
+        SankeyStatement::Comment(_) | SankeyStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -3377,6 +3440,36 @@ impl<'source> ZenUmlHeaderParser<'source> {
     }
 }
 
+struct SankeyHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> SankeyHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<SankeyHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSankeyHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if !matches!(&self.source[start..end], "sankey" | "sankey-beta") {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSankeyHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(SankeyHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -3941,6 +4034,39 @@ impl ZenUmlMessageSpan for ZenUmlMessage {
     fn with_span_start(mut self, start: usize) -> Self {
         self.span = Span::new(start, self.span.end);
         self
+    }
+}
+
+struct SankeyStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> SankeyStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<SankeyStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownSankeyStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(SankeyStatement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(SankeyStatement::Comment(shift_comment(comment, start)));
+        }
+        Ok(SankeyStatement::Link(Box::new(parse_sankey_link(
+            self.source,
+            start,
+            end,
+        )?)))
     }
 }
 
@@ -6244,6 +6370,115 @@ fn parse_quadrant_value(
     ))
 }
 
+fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
+    let fields = parse_sankey_csv_fields(source, start, end)?;
+    let [source_field, target_field, value_field] = fields.as_slice() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyLink,
+            span: Span::new(start, end),
+        });
+    };
+    let source_label =
+        label_from_trimmed(source, source_field.start, source_field.end).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyLink,
+            span: Span::new(source_field.start, source_field.end),
+        })?;
+    let target_label =
+        label_from_trimmed(source, target_field.start, target_field.end).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyLink,
+            span: Span::new(target_field.start, target_field.end),
+        })?;
+    let (value_units, value_text) = parse_sankey_value(source, value_field.start, value_field.end)?;
+    Ok(SankeyLink {
+        source: source_label,
+        target: target_label,
+        value_units,
+        value_text,
+        span: Span::new(start, end),
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SankeyCsvField {
+    start: usize,
+    end: usize,
+}
+
+fn parse_sankey_csv_fields(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<SankeyCsvField>, ParseError> {
+    let mut fields = Vec::new();
+    let mut cursor = start;
+    let mut field_start = start;
+    let mut quote = false;
+    let bytes = source.as_bytes();
+    while cursor < end {
+        match bytes[cursor] {
+            b'"' if quote && bytes.get(cursor + 1) == Some(&b'"') => {
+                cursor += 2;
+                continue;
+            }
+            b'"' => quote = !quote,
+            b',' if !quote => {
+                fields.push(SankeyCsvField {
+                    start: field_start,
+                    end: cursor,
+                });
+                field_start = cursor + 1;
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    if quote {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyLink,
+            span: Span::new(start, end),
+        });
+    }
+    fields.push(SankeyCsvField {
+        start: field_start,
+        end,
+    });
+    Ok(fields)
+}
+
+fn parse_sankey_value(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<u64>, Spanned<String>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyValue,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let raw = &source[absolute_start..absolute_end];
+    let Some(units) = parse_sankey_value_units(raw) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedSankeyValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    Ok((
+        Spanned::new(units, Span::new(absolute_start, absolute_end)),
+        Spanned::new(raw.to_owned(), Span::new(absolute_start, absolute_end)),
+    ))
+}
+
+fn parse_sankey_value_units(value: &str) -> Option<u64> {
+    let parsed = value.parse::<f64>().ok()?;
+    if !parsed.is_finite() || parsed <= 0.0 {
+        return None;
+    }
+    Some((parsed * 100.0).round() as u64)
+}
+
 fn zenuml_fragment_keyword(source: &str) -> Option<(&'static str, ZenUmlFragmentKind)> {
     const KEYWORDS: [(&str, ZenUmlFragmentKind); 9] = [
         ("while", ZenUmlFragmentKind::Loop),
@@ -8478,6 +8713,34 @@ fn shift_zenuml_fragment(fragment: ZenUmlFragment, offset: usize) -> ZenUmlFragm
     }
 }
 
+fn shift_sankey_header(header: SankeyHeader, offset: usize) -> SankeyHeader {
+    SankeyHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_sankey_statement(statement: SankeyStatement, offset: usize) -> SankeyStatement {
+    match statement {
+        SankeyStatement::Link(link) => {
+            SankeyStatement::Link(Box::new(shift_sankey_link(*link, offset)))
+        }
+        SankeyStatement::Comment(comment) => SankeyStatement::Comment(shift_comment(comment, offset)),
+        SankeyStatement::Directive(directive) => {
+            SankeyStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_sankey_link(link: SankeyLink, offset: usize) -> SankeyLink {
+    SankeyLink {
+        source: shift_label(link.source, offset),
+        target: shift_label(link.target, offset),
+        value_units: shift_spanned(link.value_units, offset),
+        value_text: shift_spanned(link.value_text, offset),
+        span: shift_span(link.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -9574,6 +9837,23 @@ mod tests {
     }
 
     #[test]
+    fn parses_sankey_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "sankey-beta\n\"North America\",Pipeline,12.5\nPipeline,\"Closed, Won\",9",
+        )
+        .unwrap();
+
+        let DiagramKind::Sankey(ast) = diagram.kind else {
+            panic!("expected Sankey diagram");
+        };
+        assert_eq!(ast.links.len(), 2);
+        assert_eq!(ast.links[0].source.text, "North America");
+        assert_eq!(ast.links[0].target.text, "Pipeline");
+        assert_eq!(ast.links[0].value_units.value, 1250);
+        assert_eq!(ast.links[1].target.text, "Closed, Won");
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -9672,7 +9952,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Sankey", "sankey"),
             ("XY Chart", "xychart"),
             ("XY Chart beta", "xychart-beta"),
             ("Block Diagram", "block"),

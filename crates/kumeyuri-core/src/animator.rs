@@ -2,8 +2,8 @@ use crate::ast::{
     C4Statement, ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
-    QuadrantStatement, RequirementStatement, SequenceAst, SequenceStatement, StateAst,
-    StateStatement, TimelineAst, TimelineStatement, ZenUmlStatement,
+    QuadrantStatement, RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement,
+    StateAst, StateStatement, TimelineAst, TimelineStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -164,6 +164,7 @@ impl Animator {
             (DiagramKind::C4(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Quadrant(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::ZenUml(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Sankey(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -270,6 +271,11 @@ impl AnimationConfig {
             DiagramKind::ZenUml(ast) => {
                 for statement in &ast.statements {
                     apply_zenuml_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::Sankey(ast) => {
+                for statement in &ast.statements {
+                    apply_sankey_animation_directives(statement, &mut config)?;
                 }
             }
             DiagramKind::Mindmap(ast) => {
@@ -383,6 +389,7 @@ pub enum AnimationDiagramKind {
     Pie,
     Quadrant,
     ZenUml,
+    Sankey,
     Mindmap,
     Journey,
     GitGraph,
@@ -403,6 +410,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Pie(_) => Self::Pie,
             DiagramKind::Quadrant(_) => Self::Quadrant,
             DiagramKind::ZenUml(_) => Self::ZenUml,
+            DiagramKind::Sankey(_) => Self::Sankey,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -614,6 +622,21 @@ fn apply_zenuml_animation_directives(
         | ZenUmlStatement::Fragment(_)
         | ZenUmlStatement::BlockEnd(_)
         | ZenUmlStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_sankey_animation_directives(
+    statement: &SankeyStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        SankeyStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        SankeyStatement::Link(_) | SankeyStatement::Comment(_) => {}
     }
     Ok(())
 }
@@ -842,6 +865,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Pie(_) => AnimationMode::Trace,
         DiagramKind::Quadrant(_) => AnimationMode::None,
         DiagramKind::ZenUml(_) => AnimationMode::None,
+        DiagramKind::Sankey(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -869,6 +893,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
         DiagramKind::Quadrant(_) => Duration::from_millis(700),
         DiagramKind::ZenUml(_) => Duration::from_millis(700),
+        DiagramKind::Sankey(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

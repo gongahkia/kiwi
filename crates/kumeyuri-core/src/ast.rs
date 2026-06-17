@@ -17,6 +17,7 @@ pub enum DiagramKind {
     Pie(Box<PieAst>),
     Quadrant(Box<QuadrantAst>),
     ZenUml(Box<ZenUmlAst>),
+    Sankey(Box<SankeyAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -854,6 +855,35 @@ pub enum ZenUmlStatement {
     Message(Box<ZenUmlMessage>),
     Fragment(ZenUmlFragment),
     BlockEnd(Span),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SankeyAst {
+    pub header: SankeyHeader,
+    pub links: Vec<SankeyLink>,
+    pub statements: Vec<SankeyStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SankeyHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SankeyLink {
+    pub source: Label,
+    pub target: Label,
+    pub value_units: Spanned<u64>,
+    pub value_text: Spanned<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SankeyStatement {
+    Link(Box<SankeyLink>),
     Comment(MermaidComment),
     Directive(MermaidDirective),
 }

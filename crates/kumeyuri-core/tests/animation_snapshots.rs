@@ -229,6 +229,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Pie(_) => ("pie", "trace"),
         DiagramKind::Quadrant(_) => ("quadrant", "none"),
         DiagramKind::ZenUml(_) => ("zenuml", "none"),
+        DiagramKind::Sankey(_) => ("sankey", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

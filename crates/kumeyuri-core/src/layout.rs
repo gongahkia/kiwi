@@ -8,10 +8,11 @@ use crate::ast::{
     GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label, LabelKind,
     MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
     RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
-    RequirementRisk, RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber,
-    SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
-    SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
-    ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
+    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
+    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
+    StateTransition, TimelineAst, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
+    ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -262,6 +263,59 @@ pub struct ZenUmlLayout {
     pub participants: Vec<PositionedZenUmlParticipant>,
     pub messages: Vec<PositionedZenUmlMessage>,
     pub fragments: Vec<PositionedZenUmlFragment>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SankeyLayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub horizontal_padding: i32,
+    pub min_node_width: i32,
+    pub node_height: i32,
+}
+
+impl Default for SankeyLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl SankeyLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 16,
+            vertical_spacing: 4,
+            horizontal_padding: 2,
+            min_node_width: 9,
+            node_height: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSankeyNode {
+    pub id: String,
+    pub label: String,
+    pub rect: Rect,
+    pub layer: usize,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSankeyLink {
+    pub source: String,
+    pub target: String,
+    pub value_text: String,
+    pub value_units: u64,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SankeyLayout {
+    pub nodes: Vec<PositionedSankeyNode>,
+    pub links: Vec<PositionedSankeyLink>,
     pub size: Size,
 }
 
@@ -904,6 +958,11 @@ pub struct SequenceLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ZenUmlLayoutEngine {
     config: ZenUmlLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SankeyLayoutEngine {
+    config: SankeyLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -1754,6 +1813,206 @@ fn zenuml_fragment_label(kind: ZenUmlFragmentKind, label: &Option<Label>) -> Str
         || prefix.to_owned(),
         |label| format!("{prefix} {}", label.text),
     )
+}
+
+impl SankeyLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: SankeyLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: SankeyLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &SankeyAst) -> SankeyLayout {
+        let ids = sankey_node_ids(ast);
+        let layers = sankey_layers(ast, &ids);
+        let mut layer_orders = HashMap::<usize, usize>::new();
+        let widths = ids
+            .iter()
+            .map(|id| {
+                self.config
+                    .min_node_width
+                    .max(label_width(id) + self.config.horizontal_padding * 2)
+            })
+            .collect::<Vec<_>>();
+        let layer_widths = sankey_layer_widths(&layers, &widths);
+        let layer_offsets = sankey_layer_offsets(&layer_widths, self.config.horizontal_spacing);
+        let nodes = ids
+            .iter()
+            .enumerate()
+            .map(|(index, id)| {
+                let layer = layers[index];
+                let order = *layer_orders
+                    .entry(layer)
+                    .and_modify(|order| *order += 1)
+                    .or_insert(0);
+                PositionedSankeyNode {
+                    id: id.clone(),
+                    label: id.clone(),
+                    rect: Rect {
+                        origin: Point {
+                            x: layer_offsets[layer],
+                            y: order as i32
+                                * (self.config.node_height + self.config.vertical_spacing),
+                        },
+                        size: Size {
+                            width: widths[index],
+                            height: self.config.node_height,
+                        },
+                    },
+                    layer,
+                    order,
+                }
+            })
+            .collect::<Vec<_>>();
+        let links = ast
+            .links
+            .iter()
+            .map(|link| {
+                let source = &link.source.text;
+                let target = &link.target.text;
+                let source_rect = sankey_node_rect(&nodes, source);
+                let target_rect = sankey_node_rect(&nodes, target);
+                let start = Point {
+                    x: source_rect.right().saturating_sub(1),
+                    y: source_rect.center().y,
+                };
+                let end = Point {
+                    x: target_rect.origin.x,
+                    y: target_rect.center().y,
+                };
+                let mid_x = (start.x + end.x) / 2;
+                PositionedSankeyLink {
+                    source: source.clone(),
+                    target: target.clone(),
+                    value_text: link.value_text.value.clone(),
+                    value_units: link.value_units.value,
+                    points: vec![
+                        start,
+                        Point {
+                            x: mid_x,
+                            y: start.y,
+                        },
+                        Point { x: mid_x, y: end.y },
+                        end,
+                    ],
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut size = Size {
+            width: self.config.min_node_width,
+            height: self.config.node_height,
+        };
+        for node in &nodes {
+            size.width = size.width.max(node.rect.right());
+            size.height = size.height.max(node.rect.bottom());
+        }
+        for link in &links {
+            for point in &link.points {
+                size.width = size.width.max(point.x + 1);
+                size.height = size.height.max(point.y + 1);
+            }
+            if let Some(label_point) = sankey_link_label_point(link) {
+                size.width = size
+                    .width
+                    .max(label_point.x + label_width(&link.value_text) + 1);
+                size.height = size.height.max(label_point.y + 1);
+            }
+        }
+        SankeyLayout { nodes, links, size }
+    }
+}
+
+fn sankey_node_ids(ast: &SankeyAst) -> Vec<String> {
+    let mut ids = Vec::<String>::new();
+    for link in &ast.links {
+        if !ids.iter().any(|id| id == &link.source.text) {
+            ids.push(link.source.text.clone());
+        }
+        if !ids.iter().any(|id| id == &link.target.text) {
+            ids.push(link.target.text.clone());
+        }
+    }
+    ids
+}
+
+fn sankey_layers(ast: &SankeyAst, ids: &[String]) -> Vec<usize> {
+    let index = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id.as_str(), index))
+        .collect::<HashMap<_, _>>();
+    let mut layers = vec![0usize; ids.len()];
+    for _ in 0..ids.len() {
+        let mut changed = false;
+        for link in &ast.links {
+            let (Some(&source), Some(&target)) = (
+                index.get(link.source.text.as_str()),
+                index.get(link.target.text.as_str()),
+            ) else {
+                continue;
+            };
+            let candidate = layers[source].saturating_add(1).min(ids.len().saturating_sub(1));
+            if layers[target] < candidate {
+                layers[target] = candidate;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    layers
+}
+
+fn sankey_layer_widths(layers: &[usize], widths: &[i32]) -> Vec<i32> {
+    let layer_count = layers.iter().max().map_or(1, |layer| layer + 1);
+    let mut layer_widths = vec![0i32; layer_count];
+    for (layer, width) in layers.iter().zip(widths) {
+        layer_widths[*layer] = layer_widths[*layer].max(*width);
+    }
+    layer_widths
+}
+
+fn sankey_layer_offsets(layer_widths: &[i32], spacing: i32) -> Vec<i32> {
+    let mut offsets = Vec::with_capacity(layer_widths.len());
+    let mut x = 0i32;
+    for width in layer_widths {
+        offsets.push(x);
+        x += *width + spacing;
+    }
+    offsets
+}
+
+fn sankey_node_rect(nodes: &[PositionedSankeyNode], id: &str) -> Rect {
+    nodes
+        .iter()
+        .find(|node| node.id == id)
+        .map_or(
+            Rect {
+                origin: Point { x: 0, y: 0 },
+                size: Size {
+                    width: 1,
+                    height: 1,
+                },
+            },
+            |node| node.rect,
+        )
+}
+
+fn sankey_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {
+    let first = link.points.first()?;
+    let last = link.points.last()?;
+    Some(Point {
+        x: (first.x + last.x) / 2 + 1,
+        y: (first.y + last.y) / 2,
+    })
 }
 
 impl StateLayoutEngine {
