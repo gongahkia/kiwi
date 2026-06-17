@@ -149,7 +149,7 @@
 - [ ] Publish GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
 - [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
 - [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
-- [ ] Author mdBook preprocessor `mdbook-kumeyuri`
+- [x] Author mdBook preprocessor `mdbook-kumeyuri`
 - [ ] Author Hugo shortcode `{{< kumeyuri >}}`
 - [ ] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
 - [ ] Add Astro integration `@kumeyuri/astro`

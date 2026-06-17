@@ -101,6 +101,30 @@ kumeyuri render docs/book/assets/state.mmd --format svg --theme github > docs/bo
 For terminal-focused pages, render text output and include it as a fenced code
 block in the chapter.
 
+To render Mermaid fences during `mdbook build`, install the preprocessor and
+configure `book.toml`:
+
+```bash
+cargo install --path crates/mdbook-kumeyuri
+```
+
+```toml
+[preprocessor.kumeyuri]
+command = "mdbook-kumeyuri"
+format = "svg"
+replace = false
+theme = "github"
+```
+
+Use fenced Mermaid normally:
+
+````md
+```mermaid
+graph TD
+  A --> B
+```
+````
+
 ## Docusaurus and MDX
 
 Put generated assets in `static/diagrams/`:

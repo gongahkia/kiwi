@@ -15,9 +15,4 @@ anyhow = "1.0.100"
 clap = "4.6.1"
 kumeyuri-core = { path = "../kumeyuri-core" }
 kumeyuri-render-svg = { path = "../kumeyuri-render-svg" }
-mdbook-preprocessor = "0.5.3"
-semver = "1.0.27"
 serde_json = "1.0.145"
-
-[dev-dependencies]
-tempfile = "3.23.0"
