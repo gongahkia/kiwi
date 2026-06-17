@@ -5622,7 +5622,7 @@ fn parse_journey_score(source: &str, start: usize, end: usize) -> Result<Spanned
             span: Span::new(absolute_start, absolute_end),
         });
     };
-    if score > 5 {
+    if score == 0 || score > 5 {
         return Err(ParseError {
             kind: ParseErrorKind::ExpectedJourneyScore,
             span: Span::new(absolute_start, absolute_end),

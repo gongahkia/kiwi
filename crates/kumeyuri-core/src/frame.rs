@@ -1201,9 +1201,27 @@ fn draw_journey_task(
         frame,
         task.actors_origin.x,
         task.actors_origin.y,
-        &task.actors.join(", "),
+        &journey_actor_text(task, palette),
         text_style,
     );
+}
+
+fn journey_actor_text(task: &PositionedJourneyTask, palette: GlyphPalette) -> String {
+    task.actors
+        .iter()
+        .zip(&task.actor_style_indices)
+        .map(|(actor, index)| format!("{} {actor}", journey_actor_glyph(*index, palette)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn journey_actor_glyph(index: usize, palette: GlyphPalette) -> char {
+    const GLYPHS: [char; 12] = ['#', '+', '=', '*', '%', '@', 'o', 'x', '~', ':', ';', '?'];
+    if index == 0 {
+        palette.block
+    } else {
+        GLYPHS[index % GLYPHS.len()]
+    }
 }
 
 fn render_gitgraph_layout(

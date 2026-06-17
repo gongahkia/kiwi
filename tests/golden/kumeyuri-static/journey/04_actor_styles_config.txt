@@ -1,0 +1,7 @@
+Configured Journey
+
+Support
+
+Open ticket             ####------ 2/5   # User
+
+Resolve ticket          ########## 5/5   + Agent, # User

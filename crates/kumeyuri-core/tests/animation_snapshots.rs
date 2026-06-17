@@ -103,7 +103,12 @@ const PIE_NAMES: [&str; 4] = [
 
 const MINDMAP_NAMES: [&str; 3] = ["01_basic_tree", "02_shapes_icons", "03_directive_comment"];
 
-const JOURNEY_NAMES: [&str; 3] = ["01_basic", "02_sections_actors", "03_directive_comment"];
+const JOURNEY_NAMES: [&str; 4] = [
+    "01_basic",
+    "02_sections_actors",
+    "03_directive_comment",
+    "04_actor_styles_config",
+];
 
 const GITGRAPH_NAMES: [&str; 3] = [
     "01_basic",

@@ -484,6 +484,7 @@ pub struct PositionedJourneyTask {
     pub section: Option<String>,
     pub score: u8,
     pub actors: Vec<String>,
+    pub actor_style_indices: Vec<usize>,
     pub label_origin: Point,
     pub bar_rect: Rect,
     pub score_origin: Point,
@@ -494,6 +495,7 @@ pub struct PositionedJourneyTask {
 pub struct JourneyLayout {
     pub title: Option<String>,
     pub sections: Vec<PositionedJourneySection>,
+    pub actors: Vec<String>,
     pub tasks: Vec<PositionedJourneyTask>,
     pub size: Size,
 }
@@ -2710,6 +2712,7 @@ impl JourneyLayoutEngine {
     pub fn layout(&self, ast: &JourneyAst) -> JourneyLayout {
         let mut sections = Vec::new();
         let mut tasks = Vec::new();
+        let mut actors = Vec::<String>::new();
         let mut y = self.config.top_padding;
         let mut current_section = None::<String>;
         let bar_x = self.config.label_width;
@@ -2729,16 +2732,22 @@ impl JourneyLayoutEngine {
                 current_section = section.clone();
             }
 
+            let task_actors = task
+                .actors
+                .iter()
+                .map(|actor| actor.value.clone())
+                .collect::<Vec<_>>();
+            let actor_style_indices = task_actors
+                .iter()
+                .map(|actor| journey_actor_index(&mut actors, actor))
+                .collect::<Vec<_>>();
             tasks.push(PositionedJourneyTask {
                 index,
                 label: task.label.text.clone(),
                 section,
                 score: task.score.value,
-                actors: task
-                    .actors
-                    .iter()
-                    .map(|actor| actor.value.clone())
-                    .collect(),
+                actors: task_actors,
+                actor_style_indices,
                 label_origin: Point { x: 0, y },
                 bar_rect: Rect {
                     origin: Point { x: bar_x, y },
@@ -2771,6 +2780,7 @@ impl JourneyLayoutEngine {
         JourneyLayout {
             title: ast.title.as_ref().map(|title| title.text.clone()),
             sections,
+            actors,
             tasks,
             size: Size {
                 width: title_width.max(section_width).max(task_width).max(1),
@@ -2780,8 +2790,16 @@ impl JourneyLayoutEngine {
     }
 }
 
+fn journey_actor_index(actors: &mut Vec<String>, actor: &str) -> usize {
+    if let Some(index) = actors.iter().position(|existing| existing == actor) {
+        return index;
+    }
+    actors.push(actor.to_owned());
+    actors.len() - 1
+}
+
 fn journey_task_width(task: &PositionedJourneyTask, config: JourneyLayoutConfig) -> i32 {
-    let actor_width = journey_actor_text(task).chars().count() as i32;
+    let actor_width = journey_actor_text_width(task);
     let label_width = task.label.chars().count() as i32;
     let score_end = task.score_origin.x + config.score_label_width;
     label_width
@@ -2789,8 +2807,17 @@ fn journey_task_width(task: &PositionedJourneyTask, config: JourneyLayoutConfig)
         .max(task.actors_origin.x + actor_width)
 }
 
-fn journey_actor_text(task: &PositionedJourneyTask) -> String {
-    task.actors.join(", ")
+fn journey_actor_text_width(task: &PositionedJourneyTask) -> i32 {
+    if task.actors.is_empty() {
+        return 0;
+    }
+    let actor_names = task
+        .actors
+        .iter()
+        .map(|actor| actor.chars().count() as i32 + 2)
+        .sum::<i32>();
+    let separators = (task.actors.len().saturating_sub(1) * 2) as i32;
+    actor_names + separators
 }
 
 impl GitGraphLayoutEngine {

@@ -7,7 +7,12 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 3] = ["01_basic", "02_sections_actors", "03_directive_comment"];
+const SNAPSHOT_NAMES: [&str; 4] = [
+    "01_basic",
+    "02_sections_actors",
+    "03_directive_comment",
+    "04_actor_styles_config",
+];
 
 #[test]
 fn journey_static_snapshots_match() {

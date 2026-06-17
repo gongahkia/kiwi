@@ -1784,7 +1784,7 @@ fn add_journey_task_marker(
     task: &PositionedJourneyTask,
     kind: KeyFrameMarkerKind,
 ) {
-    let actor_text_width = task.actors.join(", ").chars().count() as i32;
+    let actor_text_width = journey_actor_marker_width(task);
     let label_right = task.label_origin.x + task.label.chars().count() as i32;
     let score_right = task.score_origin.x + 3;
     let actor_right = task.actors_origin.x + actor_text_width;
@@ -1807,6 +1807,19 @@ fn add_journey_task_marker(
         region,
     });
     mark_region_cells(frame, region, &id);
+}
+
+fn journey_actor_marker_width(task: &PositionedJourneyTask) -> i32 {
+    if task.actors.is_empty() {
+        return 0;
+    }
+    let actor_names = task
+        .actors
+        .iter()
+        .map(|actor| actor.chars().count() as i32 + 2)
+        .sum::<i32>();
+    let separators = (task.actors.len().saturating_sub(1) * 2) as i32;
+    actor_names + separators
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
