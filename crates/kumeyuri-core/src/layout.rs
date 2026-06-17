@@ -7,10 +7,10 @@ use crate::ast::{
     GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
     JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition,
     RequirementAst, RequirementElement, RequirementKind, RequirementNode,
-    RequirementRelationshipKind, RequirementVerifyMethod, SequenceActivation, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
-    SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
-    StateTransition, TimelineAst,
+    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SequenceActivation,
+    SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage,
+    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
+    StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -266,6 +266,68 @@ pub struct ClassLayout {
     pub direction: Direction,
     pub nodes: Vec<PositionedClassNode>,
     pub relationships: Vec<PositionedClassRelationship>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RequirementLayoutConfig {
+    pub horizontal_spacing: i32,
+    pub vertical_spacing: i32,
+    pub horizontal_padding: i32,
+    pub min_node_width: i32,
+}
+
+impl Default for RequirementLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl RequirementLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            horizontal_spacing: 14,
+            vertical_spacing: 5,
+            horizontal_padding: 4,
+            min_node_width: 18,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PositionedRequirementNodeKind {
+    Requirement,
+    Element,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedRequirementNode {
+    pub id: String,
+    pub kind: PositionedRequirementNodeKind,
+    pub type_label: String,
+    pub name: String,
+    pub rows: Vec<String>,
+    pub classes: Vec<String>,
+    pub rect: Rect,
+    pub layer: usize,
+    pub order: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedRequirementRelationship {
+    pub from: String,
+    pub to: String,
+    pub kind: RequirementRelationshipKind,
+    pub label: String,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementLayout {
+    pub direction: Direction,
+    pub nodes: Vec<PositionedRequirementNode>,
+    pub relationships: Vec<PositionedRequirementRelationship>,
     pub size: Size,
 }
 
@@ -676,7 +738,7 @@ pub struct TimelineLayoutEngine {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RequirementLayoutEngine {
-    class: ClassLayoutEngine,
+    config: RequirementLayoutConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1476,169 +1538,241 @@ impl RequirementLayoutEngine {
     #[must_use]
     pub const fn default_values() -> Self {
         Self {
-            class: ClassLayoutEngine::default_values(),
+            config: RequirementLayoutConfig::default_values(),
         }
     }
 
     #[must_use]
-    pub const fn new(class: ClassLayoutEngine) -> Self {
-        Self { class }
+    pub const fn new(config: RequirementLayoutConfig) -> Self {
+        Self { config }
     }
 
     #[must_use]
-    pub fn layout(&self, ast: &RequirementAst) -> ClassLayout {
-        self.class.layout(&requirement_to_class_ast(ast))
+    pub fn layout(&self, ast: &RequirementAst) -> RequirementLayout {
+        let direction = ast
+            .direction
+            .map_or(Direction::TopDown, |value| value.value);
+        let graph = LayoutGraph::from_requirement_ast(ast);
+        let layers = assign_layers(&graph);
+        let order = minimise_crossings(&graph, &layers);
+        let sizes = graph
+            .nodes
+            .iter()
+            .map(|node| requirement_node_size(ast, &node.id, self.config))
+            .collect::<Vec<_>>();
+        let placement_config = FlowLayoutConfig {
+            horizontal_spacing: self.config.horizontal_spacing,
+            vertical_spacing: self.config.vertical_spacing,
+            horizontal_padding: self.config.horizontal_padding,
+            min_node_width: self.config.min_node_width,
+            node_height: 3,
+        };
+        let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
+        transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
+        let mut size = layout_size(&rects);
+
+        let nodes = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(index, node)| {
+                positioned_requirement_node(
+                    ast,
+                    &node.id,
+                    rects[index],
+                    layers[index],
+                    order[index],
+                )
+            })
+            .collect::<Vec<_>>();
+        let relationships = ast
+            .relationships
+            .iter()
+            .filter_map(|relationship| {
+                let from = graph.node_index(&relationship.from.value)?;
+                let to = graph.node_index(&relationship.to.value)?;
+                Some(PositionedRequirementRelationship {
+                    from: relationship.from.value.clone(),
+                    to: relationship.to.value.clone(),
+                    kind: relationship.kind.value,
+                    label: format!(
+                        "<<{}>>",
+                        requirement_relationship_label(relationship.kind.value)
+                    ),
+                    points: route_edge(
+                        rects[from],
+                        rects[to],
+                        direction,
+                        closes_existing_path(&graph, to, from, (from, to)),
+                    ),
+                })
+            })
+            .collect::<Vec<_>>();
+        size = layout_size_with_requirement_relationships(size, &relationships);
+
+        RequirementLayout {
+            direction,
+            nodes,
+            relationships,
+            size,
+        }
     }
 }
 
-fn requirement_to_class_ast(ast: &RequirementAst) -> ClassAst {
-    let mut classes = ast
+fn requirement_node_size(ast: &RequirementAst, id: &str, config: RequirementLayoutConfig) -> Size {
+    let lines = requirement_node_lines(ast, id);
+    let width = lines
+        .iter()
+        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .max()
+        .unwrap_or(config.min_node_width)
+        .max(config.min_node_width);
+    let body_rows = lines.len().saturating_sub(2);
+    Size {
+        width,
+        height: if body_rows == 0 {
+            4
+        } else {
+            body_rows as i32 + 5
+        },
+    }
+}
+
+fn positioned_requirement_node(
+    ast: &RequirementAst,
+    id: &str,
+    rect: Rect,
+    layer: usize,
+    order: usize,
+) -> PositionedRequirementNode {
+    if let Some(requirement) = ast
         .requirements
         .iter()
-        .map(requirement_node_to_class)
-        .chain(ast.elements.iter().map(requirement_element_to_class))
-        .collect::<Vec<_>>();
-    for relationship in &ast.relationships {
-        ensure_class_id(&mut classes, &relationship.from);
-        ensure_class_id(&mut classes, &relationship.to);
+        .find(|requirement| requirement.name.value == id)
+    {
+        return PositionedRequirementNode {
+            id: requirement.name.value.clone(),
+            kind: PositionedRequirementNodeKind::Requirement,
+            type_label: requirement_type_label(requirement.kind.value).to_owned(),
+            name: requirement.name.value.clone(),
+            rows: requirement_rows(requirement),
+            classes: requirement
+                .classes
+                .iter()
+                .map(|class| class.value.clone())
+                .collect(),
+            rect,
+            layer,
+            order,
+        };
     }
-    let relationships = ast
-        .relationships
+    if let Some(element) = ast.elements.iter().find(|element| element.name.value == id) {
+        return PositionedRequirementNode {
+            id: element.name.value.clone(),
+            kind: PositionedRequirementNodeKind::Element,
+            type_label: "Element".to_owned(),
+            name: element.name.value.clone(),
+            rows: element_rows(element),
+            classes: element
+                .classes
+                .iter()
+                .map(|class| class.value.clone())
+                .collect(),
+            rect,
+            layer,
+            order,
+        };
+    }
+    PositionedRequirementNode {
+        id: id.to_owned(),
+        kind: PositionedRequirementNodeKind::Element,
+        type_label: "Element".to_owned(),
+        name: id.to_owned(),
+        rows: Vec::new(),
+        classes: Vec::new(),
+        rect,
+        layer,
+        order,
+    }
+}
+
+fn requirement_node_lines(ast: &RequirementAst, id: &str) -> Vec<String> {
+    if let Some(requirement) = ast
+        .requirements
         .iter()
-        .map(|relationship| ClassRelationship {
-            from: relationship.from.clone(),
-            to: relationship.to.clone(),
-            line: ClassRelationshipLine::Solid,
-            start_marker: ClassRelationshipMarker::None,
-            end_marker: ClassRelationshipMarker::Arrow,
-            start_cardinality: None,
-            end_cardinality: None,
-            label: Some(label_from_text(
-                requirement_relationship_label(relationship.kind.value),
-                relationship.kind.span,
-            )),
-            span: relationship.span,
-        })
-        .collect();
-    ClassAst {
-        header: crate::ast::ClassHeader {
-            span: ast.header.span,
-        },
-        direction: ast.direction,
-        statements: Vec::new(),
-        classes,
-        relationships,
-        span: ast.span,
+        .find(|requirement| requirement.name.value == id)
+    {
+        let mut lines = vec![
+            format!("<<{}>>", requirement_type_label(requirement.kind.value)),
+            requirement.name.value.clone(),
+        ];
+        lines.extend(requirement_rows(requirement));
+        return lines;
     }
+    if let Some(element) = ast.elements.iter().find(|element| element.name.value == id) {
+        let mut lines = vec!["<<Element>>".to_owned(), element.name.value.clone()];
+        lines.extend(element_rows(element));
+        return lines;
+    }
+    vec!["<<Element>>".to_owned(), id.to_owned()]
 }
 
-fn requirement_node_to_class(node: &RequirementNode) -> ClassNode {
-    let mut members = Vec::new();
-    if let Some(id) = &node.requirement_id {
-        members.push(requirement_member("id", id.clone(), id.span));
+fn requirement_rows(requirement: &RequirementNode) -> Vec<String> {
+    let mut rows = Vec::new();
+    if let Some(id) = &requirement.requirement_id {
+        rows.push(format!("ID: {}", id.text));
     }
-    if let Some(text) = &node.text {
-        members.push(requirement_member("text", text.clone(), text.span));
+    if let Some(text) = &requirement.text {
+        rows.push(format!("Text: {}", text.text));
     }
-    if let Some(risk) = node.risk {
-        members.push(requirement_member(
-            "risk",
-            label_from_text(requirement_risk_label(risk.value), risk.span),
-            risk.span,
+    if let Some(risk) = requirement.risk {
+        rows.push(format!("Risk: {}", requirement_risk_label(risk.value)));
+    }
+    if let Some(verify_method) = requirement.verify_method {
+        rows.push(format!(
+            "Verification: {}",
+            requirement_verify_method_label(verify_method.value)
         ));
     }
-    if let Some(verify_method) = node.verify_method {
-        members.push(requirement_member(
-            "verify",
-            label_from_text(
-                requirement_verify_method_label(verify_method.value),
-                verify_method.span,
-            ),
-            verify_method.span,
-        ));
-    }
-    ClassNode {
-        id: node.name.clone(),
-        annotations: vec![label_from_text(
-            requirement_kind_annotation(node.kind.value),
-            node.kind.span,
-        )],
-        members,
-        span: node.span,
-    }
+    rows
 }
 
-fn requirement_element_to_class(element: &RequirementElement) -> ClassNode {
-    let mut members = Vec::new();
+fn element_rows(element: &RequirementElement) -> Vec<String> {
+    let mut rows = Vec::new();
     if let Some(ty) = &element.ty {
-        members.push(requirement_member("type", ty.clone(), ty.span));
+        rows.push(format!("Type: {}", ty.text));
     }
     if let Some(doc_ref) = &element.doc_ref {
-        members.push(requirement_member("docref", doc_ref.clone(), doc_ref.span));
+        rows.push(format!("Doc Ref: {}", doc_ref.text));
     }
-    ClassNode {
-        id: element.name.clone(),
-        annotations: vec![label_from_text("<<element>>", element.name.span)],
-        members,
-        span: element.span,
-    }
+    rows
 }
 
-fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
-    if classes.iter().any(|class| class.id.value == id.value) {
-        return;
-    }
-    classes.push(ClassNode {
-        id: id.clone(),
-        annotations: Vec::new(),
-        members: Vec::new(),
-        span: id.span,
-    });
-}
-
-fn requirement_member(name: &str, ty: Label, span: crate::ast::Span) -> ClassMember {
-    ClassMember {
-        visibility: None,
-        name: Spanned::new(name.to_owned(), span),
-        ty: Some(ty),
-        kind: ClassMemberKind::Field,
-        span,
-    }
-}
-
-fn label_from_text(text: impl Into<String>, span: crate::ast::Span) -> Label {
-    Label {
-        text: text.into(),
-        kind: LabelKind::Plain,
-        span,
-    }
-}
-
-fn requirement_kind_annotation(kind: RequirementKind) -> &'static str {
+fn requirement_type_label(kind: RequirementKind) -> &'static str {
     match kind {
-        RequirementKind::Requirement => "<<requirement>>",
-        RequirementKind::Functional => "<<functionalRequirement>>",
-        RequirementKind::Interface => "<<interfaceRequirement>>",
-        RequirementKind::Performance => "<<performanceRequirement>>",
-        RequirementKind::Physical => "<<physicalRequirement>>",
-        RequirementKind::DesignConstraint => "<<designConstraint>>",
+        RequirementKind::Requirement => "Requirement",
+        RequirementKind::Functional => "Functional Requirement",
+        RequirementKind::Interface => "Interface Requirement",
+        RequirementKind::Performance => "Performance Requirement",
+        RequirementKind::Physical => "Physical Requirement",
+        RequirementKind::DesignConstraint => "Design Constraint",
     }
 }
 
-fn requirement_risk_label(risk: crate::ast::RequirementRisk) -> &'static str {
+fn requirement_risk_label(risk: RequirementRisk) -> &'static str {
     match risk {
-        crate::ast::RequirementRisk::Low => "low",
-        crate::ast::RequirementRisk::Medium => "medium",
-        crate::ast::RequirementRisk::High => "high",
+        RequirementRisk::Low => "Low",
+        RequirementRisk::Medium => "Medium",
+        RequirementRisk::High => "High",
     }
 }
 
 fn requirement_verify_method_label(method: RequirementVerifyMethod) -> &'static str {
     match method {
-        RequirementVerifyMethod::Analysis => "analysis",
-        RequirementVerifyMethod::Inspection => "inspection",
-        RequirementVerifyMethod::Test => "test",
-        RequirementVerifyMethod::Demonstration => "demonstration",
+        RequirementVerifyMethod::Analysis => "Analysis",
+        RequirementVerifyMethod::Inspection => "Inspection",
+        RequirementVerifyMethod::Test => "Test",
+        RequirementVerifyMethod::Demonstration => "Demonstration",
     }
 }
 
@@ -1652,6 +1786,26 @@ fn requirement_relationship_label(kind: RequirementRelationshipKind) -> &'static
         RequirementRelationshipKind::Refines => "refines",
         RequirementRelationshipKind::Traces => "traces",
     }
+}
+
+fn label_from_text(text: impl Into<String>, span: crate::ast::Span) -> Label {
+    Label {
+        text: text.into(),
+        kind: LabelKind::Plain,
+        span,
+    }
+}
+
+fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
+    if classes.iter().any(|class| class.id.value == id.value) {
+        return;
+    }
+    classes.push(ClassNode {
+        id: id.clone(),
+        annotations: Vec::new(),
+        members: Vec::new(),
+        span: id.span,
+    });
 }
 
 impl C4LayoutEngine {
@@ -3907,8 +4061,51 @@ impl LayoutGraph {
         graph
     }
 
+    fn from_requirement_ast(ast: &RequirementAst) -> Self {
+        let mut graph = Self {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+        };
+        for requirement in &ast.requirements {
+            graph.push_unique_node(&requirement.name.value);
+        }
+        for element in &ast.elements {
+            graph.push_unique_node(&element.name.value);
+        }
+        for relationship in &ast.relationships {
+            graph.push_unique_node(&relationship.from.value);
+            graph.push_unique_node(&relationship.to.value);
+            let Some(from) = graph.node_index(&relationship.from.value) else {
+                continue;
+            };
+            let Some(to) = graph.node_index(&relationship.to.value) else {
+                continue;
+            };
+            graph.edges.push(LayoutGraphEdge {
+                from,
+                to,
+                arrow_start: ArrowHead::None,
+                arrow_end: ArrowHead::None,
+                min_length: 1,
+            });
+        }
+        graph
+    }
+
     fn node_index(&self, id: &str) -> Option<usize> {
         self.nodes.iter().position(|node| node.id == id)
+    }
+
+    fn push_unique_node(&mut self, id: &str) {
+        if self.nodes.iter().any(|node| node.id == id) {
+            return;
+        }
+        self.nodes.push(LayoutNode {
+            id: id.to_owned(),
+            label: id.to_owned(),
+            shape: FlowShape::Rectangle,
+        });
     }
 
     fn add_statement(&mut self, statement: &FlowStatement) {
@@ -4786,6 +4983,35 @@ fn layout_size_with_class_relationships(
             .flat_map(|relationship| relationship.points.iter().map(|point| point.y + 1))
             .fold(size.height, i32::max),
     }
+}
+
+fn layout_size_with_requirement_relationships(
+    size: Size,
+    relationships: &[PositionedRequirementRelationship],
+) -> Size {
+    Size {
+        width: relationships
+            .iter()
+            .flat_map(|relationship| {
+                relationship
+                    .points
+                    .iter()
+                    .map(|point| point.x + 1)
+                    .chain(relationship_label_width(relationship).into_iter())
+            })
+            .fold(size.width, i32::max),
+        height: relationships
+            .iter()
+            .flat_map(|relationship| relationship.points.iter().map(|point| point.y + 1))
+            .fold(size.height, i32::max),
+    }
+}
+
+fn relationship_label_width(relationship: &PositionedRequirementRelationship) -> Option<i32> {
+    let first = relationship.points.first()?;
+    let last = relationship.points.last()?;
+    let mid_x = (first.x + last.x) / 2;
+    Some(mid_x + relationship.label.chars().count() as i32 + 1)
 }
 
 fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) -> Size {

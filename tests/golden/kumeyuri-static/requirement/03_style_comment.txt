@@ -1,21 +1,21 @@
-+----------------------------------+
-|<<element>>                       |
-|test_elem                         |
-+----------------------------------+
-|type: test suite                  |
-|docref: github.com/all_the_tests  |
-+----------------------------------+
-                  |
-                  |
-                traces
-                    |
++-----------------------------------+
+|            <<Element>>            |
+|             test_elem             |
++-----------------------------------+
+|Type: test suite                   |
+|Doc Ref: github.com/all_the_tests  |
++-----------------------------------+
+                  ::+
+                    :
+              <<traces>>
+                    :
                     v
 +---------------------------------------+
-|<<requirement>>                        |
-|__test_req__                           |
+|            <<Requirement>>            |
+|             __test_req__              |
 +---------------------------------------+
-|id: REQ-3                              |
-|text: *italicized text* **bold text**  |
-|risk: low                              |
-|verify: analysis                       |
+|ID: REQ-3                              |
+|Text: *italicized text* **bold text**  |
+|Risk: Low                              |
+|Verification: Analysis                 |
 +---------------------------------------+

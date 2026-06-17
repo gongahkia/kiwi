@@ -1,8 +1,8 @@
 use crate::ast::{
     ArrowHead, C4Ast, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram,
     DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
-    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst,
-    SequenceControlKind, StateAst, TimelineAst,
+    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst,
+    RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
 };
 use crate::layout::{
     C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
@@ -10,10 +10,11 @@ use crate::layout::{
     JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
     PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
-    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceActivation, PositionedSequenceBox,
+    PositionedMindmapNode, PositionedPieSlice, PositionedRequirementNode,
+    PositionedRequirementRelationship, PositionedSequenceActivation, PositionedSequenceBox,
     PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote, Rect,
-    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
-    TimelineLayout, TimelineLayoutEngine,
+    RequirementLayout, RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine,
+    StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -496,7 +497,7 @@ impl StaticFrameRenderer {
 
     #[must_use]
     pub fn render_requirement(&self, ast: &RequirementAst) -> Frame {
-        render_class_layout(&self.requirement.layout(ast), self.palette, self.theme)
+        render_requirement_layout(&self.requirement.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -836,6 +837,40 @@ fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme
     }
     for node in &layout.nodes {
         draw_class_node(
+            &mut frame,
+            node,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+        );
+    }
+    frame
+}
+
+fn render_requirement_layout(
+    layout: &RequirementLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    for relationship in &layout.relationships {
+        draw_requirement_relationship(
+            &mut frame,
+            relationship,
+            palette,
+            edge_style.clone(),
+            text_style.clone(),
+        );
+    }
+    for node in &layout.nodes {
+        draw_requirement_node(
             &mut frame,
             node,
             palette,
@@ -1505,6 +1540,73 @@ fn draw_class_node(
     }
 }
 
+fn draw_requirement_node(
+    frame: &mut Frame,
+    node: &PositionedRequirementNode,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    fill_rect(frame, node.rect, ' ', box_style.clone());
+    draw_vertical(
+        frame,
+        node.rect.origin.x,
+        node.rect.origin.y,
+        node.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_vertical(
+        frame,
+        node.rect.right().saturating_sub(1),
+        node.rect.origin.y,
+        node.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+
+    let mut y = node.rect.origin.y;
+    draw_class_border(frame, node.rect, y, palette, box_style.clone());
+    y += 1;
+    write_requirement_centered(
+        frame,
+        node,
+        y,
+        &format!("<<{}>>", node.type_label),
+        text_style.clone(),
+    );
+    y += 1;
+    write_requirement_centered(frame, node, y, &node.name, text_style.clone());
+    y += 1;
+    if !node.rows.is_empty() {
+        draw_class_border(frame, node.rect, y, palette, box_style.clone());
+        y += 1;
+        for row in &node.rows {
+            write_text_safe(frame, node.rect.origin.x + 1, y, row, text_style.clone());
+            y += 1;
+        }
+    }
+    draw_class_border(
+        frame,
+        node.rect,
+        node.rect.bottom().saturating_sub(1),
+        palette,
+        box_style,
+    );
+}
+
+fn write_requirement_centered(
+    frame: &mut Frame,
+    node: &PositionedRequirementNode,
+    y: i32,
+    text: &str,
+    style: CellStyle,
+) {
+    let width = text.chars().count() as i32;
+    let x = node.rect.origin.x + ((node.rect.size.width - width) / 2).max(1);
+    write_text_safe(frame, x, y, text, style);
+}
+
 fn fill_rect(frame: &mut Frame, rect: Rect, glyph: char, style: CellStyle) {
     for y in rect.origin.y..rect.bottom() {
         draw_horizontal(
@@ -1591,6 +1693,62 @@ fn draw_class_relationship(
     {
         let x = point.x - (label.chars().count() as i32 / 2);
         write_text_safe(frame, x.max(0), point.y, label, text_style);
+    }
+}
+
+fn draw_requirement_relationship(
+    frame: &mut Frame,
+    relationship: &PositionedRequirementRelationship,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    let mut line_palette = palette;
+    if relationship.kind != RequirementRelationshipKind::Contains {
+        line_palette.horizontal = ':';
+        line_palette.vertical = ':';
+    }
+    draw_polyline(
+        frame,
+        &relationship.points,
+        line_palette,
+        edge_style.clone(),
+    );
+    if let Some(point) = class_relationship_label_point(&relationship.points) {
+        let width = relationship.label.chars().count() as i32;
+        let mut x = point.x - width / 2;
+        if let Some(first) = relationship.points.first()
+            && relationship.kind == RequirementRelationshipKind::Contains
+            && first.y == point.y
+            && (x..x + width).contains(&first.x)
+        {
+            x = first.x + 2;
+        }
+        if let Some(last) = relationship.points.last()
+            && relationship.kind != RequirementRelationshipKind::Contains
+            && last.y == point.y
+            && (x..x + width).contains(&last.x)
+        {
+            x = last.x - width - 2;
+        }
+        write_text_safe(frame, x.max(0), point.y, &relationship.label, text_style);
+    }
+    if let Some(first) = relationship.points.first().copied()
+        && relationship.kind == RequirementRelationshipKind::Contains
+    {
+        put_safe(frame, first.x, first.y, '⊕', edge_style.clone());
+    }
+    if let Some(last) = relationship.points.last().copied()
+        && relationship.kind != RequirementRelationshipKind::Contains
+    {
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            dominant_end_arrowhead_for_points(&relationship.points, palette)
+                .unwrap_or(palette.arrow_right),
+            edge_style.clone(),
+        );
     }
 }
 
