@@ -337,6 +337,36 @@ The renderer uses a fixed fishbone layout with an event head, spine, alternating
 root cause branches, and recursive cause boxes. Mermaid styling and future
 Ishikawa-specific config are not interpreted yet.
 
+## Wardley maps
+
+Header:
+
+```mermaid
+wardley-beta
+```
+
+Components, anchors, links, evolves, notes, annotations, forces, and evolution
+labels:
+
+```mermaid
+wardley-beta
+title Online Store
+anchor User [0.95,0.1]
+component Website [0.8,0.35] label [20,-10] (build)
+component API [0.6,0.55]
+component Database [0.35,0.7] (buy)
+User -> Website
+Website +> API; requests
+API -.-> Database
+evolve Database 0.82
+note "latency risk" [0.3,0.65]
+evolution Genesis->Custom Built->Product @0.6->Commodity
+```
+
+Coordinates must be `0..=1`. Pipeline blocks are accepted for simple component
+lists and rendered as flattened `parent/component` labels. Mermaid Wardley
+styling and exact browser geometry are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

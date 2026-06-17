@@ -2325,9 +2325,6 @@ fn render_wardley_layout(layout: &WardleyLayout, palette: GlyphPalette, theme: T
     for evolve in &layout.evolves {
         draw_wardley_evolve(&mut frame, evolve, edge_style.clone(), muted_style.clone());
     }
-    for text in &layout.texts {
-        draw_wardley_text(&mut frame, text, muted_style.clone());
-    }
     for component in &layout.components {
         draw_wardley_component(
             &mut frame,
@@ -2336,6 +2333,9 @@ fn render_wardley_layout(layout: &WardleyLayout, palette: GlyphPalette, theme: T
             text_style.clone(),
             muted_style.clone(),
         );
+    }
+    for text in &layout.texts {
+        draw_wardley_text(&mut frame, text, muted_style.clone());
     }
     if let Some(origin) = layout.annotations_origin {
         write_text_safe(&mut frame, origin.x, origin.y, "annotations", muted_style);

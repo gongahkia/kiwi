@@ -1,0 +1,29 @@
+                                          Platform Map
+
+
+
+     visible
+     :--------Customer--:-------------------:------------------:------------------+
+     :       @---       :                   :                  :                  |
+     :           ------ :                   :                  :                  |
+     :                 ------    App [build]:                  :                  |
+     :                  :    ---^==         :                  :                  |
+     :                  :          =====requests               :                  |
+     :                  :               =====   API [inertia]  :                  |
+     :                  :                   :==!.              :                  |
+     :                  :                   :    ...           :                  |
+     :                  :            App/Static Assets..    App/Checkout          |
+     :                  :           *       :           ...* Database [buy]       |
+     :                  :                   :              .<  :                  |
+     :                  :            accel: automation         :                  |
+     :                  :                   :                  :                  |
+     :                  :                   :               decel: legacy         |
+     :                  :                   :#: 1 replace      :                  |
+     :                  :                   :                  :      annotations |
+     :                  :                   :                  :                  |
+     :                  :                   :                  :                  |
+     :                  :                   :                  :                  |
+     :------------------:-------------------:------------------:------------------+
+
+     Genesis            Custom              Product            Commodity
+                                                                          evolved
