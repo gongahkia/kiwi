@@ -1,0 +1,38 @@
+{
+  "name": "@docusaurus/plugin-kumeyuri",
+  "version": "0.0.0",
+  "description": "Docusaurus plugin that injects the kumeyuri browser player.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/docusaurus-plugin-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@docusaurus/core": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@docusaurus/core": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/docusaurus-plugin-kumeyuri.test.mjs",
+    "prepack": "npm test"
+  }
+}

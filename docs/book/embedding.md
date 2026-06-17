@@ -142,5 +142,11 @@ Put generated assets in `static/diagrams/`:
 <img src="/diagrams/flow.svg" alt="Animated flow trace" />
 ```
 
-For live rendering, initialize `initKumeyuri` in a client-only component and use
-`<kumeyuri-diagram>` in MDX after that setup component is mounted.
+For live rendering, use `@docusaurus/plugin-kumeyuri` to inject the player
+module, then use `<kumeyuri-diagram>` in MDX:
+
+```js
+export default {
+  plugins: [["@docusaurus/plugin-kumeyuri", { scriptUrl: "/kumeyuri/player.js" }]],
+};
+```

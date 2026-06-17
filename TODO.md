@@ -151,7 +151,7 @@
 - [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
 - [x] Author mdBook preprocessor `mdbook-kumeyuri`
 - [x] Author Hugo shortcode `{{< kumeyuri >}}`
-- [ ] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
+- [x] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
 - [ ] Add Astro integration `@kumeyuri/astro`
 - [ ] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
 - [x] Track upstream Mermaid grammar changes; bump compat matrix per release in `docs/compat.md`
