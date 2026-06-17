@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/kumeyuri"
+    "packages/kumeyuri",
+    "packages/rehype-kumeyuri"
   ],
   "scripts": {
     "docs:build": "mdbook build",

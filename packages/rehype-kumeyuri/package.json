@@ -1,0 +1,30 @@
+{
+  "name": "rehype-kumeyuri",
+  "version": "0.0.0",
+  "description": "Rehype plugin that renders Mermaid code blocks with kumeyuri.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/rehype-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/rehype-kumeyuri.test.mjs",
+    "prepack": "npm test"
+  }
+}
