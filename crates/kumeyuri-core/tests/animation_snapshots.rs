@@ -117,7 +117,12 @@ const GITGRAPH_NAMES: [&str; 4] = [
     "04_branch_order_config",
 ];
 
-const TIMELINE_NAMES: [&str; 3] = ["01_basic", "02_sections", "03_directive_comment"];
+const TIMELINE_NAMES: [&str; 4] = [
+    "01_basic",
+    "02_sections",
+    "03_directive_comment",
+    "04_multievent_long_config",
+];
 
 #[test]
 fn animation_timeline_hashes_match() {

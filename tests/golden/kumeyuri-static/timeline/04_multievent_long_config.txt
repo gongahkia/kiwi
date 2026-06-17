@@ -1,0 +1,16 @@
+Configured Releases
+
+
+Alpha
+2024 Q1    2024 Q2 with long label
+  o-------------------o
+  | Design            | Launch release candidate
+  | Prototype         | Publish notes
+  | Validate
+
+
+Beta
+2024 Q3
+  o
+  | Harden
+  | Expand

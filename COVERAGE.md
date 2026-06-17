@@ -10,6 +10,7 @@ Sources:
 - Pie syntax details: https://mermaid.js.org/syntax/pie.html
 - User Journey syntax details: https://mermaid.js.org/syntax/userJourney.html
 - GitGraph syntax details: https://mermaid.js.org/syntax/gitgraph.html
+- Timeline syntax details: https://mermaid.js.org/syntax/timeline.html
 
 Local evidence:
 
@@ -77,7 +78,7 @@ several parsed semantics:
 | GitGraph Diagram | Partial | `gitGraph` with optional `LR`/`TB`/`BT`; `commit`, `branch`, `checkout`/`switch`, `merge`, `cherry-pick`, ids, tags, commit type, branch order, comments, directives. | Commit graph layout with branch order lanes. | Yes. | Trace. | Mermaid gitgraph theme/config directives are accepted but not interpreted; common kumeyuri options apply. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Config fields like `showBranches`, `mainBranchOrder`, and label rotation are semantic-only in fixtures. |
 | C4 Diagram | Static-only | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; title, people/systems/containers/components/db/queue variants, external variants, boundaries, deployment nodes, relationships, indexed relationships, style/layout calls. | Class-layout surface. | Yes. | Static frame. | Parses style/layout calls but does not render full Mermaid C4 geometry/style semantics. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | C4 boundaries/containers are approximate; style/layout calls are semantic-only. |
 | Mindmaps | Partial | `mindmap`; indentation tree, labels, selected shapes, icons, classes, comments, directives. | Tree layout. | Yes; limited shape glyph decoration. | Trace. | Common kumeyuri options only; Mermaid icon registration/config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | Full mindmap styling and icon fallback parity is not covered; classes are semantic-only. |
-| Timeline | Partial | `timeline`; title, sections, periods, events, comments, directives. | Timeline reveal layout. | Yes. | Trace. | Common kumeyuri options only; Mermaid timeline config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | Multi-event/long-label parity needs broader fixtures. |
+| Timeline | Partial | `timeline`; title, ordered sections, periods with multiple events, continuation events, empty section statements, comments, directives. | Timeline reveal layout. | Yes; empty sections without periods are parser-only and do not render visible section bands. | Trace. | Mermaid timeline theme/config directives are accepted but not interpreted; common kumeyuri options apply. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Mermaid `timeline TD` direction and color/theme variables are not rendered. |
 | ZenUML | None | Rejects `zenuml`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Sankey | None | Rejects `sankey`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | XY Chart | None | Rejects `xychart`/`xychart-beta`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |

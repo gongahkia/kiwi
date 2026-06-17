@@ -24,7 +24,7 @@ const FIXTURE_KINDS: [&str; 13] = [
     "requirement",
     "c4",
 ];
-const EXPECTED_FIXTURE_COUNT: usize = 93;
+const EXPECTED_FIXTURE_COUNT: usize = 94;
 
 #[test]
 fn static_fixtures_match_golden_outputs() {
