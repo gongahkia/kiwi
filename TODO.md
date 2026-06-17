@@ -162,7 +162,7 @@
 - [x] Sequence: add parity fixtures for actor menus, links, properties, participant ordering, multi-line notes, and message arrows without labels
 - [x] State: add parity fixtures for entry/exit descriptions, concurrent states, history states, notes over composite states, `choice`/`fork`/`join` rendering, and class styling
 - [x] State: implement Mermaid layout/look config parity for state diagrams or document each unsupported option with rejection tests
-- [ ] Class: add parity fixtures for namespaces, generics, annotations, callbacks/links, CSS class styling, two-way relations, lollipop interfaces, and member classifiers
+- [x] Class: add parity fixtures for namespaces, generics, annotations, callbacks/links, CSS class styling, two-way relations, lollipop interfaces, and member classifiers
 - [ ] Class: render relationship markers/cardinalities closer to Mermaid instead of class-layout approximations
 - [ ] ER: add parity fixtures for quoted entity/relationship labels, comments, aliases, attribute comments, composite/multivalue markers, and all cardinality variants
 - [ ] Gantt: replace schematic timeline rendering with date-aware scale, duration/dependency semantics, excludes/weekends, today marker, axis format, and tick interval parity
