@@ -7,7 +7,7 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 21] = [
+const SNAPSHOT_NAMES: [&str; 28] = [
     "01_single_node",
     "02_two_nodes_linked",
     "03_three_node_chain",
@@ -29,6 +29,13 @@ const SNAPSHOT_NAMES: [&str; 21] = [
     "19_directive_comment",
     "20_disconnected_roots",
     "21_classic_shapes",
+    "22_nested_subgraph_direction",
+    "23_external_subgraph_edges",
+    "24_self_loop",
+    "25_left_right_back_edge",
+    "26_long_labels",
+    "27_disconnected_clusters",
+    "28_dense_fan_in_out",
 ];
 
 #[test]
