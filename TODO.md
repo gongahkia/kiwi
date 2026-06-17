@@ -165,7 +165,7 @@
 - [x] Class: add parity fixtures for namespaces, generics, annotations, callbacks/links, CSS class styling, two-way relations, lollipop interfaces, and member classifiers
 - [x] Class: render relationship markers/cardinalities closer to Mermaid instead of class-layout approximations
 - [x] ER: add parity fixtures for quoted entity/relationship labels, comments, aliases, attribute comments, composite/multivalue markers, and all cardinality variants
-- [ ] Gantt: replace schematic timeline rendering with date-aware scale, duration/dependency semantics, excludes/weekends, today marker, axis format, and tick interval parity
+- [x] Gantt: replace schematic timeline rendering with date-aware scale, duration/dependency semantics, excludes/weekends, today marker, axis format, and tick interval parity
 - [ ] Pie: add percentage/value label parity, `showData` rendering, legend ordering, zero/negative value rejection tests, and theme/config fixtures
 - [ ] Journey: add actor color/style parity, section ordering, score bounds validation, and Mermaid theme/config fixtures
 - [ ] GitGraph: add fixtures for branch ordering, checkout/switch aliases, merge/cherry-pick options, commit tags/types, orientation, and theme/config parity

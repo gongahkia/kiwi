@@ -1,0 +1,10 @@
+gantt
+  title Working Days
+  dateFormat YYYY-MM-DD
+  axisFormat %m-%d
+  tickInterval 1day
+  excludes weekends
+  weekend saturday
+  section Work
+  Build :build, 2026-01-02, 3d
+  Followup :after build, 1d

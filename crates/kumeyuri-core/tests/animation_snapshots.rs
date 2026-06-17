@@ -87,10 +87,11 @@ const ER_NAMES: [&str; 3] = [
     "03_non_identifying",
 ];
 
-const GANTT_NAMES: [&str; 3] = [
+const GANTT_NAMES: [&str; 4] = [
     "01_basic_schedule",
     "02_sections_until",
     "03_config_comments",
+    "04_excludes_weekends",
 ];
 
 const PIE_NAMES: [&str; 3] = ["01_basic", "02_show_data", "03_comments_directive"];

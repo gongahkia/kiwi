@@ -7,10 +7,11 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 3] = [
+const SNAPSHOT_NAMES: [&str; 4] = [
     "01_basic_schedule",
     "02_sections_until",
     "03_config_comments",
+    "04_excludes_weekends",
 ];
 
 #[test]

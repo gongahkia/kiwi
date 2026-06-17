@@ -885,6 +885,7 @@ fn render_gantt_layout(layout: &GanttLayout, palette: GlyphPalette, theme: Theme
             text_style.clone(),
         );
     }
+    draw_gantt_excluded_days(&mut frame, layout, muted_style.clone());
     frame
 }
 
@@ -907,13 +908,26 @@ fn draw_gantt_axis(
         style.clone(),
     );
     put_safe(frame, left, axis_y, palette.crossing, style.clone());
-    put_safe(frame, right, axis_y, palette.crossing, style);
-    let min_label = layout.min_day.to_string();
-    let max_label = layout.max_day.to_string();
-    write_text_safe(frame, left, 0, &min_label, text_style.clone());
-    let max_x = (right - max_label.chars().count() as i32 + 1).max(0);
-    if max_x > left + min_label.chars().count() as i32 {
-        write_text_safe(frame, max_x, 0, &max_label, text_style);
+    put_safe(frame, right, axis_y, palette.crossing, style.clone());
+    for tick in &layout.ticks {
+        put_safe(frame, tick.x, axis_y, palette.crossing, style.clone());
+        let x = tick.x - (tick.label.chars().count() as i32 / 2);
+        write_text_safe(frame, x.max(0), 0, &tick.label, text_style.clone());
+    }
+    if let Some(today_x) = layout.today_x {
+        for y in axis_y + 1..layout.size.height {
+            put_safe(frame, today_x, y, '!', style.clone());
+        }
+    }
+}
+
+fn draw_gantt_excluded_days(frame: &mut Frame, layout: &GanttLayout, style: CellStyle) {
+    let left = gantt_chart_left(layout);
+    for day in &layout.excluded_days {
+        let x = left + (*day - layout.min_day) * layout.day_width;
+        for y in 2..layout.size.height {
+            put_safe(frame, x, y, ':', style.clone());
+        }
     }
 }
 
@@ -981,7 +995,7 @@ fn gantt_chart_left(layout: &GanttLayout) -> i32 {
     layout
         .tasks
         .iter()
-        .map(|task| task.rect.origin.x - (task.start - layout.min_day) * 2)
+        .map(|task| task.rect.origin.x - (task.start - layout.min_day) * layout.day_width)
         .min()
         .unwrap_or(18)
 }

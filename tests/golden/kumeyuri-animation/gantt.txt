@@ -1,3 +1,4 @@
-01_basic_schedule 66141ec6c088a2aa
-02_sections_until b9b781b4299f0dcc
-03_config_comments 897b16e325e553e8
+01_basic_schedule 3eaa5fdd3bb93256
+02_sections_until 99b58fe1ae062958
+03_config_comments 1721ca5d5a73ee2f
+04_excludes_weekends 873929e84ea42fe7

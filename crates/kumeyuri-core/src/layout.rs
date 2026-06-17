@@ -3,13 +3,13 @@ use crate::ast::{
     ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
     ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge,
     FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
-    FlowchartDirective, FlowchartHeader, GanttAst, GanttTask, GanttTaskTag, GitGraphAst,
-    GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label,
-    LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst, RequirementElement,
-    RequirementKind, RequirementNode, RequirementRelationshipKind, RequirementVerifyMethod,
-    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition, TimelineAst,
+    FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
+    GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
+    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst,
+    RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
+    RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox,
+    SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
+    Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -313,10 +313,21 @@ pub struct PositionedGanttTask {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGanttTick {
+    pub day: i32,
+    pub x: i32,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GanttLayout {
     pub title: Option<String>,
     pub sections: Vec<PositionedGanttSection>,
     pub tasks: Vec<PositionedGanttTask>,
+    pub ticks: Vec<PositionedGanttTick>,
+    pub excluded_days: Vec<i32>,
+    pub today_x: Option<i32>,
+    pub day_width: i32,
     pub min_day: i32,
     pub max_day: i32,
     pub size: Size,
@@ -1849,13 +1860,16 @@ impl GanttLayoutEngine {
 
     #[must_use]
     pub fn layout(&self, ast: &GanttAst) -> GanttLayout {
-        let scheduled = schedule_gantt_tasks(ast);
+        let schedule_config = gantt_schedule_config(ast);
+        let scheduled = schedule_gantt_tasks(ast, &schedule_config);
         let min_day = scheduled.iter().map(|task| task.start).min().unwrap_or(0);
         let max_day = scheduled
             .iter()
             .map(|task| task.end.max(task.start + 1))
             .max()
             .unwrap_or(min_day + 1);
+        let day_width =
+            gantt_effective_day_width(min_day, max_day, self.config.day_width, &schedule_config);
         let mut sections = Vec::new();
         let mut tasks = Vec::new();
         let mut y = self.config.top_padding;
@@ -1872,8 +1886,8 @@ impl GanttLayoutEngine {
                 }
                 current_section = task.section.clone();
             }
-            let x = self.config.left_width + (task.start - min_day) * self.config.day_width;
-            let width = ((task.end - task.start).max(1) * self.config.day_width).max(1);
+            let x = self.config.left_width + (task.start - min_day) * day_width;
+            let width = ((task.end - task.start).max(1) * day_width).max(1);
             tasks.push(PositionedGanttTask {
                 id: task.id,
                 title: task.title,
@@ -1890,21 +1904,46 @@ impl GanttLayoutEngine {
             y += self.config.row_height;
         }
 
+        let ticks = gantt_axis_ticks(
+            min_day,
+            max_day,
+            self.config.left_width,
+            day_width,
+            &schedule_config,
+        );
+        let excluded_days = (min_day..max_day)
+            .filter(|day| is_gantt_excluded_day(*day, &schedule_config))
+            .collect::<Vec<_>>();
+        let today_x = schedule_config
+            .today_marker
+            .then(|| gantt_today_day())
+            .flatten()
+            .and_then(|today| {
+                (min_day..=max_day)
+                    .contains(&today)
+                    .then(|| self.config.left_width + (today - min_day) * day_width)
+            });
         let title_width = ast
             .title
             .as_ref()
             .map_or(0, |title| title.text.chars().count() as i32);
+        let tick_width = ticks.iter().fold(0, |width, tick| {
+            width.max(tick.x + tick.label.chars().count() as i32 + 1)
+        });
         GanttLayout {
             title: ast.title.as_ref().map(|title| title.text.clone()),
             sections,
             tasks,
+            ticks,
+            excluded_days,
+            today_x,
+            day_width,
             min_day,
             max_day,
             size: Size {
-                width: (self.config.left_width
-                    + (max_day - min_day).max(1) * self.config.day_width
-                    + 2)
-                .max(title_width),
+                width: (self.config.left_width + (max_day - min_day).max(1) * day_width + 2)
+                    .max(title_width)
+                    .max(tick_width),
                 height: y.max(self.config.top_padding + 1),
             },
         }
@@ -1921,11 +1960,22 @@ struct ScheduledGanttTask {
     end: i32,
 }
 
-fn schedule_gantt_tasks(ast: &GanttAst) -> Vec<ScheduledGanttTask> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GanttScheduleConfig {
+    axis_format: String,
+    tick_interval_days: Option<i32>,
+    excludes_weekends: bool,
+    excluded_weekdays: Vec<i32>,
+    excluded_dates: Vec<i32>,
+    weekend_start: i32,
+    today_marker: bool,
+}
+
+fn schedule_gantt_tasks(ast: &GanttAst, config: &GanttScheduleConfig) -> Vec<ScheduledGanttTask> {
     let mut scheduled = Vec::new();
     let mut previous_end = 0;
     for task in &ast.tasks {
-        let (start, end) = resolve_gantt_task(task, previous_end, &scheduled);
+        let (start, end) = resolve_gantt_task(task, previous_end, &scheduled, config);
         previous_end = end;
         scheduled.push(ScheduledGanttTask {
             id: task.id.as_ref().map(|id| id.value.clone()),
@@ -1943,7 +1993,7 @@ fn schedule_gantt_tasks(ast: &GanttAst) -> Vec<ScheduledGanttTask> {
                 .checked_sub(1)
                 .and_then(|previous| scheduled.get(previous))
                 .map_or(0, |task| task.end);
-            let (start, end) = resolve_gantt_task(task, previous_end, &scheduled);
+            let (start, end) = resolve_gantt_task(task, previous_end, &scheduled, config);
             if scheduled[index].start != start || scheduled[index].end != end {
                 scheduled[index].start = start;
                 scheduled[index].end = end;
@@ -1961,6 +2011,7 @@ fn resolve_gantt_task(
     task: &GanttTask,
     previous_end: i32,
     scheduled: &[ScheduledGanttTask],
+    config: &GanttScheduleConfig,
 ) -> (i32, i32) {
     let metadata = task
         .metadata
@@ -1972,7 +2023,7 @@ fn resolve_gantt_task(
         [start, end, ..] => (resolve_gantt_start(start, previous_end, scheduled), *end),
         [] => (previous_end, "1d"),
     };
-    let end = resolve_gantt_end(end_spec, start, scheduled);
+    let end = resolve_gantt_end(end_spec, start, scheduled, config);
     let min_span = if is_gantt_milestone(task) { 1 } else { 0 };
     (start, end.max(start + min_span))
 }
@@ -1992,12 +2043,17 @@ fn resolve_gantt_start(value: &str, previous_end: i32, scheduled: &[ScheduledGan
     gantt_date_day(value).unwrap_or(previous_end)
 }
 
-fn resolve_gantt_end(value: &str, start: i32, scheduled: &[ScheduledGanttTask]) -> i32 {
+fn resolve_gantt_end(
+    value: &str,
+    start: i32,
+    scheduled: &[ScheduledGanttTask],
+    config: &GanttScheduleConfig,
+) -> i32 {
     if let Some(id) = value.strip_prefix("until ") {
         return gantt_task_by_id(scheduled, id.trim()).map_or(start, |task| task.start);
     }
     if let Some(duration) = gantt_duration_days(value) {
-        return start + duration.max(0);
+        return add_gantt_duration_days(start, duration.max(0), config);
     }
     gantt_date_day(value).unwrap_or(start + 1)
 }
@@ -2036,6 +2092,260 @@ fn gantt_date_day(value: &str) -> Option<i32> {
     let day = parts.next()?.parse::<i32>().ok()?;
     (parts.next().is_none() && (1..=12).contains(&month) && (1..=31).contains(&day))
         .then(|| days_from_civil(year, month, day))
+}
+
+fn add_gantt_duration_days(start: i32, duration: i32, config: &GanttScheduleConfig) -> i32 {
+    let mut day = start;
+    let mut remaining = duration;
+    while remaining > 0 {
+        if !is_gantt_excluded_day(day, config) {
+            remaining -= 1;
+        }
+        day += 1;
+    }
+    day
+}
+
+fn is_gantt_excluded_day(day: i32, config: &GanttScheduleConfig) -> bool {
+    config.excluded_dates.contains(&day)
+        || config.excluded_weekdays.contains(&weekday_from_day(day))
+        || (config.excludes_weekends && is_gantt_weekend(day, config.weekend_start))
+}
+
+fn is_gantt_weekend(day: i32, weekend_start: i32) -> bool {
+    let weekday = weekday_from_day(day);
+    weekday == weekend_start || weekday == (weekend_start + 1).rem_euclid(7)
+}
+
+fn weekday_from_day(day: i32) -> i32 {
+    (day + 4).rem_euclid(7)
+}
+
+fn gantt_schedule_config(ast: &GanttAst) -> GanttScheduleConfig {
+    let mut config = GanttScheduleConfig {
+        axis_format: ast
+            .axis_format
+            .as_ref()
+            .map_or_else(|| "%Y-%m-%d".to_owned(), |format| format.value.clone()),
+        tick_interval_days: None,
+        excludes_weekends: false,
+        excluded_weekdays: Vec::new(),
+        excluded_dates: Vec::new(),
+        weekend_start: 6,
+        today_marker: true,
+    };
+    for statement in &ast.statements {
+        let GanttStatement::Config(statement) = statement else {
+            continue;
+        };
+        let value = statement.value.as_ref().map(|value| value.text.as_str());
+        match statement.key.value.as_str() {
+            "excludes" => {
+                if let Some(value) = value {
+                    push_gantt_excludes(value, &mut config);
+                }
+            }
+            "weekend" => {
+                if let Some(value) = value.and_then(gantt_weekday_index) {
+                    config.weekend_start = value;
+                }
+            }
+            "tickInterval" => {
+                config.tick_interval_days = value.and_then(gantt_tick_interval_days);
+            }
+            "todayMarker" => {
+                config.today_marker = value != Some("off");
+            }
+            _ => {}
+        }
+    }
+    config
+}
+
+fn push_gantt_excludes(value: &str, config: &mut GanttScheduleConfig) {
+    for token in value.split_ascii_whitespace() {
+        if token == "weekends" {
+            config.excludes_weekends = true;
+        } else if let Some(weekday) = gantt_weekday_index(token) {
+            push_unique_i32(&mut config.excluded_weekdays, weekday);
+        } else if let Some(day) = gantt_date_day(token) {
+            push_unique_i32(&mut config.excluded_dates, day);
+        }
+    }
+}
+
+fn push_unique_i32(values: &mut Vec<i32>, value: i32) {
+    if !values.contains(&value) {
+        values.push(value);
+    }
+}
+
+fn gantt_weekday_index(value: &str) -> Option<i32> {
+    match value.to_ascii_lowercase().as_str() {
+        "sunday" => Some(0),
+        "monday" => Some(1),
+        "tuesday" => Some(2),
+        "wednesday" => Some(3),
+        "thursday" => Some(4),
+        "friday" => Some(5),
+        "saturday" => Some(6),
+        _ => None,
+    }
+}
+
+fn gantt_tick_interval_days(value: &str) -> Option<i32> {
+    let suffix_start = value
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(value.len());
+    if suffix_start == 0 || suffix_start == value.len() {
+        return None;
+    }
+    let amount = value[..suffix_start].parse::<i32>().ok()?;
+    let unit = &value[suffix_start..];
+    let days = match unit {
+        "day" | "days" => amount,
+        "week" | "weeks" => amount * 7,
+        "month" | "months" => amount * 30,
+        _ => return None,
+    };
+    Some(days.max(1))
+}
+
+fn gantt_axis_ticks(
+    min_day: i32,
+    max_day: i32,
+    left_width: i32,
+    day_width: i32,
+    config: &GanttScheduleConfig,
+) -> Vec<PositionedGanttTick> {
+    let tick_days = if let Some(interval) = config.tick_interval_days {
+        let mut days = Vec::new();
+        let mut day = min_day;
+        while day <= max_day {
+            days.push(day);
+            day += interval;
+        }
+        if days.last().copied() != Some(max_day) {
+            days.push(max_day);
+        }
+        days
+    } else if min_day == max_day {
+        vec![min_day]
+    } else {
+        vec![min_day, max_day]
+    };
+
+    tick_days
+        .into_iter()
+        .map(|day| PositionedGanttTick {
+            day,
+            x: left_width + (day - min_day) * day_width,
+            label: format_gantt_axis_day(day, &config.axis_format),
+        })
+        .collect()
+}
+
+fn gantt_effective_day_width(
+    min_day: i32,
+    max_day: i32,
+    base_width: i32,
+    config: &GanttScheduleConfig,
+) -> i32 {
+    let Some(interval) = config.tick_interval_days else {
+        return base_width;
+    };
+    let label_width = [min_day, max_day]
+        .into_iter()
+        .map(|day| {
+            format_gantt_axis_day(day, &config.axis_format)
+                .chars()
+                .count() as i32
+        })
+        .max()
+        .unwrap_or(0);
+    let needed = (label_width + 1 + interval - 1) / interval;
+
+    base_width.max(needed)
+}
+
+fn format_gantt_axis_day(day: i32, format: &str) -> String {
+    let (year, month, month_day) = civil_from_days(day);
+    let weekday = weekday_from_day(day) as usize;
+    let mut output = String::new();
+    let mut chars = format.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            output.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('%') => output.push('%'),
+            Some('Y') => output.push_str(&format!("{year:04}")),
+            Some('y') => output.push_str(&format!("{:02}", year.rem_euclid(100))),
+            Some('m') => output.push_str(&format!("{month:02}")),
+            Some('d') => output.push_str(&format!("{month_day:02}")),
+            Some('e') => output.push_str(&format!("{month_day:>2}")),
+            Some('b') => output.push_str(GANTT_MONTH_SHORT[(month - 1) as usize]),
+            Some('B') => output.push_str(GANTT_MONTH_LONG[(month - 1) as usize]),
+            Some('a') => output.push_str(GANTT_WEEKDAY_SHORT[weekday]),
+            Some('A') => output.push_str(GANTT_WEEKDAY_LONG[weekday]),
+            Some(other) => {
+                output.push('%');
+                output.push(other);
+            }
+            None => output.push('%'),
+        }
+    }
+    output
+}
+
+const GANTT_MONTH_SHORT: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+const GANTT_MONTH_LONG: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+const GANTT_WEEKDAY_SHORT: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const GANTT_WEEKDAY_LONG: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+
+fn civil_from_days(days: i32) -> (i32, i32, i32) {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let doe = days - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    let year = year + i32::from(month <= 2);
+    (year, month, day)
+}
+
+fn gantt_today_day() -> Option<i32> {
+    let duration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
+    Some((duration.as_secs() / 86_400) as i32)
 }
 
 fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
