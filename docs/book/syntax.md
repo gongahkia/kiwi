@@ -127,6 +127,32 @@ Supported block-arrow directions are `left`, `right`, `up`, `down`, `x`, and
 `y`. CSS styles and classes are parsed and stored but are not mapped to terminal
 colors yet.
 
+## Packet diagrams
+
+Header:
+
+```mermaid
+packet
+packet-beta
+```
+
+Fields use explicit bit positions or a `+count` shorthand that starts after the
+previous field:
+
+```mermaid
+packet
+title UDP Packet
++16: "Source Port" %% automatic 0-15
++16: "Destination Port"
+32-47: "Length"
+48-63: "Checksum"
+64-95: "Data (variable length)"
+```
+
+Single-bit fields are accepted with `106: "URG"`. Ranges where the end bit is
+less than the start bit are rejected. Packet rendering is a fixed 32-bit row
+table; Mermaid packet config fields are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

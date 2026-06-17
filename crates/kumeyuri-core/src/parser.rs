@@ -13,21 +13,22 @@ use crate::ast::{
     GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
     GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
     MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
-    MindmapStatement, PieAst, PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement,
-    QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection,
-    QuadrantStatement, RequirementAst, RequirementElement, RequirementHeader, RequirementKind,
-    RequirementNode, RequirementRelationship, RequirementRelationshipKind, RequirementRisk,
-    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader,
-    SankeyLink, SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
-    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
-    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
-    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
-    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement, XyChartAst, XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader,
-    XyChartOrientation, XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst,
-    ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind,
-    ZenUmlParticipant, ZenUmlStatement,
+    MindmapStatement, PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst,
+    PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
+    QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement,
+    RequirementAst, RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
+    RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
+    RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader, SankeyLink,
+    SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst, SequenceAutoNumber,
+    SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate, SequenceDestroy,
+    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
+    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
+    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
+    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, XyChartAst,
+    XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader, XyChartOrientation,
+    XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst, ZenUmlFragment,
+    ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant,
+    ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +118,10 @@ pub enum ParseErrorKind {
     UnknownBlockStatement,
     ExpectedBlockNode,
     ExpectedBlockEdge,
+    ExpectedPacketHeader,
+    UnknownPacketStatement,
+    ExpectedPacketField,
+    ExpectedPacketRange,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -208,6 +213,10 @@ impl Parser {
 
     pub fn parse_block_diagram(source: &str) -> Result<BlockDiagramAst, ParseError> {
         DiagramParser::new(source).parse_block_only()
+    }
+
+    pub fn parse_packet(source: &str) -> Result<PacketAst, ParseError> {
+        DiagramParser::new(source).parse_packet_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -369,6 +378,14 @@ impl Parser {
         BlockHeaderParser::new(source).parse()
     }
 
+    pub fn parse_packet_header(source: &str) -> Result<PacketHeader, ParseError> {
+        PacketHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_packet_statement(source: &str) -> Result<PacketStatement, ParseError> {
+        PacketStatementParser::new(source, 0).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -501,6 +518,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_block_body(shift_block_header(block_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Block(Box::new(ast))));
+        }
+        if let Ok(packet_header) = Parser::parse_packet_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_packet_body(shift_packet_header(packet_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Packet(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -690,6 +712,18 @@ impl<'source> DiagramParser<'source> {
         let block_header = Parser::parse_block_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_block_body(shift_block_header(block_header, header.start))
+    }
+
+    fn parse_packet_only(mut self) -> Result<PacketAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedPacketHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let packet_header = Parser::parse_packet_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_packet_body(shift_packet_header(packet_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1351,6 +1385,34 @@ impl<'source> DiagramParser<'source> {
         Ok(statements)
     }
 
+    fn parse_packet_body(&mut self, header: PacketHeader) -> Result<PacketAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = PacketAst {
+            header,
+            title: None,
+            fields: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut next_bit = 0u32;
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_packet_statement(
+                PacketStatementParser::new(line.text, next_bit)
+                    .parse()
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            if let PacketStatement::Field(field) = &statement {
+                next_bit = field.range.end.value.saturating_add(1);
+            }
+            push_packet_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
         let span_start = header.span.start;
         let mut parsed = Vec::<ParsedMindmapNode>::new();
@@ -1995,6 +2057,15 @@ fn push_block_statement(ast: &mut BlockDiagramAst, statement: BlockStatement) {
         | BlockStatement::Comment(_)
         | BlockStatement::Directive(_) => {}
     }
+}
+
+fn push_packet_statement(ast: &mut PacketAst, statement: PacketStatement) {
+    match &statement {
+        PacketStatement::Title(title) => ast.title = Some(title.clone()),
+        PacketStatement::Field(field) => ast.fields.push((**field).clone()),
+        PacketStatement::Comment(_) | PacketStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
 }
 
 fn upsert_block_node(nodes: &mut Vec<BlockNode>, node: BlockNode) {
@@ -3778,6 +3849,36 @@ impl<'source> BlockHeaderParser<'source> {
     }
 }
 
+struct PacketHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> PacketHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<PacketHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPacketHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if !matches!(&self.source[start..end], "packet" | "packet-beta") {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPacketHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(PacketHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -4455,6 +4556,52 @@ impl<'source> XyChartStatementParser<'source> {
             kind: ParseErrorKind::UnknownXyChartStatement,
             span: Span::new(start, end),
         })
+    }
+}
+
+struct PacketStatementParser<'source> {
+    source: &'source str,
+    next_bit: u32,
+}
+
+impl<'source> PacketStatementParser<'source> {
+    fn new(source: &'source str, next_bit: u32) -> Self {
+        Self {
+            source: first_line(source),
+            next_bit,
+        }
+    }
+
+    fn parse(&self) -> Result<PacketStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownPacketStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(PacketStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(PacketStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownPacketStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(PacketStatement::Title(label));
+        }
+        Ok(PacketStatement::Field(Box::new(parse_packet_field(
+            self.source,
+            start,
+            end,
+            self.next_bit,
+        )?)))
     }
 }
 
@@ -7198,6 +7345,149 @@ fn parse_quadrant_value(
     ))
 }
 
+fn parse_packet_field(
+    source: &str,
+    start: usize,
+    end: usize,
+    next_bit: u32,
+) -> Result<PacketField, ParseError> {
+    let end = packet_statement_content_end(source, start, end);
+    let Some(colon) = source[start..end].find(':').map(|offset| start + offset) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPacketField,
+            span: Span::new(start, end),
+        });
+    };
+    let range = parse_packet_range(source, start, colon, next_bit)?;
+    let label = label_from_trimmed(source, colon + 1, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedPacketField,
+        span: Span::new(colon + 1, end),
+    })?;
+    Ok(PacketField {
+        range,
+        label,
+        span: Span::new(start, end),
+    })
+}
+
+fn packet_statement_content_end(source: &str, start: usize, end: usize) -> usize {
+    let mut content_end = find_packet_inline_comment(source, start, end).unwrap_or(end);
+    while content_end > start && source.as_bytes()[content_end - 1].is_ascii_whitespace() {
+        content_end -= 1;
+    }
+    if source.as_bytes().get(content_end.saturating_sub(1)) == Some(&b';') {
+        content_end -= 1;
+        while content_end > start && source.as_bytes()[content_end - 1].is_ascii_whitespace() {
+            content_end -= 1;
+        }
+    }
+    content_end
+}
+
+fn find_packet_inline_comment(source: &str, start: usize, end: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut cursor = start;
+    let mut quote = false;
+    while cursor + 1 < end {
+        match bytes[cursor] {
+            b'"' if cursor == start || bytes.get(cursor.wrapping_sub(1)) != Some(&b'\\') => {
+                quote = !quote;
+            }
+            b'%' if !quote && bytes[cursor + 1] == b'%' => return Some(cursor),
+            _ => {}
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn parse_packet_range(
+    source: &str,
+    start: usize,
+    end: usize,
+    next_bit: u32,
+) -> Result<PacketRange, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPacketRange,
+            span: Span::new(start, end),
+        });
+    };
+    let range_start = start + trim_start;
+    let range_end = start + trim_end;
+    if source.as_bytes()[range_start] == b'+' {
+        let count = parse_packet_bit_number(source, range_start + 1, range_end)?;
+        if count.value == 0 {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPacketRange,
+                span: Span::new(range_start, range_end),
+            });
+        }
+        let end_bit = next_bit.checked_add(count.value - 1).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedPacketRange,
+            span: Span::new(range_start, range_end),
+        })?;
+        return Ok(PacketRange {
+            start: Spanned::new(next_bit, Span::new(range_start, range_end)),
+            end: Spanned::new(end_bit, count.span),
+            span: Span::new(range_start, range_end),
+        });
+    }
+    if let Some(dash) = source[range_start..range_end].find('-') {
+        let dash = range_start + dash;
+        let start_bit = parse_packet_bit_number(source, range_start, dash)?;
+        let end_bit = parse_packet_bit_number(source, dash + 1, range_end)?;
+        if end_bit.value < start_bit.value {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedPacketRange,
+                span: Span::new(range_start, range_end),
+            });
+        }
+        return Ok(PacketRange {
+            start: start_bit,
+            end: end_bit,
+            span: Span::new(range_start, range_end),
+        });
+    }
+    let bit = parse_packet_bit_number(source, range_start, range_end)?;
+    Ok(PacketRange {
+        start: bit,
+        end: bit,
+        span: Span::new(range_start, range_end),
+    })
+}
+
+fn parse_packet_bit_number(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<u32>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPacketRange,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    if !source.as_bytes()[absolute_start..absolute_end]
+        .iter()
+        .all(u8::is_ascii_digit)
+    {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedPacketRange,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    let value = source[absolute_start..absolute_end]
+        .parse::<u32>()
+        .map_err(|_| ParseError {
+            kind: ParseErrorKind::ExpectedPacketRange,
+            span: Span::new(absolute_start, absolute_end),
+        })?;
+    Ok(Spanned::new(value, Span::new(absolute_start, absolute_end)))
+}
+
 fn parse_sankey_link(source: &str, start: usize, end: usize) -> Result<SankeyLink, ParseError> {
     let fields = parse_sankey_csv_fields(source, start, end)?;
     let [source_field, target_field, value_field] = fields.as_slice() else {
@@ -9898,6 +10188,39 @@ fn shift_block_style(style: BlockStyle, offset: usize) -> BlockStyle {
     }
 }
 
+fn shift_packet_header(header: PacketHeader, offset: usize) -> PacketHeader {
+    PacketHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_packet_statement(statement: PacketStatement, offset: usize) -> PacketStatement {
+    match statement {
+        PacketStatement::Title(title) => PacketStatement::Title(shift_label(title, offset)),
+        PacketStatement::Field(field) => {
+            PacketStatement::Field(Box::new(shift_packet_field(*field, offset)))
+        }
+        PacketStatement::Comment(comment) => {
+            PacketStatement::Comment(shift_comment(comment, offset))
+        }
+        PacketStatement::Directive(directive) => {
+            PacketStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_packet_field(field: PacketField, offset: usize) -> PacketField {
+    PacketField {
+        range: PacketRange {
+            start: shift_spanned(field.range.start, offset),
+            end: shift_spanned(field.range.end, offset),
+            span: shift_span(field.range.span, offset),
+        },
+        label: shift_label(field.label, offset),
+        span: shift_span(field.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -11067,6 +11390,29 @@ mod tests {
     }
 
     #[test]
+    fn parses_packet_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "packet\ntitle UDP Packet\n+16: \"Source Port\" %% inline\n+16: \"Destination Port\"\n32-47: \"Length\"\n48: \"Flag\"",
+        )
+        .unwrap();
+
+        let DiagramKind::Packet(ast) = diagram.kind else {
+            panic!("expected Packet diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "UDP Packet");
+        assert_eq!(ast.fields.len(), 4);
+        assert_eq!(ast.fields[0].range.start.value, 0);
+        assert_eq!(ast.fields[0].range.end.value, 15);
+        assert_eq!(ast.fields[1].range.start.value, 16);
+        assert_eq!(ast.fields[1].range.end.value, 31);
+        assert_eq!(ast.fields[2].range.start.value, 32);
+        assert_eq!(ast.fields[2].range.end.value, 47);
+        assert_eq!(ast.fields[3].range.start.value, 48);
+        assert_eq!(ast.fields[3].range.end.value, 48);
+        assert_eq!(ast.fields[0].label.text, "Source Port");
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -11165,7 +11511,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Packet", "packet"),
             ("Kanban", "kanban"),
             ("Architecture", "architecture-beta"),
             ("Radar", "radar-beta"),

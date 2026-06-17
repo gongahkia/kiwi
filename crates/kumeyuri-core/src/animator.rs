@@ -2,9 +2,9 @@ use crate::ast::{
     BlockStatement, C4Statement, ClassAst, ClassStatement, Diagram, DiagramKind, ErAst,
     ErStatement, FlowStatement, FlowchartAst, GanttAst, GanttStatement, GitGraphAst,
     GitGraphStatement, JourneyAst, JourneyStatement, MermaidDirective, MindmapAst,
-    MindmapStatement, PieAst, PieStatement, QuadrantStatement, RequirementStatement,
-    SankeyStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
-    TimelineStatement, XyChartStatement, ZenUmlStatement,
+    MindmapStatement, PacketStatement, PieAst, PieStatement, QuadrantStatement,
+    RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement, StateAst,
+    StateStatement, TimelineAst, TimelineStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -168,6 +168,7 @@ impl Animator {
             (DiagramKind::Sankey(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::XyChart(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Block(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Packet(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -291,6 +292,11 @@ impl AnimationConfig {
                     apply_block_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Packet(ast) => {
+                for statement in &ast.statements {
+                    apply_packet_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -405,6 +411,7 @@ pub enum AnimationDiagramKind {
     Sankey,
     XyChart,
     Block,
+    Packet,
     Mindmap,
     Journey,
     GitGraph,
@@ -428,6 +435,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Sankey(_) => Self::Sankey,
             DiagramKind::XyChart(_) => Self::XyChart,
             DiagramKind::Block(_) => Self::Block,
+            DiagramKind::Packet(_) => Self::Packet,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -703,6 +711,21 @@ fn apply_block_animation_directives(
     Ok(())
 }
 
+fn apply_packet_animation_directives(
+    statement: &PacketStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        PacketStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        PacketStatement::Title(_) | PacketStatement::Field(_) | PacketStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -930,6 +953,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Sankey(_) => AnimationMode::None,
         DiagramKind::XyChart(_) => AnimationMode::None,
         DiagramKind::Block(_) => AnimationMode::None,
+        DiagramKind::Packet(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -960,6 +984,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Sankey(_) => Duration::from_millis(700),
         DiagramKind::XyChart(_) => Duration::from_millis(700),
         DiagramKind::Block(_) => Duration::from_millis(700),
+        DiagramKind::Packet(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

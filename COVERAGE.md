@@ -13,6 +13,7 @@ Sources:
 - Sankey syntax details: https://mermaid.js.org/syntax/sankey.html
 - XY Chart syntax details: https://mermaid.js.org/syntax/xyChart.html
 - Block Diagram syntax details: https://mermaid.js.org/syntax/block.html
+- Packet syntax details: https://mermaid.js.org/syntax/packet.html
 - User Journey syntax details: https://mermaid.js.org/syntax/userJourney.html
 - GitGraph syntax details: https://mermaid.js.org/syntax/gitgraph.html
 - Timeline syntax details: https://mermaid.js.org/syntax/timeline.html
@@ -89,7 +90,7 @@ several parsed semantics:
 | Sankey | Static-only | `sankey`/`sankey-beta`; CSV rows as `source,target,value`, quoted source/target fields, positive numeric values, comments, directives. | Layered flow layout with node boxes and routed links. | Yes; link labels show raw values. | Static frame. | Common kumeyuri options only; Mermaid Sankey config/color behavior is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Link widths/colors are not proportional to values; renderer is schematic text-flow. |
 | XY Chart | Static-only | `xychart`/`xychart-beta`; optional orientation token, title, x/y axis titles, category/range axes, `bar` and `line` numeric series, comments, directives. | Fixed plot layout with axis labels, bars, and line points. | Yes. | Static frame. | Common kumeyuri options only; Mermaid chart config, chart dimensions, and orientation-specific layout are not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | `horizontal` is parsed but currently rendered with the same vertical text plot. |
 | Block Diagram | Static-only | `block`; root/header `columns`, block nodes with classic flowchart shapes, `space`/`space:n`, width suffixes, nested `block` containers, block arrows, links, `style`, `classDef`, `class`, comments, directives. | Source-order grid layout with column wrapping, width spans, nested container boxes, and routed links. | Yes. | Static frame. | Common kumeyuri options only; Mermaid block CSS/theme/config behavior is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Schematic text layout; styles/classes are semantic-only and block arrow geometry is approximate. |
-| Packet | None | Rejects `packet`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
+| Packet | Static-only | `packet`/`packet-beta`; `title`, explicit single-bit/range fields, `+count` auto-ranges, inline field comments, whole-line comments, directives. | Fixed 32-bit row packet table with fields split across row boundaries. | Yes. | Static frame. | Common kumeyuri options only; Mermaid packet config (`rowHeight`, `bitWidth`, `bitsPerRow`, `showBits`, padding) is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Schematic text layout; packet color/class proposals are not implemented. |
 | Kanban | None | Rejects `kanban`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Architecture | None | Rejects `architecture-beta`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Radar | None | Rejects `radar-beta`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |

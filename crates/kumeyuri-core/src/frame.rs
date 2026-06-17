@@ -2,26 +2,26 @@ use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
     FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst, RequirementRelationshipKind,
-    SankeyAst, SequenceAst, SequenceControlKind, StateAst, TimelineAst, XyChartAst,
-    XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RequirementAst,
+    RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
+    TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     BlockLayout, BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine,
     ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout, GanttLayoutEngine, GitGraphLayout,
     GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine,
-    PieLayout, PieLayoutEngine, Point, PositionedBlockEdge, PositionedBlockNode,
-    PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode, PositionedFlowSubgraph,
-    PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode,
-    PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
-    PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
-    PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
-    PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
-    QuadrantLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout,
-    SankeyLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
-    TimelineLayout, TimelineLayoutEngine, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout,
-    ZenUmlLayoutEngine,
+    PacketLayout, PacketLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedBlockEdge,
+    PositionedBlockNode, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
+    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
+    PositionedMindmapNode, PositionedPacketField, PositionedPieSlice, PositionedQuadrantPoint,
+    PositionedRequirementNode, PositionedRequirementRelationship, PositionedSankeyLink,
+    PositionedSequenceActivation, PositionedSequenceBox, PositionedSequenceDestroy,
+    PositionedSequenceMessage, PositionedSequenceNote, PositionedXyChartSeries,
+    PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect, RequirementLayout,
+    RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    XyChartLayout, XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -347,6 +347,7 @@ pub struct StaticFrameRenderer {
     sankey: SankeyLayoutEngine,
     xy_chart: XyChartLayoutEngine,
     block: BlockLayoutEngine,
+    packet: PacketLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -377,6 +378,7 @@ impl StaticFrameRenderer {
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
+            packet: PacketLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -408,6 +410,7 @@ impl StaticFrameRenderer {
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
+            packet: PacketLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -439,6 +442,7 @@ impl StaticFrameRenderer {
             sankey: SankeyLayoutEngine::default_values(),
             xy_chart: XyChartLayoutEngine::default_values(),
             block: BlockLayoutEngine::default_values(),
+            packet: PacketLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -493,6 +497,7 @@ impl StaticFrameRenderer {
             DiagramKind::Sankey(ast) => self.render_sankey(ast),
             DiagramKind::XyChart(ast) => self.render_xy_chart(ast),
             DiagramKind::Block(ast) => self.render_block_diagram(ast),
+            DiagramKind::Packet(ast) => self.render_packet(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -580,6 +585,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_block_diagram(&self, ast: &BlockDiagramAst) -> Frame {
         render_block_layout(&self.block.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_packet(&self, ast: &PacketAst) -> Frame {
+        render_packet_layout(&self.packet.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1364,6 +1374,65 @@ fn block_frame_edge_label_point(edge: &PositionedBlockEdge) -> Option<Point> {
         x: (first.x + last.x) / 2 + 1,
         y: (first.y + last.y) / 2,
     })
+}
+
+fn render_packet_layout(layout: &PacketLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    for row in &layout.rows {
+        let first = row.first_bit.to_string();
+        let last = row.last_bit.to_string();
+        write_text_safe(&mut frame, 0, row.label_y, &first, muted_style.clone());
+        write_text_safe(
+            &mut frame,
+            layout
+                .size
+                .width
+                .saturating_sub(last.chars().count() as i32 + 1),
+            row.label_y,
+            &last,
+            muted_style.clone(),
+        );
+    }
+    for field in &layout.fields {
+        draw_packet_field(
+            &mut frame,
+            field,
+            palette,
+            node_style.clone(),
+            text_style.clone(),
+            muted_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_packet_field(
+    frame: &mut Frame,
+    field: &PositionedPacketField,
+    palette: GlyphPalette,
+    node_style: CellStyle,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+) {
+    draw_box(frame, field.rect, palette, node_style);
+    write_centered(frame, field.rect, &field.label, text_style);
+    write_text_safe(
+        frame,
+        field.rect.origin.x + 1,
+        field.rect.bottom(),
+        &field.range_label,
+        muted_style,
+    );
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

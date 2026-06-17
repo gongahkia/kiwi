@@ -6,13 +6,14 @@ use crate::ast::{
     FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
     FlowchartDirective, FlowchartHeader, GanttAst, GanttStatement, GanttTask, GanttTaskTag,
     GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement,
-    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition,
-    QuadrantAst, RequirementAst, RequirementElement, RequirementKind, RequirementNode,
-    RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod, SankeyAst,
-    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
-    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
-    StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst, XyChartAxisScale,
-    XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
+    JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PacketAst, PieAst,
+    PieLegendPosition, QuadrantAst, RequirementAst, RequirementElement, RequirementKind,
+    RequirementNode, RequirementRelationshipKind, RequirementRisk, RequirementVerifyMethod,
+    SankeyAst, SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox,
+    SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement,
+    Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst, XyChartAst,
+    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
+    ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -429,6 +430,61 @@ pub struct BlockLayout {
     pub nodes: Vec<PositionedBlockNode>,
     pub containers: Vec<PositionedBlockContainer>,
     pub edges: Vec<PositionedBlockEdge>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PacketLayoutConfig {
+    pub bits_per_row: u32,
+    pub bit_width: i32,
+    pub row_height: i32,
+    pub row_spacing: i32,
+    pub title_spacing: i32,
+}
+
+impl Default for PacketLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl PacketLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            bits_per_row: 32,
+            bit_width: 5,
+            row_height: 3,
+            row_spacing: 2,
+            title_spacing: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedPacketField {
+    pub label: String,
+    pub range_label: String,
+    pub start_bit: u32,
+    pub end_bit: u32,
+    pub row: u32,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedPacketRow {
+    pub row: u32,
+    pub first_bit: u32,
+    pub last_bit: u32,
+    pub label_y: i32,
+    pub rect_y: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PacketLayout {
+    pub title: Option<String>,
+    pub rows: Vec<PositionedPacketRow>,
+    pub fields: Vec<PositionedPacketField>,
     pub size: Size,
 }
 
@@ -1086,6 +1142,11 @@ pub struct XyChartLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BlockLayoutEngine {
     config: BlockLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct PacketLayoutEngine {
+    config: PacketLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2640,6 +2701,114 @@ fn block_edge_label_point(edge: &PositionedBlockEdge) -> Option<Point> {
         x: (first.x + last.x) / 2 + 1,
         y: (first.y + last.y) / 2,
     })
+}
+
+impl PacketLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: PacketLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: PacketLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &PacketAst) -> PacketLayout {
+        let title = ast.title.as_ref().map(|title| title.text.clone());
+        let row_offset = if title.is_some() {
+            self.config.title_spacing
+        } else {
+            0
+        };
+        let max_row = ast
+            .fields
+            .iter()
+            .map(|field| field.range.end.value / self.config.bits_per_row.max(1))
+            .max()
+            .unwrap_or(0);
+        let rows = (0..=max_row)
+            .map(|row| {
+                let first_bit = row * self.config.bits_per_row.max(1);
+                let last_bit = first_bit + self.config.bits_per_row.max(1) - 1;
+                let label_y = row_offset
+                    + row as i32 * (self.config.row_height + self.config.row_spacing + 1);
+                PositionedPacketRow {
+                    row,
+                    first_bit,
+                    last_bit,
+                    label_y,
+                    rect_y: label_y + 1,
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut fields = Vec::new();
+        for field in &ast.fields {
+            let mut start = field.range.start.value;
+            while start <= field.range.end.value {
+                let row = start / self.config.bits_per_row.max(1);
+                let row_last =
+                    row * self.config.bits_per_row.max(1) + self.config.bits_per_row.max(1) - 1;
+                let end = field.range.end.value.min(row_last);
+                let bit_count = end - start + 1;
+                fields.push(PositionedPacketField {
+                    label: field.label.text.clone(),
+                    range_label: packet_range_label(field.range.start.value, field.range.end.value),
+                    start_bit: start,
+                    end_bit: end,
+                    row,
+                    rect: Rect {
+                        origin: Point {
+                            x: ((start % self.config.bits_per_row.max(1)) as i32)
+                                * self.config.bit_width,
+                            y: row_offset
+                                + row as i32
+                                    * (self.config.row_height + self.config.row_spacing + 1)
+                                + 1,
+                        },
+                        size: Size {
+                            width: (bit_count as i32 * self.config.bit_width).max(3),
+                            height: self.config.row_height,
+                        },
+                    },
+                });
+                if end == u32::MAX {
+                    break;
+                }
+                start = end + 1;
+            }
+        }
+        let mut size = Size {
+            width: self.config.bits_per_row.max(1) as i32 * self.config.bit_width + 1,
+            height: rows.last().map_or(self.config.row_height, |row| {
+                row.rect_y + self.config.row_height
+            }),
+        };
+        if let Some(title) = &title {
+            size.width = size.width.max(label_width(title));
+        }
+        for field in &fields {
+            size.width = size.width.max(field.rect.right());
+            size.height = size.height.max(field.rect.bottom());
+        }
+        PacketLayout {
+            title,
+            rows,
+            fields,
+            size,
+        }
+    }
+}
+
+fn packet_range_label(start: u32, end: u32) -> String {
+    if start == end {
+        start.to_string()
+    } else {
+        format!("{start}-{end}")
+    }
 }
 
 impl StateLayoutEngine {

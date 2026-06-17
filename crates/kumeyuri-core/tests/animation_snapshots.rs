@@ -232,6 +232,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Sankey(_) => ("sankey", "none"),
         DiagramKind::XyChart(_) => ("xychart", "none"),
         DiagramKind::Block(_) => ("block", "none"),
+        DiagramKind::Packet(_) => ("packet", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

@@ -20,6 +20,7 @@ pub enum DiagramKind {
     Sankey(Box<SankeyAst>),
     XyChart(Box<XyChartAst>),
     Block(Box<BlockDiagramAst>),
+    Packet(Box<PacketAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1060,6 +1061,42 @@ pub struct BlockEdge {
 pub struct BlockStyle {
     pub target: Spanned<String>,
     pub styles: Vec<FlowStyleDeclaration>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PacketAst {
+    pub header: PacketHeader,
+    pub title: Option<Label>,
+    pub fields: Vec<PacketField>,
+    pub statements: Vec<PacketStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PacketHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PacketStatement {
+    Title(Label),
+    Field(Box<PacketField>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PacketField {
+    pub range: PacketRange,
+    pub label: Label,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PacketRange {
+    pub start: Spanned<u32>,
+    pub end: Spanned<u32>,
     pub span: Span,
 }
 
