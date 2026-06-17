@@ -1,0 +1,19 @@
+%%{ animate: 'none' }%%
+wardley-beta
+title Platform Map
+size [800,600]
+anchor Customer [0.95,0.1]
+component App [0.82,0.35] (build)
+component API [0.65,0.55] (inertia)
+component Database [0.45,0.72] (buy)
+Customer -> App
+App +> API; requests
+API -.-> Database
+annotations [0.2,0.85]
+annotation 1, [0.55,0.50] "replace"
+accelerator "automation" [0.4,0.4]
+deaccelerator "legacy" [0.3,0.7]
+pipeline App {
+  component Static Assets [0.4]
+  component Checkout [0.7]
+}

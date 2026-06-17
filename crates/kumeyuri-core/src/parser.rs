@@ -2083,11 +2083,21 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
-            let mut statement = shift_wardley_statement(
-                Parser::parse_wardley_statement(line.text)
-                    .map_err(|error| shift_error(error, line.start))?,
-                line.start,
-            );
+            let parsed_statement =
+                if pipeline.is_some() && has_keyword(line.text, 0, "component") {
+                    parse_wardley_component(
+                        line.text,
+                        0,
+                        line.text.len(),
+                        WardleyComponentKind::Component,
+                        true,
+                    )
+                    .map(|component| WardleyStatement::Component(Box::new(component)))
+                } else {
+                    Parser::parse_wardley_statement(line.text)
+                }
+                .map_err(|error| shift_error(error, line.start))?;
+            let mut statement = shift_wardley_statement(parsed_statement, line.start);
             if let WardleyStatement::Component(component) = &mut statement
                 && component.pipeline.is_none()
                 && let Some(parent) = &pipeline
@@ -15745,8 +15755,26 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn parses_wardley_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "wardley-beta\ntitle Online Store\nanchor User [0.95,0.1]\ncomponent Website [0.8,0.35] label [20, -10] (build)\ncomponent Database [0.4,0.65] (buy)\nUser -> Website\nWebsite +> Database; traffic\nevolve Database 0.82\nnote \"legacy\" [0.3,0.65]\nevolution Genesis->Custom Built->Product @0.5->Commodity",
+        )
+        .unwrap();
+
+        let DiagramKind::Wardley(ast) = diagram.kind else {
+            panic!("expected Wardley diagram");
+        };
+        assert_eq!(ast.title.as_ref().unwrap().text, "Online Store");
+        assert_eq!(ast.components.len(), 3);
+        assert_eq!(ast.links.len(), 2);
+        assert_eq!(ast.evolves[0].name.text, "Database");
+        assert_eq!(ast.notes[0].text.text, "legacy");
+        assert_eq!(ast.evolution.as_ref().unwrap().stages.len(), 4);
+    }
+
+    #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
-        let cases = [("Wardley", "wardley-beta"), ("TreeView", "treeView-beta")];
+        let cases = [("TreeView", "treeView-beta")];
 
         for (name, source) in cases {
             let error = Parser::parse_diagram(source).unwrap_err();

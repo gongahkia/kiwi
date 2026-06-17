@@ -1,0 +1,12 @@
+wardley-beta
+title Online Store
+anchor User [0.95,0.1]
+component Website [0.8,0.35] label [20,-10] (build)
+component API [0.6,0.55]
+component Database [0.35,0.7] (buy)
+User -> Website
+Website +> API; requests
+API -.-> Database
+evolve Database 0.82
+note "latency risk" [0.3,0.65]
+evolution Genesis->Custom Built->Product @0.6->Commodity

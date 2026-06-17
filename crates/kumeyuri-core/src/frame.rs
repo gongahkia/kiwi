@@ -2312,7 +2312,13 @@ fn render_wardley_layout(layout: &WardleyLayout, palette: GlyphPalette, theme: T
     if let Some(title) = &layout.title {
         write_centered_row(&mut frame, 0, title, text_style.clone());
     }
-    draw_wardley_axes(&mut frame, layout, palette, edge_style.clone(), muted_style.clone());
+    draw_wardley_axes(
+        &mut frame,
+        layout,
+        palette,
+        edge_style.clone(),
+        muted_style.clone(),
+    );
     for link in &layout.links {
         draw_wardley_link(&mut frame, link, edge_style.clone());
     }
@@ -2348,7 +2354,8 @@ fn draw_wardley_axes(
     let stage_count = layout.stages.len().max(1);
     for (index, stage) in layout.stages.iter().enumerate() {
         let x = layout.plot.origin.x
-            + ((index as i32 * layout.plot.size.width) / stage_count as i32).min(layout.plot.size.width - 1);
+            + ((index as i32 * layout.plot.size.width) / stage_count as i32)
+                .min(layout.plot.size.width - 1);
         draw_vertical(
             frame,
             x,
@@ -2384,12 +2391,17 @@ fn draw_wardley_axes(
 fn draw_wardley_link(frame: &mut Frame, link: &PositionedWardleyLink, style: CellStyle) {
     let glyph = match link.kind {
         WardleyLinkKind::Dashed => '.',
-        WardleyLinkKind::Flow | WardleyLinkKind::ReverseFlow | WardleyLinkKind::BidirectionalFlow => '=',
+        WardleyLinkKind::Flow
+        | WardleyLinkKind::ReverseFlow
+        | WardleyLinkKind::BidirectionalFlow => '=',
         WardleyLinkKind::Dependency => '-',
     };
     draw_straight_line(frame, link.from, link.to, glyph, style.clone());
     put_safe(frame, link.to.x, link.to.y, '>', style.clone());
-    if matches!(link.kind, WardleyLinkKind::ReverseFlow | WardleyLinkKind::BidirectionalFlow) {
+    if matches!(
+        link.kind,
+        WardleyLinkKind::ReverseFlow | WardleyLinkKind::BidirectionalFlow
+    ) {
         put_safe(frame, link.from.x, link.from.y, '<', style.clone());
     }
     if let Some(label) = &link.label {
@@ -2409,7 +2421,13 @@ fn draw_wardley_evolve(
 ) {
     draw_straight_line(frame, evolve.from, evolve.to, '.', edge_style.clone());
     put_safe(frame, evolve.to.x, evolve.to.y, '>', edge_style);
-    write_text_safe(frame, evolve.to.x + 1, evolve.to.y, &evolve.name, text_style);
+    write_text_safe(
+        frame,
+        evolve.to.x + 1,
+        evolve.to.y,
+        &evolve.name,
+        text_style,
+    );
 }
 
 fn draw_wardley_text(frame: &mut Frame, text: &PositionedWardleyText, style: CellStyle) {
@@ -2439,7 +2457,13 @@ fn draw_wardley_component(
         WardleyComponentKind::Anchor => '@',
         WardleyComponentKind::Component => wardley_component_glyph(&component.decorators),
     };
-    put_safe(frame, component.point.x, component.point.y, glyph, node_style);
+    put_safe(
+        frame,
+        component.point.x,
+        component.point.y,
+        glyph,
+        node_style,
+    );
     let mut label = component.name.clone();
     if let Some(pipeline) = &component.pipeline {
         label = format!("{pipeline}/{label}");

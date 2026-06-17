@@ -5043,7 +5043,10 @@ impl WardleyLayoutEngine {
                     point,
                     label_origin,
                     decorators: component.decorators.clone(),
-                    pipeline: component.pipeline.as_ref().map(|pipeline| pipeline.text.clone()),
+                    pipeline: component
+                        .pipeline
+                        .as_ref()
+                        .map(|pipeline| pipeline.text.clone()),
                 }
             })
             .collect::<Vec<_>>();
@@ -5085,11 +5088,15 @@ impl WardleyLayoutEngine {
             point: wardley_point(&note.coord, plot),
             kind: WardleyTextKind::Note,
         }));
-        texts.extend(ast.annotations.iter().map(|annotation| PositionedWardleyText {
-            text: format!("{} {}", annotation.number.value, annotation.text.text),
-            point: wardley_point(&annotation.coord, plot),
-            kind: WardleyTextKind::Annotation,
-        }));
+        texts.extend(
+            ast.annotations
+                .iter()
+                .map(|annotation| PositionedWardleyText {
+                    text: format!("{} {}", annotation.number.value, annotation.text.text),
+                    point: wardley_point(&annotation.coord, plot),
+                    kind: WardleyTextKind::Annotation,
+                }),
+        );
         texts.extend(ast.forces.iter().map(|force| PositionedWardleyText {
             text: force.text.text.clone(),
             point: wardley_point(&force.coord, plot),
