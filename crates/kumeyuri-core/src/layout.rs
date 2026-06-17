@@ -3,7 +3,8 @@ use crate::ast::{
     ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
     ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
     FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
-    GanttTaskTag, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
+    GanttTaskTag, GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation,
+    GitGraphStatement, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
     SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
     StateAst, StateNode, StateStatement, StateTransition,
 };
@@ -454,6 +455,72 @@ pub struct JourneyLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GitGraphLayoutConfig {
+    pub label_width: i32,
+    pub commit_spacing: i32,
+    pub branch_spacing: i32,
+    pub top_padding: i32,
+    pub left_padding: i32,
+}
+
+impl Default for GitGraphLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl GitGraphLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            label_width: 12,
+            commit_spacing: 12,
+            branch_spacing: 8,
+            top_padding: 2,
+            left_padding: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGitGraphBranch {
+    pub name: String,
+    pub lane: usize,
+    pub label_origin: Point,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGitGraphCommit {
+    pub index: usize,
+    pub id: String,
+    pub tag: Option<String>,
+    pub branch: String,
+    pub kind: GitGraphCommitKind,
+    pub point: Point,
+    pub label_origin: Point,
+    pub tag_origin: Option<Point>,
+    pub is_merge: bool,
+    pub is_cherry_pick: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedGitGraphEdge {
+    pub from: usize,
+    pub to: usize,
+    pub points: Vec<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphLayout {
+    pub orientation: GitGraphOrientation,
+    pub branches: Vec<PositionedGitGraphBranch>,
+    pub commits: Vec<PositionedGitGraphCommit>,
+    pub edges: Vec<PositionedGitGraphEdge>,
+    pub size: Size,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
@@ -497,6 +564,11 @@ pub struct MindmapLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct JourneyLayoutEngine {
     config: JourneyLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct GitGraphLayoutEngine {
+    config: GitGraphLayoutConfig,
 }
 
 impl Default for ErLayoutEngine {
@@ -1441,6 +1513,411 @@ fn journey_task_width(task: &PositionedJourneyTask, config: JourneyLayoutConfig)
 
 fn journey_actor_text(task: &PositionedJourneyTask) -> String {
     task.actors.join(", ")
+}
+
+impl GitGraphLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: GitGraphLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: GitGraphLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &GitGraphAst) -> GitGraphLayout {
+        let simulation = simulate_gitgraph(ast);
+        let lanes = gitgraph_lanes(&simulation.branches);
+        let max_step = simulation.commits.len().saturating_sub(1);
+        let commits = simulation
+            .commits
+            .iter()
+            .enumerate()
+            .map(|(index, commit)| {
+                let lane = lanes[commit.branch_index];
+                let point = gitgraph_point(
+                    ast.header.orientation.value,
+                    lane,
+                    index,
+                    max_step,
+                    self.config,
+                );
+                let id = commit.id.clone();
+                PositionedGitGraphCommit {
+                    index,
+                    id: id.clone(),
+                    tag: commit.tag.clone(),
+                    branch: simulation.branches[commit.branch_index].name.clone(),
+                    kind: commit.kind,
+                    point,
+                    label_origin: gitgraph_label_origin(ast.header.orientation.value, point, &id),
+                    tag_origin: commit
+                        .tag
+                        .as_ref()
+                        .map(|tag| gitgraph_tag_origin(ast.header.orientation.value, point, tag)),
+                    is_merge: commit.is_merge,
+                    is_cherry_pick: commit.is_cherry_pick,
+                }
+            })
+            .collect::<Vec<_>>();
+        let branches = gitgraph_positioned_branches(
+            ast.header.orientation.value,
+            &simulation.branches,
+            &lanes,
+            commits.len().max(1),
+            self.config,
+        );
+        let mut edges = Vec::new();
+        for (to, commit) in simulation.commits.iter().enumerate() {
+            for from in commit.parents.iter().copied() {
+                let points = route_gitgraph_edge(
+                    ast.header.orientation.value,
+                    commits[from].point,
+                    commits[to].point,
+                );
+                edges.push(PositionedGitGraphEdge { from, to, points });
+            }
+        }
+        let size = gitgraph_layout_size(&branches, &commits, &edges);
+
+        GitGraphLayout {
+            orientation: ast.header.orientation.value,
+            branches,
+            commits,
+            edges,
+            size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SimulatedGitGraph {
+    branches: Vec<SimulatedGitGraphBranch>,
+    commits: Vec<SimulatedGitGraphCommit>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SimulatedGitGraphBranch {
+    name: String,
+    order: Option<i32>,
+    insertion: usize,
+    head: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SimulatedGitGraphCommit {
+    id: String,
+    tag: Option<String>,
+    branch_index: usize,
+    kind: GitGraphCommitKind,
+    parents: Vec<usize>,
+    is_merge: bool,
+    is_cherry_pick: bool,
+}
+
+fn simulate_gitgraph(ast: &GitGraphAst) -> SimulatedGitGraph {
+    let mut branches = vec![SimulatedGitGraphBranch {
+        name: "main".to_owned(),
+        order: Some(0),
+        insertion: 0,
+        head: None,
+    }];
+    let mut commits = Vec::new();
+    let mut current_branch = 0usize;
+
+    for statement in &ast.statements {
+        match statement {
+            GitGraphStatement::Commit(commit) => {
+                let parent = branches[current_branch].head;
+                let id = gitgraph_commit_id(commit, commits.len(), "c");
+                push_simulated_gitgraph_commit(
+                    &mut branches,
+                    &mut commits,
+                    SimulatedGitGraphCommit {
+                        id,
+                        tag: commit.tag.as_ref().map(|tag| tag.value.clone()),
+                        branch_index: current_branch,
+                        kind: commit.kind.value,
+                        parents: parent.into_iter().collect(),
+                        is_merge: false,
+                        is_cherry_pick: false,
+                    },
+                );
+            }
+            GitGraphStatement::Branch(branch) => {
+                let head = branches[current_branch].head;
+                current_branch = ensure_gitgraph_branch(
+                    &mut branches,
+                    &branch.name.value,
+                    branch.order.map(|order| order.value),
+                    head,
+                );
+            }
+            GitGraphStatement::Checkout(branch) => {
+                current_branch = ensure_gitgraph_branch(&mut branches, &branch.value, None, None);
+            }
+            GitGraphStatement::Merge(merge) => {
+                let source_branch =
+                    ensure_gitgraph_branch(&mut branches, &merge.branch.value, None, None);
+                let mut parents = Vec::new();
+                if let Some(parent) = branches[current_branch].head {
+                    parents.push(parent);
+                }
+                if let Some(parent) = branches[source_branch].head
+                    && !parents.contains(&parent)
+                {
+                    parents.push(parent);
+                }
+                let id = merge
+                    .id
+                    .as_ref()
+                    .map_or_else(|| format!("m{}", commits.len() + 1), |id| id.value.clone());
+                push_simulated_gitgraph_commit(
+                    &mut branches,
+                    &mut commits,
+                    SimulatedGitGraphCommit {
+                        id,
+                        tag: merge.tag.as_ref().map(|tag| tag.value.clone()),
+                        branch_index: current_branch,
+                        kind: merge.kind.value,
+                        parents,
+                        is_merge: true,
+                        is_cherry_pick: false,
+                    },
+                );
+            }
+            GitGraphStatement::CherryPick(cherry_pick) => {
+                let mut parents = Vec::new();
+                if let Some(parent) = branches[current_branch].head {
+                    parents.push(parent);
+                }
+                if let Some(parent) = commits
+                    .iter()
+                    .position(|commit| commit.id == cherry_pick.id.value)
+                    && !parents.contains(&parent)
+                {
+                    parents.push(parent);
+                }
+                let id = format!("pick-{}", cherry_pick.id.value);
+                push_simulated_gitgraph_commit(
+                    &mut branches,
+                    &mut commits,
+                    SimulatedGitGraphCommit {
+                        id,
+                        tag: Some(cherry_pick.id.value.clone()),
+                        branch_index: current_branch,
+                        kind: GitGraphCommitKind::Highlight,
+                        parents,
+                        is_merge: false,
+                        is_cherry_pick: true,
+                    },
+                );
+            }
+            GitGraphStatement::Comment(_) | GitGraphStatement::Directive(_) => {}
+        }
+    }
+
+    SimulatedGitGraph { branches, commits }
+}
+
+fn push_simulated_gitgraph_commit(
+    branches: &mut [SimulatedGitGraphBranch],
+    commits: &mut Vec<SimulatedGitGraphCommit>,
+    commit: SimulatedGitGraphCommit,
+) {
+    let index = commits.len();
+    let branch_index = commit.branch_index;
+    commits.push(commit);
+    branches[branch_index].head = Some(index);
+}
+
+fn gitgraph_commit_id(commit: &GitGraphCommit, index: usize, prefix: &str) -> String {
+    commit
+        .id
+        .as_ref()
+        .map_or_else(|| format!("{prefix}{}", index + 1), |id| id.value.clone())
+}
+
+fn ensure_gitgraph_branch(
+    branches: &mut Vec<SimulatedGitGraphBranch>,
+    name: &str,
+    order: Option<i32>,
+    head: Option<usize>,
+) -> usize {
+    if let Some(index) = branches.iter().position(|branch| branch.name == name) {
+        if order.is_some() {
+            branches[index].order = order;
+        }
+        if branches[index].head.is_none() {
+            branches[index].head = head;
+        }
+        return index;
+    }
+    let insertion = branches.len();
+    branches.push(SimulatedGitGraphBranch {
+        name: name.to_owned(),
+        order,
+        insertion,
+        head,
+    });
+    insertion
+}
+
+fn gitgraph_lanes(branches: &[SimulatedGitGraphBranch]) -> Vec<usize> {
+    let mut ordered = (0..branches.len()).collect::<Vec<_>>();
+    ordered.sort_by_key(|index| {
+        let branch = &branches[*index];
+        if branch.name == "main" {
+            (0, 0, branch.insertion)
+        } else if let Some(order) = branch.order {
+            (2, order, branch.insertion)
+        } else {
+            (1, 0, branch.insertion)
+        }
+    });
+    let mut lanes = vec![0; branches.len()];
+    for (lane, branch_index) in ordered.into_iter().enumerate() {
+        lanes[branch_index] = lane;
+    }
+    lanes
+}
+
+fn gitgraph_point(
+    orientation: GitGraphOrientation,
+    lane: usize,
+    step: usize,
+    max_step: usize,
+    config: GitGraphLayoutConfig,
+) -> Point {
+    let lane_offset = lane as i32 * config.branch_spacing;
+    let step_offset = step as i32 * config.commit_spacing;
+    let max_offset = max_step as i32 * config.commit_spacing;
+    match orientation {
+        GitGraphOrientation::LeftRight => Point {
+            x: config.label_width + config.left_padding + step_offset,
+            y: config.top_padding + lane_offset,
+        },
+        GitGraphOrientation::TopBottom => Point {
+            x: config.left_padding + lane_offset,
+            y: config.top_padding + step_offset,
+        },
+        GitGraphOrientation::BottomTop => Point {
+            x: config.left_padding + lane_offset,
+            y: config.top_padding + max_offset - step_offset,
+        },
+    }
+}
+
+fn gitgraph_label_origin(orientation: GitGraphOrientation, point: Point, label: &str) -> Point {
+    let width = label.chars().count() as i32;
+    match orientation {
+        GitGraphOrientation::LeftRight => Point {
+            x: point.x - width / 2,
+            y: point.y + 1,
+        },
+        GitGraphOrientation::TopBottom | GitGraphOrientation::BottomTop => Point {
+            x: point.x + 2,
+            y: point.y,
+        },
+    }
+}
+
+fn gitgraph_tag_origin(orientation: GitGraphOrientation, point: Point, tag: &str) -> Point {
+    let width = tag.chars().count() as i32 + 2;
+    match orientation {
+        GitGraphOrientation::LeftRight => Point {
+            x: point.x - width / 2,
+            y: point.y - 1,
+        },
+        GitGraphOrientation::TopBottom | GitGraphOrientation::BottomTop => Point {
+            x: point.x + 2,
+            y: point.y - 1,
+        },
+    }
+}
+
+fn gitgraph_positioned_branches(
+    orientation: GitGraphOrientation,
+    branches: &[SimulatedGitGraphBranch],
+    lanes: &[usize],
+    commit_count: usize,
+    config: GitGraphLayoutConfig,
+) -> Vec<PositionedGitGraphBranch> {
+    let max_step = commit_count.saturating_sub(1);
+    branches
+        .iter()
+        .enumerate()
+        .map(|(index, branch)| {
+            let lane = lanes[index];
+            let start = gitgraph_point(orientation, lane, 0, max_step, config);
+            let end = gitgraph_point(orientation, lane, max_step, max_step, config);
+            let label_origin = match orientation {
+                GitGraphOrientation::LeftRight => Point { x: 0, y: start.y },
+                GitGraphOrientation::TopBottom | GitGraphOrientation::BottomTop => {
+                    Point { x: start.x, y: 0 }
+                }
+            };
+            PositionedGitGraphBranch {
+                name: branch.name.clone(),
+                lane,
+                label_origin,
+                points: vec![start, end],
+            }
+        })
+        .collect()
+}
+
+fn route_gitgraph_edge(orientation: GitGraphOrientation, from: Point, to: Point) -> Vec<Point> {
+    if from.x == to.x || from.y == to.y {
+        return vec![from, to];
+    }
+    match orientation {
+        GitGraphOrientation::LeftRight => vec![from, Point { x: to.x, y: from.y }, to],
+        GitGraphOrientation::TopBottom | GitGraphOrientation::BottomTop => {
+            vec![from, Point { x: from.x, y: to.y }, to]
+        }
+    }
+}
+
+fn gitgraph_layout_size(
+    branches: &[PositionedGitGraphBranch],
+    commits: &[PositionedGitGraphCommit],
+    edges: &[PositionedGitGraphEdge],
+) -> Size {
+    let mut width = 1;
+    let mut height = 1;
+    for branch in branches {
+        width = width.max(branch.label_origin.x + branch.name.chars().count() as i32);
+        height = height.max(branch.label_origin.y + 1);
+        for point in &branch.points {
+            width = width.max(point.x + 1);
+            height = height.max(point.y + 1);
+        }
+    }
+    for commit in commits {
+        width = width.max(commit.point.x + 1);
+        height = height.max(commit.point.y + 1);
+        width = width.max(commit.label_origin.x + commit.id.chars().count() as i32);
+        height = height.max(commit.label_origin.y + 1);
+        if let (Some(tag), Some(origin)) = (&commit.tag, commit.tag_origin) {
+            width = width.max(origin.x + tag.chars().count() as i32 + 2);
+            height = height.max(origin.y + 1);
+        }
+    }
+    for edge in edges {
+        for point in &edge.points {
+            width = width.max(point.x + 1);
+            height = height.max(point.y + 1);
+        }
+    }
+    Size {
+        width: width + 2,
+        height: height + 2,
+    }
 }
 
 fn layout_mindmap_node(

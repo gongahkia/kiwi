@@ -1,15 +1,16 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, GanttAst, GanttTaskTag, JourneyAst, MindmapAst, MindmapShape, PieAst,
-    SequenceAst, StateAst,
+    ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
+    MindmapAst, MindmapShape, PieAst, SequenceAst, StateAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, JourneyLayout, JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine,
-    PieLayout, PieLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship,
-    PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask, PositionedJourneyTask,
-    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote,
-    Rect, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine,
+    MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
+    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
+    PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode, PositionedPieSlice,
+    PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
+    StateLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -332,6 +333,7 @@ pub struct StaticFrameRenderer {
     pie: PieLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
+    gitgraph: GitGraphLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -353,6 +355,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
+            gitgraph: GitGraphLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -375,6 +378,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
+            gitgraph: GitGraphLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -397,6 +401,7 @@ impl StaticFrameRenderer {
             pie: PieLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
+            gitgraph: GitGraphLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -442,6 +447,7 @@ impl StaticFrameRenderer {
             DiagramKind::Pie(ast) => self.render_pie(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
+            DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
         }
     }
 
@@ -517,6 +523,24 @@ impl StaticFrameRenderer {
             self.palette,
             self.theme,
             visible_tasks,
+        )
+    }
+
+    #[must_use]
+    pub fn render_gitgraph(&self, ast: &GitGraphAst) -> Frame {
+        self.render_gitgraph_progress(
+            ast,
+            ast.commits.len() + ast.merges.len() + ast.cherry_picks.len(),
+        )
+    }
+
+    #[must_use]
+    pub fn render_gitgraph_progress(&self, ast: &GitGraphAst, visible_commits: usize) -> Frame {
+        render_gitgraph_layout(
+            &self.gitgraph.layout(ast),
+            self.palette,
+            self.theme,
+            visible_commits,
         )
     }
 }
@@ -1016,6 +1040,82 @@ fn draw_journey_task(
         &task.actors.join(", "),
         text_style,
     );
+}
+
+fn render_gitgraph_layout(
+    layout: &GitGraphLayout,
+    palette: GlyphPalette,
+    theme: Theme,
+    visible_commits: usize,
+) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    for branch in &layout.branches {
+        write_text_safe(
+            &mut frame,
+            branch.label_origin.x,
+            branch.label_origin.y,
+            &branch.name,
+            muted_style.clone(),
+        );
+        draw_polyline(&mut frame, &branch.points, palette, muted_style.clone());
+    }
+    for edge in &layout.edges {
+        if edge.to >= visible_commits {
+            continue;
+        }
+        draw_polyline(&mut frame, &edge.points, palette, edge_style.clone());
+    }
+    for commit in layout.commits.iter().take(visible_commits) {
+        draw_gitgraph_commit(&mut frame, commit, node_style.clone(), text_style.clone());
+    }
+    frame
+}
+
+fn draw_gitgraph_commit(
+    frame: &mut Frame,
+    commit: &PositionedGitGraphCommit,
+    node_style: CellStyle,
+    text_style: CellStyle,
+) {
+    put_safe(
+        frame,
+        commit.point.x,
+        commit.point.y,
+        gitgraph_commit_glyph(commit),
+        node_style.clone(),
+    );
+    write_text_safe(
+        frame,
+        commit.label_origin.x,
+        commit.label_origin.y,
+        &commit.id,
+        text_style.clone(),
+    );
+    if let (Some(tag), Some(origin)) = (&commit.tag, commit.tag_origin) {
+        write_text_safe(frame, origin.x, origin.y, &format!("[{tag}]"), text_style);
+    }
+}
+
+fn gitgraph_commit_glyph(commit: &PositionedGitGraphCommit) -> char {
+    if commit.is_cherry_pick {
+        '+'
+    } else if commit.is_merge {
+        '*'
+    } else {
+        match commit.kind {
+            GitGraphCommitKind::Normal => 'o',
+            GitGraphCommitKind::Reverse => 'x',
+            GitGraphCommitKind::Highlight => '#',
+        }
+    }
 }
 
 fn draw_mindmap_node(
@@ -1874,6 +1974,28 @@ mod tests {
         assert!(output.contains("5/5"));
         assert!(output.contains("Do work"));
         assert!(output.contains("1/5"));
+    }
+
+    #[test]
+    fn renders_gitgraph_ast_to_single_frame_through_diagram_root() {
+        let diagram = Parser::parse_diagram(
+            r#"gitGraph
+commit id: "base"
+branch develop
+commit id: "feat" type: HIGHLIGHT tag: "v1"
+checkout main
+merge develop id: "merge""#,
+        )
+        .unwrap();
+        let frame = StaticFrameRenderer::default().render_diagram(&diagram);
+        let output = frame.to_lines().join("\n");
+
+        assert!(output.contains("main"));
+        assert!(output.contains("develop"));
+        assert!(output.contains("base"));
+        assert!(output.contains("feat"));
+        assert!(output.contains("[v1]"));
+        assert!(output.contains("merge"));
     }
 
     fn flowchart(statements: Vec<FlowStatement>) -> FlowchartAst {

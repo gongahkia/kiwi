@@ -5,14 +5,15 @@ use crate::ast::{
     ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
     FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph,
     FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
-    GanttStatement, GanttTask, GanttTaskTag, JourneyAst, JourneyHeader, JourneyStatement,
-    JourneyTask, Label, LabelKind, MermaidComment, MermaidDirective, MindmapAst, MindmapHeader,
-    MindmapNode, MindmapShape, MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement,
-    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceControlBlock, SequenceControlKind,
-    SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
-    SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
-    StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
-    StateTransition,
+    GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick,
+    GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
+    GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
+    MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
+    MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement, SequenceArrow, SequenceAst,
+    SequenceAutoNumber, SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage,
+    SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
+    SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
+    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,6 +87,11 @@ pub enum ParseErrorKind {
     UnknownJourneyStatement,
     ExpectedJourneyTask,
     ExpectedJourneyScore,
+    ExpectedGitGraphHeader,
+    UnknownGitGraphStatement,
+    ExpectedGitGraphName,
+    ExpectedGitGraphAttribute,
+    ExpectedGitGraphCommitKind,
     TrailingInput,
 }
 
@@ -134,6 +140,10 @@ impl Parser {
 
     pub fn parse_journey(source: &str) -> Result<JourneyAst, ParseError> {
         DiagramParser::new(source).parse_journey_only()
+    }
+
+    pub fn parse_gitgraph(source: &str) -> Result<GitGraphAst, ParseError> {
+        DiagramParser::new(source).parse_gitgraph_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -246,6 +256,14 @@ impl Parser {
     pub fn parse_journey_statement(source: &str) -> Result<JourneyStatement, ParseError> {
         JourneyStatementParser::new(source).parse()
     }
+
+    pub fn parse_gitgraph_header(source: &str) -> Result<GitGraphHeader, ParseError> {
+        GitGraphHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_gitgraph_statement(source: &str) -> Result<GitGraphStatement, ParseError> {
+        GitGraphStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -318,6 +336,12 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_journey_body(shift_journey_header(journey_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Journey(Box::new(ast))));
+        }
+        if let Ok(gitgraph_header) = Parser::parse_gitgraph_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::GitGraph(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -423,6 +447,17 @@ impl<'source> DiagramParser<'source> {
         let journey_header = Parser::parse_journey_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_journey_body(shift_journey_header(journey_header, header.start))
+    }
+
+    fn parse_gitgraph_only(mut self) -> Result<GitGraphAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedGitGraphHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let gitgraph_header = Parser::parse_gitgraph_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -818,6 +853,27 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_gitgraph_body(&mut self, header: GitGraphHeader) -> Result<GitGraphAst, ParseError> {
+        let mut ast = GitGraphAst {
+            header,
+            statements: Vec::new(),
+            commits: Vec::new(),
+            branches: Vec::new(),
+            merges: Vec::new(),
+            cherry_picks: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement =
+                shift_gitgraph_statement(Parser::parse_gitgraph_statement(line.text)?, line.start);
+            push_gitgraph_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -1025,6 +1081,21 @@ fn push_journey_statement(ast: &mut JourneyAst, statement: JourneyStatement) {
         JourneyStatement::Section(_)
         | JourneyStatement::Comment(_)
         | JourneyStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_gitgraph_statement(ast: &mut GitGraphAst, statement: GitGraphStatement) {
+    match &statement {
+        GitGraphStatement::Commit(commit) => ast.commits.push((**commit).clone()),
+        GitGraphStatement::Branch(branch) => ast.branches.push((**branch).clone()),
+        GitGraphStatement::Merge(merge) => ast.merges.push((**merge).clone()),
+        GitGraphStatement::CherryPick(cherry_pick) => {
+            ast.cherry_picks.push((**cherry_pick).clone());
+        }
+        GitGraphStatement::Checkout(_)
+        | GitGraphStatement::Comment(_)
+        | GitGraphStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -2435,6 +2506,107 @@ impl<'source> JourneyStatementParser<'source> {
             actors,
             span: Span::new(start, end),
         }))
+    }
+}
+
+struct GitGraphHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> GitGraphHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<GitGraphHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if !is_gitgraph_header_keyword(self.source, start, end) {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let orientation_start = start + "gitGraph".len();
+        let orientation = parse_gitgraph_orientation(self.source, orientation_start, end)?;
+        Ok(GitGraphHeader {
+            orientation,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct GitGraphStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> GitGraphStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<GitGraphStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownGitGraphStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(GitGraphStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(GitGraphStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_exact_keyword(self.source, start, end, "commit") {
+            return Ok(GitGraphStatement::Commit(Box::new(parse_gitgraph_commit(
+                self.source,
+                start,
+                end,
+            )?)));
+        }
+        if has_keyword(self.source, start, "branch") {
+            return Ok(GitGraphStatement::Branch(Box::new(parse_gitgraph_branch(
+                self.source,
+                start,
+                end,
+            )?)));
+        }
+        if has_keyword(self.source, start, "checkout") {
+            let name = parse_gitgraph_keyword_name(self.source, start, end, "checkout")?;
+            return Ok(GitGraphStatement::Checkout(name));
+        }
+        if has_keyword(self.source, start, "switch") {
+            let name = parse_gitgraph_keyword_name(self.source, start, end, "switch")?;
+            return Ok(GitGraphStatement::Checkout(name));
+        }
+        if has_keyword(self.source, start, "merge") {
+            return Ok(GitGraphStatement::Merge(Box::new(parse_gitgraph_merge(
+                self.source,
+                start,
+                end,
+            )?)));
+        }
+        if has_keyword(self.source, start, "cherry-pick") {
+            return Ok(GitGraphStatement::CherryPick(Box::new(
+                parse_gitgraph_cherry_pick(self.source, start, end)?,
+            )));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownGitGraphStatement,
+            span: Span::new(start, end),
+        })
     }
 }
 
@@ -4325,6 +4497,329 @@ fn parse_journey_actors(source: &str, start: usize, end: usize) -> Vec<Spanned<S
     actors
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedGitGraphName {
+    value: Spanned<String>,
+    consumed_end: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedGitGraphAttribute {
+    key: Spanned<String>,
+    value: Spanned<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedGitGraphCommitAttributes {
+    id: Option<Spanned<String>>,
+    tag: Option<Spanned<String>>,
+    kind: Spanned<GitGraphCommitKind>,
+}
+
+fn parse_gitgraph_orientation(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<GitGraphOrientation>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Ok(Spanned::new(
+            GitGraphOrientation::LeftRight,
+            Span::new(start, start),
+        ));
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let token = source[absolute_start..absolute_end]
+        .strip_suffix(':')
+        .unwrap_or(&source[absolute_start..absolute_end]);
+    if token.is_empty() {
+        return Ok(Spanned::new(
+            GitGraphOrientation::LeftRight,
+            Span::new(absolute_start, absolute_end),
+        ));
+    }
+    let orientation = match token {
+        "LR" => GitGraphOrientation::LeftRight,
+        "TB" => GitGraphOrientation::TopBottom,
+        "BT" => GitGraphOrientation::BottomTop,
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphHeader,
+                span: Span::new(absolute_start, absolute_end),
+            });
+        }
+    };
+    Ok(Spanned::new(
+        orientation,
+        Span::new(absolute_start, absolute_end),
+    ))
+}
+
+fn is_gitgraph_header_keyword(source: &str, start: usize, end: usize) -> bool {
+    let rest_start = start + "gitGraph".len();
+    source[start..end].starts_with("gitGraph")
+        && (rest_start == end
+            || source.as_bytes()[rest_start].is_ascii_whitespace()
+            || source.as_bytes()[rest_start] == b':')
+}
+
+fn parse_gitgraph_commit(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<GitGraphCommit, ParseError> {
+    let attrs = parse_gitgraph_attributes(source, start + "commit".len(), end)?;
+    let parsed = gitgraph_commit_attributes(attrs, start)?;
+    Ok(GitGraphCommit {
+        id: parsed.id,
+        tag: parsed.tag,
+        kind: parsed.kind,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_gitgraph_branch(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<GitGraphBranch, ParseError> {
+    let name = parse_gitgraph_name_at(source, start + "branch".len(), end)?;
+    let attrs = parse_gitgraph_attributes(source, name.consumed_end, end)?;
+    let mut order = None;
+    for attr in attrs {
+        match attr.key.value.as_str() {
+            "order" => {
+                let parsed = attr.value.value.parse::<i32>().map_err(|_| ParseError {
+                    kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                    span: attr.value.span,
+                })?;
+                order = Some(Spanned::new(parsed, attr.value.span));
+            }
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                    span: attr.key.span,
+                });
+            }
+        }
+    }
+    Ok(GitGraphBranch {
+        name: name.value,
+        order,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_gitgraph_keyword_name(
+    source: &str,
+    start: usize,
+    end: usize,
+    keyword: &str,
+) -> Result<Spanned<String>, ParseError> {
+    let name = parse_gitgraph_name_at(source, start + keyword.len(), end)?;
+    if trim_ascii_range(&source[name.consumed_end..end]).is_some() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedGitGraphName,
+            span: Span::new(name.consumed_end, end),
+        });
+    }
+    Ok(name.value)
+}
+
+fn parse_gitgraph_merge(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<GitGraphMerge, ParseError> {
+    let branch = parse_gitgraph_name_at(source, start + "merge".len(), end)?;
+    let attrs = parse_gitgraph_attributes(source, branch.consumed_end, end)?;
+    let parsed = gitgraph_commit_attributes(attrs, start)?;
+    Ok(GitGraphMerge {
+        branch: branch.value,
+        id: parsed.id,
+        tag: parsed.tag,
+        kind: parsed.kind,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_gitgraph_cherry_pick(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<GitGraphCherryPick, ParseError> {
+    let attrs = parse_gitgraph_attributes(source, start + "cherry-pick".len(), end)?;
+    let mut id = None;
+    let mut parent = None;
+    for attr in attrs {
+        match attr.key.value.as_str() {
+            "id" => id = Some(attr.value),
+            "parent" => parent = Some(attr.value),
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                    span: attr.key.span,
+                });
+            }
+        }
+    }
+    let id = id.ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedGitGraphAttribute,
+        span: Span::new(start, end),
+    })?;
+    Ok(GitGraphCherryPick {
+        id,
+        parent,
+        span: Span::new(start, end),
+    })
+}
+
+fn gitgraph_commit_attributes(
+    attrs: Vec<ParsedGitGraphAttribute>,
+    default_span_start: usize,
+) -> Result<ParsedGitGraphCommitAttributes, ParseError> {
+    let mut id = None;
+    let mut tag = None;
+    let mut kind = Spanned::new(
+        GitGraphCommitKind::Normal,
+        Span::new(default_span_start, default_span_start),
+    );
+    for attr in attrs {
+        match attr.key.value.as_str() {
+            "id" => id = Some(attr.value),
+            "tag" => tag = Some(attr.value),
+            "type" => {
+                let parsed = parse_gitgraph_commit_kind(&attr.value)?;
+                kind = Spanned::new(parsed, attr.value.span);
+            }
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                    span: attr.key.span,
+                });
+            }
+        }
+    }
+    Ok(ParsedGitGraphCommitAttributes { id, tag, kind })
+}
+
+fn parse_gitgraph_commit_kind(value: &Spanned<String>) -> Result<GitGraphCommitKind, ParseError> {
+    match value.value.as_str() {
+        "NORMAL" => Ok(GitGraphCommitKind::Normal),
+        "REVERSE" => Ok(GitGraphCommitKind::Reverse),
+        "HIGHLIGHT" => Ok(GitGraphCommitKind::Highlight),
+        _ => Err(ParseError {
+            kind: ParseErrorKind::ExpectedGitGraphCommitKind,
+            span: value.span,
+        }),
+    }
+}
+
+fn parse_gitgraph_attributes(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<ParsedGitGraphAttribute>, ParseError> {
+    let mut attrs = Vec::new();
+    let mut cursor = start;
+    while let Some(next) = skip_ascii_whitespace(source, cursor, end) {
+        cursor = next;
+        let key_start = cursor;
+        while cursor < end
+            && !source.as_bytes()[cursor].is_ascii_whitespace()
+            && source.as_bytes()[cursor] != b':'
+        {
+            cursor += 1;
+        }
+        let key_end = cursor;
+        if key_start == key_end {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                span: Span::new(cursor, end),
+            });
+        }
+        cursor = skip_ascii_whitespace(source, cursor, end).unwrap_or(cursor);
+        if cursor >= end || source.as_bytes()[cursor] != b':' {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphAttribute,
+                span: Span::new(key_start, key_end),
+            });
+        }
+        cursor += 1;
+        let value = parse_gitgraph_name_at(source, cursor, end)?;
+        attrs.push(ParsedGitGraphAttribute {
+            key: Spanned::new(
+                source[key_start..key_end].to_owned(),
+                Span::new(key_start, key_end),
+            ),
+            value: value.value,
+        });
+        cursor = value.consumed_end;
+    }
+    Ok(attrs)
+}
+
+fn parse_gitgraph_name_at(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<ParsedGitGraphName, ParseError> {
+    let Some(cursor) = skip_ascii_whitespace(source, start, end) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedGitGraphName,
+            span: Span::new(start, end),
+        });
+    };
+    if source.as_bytes()[cursor] == b'"' {
+        let value_start = cursor + 1;
+        let Some(relative_end) = source[value_start..end].find('"') else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphName,
+                span: Span::new(cursor, end),
+            });
+        };
+        let value_end = value_start + relative_end;
+        if value_start == value_end {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedGitGraphName,
+                span: Span::new(value_start, value_end),
+            });
+        }
+        return Ok(ParsedGitGraphName {
+            value: Spanned::new(
+                source[value_start..value_end].to_owned(),
+                Span::new(value_start, value_end),
+            ),
+            consumed_end: value_end + 1,
+        });
+    }
+    let mut cursor_end = cursor;
+    while cursor_end < end && !source.as_bytes()[cursor_end].is_ascii_whitespace() {
+        cursor_end += 1;
+    }
+    if cursor == cursor_end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedGitGraphName,
+            span: Span::new(start, end),
+        });
+    }
+    Ok(ParsedGitGraphName {
+        value: Spanned::new(
+            source[cursor..cursor_end].to_owned(),
+            Span::new(cursor, cursor_end),
+        ),
+        consumed_end: cursor_end,
+    })
+}
+
+fn skip_ascii_whitespace(source: &str, start: usize, end: usize) -> Option<usize> {
+    let mut cursor = start;
+    while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    (cursor < end).then_some(cursor)
+}
+
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
 }
@@ -4898,6 +5393,79 @@ fn shift_journey_task(task: JourneyTask, offset: usize) -> JourneyTask {
     }
 }
 
+fn shift_gitgraph_header(header: GitGraphHeader, offset: usize) -> GitGraphHeader {
+    GitGraphHeader {
+        orientation: shift_spanned(header.orientation, offset),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_gitgraph_statement(statement: GitGraphStatement, offset: usize) -> GitGraphStatement {
+    match statement {
+        GitGraphStatement::Commit(commit) => {
+            GitGraphStatement::Commit(Box::new(shift_gitgraph_commit(*commit, offset)))
+        }
+        GitGraphStatement::Branch(branch) => {
+            GitGraphStatement::Branch(Box::new(shift_gitgraph_branch(*branch, offset)))
+        }
+        GitGraphStatement::Checkout(branch) => {
+            GitGraphStatement::Checkout(shift_spanned(branch, offset))
+        }
+        GitGraphStatement::Merge(merge) => {
+            GitGraphStatement::Merge(Box::new(shift_gitgraph_merge(*merge, offset)))
+        }
+        GitGraphStatement::CherryPick(cherry_pick) => GitGraphStatement::CherryPick(Box::new(
+            shift_gitgraph_cherry_pick(*cherry_pick, offset),
+        )),
+        GitGraphStatement::Comment(comment) => {
+            GitGraphStatement::Comment(shift_comment(comment, offset))
+        }
+        GitGraphStatement::Directive(directive) => {
+            GitGraphStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_gitgraph_commit(commit: GitGraphCommit, offset: usize) -> GitGraphCommit {
+    GitGraphCommit {
+        id: commit.id.map(|id| shift_spanned(id, offset)),
+        tag: commit.tag.map(|tag| shift_spanned(tag, offset)),
+        kind: shift_spanned(commit.kind, offset),
+        span: shift_span(commit.span, offset),
+    }
+}
+
+fn shift_gitgraph_branch(branch: GitGraphBranch, offset: usize) -> GitGraphBranch {
+    GitGraphBranch {
+        name: shift_spanned(branch.name, offset),
+        order: branch.order.map(|order| shift_spanned(order, offset)),
+        span: shift_span(branch.span, offset),
+    }
+}
+
+fn shift_gitgraph_merge(merge: GitGraphMerge, offset: usize) -> GitGraphMerge {
+    GitGraphMerge {
+        branch: shift_spanned(merge.branch, offset),
+        id: merge.id.map(|id| shift_spanned(id, offset)),
+        tag: merge.tag.map(|tag| shift_spanned(tag, offset)),
+        kind: shift_spanned(merge.kind, offset),
+        span: shift_span(merge.span, offset),
+    }
+}
+
+fn shift_gitgraph_cherry_pick(
+    cherry_pick: GitGraphCherryPick,
+    offset: usize,
+) -> GitGraphCherryPick {
+    GitGraphCherryPick {
+        id: shift_spanned(cherry_pick.id, offset),
+        parent: cherry_pick
+            .parent
+            .map(|parent| shift_spanned(parent, offset)),
+        span: shift_span(cherry_pick.span, offset),
+    }
+}
+
 fn parse_flow_edge_link(
     source: &str,
     start: usize,
@@ -5166,9 +5734,10 @@ mod tests {
     use crate::ast::{
         ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
         DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
-        FlowStatement, FlowchartDirective, GanttTaskTag, LabelKind, SequenceArrow,
-        SequenceControlKind, SequenceNotePlacement, SequenceParticipantKind, SequenceStatement,
-        Span, StateDirective, StateNodeKind, StateStatement,
+        FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
+        LabelKind, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
+        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
+        StateStatement,
     };
 
     #[test]
@@ -5386,6 +5955,42 @@ mod tests {
         assert_eq!(ast.tasks[0].actors[0].value, "Me");
         assert_eq!(ast.tasks[0].actors[1].value, "Kettle");
         assert_eq!(ast.tasks[1].score.value, 1);
+    }
+
+    #[test]
+    fn parses_gitgraph_document_to_diagram() {
+        assert_eq!(
+            Parser::parse_gitgraph_header("gitGraph:")
+                .unwrap()
+                .orientation
+                .value,
+            GitGraphOrientation::LeftRight,
+        );
+        let diagram = Parser::parse_diagram(
+            r#"gitGraph TB:
+commit id: "base"
+branch develop order: 2
+commit id: "feat" type: HIGHLIGHT tag: "v1"
+checkout main
+merge develop id: "merge" type: REVERSE
+cherry-pick id: "feat" parent: "base""#,
+        )
+        .unwrap();
+
+        let DiagramKind::GitGraph(ast) = diagram.kind else {
+            panic!("expected GitGraph diagram");
+        };
+        assert_eq!(ast.header.orientation.value, GitGraphOrientation::TopBottom);
+        assert_eq!(ast.commits.len(), 2);
+        assert_eq!(ast.commits[1].id.as_ref().unwrap().value, "feat");
+        assert_eq!(ast.commits[1].kind.value, GitGraphCommitKind::Highlight);
+        assert_eq!(ast.commits[1].tag.as_ref().unwrap().value, "v1");
+        assert_eq!(ast.branches[0].name.value, "develop");
+        assert_eq!(ast.branches[0].order.unwrap().value, 2);
+        assert_eq!(ast.merges[0].branch.value, "develop");
+        assert_eq!(ast.merges[0].kind.value, GitGraphCommitKind::Reverse);
+        assert_eq!(ast.cherry_picks[0].id.value, "feat");
+        assert_eq!(ast.cherry_picks[0].parent.as_ref().unwrap().value, "base");
     }
 
     #[test]

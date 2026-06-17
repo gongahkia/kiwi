@@ -1,17 +1,17 @@
 use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
-    FlowchartAst, GanttAst, GanttStatement, JourneyAst, JourneyStatement, MermaidDirective,
-    MindmapAst, MindmapStatement, PieAst, PieStatement, SequenceAst, SequenceStatement, StateAst,
-    StateStatement,
+    FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
+    JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
+    SequenceAst, SequenceStatement, StateAst, StateStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
-    GanttLayoutEngine, JourneyLayoutEngine, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
-    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
-    PositionedGanttTask, PositionedJourneyTask, PositionedMindmapNode, PositionedSequenceMessage,
-    PositionedSequenceParticipant, SequenceLayout, SequenceLayoutEngine, StateLayout,
-    StateLayoutEngine,
+    GanttLayoutEngine, GitGraphLayoutEngine, JourneyLayoutEngine, MindmapLayoutEngine, PieLayout,
+    PieLayoutEngine, Point, PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge,
+    PositionedFlowNode, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
+    PositionedMindmapNode, PositionedSequenceMessage, PositionedSequenceParticipant,
+    SequenceLayout, SequenceLayoutEngine, StateLayout, StateLayoutEngine,
 };
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -63,6 +63,11 @@ impl Animator {
     #[must_use]
     pub fn journey_trace(ast: &JourneyAst) -> Timeline {
         JourneyTraceAnimator::default().animate(ast)
+    }
+
+    #[must_use]
+    pub fn gitgraph_trace(ast: &GitGraphAst) -> Timeline {
+        GitGraphTraceAnimator::default().animate(ast)
     }
 
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
@@ -138,6 +143,10 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Journey(ast), AnimationMode::Trace) => JourneyTraceAnimator::new(
                 scaled_duration(JourneyTraceAnimator::default_frame_duration(), speed),
+            )
+            .animate_with_renderer(ast, renderer),
+            (DiagramKind::GitGraph(ast), AnimationMode::Trace) => GitGraphTraceAnimator::new(
+                scaled_duration(GitGraphTraceAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
             (kind, mode) => {
@@ -248,6 +257,11 @@ impl AnimationConfig {
                     apply_journey_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::GitGraph(ast) => {
+                for statement in &ast.statements {
+                    apply_gitgraph_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -329,6 +343,7 @@ pub enum AnimationDiagramKind {
     Pie,
     Mindmap,
     Journey,
+    GitGraph,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -343,6 +358,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Pie(_) => Self::Pie,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
+            DiagramKind::GitGraph(_) => Self::GitGraph,
         }
     }
 }
@@ -541,6 +557,26 @@ fn apply_journey_animation_directives(
     Ok(())
 }
 
+fn apply_gitgraph_animation_directives(
+    statement: &GitGraphStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        GitGraphStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        GitGraphStatement::Commit(_)
+        | GitGraphStatement::Branch(_)
+        | GitGraphStatement::Checkout(_)
+        | GitGraphStatement::Merge(_)
+        | GitGraphStatement::CherryPick(_)
+        | GitGraphStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -650,6 +686,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Pie(_) => AnimationMode::Trace,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
+        DiagramKind::GitGraph(_) => AnimationMode::Trace,
     }
 }
 
@@ -671,6 +708,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
+        DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),
     }
 }
 
@@ -1658,6 +1696,93 @@ fn add_journey_task_marker(
         return;
     };
     let id = format!("journey-task-{}", task.index);
+    frame.add_marker(KeyFrameMarker {
+        id: id.clone(),
+        kind,
+        region,
+    });
+    mark_region_cells(frame, region, &id);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GitGraphTraceAnimator {
+    frame_duration: Duration,
+}
+
+impl Default for GitGraphTraceAnimator {
+    fn default() -> Self {
+        Self {
+            frame_duration: Self::default_frame_duration(),
+        }
+    }
+}
+
+impl GitGraphTraceAnimator {
+    #[must_use]
+    pub const fn new(frame_duration: Duration) -> Self {
+        Self { frame_duration }
+    }
+
+    #[must_use]
+    pub fn default_frame_duration() -> Duration {
+        Duration::from_millis(650)
+    }
+
+    #[must_use]
+    pub const fn frame_duration(self) -> Duration {
+        self.frame_duration
+    }
+
+    #[must_use]
+    pub fn animate(self, ast: &GitGraphAst) -> Timeline {
+        self.animate_with_renderer(ast, StaticFrameRenderer::default())
+    }
+
+    #[must_use]
+    pub fn animate_with_renderer(
+        self,
+        ast: &GitGraphAst,
+        renderer: StaticFrameRenderer,
+    ) -> Timeline {
+        let layout = GitGraphLayoutEngine::default().layout(ast);
+        let mut timeline = Timeline::from_frame(
+            renderer.render_gitgraph_progress(ast, 0),
+            self.frame_duration,
+        );
+
+        for (index, commit) in layout.commits.iter().enumerate() {
+            let mut frame = renderer.render_gitgraph_progress(ast, index + 1);
+            for previous in layout.commits.iter().take(index) {
+                add_gitgraph_commit_marker(&mut frame, previous, KeyFrameMarkerKind::Hold);
+            }
+            add_gitgraph_commit_marker(&mut frame, commit, KeyFrameMarkerKind::Active);
+            timeline.push(KeyFrame::new(frame, self.frame_duration));
+        }
+
+        timeline
+    }
+}
+
+fn add_gitgraph_commit_marker(
+    frame: &mut Frame,
+    commit: &PositionedGitGraphCommit,
+    kind: KeyFrameMarkerKind,
+) {
+    let label_right = commit.label_origin.x + commit.id.chars().count() as i32;
+    let mut min_x = commit.point.x.min(commit.label_origin.x);
+    let mut min_y = commit.point.y.min(commit.label_origin.y);
+    let mut max_x = commit.point.x.max(label_right - 1);
+    let mut max_y = commit.point.y.max(commit.label_origin.y);
+    if let (Some(tag), Some(origin)) = (&commit.tag, commit.tag_origin) {
+        min_x = min_x.min(origin.x);
+        min_y = min_y.min(origin.y);
+        max_x = max_x.max(origin.x + tag.chars().count() as i32 + 1);
+        max_y = max_y.max(origin.y);
+    }
+    let Some(region) = region_from_bounds(min_x, min_y, max_x, max_y) else {
+        return;
+    };
+    let id = format!("gitgraph-commit-{}", commit.index);
     frame.add_marker(KeyFrameMarker {
         id: id.clone(),
         kind,

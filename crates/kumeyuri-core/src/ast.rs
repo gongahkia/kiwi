@@ -17,6 +17,7 @@ pub enum DiagramKind {
     Pie(Box<PieAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
+    GitGraph(Box<GitGraphAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -719,6 +720,79 @@ pub struct JourneyTask {
     pub section: Option<Label>,
     pub score: Spanned<u8>,
     pub actors: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphAst {
+    pub header: GitGraphHeader,
+    pub statements: Vec<GitGraphStatement>,
+    pub commits: Vec<GitGraphCommit>,
+    pub branches: Vec<GitGraphBranch>,
+    pub merges: Vec<GitGraphMerge>,
+    pub cherry_picks: Vec<GitGraphCherryPick>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GitGraphHeader {
+    pub orientation: Spanned<GitGraphOrientation>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitGraphOrientation {
+    LeftRight,
+    TopBottom,
+    BottomTop,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GitGraphStatement {
+    Commit(Box<GitGraphCommit>),
+    Branch(Box<GitGraphBranch>),
+    Checkout(Spanned<String>),
+    Merge(Box<GitGraphMerge>),
+    CherryPick(Box<GitGraphCherryPick>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitGraphCommitKind {
+    Normal,
+    Reverse,
+    Highlight,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphCommit {
+    pub id: Option<Spanned<String>>,
+    pub tag: Option<Spanned<String>>,
+    pub kind: Spanned<GitGraphCommitKind>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphBranch {
+    pub name: Spanned<String>,
+    pub order: Option<Spanned<i32>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphMerge {
+    pub branch: Spanned<String>,
+    pub id: Option<Spanned<String>>,
+    pub tag: Option<Spanned<String>>,
+    pub kind: Spanned<GitGraphCommitKind>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitGraphCherryPick {
+    pub id: Spanned<String>,
+    pub parent: Option<Spanned<String>>,
     pub span: Span,
 }
 
