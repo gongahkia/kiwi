@@ -1,0 +1,17 @@
+requirementDiagram
+%%{ animate: 'none' }%%
+%% parser keeps comments and directives
+requirement "__test_req__":::important {
+  id: "REQ-3"
+  text: "*italicized text* **bold text**"
+  risk: low
+  verifymethod: analysis
+}
+element test_elem {
+  type: "test suite"
+  docRef: github.com/all_the_tests
+}
+classDef important font-weight:bold
+class test_elem important
+style test_elem fill:#f9f,stroke:#333
+test_elem - traces -> "__test_req__"

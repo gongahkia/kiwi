@@ -1,7 +1,7 @@
 use crate::ast::{
     ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
     ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    MindmapAst, MindmapShape, PieAst, SequenceAst, StateAst, TimelineAst,
+    MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst, StateAst, TimelineAst,
 };
 use crate::layout::{
     ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
@@ -9,8 +9,8 @@ use crate::layout::{
     MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
     PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
     PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode, PositionedPieSlice,
-    PositionedSequenceMessage, PositionedSequenceNote, Rect, SequenceLayout, SequenceLayoutEngine,
-    StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    PositionedSequenceMessage, PositionedSequenceNote, Rect, RequirementLayoutEngine,
+    SequenceLayout, SequenceLayoutEngine, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -335,6 +335,7 @@ pub struct StaticFrameRenderer {
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
     timeline: TimelineLayoutEngine,
+    requirement: RequirementLayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -358,6 +359,7 @@ impl StaticFrameRenderer {
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
+            requirement: RequirementLayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -382,6 +384,7 @@ impl StaticFrameRenderer {
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
+            requirement: RequirementLayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -406,6 +409,7 @@ impl StaticFrameRenderer {
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
+            requirement: RequirementLayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -453,6 +457,7 @@ impl StaticFrameRenderer {
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
             DiagramKind::Timeline(ast) => self.render_timeline(ast),
+            DiagramKind::Requirement(ast) => self.render_requirement(ast),
         }
     }
 
@@ -479,6 +484,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_er(&self, ast: &ErAst) -> Frame {
         render_class_layout(&self.er.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_requirement(&self, ast: &RequirementAst) -> Frame {
+        render_class_layout(&self.requirement.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]

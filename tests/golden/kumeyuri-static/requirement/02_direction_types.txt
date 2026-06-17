@@ -1,0 +1,54 @@
++---------------------------------+            +----------------------------+
+|<<functionalRequirement>>        |            |<<performanceRequirement>>  |
+|req_login                        |            |req_latency                 |
++---------------------------------+            +----------------------------+
+|id: 1.1                          |-contains-->|id: 1.2                     |
+|text: login accepts valid users  |            |text: response under 250ms  |
+|risk: low                        |            |risk: medium                |
+|verify: inspection               |            |verify: demonstration       |
++---------------------------------+            +----------------------------+
+                                                              ^
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                      verifies                |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+                                                              |
++---------------------+                                       |
+|<<element>>          |                                       |
+|api                  |                                       |
++---------------------+---------------------------------------+
+|type: service        |
+|docref: docs/api.md  |
++---------------------+

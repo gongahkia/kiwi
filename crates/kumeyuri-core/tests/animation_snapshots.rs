@@ -196,6 +196,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),
         DiagramKind::Timeline(_) => ("timeline", "trace"),
+        DiagramKind::Requirement(_) => ("requirement", "none"),
     }
 }
 

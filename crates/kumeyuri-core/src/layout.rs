@@ -5,8 +5,10 @@ use crate::ast::{
     FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
     GanttTaskTag, GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation,
     GitGraphStatement, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
-    SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
-    StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    RequirementAst, RequirementElement, RequirementKind, RequirementNode,
+    RequirementRelationshipKind, RequirementVerifyMethod, SequenceAst, SequenceMessage,
+    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
+    StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -629,7 +631,18 @@ pub struct TimelineLayoutEngine {
     config: TimelineLayoutConfig,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RequirementLayoutEngine {
+    class: ClassLayoutEngine,
+}
+
 impl Default for ErLayoutEngine {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl Default for RequirementLayoutEngine {
     fn default() -> Self {
         Self::default_values()
     }
@@ -1083,6 +1096,186 @@ impl ErLayoutEngine {
             relationships,
             size,
         }
+    }
+}
+
+impl RequirementLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            class: ClassLayoutEngine::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(class: ClassLayoutEngine) -> Self {
+        Self { class }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &RequirementAst) -> ClassLayout {
+        self.class.layout(&requirement_to_class_ast(ast))
+    }
+}
+
+fn requirement_to_class_ast(ast: &RequirementAst) -> ClassAst {
+    let mut classes = ast
+        .requirements
+        .iter()
+        .map(requirement_node_to_class)
+        .chain(ast.elements.iter().map(requirement_element_to_class))
+        .collect::<Vec<_>>();
+    for relationship in &ast.relationships {
+        ensure_class_id(&mut classes, &relationship.from);
+        ensure_class_id(&mut classes, &relationship.to);
+    }
+    let relationships = ast
+        .relationships
+        .iter()
+        .map(|relationship| ClassRelationship {
+            from: relationship.from.clone(),
+            to: relationship.to.clone(),
+            line: ClassRelationshipLine::Solid,
+            start_marker: ClassRelationshipMarker::None,
+            end_marker: ClassRelationshipMarker::Arrow,
+            label: Some(label_from_text(
+                requirement_relationship_label(relationship.kind.value),
+                relationship.kind.span,
+            )),
+            span: relationship.span,
+        })
+        .collect();
+    ClassAst {
+        header: crate::ast::ClassHeader {
+            span: ast.header.span,
+        },
+        direction: ast.direction,
+        statements: Vec::new(),
+        classes,
+        relationships,
+        span: ast.span,
+    }
+}
+
+fn requirement_node_to_class(node: &RequirementNode) -> ClassNode {
+    let mut members = Vec::new();
+    if let Some(id) = &node.requirement_id {
+        members.push(requirement_member("id", id.clone(), id.span));
+    }
+    if let Some(text) = &node.text {
+        members.push(requirement_member("text", text.clone(), text.span));
+    }
+    if let Some(risk) = node.risk {
+        members.push(requirement_member(
+            "risk",
+            label_from_text(requirement_risk_label(risk.value), risk.span),
+            risk.span,
+        ));
+    }
+    if let Some(verify_method) = node.verify_method {
+        members.push(requirement_member(
+            "verify",
+            label_from_text(
+                requirement_verify_method_label(verify_method.value),
+                verify_method.span,
+            ),
+            verify_method.span,
+        ));
+    }
+    ClassNode {
+        id: node.name.clone(),
+        annotations: vec![label_from_text(
+            requirement_kind_annotation(node.kind.value),
+            node.kind.span,
+        )],
+        members,
+        span: node.span,
+    }
+}
+
+fn requirement_element_to_class(element: &RequirementElement) -> ClassNode {
+    let mut members = Vec::new();
+    if let Some(ty) = &element.ty {
+        members.push(requirement_member("type", ty.clone(), ty.span));
+    }
+    if let Some(doc_ref) = &element.doc_ref {
+        members.push(requirement_member("docref", doc_ref.clone(), doc_ref.span));
+    }
+    ClassNode {
+        id: element.name.clone(),
+        annotations: vec![label_from_text("<<element>>", element.name.span)],
+        members,
+        span: element.span,
+    }
+}
+
+fn ensure_class_id(classes: &mut Vec<ClassNode>, id: &Spanned<String>) {
+    if classes.iter().any(|class| class.id.value == id.value) {
+        return;
+    }
+    classes.push(ClassNode {
+        id: id.clone(),
+        annotations: Vec::new(),
+        members: Vec::new(),
+        span: id.span,
+    });
+}
+
+fn requirement_member(name: &str, ty: Label, span: crate::ast::Span) -> ClassMember {
+    ClassMember {
+        visibility: None,
+        name: Spanned::new(name.to_owned(), span),
+        ty: Some(ty),
+        kind: ClassMemberKind::Field,
+        span,
+    }
+}
+
+fn label_from_text(text: impl Into<String>, span: crate::ast::Span) -> Label {
+    Label {
+        text: text.into(),
+        kind: LabelKind::Plain,
+        span,
+    }
+}
+
+fn requirement_kind_annotation(kind: RequirementKind) -> &'static str {
+    match kind {
+        RequirementKind::Requirement => "<<requirement>>",
+        RequirementKind::Functional => "<<functionalRequirement>>",
+        RequirementKind::Interface => "<<interfaceRequirement>>",
+        RequirementKind::Performance => "<<performanceRequirement>>",
+        RequirementKind::Physical => "<<physicalRequirement>>",
+        RequirementKind::DesignConstraint => "<<designConstraint>>",
+    }
+}
+
+fn requirement_risk_label(risk: crate::ast::RequirementRisk) -> &'static str {
+    match risk {
+        crate::ast::RequirementRisk::Low => "low",
+        crate::ast::RequirementRisk::Medium => "medium",
+        crate::ast::RequirementRisk::High => "high",
+    }
+}
+
+fn requirement_verify_method_label(method: RequirementVerifyMethod) -> &'static str {
+    match method {
+        RequirementVerifyMethod::Analysis => "analysis",
+        RequirementVerifyMethod::Inspection => "inspection",
+        RequirementVerifyMethod::Test => "test",
+        RequirementVerifyMethod::Demonstration => "demonstration",
+    }
+}
+
+fn requirement_relationship_label(kind: RequirementRelationshipKind) -> &'static str {
+    match kind {
+        RequirementRelationshipKind::Contains => "contains",
+        RequirementRelationshipKind::Copies => "copies",
+        RequirementRelationshipKind::Derives => "derives",
+        RequirementRelationshipKind::Satisfies => "satisfies",
+        RequirementRelationshipKind::Verifies => "verifies",
+        RequirementRelationshipKind::Refines => "refines",
+        RequirementRelationshipKind::Traces => "traces",
     }
 }
 

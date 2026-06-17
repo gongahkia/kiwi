@@ -2,7 +2,8 @@ use crate::ast::{
     ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
-    SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst, TimelineStatement,
+    RequirementStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
+    TimelineStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -159,6 +160,7 @@ impl Animator {
                 scaled_duration(TimelineRevealAnimator::default_frame_duration(), speed),
             )
             .animate_with_renderer(ast, renderer),
+            (DiagramKind::Requirement(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -277,6 +279,11 @@ impl AnimationConfig {
                     apply_timeline_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Requirement(ast) => {
+                for statement in &ast.statements {
+                    apply_requirement_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -360,6 +367,7 @@ pub enum AnimationDiagramKind {
     Journey,
     GitGraph,
     Timeline,
+    Requirement,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -376,6 +384,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
             DiagramKind::Timeline(_) => Self::Timeline,
+            DiagramKind::Requirement(_) => Self::Requirement,
         }
     }
 }
@@ -613,6 +622,28 @@ fn apply_timeline_animation_directives(
     Ok(())
 }
 
+fn apply_requirement_animation_directives(
+    statement: &RequirementStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        RequirementStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        RequirementStatement::Requirement(_)
+        | RequirementStatement::Element(_)
+        | RequirementStatement::Relationship(_)
+        | RequirementStatement::Direction(_)
+        | RequirementStatement::Style(_)
+        | RequirementStatement::ClassDef(_)
+        | RequirementStatement::ClassApply(_)
+        | RequirementStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -724,6 +755,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
         DiagramKind::Timeline(_) => AnimationMode::Trace,
+        DiagramKind::Requirement(_) => AnimationMode::None,
     }
 }
 
@@ -747,6 +779,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),
         DiagramKind::Timeline(_) => TimelineRevealAnimator::default_frame_duration(),
+        DiagramKind::Requirement(_) => Duration::from_millis(700),
     }
 }
 

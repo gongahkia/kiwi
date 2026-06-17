@@ -9,12 +9,15 @@ use crate::ast::{
     GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
     GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
     MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
-    MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement, SequenceArrow, SequenceAst,
-    SequenceAutoNumber, SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage,
-    SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
-    SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
-    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition, TimelineAst,
-    TimelineHeader, TimelinePeriod, TimelineStatement,
+    MindmapStatement, PieAst, PieHeader, PieSlice, PieStatement, RequirementAst,
+    RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
+    RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
+    RequirementStyle, RequirementVerifyMethod, SequenceArrow, SequenceAst, SequenceAutoNumber,
+    SequenceControlBlock, SequenceControlKind, SequenceHeader, SequenceMessage, SequenceNote,
+    SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span,
+    Spanned, StateAst, StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind,
+    StateNote, StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
+    TimelineStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +100,14 @@ pub enum ParseErrorKind {
     UnknownTimelineStatement,
     ExpectedTimelinePeriod,
     ExpectedTimelineEvent,
+    ExpectedRequirementHeader,
+    UnknownRequirementStatement,
+    ExpectedRequirementName,
+    ExpectedRequirementField,
+    ExpectedRequirementRelationship,
+    ExpectedRequirementKind,
+    ExpectedRequirementRisk,
+    ExpectedRequirementVerifyMethod,
     TrailingInput,
 }
 
@@ -153,6 +164,10 @@ impl Parser {
 
     pub fn parse_timeline(source: &str) -> Result<TimelineAst, ParseError> {
         DiagramParser::new(source).parse_timeline_only()
+    }
+
+    pub fn parse_requirement(source: &str) -> Result<RequirementAst, ParseError> {
+        DiagramParser::new(source).parse_requirement_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -281,6 +296,14 @@ impl Parser {
     pub fn parse_timeline_statement(source: &str) -> Result<TimelineStatement, ParseError> {
         TimelineStatementParser::new(source).parse()
     }
+
+    pub fn parse_requirement_header(source: &str) -> Result<RequirementHeader, ParseError> {
+        RequirementHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_requirement_statement(source: &str) -> Result<RequirementStatement, ParseError> {
+        RequirementStatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -365,6 +388,14 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Timeline(Box::new(ast))));
+        }
+        if let Ok(requirement_header) = Parser::parse_requirement_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_requirement_body(shift_requirement_header(
+                requirement_header,
+                header.start,
+            ))?;
+            return Ok(self.diagram(DiagramKind::Requirement(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -492,6 +523,17 @@ impl<'source> DiagramParser<'source> {
         let timeline_header = Parser::parse_timeline_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))
+    }
+
+    fn parse_requirement_only(mut self) -> Result<RequirementAst, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let requirement_header = Parser::parse_requirement_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_requirement_body(shift_requirement_header(requirement_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -934,6 +976,122 @@ impl<'source> DiagramParser<'source> {
         Ok(ast)
     }
 
+    fn parse_requirement_body(
+        &mut self,
+        header: RequirementHeader,
+    ) -> Result<RequirementAst, ParseError> {
+        let mut ast = RequirementAst {
+            header,
+            direction: None,
+            statements: Vec::new(),
+            requirements: Vec::new(),
+            elements: Vec::new(),
+            relationships: Vec::new(),
+            classes: Vec::new(),
+            styles: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if is_requirement_node_block_header(line.text) {
+                let node = self.parse_requirement_node_block(line)?;
+                push_requirement_statement(
+                    &mut ast,
+                    RequirementStatement::Requirement(Box::new(node)),
+                );
+                continue;
+            }
+            if is_requirement_element_block_header(line.text) {
+                let element = self.parse_requirement_element_block(line)?;
+                push_requirement_statement(
+                    &mut ast,
+                    RequirementStatement::Element(Box::new(element)),
+                );
+                continue;
+            }
+            if line.text == "}" {
+                self.cursor = line.line.next;
+                continue;
+            }
+            let statement = shift_requirement_statement(
+                Parser::parse_requirement_statement(line.text)?,
+                line.start,
+            );
+            push_requirement_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_requirement_node_block(
+        &mut self,
+        header_line: TrimmedSourceLine<'source>,
+    ) -> Result<RequirementNode, ParseError> {
+        let mut node = parse_requirement_node_header(
+            header_line.text,
+            0,
+            header_line.text.len().saturating_sub(1),
+        )?;
+        node = shift_requirement_node(node, header_line.start);
+        self.cursor = header_line.line.next;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                node.span = Span::new(node.span.start, line.end);
+                self.cursor = line.line.next;
+                return Ok(node);
+            }
+            if Parser::parse_mermaid_comment(line.text).is_ok()
+                || Parser::parse_mermaid_directive(line.text).is_ok()
+            {
+                self.cursor = line.line.next;
+                continue;
+            }
+            apply_requirement_field(&mut node, line.text, line.start)?;
+            self.cursor = line.line.next;
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementField,
+            span: Span::new(node.span.start, self.source.len()),
+        })
+    }
+
+    fn parse_requirement_element_block(
+        &mut self,
+        header_line: TrimmedSourceLine<'source>,
+    ) -> Result<RequirementElement, ParseError> {
+        let mut element = parse_requirement_element_header(
+            header_line.text,
+            0,
+            header_line.text.len().saturating_sub(1),
+        )?;
+        element = shift_requirement_element(element, header_line.start);
+        self.cursor = header_line.line.next;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                element.span = Span::new(element.span.start, line.end);
+                self.cursor = line.line.next;
+                return Ok(element);
+            }
+            if Parser::parse_mermaid_comment(line.text).is_ok()
+                || Parser::parse_mermaid_directive(line.text).is_ok()
+            {
+                self.cursor = line.line.next;
+                continue;
+            }
+            apply_requirement_element_field(&mut element, line.text, line.start)?;
+            self.cursor = line.line.next;
+        }
+
+        Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementField,
+            span: Span::new(element.span.start, self.source.len()),
+        })
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -1182,6 +1340,87 @@ fn push_timeline_statement(
     }
     ast.statements.push(statement);
     Ok(())
+}
+
+fn push_requirement_statement(ast: &mut RequirementAst, statement: RequirementStatement) {
+    match &statement {
+        RequirementStatement::Requirement(node) => {
+            merge_requirement_node(&mut ast.requirements, node);
+        }
+        RequirementStatement::Element(element) => {
+            merge_requirement_element(&mut ast.elements, element);
+        }
+        RequirementStatement::Relationship(relationship) => {
+            ensure_requirement_endpoint(ast, &relationship.from);
+            ensure_requirement_endpoint(ast, &relationship.to);
+            ast.relationships.push((**relationship).clone());
+        }
+        RequirementStatement::Direction(direction) => ast.direction = Some(*direction),
+        RequirementStatement::Style(style) => ast.styles.push(style.clone()),
+        RequirementStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
+        RequirementStatement::ClassApply(_)
+        | RequirementStatement::Comment(_)
+        | RequirementStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn merge_requirement_node(requirements: &mut Vec<RequirementNode>, node: &RequirementNode) {
+    if let Some(existing) = requirements
+        .iter_mut()
+        .find(|value| value.name.value == node.name.value)
+    {
+        existing.kind = node.kind;
+        existing.requirement_id = node
+            .requirement_id
+            .clone()
+            .or(existing.requirement_id.clone());
+        existing.text = node.text.clone().or(existing.text.clone());
+        existing.risk = node.risk.or(existing.risk);
+        existing.verify_method = node.verify_method.or(existing.verify_method);
+        existing.classes.extend(node.classes.clone());
+        existing.span = Span::new(existing.span.start.min(node.span.start), node.span.end);
+        return;
+    }
+    requirements.push(node.clone());
+}
+
+fn merge_requirement_element(elements: &mut Vec<RequirementElement>, element: &RequirementElement) {
+    if let Some(existing) = elements
+        .iter_mut()
+        .find(|value| value.name.value == element.name.value)
+    {
+        existing.ty = element.ty.clone().or(existing.ty.clone());
+        existing.doc_ref = element.doc_ref.clone().or(existing.doc_ref.clone());
+        existing.classes.extend(element.classes.clone());
+        existing.span = Span::new(
+            existing.span.start.min(element.span.start),
+            element.span.end,
+        );
+        return;
+    }
+    elements.push(element.clone());
+}
+
+fn ensure_requirement_endpoint(ast: &mut RequirementAst, id: &Spanned<String>) {
+    if ast
+        .requirements
+        .iter()
+        .any(|node| node.name.value == id.value)
+        || ast
+            .elements
+            .iter()
+            .any(|element| element.name.value == id.value)
+    {
+        return;
+    }
+    ast.elements.push(RequirementElement {
+        name: id.clone(),
+        ty: None,
+        doc_ref: None,
+        classes: Vec::new(),
+        span: id.span,
+    });
 }
 
 fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
@@ -2777,6 +3016,99 @@ impl<'source> TimelineStatementParser<'source> {
         }
         Err(ParseError {
             kind: ParseErrorKind::UnknownTimelineStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct RequirementHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RequirementHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<RequirementHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRequirementHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "requirementDiagram" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRequirementHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(RequirementHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct RequirementStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RequirementStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<RequirementStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownRequirementStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(RequirementStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(RequirementStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "direction") {
+            let direction = parse_requirement_direction(self.source, start, end)?;
+            return Ok(RequirementStatement::Direction(direction));
+        }
+        if has_keyword(self.source, start, "style") {
+            return Ok(RequirementStatement::Style(parse_requirement_style(
+                self.source,
+                start,
+                end,
+            )?));
+        }
+        if has_keyword(self.source, start, "classDef") {
+            return Ok(RequirementStatement::ClassDef(shift_class_def(
+                Parser::parse_flow_class_def(&self.source[start..end])?,
+                start,
+            )));
+        }
+        if has_keyword(self.source, start, "class") {
+            return Ok(RequirementStatement::ClassApply(shift_class_apply(
+                Parser::parse_flow_class_apply(&self.source[start..end])?,
+                start,
+            )));
+        }
+        if let Some(class_apply) = parse_requirement_class_shorthand(self.source, start, end)? {
+            return Ok(RequirementStatement::ClassApply(class_apply));
+        }
+        if let Some(relationship) = parse_requirement_relationship(self.source, start, end)? {
+            return Ok(RequirementStatement::Relationship(Box::new(relationship)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownRequirementStatement,
             span: Span::new(start, end),
         })
     }
@@ -4723,6 +5055,440 @@ fn parse_timeline_event(source: &str, start: usize, end: usize) -> Result<Label,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedRequirementName {
+    name: Spanned<String>,
+    classes: Vec<Spanned<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RequirementToken {
+    raw: String,
+    span: Span,
+}
+
+fn is_requirement_node_block_header(source: &str) -> bool {
+    let Some((start, end)) = trim_ascii_range(source) else {
+        return false;
+    };
+    source[start..end].ends_with('{')
+        && parse_requirement_kind_at(source, start, end.saturating_sub(1)).is_ok()
+}
+
+fn is_requirement_element_block_header(source: &str) -> bool {
+    let Some((start, end)) = trim_ascii_range(source) else {
+        return false;
+    };
+    source[start..end].ends_with('{') && has_keyword(source, start, "element")
+}
+
+fn parse_requirement_node_header(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<RequirementNode, ParseError> {
+    let (kind, kind_span, name_start) = parse_requirement_kind_at(source, start, end)?;
+    let parsed_name = parse_requirement_name_and_classes(source, name_start, end)?;
+    Ok(RequirementNode {
+        name: parsed_name.name,
+        kind: Spanned::new(kind, kind_span),
+        requirement_id: None,
+        text: None,
+        risk: None,
+        verify_method: None,
+        classes: parsed_name.classes,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_requirement_element_header(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<RequirementElement, ParseError> {
+    if !has_keyword(source, start, "element") {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementName,
+            span: Span::new(start, end),
+        });
+    }
+    let parsed_name = parse_requirement_name_and_classes(source, start + "element".len(), end)?;
+    Ok(RequirementElement {
+        name: parsed_name.name,
+        ty: None,
+        doc_ref: None,
+        classes: parsed_name.classes,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_requirement_kind_at(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(RequirementKind, Span, usize), ParseError> {
+    for (keyword, kind) in [
+        ("functionalRequirement", RequirementKind::Functional),
+        ("interfaceRequirement", RequirementKind::Interface),
+        ("performanceRequirement", RequirementKind::Performance),
+        ("physicalRequirement", RequirementKind::Physical),
+        ("designConstraint", RequirementKind::DesignConstraint),
+        ("requirement", RequirementKind::Requirement),
+    ] {
+        if has_keyword(source, start, keyword) {
+            return Ok((
+                kind,
+                Span::new(start, start + keyword.len()),
+                start + keyword.len(),
+            ));
+        }
+    }
+    Err(ParseError {
+        kind: ParseErrorKind::ExpectedRequirementKind,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_requirement_name_and_classes(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<ParsedRequirementName, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementName,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let class_start = source[absolute_start..absolute_end]
+        .rfind(":::")
+        .map(|offset| absolute_start + offset);
+    let name_end = class_start.unwrap_or(absolute_end);
+    let Some((name_trim_start, name_trim_end)) =
+        trim_ascii_range(&source[absolute_start..name_end])
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementName,
+            span: Span::new(absolute_start, name_end),
+        });
+    };
+    let name_start = absolute_start + name_trim_start;
+    let name_end = absolute_start + name_trim_end;
+    let name = parse_requirement_name_token(source, name_start, name_end)?;
+    let classes = class_start.map_or_else(Vec::new, |class_start| {
+        parse_requirement_classes(source, class_start + 3, absolute_end)
+    });
+    Ok(ParsedRequirementName { name, classes })
+}
+
+fn parse_requirement_name_token(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    if start == end {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementName,
+            span: Span::new(start, end),
+        });
+    }
+    let label = label_from_body(source, start, end);
+    Ok(Spanned::new(label.text, label.span))
+}
+
+fn parse_requirement_classes(source: &str, start: usize, end: usize) -> Vec<Spanned<String>> {
+    let mut classes = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        while cursor < end && matches!(source.as_bytes().get(cursor), Some(b',' | b' ' | b'\t')) {
+            cursor += 1;
+        }
+        let class_start = cursor;
+        while cursor < end && !matches!(source.as_bytes().get(cursor), Some(b',' | b' ' | b'\t')) {
+            cursor += 1;
+        }
+        if class_start < cursor {
+            classes.push(Spanned::new(
+                source[class_start..cursor].to_owned(),
+                Span::new(class_start, cursor),
+            ));
+        }
+    }
+    classes
+}
+
+fn apply_requirement_field(
+    node: &mut RequirementNode,
+    source: &str,
+    offset: usize,
+) -> Result<(), ParseError> {
+    let (key, value) = parse_requirement_field_pair(source, offset)?;
+    let key_lower = key.value.to_ascii_lowercase();
+    match key_lower.as_str() {
+        "id" => node.requirement_id = Some(value),
+        "text" => node.text = Some(value),
+        "risk" => node.risk = Some(Spanned::new(parse_requirement_risk(&value)?, value.span)),
+        "verifymethod" => {
+            node.verify_method = Some(Spanned::new(
+                parse_requirement_verify_method(&value)?,
+                value.span,
+            ));
+        }
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRequirementField,
+                span: key.span,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn apply_requirement_element_field(
+    element: &mut RequirementElement,
+    source: &str,
+    offset: usize,
+) -> Result<(), ParseError> {
+    let (key, value) = parse_requirement_field_pair(source, offset)?;
+    match key.value.to_ascii_lowercase().as_str() {
+        "type" => element.ty = Some(value),
+        "docref" => element.doc_ref = Some(value),
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRequirementField,
+                span: key.span,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn parse_requirement_field_pair(
+    source: &str,
+    offset: usize,
+) -> Result<(Spanned<String>, Label), ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementField,
+            span: Span::new(offset, offset),
+        });
+    };
+    let Some(colon) = source[start..end].find(':') else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementField,
+            span: Span::new(offset + start, offset + end),
+        });
+    };
+    let colon = start + colon;
+    let key = parse_single_identifier(
+        source,
+        start,
+        colon,
+        ParseErrorKind::ExpectedRequirementField,
+    )?;
+    let value = label_from_trimmed(source, colon + 1, end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedRequirementField,
+        span: Span::new(offset + colon + 1, offset + end),
+    })?;
+    Ok((shift_spanned(key, offset), shift_label(value, offset)))
+}
+
+fn parse_requirement_risk(label: &Label) -> Result<RequirementRisk, ParseError> {
+    match label.text.to_ascii_lowercase().as_str() {
+        "low" => Ok(RequirementRisk::Low),
+        "medium" => Ok(RequirementRisk::Medium),
+        "high" => Ok(RequirementRisk::High),
+        _ => Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementRisk,
+            span: label.span,
+        }),
+    }
+}
+
+fn parse_requirement_verify_method(label: &Label) -> Result<RequirementVerifyMethod, ParseError> {
+    match label.text.to_ascii_lowercase().as_str() {
+        "analysis" => Ok(RequirementVerifyMethod::Analysis),
+        "inspection" => Ok(RequirementVerifyMethod::Inspection),
+        "test" => Ok(RequirementVerifyMethod::Test),
+        "demonstration" => Ok(RequirementVerifyMethod::Demonstration),
+        _ => Err(ParseError {
+            kind: ParseErrorKind::ExpectedRequirementVerifyMethod,
+            span: label.span,
+        }),
+    }
+}
+
+fn parse_requirement_direction(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<Direction>, ParseError> {
+    let value = parse_single_identifier(
+        source,
+        start + "direction".len(),
+        end,
+        ParseErrorKind::ExpectedRequirementField,
+    )?;
+    let direction = Direction::from_mermaid(&value.value).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedRequirementField,
+        span: value.span,
+    })?;
+    Ok(Spanned::new(direction, value.span))
+}
+
+fn parse_requirement_style(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<RequirementStyle, ParseError> {
+    let body_start = start + "style".len();
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[body_start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedStyleDeclaration,
+            span: Span::new(body_start, end),
+        });
+    };
+    let ids_start = body_start + trim_start;
+    let body_end = body_start + trim_end;
+    let ids_end = source[ids_start..body_end]
+        .find(char::is_whitespace)
+        .map_or(body_end, |offset| ids_start + offset);
+    let node_ids = parse_csv_identifiers(
+        source,
+        ids_start,
+        ids_end,
+        ParseErrorKind::ExpectedRequirementName,
+    )?;
+    let styles = parse_style_declarations(source, ids_end, body_end)?;
+    Ok(RequirementStyle {
+        node_ids,
+        styles,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_requirement_class_shorthand(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Option<FlowClassApply>, ParseError> {
+    let Some(separator) = source[start..end].find(":::") else {
+        return Ok(None);
+    };
+    let separator = start + separator;
+    let node_ids = vec![parse_single_identifier(
+        source,
+        start,
+        separator,
+        ParseErrorKind::ExpectedRequirementName,
+    )?];
+    let class_ids = parse_flexible_identifiers(
+        source,
+        separator + 3,
+        end,
+        ParseErrorKind::ExpectedClassName,
+    )?;
+    Ok(Some(FlowClassApply {
+        node_ids,
+        class_ids,
+        span: Span::new(start, end),
+    }))
+}
+
+fn parse_requirement_relationship(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Option<RequirementRelationship>, ParseError> {
+    let tokens = tokenize_requirement_statement(source, start, end)?;
+    let Some([a, op_a, kind, op_b, b]) = tokens.as_slice().first_chunk::<5>() else {
+        return Ok(None);
+    };
+    if tokens.len() != 5 {
+        return Ok(None);
+    }
+    if op_a.raw == "-" && op_b.raw == "->" {
+        return Ok(Some(RequirementRelationship {
+            from: parse_requirement_name_token(source, a.span.start, a.span.end)?,
+            to: parse_requirement_name_token(source, b.span.start, b.span.end)?,
+            kind: parse_requirement_relationship_kind(kind)?,
+            span: Span::new(start, end),
+        }));
+    }
+    if op_a.raw == "<-" && op_b.raw == "-" {
+        return Ok(Some(RequirementRelationship {
+            from: parse_requirement_name_token(source, b.span.start, b.span.end)?,
+            to: parse_requirement_name_token(source, a.span.start, a.span.end)?,
+            kind: parse_requirement_relationship_kind(kind)?,
+            span: Span::new(start, end),
+        }));
+    }
+    Ok(None)
+}
+
+fn tokenize_requirement_statement(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<RequirementToken>, ParseError> {
+    let mut tokens = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        while cursor < end && source.as_bytes()[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        if cursor >= end {
+            break;
+        }
+        let token_start = cursor;
+        if source.as_bytes()[cursor] == b'"' {
+            cursor += 1;
+            while cursor < end && source.as_bytes()[cursor] != b'"' {
+                cursor += 1;
+            }
+            if cursor >= end {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedRequirementName,
+                    span: Span::new(token_start, end),
+                });
+            }
+            cursor += 1;
+        } else {
+            while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+        }
+        tokens.push(RequirementToken {
+            raw: source[token_start..cursor].to_owned(),
+            span: Span::new(token_start, cursor),
+        });
+    }
+    Ok(tokens)
+}
+
+fn parse_requirement_relationship_kind(
+    token: &RequirementToken,
+) -> Result<Spanned<RequirementRelationshipKind>, ParseError> {
+    let kind = match token.raw.to_ascii_lowercase().as_str() {
+        "contains" => RequirementRelationshipKind::Contains,
+        "copies" => RequirementRelationshipKind::Copies,
+        "derives" => RequirementRelationshipKind::Derives,
+        "satisfies" => RequirementRelationshipKind::Satisfies,
+        "verifies" => RequirementRelationshipKind::Verifies,
+        "refines" => RequirementRelationshipKind::Refines,
+        "traces" => RequirementRelationshipKind::Traces,
+        _ => {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRequirementRelationship,
+                span: token.span,
+            });
+        }
+    };
+    Ok(Spanned::new(kind, token.span))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedGitGraphName {
     value: Spanned<String>,
     consumed_end: usize,
@@ -5726,6 +6492,110 @@ fn shift_timeline_period(period: TimelinePeriod, offset: usize) -> TimelinePerio
             .map(|event| shift_label(event, offset))
             .collect(),
         span: shift_span(period.span, offset),
+    }
+}
+
+fn shift_requirement_header(header: RequirementHeader, offset: usize) -> RequirementHeader {
+    RequirementHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_requirement_statement(
+    statement: RequirementStatement,
+    offset: usize,
+) -> RequirementStatement {
+    match statement {
+        RequirementStatement::Requirement(node) => {
+            RequirementStatement::Requirement(Box::new(shift_requirement_node(*node, offset)))
+        }
+        RequirementStatement::Element(element) => {
+            RequirementStatement::Element(Box::new(shift_requirement_element(*element, offset)))
+        }
+        RequirementStatement::Relationship(relationship) => RequirementStatement::Relationship(
+            Box::new(shift_requirement_relationship(*relationship, offset)),
+        ),
+        RequirementStatement::Direction(direction) => {
+            RequirementStatement::Direction(shift_spanned(direction, offset))
+        }
+        RequirementStatement::Style(style) => {
+            RequirementStatement::Style(shift_requirement_style(style, offset))
+        }
+        RequirementStatement::ClassDef(class_def) => {
+            RequirementStatement::ClassDef(shift_class_def(class_def, offset))
+        }
+        RequirementStatement::ClassApply(class_apply) => {
+            RequirementStatement::ClassApply(shift_class_apply(class_apply, offset))
+        }
+        RequirementStatement::Comment(comment) => {
+            RequirementStatement::Comment(shift_comment(comment, offset))
+        }
+        RequirementStatement::Directive(directive) => {
+            RequirementStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_requirement_node(node: RequirementNode, offset: usize) -> RequirementNode {
+    RequirementNode {
+        name: shift_spanned(node.name, offset),
+        kind: shift_spanned(node.kind, offset),
+        requirement_id: node
+            .requirement_id
+            .map(|requirement_id| shift_label(requirement_id, offset)),
+        text: node.text.map(|text| shift_label(text, offset)),
+        risk: node.risk.map(|risk| shift_spanned(risk, offset)),
+        verify_method: node
+            .verify_method
+            .map(|verify_method| shift_spanned(verify_method, offset)),
+        classes: node
+            .classes
+            .into_iter()
+            .map(|class| shift_spanned(class, offset))
+            .collect(),
+        span: shift_span(node.span, offset),
+    }
+}
+
+fn shift_requirement_element(element: RequirementElement, offset: usize) -> RequirementElement {
+    RequirementElement {
+        name: shift_spanned(element.name, offset),
+        ty: element.ty.map(|ty| shift_label(ty, offset)),
+        doc_ref: element.doc_ref.map(|doc_ref| shift_label(doc_ref, offset)),
+        classes: element
+            .classes
+            .into_iter()
+            .map(|class| shift_spanned(class, offset))
+            .collect(),
+        span: shift_span(element.span, offset),
+    }
+}
+
+fn shift_requirement_relationship(
+    relationship: RequirementRelationship,
+    offset: usize,
+) -> RequirementRelationship {
+    RequirementRelationship {
+        from: shift_spanned(relationship.from, offset),
+        to: shift_spanned(relationship.to, offset),
+        kind: shift_spanned(relationship.kind, offset),
+        span: shift_span(relationship.span, offset),
+    }
+}
+
+fn shift_requirement_style(style: RequirementStyle, offset: usize) -> RequirementStyle {
+    RequirementStyle {
+        node_ids: style
+            .node_ids
+            .into_iter()
+            .map(|node_id| shift_spanned(node_id, offset))
+            .collect(),
+        styles: style
+            .styles
+            .into_iter()
+            .map(|style| shift_style_declaration(style, offset))
+            .collect(),
+        span: shift_span(style.span, offset),
     }
 }
 
