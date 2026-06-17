@@ -118,7 +118,9 @@
 - [x] Record a 60-second screencast showing CLI + watch mode + web embed
 - [x] Author launch blog post explaining the wedge, with embedded animations
 - [x] Write Hacker News submission title + first comment (technical depth, no marketing fluff)
-- [ ] Draft X launch thread (3 posts max) with one GIF per post; schedule for Tue/Wed 9–11am PT
+- [x] Draft X launch thread (3 posts max) with one GIF per post
+- [ ] Schedule X launch thread for Tue/Wed 9–11am PT
+- [ ] Update launch comms drafts to match current supported-root matrix before posting
 - [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR
 - [ ] Post to r/rust, r/programming, r/commandline with the same blog post
 - [ ] Tag `v1.0.0` and publish to crates.io, npm, Homebrew tap
@@ -140,14 +142,73 @@
 - [x] Implement C4 diagram parser, layout, static rendering
 - [ ] Ship each as a minor release (`v1.1`, `v1.2`, ...) with its own demo GIF and changelog entry
 
+## Phase 5A — Mermaid parity correctness + coverage backlog
+
+- [ ] Update `COVERAGE.md` whenever parser/render behavior changes; keep Mermaid docs sidebar version and unsupported-root list current
+- [ ] Add root-dispatch rejection tests for every unsupported Mermaid root listed in `COVERAGE.md`
+- [ ] Add one parser fixture, one static golden, and one animation/static-collapse assertion for every newly supported Mermaid root before marking it Partial or Static-only
+- [ ] Split `COVERAGE.md` syntax claims into parser, layout, static-render, animation, config, accessibility, and snapshot-count columns
+- [ ] Build a Mermaid official-example fixture importer that stores source URL, Mermaid version, root type, and expected parser/render status
+- [ ] Add official-example parser corpus for every currently supported root, not just flowchart/sequence/state
+- [ ] Add negative fixtures for known Mermaid-breaking inputs: `end` labels, nested shapes, directive-like comments, malformed frontmatter, and unknown root typos
+- [ ] Add source-position parse-error snapshots for representative syntax failures per supported root
+- [ ] Add renderer parity notes for semantic-only shapes/styles so TODO/COVERAGE do not imply visual parity where boxes are still generic
+- [ ] Flowchart: implement visual differentiation for Mermaid classic shapes instead of rendering all nodes as generic boxes
+- [ ] Flowchart: add parity tests for v11 named shapes, markdown strings, multiline labels, entity escapes, edge IDs, edge animation classes, `linkStyle`, `style`, and `click`
+- [ ] Flowchart: implement or explicitly reject Mermaid frontmatter/init config for `layout`, `look`, `theme`, `themeVariables`, `curve`, and ELK options
+- [ ] Flowchart: add layout parity cases for nested subgraph direction, external edges, self-loops, back edges, long labels, disconnected clusters, and dense fan-in/fan-out
+- [ ] Sequence: implement parser support for `autonumber`, `activate`, `deactivate`, `+/-` activation shorthand, `create`, `destroy`, `box`, `rect`, `critical`, and `break`
+- [ ] Sequence: render activation bars, participant boxes/regions, destroy markers, autonumber labels, and critical/break blocks
+- [ ] Sequence: add parity fixtures for actor menus, links, properties, participant ordering, multi-line notes, and message arrows without labels
+- [ ] State: add parity fixtures for entry/exit descriptions, concurrent states, history states, notes over composite states, `choice`/`fork`/`join` rendering, and class styling
+- [ ] State: implement Mermaid layout/look config parity for state diagrams or document each unsupported option with rejection tests
+- [ ] Class: add parity fixtures for namespaces, generics, annotations, callbacks/links, CSS class styling, two-way relations, lollipop interfaces, and member classifiers
+- [ ] Class: render relationship markers/cardinalities closer to Mermaid instead of class-layout approximations
+- [ ] ER: add parity fixtures for quoted entity/relationship labels, comments, aliases, attribute comments, composite/multivalue markers, and all cardinality variants
+- [ ] Gantt: replace schematic timeline rendering with date-aware scale, duration/dependency semantics, excludes/weekends, today marker, axis format, and tick interval parity
+- [ ] Pie: add percentage/value label parity, `showData` rendering, legend ordering, zero/negative value rejection tests, and theme/config fixtures
+- [ ] Journey: add actor color/style parity, section ordering, score bounds validation, and Mermaid theme/config fixtures
+- [ ] GitGraph: add fixtures for branch ordering, checkout/switch aliases, merge/cherry-pick options, commit tags/types, orientation, and theme/config parity
+- [ ] Timeline: add fixtures for multi-event periods, empty sections, long labels, ordering, and Mermaid theme/config parity
+- [ ] Mindmap: add parity for icon registration fallback, Markdown labels, all supported shapes, class styling, indentation edge cases, and deep-tree layout
+- [ ] Requirement: replace class-layout rendering with requirement-specific geometry and relationship glyphs
+- [ ] Requirement: add fixtures for all requirement kinds, risk values, verify methods, element types, relationships, styles, and invalid field validation
+- [ ] C4: replace class-layout rendering with C4-specific boundaries, containers, deployment nodes, relationship labels, layout calls, and style updates
+- [ ] C4: add fixtures for all C4 root variants, boundary nesting, `Rel_*` indexed calls, tags, legends, sprites/icons, and unsupported macro rejection
+- [ ] Quadrant Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] ZenUML: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Sankey: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] XY Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Block Diagram: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Packet: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Kanban: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Architecture: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Radar: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Event Modeling: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Treemap: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Venn: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Ishikawa: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Wardley: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] TreeView: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
+- [ ] Add cross-format snapshot coverage for all supported roots: text, SVG, PNG, GIF, APNG, WebP, TUI timeline hashes, and WASM render output
+- [ ] Add browser visual regression screenshots for `<kumeyuri-diagram>` controls across desktop and mobile viewport sizes
+- [ ] Add fuzz/property tests for supported-root parsers with round-trip invariants over AST counts and source spans
+- [ ] Add mutation tests for parsers to ensure invalid Mermaid syntax fails fast instead of silently dropping statements
+- [ ] Add compatibility CI that diffs Mermaid docs root list against `COVERAGE.md` and opens/fails on missing roots
+- [ ] Add `kumeyuri compat --mermaid-version` command that prints supported roots, unsupported roots, and partial/static-only caveats
+- [ ] Add a coverage gate requiring snapshot-count deltas when `DiagramKind`, parser root dispatch, or render dispatch changes
+
 ## Phase 6 — Ecosystem (ongoing, post-launch)
 
 - [x] Build Neovim plugin (lua) — `:KumeyuriPreview` opens floating TUI
 - [x] Build VSCode extension — webview embedding the WASM player; auto-render `.mmd` files on save
 - [x] Build Claude-Code skill / plugin rendering mermaid blocks inline in agent output
 - [x] Build opencode plugin equivalent
+- [ ] Author GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
 - [ ] Publish GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
+- [x] Author rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
 - [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
+- [ ] Author remark plugin `remark-kumeyuri` for markdown source transformation
 - [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
 - [x] Author mdBook preprocessor `mdbook-kumeyuri`
 - [x] Author Hugo shortcode `{{< kumeyuri >}}`
@@ -155,6 +216,7 @@
 - [x] Add Astro integration `@kumeyuri/astro`
 - [x] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
 - [x] Track upstream Mermaid grammar changes; bump compat matrix per release in `docs/compat.md`
+- [ ] Add CI/docs check to verify `docs/compat.md` and `COVERAGE.md` Mermaid versions match
 - [ ] Quarterly: post X thread with one new animation demo and download/stars chart
 - [ ] Open a `good-first-issue` queue and respond to first-time contributors within 48h
 
@@ -350,21 +412,24 @@
 
 ### Documentation expansion (Phase 4+ continuous)
 
-- [ ] Set up mdBook at `docs.kumeyuri.dev` with `mdbook-pagefind` for search
-- [ ] Write `docs/quickstart.md` (15-minute happy path)
-- [ ] Write `docs/syntax.md` covering vanilla mermaid + kumeyuri directives
-- [ ] Write `docs/directives.md` cataloguing every `%%{ }%%` directive
-- [ ] Write `docs/animations.md` documenting default + custom animations
-- [ ] Write `docs/themes.md` and `docs/theming.md`
-- [ ] Write `docs/embedding.md` (README, Hugo, Docusaurus, mdBook, plain HTML, X cards)
-- [ ] Write `docs/cli.md` reference for every flag and subcommand
+- [ ] Set up hosted mdBook at `docs.kumeyuri.dev` with `mdbook-pagefind` for search
+- [x] Write `docs/book/quickstart.md` (15-minute happy path)
+- [x] Write `docs/book/syntax.md` covering the current supported Mermaid subset + kumeyuri directives
+- [ ] Expand syntax docs toward full vanilla Mermaid parity as supported grammar grows
+- [x] Write `docs/book/directives.md` cataloguing every `%%{ }%%` directive
+- [x] Write `docs/animations.md` documenting default + custom animations
+- [x] Write `docs/book/themes.md`
+- [ ] Write `docs/book/theming.md`
+- [x] Write `docs/embedding.md` and `docs/book/embedding.md` (README, Hugo, Docusaurus, mdBook, plain HTML)
+- [ ] Add X card embedding docs
+- [x] Write `docs/book/cli.md` reference for every flag and subcommand
 - [ ] Write `docs/api.md` Rust API reference (rustdoc + curated narrative)
 - [ ] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
-- [ ] Write `docs/recipes.md` (cookbook of 30+ tasks)
+- [ ] Expand `docs/book/recipes.md` from current short cookbook to 30+ tasks
 - [ ] Write `docs/migrating-from-beautiful-mermaid.md`
 - [ ] Write `docs/migrating-from-mermaid-ascii.md`
 - [ ] Write `docs/migrating-from-mermaid-cli.md`
-- [ ] Add "Edit this page" GitHub links across every doc page
+- [x] Add "Edit this page" GitHub links across every doc page
 - [ ] Add "Try in playground" CTA to every code block
 
 ### Launch comms execution (Phase 4)
