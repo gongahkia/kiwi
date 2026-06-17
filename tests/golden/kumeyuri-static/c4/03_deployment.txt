@@ -1,0 +1,21 @@
++--------------------+            +----------------------+            +----------------------+            +--------------------+
+|<<deploymentNode>>  |            |<<container>>         |            |<<deploymentNode>>    |            |<<deploymentNode>>  |
+|prod                |            |web                   |            |lb                    |            |data                |
++--------------------+            +----------------------+            +----------------------+            +--------------------+
+|label: Production   |            |tech: Rust            |            |label: Load Balancer  |            |label: Data         |
+|type: AWS           |            |desc: Serves traffic  |            |type: ELB             |            |type: RDS           |
++--------------------+            |in: lb                |            |in: prod              |            |in: prod            |
+                                  +----------------------+            +----------------------+            +--------------------+
+                                              |
+                                              |
+          +--------Reads/writes [SQL]---------+
+          |
+          v
++-------------------+
+|<<containerDb>>    |
+|db                 |
++-------------------+
+|tech: Postgres     |
+|desc: Stores data  |
+|in: data           |
++-------------------+

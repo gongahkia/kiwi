@@ -1,0 +1,7 @@
+C4Context
+title System Context diagram for Internet Banking System
+Person(customer, "Personal Banking Customer", "A customer of the bank")
+System(banking_system, "Internet Banking System", "Allows customers to view accounts")
+System_Ext(mail_system, "E-mail System", "Sends e-mails to customers")
+Rel(customer, banking_system, "Uses", "HTTPS")
+Rel(banking_system, mail_system, "Sends e-mail", "SMTP")

@@ -1,5 +1,7 @@
 use crate::ast::{
-    ArrowHead, ClassAst, ClassHeader, ClassMember, ClassMemberAssignment, ClassMemberKind,
+    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4CallArg, C4DiagramType, C4Element,
+    C4ElementKind, C4Header, C4LayoutConfig, C4Relationship, C4RelationshipKind, C4Statement,
+    C4StyleUpdate, ClassAst, ClassHeader, ClassMember, ClassMemberAssignment, ClassMemberKind,
     ClassNode, ClassRelationship, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
     Diagram, DiagramKind, DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity,
     ErHeader, ErRelationship, ErStatement, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink,
@@ -108,6 +110,12 @@ pub enum ParseErrorKind {
     ExpectedRequirementKind,
     ExpectedRequirementRisk,
     ExpectedRequirementVerifyMethod,
+    ExpectedC4Header,
+    UnknownC4Statement,
+    ExpectedC4Call,
+    ExpectedC4Argument,
+    ExpectedC4Name,
+    ExpectedC4Relationship,
     TrailingInput,
 }
 
@@ -168,6 +176,10 @@ impl Parser {
 
     pub fn parse_requirement(source: &str) -> Result<RequirementAst, ParseError> {
         DiagramParser::new(source).parse_requirement_only()
+    }
+
+    pub fn parse_c4(source: &str) -> Result<C4Ast, ParseError> {
+        DiagramParser::new(source).parse_c4_only()
     }
 
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
@@ -304,6 +316,14 @@ impl Parser {
     pub fn parse_requirement_statement(source: &str) -> Result<RequirementStatement, ParseError> {
         RequirementStatementParser::new(source).parse()
     }
+
+    pub fn parse_c4_header(source: &str) -> Result<C4Header, ParseError> {
+        C4HeaderParser::new(source).parse()
+    }
+
+    pub fn parse_c4_statement(source: &str) -> Result<C4Statement, ParseError> {
+        C4StatementParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -396,6 +416,11 @@ impl<'source> DiagramParser<'source> {
                 header.start,
             ))?;
             return Ok(self.diagram(DiagramKind::Requirement(Box::new(ast))));
+        }
+        if let Ok(c4_header) = Parser::parse_c4_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_c4_body(shift_c4_header(c4_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::C4(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -534,6 +559,17 @@ impl<'source> DiagramParser<'source> {
         let requirement_header = Parser::parse_requirement_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_requirement_body(shift_requirement_header(requirement_header, header.start))
+    }
+
+    fn parse_c4_only(mut self) -> Result<C4Ast, ParseError> {
+        self.skip_preamble();
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedC4Header,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let c4_header = Parser::parse_c4_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_c4_body(shift_c4_header(c4_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -1092,6 +1128,46 @@ impl<'source> DiagramParser<'source> {
         })
     }
 
+    fn parse_c4_body(&mut self, header: C4Header) -> Result<C4Ast, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = C4Ast {
+            header,
+            title: None,
+            statements: Vec::new(),
+            elements: Vec::new(),
+            relationships: Vec::new(),
+            boundaries: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut parents = Vec::<Spanned<String>>::new();
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text == "}" {
+                parents.pop();
+                self.cursor = line.line.next;
+                continue;
+            }
+            let (statement_text, opens_block) = if line.text.ends_with('{') {
+                let end = line.end.saturating_sub(1);
+                (&self.source[line.start..end], true)
+            } else {
+                (line.text, false)
+            };
+            let mut statement =
+                shift_c4_statement(Parser::parse_c4_statement(statement_text)?, line.start);
+            if let Some(parent) = parents.last().cloned() {
+                attach_c4_parent(&mut statement, parent);
+            }
+            if opens_block && let Some(alias) = c4_statement_alias(&statement) {
+                parents.push(alias);
+            }
+            push_c4_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
     fn current_trimmed_line(&self) -> Option<TrimmedSourceLine<'source>> {
         let mut cursor = self.cursor;
         while let Some(line) = source_line(self.source, cursor) {
@@ -1421,6 +1497,92 @@ fn ensure_requirement_endpoint(ast: &mut RequirementAst, id: &Spanned<String>) {
         classes: Vec::new(),
         span: id.span,
     });
+}
+
+fn push_c4_statement(ast: &mut C4Ast, statement: C4Statement) {
+    match &statement {
+        C4Statement::Title(title) => ast.title = Some(title.clone()),
+        C4Statement::Element(element) => merge_c4_element(&mut ast.elements, element),
+        C4Statement::Relationship(relationship) => {
+            ensure_c4_element(&mut ast.elements, &relationship.from);
+            ensure_c4_element(&mut ast.elements, &relationship.to);
+            ast.relationships.push((**relationship).clone());
+        }
+        C4Statement::Boundary(boundary) => ast.boundaries.push((**boundary).clone()),
+        C4Statement::Style(_)
+        | C4Statement::Layout(_)
+        | C4Statement::Comment(_)
+        | C4Statement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn merge_c4_element(elements: &mut Vec<C4Element>, element: &C4Element) {
+    if let Some(existing) = elements
+        .iter_mut()
+        .find(|value| value.alias.value == element.alias.value)
+    {
+        *existing = element.clone();
+        return;
+    }
+    elements.push(element.clone());
+}
+
+fn ensure_c4_element(elements: &mut Vec<C4Element>, alias: &Spanned<String>) {
+    if elements
+        .iter()
+        .any(|element| element.alias.value == alias.value)
+    {
+        return;
+    }
+    elements.push(C4Element {
+        alias: alias.clone(),
+        label: Label {
+            text: alias.value.clone(),
+            kind: LabelKind::Plain,
+            span: alias.span,
+        },
+        kind: Spanned::new(C4ElementKind::Component, alias.span),
+        technology: None,
+        description: None,
+        parent: None,
+        external: false,
+        span: alias.span,
+    });
+}
+
+fn attach_c4_parent(statement: &mut C4Statement, parent: Spanned<String>) {
+    match statement {
+        C4Statement::Element(element) => {
+            if element.parent.is_none() {
+                element.parent = Some(parent);
+            }
+        }
+        C4Statement::Boundary(boundary) => {
+            if boundary.parent.is_none() {
+                boundary.parent = Some(parent);
+            }
+        }
+        C4Statement::Title(_)
+        | C4Statement::Relationship(_)
+        | C4Statement::Style(_)
+        | C4Statement::Layout(_)
+        | C4Statement::Comment(_)
+        | C4Statement::Directive(_) => {}
+    }
+}
+
+fn c4_statement_alias(statement: &C4Statement) -> Option<Spanned<String>> {
+    match statement {
+        C4Statement::Element(element) => Some(element.alias.clone()),
+        C4Statement::Boundary(boundary) => Some(boundary.alias.clone()),
+        C4Statement::Title(_)
+        | C4Statement::Relationship(_)
+        | C4Statement::Style(_)
+        | C4Statement::Layout(_)
+        | C4Statement::Comment(_)
+        | C4Statement::Directive(_) => None,
+    }
 }
 
 fn collect_subgraph_span(source: &str, start: usize) -> Result<(usize, usize), ParseError> {
@@ -3109,6 +3271,103 @@ impl<'source> RequirementStatementParser<'source> {
         }
         Err(ParseError {
             kind: ParseErrorKind::UnknownRequirementStatement,
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct C4HeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> C4HeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<C4Header, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedC4Header,
+                span: Span::new(0, 0),
+            });
+        };
+        let diagram_type = match &self.source[start..end] {
+            "C4Context" => C4DiagramType::Context,
+            "C4Container" => C4DiagramType::Container,
+            "C4Component" => C4DiagramType::Component,
+            "C4Dynamic" => C4DiagramType::Dynamic,
+            "C4Deployment" => C4DiagramType::Deployment,
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedC4Header,
+                    span: Span::new(start, end),
+                });
+            }
+        };
+        Ok(C4Header {
+            diagram_type: Spanned::new(diagram_type, Span::new(start, end)),
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct C4StatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> C4StatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<C4Statement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownC4Statement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(C4Statement::Directive(shift_directive(directive, start)));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(C4Statement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let title =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownC4Statement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(C4Statement::Title(title));
+        }
+        let call = parse_c4_call(self.source, start, end)?;
+        if let Some(element) = c4_element_from_call(&call)? {
+            return Ok(C4Statement::Element(Box::new(element)));
+        }
+        if let Some(boundary) = c4_boundary_from_call(&call)? {
+            return Ok(C4Statement::Boundary(Box::new(boundary)));
+        }
+        if let Some(relationship) = c4_relationship_from_call(&call)? {
+            return Ok(C4Statement::Relationship(Box::new(relationship)));
+        }
+        if let Some(style) = c4_style_from_call(&call)? {
+            return Ok(C4Statement::Style(style));
+        }
+        if is_c4_layout_call(&call.name.value) {
+            return Ok(C4Statement::Layout(C4LayoutConfig {
+                fields: call.args,
+                span: call.span,
+            }));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownC4Statement,
             span: Span::new(start, end),
         })
     }
@@ -5489,6 +5748,391 @@ fn parse_requirement_relationship_kind(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedC4Call {
+    name: Spanned<String>,
+    args: Vec<C4CallArg>,
+    span: Span,
+}
+
+fn parse_c4_call(source: &str, start: usize, end: usize) -> Result<ParsedC4Call, ParseError> {
+    let Some(open) = source[start..end].find('(').map(|offset| start + offset) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedC4Call,
+            span: Span::new(start, end),
+        });
+    };
+    let Some(close) = source[open + 1..end]
+        .rfind(')')
+        .map(|offset| open + 1 + offset)
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedC4Call,
+            span: Span::new(open, end),
+        });
+    };
+    let name = parse_single_identifier(source, start, open, ParseErrorKind::ExpectedC4Call)?;
+    if trim_ascii_range(&source[close + 1..end]).is_some() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedC4Call,
+            span: Span::new(close + 1, end),
+        });
+    }
+    Ok(ParsedC4Call {
+        name,
+        args: parse_c4_args(source, open + 1, close)?,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_c4_args(source: &str, start: usize, end: usize) -> Result<Vec<C4CallArg>, ParseError> {
+    let mut args = Vec::new();
+    let mut cursor = start;
+    while cursor < end {
+        while cursor < end && matches!(source.as_bytes().get(cursor), Some(b',' | b' ' | b'\t')) {
+            cursor += 1;
+        }
+        if cursor >= end {
+            break;
+        }
+        let arg_start = cursor;
+        let mut quoted = false;
+        while cursor < end {
+            let byte = source.as_bytes()[cursor];
+            if byte == b'"' {
+                quoted = !quoted;
+                cursor += 1;
+                continue;
+            }
+            if !quoted && byte == b',' {
+                break;
+            }
+            cursor += 1;
+        }
+        let arg_end = cursor;
+        if let Some(arg) = parse_c4_arg(source, arg_start, arg_end)? {
+            args.push(arg);
+        }
+        if cursor < end && source.as_bytes()[cursor] == b',' {
+            cursor += 1;
+        }
+    }
+    Ok(args)
+}
+
+fn parse_c4_arg(source: &str, start: usize, end: usize) -> Result<Option<C4CallArg>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Ok(None);
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let (name, value_start, value_end) =
+        if let Some(colon) = source[absolute_start..absolute_end].find(':') {
+            let colon = absolute_start + colon;
+            (
+                Some(parse_c4_arg_name(source, absolute_start, colon)?),
+                colon + 1,
+                absolute_end,
+            )
+        } else if source.as_bytes().get(absolute_start) == Some(&b'$') {
+            let mut cursor = absolute_start + 1;
+            while cursor < absolute_end
+                && (source.as_bytes()[cursor].is_ascii_alphanumeric()
+                    || source.as_bytes()[cursor] == b'_')
+            {
+                cursor += 1;
+            }
+            if cursor < absolute_end && source.as_bytes()[cursor] == b'=' {
+                (
+                    Some(Spanned::new(
+                        source[absolute_start + 1..cursor].to_owned(),
+                        Span::new(absolute_start + 1, cursor),
+                    )),
+                    cursor + 1,
+                    absolute_end,
+                )
+            } else {
+                (None, absolute_start, absolute_end)
+            }
+        } else {
+            (None, absolute_start, absolute_end)
+        };
+    let value = label_from_trimmed(source, value_start, value_end).ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedC4Argument,
+        span: Span::new(value_start, value_end),
+    })?;
+    Ok(Some(C4CallArg {
+        name,
+        value,
+        span: Span::new(absolute_start, absolute_end),
+    }))
+}
+
+fn parse_c4_arg_name(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedC4Argument,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let name = source[absolute_start..absolute_end]
+        .strip_prefix('$')
+        .unwrap_or(&source[absolute_start..absolute_end]);
+    if !is_identifier(name) {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedC4Argument,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    Ok(Spanned::new(
+        name.to_owned(),
+        Span::new(absolute_end - name.len(), absolute_end),
+    ))
+}
+
+fn c4_element_from_call(call: &ParsedC4Call) -> Result<Option<C4Element>, ParseError> {
+    let Some((kind, external)) = c4_element_kind(&call.name.value) else {
+        return Ok(None);
+    };
+    let alias = c4_arg_identifier(call, 0, &["alias", "id"])?;
+    let label = c4_arg_label(call, 1, &["label", "name"])?;
+    let has_technology = !matches!(
+        kind,
+        C4ElementKind::Person
+            | C4ElementKind::PersonExternal
+            | C4ElementKind::System
+            | C4ElementKind::SystemExternal
+            | C4ElementKind::SystemDb
+            | C4ElementKind::SystemDbExternal
+            | C4ElementKind::SystemQueue
+            | C4ElementKind::SystemQueueExternal
+    );
+    let technology = if has_technology {
+        c4_arg_optional_label(call, 2, &["techn", "technology"])?
+    } else {
+        None
+    };
+    let description = if has_technology {
+        c4_arg_optional_label(call, 3, &["descr", "description"])?
+    } else {
+        c4_arg_optional_label(call, 2, &["descr", "description"])?
+    };
+    Ok(Some(C4Element {
+        alias,
+        label,
+        kind: Spanned::new(kind, call.name.span),
+        technology,
+        description,
+        parent: None,
+        external,
+        span: call.span,
+    }))
+}
+
+fn c4_boundary_from_call(call: &ParsedC4Call) -> Result<Option<C4Boundary>, ParseError> {
+    let Some(kind) = c4_boundary_kind(&call.name.value) else {
+        return Ok(None);
+    };
+    let alias = c4_arg_identifier(call, 0, &["alias", "id"])?;
+    let label = c4_arg_label(call, 1, &["label", "name"])?;
+    let ty = c4_arg_optional_label(call, 2, &["type", "techn", "technology"])?;
+    Ok(Some(C4Boundary {
+        alias,
+        label,
+        kind: Spanned::new(kind, call.name.span),
+        ty,
+        parent: None,
+        span: call.span,
+    }))
+}
+
+fn c4_relationship_from_call(call: &ParsedC4Call) -> Result<Option<C4Relationship>, ParseError> {
+    let Some((kind, indexed, bidirectional)) = c4_relationship_kind(&call.name.value) else {
+        return Ok(None);
+    };
+    let offset = usize::from(indexed);
+    let index = if indexed {
+        Some(c4_arg_raw(call, 0, &["index", "idx"])?)
+    } else {
+        None
+    };
+    let from = c4_arg_identifier(call, offset, &["from", "fromAlias"])?;
+    let to = c4_arg_identifier(call, offset + 1, &["to", "toAlias"])?;
+    let label = c4_arg_label(call, offset + 2, &["label"])?;
+    let technology = c4_arg_optional_label(call, offset + 3, &["techn", "technology"])?;
+    let kind = if bidirectional {
+        C4RelationshipKind::Bidirectional
+    } else {
+        kind
+    };
+    Ok(Some(C4Relationship {
+        from,
+        to,
+        label,
+        technology,
+        kind: Spanned::new(kind, call.name.span),
+        index,
+        span: call.span,
+    }))
+}
+
+fn c4_style_from_call(call: &ParsedC4Call) -> Result<Option<C4StyleUpdate>, ParseError> {
+    if !matches!(
+        call.name.value.as_str(),
+        "UpdateElementStyle" | "UpdateRelStyle" | "UpdateBoundaryStyle"
+    ) {
+        return Ok(None);
+    }
+    let target = c4_arg_identifier(call, 0, &["alias", "id", "target"])?;
+    Ok(Some(C4StyleUpdate {
+        target_ids: vec![target],
+        fields: call.args.iter().skip(1).cloned().collect(),
+        span: call.span,
+    }))
+}
+
+fn c4_element_kind(name: &str) -> Option<(C4ElementKind, bool)> {
+    let value = match name {
+        "Person" => (C4ElementKind::Person, false),
+        "Person_Ext" | "Person_External" => (C4ElementKind::PersonExternal, true),
+        "System" => (C4ElementKind::System, false),
+        "System_Ext" | "System_External" => (C4ElementKind::SystemExternal, true),
+        "SystemDb" => (C4ElementKind::SystemDb, false),
+        "SystemDb_Ext" => (C4ElementKind::SystemDbExternal, true),
+        "SystemQueue" => (C4ElementKind::SystemQueue, false),
+        "SystemQueue_Ext" => (C4ElementKind::SystemQueueExternal, true),
+        "Container" => (C4ElementKind::Container, false),
+        "Container_Ext" => (C4ElementKind::ContainerExternal, true),
+        "ContainerDb" => (C4ElementKind::ContainerDb, false),
+        "ContainerDb_Ext" => (C4ElementKind::ContainerDbExternal, true),
+        "ContainerQueue" => (C4ElementKind::ContainerQueue, false),
+        "ContainerQueue_Ext" => (C4ElementKind::ContainerQueueExternal, true),
+        "Component" => (C4ElementKind::Component, false),
+        "Component_Ext" => (C4ElementKind::ComponentExternal, true),
+        "ComponentDb" => (C4ElementKind::ComponentDb, false),
+        "ComponentDb_Ext" => (C4ElementKind::ComponentDbExternal, true),
+        "ComponentQueue" => (C4ElementKind::ComponentQueue, false),
+        "ComponentQueue_Ext" => (C4ElementKind::ComponentQueueExternal, true),
+        _ => return None,
+    };
+    Some(value)
+}
+
+fn c4_boundary_kind(name: &str) -> Option<C4BoundaryKind> {
+    match name {
+        "Boundary" => Some(C4BoundaryKind::Boundary),
+        "Enterprise_Boundary" => Some(C4BoundaryKind::Enterprise),
+        "System_Boundary" => Some(C4BoundaryKind::System),
+        "Container_Boundary" => Some(C4BoundaryKind::Container),
+        "Deployment_Node" | "Deployment_Node_L" | "Deployment_Node_R" | "Node" | "Node_L"
+        | "Node_R" => Some(C4BoundaryKind::DeploymentNode),
+        _ => None,
+    }
+}
+
+fn c4_relationship_kind(name: &str) -> Option<(C4RelationshipKind, bool, bool)> {
+    match name {
+        "Rel" => Some((C4RelationshipKind::Directed, false, false)),
+        "BiRel" => Some((C4RelationshipKind::Directed, false, true)),
+        "Rel_U" => Some((C4RelationshipKind::Up, false, false)),
+        "Rel_D" => Some((C4RelationshipKind::Down, false, false)),
+        "Rel_L" => Some((C4RelationshipKind::Left, false, false)),
+        "Rel_R" => Some((C4RelationshipKind::Right, false, false)),
+        "Rel_Back" => Some((C4RelationshipKind::Back, false, false)),
+        "RelIndex" => Some((C4RelationshipKind::Indexed, true, false)),
+        "BiRelIndex" => Some((C4RelationshipKind::Indexed, true, true)),
+        _ => None,
+    }
+}
+
+fn is_c4_layout_call(name: &str) -> bool {
+    matches!(
+        name,
+        "LAYOUT_TOP_DOWN"
+            | "LAYOUT_LEFT_RIGHT"
+            | "LAYOUT_WITH_LEGEND"
+            | "SHOW_LEGEND"
+            | "HIDE_STEREOTYPE"
+            | "SHOW_FLOATING_LEGEND"
+            | "Lay_U"
+            | "Lay_D"
+            | "Lay_L"
+            | "Lay_R"
+            | "Lay_Up"
+            | "Lay_Down"
+            | "Lay_Left"
+            | "Lay_Right"
+            | "Lay_Back"
+            | "UpdateLayoutConfig"
+    )
+}
+
+fn c4_arg_identifier(
+    call: &ParsedC4Call,
+    position: usize,
+    names: &[&str],
+) -> Result<Spanned<String>, ParseError> {
+    let arg = c4_arg(call, position, names)?;
+    Ok(Spanned::new(arg.value.text.clone(), arg.value.span))
+}
+
+fn c4_arg_raw(
+    call: &ParsedC4Call,
+    position: usize,
+    names: &[&str],
+) -> Result<Spanned<String>, ParseError> {
+    let arg = c4_arg(call, position, names)?;
+    Ok(Spanned::new(arg.value.text.clone(), arg.value.span))
+}
+
+fn c4_arg_label(call: &ParsedC4Call, position: usize, names: &[&str]) -> Result<Label, ParseError> {
+    Ok(c4_arg(call, position, names)?.value.clone())
+}
+
+fn c4_arg_optional_label(
+    call: &ParsedC4Call,
+    position: usize,
+    names: &[&str],
+) -> Result<Option<Label>, ParseError> {
+    Ok(c4_optional_arg(call, position, names)?.map(|arg| arg.value.clone()))
+}
+
+fn c4_arg<'a>(
+    call: &'a ParsedC4Call,
+    position: usize,
+    names: &[&str],
+) -> Result<&'a C4CallArg, ParseError> {
+    c4_optional_arg(call, position, names)?.ok_or(ParseError {
+        kind: ParseErrorKind::ExpectedC4Argument,
+        span: call.span,
+    })
+}
+
+fn c4_optional_arg<'a>(
+    call: &'a ParsedC4Call,
+    position: usize,
+    names: &[&str],
+) -> Result<Option<&'a C4CallArg>, ParseError> {
+    if let Some(arg) = call.args.iter().find(|arg| {
+        arg.name
+            .as_ref()
+            .is_some_and(|name| names.iter().any(|candidate| name.value == *candidate))
+    }) {
+        return Ok(Some(arg));
+    }
+    Ok(call
+        .args
+        .iter()
+        .filter(|arg| arg.name.is_none())
+        .nth(position))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedGitGraphName {
     value: Spanned<String>,
     consumed_end: usize,
@@ -6596,6 +7240,111 @@ fn shift_requirement_style(style: RequirementStyle, offset: usize) -> Requiremen
             .map(|style| shift_style_declaration(style, offset))
             .collect(),
         span: shift_span(style.span, offset),
+    }
+}
+
+fn shift_c4_header(header: C4Header, offset: usize) -> C4Header {
+    C4Header {
+        diagram_type: shift_spanned(header.diagram_type, offset),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_c4_statement(statement: C4Statement, offset: usize) -> C4Statement {
+    match statement {
+        C4Statement::Title(title) => C4Statement::Title(shift_label(title, offset)),
+        C4Statement::Element(element) => {
+            C4Statement::Element(Box::new(shift_c4_element(*element, offset)))
+        }
+        C4Statement::Relationship(relationship) => {
+            C4Statement::Relationship(Box::new(shift_c4_relationship(*relationship, offset)))
+        }
+        C4Statement::Boundary(boundary) => {
+            C4Statement::Boundary(Box::new(shift_c4_boundary(*boundary, offset)))
+        }
+        C4Statement::Style(style) => C4Statement::Style(shift_c4_style(style, offset)),
+        C4Statement::Layout(layout) => C4Statement::Layout(shift_c4_layout(layout, offset)),
+        C4Statement::Comment(comment) => C4Statement::Comment(shift_comment(comment, offset)),
+        C4Statement::Directive(directive) => {
+            C4Statement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_c4_element(element: C4Element, offset: usize) -> C4Element {
+    C4Element {
+        alias: shift_spanned(element.alias, offset),
+        label: shift_label(element.label, offset),
+        kind: shift_spanned(element.kind, offset),
+        technology: element
+            .technology
+            .map(|technology| shift_label(technology, offset)),
+        description: element
+            .description
+            .map(|description| shift_label(description, offset)),
+        parent: element.parent.map(|parent| shift_spanned(parent, offset)),
+        external: element.external,
+        span: shift_span(element.span, offset),
+    }
+}
+
+fn shift_c4_boundary(boundary: C4Boundary, offset: usize) -> C4Boundary {
+    C4Boundary {
+        alias: shift_spanned(boundary.alias, offset),
+        label: shift_label(boundary.label, offset),
+        kind: shift_spanned(boundary.kind, offset),
+        ty: boundary.ty.map(|ty| shift_label(ty, offset)),
+        parent: boundary.parent.map(|parent| shift_spanned(parent, offset)),
+        span: shift_span(boundary.span, offset),
+    }
+}
+
+fn shift_c4_relationship(relationship: C4Relationship, offset: usize) -> C4Relationship {
+    C4Relationship {
+        from: shift_spanned(relationship.from, offset),
+        to: shift_spanned(relationship.to, offset),
+        label: shift_label(relationship.label, offset),
+        technology: relationship
+            .technology
+            .map(|technology| shift_label(technology, offset)),
+        kind: shift_spanned(relationship.kind, offset),
+        index: relationship.index.map(|index| shift_spanned(index, offset)),
+        span: shift_span(relationship.span, offset),
+    }
+}
+
+fn shift_c4_style(style: C4StyleUpdate, offset: usize) -> C4StyleUpdate {
+    C4StyleUpdate {
+        target_ids: style
+            .target_ids
+            .into_iter()
+            .map(|target| shift_spanned(target, offset))
+            .collect(),
+        fields: style
+            .fields
+            .into_iter()
+            .map(|field| shift_c4_arg(field, offset))
+            .collect(),
+        span: shift_span(style.span, offset),
+    }
+}
+
+fn shift_c4_layout(layout: C4LayoutConfig, offset: usize) -> C4LayoutConfig {
+    C4LayoutConfig {
+        fields: layout
+            .fields
+            .into_iter()
+            .map(|field| shift_c4_arg(field, offset))
+            .collect(),
+        span: shift_span(layout.span, offset),
+    }
+}
+
+fn shift_c4_arg(arg: C4CallArg, offset: usize) -> C4CallArg {
+    C4CallArg {
+        name: arg.name.map(|name| shift_spanned(name, offset)),
+        value: shift_label(arg.value, offset),
+        span: shift_span(arg.span, offset),
     }
 }
 

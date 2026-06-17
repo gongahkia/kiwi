@@ -1,16 +1,18 @@
 use crate::ast::{
-    ArrowHead, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind,
-    ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst,
-    MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst, StateAst, TimelineAst,
+    ArrowHead, C4Ast, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram,
+    DiagramKind, ErAst, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind,
+    JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst, StateAst,
+    TimelineAst,
 };
 use crate::layout::{
-    ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout, JourneyLayoutEngine,
-    MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point, PositionedClassNode,
-    PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph, PositionedGanttTask,
-    PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode, PositionedPieSlice,
-    PositionedSequenceMessage, PositionedSequenceNote, Rect, RequirementLayoutEngine,
-    SequenceLayout, SequenceLayoutEngine, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
+    GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, JourneyLayout,
+    JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
+    PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowSubgraph,
+    PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask, PositionedMindmapNode,
+    PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote, Rect,
+    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -336,6 +338,7 @@ pub struct StaticFrameRenderer {
     gitgraph: GitGraphLayoutEngine,
     timeline: TimelineLayoutEngine,
     requirement: RequirementLayoutEngine,
+    c4: C4LayoutEngine,
     palette: GlyphPalette,
     theme: Theme,
 }
@@ -360,6 +363,7 @@ impl StaticFrameRenderer {
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
             requirement: RequirementLayoutEngine::default_values(),
+            c4: C4LayoutEngine::default_values(),
             palette: GlyphPalette::ascii(),
             theme: Theme::default_theme(),
         }
@@ -385,6 +389,7 @@ impl StaticFrameRenderer {
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
             requirement: RequirementLayoutEngine::default_values(),
+            c4: C4LayoutEngine::default_values(),
             palette,
             theme: Theme::default_theme(),
         }
@@ -410,6 +415,7 @@ impl StaticFrameRenderer {
             gitgraph: GitGraphLayoutEngine::default_values(),
             timeline: TimelineLayoutEngine::default_values(),
             requirement: RequirementLayoutEngine::default_values(),
+            c4: C4LayoutEngine::default_values(),
             palette: GlyphPalette::for_charset(theme.charset),
             theme,
         }
@@ -458,6 +464,7 @@ impl StaticFrameRenderer {
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
             DiagramKind::Timeline(ast) => self.render_timeline(ast),
             DiagramKind::Requirement(ast) => self.render_requirement(ast),
+            DiagramKind::C4(ast) => self.render_c4(ast),
         }
     }
 
@@ -489,6 +496,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_requirement(&self, ast: &RequirementAst) -> Frame {
         render_class_layout(&self.requirement.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_c4(&self, ast: &C4Ast) -> Frame {
+        render_class_layout(&self.c4.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]

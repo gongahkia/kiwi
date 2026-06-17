@@ -1,0 +1,32 @@
++--------------------------------+            +---------------------------+
+|<<systemBoundary>>              |            |<<person>>                 |
+|system                          |            |customer                   |
++--------------------------------+            +---------------------------+
+|label: Internet Banking System  |            |desc: Uses online banking  |
++--------------------------------+            +---------------------------+
+                                                            |
+                                                            |
+                +---------------Uses [HTTPS]----------------+
+                |
+                v
++-------------------------------+
+|<<container>>                  |
+|web_app                        |
++-------------------------------+
+|tech: Java/Spring MVC          |
+|desc: Delivers static content  |
+|in: system                     |
++-------------------------------+
+                |
+                |
+              DB+-----Publishes messages [AMQP]-----+
+              |                                     |
+              v                                     v
++---------------------------+            +--------------------+
+|<<containerDb>>            |            |<<containerQueue>>  |
+|database                   |            |queue               |
++---------------------------+            +--------------------+
+|tech: Relational Database  |            |tech: RabbitMQ      |
+|desc: Stores account data  |            |desc: Async work    |
+|in: system                 |            |in: system          |
++---------------------------+            +--------------------+

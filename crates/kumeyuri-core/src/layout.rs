@@ -1,14 +1,14 @@
 use crate::ast::{
-    ArrowHead, ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship,
-    ClassRelationshipLine, ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality,
-    ErEntity, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement,
-    FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader, GanttAst, GanttTask,
-    GanttTaskTag, GitGraphAst, GitGraphCommit, GitGraphCommitKind, GitGraphOrientation,
-    GitGraphStatement, JourneyAst, Label, LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst,
-    RequirementAst, RequirementElement, RequirementKind, RequirementNode,
-    RequirementRelationshipKind, RequirementVerifyMethod, SequenceAst, SequenceMessage,
-    SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode,
-    StateStatement, StateTransition, TimelineAst,
+    ArrowHead, C4Ast, C4Boundary, C4BoundaryKind, C4Element, C4ElementKind, C4RelationshipKind,
+    ClassAst, ClassMember, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
+    ClassRelationshipMarker, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, FlowEdge,
+    FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape, FlowStatement, FlowSubgraph, FlowchartAst,
+    FlowchartDirective, FlowchartHeader, GanttAst, GanttTask, GanttTaskTag, GitGraphAst,
+    GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label,
+    LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst, RequirementElement,
+    RequirementKind, RequirementNode, RequirementRelationshipKind, RequirementVerifyMethod,
+    SequenceAst, SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned,
+    StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -636,6 +636,11 @@ pub struct RequirementLayoutEngine {
     class: ClassLayoutEngine,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct C4LayoutEngine {
+    class: ClassLayoutEngine,
+}
+
 impl Default for ErLayoutEngine {
     fn default() -> Self {
         Self::default_values()
@@ -643,6 +648,12 @@ impl Default for ErLayoutEngine {
 }
 
 impl Default for RequirementLayoutEngine {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl Default for C4LayoutEngine {
     fn default() -> Self {
         Self::default_values()
     }
@@ -1277,6 +1288,199 @@ fn requirement_relationship_label(kind: RequirementRelationshipKind) -> &'static
         RequirementRelationshipKind::Refines => "refines",
         RequirementRelationshipKind::Traces => "traces",
     }
+}
+
+impl C4LayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            class: ClassLayoutEngine::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(class: ClassLayoutEngine) -> Self {
+        Self { class }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &C4Ast) -> ClassLayout {
+        self.class.layout(&c4_to_class_ast(ast))
+    }
+}
+
+fn c4_to_class_ast(ast: &C4Ast) -> ClassAst {
+    let mut classes = ast
+        .boundaries
+        .iter()
+        .map(c4_boundary_to_class)
+        .chain(ast.elements.iter().map(c4_element_to_class))
+        .collect::<Vec<_>>();
+    for relationship in &ast.relationships {
+        ensure_class_id(&mut classes, &relationship.from);
+        ensure_class_id(&mut classes, &relationship.to);
+    }
+    let relationships = ast
+        .relationships
+        .iter()
+        .map(|relationship| {
+            let (start_marker, end_marker) = c4_relationship_markers(relationship.kind.value);
+            ClassRelationship {
+                from: relationship.from.clone(),
+                to: relationship.to.clone(),
+                line: if relationship.kind.value == C4RelationshipKind::Back {
+                    ClassRelationshipLine::Dotted
+                } else {
+                    ClassRelationshipLine::Solid
+                },
+                start_marker,
+                end_marker,
+                label: Some(c4_relationship_label(relationship)),
+                span: relationship.span,
+            }
+        })
+        .collect();
+    ClassAst {
+        header: crate::ast::ClassHeader {
+            span: ast.header.span,
+        },
+        direction: Some(Spanned::new(Direction::TopDown, ast.header.span)),
+        statements: Vec::new(),
+        classes,
+        relationships,
+        span: ast.span,
+    }
+}
+
+fn c4_element_to_class(element: &C4Element) -> ClassNode {
+    let mut members = Vec::new();
+    if let Some(technology) = &element.technology {
+        members.push(c4_member("tech", technology.clone(), technology.span));
+    }
+    if let Some(description) = &element.description {
+        members.push(c4_member("desc", description.clone(), description.span));
+    }
+    if let Some(parent) = &element.parent {
+        members.push(c4_member(
+            "in",
+            label_from_text(parent.value.clone(), parent.span),
+            parent.span,
+        ));
+    }
+    ClassNode {
+        id: element.alias.clone(),
+        annotations: vec![label_from_text(
+            c4_element_annotation(element.kind.value, element.external),
+            element.kind.span,
+        )],
+        members,
+        span: element.span,
+    }
+}
+
+fn c4_boundary_to_class(boundary: &C4Boundary) -> ClassNode {
+    let mut members = Vec::new();
+    members.push(c4_member(
+        "label",
+        boundary.label.clone(),
+        boundary.label.span,
+    ));
+    if let Some(ty) = &boundary.ty {
+        members.push(c4_member("type", ty.clone(), ty.span));
+    }
+    if let Some(parent) = &boundary.parent {
+        members.push(c4_member(
+            "in",
+            label_from_text(parent.value.clone(), parent.span),
+            parent.span,
+        ));
+    }
+    ClassNode {
+        id: boundary.alias.clone(),
+        annotations: vec![label_from_text(
+            c4_boundary_annotation(boundary.kind.value),
+            boundary.kind.span,
+        )],
+        members,
+        span: boundary.span,
+    }
+}
+
+fn c4_member(name: &str, ty: Label, span: crate::ast::Span) -> ClassMember {
+    ClassMember {
+        visibility: None,
+        name: Spanned::new(name.to_owned(), span),
+        ty: Some(ty),
+        kind: ClassMemberKind::Field,
+        span,
+    }
+}
+
+fn c4_element_annotation(kind: C4ElementKind, external: bool) -> String {
+    let base = match kind {
+        C4ElementKind::Person | C4ElementKind::PersonExternal => "person",
+        C4ElementKind::System | C4ElementKind::SystemExternal => "system",
+        C4ElementKind::SystemDb | C4ElementKind::SystemDbExternal => "systemDb",
+        C4ElementKind::SystemQueue | C4ElementKind::SystemQueueExternal => "systemQueue",
+        C4ElementKind::Container | C4ElementKind::ContainerExternal => "container",
+        C4ElementKind::ContainerDb | C4ElementKind::ContainerDbExternal => "containerDb",
+        C4ElementKind::ContainerQueue | C4ElementKind::ContainerQueueExternal => "containerQueue",
+        C4ElementKind::Component | C4ElementKind::ComponentExternal => "component",
+        C4ElementKind::ComponentDb | C4ElementKind::ComponentDbExternal => "componentDb",
+        C4ElementKind::ComponentQueue | C4ElementKind::ComponentQueueExternal => "componentQueue",
+        C4ElementKind::DeploymentNode => "deploymentNode",
+    };
+    if external {
+        format!("<<{base}:external>>")
+    } else {
+        format!("<<{base}>>")
+    }
+}
+
+fn c4_boundary_annotation(kind: C4BoundaryKind) -> &'static str {
+    match kind {
+        C4BoundaryKind::Boundary => "<<boundary>>",
+        C4BoundaryKind::Enterprise => "<<enterpriseBoundary>>",
+        C4BoundaryKind::System => "<<systemBoundary>>",
+        C4BoundaryKind::Container => "<<containerBoundary>>",
+        C4BoundaryKind::DeploymentNode => "<<deploymentNode>>",
+    }
+}
+
+fn c4_relationship_markers(
+    kind: C4RelationshipKind,
+) -> (ClassRelationshipMarker, ClassRelationshipMarker) {
+    match kind {
+        C4RelationshipKind::Bidirectional => (
+            ClassRelationshipMarker::Arrow,
+            ClassRelationshipMarker::Arrow,
+        ),
+        C4RelationshipKind::Directed
+        | C4RelationshipKind::Up
+        | C4RelationshipKind::Down
+        | C4RelationshipKind::Left
+        | C4RelationshipKind::Right
+        | C4RelationshipKind::Back
+        | C4RelationshipKind::Indexed => (
+            ClassRelationshipMarker::None,
+            ClassRelationshipMarker::Arrow,
+        ),
+    }
+}
+
+fn c4_relationship_label(relationship: &crate::ast::C4Relationship) -> Label {
+    let mut text = String::new();
+    if let Some(index) = &relationship.index {
+        text.push_str(&index.value);
+        text.push(' ');
+    }
+    text.push_str(&relationship.label.text);
+    if let Some(technology) = &relationship.technology {
+        text.push_str(" [");
+        text.push_str(&technology.text);
+        text.push(']');
+    }
+    label_from_text(text, relationship.label.span)
 }
 
 impl GanttLayoutEngine {

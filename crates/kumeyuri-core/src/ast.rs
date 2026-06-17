@@ -20,6 +20,7 @@ pub enum DiagramKind {
     GitGraph(Box<GitGraphAst>),
     Timeline(Box<TimelineAst>),
     Requirement(Box<RequirementAst>),
+    C4(Box<C4Ast>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -930,6 +931,143 @@ pub struct RequirementRelationship {
 pub struct RequirementStyle {
     pub node_ids: Vec<Spanned<String>>,
     pub styles: Vec<FlowStyleDeclaration>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Ast {
+    pub header: C4Header,
+    pub title: Option<Label>,
+    pub statements: Vec<C4Statement>,
+    pub elements: Vec<C4Element>,
+    pub relationships: Vec<C4Relationship>,
+    pub boundaries: Vec<C4Boundary>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Header {
+    pub diagram_type: Spanned<C4DiagramType>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum C4DiagramType {
+    Context,
+    Container,
+    Component,
+    Dynamic,
+    Deployment,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum C4Statement {
+    Title(Label),
+    Element(Box<C4Element>),
+    Relationship(Box<C4Relationship>),
+    Boundary(Box<C4Boundary>),
+    Style(C4StyleUpdate),
+    Layout(C4LayoutConfig),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum C4ElementKind {
+    Person,
+    PersonExternal,
+    System,
+    SystemExternal,
+    SystemDb,
+    SystemDbExternal,
+    SystemQueue,
+    SystemQueueExternal,
+    Container,
+    ContainerExternal,
+    ContainerDb,
+    ContainerDbExternal,
+    ContainerQueue,
+    ContainerQueueExternal,
+    Component,
+    ComponentExternal,
+    ComponentDb,
+    ComponentDbExternal,
+    ComponentQueue,
+    ComponentQueueExternal,
+    DeploymentNode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Element {
+    pub alias: Spanned<String>,
+    pub label: Label,
+    pub kind: Spanned<C4ElementKind>,
+    pub technology: Option<Label>,
+    pub description: Option<Label>,
+    pub parent: Option<Spanned<String>>,
+    pub external: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum C4BoundaryKind {
+    Boundary,
+    Enterprise,
+    System,
+    Container,
+    DeploymentNode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Boundary {
+    pub alias: Spanned<String>,
+    pub label: Label,
+    pub kind: Spanned<C4BoundaryKind>,
+    pub ty: Option<Label>,
+    pub parent: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum C4RelationshipKind {
+    Directed,
+    Bidirectional,
+    Up,
+    Down,
+    Left,
+    Right,
+    Back,
+    Indexed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4Relationship {
+    pub from: Spanned<String>,
+    pub to: Spanned<String>,
+    pub label: Label,
+    pub technology: Option<Label>,
+    pub kind: Spanned<C4RelationshipKind>,
+    pub index: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4StyleUpdate {
+    pub target_ids: Vec<Spanned<String>>,
+    pub fields: Vec<C4CallArg>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4LayoutConfig {
+    pub fields: Vec<C4CallArg>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct C4CallArg {
+    pub name: Option<Spanned<String>>,
+    pub value: Label,
     pub span: Span,
 }
 

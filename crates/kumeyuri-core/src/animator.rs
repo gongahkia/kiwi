@@ -1,5 +1,5 @@
 use crate::ast::{
-    ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
+    C4Statement, ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
     RequirementStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
@@ -161,6 +161,7 @@ impl Animator {
             )
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Requirement(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::C4(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -284,6 +285,11 @@ impl AnimationConfig {
                     apply_requirement_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::C4(ast) => {
+                for statement in &ast.statements {
+                    apply_c4_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -368,6 +374,7 @@ pub enum AnimationDiagramKind {
     GitGraph,
     Timeline,
     Requirement,
+    C4,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -385,6 +392,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::GitGraph(_) => Self::GitGraph,
             DiagramKind::Timeline(_) => Self::Timeline,
             DiagramKind::Requirement(_) => Self::Requirement,
+            DiagramKind::C4(_) => Self::C4,
         }
     }
 }
@@ -644,6 +652,27 @@ fn apply_requirement_animation_directives(
     Ok(())
 }
 
+fn apply_c4_animation_directives(
+    statement: &C4Statement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        C4Statement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        C4Statement::Title(_)
+        | C4Statement::Element(_)
+        | C4Statement::Relationship(_)
+        | C4Statement::Boundary(_)
+        | C4Statement::Style(_)
+        | C4Statement::Layout(_)
+        | C4Statement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -756,6 +785,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
         DiagramKind::Timeline(_) => AnimationMode::Trace,
         DiagramKind::Requirement(_) => AnimationMode::None,
+        DiagramKind::C4(_) => AnimationMode::None,
     }
 }
 
@@ -780,6 +810,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),
         DiagramKind::Timeline(_) => TimelineRevealAnimator::default_frame_duration(),
         DiagramKind::Requirement(_) => Duration::from_millis(700),
+        DiagramKind::C4(_) => Duration::from_millis(700),
     }
 }
 

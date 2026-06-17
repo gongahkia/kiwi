@@ -1,0 +1,11 @@
+C4Deployment
+Deployment_Node(prod, "Production", "AWS") {
+  Deployment_Node(lb, "Load Balancer", "ELB") {
+    Container(web, "Web App", "Rust", "Serves traffic")
+  }
+  Deployment_Node(data, "Data", "RDS") {
+    ContainerDb(db, "Database", "Postgres", "Stores data")
+  }
+}
+Rel(web, db, "Reads/writes", "SQL")
+UpdateElementStyle(web, $bgColor:"#1168bd")
