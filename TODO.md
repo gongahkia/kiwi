@@ -151,7 +151,7 @@
 - [x] Build a Mermaid official-example fixture importer that stores source URL, Mermaid version, root type, and expected parser/render status
 - [x] Add official-example parser corpus for every currently supported root, not just flowchart/sequence/state
 - [x] Add negative fixtures for known Mermaid-breaking inputs: `end` labels, nested shapes, directive-like comments, malformed frontmatter, and unknown root typos
-- [ ] Add source-position parse-error snapshots for representative syntax failures per supported root
+- [x] Add source-position parse-error snapshots for representative syntax failures per supported root
 - [ ] Add renderer parity notes for semantic-only shapes/styles so TODO/COVERAGE do not imply visual parity where boxes are still generic
 - [ ] Flowchart: implement visual differentiation for Mermaid classic shapes instead of rendering all nodes as generic boxes
 - [ ] Flowchart: add parity tests for v11 named shapes, markdown strings, multiline labels, entity escapes, edge IDs, edge animation classes, `linkStyle`, `style`, and `click`

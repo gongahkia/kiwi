@@ -652,8 +652,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
-            let statement =
-                shift_sequence_statement(Parser::parse_sequence_statement(line.text)?, line.start);
+            let statement = shift_sequence_statement(
+                Parser::parse_sequence_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             if let SequenceStatement::Participant(participant) = &statement {
                 ast.participants.push((**participant).clone());
             }
@@ -680,8 +683,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
-            let statement =
-                shift_state_statement(Parser::parse_state_statement(line.text)?, line.start);
+            let statement = shift_state_statement(
+                Parser::parse_state_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             match &statement {
                 StateStatement::State(state) | StateStatement::Composite(state) => {
                     ast.states.push((**state).clone());
@@ -722,8 +728,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
-            let statement =
-                shift_class_statement(Parser::parse_class_statement(line.text)?, line.start);
+            let statement = shift_class_statement(
+                Parser::parse_class_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             push_class_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
@@ -754,7 +763,8 @@ impl<'source> DiagramParser<'source> {
                 class.annotations.push(shift_label(annotation, line.start));
             } else {
                 class.members.push(shift_class_member(
-                    parse_class_member(line.text, 0, line.text.len())?,
+                    parse_class_member(line.text, 0, line.text.len())
+                        .map_err(|error| shift_error(error, line.start))?,
                     line.start,
                 ));
             }
@@ -786,7 +796,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
-            let statement = shift_er_statement(Parser::parse_er_statement(line.text)?, line.start);
+            let statement = shift_er_statement(
+                Parser::parse_er_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             push_er_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
@@ -813,7 +827,8 @@ impl<'source> DiagramParser<'source> {
                 return Ok(entity);
             }
             entity.attributes.push(shift_er_attribute(
-                parse_er_attribute(line.text, 0, line.text.len())?,
+                parse_er_attribute(line.text, 0, line.text.len())
+                    .map_err(|error| shift_error(error, line.start))?,
                 line.start,
             ));
             self.cursor = line.line.next;
@@ -838,8 +853,11 @@ impl<'source> DiagramParser<'source> {
         let mut current_section = None;
 
         while let Some(line) = self.current_trimmed_line() {
-            let mut statement =
-                shift_gantt_statement(Parser::parse_gantt_statement(line.text)?, line.start);
+            let mut statement = shift_gantt_statement(
+                Parser::parse_gantt_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             if let GanttStatement::Task(task) = &mut statement {
                 task.section = current_section.clone();
             }
@@ -865,8 +883,11 @@ impl<'source> DiagramParser<'source> {
         };
 
         while let Some(line) = self.current_trimmed_line() {
-            let statement =
-                shift_pie_statement(Parser::parse_pie_statement(line.text)?, line.start);
+            let statement = shift_pie_statement(
+                Parser::parse_pie_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             push_pie_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
@@ -951,8 +972,11 @@ impl<'source> DiagramParser<'source> {
         let mut current_section = None;
 
         while let Some(line) = self.current_trimmed_line() {
-            let mut statement =
-                shift_journey_statement(Parser::parse_journey_statement(line.text)?, line.start);
+            let mut statement = shift_journey_statement(
+                Parser::parse_journey_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             if let JourneyStatement::Task(task) = &mut statement {
                 task.section = current_section.clone();
             }
@@ -978,8 +1002,11 @@ impl<'source> DiagramParser<'source> {
         };
 
         while let Some(line) = self.current_trimmed_line() {
-            let statement =
-                shift_gitgraph_statement(Parser::parse_gitgraph_statement(line.text)?, line.start);
+            let statement = shift_gitgraph_statement(
+                Parser::parse_gitgraph_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             push_gitgraph_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
@@ -998,8 +1025,11 @@ impl<'source> DiagramParser<'source> {
         let mut current_section = None;
 
         while let Some(line) = self.current_trimmed_line() {
-            let mut statement =
-                shift_timeline_statement(Parser::parse_timeline_statement(line.text)?, line.start);
+            let mut statement = shift_timeline_statement(
+                Parser::parse_timeline_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             if let TimelineStatement::Period(period) = &mut statement {
                 period.section = current_section.clone();
             }
@@ -1051,7 +1081,8 @@ impl<'source> DiagramParser<'source> {
                 continue;
             }
             let statement = shift_requirement_statement(
-                Parser::parse_requirement_statement(line.text)?,
+                Parser::parse_requirement_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
                 line.start,
             );
             push_requirement_statement(&mut ast, statement);
@@ -1154,8 +1185,11 @@ impl<'source> DiagramParser<'source> {
             } else {
                 (line.text, false)
             };
-            let mut statement =
-                shift_c4_statement(Parser::parse_c4_statement(statement_text)?, line.start);
+            let mut statement = shift_c4_statement(
+                Parser::parse_c4_statement(statement_text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
             if let Some(parent) = parents.last().cloned() {
                 attach_c4_parent(&mut statement, parent);
             }
@@ -6468,6 +6502,13 @@ fn skip_ascii_whitespace(source: &str, start: usize, end: usize) -> Option<usize
 
 fn shift_span(span: Span, offset: usize) -> Span {
     Span::new(span.start + offset, span.end + offset)
+}
+
+fn shift_error(error: ParseError, offset: usize) -> ParseError {
+    ParseError {
+        kind: error.kind,
+        span: shift_span(error.span, offset),
+    }
 }
 
 fn shift_spanned<T>(spanned: Spanned<T>, offset: usize) -> Spanned<T> {

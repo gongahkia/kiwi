@@ -1,0 +1,10 @@
+kind: ExpectedStateTransition
+span: 23..23
+line: 2
+column: 8
+source:
+stateDiagram-v2
+[*] -->
+marker:
+[*] -->
+       ^

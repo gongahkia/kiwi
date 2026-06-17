@@ -1,0 +1,10 @@
+kind: ExpectedTimelineEvent
+span: 13..13
+line: 2
+column: 5
+source:
+timeline
+Era:
+marker:
+Era:
+    ^

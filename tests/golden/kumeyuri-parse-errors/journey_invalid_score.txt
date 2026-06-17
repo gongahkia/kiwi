@@ -1,0 +1,10 @@
+kind: ExpectedJourneyScore
+span: 14..15
+line: 2
+column: 7
+source:
+journey
+Task: 6
+marker:
+Task: 6
+      ^

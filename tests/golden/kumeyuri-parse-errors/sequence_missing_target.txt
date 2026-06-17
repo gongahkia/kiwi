@@ -1,0 +1,10 @@
+kind: ExpectedSequenceMessage
+span: 24..24
+line: 2
+column: 9
+source:
+sequenceDiagram
+Alice->>: hello
+marker:
+Alice->>: hello
+        ^

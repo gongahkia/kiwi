@@ -1,0 +1,10 @@
+kind: ExpectedClassRelationship
+span: 19..19
+line: 2
+column: 7
+source:
+classDiagram
+A --|>
+marker:
+A --|>
+      ^

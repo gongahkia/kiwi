@@ -1,0 +1,10 @@
+kind: ExpectedGitGraphCommitKind
+span: 22..25
+line: 2
+column: 14
+source:
+gitGraph
+commit type: BAD
+marker:
+commit type: BAD
+             ^^^

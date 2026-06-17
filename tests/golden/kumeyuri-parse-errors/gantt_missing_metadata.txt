@@ -1,0 +1,10 @@
+kind: ExpectedGanttMetadata
+span: 11..11
+line: 2
+column: 6
+source:
+gantt
+Task:
+marker:
+Task:
+     ^

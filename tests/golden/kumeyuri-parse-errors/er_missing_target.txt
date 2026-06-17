@@ -1,0 +1,10 @@
+kind: ExpectedErRelationship
+span: 25..26
+line: 2
+column: 16
+source:
+erDiagram
+CUSTOMER ||--|| : owns
+marker:
+CUSTOMER ||--|| : owns
+               ^

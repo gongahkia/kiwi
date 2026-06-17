@@ -1,0 +1,10 @@
+kind: ExpectedPieValue
+span: 15..19
+line: 2
+column: 12
+source:
+pie
+"Apples" : nope
+marker:
+"Apples" : nope
+           ^^^^

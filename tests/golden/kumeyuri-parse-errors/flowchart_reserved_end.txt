@@ -1,0 +1,10 @@
+kind: ReservedFlowNodeLabel
+span: 11..14
+line: 2
+column: 3
+source:
+graph TD
+A[end]
+marker:
+A[end]
+  ^^^

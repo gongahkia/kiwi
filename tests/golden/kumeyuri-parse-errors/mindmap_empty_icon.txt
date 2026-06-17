@@ -1,0 +1,10 @@
+kind: ExpectedMindmapNode
+span: 15..15
+line: 2
+column: 8
+source:
+mindmap
+::icon()
+marker:
+::icon()
+       ^

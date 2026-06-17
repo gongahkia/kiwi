@@ -1,0 +1,12 @@
+kind: ExpectedRequirementRisk
+span: 45..51
+line: 3
+column: 9
+source:
+requirementDiagram
+requirement Req {
+  risk: urgent
+}
+marker:
+  risk: urgent
+        ^^^^^^

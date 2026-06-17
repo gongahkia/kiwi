@@ -1,0 +1,10 @@
+kind: ExpectedC4Call
+span: 16..17
+line: 2
+column: 7
+source:
+C4Context
+Person(
+marker:
+Person(
+      ^
