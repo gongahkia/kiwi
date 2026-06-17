@@ -3,7 +3,7 @@ use crate::ast::{
     Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
     GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, ZenUmlAst, ZenUmlMessageKind,
+    TimelineAst, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
@@ -15,10 +15,11 @@ use crate::layout::{
     PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSankeyLink, PositionedSequenceActivation,
     PositionedSequenceBox, PositionedSequenceDestroy, PositionedSequenceMessage,
-    PositionedSequenceNote, PositionedZenUmlMessage, QuadrantLayout, QuadrantLayoutEngine, Rect,
-    RequirementLayout, RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
-    SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
-    ZenUmlLayout, ZenUmlLayoutEngine,
+    PositionedSequenceNote, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
+    QuadrantLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SankeyLayout,
+    SankeyLayoutEngine, SequenceLayout, SequenceLayoutEngine, Size, StateLayoutEngine,
+    TimelineLayout, TimelineLayoutEngine, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout,
+    ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -342,6 +343,7 @@ pub struct StaticFrameRenderer {
     quadrant: QuadrantLayoutEngine,
     zenuml: ZenUmlLayoutEngine,
     sankey: SankeyLayoutEngine,
+    xy_chart: XyChartLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -370,6 +372,7 @@ impl StaticFrameRenderer {
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
+            xy_chart: XyChartLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -399,6 +402,7 @@ impl StaticFrameRenderer {
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
+            xy_chart: XyChartLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -428,6 +432,7 @@ impl StaticFrameRenderer {
             quadrant: QuadrantLayoutEngine::default_values(),
             zenuml: ZenUmlLayoutEngine::default_values(),
             sankey: SankeyLayoutEngine::default_values(),
+            xy_chart: XyChartLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -480,6 +485,7 @@ impl StaticFrameRenderer {
             DiagramKind::Quadrant(ast) => self.render_quadrant(ast),
             DiagramKind::ZenUml(ast) => self.render_zenuml(ast),
             DiagramKind::Sankey(ast) => self.render_sankey(ast),
+            DiagramKind::XyChart(ast) => self.render_xy_chart(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -557,6 +563,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_sankey(&self, ast: &SankeyAst) -> Frame {
         render_sankey_layout(&self.sankey.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_xy_chart(&self, ast: &XyChartAst) -> Frame {
+        render_xy_chart_layout(&self.xy_chart.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1027,6 +1038,111 @@ fn sankey_frame_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {
         x: (first.x + last.x) / 2 + 1,
         y: (first.y + last.y) / 2,
     })
+}
+
+fn render_xy_chart_layout(layout: &XyChartLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let node_style = theme.style_for(ThemeRole::Node);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    if let Some(y_title) = &layout.y_title {
+        write_text_safe(
+            &mut frame,
+            0,
+            layout.plot.origin.y.saturating_sub(1),
+            y_title,
+            text_style.clone(),
+        );
+    }
+    draw_box(&mut frame, layout.plot, palette, node_style.clone());
+    write_text_safe(
+        &mut frame,
+        0,
+        layout.plot.origin.y,
+        &layout.y_max_label,
+        text_style.clone(),
+    );
+    write_text_safe(
+        &mut frame,
+        0,
+        layout.plot.bottom().saturating_sub(1),
+        &layout.y_min_label,
+        text_style.clone(),
+    );
+    for series in &layout.series {
+        draw_xy_chart_series(
+            &mut frame,
+            series,
+            layout.plot,
+            palette,
+            edge_style.clone(),
+            node_style.clone(),
+        );
+    }
+    let x_label_y = layout.plot.bottom() + 1;
+    for (index, label) in layout.x_labels.iter().enumerate() {
+        let x = xy_chart_frame_label_x(layout.plot, index, layout.x_labels.len(), label);
+        write_text_safe(&mut frame, x, x_label_y, label, muted_style.clone());
+    }
+    if let Some(x_title) = &layout.x_title {
+        write_text_safe(
+            &mut frame,
+            layout.plot.origin.x,
+            x_label_y + 1,
+            x_title,
+            text_style,
+        );
+    }
+    frame
+}
+
+fn draw_xy_chart_series(
+    frame: &mut Frame,
+    series: &PositionedXyChartSeries,
+    plot: Rect,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    node_style: CellStyle,
+) {
+    match series.kind {
+        XyChartSeriesKind::Bar => {
+            let baseline = plot.bottom().saturating_sub(2);
+            for point in &series.points {
+                draw_vertical(
+                    frame,
+                    point.x,
+                    point.y.min(baseline),
+                    point.y.max(baseline),
+                    palette.block,
+                    node_style.clone(),
+                );
+            }
+        }
+        XyChartSeriesKind::Line => {
+            draw_polyline(frame, &series.points, palette, edge_style.clone());
+            for point in &series.points {
+                put_safe(frame, point.x, point.y, 'o', edge_style.clone());
+            }
+        }
+    }
+}
+
+fn xy_chart_frame_label_x(plot: Rect, index: usize, len: usize, label: &str) -> i32 {
+    let inner_width = (plot.size.width - 3).max(1);
+    let x = if len <= 1 {
+        plot.origin.x + 1 + inner_width / 2
+    } else {
+        plot.origin.x + 1 + index as i32 * inner_width / (len as i32 - 1)
+    };
+    (x - label.chars().count() as i32 / 2).max(0)
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

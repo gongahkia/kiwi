@@ -18,6 +18,7 @@ pub enum DiagramKind {
     Quadrant(Box<QuadrantAst>),
     ZenUml(Box<ZenUmlAst>),
     Sankey(Box<SankeyAst>),
+    XyChart(Box<XyChartAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -884,6 +885,75 @@ pub struct SankeyLink {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SankeyStatement {
     Link(Box<SankeyLink>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XyChartAst {
+    pub header: XyChartHeader,
+    pub title: Option<Label>,
+    pub x_axis: Option<XyChartAxis>,
+    pub y_axis: Option<XyChartAxis>,
+    pub series: Vec<XyChartSeries>,
+    pub statements: Vec<XyChartStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct XyChartHeader {
+    pub orientation: Option<Spanned<XyChartOrientation>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XyChartOrientation {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XyChartAxisKind {
+    X,
+    Y,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum XyChartAxisScale {
+    Categories(Vec<Label>),
+    Range {
+        min: Spanned<i64>,
+        max: Spanned<i64>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XyChartAxis {
+    pub kind: Spanned<XyChartAxisKind>,
+    pub title: Option<Label>,
+    pub scale: Option<XyChartAxisScale>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XyChartSeriesKind {
+    Bar,
+    Line,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XyChartSeries {
+    pub kind: Spanned<XyChartSeriesKind>,
+    pub values: Vec<Spanned<i64>>,
+    pub value_texts: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum XyChartStatement {
+    Title(Label),
+    Axis(XyChartAxis),
+    Series(XyChartSeries),
     Comment(MermaidComment),
     Directive(MermaidDirective),
 }

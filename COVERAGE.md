@@ -11,6 +11,7 @@ Sources:
 - Quadrant Chart syntax details: https://mermaid.js.org/syntax/quadrantChart.html
 - ZenUML syntax details: https://mermaid.ai/open-source/syntax/zenuml.html
 - Sankey syntax details: https://mermaid.js.org/syntax/sankey.html
+- XY Chart syntax details: https://mermaid.js.org/syntax/xyChart.html
 - User Journey syntax details: https://mermaid.js.org/syntax/userJourney.html
 - GitGraph syntax details: https://mermaid.js.org/syntax/gitgraph.html
 - Timeline syntax details: https://mermaid.js.org/syntax/timeline.html
@@ -85,7 +86,7 @@ several parsed semantics:
 | Timeline | Partial | `timeline`; title, ordered sections, periods with multiple events, continuation events, empty section statements, comments, directives. | Timeline reveal layout. | Yes; empty sections without periods are parser-only and do not render visible section bands. | Trace. | Mermaid timeline theme/config directives are accepted but not interpreted; common kumeyuri options apply. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Mermaid `timeline TD` direction and color/theme variables are not rendered. |
 | ZenUML | Static-only | `zenuml`; title, annotator and alias participants, async arrows, call syntax, `new`, `return`, `if`/`else`/`while`/`for`/`opt`/`par`/`try`/`catch`/`finally` fragments, `//` comments, directives. | Sequence-style lanes with participant boxes, lifelines, messages, creates, returns, and fragment labels. | Yes. | Static frame. | Common kumeyuri options only; ZenUML theme/config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Static renderer is schematic and does not model ZenUML activation stack styling or rich return positioning. |
 | Sankey | Static-only | `sankey`/`sankey-beta`; CSV rows as `source,target,value`, quoted source/target fields, positive numeric values, comments, directives. | Layered flow layout with node boxes and routed links. | Yes; link labels show raw values. | Static frame. | Common kumeyuri options only; Mermaid Sankey config/color behavior is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Link widths/colors are not proportional to values; renderer is schematic text-flow. |
-| XY Chart | None | Rejects `xychart`/`xychart-beta`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
+| XY Chart | Static-only | `xychart`/`xychart-beta`; optional orientation token, title, x/y axis titles, category/range axes, `bar` and `line` numeric series, comments, directives. | Fixed plot layout with axis labels, bars, and line points. | Yes. | Static frame. | Common kumeyuri options only; Mermaid chart config, chart dimensions, and orientation-specific layout are not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | `horizontal` is parsed but currently rendered with the same vertical text plot. |
 | Block Diagram | None | Rejects `block`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Packet | None | Rejects `packet`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Kanban | None | Rejects `kanban`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |

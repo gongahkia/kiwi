@@ -11,8 +11,8 @@ use crate::ast::{
     RequirementRisk, RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst,
     SequenceAutoNumber, SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote,
     SequenceParticipant, SequenceStatement, Spanned, StateAst, StateNode, StateStatement,
-    StateTransition, TimelineAst, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
-    ZenUmlStatement,
+    StateTransition, TimelineAst, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
+    ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -316,6 +316,52 @@ pub struct PositionedSankeyLink {
 pub struct SankeyLayout {
     pub nodes: Vec<PositionedSankeyNode>,
     pub links: Vec<PositionedSankeyLink>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct XyChartLayoutConfig {
+    pub plot_width: i32,
+    pub plot_height: i32,
+    pub left_margin: i32,
+    pub top_padding: i32,
+}
+
+impl Default for XyChartLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl XyChartLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            plot_width: 60,
+            plot_height: 18,
+            left_margin: 10,
+            top_padding: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedXyChartSeries {
+    pub kind: XyChartSeriesKind,
+    pub points: Vec<Point>,
+    pub value_texts: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XyChartLayout {
+    pub title: Option<String>,
+    pub x_title: Option<String>,
+    pub y_title: Option<String>,
+    pub x_labels: Vec<String>,
+    pub y_min_label: String,
+    pub y_max_label: String,
+    pub plot: Rect,
+    pub series: Vec<PositionedXyChartSeries>,
     pub size: Size,
 }
 
@@ -963,6 +1009,11 @@ pub struct ZenUmlLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct SankeyLayoutEngine {
     config: SankeyLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct XyChartLayoutEngine {
+    config: XyChartLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2012,6 +2063,183 @@ fn sankey_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {
         x: (first.x + last.x) / 2 + 1,
         y: (first.y + last.y) / 2,
     })
+}
+
+impl XyChartLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: XyChartLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: XyChartLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &XyChartAst) -> XyChartLayout {
+        let title = ast.title.as_ref().map(|title| title.text.clone());
+        let x_title = ast
+            .x_axis
+            .as_ref()
+            .and_then(|axis| axis.title.as_ref().map(|title| title.text.clone()));
+        let y_title = ast
+            .y_axis
+            .as_ref()
+            .and_then(|axis| axis.title.as_ref().map(|title| title.text.clone()));
+        let x_labels = xy_chart_x_labels(ast);
+        let (y_min, y_max) = xy_chart_y_range(ast);
+        let y_min_label = xy_chart_label_value(y_min);
+        let y_max_label = xy_chart_label_value(y_max);
+        let left_margin = self
+            .config
+            .left_margin
+            .max(label_width(&y_min_label).max(label_width(&y_max_label)) + 2);
+        let plot = Rect {
+            origin: Point {
+                x: left_margin,
+                y: i32::from(title.is_some()) * 2 + self.config.top_padding,
+            },
+            size: Size {
+                width: self.config.plot_width.max(5),
+                height: self.config.plot_height.max(5),
+            },
+        };
+        let max_len = ast
+            .series
+            .iter()
+            .map(|series| series.values.len())
+            .max()
+            .unwrap_or(0);
+        let series = ast
+            .series
+            .iter()
+            .map(|series| PositionedXyChartSeries {
+                kind: series.kind.value,
+                points: series
+                    .values
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| {
+                        xy_chart_point(plot, index, max_len, value.value, y_min, y_max)
+                    })
+                    .collect(),
+                value_texts: series
+                    .value_texts
+                    .iter()
+                    .map(|value| value.value.clone())
+                    .collect(),
+            })
+            .collect::<Vec<_>>();
+        let mut size = Size {
+            width: plot.right(),
+            height: plot.bottom() + 3,
+        };
+        if let Some(title) = &title {
+            size.width = size.width.max(label_width(title));
+        }
+        if let Some(x_title) = &x_title {
+            size.width = size.width.max(plot.origin.x + label_width(x_title));
+        }
+        if let Some(y_title) = &y_title {
+            size.width = size.width.max(label_width(y_title));
+        }
+        for (index, label) in x_labels.iter().enumerate() {
+            let x = xy_chart_x(plot, index, x_labels.len());
+            size.width = size.width.max(x + label_width(label));
+        }
+
+        XyChartLayout {
+            title,
+            x_title,
+            y_title,
+            x_labels,
+            y_min_label,
+            y_max_label,
+            plot,
+            series,
+            size,
+        }
+    }
+}
+
+fn xy_chart_x_labels(ast: &XyChartAst) -> Vec<String> {
+    if let Some(XyChartAxisScale::Categories(labels)) =
+        ast.x_axis.as_ref().and_then(|axis| axis.scale.as_ref())
+    {
+        return labels.iter().map(|label| label.text.clone()).collect();
+    }
+    let len = ast
+        .series
+        .iter()
+        .map(|series| series.values.len())
+        .max()
+        .unwrap_or(0);
+    (1..=len).map(|value| value.to_string()).collect()
+}
+
+fn xy_chart_y_range(ast: &XyChartAst) -> (i64, i64) {
+    if let Some(XyChartAxisScale::Range { min, max }) =
+        ast.y_axis.as_ref().and_then(|axis| axis.scale.as_ref())
+    {
+        return (min.value, max.value);
+    }
+    let mut values = ast
+        .series
+        .iter()
+        .flat_map(|series| series.values.iter().map(|value| value.value));
+    let Some(first) = values.next() else {
+        return (0, 100);
+    };
+    let (mut min, mut max) = (first, first);
+    for value in values {
+        min = min.min(value);
+        max = max.max(value);
+    }
+    if min == max {
+        (min.min(0), max.saturating_add(100))
+    } else {
+        (min.min(0), max)
+    }
+}
+
+fn xy_chart_label_value(value: i64) -> String {
+    if value % 100 == 0 {
+        (value / 100).to_string()
+    } else {
+        format!("{:.2}", value as f64 / 100.0)
+    }
+}
+
+fn xy_chart_point(
+    plot: Rect,
+    index: usize,
+    len: usize,
+    value: i64,
+    y_min: i64,
+    y_max: i64,
+) -> Point {
+    Point {
+        x: xy_chart_x(plot, index, len),
+        y: xy_chart_y(plot, value, y_min, y_max),
+    }
+}
+
+fn xy_chart_x(plot: Rect, index: usize, len: usize) -> i32 {
+    let inner_width = (plot.size.width - 3).max(1);
+    if len <= 1 {
+        return plot.origin.x + 1 + inner_width / 2;
+    }
+    plot.origin.x + 1 + index as i32 * inner_width / (len as i32 - 1)
+}
+
+fn xy_chart_y(plot: Rect, value: i64, y_min: i64, y_max: i64) -> i32 {
+    let inner_height = i64::from((plot.size.height - 3).max(1));
+    let range = (y_max - y_min).max(1);
+    let offset = (y_max - value).clamp(0, range) * inner_height / range;
+    plot.origin.y + 1 + offset as i32
 }
 
 impl StateLayoutEngine {

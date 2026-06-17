@@ -3,7 +3,7 @@ use crate::ast::{
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
     QuadrantStatement, RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement,
-    StateAst, StateStatement, TimelineAst, TimelineStatement, ZenUmlStatement,
+    StateAst, StateStatement, TimelineAst, TimelineStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -165,6 +165,7 @@ impl Animator {
             (DiagramKind::Quadrant(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::ZenUml(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Sankey(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::XyChart(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -276,6 +277,11 @@ impl AnimationConfig {
             DiagramKind::Sankey(ast) => {
                 for statement in &ast.statements {
                     apply_sankey_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::XyChart(ast) => {
+                for statement in &ast.statements {
+                    apply_xy_chart_animation_directives(statement, &mut config)?;
                 }
             }
             DiagramKind::Mindmap(ast) => {
@@ -390,6 +396,7 @@ pub enum AnimationDiagramKind {
     Quadrant,
     ZenUml,
     Sankey,
+    XyChart,
     Mindmap,
     Journey,
     GitGraph,
@@ -411,6 +418,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Quadrant(_) => Self::Quadrant,
             DiagramKind::ZenUml(_) => Self::ZenUml,
             DiagramKind::Sankey(_) => Self::Sankey,
+            DiagramKind::XyChart(_) => Self::XyChart,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -641,6 +649,24 @@ fn apply_sankey_animation_directives(
     Ok(())
 }
 
+fn apply_xy_chart_animation_directives(
+    statement: &XyChartStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        XyChartStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        XyChartStatement::Title(_)
+        | XyChartStatement::Axis(_)
+        | XyChartStatement::Series(_)
+        | XyChartStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -866,6 +892,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Quadrant(_) => AnimationMode::None,
         DiagramKind::ZenUml(_) => AnimationMode::None,
         DiagramKind::Sankey(_) => AnimationMode::None,
+        DiagramKind::XyChart(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -894,6 +921,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Quadrant(_) => Duration::from_millis(700),
         DiagramKind::ZenUml(_) => Duration::from_millis(700),
         DiagramKind::Sankey(_) => Duration::from_millis(700),
+        DiagramKind::XyChart(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

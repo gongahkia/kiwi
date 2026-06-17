@@ -22,8 +22,10 @@ use crate::ast::{
     SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
     StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
     StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement, ZenUmlAst, ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage,
-    ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
+    TimelineStatement, XyChartAst, XyChartAxis, XyChartAxisKind, XyChartAxisScale, XyChartHeader,
+    XyChartOrientation, XyChartSeries, XyChartSeriesKind, XyChartStatement, ZenUmlAst,
+    ZenUmlFragment, ZenUmlFragmentKind, ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind,
+    ZenUmlParticipant, ZenUmlStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -104,6 +106,11 @@ pub enum ParseErrorKind {
     UnknownSankeyStatement,
     ExpectedSankeyLink,
     ExpectedSankeyValue,
+    ExpectedXyChartHeader,
+    UnknownXyChartStatement,
+    ExpectedXyChartAxis,
+    ExpectedXyChartSeries,
+    ExpectedXyChartValue,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -187,6 +194,10 @@ impl Parser {
 
     pub fn parse_sankey(source: &str) -> Result<SankeyAst, ParseError> {
         DiagramParser::new(source).parse_sankey_only()
+    }
+
+    pub fn parse_xy_chart(source: &str) -> Result<XyChartAst, ParseError> {
+        DiagramParser::new(source).parse_xy_chart_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -336,6 +347,14 @@ impl Parser {
         SankeyStatementParser::new(source).parse()
     }
 
+    pub fn parse_xy_chart_header(source: &str) -> Result<XyChartHeader, ParseError> {
+        XyChartHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_xy_chart_statement(source: &str) -> Result<XyChartStatement, ParseError> {
+        XyChartStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -458,6 +477,11 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Sankey(Box::new(ast))));
+        }
+        if let Ok(xy_header) = Parser::parse_xy_chart_header(header.text) {
+            self.cursor = header.line.next;
+            let ast = self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::XyChart(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -623,6 +647,18 @@ impl<'source> DiagramParser<'source> {
         let sankey_header = Parser::parse_sankey_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))
+    }
+
+    fn parse_xy_chart_only(mut self) -> Result<XyChartAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let xy_header = Parser::parse_xy_chart_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -1188,6 +1224,31 @@ impl<'source> DiagramParser<'source> {
                 line.start,
             );
             push_sankey_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_xy_chart_body(&mut self, header: XyChartHeader) -> Result<XyChartAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = XyChartAst {
+            header,
+            title: None,
+            x_axis: None,
+            y_axis: None,
+            series: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_xy_chart_statement(
+                Parser::parse_xy_chart_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            push_xy_chart_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
 
@@ -1800,6 +1861,19 @@ fn push_sankey_statement(ast: &mut SankeyAst, statement: SankeyStatement) {
     match &statement {
         SankeyStatement::Link(link) => ast.links.push((**link).clone()),
         SankeyStatement::Comment(_) | SankeyStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_xy_chart_statement(ast: &mut XyChartAst, statement: XyChartStatement) {
+    match &statement {
+        XyChartStatement::Title(title) => ast.title = Some(title.clone()),
+        XyChartStatement::Axis(axis) => match axis.kind.value {
+            XyChartAxisKind::X => ast.x_axis = Some(axis.clone()),
+            XyChartAxisKind::Y => ast.y_axis = Some(axis.clone()),
+        },
+        XyChartStatement::Series(series) => ast.series.push(series.clone()),
+        XyChartStatement::Comment(_) | XyChartStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -3470,6 +3544,61 @@ impl<'source> SankeyHeaderParser<'source> {
     }
 }
 
+struct XyChartHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> XyChartHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<XyChartHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedXyChartHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        let root_end = self.source[start..end]
+            .find(|value: char| value.is_ascii_whitespace())
+            .map_or(end, |offset| start + offset);
+        if !matches!(&self.source[start..root_end], "xychart" | "xychart-beta") {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedXyChartHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let orientation =
+            if let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[root_end..end]) {
+                let orientation_start = root_end + trim_start;
+                let orientation_end = root_end + trim_end;
+                let orientation = match &self.source[orientation_start..orientation_end] {
+                    "horizontal" => XyChartOrientation::Horizontal,
+                    "vertical" => XyChartOrientation::Vertical,
+                    _ => {
+                        return Err(ParseError {
+                            kind: ParseErrorKind::ExpectedXyChartHeader,
+                            span: Span::new(orientation_start, orientation_end),
+                        });
+                    }
+                };
+                Some(Spanned::new(
+                    orientation,
+                    Span::new(orientation_start, orientation_end),
+                ))
+            } else {
+                None
+            };
+        Ok(XyChartHeader {
+            orientation,
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -4069,6 +4198,84 @@ impl<'source> SankeyStatementParser<'source> {
             start,
             end,
         )?)))
+    }
+}
+
+struct XyChartStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> XyChartStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<XyChartStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownXyChartStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(XyChartStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(XyChartStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownXyChartStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(XyChartStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "x-axis") {
+            return Ok(XyChartStatement::Axis(parse_xy_chart_axis(
+                self.source,
+                start,
+                end,
+                "x-axis",
+                XyChartAxisKind::X,
+            )?));
+        }
+        if has_keyword(self.source, start, "y-axis") {
+            return Ok(XyChartStatement::Axis(parse_xy_chart_axis(
+                self.source,
+                start,
+                end,
+                "y-axis",
+                XyChartAxisKind::Y,
+            )?));
+        }
+        if has_keyword(self.source, start, "line") {
+            return Ok(XyChartStatement::Series(parse_xy_chart_series(
+                self.source,
+                start,
+                end,
+                "line",
+                XyChartSeriesKind::Line,
+            )?));
+        }
+        if has_keyword(self.source, start, "bar") {
+            return Ok(XyChartStatement::Series(parse_xy_chart_series(
+                self.source,
+                start,
+                end,
+                "bar",
+                XyChartSeriesKind::Bar,
+            )?));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownXyChartStatement,
+            span: Span::new(start, end),
+        })
     }
 }
 
@@ -6481,6 +6688,153 @@ fn parse_sankey_value_units(value: &str) -> Option<u64> {
     Some((parsed * 100.0).round() as u64)
 }
 
+fn parse_xy_chart_axis(
+    source: &str,
+    start: usize,
+    end: usize,
+    keyword: &str,
+    kind: XyChartAxisKind,
+) -> Result<XyChartAxis, ParseError> {
+    let rest_start = start + keyword.len();
+    let mut title_end = end;
+    let mut scale = None;
+    if let Some(bracket_start) = source[rest_start..end].find('[') {
+        let bracket_start = rest_start + bracket_start;
+        let bracket_end = source[bracket_start..end]
+            .rfind(']')
+            .map(|offset| bracket_start + offset)
+            .ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedXyChartAxis,
+                span: Span::new(bracket_start, end),
+            })?;
+        title_end = bracket_start;
+        scale = Some(XyChartAxisScale::Categories(parse_xy_chart_categories(
+            source,
+            bracket_start + 1,
+            bracket_end,
+        )?));
+    } else if let Some(arrow) = source[rest_start..end].find("-->") {
+        let arrow = rest_start + arrow;
+        let left = source[rest_start..arrow].trim_end();
+        let min_start = rest_start
+            + left
+                .rfind(|value: char| value.is_ascii_whitespace())
+                .map_or(0, |offset| offset + 1);
+        let min = parse_xy_chart_value(source, min_start, arrow)?;
+        let max = parse_xy_chart_value(source, arrow + "-->".len(), end)?;
+        title_end = min_start;
+        scale = Some(XyChartAxisScale::Range { min, max });
+    }
+    let title = label_from_trimmed(source, rest_start, title_end);
+    Ok(XyChartAxis {
+        kind: Spanned::new(kind, Span::new(start, start + keyword.len())),
+        title,
+        scale,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_xy_chart_series(
+    source: &str,
+    start: usize,
+    end: usize,
+    keyword: &str,
+    kind: XyChartSeriesKind,
+) -> Result<XyChartSeries, ParseError> {
+    let values_start = source[start + keyword.len()..end]
+        .find('[')
+        .map(|offset| start + keyword.len() + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartSeries,
+            span: Span::new(start, end),
+        })?;
+    let values_end = source[values_start..end]
+        .rfind(']')
+        .map(|offset| values_start + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartSeries,
+            span: Span::new(values_start, end),
+        })?;
+    let mut values = Vec::new();
+    let mut value_texts = Vec::new();
+    for field in parse_sankey_csv_fields(source, values_start + 1, values_end)? {
+        let (value, text) = parse_xy_chart_value_with_text(source, field.start, field.end)?;
+        values.push(value);
+        value_texts.push(text);
+    }
+    if values.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartSeries,
+            span: Span::new(values_start, values_end),
+        });
+    }
+    Ok(XyChartSeries {
+        kind: Spanned::new(kind, Span::new(start, start + keyword.len())),
+        values,
+        value_texts,
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_xy_chart_categories(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<Label>, ParseError> {
+    let mut labels = Vec::new();
+    for field in parse_sankey_csv_fields(source, start, end)? {
+        let label = label_from_trimmed(source, field.start, field.end).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartAxis,
+            span: Span::new(field.start, field.end),
+        })?;
+        labels.push(label);
+    }
+    Ok(labels)
+}
+
+fn parse_xy_chart_value(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<i64>, ParseError> {
+    parse_xy_chart_value_with_text(source, start, end).map(|(value, _)| value)
+}
+
+fn parse_xy_chart_value_with_text(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<i64>, Spanned<String>), ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartValue,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let raw = &source[absolute_start..absolute_end];
+    let Ok(parsed) = raw.parse::<f64>() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    if !parsed.is_finite() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedXyChartValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    Ok((
+        Spanned::new(
+            (parsed * 100.0).round() as i64,
+            Span::new(absolute_start, absolute_end),
+        ),
+        Spanned::new(raw.to_owned(), Span::new(absolute_start, absolute_end)),
+    ))
+}
+
 fn zenuml_fragment_keyword(source: &str) -> Option<(&'static str, ZenUmlFragmentKind)> {
     const KEYWORDS: [(&str, ZenUmlFragmentKind); 9] = [
         ("while", ZenUmlFragmentKind::Loop),
@@ -8745,6 +9099,74 @@ fn shift_sankey_link(link: SankeyLink, offset: usize) -> SankeyLink {
     }
 }
 
+fn shift_xy_chart_header(header: XyChartHeader, offset: usize) -> XyChartHeader {
+    XyChartHeader {
+        orientation: header
+            .orientation
+            .map(|orientation| shift_spanned(orientation, offset)),
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_xy_chart_statement(statement: XyChartStatement, offset: usize) -> XyChartStatement {
+    match statement {
+        XyChartStatement::Title(title) => XyChartStatement::Title(shift_label(title, offset)),
+        XyChartStatement::Axis(axis) => XyChartStatement::Axis(shift_xy_chart_axis(axis, offset)),
+        XyChartStatement::Series(series) => {
+            XyChartStatement::Series(shift_xy_chart_series(series, offset))
+        }
+        XyChartStatement::Comment(comment) => {
+            XyChartStatement::Comment(shift_comment(comment, offset))
+        }
+        XyChartStatement::Directive(directive) => {
+            XyChartStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_xy_chart_axis(axis: XyChartAxis, offset: usize) -> XyChartAxis {
+    XyChartAxis {
+        kind: shift_spanned(axis.kind, offset),
+        title: axis.title.map(|title| shift_label(title, offset)),
+        scale: axis
+            .scale
+            .map(|scale| shift_xy_chart_axis_scale(scale, offset)),
+        span: shift_span(axis.span, offset),
+    }
+}
+
+fn shift_xy_chart_axis_scale(scale: XyChartAxisScale, offset: usize) -> XyChartAxisScale {
+    match scale {
+        XyChartAxisScale::Categories(labels) => XyChartAxisScale::Categories(
+            labels
+                .into_iter()
+                .map(|label| shift_label(label, offset))
+                .collect(),
+        ),
+        XyChartAxisScale::Range { min, max } => XyChartAxisScale::Range {
+            min: shift_spanned(min, offset),
+            max: shift_spanned(max, offset),
+        },
+    }
+}
+
+fn shift_xy_chart_series(series: XyChartSeries, offset: usize) -> XyChartSeries {
+    XyChartSeries {
+        kind: shift_spanned(series.kind, offset),
+        values: series
+            .values
+            .into_iter()
+            .map(|value| shift_spanned(value, offset))
+            .collect(),
+        value_texts: series
+            .value_texts
+            .into_iter()
+            .map(|value| shift_spanned(value, offset))
+            .collect(),
+        span: shift_span(series.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -9858,6 +10280,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_xy_chart_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "xychart-beta\ntitle Sales\nx-axis Month [Jan, Feb]\ny-axis Revenue 0 --> 100\nbar [42, 58]\nline [35, 60]",
+        )
+        .unwrap();
+
+        let DiagramKind::XyChart(ast) = diagram.kind else {
+            panic!("expected XY Chart diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Sales");
+        assert_eq!(
+            ast.x_axis.as_ref().unwrap().title.as_ref().unwrap().text,
+            "Month"
+        );
+        assert_eq!(
+            ast.y_axis.as_ref().unwrap().title.as_ref().unwrap().text,
+            "Revenue"
+        );
+        assert_eq!(ast.series.len(), 2);
+        assert_eq!(ast.series[0].values[0].value, 4_200);
+        assert_eq!(ast.series[1].value_texts[1].value, "60");
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -9956,8 +10402,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("XY Chart", "xychart"),
-            ("XY Chart beta", "xychart-beta"),
             ("Block Diagram", "block"),
             ("Packet", "packet"),
             ("Kanban", "kanban"),
