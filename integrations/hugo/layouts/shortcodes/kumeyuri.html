@@ -1,0 +1,23 @@
+{{- $src := .Get "src" -}}
+{{- if not $src -}}
+  {{- errorf "kumeyuri shortcode requires src at %s" .Position -}}
+{{- end -}}
+{{- $darkSrc := .Get "darkSrc" | default (.Get "dark") -}}
+{{- $alt := .Get "alt" | default (.Get "caption") | default "Kumeyuri diagram" -}}
+{{- $caption := .Get "caption" -}}
+{{- $class := .Get "class" -}}
+{{- $loading := .Get "loading" | default "lazy" -}}
+{{- $decoding := .Get "decoding" | default "async" -}}
+<figure class="kumeyuri-diagram{{ with $class }} {{ . }}{{ end }}">
+  {{- if $darkSrc }}
+  <picture>
+    <source srcset="{{ $darkSrc }}" media="(prefers-color-scheme: dark)">
+    <img src="{{ $src }}" alt="{{ $alt }}" loading="{{ $loading }}" decoding="{{ $decoding }}"{{ with .Get "width" }} width="{{ . }}"{{ end }}{{ with .Get "height" }} height="{{ . }}"{{ end }}>
+  </picture>
+  {{- else }}
+  <img src="{{ $src }}" alt="{{ $alt }}" loading="{{ $loading }}" decoding="{{ $decoding }}"{{ with .Get "width" }} width="{{ . }}"{{ end }}{{ with .Get "height" }} height="{{ . }}"{{ end }}>
+  {{- end }}
+  {{- with $caption }}
+  <figcaption>{{ . }}</figcaption>
+  {{- end }}
+</figure>

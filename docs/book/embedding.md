@@ -125,6 +125,15 @@ graph TD
 ```
 ````
 
+## Hugo
+
+Copy `integrations/hugo/layouts/shortcodes/kumeyuri.html` into a Hugo site,
+render assets into `static/diagrams/`, and call the shortcode:
+
+```md
+{{< kumeyuri src="/diagrams/flow.svg" dark="/diagrams/flow.dark.svg" alt="Animated flow trace" caption="Request flow" >}}
+```
+
 ## Docusaurus and MDX
 
 Put generated assets in `static/diagrams/`:

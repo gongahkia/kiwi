@@ -62,7 +62,8 @@ kumeyuri render diagrams/flow.mmd --format svg --theme tokyo-night > diagrams/fl
 
 ## Hugo
 
-Place rendered assets under `static/diagrams/`, then use a shortcode.
+Place rendered assets under `static/diagrams/`, then use the bundled shortcode
+at `integrations/hugo/layouts/shortcodes/kumeyuri.html`.
 
 ```go-html-template
 {{/* layouts/shortcodes/kumeyuri.html */}}

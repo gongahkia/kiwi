@@ -150,7 +150,7 @@
 - [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
 - [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
 - [x] Author mdBook preprocessor `mdbook-kumeyuri`
-- [ ] Author Hugo shortcode `{{< kumeyuri >}}`
+- [x] Author Hugo shortcode `{{< kumeyuri >}}`
 - [ ] Author Docusaurus plugin `@docusaurus/plugin-kumeyuri`
 - [ ] Add Astro integration `@kumeyuri/astro`
 - [ ] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
