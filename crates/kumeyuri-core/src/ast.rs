@@ -19,6 +19,7 @@ pub enum DiagramKind {
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
     Timeline(Box<TimelineAst>),
+    Requirement(Box<RequirementAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -826,6 +827,109 @@ pub struct TimelinePeriod {
     pub label: Label,
     pub section: Option<Label>,
     pub events: Vec<Label>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementAst {
+    pub header: RequirementHeader,
+    pub direction: Option<Spanned<Direction>>,
+    pub statements: Vec<RequirementStatement>,
+    pub requirements: Vec<RequirementNode>,
+    pub elements: Vec<RequirementElement>,
+    pub relationships: Vec<RequirementRelationship>,
+    pub classes: Vec<FlowClassDef>,
+    pub styles: Vec<RequirementStyle>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RequirementHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequirementStatement {
+    Requirement(Box<RequirementNode>),
+    Element(Box<RequirementElement>),
+    Relationship(Box<RequirementRelationship>),
+    Direction(Spanned<Direction>),
+    Style(RequirementStyle),
+    ClassDef(FlowClassDef),
+    ClassApply(FlowClassApply),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequirementKind {
+    Requirement,
+    Functional,
+    Interface,
+    Performance,
+    Physical,
+    DesignConstraint,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequirementRisk {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequirementVerifyMethod {
+    Analysis,
+    Inspection,
+    Test,
+    Demonstration,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementNode {
+    pub name: Spanned<String>,
+    pub kind: Spanned<RequirementKind>,
+    pub requirement_id: Option<Label>,
+    pub text: Option<Label>,
+    pub risk: Option<Spanned<RequirementRisk>>,
+    pub verify_method: Option<Spanned<RequirementVerifyMethod>>,
+    pub classes: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementElement {
+    pub name: Spanned<String>,
+    pub ty: Option<Label>,
+    pub doc_ref: Option<Label>,
+    pub classes: Vec<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequirementRelationshipKind {
+    Contains,
+    Copies,
+    Derives,
+    Satisfies,
+    Verifies,
+    Refines,
+    Traces,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementRelationship {
+    pub from: Spanned<String>,
+    pub to: Spanned<String>,
+    pub kind: Spanned<RequirementRelationshipKind>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequirementStyle {
+    pub node_ids: Vec<Spanned<String>>,
+    pub styles: Vec<FlowStyleDeclaration>,
     pub span: Span,
 }
 
