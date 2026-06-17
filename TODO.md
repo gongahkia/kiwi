@@ -164,7 +164,7 @@
 - [ ] Maintain `CHANGELOG.md` via release-please
 - [ ] Maintain `docs/adr/` decision log for any non-obvious architectural choice
 - [ ] Run `cargo audit` weekly via Dependabot/Renovate
-- [ ] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
+- [x] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
 - [ ] Triage incoming GitHub Issues within 7 days
 - [ ] Publish a public roadmap pinned issue and update monthly
 
