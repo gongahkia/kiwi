@@ -154,7 +154,7 @@
 - [x] Add source-position parse-error snapshots for representative syntax failures per supported root
 - [x] Add renderer parity notes for semantic-only shapes/styles so TODO/COVERAGE do not imply visual parity where boxes are still generic
 - [x] Flowchart: implement visual differentiation for Mermaid classic shapes instead of rendering all nodes as generic boxes
-- [ ] Flowchart: add parity tests for v11 named shapes, markdown strings, multiline labels, entity escapes, edge IDs, edge animation classes, `linkStyle`, `style`, and `click`
+- [x] Flowchart: add parity tests for v11 named shapes, markdown strings, multiline labels, entity escapes, edge IDs, edge animation classes, `linkStyle`, `style`, and `click`
 - [ ] Flowchart: implement or explicitly reject Mermaid frontmatter/init config for `layout`, `look`, `theme`, `themeVariables`, `curve`, and ELK options
 - [ ] Flowchart: add layout parity cases for nested subgraph direction, external edges, self-loops, back edges, long labels, disconnected clusters, and dense fan-in/fan-out
 - [ ] Sequence: implement parser support for `autonumber`, `activate`, `deactivate`, `+/-` activation shorthand, `create`, `destroy`, `box`, `rect`, `critical`, and `break`
