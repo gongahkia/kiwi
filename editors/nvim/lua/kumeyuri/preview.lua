@@ -190,7 +190,7 @@ function M.open(opts)
   state.win = win
   state.job = job
   if cfg.start_insert then
-    vim.cmd.startinsert()
+    vim.cmd("startinsert")
   end
   return vim.deepcopy(state)
 end
