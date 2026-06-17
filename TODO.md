@@ -160,7 +160,7 @@
 - [x] Sequence: implement parser support for `autonumber`, `activate`, `deactivate`, `+/-` activation shorthand, `create`, `destroy`, `box`, `rect`, `critical`, and `break`
 - [x] Sequence: render activation bars, participant boxes/regions, destroy markers, autonumber labels, and critical/break blocks
 - [x] Sequence: add parity fixtures for actor menus, links, properties, participant ordering, multi-line notes, and message arrows without labels
-- [ ] State: add parity fixtures for entry/exit descriptions, concurrent states, history states, notes over composite states, `choice`/`fork`/`join` rendering, and class styling
+- [x] State: add parity fixtures for entry/exit descriptions, concurrent states, history states, notes over composite states, `choice`/`fork`/`join` rendering, and class styling
 - [ ] State: implement Mermaid layout/look config parity for state diagrams or document each unsupported option with rejection tests
 - [ ] Class: add parity fixtures for namespaces, generics, annotations, callbacks/links, CSS class styling, two-way relations, lollipop interfaces, and member classifiers
 - [ ] Class: render relationship markers/cardinalities closer to Mermaid instead of class-layout approximations
