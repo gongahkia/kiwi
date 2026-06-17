@@ -2,7 +2,7 @@ use crate::ast::{
     ArrowHead, C4Ast, ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram,
     DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
     GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst, SequenceAst,
-    StateAst, TimelineAst,
+    SequenceControlKind, StateAst, TimelineAst,
 };
 use crate::layout::{
     C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout, FlowLayoutEngine,
@@ -10,8 +10,9 @@ use crate::layout::{
     JourneyLayoutEngine, MindmapLayout, MindmapLayoutEngine, PieLayout, PieLayoutEngine, Point,
     PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
-    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceMessage, PositionedSequenceNote,
-    Rect, RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
+    PositionedMindmapNode, PositionedPieSlice, PositionedSequenceActivation, PositionedSequenceBox,
+    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote, Rect,
+    RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine, StateLayoutEngine,
     TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
@@ -767,14 +768,23 @@ fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme:
             muted_style.clone(),
         );
     }
+    for sequence_box in &layout.boxes {
+        draw_sequence_box(
+            &mut frame,
+            sequence_box,
+            palette,
+            muted_style.clone(),
+            text_style.clone(),
+        );
+    }
     for control in &layout.controls {
         draw_box(&mut frame, control.rect, palette, muted_style.clone());
-        if let Some(label) = &control.label {
+        if let Some(label) = sequence_control_label(control.kind, control.label.as_deref()) {
             write_text_safe(
                 &mut frame,
                 control.rect.origin.x + 1,
                 control.y,
-                label,
+                &label,
                 text_style.clone(),
             );
         }
@@ -788,6 +798,9 @@ fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme:
             text_style.clone(),
         );
     }
+    for activation in &layout.activations {
+        draw_sequence_activation(&mut frame, activation, palette, node_style.clone());
+    }
     for message in &layout.messages {
         draw_sequence_message(
             &mut frame,
@@ -796,6 +809,9 @@ fn render_sequence_layout(layout: &SequenceLayout, palette: GlyphPalette, theme:
             edge_style.clone(),
             text_style.clone(),
         );
+    }
+    for destroy in &layout.destroys {
+        draw_sequence_destroy(&mut frame, destroy, text_style.clone());
     }
     frame
 }
@@ -1597,6 +1613,41 @@ fn dominant_arrowhead_for_segment(previous: Point, last: Point, palette: GlyphPa
     }
 }
 
+fn draw_sequence_box(
+    frame: &mut Frame,
+    sequence_box: &PositionedSequenceBox,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    draw_box(frame, sequence_box.rect, palette, box_style);
+    if let Some(label) = &sequence_box.label {
+        write_text_safe(
+            frame,
+            sequence_box.rect.origin.x + 1,
+            sequence_box.rect.origin.y,
+            label,
+            text_style,
+        );
+    }
+}
+
+fn sequence_control_label(kind: SequenceControlKind, label: Option<&str>) -> Option<String> {
+    match kind {
+        SequenceControlKind::Critical => Some(prefixed_sequence_label("critical", label)),
+        SequenceControlKind::Break => Some(prefixed_sequence_label("break", label)),
+        SequenceControlKind::Rect => Some(prefixed_sequence_label("rect", label)),
+        SequenceControlKind::Loop
+        | SequenceControlKind::Alt
+        | SequenceControlKind::Opt
+        | SequenceControlKind::Par => label.map(str::to_owned),
+    }
+}
+
+fn prefixed_sequence_label(prefix: &str, label: Option<&str>) -> String {
+    label.map_or_else(|| prefix.to_owned(), |label| format!("{prefix}: {label}"))
+}
+
 fn draw_sequence_note(
     frame: &mut Frame,
     note: &PositionedSequenceNote,
@@ -1614,6 +1665,15 @@ fn draw_sequence_note(
     );
 }
 
+fn draw_sequence_activation(
+    frame: &mut Frame,
+    activation: &PositionedSequenceActivation,
+    palette: GlyphPalette,
+    style: CellStyle,
+) {
+    draw_box(frame, activation.rect, palette, style);
+}
+
 fn draw_sequence_message(
     frame: &mut Frame,
     message: &PositionedSequenceMessage,
@@ -1622,12 +1682,12 @@ fn draw_sequence_message(
     text_style: CellStyle,
 ) {
     draw_polyline(frame, &message.points, palette, edge_style.clone());
-    if let Some(label) = &message.label {
+    if let Some(label) = sequence_message_label(message) {
         let first = message.points.first().copied();
         let last = message.points.last().copied();
         if let (Some(first), Some(last)) = (first, last) {
             let x = first.x.min(last.x) + 1;
-            write_text_safe(frame, x, message.y.saturating_sub(1), label, text_style);
+            write_text_safe(frame, x, message.y.saturating_sub(1), &label, text_style);
         }
     }
     if let Some(last) = message.points.last() {
@@ -1639,6 +1699,27 @@ fn draw_sequence_message(
             edge_style,
         );
     }
+}
+
+fn sequence_message_label(message: &PositionedSequenceMessage) -> Option<String> {
+    match (&message.number, &message.label) {
+        (Some(number), Some(label)) => Some(format!("{number}. {label}")),
+        (Some(number), None) => Some(format!("{number}.")),
+        (None, Some(label)) => Some(label.clone()),
+        (None, None) => None,
+    }
+}
+
+fn draw_sequence_destroy(frame: &mut Frame, destroy: &PositionedSequenceDestroy, style: CellStyle) {
+    put_safe(frame, destroy.point.x, destroy.point.y, 'X', style.clone());
+    put_safe(
+        frame,
+        destroy.point.x.saturating_sub(1),
+        destroy.point.y,
+        '-',
+        style.clone(),
+    );
+    put_safe(frame, destroy.point.x + 1, destroy.point.y, '-', style);
 }
 
 fn draw_box(frame: &mut Frame, rect: Rect, palette: GlyphPalette, style: CellStyle) {

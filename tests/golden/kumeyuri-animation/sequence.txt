@@ -13,3 +13,7 @@
 13_cross_and_open 026ba6bb562cde16
 14_bidirectional 46717c4074398d2d
 15_three_participants a87bd4f4f7c6a904
+16_autonumber_activation f6285cf0b09c15f2
+17_create_destroy c6af6333bf93b828
+18_participant_box 4f59558cb2a71f83
+19_critical_break a0a7a918a7be0dc6

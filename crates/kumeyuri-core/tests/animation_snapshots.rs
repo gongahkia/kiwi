@@ -38,7 +38,7 @@ const FLOWCHART_NAMES: [&str; 28] = [
     "28_dense_fan_in_out",
 ];
 
-const SEQUENCE_NAMES: [&str; 15] = [
+const SEQUENCE_NAMES: [&str; 19] = [
     "01_single_message",
     "02_declared_participants",
     "03_multiple_messages",
@@ -54,6 +54,10 @@ const SEQUENCE_NAMES: [&str; 15] = [
     "13_cross_and_open",
     "14_bidirectional",
     "15_three_participants",
+    "16_autonumber_activation",
+    "17_create_destroy",
+    "18_participant_box",
+    "19_critical_break",
 ];
 
 const STATE_NAMES: [&str; 10] = [

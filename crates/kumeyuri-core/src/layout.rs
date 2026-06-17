@@ -7,8 +7,9 @@ use crate::ast::{
     GitGraphCommit, GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label,
     LabelKind, MindmapAst, MindmapNode, MindmapShape, PieAst, RequirementAst, RequirementElement,
     RequirementKind, RequirementNode, RequirementRelationshipKind, RequirementVerifyMethod,
-    SequenceAst, SequenceBox, SequenceMessage, SequenceNote, SequenceParticipant,
-    SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
+    SequenceActivation, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlKind,
+    SequenceMessage, SequenceNote, SequenceParticipant, SequenceStatement, Spanned, StateAst,
+    StateNode, StateStatement, StateTransition, TimelineAst,
 };
 use std::collections::VecDeque;
 
@@ -145,6 +146,7 @@ pub struct PositionedSequenceMessage {
     pub from: String,
     pub to: String,
     pub label: Option<String>,
+    pub number: Option<String>,
     pub y: i32,
     pub points: Vec<Point>,
 }
@@ -159,17 +161,40 @@ pub struct PositionedSequenceNote {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PositionedSequenceControl {
+    pub kind: SequenceControlKind,
     pub label: Option<String>,
     pub rect: Rect,
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceBox {
+    pub label: Option<String>,
+    pub participants: Vec<String>,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceActivation {
+    pub participant: String,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedSequenceDestroy {
+    pub participant: String,
+    pub point: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SequenceLayout {
     pub participants: Vec<PositionedSequenceParticipant>,
+    pub boxes: Vec<PositionedSequenceBox>,
     pub messages: Vec<PositionedSequenceMessage>,
     pub notes: Vec<PositionedSequenceNote>,
     pub controls: Vec<PositionedSequenceControl>,
+    pub activations: Vec<PositionedSequenceActivation>,
+    pub destroys: Vec<PositionedSequenceDestroy>,
     pub size: Size,
 }
 
@@ -694,6 +719,11 @@ impl SequenceLayoutEngine {
         let mut messages = Vec::new();
         let mut notes = Vec::new();
         let mut controls = Vec::new();
+        let mut activations = Vec::new();
+        let mut active_participants = Vec::<(String, i32)>::new();
+        let mut destroys = Vec::new();
+        let mut pending_destroys = Vec::<String>::new();
+        let mut auto_number = None::<SequenceNumberCounter>;
         let mut event_index = 0i32;
 
         for statement in &ast.statements {
@@ -701,7 +731,27 @@ impl SequenceLayoutEngine {
                 SequenceStatement::Message(message) => {
                     let y = self.event_y(event_index);
                     event_index += 1;
-                    messages.push(self.position_message(message, &positioned_participants, y));
+                    let number = auto_number.as_mut().map(SequenceNumberCounter::next_label);
+                    messages.push(self.position_message(
+                        message,
+                        &positioned_participants,
+                        y,
+                        number,
+                    ));
+                    apply_message_activation(
+                        message,
+                        y,
+                        &mut active_participants,
+                        &mut activations,
+                        &positioned_participants,
+                    );
+                    flush_pending_destroys(
+                        message,
+                        y,
+                        &mut pending_destroys,
+                        &positioned_participants,
+                        &mut destroys,
+                    );
                 }
                 SequenceStatement::Note(note) => {
                     let y = self.event_y(event_index);
@@ -712,6 +762,7 @@ impl SequenceLayoutEngine {
                     let y = self.event_y(event_index);
                     event_index += 1;
                     controls.push(PositionedSequenceControl {
+                        kind: control.kind,
                         label: control.label.as_ref().map(|label| label.text.clone()),
                         rect: Rect {
                             origin: Point { x: 0, y: y - 1 },
@@ -723,16 +774,50 @@ impl SequenceLayoutEngine {
                         y,
                     });
                 }
+                SequenceStatement::ActivationStart(participant) => {
+                    active_participants
+                        .push((participant.value.clone(), self.event_y(event_index)));
+                }
+                SequenceStatement::ActivationEnd(participant) => {
+                    close_sequence_activation(
+                        &participant.value,
+                        self.event_y(event_index),
+                        &mut active_participants,
+                        &mut activations,
+                        &positioned_participants,
+                    );
+                }
+                SequenceStatement::Destroy(destroy) => {
+                    pending_destroys.push(destroy.participant.value.clone());
+                }
+                SequenceStatement::AutoNumber(next) => {
+                    auto_number = Some(SequenceNumberCounter::new(next));
+                }
                 SequenceStatement::Participant(_)
                 | SequenceStatement::Create(_)
-                | SequenceStatement::Destroy(_)
                 | SequenceStatement::Box(_)
-                | SequenceStatement::ActivationStart(_)
-                | SequenceStatement::ActivationEnd(_)
-                | SequenceStatement::AutoNumber(_)
                 | SequenceStatement::Comment(_)
                 | SequenceStatement::Directive(_) => {}
             }
+        }
+        let fallback_activation_end = self
+            .event_y(event_index)
+            .max(self.config.participant_height + self.config.top_padding);
+        while let Some((participant, start_y)) = active_participants.pop() {
+            push_sequence_activation(
+                participant,
+                start_y,
+                fallback_activation_end,
+                &positioned_participants,
+                &mut activations,
+            );
+        }
+        for participant in pending_destroys {
+            destroys.push(position_destroy_marker(
+                &participant,
+                fallback_activation_end,
+                &positioned_participants,
+            ));
         }
 
         let mut size = Size {
@@ -753,13 +838,38 @@ impl SequenceLayoutEngine {
                 size.width = size.width.max(point.x + 1);
                 size.height = size.height.max(point.y + 1);
             }
+            if let Some(width) = sequence_message_text_width(message)
+                && let (Some(first), Some(last)) = (
+                    message.points.first().copied(),
+                    message.points.last().copied(),
+                )
+            {
+                let x = first.x.min(last.x) + 1;
+                size.width = size.width.max(x + width as i32);
+            }
+        }
+        for activation in &activations {
+            size.width = size.width.max(activation.rect.right());
+            size.height = size.height.max(activation.rect.bottom());
+        }
+        for destroy in &destroys {
+            size.width = size.width.max(destroy.point.x + 1);
+            size.height = size.height.max(destroy.point.y + 1);
+        }
+        let boxes = position_sequence_boxes(&ast.boxes, &positioned_participants, size);
+        for sequence_box in &boxes {
+            size.width = size.width.max(sequence_box.rect.right());
+            size.height = size.height.max(sequence_box.rect.bottom());
         }
 
         SequenceLayout {
             participants: positioned_participants,
+            boxes,
             messages,
             notes,
             controls,
+            activations,
+            destroys,
             size,
         }
     }
@@ -799,6 +909,7 @@ impl SequenceLayoutEngine {
         message: &SequenceMessage,
         participants: &[PositionedSequenceParticipant],
         y: i32,
+        number: Option<String>,
     ) -> PositionedSequenceMessage {
         let from_x = participant_lane(participants, &message.from.value);
         let to_x = participant_lane(participants, &message.to.value);
@@ -825,6 +936,7 @@ impl SequenceLayoutEngine {
             from: message.from.value.clone(),
             to: message.to.value.clone(),
             label: message.label.as_ref().map(|label| label.text.clone()),
+            number,
             y,
             points,
         }
@@ -870,6 +982,225 @@ impl SequenceLayoutEngine {
         self.config.participant_height
             + self.config.top_padding
             + event_index * self.config.event_spacing
+    }
+}
+
+struct SequenceNumberCounter {
+    current: i64,
+    step: i64,
+}
+
+impl SequenceNumberCounter {
+    fn new(auto_number: &SequenceAutoNumber) -> Self {
+        Self {
+            current: sequence_number_hundredths(auto_number.start.as_ref(), 100),
+            step: sequence_number_hundredths(auto_number.step.as_ref(), 100),
+        }
+    }
+
+    fn next_label(&mut self) -> String {
+        let label = format_sequence_number(self.current);
+        self.current += self.step;
+        label
+    }
+}
+
+fn sequence_number_hundredths(value: Option<&Spanned<String>>, default: i64) -> i64 {
+    let Some(value) = value else {
+        return default;
+    };
+    let Some((integer, fraction)) = value.value.split_once('.') else {
+        return value.value.parse::<i64>().unwrap_or(default) * 100;
+    };
+    let integer = integer.parse::<i64>().unwrap_or(default / 100) * 100;
+    let fraction = match fraction.len() {
+        1 => fraction.parse::<i64>().unwrap_or(0) * 10,
+        2 => fraction.parse::<i64>().unwrap_or(0),
+        _ => 0,
+    };
+    integer + fraction
+}
+
+fn format_sequence_number(value: i64) -> String {
+    let integer = value / 100;
+    let fraction = value.rem_euclid(100);
+    if fraction == 0 {
+        integer.to_string()
+    } else if fraction % 10 == 0 {
+        format!("{integer}.{}", fraction / 10)
+    } else {
+        format!("{integer}.{fraction:02}")
+    }
+}
+
+fn apply_message_activation(
+    message: &SequenceMessage,
+    y: i32,
+    active_participants: &mut Vec<(String, i32)>,
+    activations: &mut Vec<PositionedSequenceActivation>,
+    participants: &[PositionedSequenceParticipant],
+) {
+    let Some(activation) = message.activation else {
+        return;
+    };
+    match activation.value {
+        SequenceActivation::Start => active_participants.push((message.to.value.clone(), y)),
+        SequenceActivation::End => close_sequence_activation(
+            &message.from.value,
+            y + 1,
+            active_participants,
+            activations,
+            participants,
+        ),
+    }
+}
+
+fn close_sequence_activation(
+    participant: &str,
+    end_y: i32,
+    active_participants: &mut Vec<(String, i32)>,
+    activations: &mut Vec<PositionedSequenceActivation>,
+    participants: &[PositionedSequenceParticipant],
+) {
+    let Some(index) = active_participants
+        .iter()
+        .rposition(|(active, _)| active == participant)
+    else {
+        return;
+    };
+    let (participant, start_y) = active_participants.remove(index);
+    push_sequence_activation(participant, start_y, end_y, participants, activations);
+}
+
+fn push_sequence_activation(
+    participant: String,
+    start_y: i32,
+    end_y: i32,
+    participants: &[PositionedSequenceParticipant],
+    activations: &mut Vec<PositionedSequenceActivation>,
+) {
+    let lane_x = participant_lane(participants, &participant);
+    let top = start_y.min(end_y);
+    let height = (end_y.max(start_y + 3) - top).max(3);
+    activations.push(PositionedSequenceActivation {
+        participant,
+        rect: Rect {
+            origin: Point {
+                x: (lane_x - 1).max(0),
+                y: top,
+            },
+            size: Size { width: 3, height },
+        },
+    });
+}
+
+fn flush_pending_destroys(
+    message: &SequenceMessage,
+    y: i32,
+    pending_destroys: &mut Vec<String>,
+    participants: &[PositionedSequenceParticipant],
+    destroys: &mut Vec<PositionedSequenceDestroy>,
+) {
+    let mut retained = Vec::new();
+    for participant in pending_destroys.drain(..) {
+        if participant == message.from.value || participant == message.to.value {
+            destroys.push(position_destroy_marker(&participant, y + 1, participants));
+        } else {
+            retained.push(participant);
+        }
+    }
+    *pending_destroys = retained;
+}
+
+fn position_destroy_marker(
+    participant: &str,
+    y: i32,
+    participants: &[PositionedSequenceParticipant],
+) -> PositionedSequenceDestroy {
+    PositionedSequenceDestroy {
+        participant: participant.to_owned(),
+        point: Point {
+            x: participant_lane(participants, participant),
+            y,
+        },
+    }
+}
+
+fn position_sequence_boxes(
+    boxes: &[SequenceBox],
+    participants: &[PositionedSequenceParticipant],
+    size: Size,
+) -> Vec<PositionedSequenceBox> {
+    boxes
+        .iter()
+        .filter_map(|sequence_box| position_sequence_box(sequence_box, participants, size))
+        .collect()
+}
+
+fn position_sequence_box(
+    sequence_box: &SequenceBox,
+    participants: &[PositionedSequenceParticipant],
+    size: Size,
+) -> Option<PositionedSequenceBox> {
+    let box_participants = sequence_box
+        .participants
+        .iter()
+        .filter_map(|box_participant| {
+            participants
+                .iter()
+                .find(|participant| participant.id == box_participant.value)
+        })
+        .collect::<Vec<_>>();
+    let min_x = box_participants
+        .iter()
+        .map(|participant| participant.header.origin.x)
+        .min()?
+        .saturating_sub(1)
+        .max(0);
+    let max_x = box_participants
+        .iter()
+        .map(|participant| participant.header.right())
+        .max()?
+        + 1;
+    let label_width = sequence_box
+        .label
+        .as_ref()
+        .map_or(0, |label| label.text.chars().count() as i32 + 2);
+    let width = (max_x - min_x).max(label_width);
+    let top = box_participants
+        .iter()
+        .map(|participant| participant.header.bottom())
+        .max()
+        .unwrap_or(0);
+    Some(PositionedSequenceBox {
+        label: sequence_box.label.as_ref().map(|label| label.text.clone()),
+        participants: sequence_box
+            .participants
+            .iter()
+            .map(|participant| participant.value.clone())
+            .collect(),
+        rect: Rect {
+            origin: Point { x: min_x, y: top },
+            size: Size {
+                width,
+                height: (size.height - top).max(1),
+            },
+        },
+    })
+}
+
+fn sequence_message_text_width(message: &PositionedSequenceMessage) -> Option<usize> {
+    message.number.as_ref()?;
+    let number_width = message
+        .number
+        .as_ref()
+        .map(|number| number.chars().count() + 2);
+    let label_width = message.label.as_ref().map(|label| label.chars().count());
+    match (number_width, label_width) {
+        (Some(number), Some(label)) => Some(number + label),
+        (Some(number), None) => Some(number),
+        (None, Some(label)) => Some(label),
+        (None, None) => None,
     }
 }
 

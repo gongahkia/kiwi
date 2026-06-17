@@ -158,7 +158,7 @@
 - [x] Flowchart: implement or explicitly reject Mermaid frontmatter/init config for `layout`, `look`, `theme`, `themeVariables`, `curve`, and ELK options
 - [x] Flowchart: add layout parity cases for nested subgraph direction, external edges, self-loops, back edges, long labels, disconnected clusters, and dense fan-in/fan-out
 - [x] Sequence: implement parser support for `autonumber`, `activate`, `deactivate`, `+/-` activation shorthand, `create`, `destroy`, `box`, `rect`, `critical`, and `break`
-- [ ] Sequence: render activation bars, participant boxes/regions, destroy markers, autonumber labels, and critical/break blocks
+- [x] Sequence: render activation bars, participant boxes/regions, destroy markers, autonumber labels, and critical/break blocks
 - [ ] Sequence: add parity fixtures for actor menus, links, properties, participant ordering, multi-line notes, and message arrows without labels
 - [ ] State: add parity fixtures for entry/exit descriptions, concurrent states, history states, notes over composite states, `choice`/`fork`/`join` rendering, and class styling
 - [ ] State: implement Mermaid layout/look config parity for state diagrams or document each unsupported option with rejection tests

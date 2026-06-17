@@ -7,7 +7,7 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 15] = [
+const SNAPSHOT_NAMES: [&str; 19] = [
     "01_single_message",
     "02_declared_participants",
     "03_multiple_messages",
@@ -23,6 +23,10 @@ const SNAPSHOT_NAMES: [&str; 15] = [
     "13_cross_and_open",
     "14_bidirectional",
     "15_three_participants",
+    "16_autonumber_activation",
+    "17_create_destroy",
+    "18_participant_box",
+    "19_critical_break",
 ];
 
 #[test]
