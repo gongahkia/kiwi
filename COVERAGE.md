@@ -11,6 +11,7 @@ Sources:
 - User Journey syntax details: https://mermaid.js.org/syntax/userJourney.html
 - GitGraph syntax details: https://mermaid.js.org/syntax/gitgraph.html
 - Timeline syntax details: https://mermaid.js.org/syntax/timeline.html
+- C4 syntax details: https://mermaid.js.org/syntax/c4.html
 
 Local evidence:
 
@@ -53,9 +54,9 @@ several parsed semantics:
   named shapes still render as generic boxes. `classDef`/`class` and edge
   stroke variants are parsed but do not currently change frame styling or line
   glyphs.
-- Requirement and C4 diagrams use class-layout surfaces. Requirement
-  styles/classes and C4 style/layout calls are parsed metadata, not Mermaid
-  geometry/style parity.
+- Requirement diagrams use native requirement boxes and relationship glyphs.
+  C4 diagrams use row-grouped native boundaries/elements with visible style
+  update rows and selected layout calls, not the class-layout fallback.
 - Mindmap shapes have lightweight text-glyph decoration only. Classes and icon
   registration are not Mermaid-style rendering.
 - Other supported roots are schematic text-frame renderings unless the row
@@ -76,7 +77,7 @@ several parsed semantics:
 | Quadrant Chart | None | Rejects `quadrantChart`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
 | Requirement Diagram | Static-only | `requirementDiagram`; requirement kinds, fields (`id`, `text`, `risk`, `verifyMethod`), elements, relationships (`contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces`), direction, styles, classes, comments, directives; invalid risk/verify/field/relationship fixtures. | Requirement-specific box layout with Requirement/Element rows. | Yes; `contains` renders a source `⊕` marker, other relationships render dashed lines with arrowheads and `<<type>>` labels. | Static frame. | Common kumeyuri options only; Mermaid requirement config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | Styles/classes are semantic-only; terminal styling does not map Mermaid CSS colors yet. |
 | GitGraph Diagram | Partial | `gitGraph` with optional `LR`/`TB`/`BT`; `commit`, `branch`, `checkout`/`switch`, `merge`, `cherry-pick`, ids, tags, commit type, branch order, comments, directives. | Commit graph layout with branch order lanes. | Yes. | Trace. | Mermaid gitgraph theme/config directives are accepted but not interpreted; common kumeyuri options apply. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Config fields like `showBranches`, `mainBranchOrder`, and label rotation are semantic-only in fixtures. |
-| C4 Diagram | Static-only | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; title, people/systems/containers/components/db/queue variants, external variants, boundaries, deployment nodes, relationships, indexed relationships, style/layout calls. | Class-layout surface. | Yes. | Static frame. | Parses style/layout calls but does not render full Mermaid C4 geometry/style semantics. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | C4 boundaries/containers are approximate; style/layout calls are semantic-only. |
+| C4 Diagram | Static-only | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`; title, people/systems/containers/components/db/queue variants, external variants, boundaries, deployment nodes, relationships, indexed relationships, style/layout calls. | C4-specific row layout with nested boundaries, deployment nodes, and relationship routing. | Yes; renders people/systems/containers/components/db/queue variants, boundary frames, relationship labels, and style update rows. | Static frame. | Supports `LAYOUT_TOP_DOWN`, `LAYOUT_LEFT_RIGHT`, and `UpdateLayoutConfig` row limits; Mermaid tags/legends/sprites/icons remain unsupported. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 3 | C4 geometry is text-frame approximate; CSS colors are shown as style rows rather than terminal color mapping. |
 | Mindmaps | Partial | `mindmap`; indentation tree, labels, all documented shapes, icon fallback tokens, inline/standalone classes, comments, directives, single-line Markdown labels. | Tree layout with unclear-indentation parent fallback and deep-tree coverage. | Yes; limited shape glyph decoration and icon text fallback. | Trace. | Common kumeyuri options only; Mermaid icon registration/config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Classes are semantic-only; multi-line Markdown labels and full Mermaid CSS styling are not rendered. |
 | Timeline | Partial | `timeline`; title, ordered sections, periods with multiple events, continuation events, empty section statements, comments, directives. | Timeline reveal layout. | Yes; empty sections without periods are parser-only and do not render visible section bands. | Trace. | Mermaid timeline theme/config directives are accepted but not interpreted; common kumeyuri options apply. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 4 | Mermaid `timeline TD` direction and color/theme variables are not rendered. |
 | ZenUML | None | Rejects `zenuml`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |

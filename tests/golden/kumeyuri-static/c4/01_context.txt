@@ -1,28 +1,10 @@
-+------------------------------+
-|<<person>>                    |
-|customer                      |
-+------------------------------+
-|desc: A customer of the bank  |
-+------------------------------+
-                |
-                |
-            Uses [HTTPS]
-                     |
-                     v
-+-----------------------------------------+
-|<<system>>                               |
-|banking_system                           |
-+-----------------------------------------+
-|desc: Allows customers to view accounts  |
-+-----------------------------------------+
-                     |
-                     |
-          Sends e-mail [SMTP]
-                  |
-                  v
-+----------------------------------+
-|<<system:external>>               |
-|mail_system                       |
-+----------------------------------+
-|desc: Sends e-mails to customers  |
-+----------------------------------+
+System Context diagram for Internet Banking System
+
++-----------------------------+        +-------------------------------------+        +------------------------------+
+|  Personal Banking Customer  |        |       Internet Banking System       |        |        E-mail System         |
+|          [person]           |        |              [system]               |        |      [external system]       |
++-----------------------------+-+    +>+-------------------------------------+-+    +>+------------------------------+
+|A customer of the bank       | |    | |Allows customers to view accounts    | |    | |Sends e-mails to customers    |
++-----------------------------+ |    | +-------------------------------------+ |    | +------------------------------+
+                                |    |                                         |    |
+                            Uses [HTTPS]                                Sends e-mail [SMTP]

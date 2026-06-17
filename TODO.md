@@ -173,7 +173,7 @@
 - [x] Mindmap: add parity for icon registration fallback, Markdown labels, all supported shapes, class styling, indentation edge cases, and deep-tree layout
 - [x] Requirement: replace class-layout rendering with requirement-specific geometry and relationship glyphs
 - [x] Requirement: add fixtures for all requirement kinds, risk values, verify methods, element types, relationships, styles, and invalid field validation
-- [ ] C4: replace class-layout rendering with C4-specific boundaries, containers, deployment nodes, relationship labels, layout calls, and style updates
+- [x] C4: replace class-layout rendering with C4-specific boundaries, containers, deployment nodes, relationship labels, layout calls, and style updates
 - [ ] C4: add fixtures for all C4 root variants, boundary nesting, `Rel_*` indexed calls, tags, legends, sprites/icons, and unsupported macro rejection
 - [ ] Quadrant Chart: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [ ] ZenUML: implement parser, layout, static renderer, animation default, docs, and snapshot coverage

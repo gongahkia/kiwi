@@ -1,9 +1,8 @@
 use crate::ast::{
-    ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine,
-    ClassRelationshipMarker, Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst,
-    GanttTaskTag, GitGraphAst, GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst,
-    RequirementAst, RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst,
+    ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine, ClassRelationshipMarker,
+    Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
+    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst,
+    RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
 };
 use crate::layout::{
     C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine, FlowLayout,
@@ -1583,6 +1582,260 @@ fn draw_class_node(
     if !node.methods.is_empty() {
         draw_class_border(frame, node.rect, y, palette, box_style);
     }
+}
+
+fn draw_c4_element(
+    frame: &mut Frame,
+    element: &PositionedC4Element,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    fill_rect(frame, element.rect, ' ', box_style.clone());
+    draw_vertical(
+        frame,
+        element.rect.origin.x,
+        element.rect.origin.y,
+        element.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_vertical(
+        frame,
+        element.rect.right().saturating_sub(1),
+        element.rect.origin.y,
+        element.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_class_border(
+        frame,
+        element.rect,
+        element.rect.origin.y,
+        palette,
+        box_style.clone(),
+    );
+    write_c4_centered(
+        frame,
+        element.rect,
+        element.rect.origin.y + 1,
+        &element.label,
+        text_style.clone(),
+    );
+    write_c4_centered(
+        frame,
+        element.rect,
+        element.rect.origin.y + 2,
+        &format!("[{}]", element.kind_label),
+        text_style.clone(),
+    );
+    let rows = c4_element_rows(element);
+    if !rows.is_empty() {
+        draw_class_border(
+            frame,
+            element.rect,
+            element.rect.origin.y + 3,
+            palette,
+            box_style.clone(),
+        );
+        for (index, row) in rows.iter().enumerate() {
+            write_text_safe(
+                frame,
+                element.rect.origin.x + 1,
+                element.rect.origin.y + 4 + index as i32,
+                row,
+                text_style.clone(),
+            );
+        }
+    }
+    draw_class_border(
+        frame,
+        element.rect,
+        element.rect.bottom().saturating_sub(1),
+        palette,
+        box_style,
+    );
+}
+
+fn draw_c4_boundary(
+    frame: &mut Frame,
+    boundary: &PositionedC4Boundary,
+    palette: GlyphPalette,
+    box_style: CellStyle,
+    text_style: CellStyle,
+) {
+    fill_rect(frame, boundary.rect, ' ', box_style.clone());
+    draw_vertical(
+        frame,
+        boundary.rect.origin.x,
+        boundary.rect.origin.y,
+        boundary.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_vertical(
+        frame,
+        boundary.rect.right().saturating_sub(1),
+        boundary.rect.origin.y,
+        boundary.rect.bottom().saturating_sub(1),
+        palette.vertical,
+        box_style.clone(),
+    );
+    draw_class_border(
+        frame,
+        boundary.rect,
+        boundary.rect.origin.y,
+        palette,
+        box_style.clone(),
+    );
+    write_c4_centered(
+        frame,
+        boundary.rect,
+        boundary.rect.origin.y + 1,
+        &boundary.label,
+        text_style.clone(),
+    );
+    write_c4_centered(
+        frame,
+        boundary.rect,
+        boundary.rect.origin.y + 2,
+        &c4_boundary_secondary(boundary),
+        text_style.clone(),
+    );
+    for (index, row) in boundary.style_rows.iter().enumerate() {
+        write_c4_centered(
+            frame,
+            boundary.rect,
+            boundary.rect.origin.y + 3 + index as i32,
+            row,
+            text_style.clone(),
+        );
+    }
+    draw_class_border(
+        frame,
+        boundary.rect,
+        boundary.rect.origin.y + boundary.header_height - 1,
+        palette,
+        box_style.clone(),
+    );
+    draw_class_border(
+        frame,
+        boundary.rect,
+        boundary.rect.bottom().saturating_sub(1),
+        palette,
+        box_style,
+    );
+}
+
+fn draw_c4_relationship(
+    frame: &mut Frame,
+    relationship: &PositionedC4Relationship,
+    palette: GlyphPalette,
+    edge_style: CellStyle,
+    text_style: CellStyle,
+) {
+    let mut line_palette = palette;
+    if relationship.kind == C4RelationshipKind::Back {
+        line_palette.horizontal = ':';
+        line_palette.vertical = ':';
+    }
+    draw_polyline(
+        frame,
+        &relationship.points,
+        line_palette,
+        edge_style.clone(),
+    );
+    if relationship.kind == C4RelationshipKind::Bidirectional
+        && let Some(first) = relationship.points.first().copied()
+    {
+        put_safe(
+            frame,
+            first.x,
+            first.y,
+            dominant_start_arrowhead_for_points(&relationship.points, palette)
+                .unwrap_or(palette.arrow_left),
+            edge_style.clone(),
+        );
+    }
+    if let Some(last) = relationship.points.last().copied() {
+        put_safe(
+            frame,
+            last.x,
+            last.y,
+            dominant_end_arrowhead_for_points(&relationship.points, palette)
+                .unwrap_or(palette.arrow_right),
+            edge_style.clone(),
+        );
+    }
+    if let Some(point) = c4_relationship_label_point(&relationship.points) {
+        for (index, row) in c4_relationship_rows(relationship).iter().enumerate() {
+            let width = row.chars().count() as i32;
+            write_text_safe(
+                frame,
+                (point.x - width / 2).max(0),
+                point.y + index as i32,
+                row,
+                text_style.clone(),
+            );
+        }
+    }
+}
+
+fn c4_element_rows(element: &PositionedC4Element) -> Vec<String> {
+    let mut rows = Vec::new();
+    if let Some(technology) = &element.technology {
+        rows.push(format!("technology: {technology}"));
+    }
+    if let Some(description) = &element.description {
+        rows.push(description.clone());
+    }
+    rows.extend(element.style_rows.clone());
+    rows
+}
+
+fn c4_boundary_secondary(boundary: &PositionedC4Boundary) -> String {
+    match &boundary.ty {
+        Some(ty) => format!("[{}] {ty}", boundary.kind_label),
+        None => format!("[{}]", boundary.kind_label),
+    }
+}
+
+fn c4_relationship_rows(relationship: &PositionedC4Relationship) -> Vec<String> {
+    let mut rows = vec![relationship.label.clone()];
+    rows.extend(relationship.style_rows.clone());
+    rows
+}
+
+fn c4_relationship_label_point(points: &[Point]) -> Option<Point> {
+    if let Some(segment) = points.windows(2).max_by_key(|pair| {
+        if pair[0].y == pair[1].y {
+            (pair[0].x - pair[1].x).abs()
+        } else {
+            0
+        }
+    }) && segment[0].y == segment[1].y
+    {
+        return Some(Point {
+            x: (segment[0].x + segment[1].x) / 2,
+            y: segment[0].y,
+        });
+    }
+    if let (Some(first), Some(last)) = (points.first(), points.last())
+        && first.x == last.x
+        && first.y != last.y
+    {
+        return Some(Point {
+            x: first.x,
+            y: first.y + (last.y - first.y).signum(),
+        });
+    }
+    class_relationship_label_point(points)
+}
+
+fn write_c4_centered(frame: &mut Frame, rect: Rect, y: i32, text: &str, style: CellStyle) {
+    let width = text.chars().count() as i32;
+    let x = rect.origin.x + ((rect.size.width - width) / 2).max(1);
+    write_text_safe(frame, x, y, text, style);
 }
 
 fn draw_requirement_node(

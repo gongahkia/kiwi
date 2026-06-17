@@ -2038,8 +2038,12 @@ fn c4_place_group(
                 0
             },
     };
-    let (boundary_rects, boundary_size) =
-        c4_pack_rects(&boundary_sizes, boundary_origin, config.boundary_in_row, config);
+    let (boundary_rects, boundary_size) = c4_pack_rects(
+        &boundary_sizes,
+        boundary_origin,
+        config.boundary_in_row,
+        config,
+    );
     for (boundary, rect) in boundaries.into_iter().zip(boundary_rects) {
         let order = placement.order;
         placement.order += 1;
@@ -2193,7 +2197,10 @@ fn c4_pack_rows(
         let mut x = origin.x;
         let mut row_width = 0;
         for size in row {
-            rects.push(Rect { origin: Point { x, y }, size: *size });
+            rects.push(Rect {
+                origin: Point { x, y },
+                size: *size,
+            });
             x += size.width + config.horizontal_spacing;
             row_width += size.width + config.horizontal_spacing;
         }
@@ -2223,7 +2230,10 @@ fn c4_pack_columns(
         let mut y = origin.y;
         let mut column_height = 0;
         for size in column {
-            rects.push(Rect { origin: Point { x, y }, size: *size });
+            rects.push(Rect {
+                origin: Point { x, y },
+                size: *size,
+            });
             y += size.height + config.vertical_spacing;
             column_height += size.height + config.vertical_spacing;
         }
@@ -2248,7 +2258,10 @@ fn c4_element_size(
     let width = c4_max_width(
         [
             element.label.text.as_str(),
-            &format!("[{}]", c4_element_kind_label(element.kind.value, element.external)),
+            &format!(
+                "[{}]",
+                c4_element_kind_label(element.kind.value, element.external)
+            ),
         ]
         .into_iter()
         .chain(detail_rows.iter().map(String::as_str)),
@@ -2398,22 +2411,109 @@ fn c4_position_relationships(
             let from = *rects.get(&relationship.from.value)?;
             let to = *rects.get(&relationship.to.value)?;
             let direction = c4_relationship_direction(relationship.kind.value, from, to);
-            let points =
-                route_class_relationship(from, to, direction, relationship.kind.value == C4RelationshipKind::Back);
+            let label = c4_relationship_text(relationship);
+            let style_rows = relationship
+                .index
+                .as_ref()
+                .map_or_else(Vec::new, |index| c4_style_rows(styles, &index.value));
+            let label_width = c4_max_width(
+                [label.as_str()]
+                    .into_iter()
+                    .chain(style_rows.iter().map(String::as_str)),
+            );
+            let points = route_c4_relationship(
+                from,
+                to,
+                direction,
+                relationship.kind.value == C4RelationshipKind::Back,
+                label_width,
+            );
             Some(PositionedC4Relationship {
                 from: relationship.from.value.clone(),
                 to: relationship.to.value.clone(),
                 kind: relationship.kind.value,
-                label: c4_relationship_text(relationship),
-                technology: relationship.technology.as_ref().map(|label| label.text.clone()),
-                style_rows: relationship
-                    .index
+                label,
+                technology: relationship
+                    .technology
                     .as_ref()
-                    .map_or_else(Vec::new, |index| c4_style_rows(styles, &index.value)),
+                    .map(|label| label.text.clone()),
+                style_rows,
                 points,
             })
         })
         .collect()
+}
+
+fn route_c4_relationship(
+    from: Rect,
+    to: Rect,
+    direction: Direction,
+    back_edge_below: bool,
+    label_width: i32,
+) -> Vec<Point> {
+    let same_row = from.origin.y < to.bottom() && to.origin.y < from.bottom();
+    let horizontal = matches!(direction, Direction::LeftRight | Direction::RightLeft);
+    let gap = if from.right() <= to.origin.x {
+        to.origin.x - from.right()
+    } else if to.right() <= from.origin.x {
+        from.origin.x - to.right()
+    } else {
+        0
+    };
+    if same_row && horizontal && gap < label_width + 2 {
+        return c4_horizontal_offset_edge(from, to);
+    }
+    if matches!(direction, Direction::TopDown | Direction::BottomTop) {
+        let points = route_edge(from, to, direction, back_edge_below);
+        if let [first, last] = points.as_slice()
+            && first.x != last.x
+        {
+            let y = first.y + (last.y - first.y).signum();
+            return vec![
+                *first,
+                Point { x: first.x, y },
+                Point { x: last.x, y },
+                *last,
+            ];
+        }
+    }
+    route_class_relationship(from, to, direction, back_edge_below)
+}
+
+fn c4_horizontal_offset_edge(from: Rect, to: Rect) -> Vec<Point> {
+    let rightward = to.center().x >= from.center().x;
+    let from_x = if rightward {
+        from.right()
+    } else {
+        from.origin.x - 1
+    };
+    let to_outer_x = if rightward {
+        to.origin.x - 1
+    } else {
+        to.right()
+    };
+    let step = if rightward { 1 } else { -1 };
+    let to_bend_x = to_outer_x - step;
+    let y = from.bottom().max(to.bottom()) + 1;
+    vec![
+        Point {
+            x: from_x,
+            y: from.center().y,
+        },
+        Point {
+            x: from_x + step,
+            y,
+        },
+        Point { x: to_bend_x, y },
+        Point {
+            x: to_bend_x,
+            y: to.center().y,
+        },
+        Point {
+            x: to_outer_x,
+            y: to.center().y,
+        },
+    ]
 }
 
 fn c4_relationship_direction(kind: C4RelationshipKind, from: Rect, to: Rect) -> Direction {
@@ -2554,8 +2654,27 @@ fn c4_relationship_rows(relationship: &PositionedC4Relationship) -> Vec<String> 
 }
 
 fn c4_polyline_label_point(points: &[Point]) -> Option<Point> {
+    if let Some(segment) = points.windows(2).max_by_key(|pair| {
+        if pair[0].y == pair[1].y {
+            (pair[0].x - pair[1].x).abs()
+        } else {
+            0
+        }
+    }) && segment[0].y == segment[1].y
+    {
+        return Some(Point {
+            x: (segment[0].x + segment[1].x) / 2,
+            y: segment[0].y,
+        });
+    }
     let first = points.first()?;
     let last = points.last()?;
+    if first.x == last.x && first.y != last.y {
+        return Some(Point {
+            x: first.x,
+            y: first.y + (last.y - first.y).signum(),
+        });
+    }
     Some(Point {
         x: (first.x + last.x) / 2,
         y: (first.y + last.y) / 2,
@@ -5588,8 +5707,8 @@ fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) 
 
 #[cfg(test)]
 mod tests {
-    use super::{FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine};
-    use crate::ast::{ArrowHead, FlowShape, FlowchartAst};
+    use super::{C4LayoutEngine, FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine};
+    use crate::ast::{ArrowHead, DiagramKind, FlowShape, FlowchartAst};
     use crate::ast::{
         Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowStatement, FlowSubgraph,
         FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst,
@@ -5598,6 +5717,7 @@ mod tests {
         Span, Spanned, StateAst, StateDirective, StateHeader, StateNode, StateNodeKind,
         StateStatement, StateTransition,
     };
+    use crate::parser::Parser;
 
     #[test]
     fn lays_out_top_down_flowchart_layers() {
@@ -5785,6 +5905,31 @@ mod tests {
         assert_eq!(layout.edges[0].arrow_end, ArrowHead::Circle);
     }
 
+    #[test]
+    fn c4_layout_calls_update_direction_and_row_limit() {
+        let diagram = Parser::parse_diagram(
+            r#"C4Context
+LAYOUT_LEFT_RIGHT()
+UpdateLayoutConfig($c4ShapeInRow="2")
+System(a, "A")
+System(b, "B")
+System(c, "C")"#,
+        )
+        .unwrap();
+        let DiagramKind::C4(ast) = diagram.kind else {
+            panic!("expected C4 diagram");
+        };
+
+        let layout = C4LayoutEngine::default().layout(&ast);
+        let a = c4_element(&layout, "a");
+        let b = c4_element(&layout, "b");
+        let c = c4_element(&layout, "c");
+
+        assert_eq!(a.rect.origin.x, b.rect.origin.x);
+        assert!(b.rect.origin.y > a.rect.origin.y);
+        assert!(c.rect.origin.x > a.rect.origin.x);
+    }
+
     fn flowchart(direction: Direction, statements: Vec<FlowStatement>) -> FlowchartAst {
         FlowchartAst {
             header: FlowchartHeader {
@@ -5799,6 +5944,14 @@ mod tests {
             classes: Vec::new(),
             span: Span::new(0, 0),
         }
+    }
+
+    fn c4_element<'a>(layout: &'a super::C4Layout, id: &str) -> &'a super::PositionedC4Element {
+        layout
+            .elements
+            .iter()
+            .find(|element| element.id == id)
+            .unwrap()
     }
 
     fn edge(from: &str, to: &str) -> FlowEdge {
