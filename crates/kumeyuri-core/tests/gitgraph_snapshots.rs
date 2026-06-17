@@ -7,10 +7,11 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 3] = [
+const SNAPSHOT_NAMES: [&str; 4] = [
     "01_basic",
     "02_merge_cherry_pick",
     "03_orientation_directive",
+    "04_branch_order_config",
 ];
 
 #[test]

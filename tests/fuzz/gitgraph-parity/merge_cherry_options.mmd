@@ -1,0 +1,7 @@
+gitGraph
+  commit id: "A" tag: "v0" type: NORMAL
+  branch feature
+  commit id: "B" type: HIGHLIGHT tag: "feat"
+  checkout main
+  merge feature id: "M" tag: "merged" type: REVERSE
+  cherry-pick id: "B" parent: "A"

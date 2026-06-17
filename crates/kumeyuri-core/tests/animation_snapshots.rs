@@ -110,10 +110,11 @@ const JOURNEY_NAMES: [&str; 4] = [
     "04_actor_styles_config",
 ];
 
-const GITGRAPH_NAMES: [&str; 3] = [
+const GITGRAPH_NAMES: [&str; 4] = [
     "01_basic",
     "02_merge_cherry_pick",
     "03_orientation_directive",
+    "04_branch_order_config",
 ];
 
 const TIMELINE_NAMES: [&str; 3] = ["01_basic", "02_sections", "03_directive_comment"];

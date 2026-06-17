@@ -1,0 +1,11 @@
+%%{ init: { "gitGraph": { "showBranches": true, "mainBranchOrder": 0, "rotateCommitLabel": false }, "theme": "base" } }%%
+gitGraph BT:
+  commit id: "root" tag: "v0" type: NORMAL
+  branch alpha order: 3
+  commit id: "A" type: HIGHLIGHT tag: "alpha"
+  switch main
+  branch beta order: 1
+  commit id: "B" type: REVERSE tag: "beta"
+  switch alpha
+  merge beta id: "M" tag: "merged" type: REVERSE
+  cherry-pick id: "B" parent: "root"
