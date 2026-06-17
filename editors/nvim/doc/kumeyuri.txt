@@ -1,0 +1,39 @@
+*kumeyuri.txt*  Neovim preview plugin for kumeyuri
+
+==============================================================================
+COMMANDS                                                 *kumeyuri-commands*
+
+                                                        *:KumeyuriPreview*
+:KumeyuriPreview [file]
+    Open a floating terminal and run `kumeyuri play`.
+    When [file] is omitted, the current buffer file is used.
+
+                                                        *:KumeyuriClose*
+:KumeyuriClose
+    Close the active kumeyuri preview window and stop its terminal job.
+
+==============================================================================
+CONFIGURATION                                             *kumeyuri-setup*
+
+Call setup from your plugin manager:
+>
+    require("kumeyuri").setup({
+      command = "kumeyuri",
+      width = 0.86,
+      height = 0.82,
+      border = "rounded",
+      speed = nil,
+      loop = false,
+      close_on_exit = false,
+      start_insert = true,
+    })
+<
+
+For local repo development, set `command` to a list:
+>
+    require("kumeyuri").setup({
+      command = { "cargo", "run", "-q", "-p", "kumeyuri-cli", "--" },
+    })
+<
+
+ vim:tw=78:ts=8:ft=help:norl:
