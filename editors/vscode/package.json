@@ -1,0 +1,130 @@
+{
+  "name": "kumeyuri-vscode",
+  "displayName": "Kumeyuri",
+  "description": "Preview Mermaid diagrams with the kumeyuri WASM player.",
+  "version": "0.0.0",
+  "publisher": "kumeyuri",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "editors/vscode"
+  },
+  "type": "commonjs",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:kumeyuri.preview",
+    "onLanguage:mermaid",
+    "workspaceContains:**/*.mmd"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kumeyuri.preview",
+        "title": "Kumeyuri: Preview Mermaid"
+      }
+    ],
+    "configuration": {
+      "title": "Kumeyuri",
+      "properties": {
+        "kumeyuri.preview.autoRenderOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Refresh the active Kumeyuri preview when its Mermaid document is saved."
+        },
+        "kumeyuri.preview.theme": {
+          "type": "string",
+          "enum": [
+            "default",
+            "mono",
+            "tokyo-night",
+            "github",
+            "dracula"
+          ],
+          "default": "default",
+          "description": "Theme passed to the Kumeyuri renderer."
+        },
+        "kumeyuri.preview.darkTheme": {
+          "type": "string",
+          "enum": [
+            "",
+            "default",
+            "mono",
+            "tokyo-night",
+            "github",
+            "dracula"
+          ],
+          "default": "",
+          "description": "Optional dark theme passed to the Kumeyuri renderer."
+        },
+        "kumeyuri.preview.animate": {
+          "type": "string",
+          "enum": [
+            "default",
+            "none",
+            "trace",
+            "playback",
+            "transitions"
+          ],
+          "default": "default",
+          "description": "Optional animation directive for the preview."
+        },
+        "kumeyuri.preview.speed": {
+          "type": "number",
+          "minimum": 0.01,
+          "default": 1,
+          "description": "Animation speed multiplier."
+        },
+        "kumeyuri.preview.controls": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show web player controls in the preview."
+        },
+        "kumeyuri.preview.autoplay": {
+          "type": "boolean",
+          "default": false,
+          "description": "Start preview playback automatically."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "mermaid",
+        "aliases": [
+          "Mermaid",
+          "mermaid"
+        ],
+        "extensions": [
+          ".mmd",
+          ".mermaid"
+        ]
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "kumeyuri.preview",
+          "when": "resourceExtname == .mmd || resourceExtname == .mermaid",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "kumeyuri.preview",
+          "when": "resourceExtname == .mmd || resourceExtname == .mermaid",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node test/webview.test.js"
+  }
+}
