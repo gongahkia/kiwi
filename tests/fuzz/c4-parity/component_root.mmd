@@ -1,0 +1,6 @@
+C4Component
+Container_Boundary(api, "API") {
+  Component(controller, "Controller", "Rust", "Handles requests")
+  ComponentDb(cache, "Cache", "Redis", "Caches data")
+}
+Rel(controller, cache, "Reads", "RESP")

@@ -1,0 +1,10 @@
+C4Deployment
+Node(prod, "Production", "AWS") {
+  Node_L(edge, "Edge", "ALB") {
+    Container(web, "Web", "Rust", "Serves traffic")
+  }
+  Node_R(data, "Data", "RDS") {
+    ContainerDb(db, "Database", "Postgres", "Stores data")
+  }
+}
+Rel(web, db, "Reads/writes", "SQL")

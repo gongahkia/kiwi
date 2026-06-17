@@ -1,0 +1,7 @@
+C4Container
+LAYOUT_WITH_LEGEND()
+SHOW_LEGEND()
+UpdateLayoutConfig($c4ShapeInRow="1", $c4BoundaryInRow="1")
+Person(user, "Admin", "Uses admin UI", $tags="internal", $sprite="person", $link="example.com")
+Container(api, "API", "Rust", "Handles requests", $tags="service", $sprite="server", $link="example-api")
+Rel(user, api, "Uses", "HTTPS", $tags="secure")

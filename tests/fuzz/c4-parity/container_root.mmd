@@ -1,0 +1,6 @@
+C4Container
+System_Boundary(system, "Service") {
+  Container(web, "Web", "Rust", "Serves UI")
+  ContainerDb(db, "Database", "Postgres", "Stores records")
+}
+Rel(web, db, "Reads/writes", "SQL")

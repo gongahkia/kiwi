@@ -1,0 +1,8 @@
+C4Container
+Enterprise_Boundary(enterprise, "Bank") {
+  System_Boundary(system, "Internet Banking") {
+    Container_Boundary(web_layer, "Web layer") {
+      Container(web, "Web", "Rust", "Renders UI")
+    }
+  }
+}
