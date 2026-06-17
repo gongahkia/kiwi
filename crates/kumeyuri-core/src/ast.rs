@@ -15,6 +15,7 @@ pub enum DiagramKind {
     Er(Box<ErAst>),
     Gantt(Box<GanttAst>),
     Pie(Box<PieAst>),
+    Quadrant(Box<QuadrantAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -722,6 +723,65 @@ pub struct PieSlice {
     pub value_units: Spanned<u64>,
     pub value_text: Spanned<String>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadrantAst {
+    pub header: QuadrantHeader,
+    pub title: Option<Label>,
+    pub x_axis: Option<QuadrantAxis>,
+    pub y_axis: Option<QuadrantAxis>,
+    pub quadrants: Vec<QuadrantSection>,
+    pub points: Vec<QuadrantPoint>,
+    pub classes: Vec<FlowClassDef>,
+    pub statements: Vec<QuadrantStatement>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuadrantHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuadrantAxisKind {
+    X,
+    Y,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadrantAxis {
+    pub kind: Spanned<QuadrantAxisKind>,
+    pub start: Label,
+    pub end: Label,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadrantSection {
+    pub index: Spanned<u8>,
+    pub label: Label,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadrantPoint {
+    pub label: Label,
+    pub x: Spanned<u16>,
+    pub y: Spanned<u16>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QuadrantStatement {
+    Title(Label),
+    Axis(QuadrantAxis),
+    Quadrant(QuadrantSection),
+    Point(Box<QuadrantPoint>),
+    ClassDef(FlowClassDef),
+    ClassApply(FlowClassApply),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
