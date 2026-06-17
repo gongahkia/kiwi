@@ -145,7 +145,7 @@
 - [x] Build Neovim plugin (lua) — `:KumeyuriPreview` opens floating TUI
 - [x] Build VSCode extension — webview embedding the WASM player; auto-render `.mmd` files on save
 - [x] Build Claude-Code skill / plugin rendering mermaid blocks inline in agent output
-- [ ] Build opencode plugin equivalent
+- [x] Build opencode plugin equivalent
 - [ ] Publish GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
 - [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
 - [ ] Publish remark plugin `remark-kumeyuri` for markdown source transformation
