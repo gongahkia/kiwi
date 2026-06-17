@@ -7896,6 +7896,35 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
+    fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
+        let cases = [
+            ("Quadrant Chart", "quadrantChart"),
+            ("ZenUML", "zenuml"),
+            ("Sankey", "sankey"),
+            ("XY Chart", "xychart"),
+            ("XY Chart beta", "xychart-beta"),
+            ("Block Diagram", "block"),
+            ("Packet", "packet"),
+            ("Kanban", "kanban"),
+            ("Architecture", "architecture-beta"),
+            ("Radar", "radar-beta"),
+            ("Event Modeling", "eventmodeling"),
+            ("Treemap", "treemap-beta"),
+            ("Venn", "venn-beta"),
+            ("Ishikawa", "ishikawa-beta"),
+            ("Wardley", "wardley-beta"),
+            ("TreeView", "treeView-beta"),
+        ];
+
+        for (name, source) in cases {
+            let error = Parser::parse_diagram(source).unwrap_err();
+
+            assert_eq!(error.kind, ParseErrorKind::ExpectedDiagramHeader, "{name}");
+            assert_eq!(error.span, Span::new(0, source.len()), "{name}");
+        }
+    }
+
+    #[test]
     fn allows_trailing_semicolon() {
         let header = Parser::parse_flowchart_header("\tgraph LR;  ").unwrap();
 
