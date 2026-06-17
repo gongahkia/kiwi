@@ -1,0 +1,16 @@
+requirementDiagram
+requirement styled_req:::urgent large {
+  id: REQ-S
+  text: styled requirement
+  risk: low
+  verifymethod: test
+}
+element styled_element:::external {
+  type: simulation
+  docRef: docs/styled.md
+}
+classDef urgent fill:#f96,stroke:#333,color:#111
+class styled_req,styled_element highlighted
+style styled_req,styled_element fill:#ffa,stroke:#000,color:green
+styled_element:::shortcut
+styled_element - satisfies -> styled_req

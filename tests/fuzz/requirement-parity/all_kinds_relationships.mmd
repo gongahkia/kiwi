@@ -1,0 +1,53 @@
+requirementDiagram
+direction LR
+requirement base {
+  id: REQ-0
+  text: base requirement
+  risk: low
+  verifymethod: analysis
+}
+functionalRequirement fn_req {
+  id: REQ-1
+  text: function behavior
+  risk: medium
+  verifymethod: inspection
+}
+interfaceRequirement iface_req {
+  id: REQ-2
+  text: interface contract
+  risk: high
+  verifymethod: test
+}
+performanceRequirement perf_req {
+  id: REQ-3
+  text: response budget
+  risk: medium
+  verifymethod: demonstration
+}
+physicalRequirement phys_req {
+  id: REQ-4
+  text: enclosure limit
+  risk: low
+  verifymethod: analysis
+}
+designConstraint design_req {
+  id: REQ-5
+  text: platform choice
+  risk: high
+  verifymethod: inspection
+}
+element spec_doc {
+  type: word doc
+  docRef: reqs/spec.md
+}
+element test_suite {
+  type: "test suite"
+  docRef: github.com/tests
+}
+base - contains -> fn_req
+fn_req - copies -> iface_req
+iface_req - derives -> perf_req
+perf_req - refines -> phys_req
+test_suite - verifies -> phys_req
+spec_doc - satisfies -> fn_req
+base - traces -> design_req
