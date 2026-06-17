@@ -1,0 +1,23 @@
+Campaign reach and engagement
+
+High Engagement  +-----------------------------------------------------------+
+                 | Promote                     | Expand                      |
+                 |                             |                             |
+                 |                             |                             |
+                 |                             |                o Campaign C |
+                 |                             |                             |
+                 |                             |                             |
+                 |                 o Campaign A|                             |
+                 |                             |                             |
+                 |-----------------------------+-----------------------------|
+                 | Retire                      | Optimize                    |
+                 |                             |                             |
+                 |                             |                             |
+                 |                             |          o Campaign B       |
+                 |                             |                             |
+                 |                             |                             |
+                 |                             |                             |
+                 |                             |                             |
+Low Engagement   +-----------------------------------------------------------+
+
+                 Low Reach                                          High Reach

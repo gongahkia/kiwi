@@ -2,8 +2,8 @@ use crate::ast::{
     C4Statement, ClassAst, ClassStatement, Diagram, DiagramKind, ErAst, ErStatement, FlowStatement,
     FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, JourneyAst,
     JourneyStatement, MermaidDirective, MindmapAst, MindmapStatement, PieAst, PieStatement,
-    RequirementStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
-    TimelineStatement,
+    QuadrantStatement, RequirementStatement, SequenceAst, SequenceStatement, StateAst,
+    StateStatement, TimelineAst, TimelineStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -162,6 +162,7 @@ impl Animator {
             .animate_with_renderer(ast, renderer),
             (DiagramKind::Requirement(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::C4(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Quadrant(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -258,6 +259,11 @@ impl AnimationConfig {
             DiagramKind::Pie(ast) => {
                 for statement in &ast.statements {
                     apply_pie_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::Quadrant(ast) => {
+                for statement in &ast.statements {
+                    apply_quadrant_animation_directives(statement, &mut config)?;
                 }
             }
             DiagramKind::Mindmap(ast) => {
@@ -369,6 +375,7 @@ pub enum AnimationDiagramKind {
     Er,
     Gantt,
     Pie,
+    Quadrant,
     Mindmap,
     Journey,
     GitGraph,
@@ -387,6 +394,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Er(_) => Self::Er,
             DiagramKind::Gantt(_) => Self::Gantt,
             DiagramKind::Pie(_) => Self::Pie,
+            DiagramKind::Quadrant(_) => Self::Quadrant,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -557,6 +565,27 @@ fn apply_pie_animation_directives(
             }
         }
         PieStatement::Title(_) | PieStatement::Slice(_) | PieStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_quadrant_animation_directives(
+    statement: &QuadrantStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        QuadrantStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        QuadrantStatement::Title(_)
+        | QuadrantStatement::Axis(_)
+        | QuadrantStatement::Quadrant(_)
+        | QuadrantStatement::Point(_)
+        | QuadrantStatement::ClassDef(_)
+        | QuadrantStatement::ClassApply(_)
+        | QuadrantStatement::Comment(_) => {}
     }
     Ok(())
 }
@@ -783,6 +812,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Er(_) => AnimationMode::Trace,
         DiagramKind::Gantt(_) => AnimationMode::Trace,
         DiagramKind::Pie(_) => AnimationMode::Trace,
+        DiagramKind::Quadrant(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -808,6 +838,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Er(_) => ErRelationshipAnimator::default_frame_duration(),
         DiagramKind::Gantt(_) => GanttSweepAnimator::default_frame_duration(),
         DiagramKind::Pie(_) => PieSliceGrowthAnimator::default_frame_duration(),
+        DiagramKind::Quadrant(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

@@ -1,7 +1,7 @@
 use crate::ast::{
     ArrowHead, C4Ast, C4RelationshipKind, ClassAst, ClassRelationshipLine, ClassRelationshipMarker,
     Diagram, DiagramKind, ErAst, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
-    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, RequirementAst,
+    GitGraphCommitKind, JourneyAst, MindmapAst, MindmapShape, PieAst, QuadrantAst, RequirementAst,
     RequirementRelationshipKind, SequenceAst, SequenceControlKind, StateAst, TimelineAst,
 };
 use crate::layout::{
@@ -11,11 +11,11 @@ use crate::layout::{
     PieLayoutEngine, Point, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
     PositionedClassNode, PositionedClassRelationship, PositionedFlowEdge, PositionedFlowNode,
     PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedJourneyTask,
-    PositionedMindmapNode, PositionedPieSlice, PositionedRequirementNode,
+    PositionedMindmapNode, PositionedPieSlice, PositionedQuadrantPoint, PositionedRequirementNode,
     PositionedRequirementRelationship, PositionedSequenceActivation, PositionedSequenceBox,
-    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote, Rect,
-    RequirementLayout, RequirementLayoutEngine, SequenceLayout, SequenceLayoutEngine,
-    StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
+    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote, QuadrantLayout,
+    QuadrantLayoutEngine, Rect, RequirementLayout, RequirementLayoutEngine, SequenceLayout,
+    SequenceLayoutEngine, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -336,6 +336,7 @@ pub struct StaticFrameRenderer {
     er: ErLayoutEngine,
     gantt: GanttLayoutEngine,
     pie: PieLayoutEngine,
+    quadrant: QuadrantLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -361,6 +362,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            quadrant: QuadrantLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -387,6 +389,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            quadrant: QuadrantLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -413,6 +416,7 @@ impl StaticFrameRenderer {
             er: ErLayoutEngine::default_values(),
             gantt: GanttLayoutEngine::default_values(),
             pie: PieLayoutEngine::default_values(),
+            quadrant: QuadrantLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -462,6 +466,7 @@ impl StaticFrameRenderer {
             DiagramKind::Er(ast) => self.render_er(ast),
             DiagramKind::Gantt(ast) => self.render_gantt(ast),
             DiagramKind::Pie(ast) => self.render_pie(ast),
+            DiagramKind::Quadrant(ast) => self.render_quadrant(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -524,6 +529,11 @@ impl StaticFrameRenderer {
             self.theme,
             visible_slices,
         )
+    }
+
+    #[must_use]
+    pub fn render_quadrant(&self, ast: &QuadrantAst) -> Frame {
+        render_quadrant_layout(&self.quadrant.layout(ast), self.palette, self.theme)
     }
 
     #[must_use]
@@ -1129,6 +1139,105 @@ fn render_pie_layout(
         );
     }
     frame
+}
+
+fn render_quadrant_layout(layout: &QuadrantLayout, palette: GlyphPalette, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let node_style = theme.style_for(ThemeRole::Node);
+    let edge_style = theme.style_for(ThemeRole::Edge);
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    if let Some(title) = &layout.title {
+        write_text_safe(&mut frame, 0, 0, title, text_style.clone());
+    }
+    draw_box(&mut frame, layout.plot, palette, node_style);
+    let mid_x = layout.plot.origin.x + layout.plot.size.width / 2;
+    let mid_y = layout.plot.origin.y + layout.plot.size.height / 2;
+    draw_vertical(
+        &mut frame,
+        mid_x,
+        layout.plot.origin.y + 1,
+        layout.plot.bottom().saturating_sub(2),
+        palette.vertical,
+        edge_style.clone(),
+    );
+    draw_horizontal(
+        &mut frame,
+        layout.plot.origin.x + 1,
+        layout.plot.right().saturating_sub(2),
+        mid_y,
+        palette.horizontal,
+        edge_style.clone(),
+    );
+    put_safe(
+        &mut frame,
+        mid_x,
+        mid_y,
+        palette.crossing,
+        edge_style.clone(),
+    );
+    for quadrant in &layout.quadrants {
+        write_text_safe(
+            &mut frame,
+            quadrant.origin.x,
+            quadrant.origin.y,
+            &quadrant.label,
+            muted_style.clone(),
+        );
+    }
+    write_text_safe(
+        &mut frame,
+        0,
+        layout.plot.origin.y,
+        &layout.y_end,
+        text_style.clone(),
+    );
+    write_text_safe(
+        &mut frame,
+        0,
+        layout.plot.bottom().saturating_sub(1),
+        &layout.y_start,
+        text_style.clone(),
+    );
+    let x_axis_y = layout.plot.bottom() + 1;
+    write_text_safe(
+        &mut frame,
+        layout.plot.origin.x,
+        x_axis_y,
+        &layout.x_start,
+        text_style.clone(),
+    );
+    write_text_safe(
+        &mut frame,
+        (layout.plot.right() - layout.x_end.chars().count() as i32).max(0),
+        x_axis_y,
+        &layout.x_end,
+        text_style.clone(),
+    );
+    for point in &layout.points {
+        draw_quadrant_point(&mut frame, point, text_style.clone(), edge_style.clone());
+    }
+    frame
+}
+
+fn draw_quadrant_point(
+    frame: &mut Frame,
+    point: &PositionedQuadrantPoint,
+    text_style: CellStyle,
+    edge_style: CellStyle,
+) {
+    put_safe(frame, point.point.x, point.point.y, 'o', edge_style);
+    write_text_safe(
+        frame,
+        point.label_origin.x,
+        point.label_origin.y,
+        &point.label,
+        text_style,
+    );
 }
 
 fn pie_legend_text(

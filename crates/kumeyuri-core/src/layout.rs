@@ -6,7 +6,7 @@ use crate::ast::{
     FlowShape, FlowStatement, FlowSubgraph, FlowchartAst, FlowchartDirective, FlowchartHeader,
     GanttAst, GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphCommit,
     GitGraphCommitKind, GitGraphOrientation, GitGraphStatement, JourneyAst, Label, LabelKind,
-    MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition, RequirementAst,
+    MindmapAst, MindmapNode, MindmapShape, PieAst, PieLegendPosition, QuadrantAst, RequirementAst,
     RequirementElement, RequirementKind, RequirementNode, RequirementRelationshipKind,
     RequirementRisk, RequirementVerifyMethod, SequenceActivation, SequenceAst, SequenceAutoNumber,
     SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
@@ -536,6 +536,63 @@ pub struct PieLayout {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuadrantLayoutConfig {
+    pub plot_width: i32,
+    pub plot_height: i32,
+    pub left_margin: i32,
+    pub top_padding: i32,
+    pub label_gap: i32,
+}
+
+impl Default for QuadrantLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl QuadrantLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            plot_width: 61,
+            plot_height: 19,
+            left_margin: 14,
+            top_padding: 1,
+            label_gap: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedQuadrantPoint {
+    pub label: String,
+    pub x_value: u16,
+    pub y_value: u16,
+    pub point: Point,
+    pub label_origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedQuadrantSection {
+    pub index: u8,
+    pub label: String,
+    pub origin: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuadrantLayout {
+    pub title: Option<String>,
+    pub x_start: String,
+    pub x_end: String,
+    pub y_start: String,
+    pub y_end: String,
+    pub plot: Rect,
+    pub quadrants: Vec<PositionedQuadrantSection>,
+    pub points: Vec<PositionedQuadrantPoint>,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MindmapLayoutConfig {
     pub horizontal_spacing: i32,
     pub vertical_spacing: i32,
@@ -801,6 +858,11 @@ pub struct GanttLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct PieLayoutEngine {
     config: PieLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct QuadrantLayoutEngine {
+    config: QuadrantLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -3284,6 +3346,161 @@ impl PieLayoutEngine {
             size: regions.size,
         }
     }
+}
+
+impl QuadrantLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: QuadrantLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: QuadrantLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &QuadrantAst) -> QuadrantLayout {
+        let title = ast.title.as_ref().map(|title| title.text.clone());
+        let x_start = ast
+            .x_axis
+            .as_ref()
+            .map_or_else(String::new, |axis| axis.start.text.clone());
+        let x_end = ast
+            .x_axis
+            .as_ref()
+            .map_or_else(String::new, |axis| axis.end.text.clone());
+        let y_start = ast
+            .y_axis
+            .as_ref()
+            .map_or_else(String::new, |axis| axis.start.text.clone());
+        let y_end = ast
+            .y_axis
+            .as_ref()
+            .map_or_else(String::new, |axis| axis.end.text.clone());
+        let plot_y = if title.is_some() {
+            self.config.top_padding + 1
+        } else {
+            0
+        };
+        let left_margin = self.config.left_margin.max(
+            label_width(&y_start)
+                .max(label_width(&y_end))
+                .saturating_add(2),
+        );
+        let plot = Rect {
+            origin: Point {
+                x: left_margin,
+                y: plot_y,
+            },
+            size: Size {
+                width: self.config.plot_width.max(5),
+                height: self.config.plot_height.max(5),
+            },
+        };
+        let points = ast
+            .points
+            .iter()
+            .map(|point| {
+                let origin = quadrant_point_origin(plot, point.x.value, point.y.value);
+                PositionedQuadrantPoint {
+                    label: point.label.text.clone(),
+                    x_value: point.x.value,
+                    y_value: point.y.value,
+                    point: origin,
+                    label_origin: Point {
+                        x: origin.x + 2,
+                        y: origin.y,
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut quadrants = ast
+            .quadrants
+            .iter()
+            .map(|quadrant| PositionedQuadrantSection {
+                index: quadrant.index.value,
+                label: quadrant.label.text.clone(),
+                origin: quadrant_section_origin(plot, quadrant.index.value),
+            })
+            .collect::<Vec<_>>();
+        quadrants.sort_by_key(|quadrant| quadrant.index);
+
+        let x_axis_y = plot.bottom() + self.config.label_gap;
+        let mut width = plot
+            .right()
+            .max(label_width(&y_start))
+            .max(label_width(&y_end));
+        let mut height = x_axis_y + 1;
+        if let Some(title) = &title {
+            width = width.max(label_width(title));
+        }
+        width = width
+            .max(plot.origin.x + label_width(&x_start))
+            .max((plot.right() - label_width(&x_end)).max(0) + label_width(&x_end));
+        for quadrant in &quadrants {
+            width = width.max(quadrant.origin.x + label_width(&quadrant.label));
+            height = height.max(quadrant.origin.y + 1);
+        }
+        for point in &points {
+            width = width.max(point.label_origin.x + label_width(&point.label));
+            height = height.max(point.label_origin.y + 1);
+        }
+
+        QuadrantLayout {
+            title,
+            x_start,
+            x_end,
+            y_start,
+            y_end,
+            plot,
+            quadrants,
+            points,
+            size: Size { width, height },
+        }
+    }
+}
+
+fn quadrant_point_origin(plot: Rect, x_value: u16, y_value: u16) -> Point {
+    let inner_width = (plot.size.width - 3).max(1);
+    let inner_height = (plot.size.height - 3).max(1);
+    Point {
+        x: plot.origin.x + 1 + i32::from(x_value) * inner_width / 1000,
+        y: plot.origin.y + 1 + i32::from(1000u16.saturating_sub(y_value)) * inner_height / 1000,
+    }
+}
+
+fn quadrant_section_origin(plot: Rect, index: u8) -> Point {
+    let mid_x = plot.origin.x + plot.size.width / 2;
+    let mid_y = plot.origin.y + plot.size.height / 2;
+    match index {
+        1 => Point {
+            x: mid_x + 2,
+            y: plot.origin.y + 1,
+        },
+        2 => Point {
+            x: plot.origin.x + 2,
+            y: plot.origin.y + 1,
+        },
+        3 => Point {
+            x: plot.origin.x + 2,
+            y: mid_y + 1,
+        },
+        4 => Point {
+            x: mid_x + 2,
+            y: mid_y + 1,
+        },
+        _ => Point {
+            x: plot.origin.x + 2,
+            y: plot.origin.y + 1,
+        },
+    }
+}
+
+fn label_width(label: &str) -> i32 {
+    label.chars().count() as i32
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

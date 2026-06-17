@@ -12,15 +12,16 @@ use crate::ast::{
     GitGraphStatement, JourneyAst, JourneyHeader, JourneyStatement, JourneyTask, Label, LabelKind,
     MermaidComment, MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape,
     MindmapStatement, PieAst, PieConfig, PieHeader, PieLegendPosition, PieSlice, PieStatement,
-    RequirementAst, RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
-    RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
-    RequirementStyle, RequirementVerifyMethod, SequenceActivation, SequenceArrow, SequenceAst,
-    SequenceAutoNumber, SequenceBox, SequenceControlBlock, SequenceControlKind, SequenceCreate,
-    SequenceDestroy, SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement,
-    SequenceParticipant, SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst,
-    StateClassApply, StateDirective, StateHeader, StateNode, StateNodeKind, StateNote,
-    StateStatement, StateTransition, TimelineAst, TimelineHeader, TimelinePeriod,
-    TimelineStatement,
+    QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection,
+    QuadrantStatement, RequirementAst, RequirementElement, RequirementHeader, RequirementKind,
+    RequirementNode, RequirementRelationship, RequirementRelationshipKind, RequirementRisk,
+    RequirementStatement, RequirementStyle, RequirementVerifyMethod, SequenceActivation,
+    SequenceArrow, SequenceAst, SequenceAutoNumber, SequenceBox, SequenceControlBlock,
+    SequenceControlKind, SequenceCreate, SequenceDestroy, SequenceHeader, SequenceMessage,
+    SequenceNote, SequenceNotePlacement, SequenceParticipant, SequenceParticipantKind,
+    SequenceStatement, Span, Spanned, StateAst, StateClassApply, StateDirective, StateHeader,
+    StateNode, StateNodeKind, StateNote, StateStatement, StateTransition, TimelineAst,
+    TimelineHeader, TimelinePeriod, TimelineStatement,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,6 +89,11 @@ pub enum ParseErrorKind {
     UnknownPieStatement,
     ExpectedPieSlice,
     ExpectedPieValue,
+    ExpectedQuadrantHeader,
+    UnknownQuadrantStatement,
+    ExpectedQuadrantAxis,
+    ExpectedQuadrantPoint,
+    ExpectedQuadrantValue,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -159,6 +165,10 @@ impl Parser {
 
     pub fn parse_pie(source: &str) -> Result<PieAst, ParseError> {
         DiagramParser::new(source).parse_pie_only()
+    }
+
+    pub fn parse_quadrant(source: &str) -> Result<QuadrantAst, ParseError> {
+        DiagramParser::new(source).parse_quadrant_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -284,6 +294,14 @@ impl Parser {
         PieStatementParser::new(source).parse()
     }
 
+    pub fn parse_quadrant_header(source: &str) -> Result<QuadrantHeader, ParseError> {
+        QuadrantHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_quadrant_statement(source: &str) -> Result<QuadrantStatement, ParseError> {
+        QuadrantStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -390,6 +408,12 @@ impl<'source> DiagramParser<'source> {
             self.cursor = header.line.next;
             let ast = self.parse_pie_body(shift_pie_header(pie_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Pie(Box::new(ast))));
+        }
+        if let Ok(quadrant_header) = Parser::parse_quadrant_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Quadrant(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -519,6 +543,18 @@ impl<'source> DiagramParser<'source> {
         let pie_header = Parser::parse_pie_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_pie_body(shift_pie_header(pie_header, header.start))
+    }
+
+    fn parse_quadrant_only(mut self) -> Result<QuadrantAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let quadrant_header = Parser::parse_quadrant_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -972,6 +1008,33 @@ impl<'source> DiagramParser<'source> {
                 apply_pie_config_directive(&mut ast.config, directive);
             }
             push_pie_statement(&mut ast, statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_quadrant_body(&mut self, header: QuadrantHeader) -> Result<QuadrantAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = QuadrantAst {
+            header,
+            title: None,
+            x_axis: None,
+            y_axis: None,
+            quadrants: Vec::new(),
+            points: Vec::new(),
+            classes: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_quadrant_statement(
+                Parser::parse_quadrant_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            push_quadrant_statement(&mut ast, statement);
             self.cursor = line.line.next;
         }
 
@@ -1510,6 +1573,33 @@ fn push_pie_statement(ast: &mut PieAst, statement: PieStatement) {
         PieStatement::Title(title) => ast.title = Some(title.clone()),
         PieStatement::Slice(slice) => ast.slices.push(slice.clone()),
         PieStatement::Comment(_) | PieStatement::Directive(_) => {}
+    }
+    ast.statements.push(statement);
+}
+
+fn push_quadrant_statement(ast: &mut QuadrantAst, statement: QuadrantStatement) {
+    match &statement {
+        QuadrantStatement::Title(title) => ast.title = Some(title.clone()),
+        QuadrantStatement::Axis(axis) => match axis.kind.value {
+            QuadrantAxisKind::X => ast.x_axis = Some(axis.clone()),
+            QuadrantAxisKind::Y => ast.y_axis = Some(axis.clone()),
+        },
+        QuadrantStatement::Quadrant(section) => {
+            if let Some(existing) = ast
+                .quadrants
+                .iter_mut()
+                .find(|existing| existing.index.value == section.index.value)
+            {
+                *existing = section.clone();
+            } else {
+                ast.quadrants.push(section.clone());
+            }
+        }
+        QuadrantStatement::Point(point) => ast.points.push((**point).clone()),
+        QuadrantStatement::ClassDef(class_def) => ast.classes.push(class_def.clone()),
+        QuadrantStatement::ClassApply(_)
+        | QuadrantStatement::Comment(_)
+        | QuadrantStatement::Directive(_) => {}
     }
     ast.statements.push(statement);
 }
@@ -3076,6 +3166,36 @@ impl<'source> PieHeaderParser<'source> {
     }
 }
 
+struct QuadrantHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> QuadrantHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<QuadrantHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        if &self.source[start..end] != "quadrantChart" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(QuadrantHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
 struct MindmapHeaderParser<'source> {
     source: &'source str,
 }
@@ -3192,6 +3312,205 @@ impl<'source> PieStatementParser<'source> {
             label,
             value_units,
             value_text,
+            span: Span::new(start, end),
+        }))
+    }
+}
+
+struct QuadrantStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> QuadrantStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<QuadrantStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownQuadrantStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(QuadrantStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(QuadrantStatement::Comment(shift_comment(comment, start)));
+        }
+        if has_keyword(self.source, start, "title") {
+            let label =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownQuadrantStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(QuadrantStatement::Title(label));
+        }
+        if has_keyword(self.source, start, "x-axis") {
+            return Ok(QuadrantStatement::Axis(self.parse_axis(
+                start,
+                end,
+                "x-axis",
+                QuadrantAxisKind::X,
+            )?));
+        }
+        if has_keyword(self.source, start, "y-axis") {
+            return Ok(QuadrantStatement::Axis(self.parse_axis(
+                start,
+                end,
+                "y-axis",
+                QuadrantAxisKind::Y,
+            )?));
+        }
+        if let Some(section) = self.parse_quadrant_section(start, end)? {
+            return Ok(QuadrantStatement::Quadrant(section));
+        }
+        if let Ok(class_def) = Parser::parse_flow_class_def(trimmed) {
+            return Ok(QuadrantStatement::ClassDef(shift_class_def(
+                class_def, start,
+            )));
+        }
+        if let Ok(class_apply) = Parser::parse_flow_class_apply(trimmed) {
+            return Ok(QuadrantStatement::ClassApply(shift_class_apply(
+                class_apply,
+                start,
+            )));
+        }
+        if let Some(point) = self.parse_point(start, end)? {
+            return Ok(QuadrantStatement::Point(Box::new(point)));
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnknownQuadrantStatement,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_axis(
+        &self,
+        start: usize,
+        end: usize,
+        keyword: &str,
+        kind: QuadrantAxisKind,
+    ) -> Result<QuadrantAxis, ParseError> {
+        let rest_start = start + keyword.len();
+        let Some(arrow) = self.source[rest_start..end].find("-->") else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantAxis,
+                span: Span::new(rest_start, end),
+            });
+        };
+        let arrow = rest_start + arrow;
+        let label_start = label_from_trimmed(self.source, rest_start, arrow).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantAxis,
+            span: Span::new(rest_start, arrow),
+        })?;
+        let label_end =
+            label_from_trimmed(self.source, arrow + "-->".len(), end).ok_or(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantAxis,
+                span: Span::new(arrow + "-->".len(), end),
+            })?;
+        Ok(QuadrantAxis {
+            kind: Spanned::new(kind, Span::new(start, start + keyword.len())),
+            start: label_start,
+            end: label_end,
+            span: Span::new(start, end),
+        })
+    }
+
+    fn parse_quadrant_section(
+        &self,
+        start: usize,
+        end: usize,
+    ) -> Result<Option<QuadrantSection>, ParseError> {
+        let prefix = "quadrant-";
+        if !self.source[start..end].starts_with(prefix) {
+            return Ok(None);
+        }
+        let index_start = start + prefix.len();
+        let Some(index_byte) = self.source.as_bytes().get(index_start).copied() else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownQuadrantStatement,
+                span: Span::new(start, end),
+            });
+        };
+        let value = match index_byte {
+            b'1'..=b'4' => index_byte - b'0',
+            _ => {
+                return Err(ParseError {
+                    kind: ParseErrorKind::UnknownQuadrantStatement,
+                    span: Span::new(start, end),
+                });
+            }
+        };
+        let label_start = index_start + 1;
+        if !self
+            .source
+            .as_bytes()
+            .get(label_start)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownQuadrantStatement,
+                span: Span::new(start, end),
+            });
+        }
+        let label = label_from_trimmed(self.source, label_start, end).ok_or(ParseError {
+            kind: ParseErrorKind::UnknownQuadrantStatement,
+            span: Span::new(label_start, end),
+        })?;
+        Ok(Some(QuadrantSection {
+            index: Spanned::new(value, Span::new(index_start, index_start + 1)),
+            label,
+            span: Span::new(start, end),
+        }))
+    }
+
+    fn parse_point(&self, start: usize, end: usize) -> Result<Option<QuadrantPoint>, ParseError> {
+        let Some(colon_offset) = self.source[start..end].find(':') else {
+            return Ok(None);
+        };
+        let colon = start + colon_offset;
+        let label = label_from_trimmed(self.source, start, colon).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantPoint,
+            span: Span::new(start, colon),
+        })?;
+        let value_start = colon + 1;
+        let Some((trim_start, trim_end)) = trim_ascii_range(&self.source[value_start..end]) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantPoint,
+                span: Span::new(value_start, end),
+            });
+        };
+        let absolute_start = value_start + trim_start;
+        let absolute_end = value_start + trim_end;
+        let bytes = self.source.as_bytes();
+        if bytes.get(absolute_start) != Some(&b'[')
+            || bytes.get(absolute_end.saturating_sub(1)) != Some(&b']')
+        {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantPoint,
+                span: Span::new(absolute_start, absolute_end),
+            });
+        }
+        let inner_start = absolute_start + 1;
+        let inner_end = absolute_end - 1;
+        let Some(comma) = self.source[inner_start..inner_end].find(',') else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedQuadrantPoint,
+                span: Span::new(inner_start, inner_end),
+            });
+        };
+        let comma = inner_start + comma;
+        Ok(Some(QuadrantPoint {
+            label,
+            x: parse_quadrant_value(self.source, inner_start, comma)?,
+            y: parse_quadrant_value(self.source, comma + 1, inner_end)?,
             span: Span::new(start, end),
         }))
     }
@@ -5465,6 +5784,38 @@ fn parse_pie_value_units(value: &str) -> Option<u64> {
     (units > 0).then_some(units)
 }
 
+fn parse_quadrant_value(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<u16>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantValue,
+            span: Span::new(start, end),
+        });
+    };
+    let absolute_start = start + trim_start;
+    let absolute_end = start + trim_end;
+    let raw = &source[absolute_start..absolute_end];
+    let Ok(value) = raw.parse::<f64>() else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    };
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedQuadrantValue,
+            span: Span::new(absolute_start, absolute_end),
+        });
+    }
+    Ok(Spanned::new(
+        (value * 1000.0).round() as u16,
+        Span::new(absolute_start, absolute_end),
+    ))
+}
+
 #[derive(Debug, Clone)]
 struct ParsedMindmapNode {
     node: MindmapNode,
@@ -7454,6 +7805,63 @@ fn shift_pie_slice(slice: PieSlice, offset: usize) -> PieSlice {
     }
 }
 
+fn shift_quadrant_header(header: QuadrantHeader, offset: usize) -> QuadrantHeader {
+    QuadrantHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_quadrant_statement(statement: QuadrantStatement, offset: usize) -> QuadrantStatement {
+    match statement {
+        QuadrantStatement::Title(title) => QuadrantStatement::Title(shift_label(title, offset)),
+        QuadrantStatement::Axis(axis) => QuadrantStatement::Axis(shift_quadrant_axis(axis, offset)),
+        QuadrantStatement::Quadrant(section) => {
+            QuadrantStatement::Quadrant(shift_quadrant_section(section, offset))
+        }
+        QuadrantStatement::Point(point) => {
+            QuadrantStatement::Point(Box::new(shift_quadrant_point(*point, offset)))
+        }
+        QuadrantStatement::ClassDef(class_def) => {
+            QuadrantStatement::ClassDef(shift_class_def(class_def, offset))
+        }
+        QuadrantStatement::ClassApply(class_apply) => {
+            QuadrantStatement::ClassApply(shift_class_apply(class_apply, offset))
+        }
+        QuadrantStatement::Comment(comment) => {
+            QuadrantStatement::Comment(shift_comment(comment, offset))
+        }
+        QuadrantStatement::Directive(directive) => {
+            QuadrantStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_quadrant_axis(axis: QuadrantAxis, offset: usize) -> QuadrantAxis {
+    QuadrantAxis {
+        kind: shift_spanned(axis.kind, offset),
+        start: shift_label(axis.start, offset),
+        end: shift_label(axis.end, offset),
+        span: shift_span(axis.span, offset),
+    }
+}
+
+fn shift_quadrant_section(section: QuadrantSection, offset: usize) -> QuadrantSection {
+    QuadrantSection {
+        index: shift_spanned(section.index, offset),
+        label: shift_label(section.label, offset),
+        span: shift_span(section.span, offset),
+    }
+}
+
+fn shift_quadrant_point(point: QuadrantPoint, offset: usize) -> QuadrantPoint {
+    QuadrantPoint {
+        label: shift_label(point.label, offset),
+        x: shift_spanned(point.x, offset),
+        y: shift_spanned(point.y, offset),
+        span: shift_span(point.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -8321,9 +8729,9 @@ mod tests {
         ArrowHead, ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
         DiagramKind, Direction, ErCardinality, ErStatement, FlowEdgeStroke, FlowShape,
         FlowStatement, FlowchartDirective, GanttTaskTag, GitGraphCommitKind, GitGraphOrientation,
-        LabelKind, SequenceActivation, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
-        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
-        StateStatement,
+        LabelKind, QuadrantAxisKind, SequenceActivation, SequenceArrow, SequenceControlKind,
+        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
+        StateNodeKind, StateStatement,
     };
 
     #[test]
@@ -8504,6 +8912,28 @@ mod tests {
     }
 
     #[test]
+    fn parses_quadrant_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "quadrantChart\ntitle Priorities\nx-axis Low --> High\ny-axis Risk --> Reward\nquadrant-1 Invest\nAPI: [0.25, 0.75]\nclassDef focus fill:#f96,stroke:#333\nclass API focus",
+        )
+        .unwrap();
+
+        let DiagramKind::Quadrant(ast) = diagram.kind else {
+            panic!("expected quadrant diagram");
+        };
+        assert_eq!(ast.title.unwrap().text, "Priorities");
+        assert_eq!(ast.x_axis.as_ref().unwrap().kind.value, QuadrantAxisKind::X);
+        assert_eq!(ast.x_axis.as_ref().unwrap().start.text, "Low");
+        assert_eq!(ast.y_axis.as_ref().unwrap().end.text, "Reward");
+        assert_eq!(ast.quadrants[0].index.value, 1);
+        assert_eq!(ast.quadrants[0].label.text, "Invest");
+        assert_eq!(ast.points[0].label.text, "API");
+        assert_eq!(ast.points[0].x.value, 250);
+        assert_eq!(ast.points[0].y.value, 750);
+        assert_eq!(ast.classes.len(), 1);
+    }
+
+    #[test]
     fn parses_mindmap_document_to_diagram() {
         let diagram = Parser::parse_diagram(
             "mindmap\n  Root\n    Branch A\n      Leaf A1\n    Branch B\n      ::icon(fa fa-code)",
@@ -8602,7 +9032,6 @@ cherry-pick id: "feat" parent: "base""#,
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
         let cases = [
-            ("Quadrant Chart", "quadrantChart"),
             ("ZenUML", "zenuml"),
             ("Sankey", "sankey"),
             ("XY Chart", "xychart"),
