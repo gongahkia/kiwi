@@ -1,0 +1,10 @@
+%% generated from official Mermaid GitGraph examples
+%%{ init: { 'theme': 'base' } }%%
+gitGraph TB:
+commit id: "base"
+branch feature order: 2
+commit id: "feat" type: HIGHLIGHT tag: "v1"
+checkout main
+commit id: "main2"
+merge feature id: "merge" tag: "release"
+cherry-pick id: "feat" parent: "base"

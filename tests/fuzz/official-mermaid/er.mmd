@@ -1,0 +1,12 @@
+%% generated from official Mermaid ER examples
+%%{ init: { 'theme': 'base' } }%%
+erDiagram
+CUSTOMER {
+  string name PK
+  string email UK
+}
+ORDER {
+  int id PK
+  string status
+}
+CUSTOMER ||--o{ ORDER : places

@@ -1,48 +1,77 @@
-use kumeyuri_core::parser::Parser;
+use kumeyuri_core::{ast::DiagramKind, parser::Parser};
 use proptest::prelude::*;
 
-const FLOWCHART: &str = include_str!("../../../tests/fuzz/official-mermaid/flowchart.mmd");
-const SEQUENCE: &str = include_str!("../../../tests/fuzz/official-mermaid/sequence.mmd");
-const STATE: &str = include_str!("../../../tests/fuzz/official-mermaid/state.mmd");
+const FIXTURES: &[(&str, &str)] = &[
+    (
+        "flowchart",
+        include_str!("../../../tests/fuzz/official-mermaid/flowchart.mmd"),
+    ),
+    (
+        "sequence",
+        include_str!("../../../tests/fuzz/official-mermaid/sequence.mmd"),
+    ),
+    (
+        "state",
+        include_str!("../../../tests/fuzz/official-mermaid/state.mmd"),
+    ),
+    (
+        "class",
+        include_str!("../../../tests/fuzz/official-mermaid/class.mmd"),
+    ),
+    (
+        "er",
+        include_str!("../../../tests/fuzz/official-mermaid/er.mmd"),
+    ),
+    (
+        "gantt",
+        include_str!("../../../tests/fuzz/official-mermaid/gantt.mmd"),
+    ),
+    (
+        "pie",
+        include_str!("../../../tests/fuzz/official-mermaid/pie.mmd"),
+    ),
+    (
+        "mindmap",
+        include_str!("../../../tests/fuzz/official-mermaid/mindmap.mmd"),
+    ),
+    (
+        "journey",
+        include_str!("../../../tests/fuzz/official-mermaid/journey.mmd"),
+    ),
+    (
+        "gitgraph",
+        include_str!("../../../tests/fuzz/official-mermaid/gitgraph.mmd"),
+    ),
+    (
+        "timeline",
+        include_str!("../../../tests/fuzz/official-mermaid/timeline.mmd"),
+    ),
+    (
+        "requirement",
+        include_str!("../../../tests/fuzz/official-mermaid/requirement.mmd"),
+    ),
+    (
+        "c4",
+        include_str!("../../../tests/fuzz/official-mermaid/c4.mmd"),
+    ),
+];
 
 proptest! {
     #[test]
-    fn flowchart_official_mermaid_fuzz_corpus_parses(
+    fn official_mermaid_fuzz_corpus_parses(
+        (root, fixture) in prop::sample::select(FIXTURES.to_vec()),
         leading_blank_lines in 0usize..=2,
         indent_width in 0usize..=4,
         line_ending in prop::sample::select(vec!["\n", "\r\n"]),
         trailing_blank_line in any::<bool>(),
     ) {
-        let source = fuzz_whitespace(FLOWCHART, leading_blank_lines, indent_width, line_ending, trailing_blank_line);
-        let parsed = parse_flowchart_document(&source);
+        let source = fuzz_whitespace(fixture, leading_blank_lines, indent_width, line_ending, trailing_blank_line);
+        let parsed = Parser::parse_diagram(&source);
 
-        prop_assert!(parsed.is_ok(), "{parsed:?}\n{source}");
-    }
+        prop_assert!(parsed.is_ok(), "{root}: {parsed:?}\n{source}");
+        let diagram = parsed.unwrap();
 
-    #[test]
-    fn sequence_official_mermaid_fuzz_corpus_parses(
-        leading_blank_lines in 0usize..=2,
-        indent_width in 0usize..=4,
-        line_ending in prop::sample::select(vec!["\n", "\r\n"]),
-        trailing_blank_line in any::<bool>(),
-    ) {
-        let source = fuzz_whitespace(SEQUENCE, leading_blank_lines, indent_width, line_ending, trailing_blank_line);
-        let parsed = parse_sequence_document(&source);
-
-        prop_assert!(parsed.is_ok(), "{parsed:?}\n{source}");
-    }
-
-    #[test]
-    fn state_official_mermaid_fuzz_corpus_parses(
-        leading_blank_lines in 0usize..=2,
-        indent_width in 0usize..=4,
-        line_ending in prop::sample::select(vec!["\n", "\r\n"]),
-        trailing_blank_line in any::<bool>(),
-    ) {
-        let source = fuzz_whitespace(STATE, leading_blank_lines, indent_width, line_ending, trailing_blank_line);
-        let parsed = parse_state_document(&source);
-
-        prop_assert!(parsed.is_ok(), "{parsed:?}\n{source}");
+        prop_assert_eq!(diagram_kind_name(&diagram.kind), root);
     }
 }
 
@@ -59,8 +88,8 @@ fn fuzz_whitespace(
     lines.extend(
         source
             .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
+            .map(str::trim_end)
+            .filter(|line| !line.trim().is_empty())
             .map(|line| format!("{indent}{line}")),
     );
     if trailing_blank_line {
@@ -69,112 +98,20 @@ fn fuzz_whitespace(
     lines.join(line_ending)
 }
 
-fn parse_flowchart_document(source: &str) -> Result<(), String> {
-    let lines = non_empty_lines(source);
-    let mut index = parse_until_header(&lines, |line| {
-        Parser::parse_flowchart_header(line).map(|_| ())
-    })?;
-
-    while index < lines.len() {
-        let line = lines[index].trim();
-        if line.starts_with("subgraph") {
-            let (block, next_index) = collect_subgraph(&lines, index)?;
-            Parser::parse_flow_subgraph(&block).map_err(|error| format!("{error:?}"))?;
-            index = next_index;
-            continue;
-        }
-        parse_flowchart_statement(line)?;
-        index += 1;
+fn diagram_kind_name(kind: &DiagramKind) -> &'static str {
+    match kind {
+        DiagramKind::Flowchart(_) => "flowchart",
+        DiagramKind::Sequence(_) => "sequence",
+        DiagramKind::State(_) => "state",
+        DiagramKind::Class(_) => "class",
+        DiagramKind::Er(_) => "er",
+        DiagramKind::Gantt(_) => "gantt",
+        DiagramKind::Pie(_) => "pie",
+        DiagramKind::Mindmap(_) => "mindmap",
+        DiagramKind::Journey(_) => "journey",
+        DiagramKind::GitGraph(_) => "gitgraph",
+        DiagramKind::Timeline(_) => "timeline",
+        DiagramKind::Requirement(_) => "requirement",
+        DiagramKind::C4(_) => "c4",
     }
-    Ok(())
-}
-
-fn parse_flowchart_statement(line: &str) -> Result<(), String> {
-    if Parser::parse_mermaid_directive(line).is_ok()
-        || Parser::parse_mermaid_comment(line).is_ok()
-        || Parser::parse_flow_class_def(line).is_ok()
-        || Parser::parse_flow_class_apply(line).is_ok()
-        || Parser::parse_flow_edge(line).is_ok()
-        || Parser::parse_flow_node(line).is_ok()
-    {
-        return Ok(());
-    }
-    Err(format!("unparsed flowchart statement: {line}"))
-}
-
-fn parse_sequence_document(source: &str) -> Result<(), String> {
-    let lines = non_empty_lines(source);
-    let mut index = parse_until_header(&lines, |line| {
-        Parser::parse_sequence_header(line).map(|_| ())
-    })?;
-
-    while index < lines.len() {
-        Parser::parse_sequence_statement(lines[index].trim())
-            .map_err(|error| format!("{error:?}"))?;
-        index += 1;
-    }
-    Ok(())
-}
-
-fn parse_state_document(source: &str) -> Result<(), String> {
-    let lines = non_empty_lines(source);
-    let mut index =
-        parse_until_header(&lines, |line| Parser::parse_state_header(line).map(|_| ()))?;
-
-    while index < lines.len() {
-        let line = lines[index].trim();
-        if line == "}" {
-            index += 1;
-            continue;
-        }
-        Parser::parse_state_statement(line).map_err(|error| format!("{error:?}"))?;
-        index += 1;
-    }
-    Ok(())
-}
-
-fn parse_until_header<F>(lines: &[&str], parse_header: F) -> Result<usize, String>
-where
-    F: Fn(&str) -> Result<(), kumeyuri_core::parser::ParseError>,
-{
-    for (index, line) in lines.iter().enumerate() {
-        let trimmed = line.trim();
-        if Parser::parse_mermaid_directive(trimmed).is_ok()
-            || Parser::parse_mermaid_comment(trimmed).is_ok()
-        {
-            continue;
-        }
-        parse_header(trimmed).map_err(|error| format!("{error:?}"))?;
-        return Ok(index + 1);
-    }
-    Err("missing diagram header".to_owned())
-}
-
-fn non_empty_lines(source: &str) -> Vec<&str> {
-    source
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .collect()
-}
-
-fn collect_subgraph(lines: &[&str], start: usize) -> Result<(String, usize), String> {
-    let mut depth = 0usize;
-    let mut block = Vec::new();
-    for (index, line) in lines.iter().enumerate().skip(start) {
-        let trimmed = line.trim();
-        if trimmed.starts_with("subgraph") {
-            depth += 1;
-        }
-        if trimmed == "end" {
-            depth = depth
-                .checked_sub(1)
-                .ok_or_else(|| "subgraph depth underflow".to_owned())?;
-        }
-        block.push(trimmed);
-        if depth == 0 {
-            return Ok((block.join("\n"), index + 1));
-        }
-    }
-    Err("unterminated subgraph".to_owned())
 }

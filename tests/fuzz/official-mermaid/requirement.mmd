@@ -1,0 +1,22 @@
+%% generated from official Mermaid requirement examples
+%%{ init: { 'theme': 'base' } }%%
+requirementDiagram
+direction LR
+functionalRequirement req_login {
+  id: 1.1
+  text: login accepts valid users
+  risk: low
+  verifyMethod: inspection
+}
+performanceRequirement req_latency {
+  id: 1.2
+  text: response under 250ms
+  risk: medium
+  verifymethod: demonstration
+}
+element api {
+  type: service
+  docRef: docs/api.md
+}
+req_login - contains -> req_latency
+req_latency <- verifies - api
