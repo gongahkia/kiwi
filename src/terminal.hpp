@@ -28,8 +28,11 @@ class TerminalSession {
 };
 
 bool terminalSessionAvailable() noexcept;
+TerminalSize queryTerminalSize();
 void installQuitSignalHandlers();
+void installResizeSignalHandler();
 bool shouldQuit() noexcept;
 void resetQuitFlag() noexcept;
+bool consumeResizeFlag() noexcept;
 
 }  // namespace contourtty

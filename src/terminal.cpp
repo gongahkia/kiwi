@@ -4,15 +4,21 @@
 #include <csignal>
 #include <stdexcept>
 #include <string>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 namespace contourtty {
 namespace {
 
 volatile std::sig_atomic_t g_should_quit = 0;
+volatile std::sig_atomic_t g_was_resized = 1;
 
 void handleQuitSignal(int) {
   g_should_quit = 1;
+}
+
+void handleResizeSignal(int) {
+  g_was_resized = 1;
 }
 
 bool writeAll(int fd, const char* data, std::size_t size) noexcept {
@@ -76,6 +82,19 @@ bool terminalSessionAvailable() noexcept {
   return ::isatty(STDIN_FILENO) != 0 && ::isatty(STDOUT_FILENO) != 0;
 }
 
+TerminalSize queryTerminalSize() {
+  winsize size {};
+  if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) != 0) {
+    throw std::runtime_error("terminal size query failed");
+  }
+  return TerminalSize{
+    .cols = static_cast<int>(size.ws_col),
+    .rows = static_cast<int>(size.ws_row),
+    .xpixel = static_cast<int>(size.ws_xpixel),
+    .ypixel = static_cast<int>(size.ws_ypixel),
+  };
+}
+
 void installQuitSignalHandlers() {
   struct sigaction action {};
   action.sa_handler = handleQuitSignal;
@@ -86,12 +105,28 @@ void installQuitSignalHandlers() {
   sigaction(SIGHUP, &action, nullptr);
 }
 
+void installResizeSignalHandler() {
+  struct sigaction action {};
+  action.sa_handler = handleResizeSignal;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+  sigaction(SIGWINCH, &action, nullptr);
+}
+
 bool shouldQuit() noexcept {
   return g_should_quit != 0;
 }
 
 void resetQuitFlag() noexcept {
   g_should_quit = 0;
+}
+
+bool consumeResizeFlag() noexcept {
+  if (g_was_resized == 0) {
+    return false;
+  }
+  g_was_resized = 0;
+  return true;
 }
 
 }  // namespace contourtty

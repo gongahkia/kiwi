@@ -38,17 +38,27 @@ int runApp(int argc, char** argv) {
 
   contourtty::resetQuitFlag();
   contourtty::installQuitSignalHandlers();
+  contourtty::installResizeSignalHandler();
   contourtty::TerminalSession session;
   if (const char* throw_after_terminal = std::getenv("CONTOURTTY_THROW_AFTER_TERMINAL");
       throw_after_terminal != nullptr && std::string_view(throw_after_terminal) == "1") {
     throw std::runtime_error("forced terminal exception");
   }
-  std::cout << "\x1b[Hcontourtty " << CONTOURTTY_VERSION << "\npress q to quit\n";
+  const auto print_size = [] {
+    const auto size = contourtty::queryTerminalSize();
+    std::cout << "\x1b[Hcontourtty " << CONTOURTTY_VERSION << "\npress q to quit\nsize: "
+              << size.cols << 'x' << size.rows << "\n" << std::flush;
+  };
+  print_size();
+  contourtty::consumeResizeFlag();
   while (!contourtty::shouldQuit()) {
     char input = 0;
     const ssize_t n = ::read(STDIN_FILENO, &input, 1);
     if (n == 1 && (input == 'q' || input == 'Q')) {
       break;
+    }
+    if (contourtty::consumeResizeFlag()) {
+      print_size();
     }
   }
   return 0;
