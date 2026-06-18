@@ -9,6 +9,7 @@ kumeyuri <COMMAND>
 | Command | Purpose |
 | --- | --- |
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
+| `lint` | Print layout warnings as text or JSON |
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated TUI timeline |
 | `compat` | Print Mermaid root support for the tracked docs version |
@@ -54,6 +55,16 @@ kumeyuri render diagram.mmd --format svg --theme github --dark-theme tokyo-night
 kumeyuri render diagram.mmd --format webp --padding 12 > diagram.webp
 kumeyuri render diagram.mmd --format tui
 ```
+
+## Lint
+
+```text
+kumeyuri lint [--json] <FILE>
+```
+
+`lint` parses the diagram and reports non-fatal layout warnings without rendering
+an artifact. Text output is intended for terminals; `--json` emits a stable
+report with `file`, `ok`, and `warnings` fields.
 
 ## Watch
 

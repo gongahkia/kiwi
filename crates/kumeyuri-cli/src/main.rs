@@ -68,6 +68,12 @@ enum Command {
         #[command(flatten)]
         options: RenderOptions,
     },
+    Lint {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
     Watch {
         #[arg(value_name = "FILE")]
         file: PathBuf,
@@ -193,6 +199,7 @@ fn run() -> Result<(), String> {
             format,
             options,
         } => render_file(&file, format, &options),
+        Command::Lint { file, json } => lint_file(&file, json),
         Command::Watch { file } => watch_file(&file),
         Command::Play {
             file,
@@ -451,6 +458,52 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
     io::stdout()
         .write_all(&output)
         .map_err(|error| format!("failed to write stdout: {error}"))
+}
+
+fn lint_file(path: &Path, json: bool) -> Result<(), String> {
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let report = lint_source(&path.display().to_string(), &source)?;
+    print_lint_report(&report, json)
+}
+
+fn lint_source(file: &str, source: &str) -> Result<LayoutReport, String> {
+    let diagram = parse_diagram(source)?;
+    let warnings = layout_warnings(&diagram, &RenderOptions::default());
+    Ok(LayoutReport {
+        file: file.to_owned(),
+        ok: warnings.is_empty(),
+        warnings,
+    })
+}
+
+fn print_lint_report(report: &LayoutReport, json: bool) -> Result<(), String> {
+    let output = if json {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(report)
+                .map_err(|error| format!("failed to encode lint report: {error}"))?
+        )
+    } else {
+        format_lint_text(report)
+    };
+    io::stdout()
+        .write_all(output.as_bytes())
+        .map_err(|error| format!("failed to write stdout: {error}"))
+}
+
+fn format_lint_text(report: &LayoutReport) -> String {
+    if report.warnings.is_empty() {
+        return format!("{}: ok\n", report.file);
+    }
+    let mut output = String::new();
+    for warning in &report.warnings {
+        output.push_str(&report.file);
+        output.push_str(": ");
+        output.push_str(&warning.line());
+        output.push('\n');
+    }
+    output
 }
 
 fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
@@ -1210,21 +1263,37 @@ fn parse_diagram(source: &str) -> Result<Diagram, String> {
     })
 }
 
-fn emit_layout_warnings(diagram: &Diagram, options: &RenderOptions) {
-    for warning in layout_warnings(diagram, options) {
-        eprintln!("{warning}");
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct LayoutReport {
+    file: String,
+    ok: bool,
+    warnings: Vec<LayoutWarning>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct LayoutWarning {
+    code: &'static str,
+    message: String,
+    suggestion: String,
+}
+
+impl LayoutWarning {
+    fn line(&self) -> String {
+        format!("warning: {}; {}", self.message, self.suggestion)
     }
 }
 
-fn layout_warnings(diagram: &Diagram, options: &RenderOptions) -> Vec<String> {
+fn emit_layout_warnings(diagram: &Diagram, options: &RenderOptions) {
+    for warning in layout_warnings(diagram, options) {
+        eprintln!("{}", warning.line());
+    }
+}
+
+fn layout_warnings(diagram: &Diagram, options: &RenderOptions) -> Vec<LayoutWarning> {
     let mut warnings = match &diagram.kind {
         DiagramKind::Flowchart(ast) => orphan_flowchart_nodes(ast)
             .into_iter()
-            .map(|id| {
-                format!(
-                    "warning: orphan flowchart node `{id}` has no edges; add an edge such as `{id} --> <target>` or remove the node"
-                )
-            })
+            .map(orphan_flowchart_node_warning)
             .collect(),
         _ => Vec::new(),
     };
@@ -1234,7 +1303,15 @@ fn layout_warnings(diagram: &Diagram, options: &RenderOptions) -> Vec<String> {
     warnings
 }
 
-fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<String> {
+fn orphan_flowchart_node_warning(id: String) -> LayoutWarning {
+    LayoutWarning {
+        code: "flowchart.orphan_node",
+        message: format!("orphan flowchart node `{id}` has no edges"),
+        suggestion: format!("add an edge such as `{id} --> <target>` or remove the node"),
+    }
+}
+
+fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<LayoutWarning> {
     let DiagramKind::Flowchart(ast) = &diagram.kind else {
         return None;
     };
@@ -1246,18 +1323,26 @@ fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<
         Direction::TopDown | Direction::BottomTop
             if height >= width.saturating_mul(EXTREME_ASPECT_RATIO) =>
         {
-            Some(format!(
-                "warning: flowchart layout is very tall ({width}x{height}); try `graph {}` to reduce vertical space",
-                suggested_flowchart_direction(direction)
-            ))
+            Some(LayoutWarning {
+                code: "flowchart.extreme_aspect_ratio",
+                message: format!("flowchart layout is very tall ({width}x{height})"),
+                suggestion: format!(
+                    "try `graph {}` to reduce vertical space",
+                    suggested_flowchart_direction(direction)
+                ),
+            })
         }
         Direction::LeftRight | Direction::RightLeft
             if width >= height.saturating_mul(EXTREME_ASPECT_RATIO) =>
         {
-            Some(format!(
-                "warning: flowchart layout is very wide ({width}x{height}); try `graph {}` to reduce horizontal space",
-                suggested_flowchart_direction(direction)
-            ))
+            Some(LayoutWarning {
+                code: "flowchart.extreme_aspect_ratio",
+                message: format!("flowchart layout is very wide ({width}x{height})"),
+                suggestion: format!(
+                    "try `graph {}` to reduce horizontal space",
+                    suggested_flowchart_direction(direction)
+                ),
+            })
         }
         _ => None,
     }
@@ -1516,9 +1601,10 @@ mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, PluginCommand, PluginRegistry, RenderCharset,
         RenderFormat, RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS,
-        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, layout_warnings, parse_diagram,
-        parse_non_empty_string, parse_positive_usize, parse_speed_override, playback_options,
-        plugin_runtime_policy, read_installed_plugin_records, remove_plugin_records, render_source,
+        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, format_lint_text,
+        layout_warnings, lint_source, parse_diagram, parse_non_empty_string, parse_positive_usize,
+        parse_speed_override, playback_options, plugin_runtime_policy,
+        read_installed_plugin_records, remove_plugin_records, render_source,
         resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, timeline_from_source,
         timeline_from_source_with_options, timeline_from_source_with_render_options,
         write_plugin_install_record,
@@ -1561,7 +1647,7 @@ mod tests {
     #[test]
     fn layout_warnings_flag_orphan_flowchart_nodes() {
         let diagram = parse_diagram("graph TD\nA\nB --> C\nsubgraph group\nD\nend").unwrap();
-        let warnings = layout_warnings(&diagram, &RenderOptions::default());
+        let warnings = warning_lines(&layout_warnings(&diagram, &RenderOptions::default()));
 
         assert_eq!(
             warnings,
@@ -1582,7 +1668,7 @@ mod tests {
     #[test]
     fn layout_warnings_suggest_lr_for_tall_flowcharts() {
         let diagram = parse_diagram("graph TD\nA --> B\nB --> C").unwrap();
-        let warnings = layout_warnings(&diagram, &RenderOptions::default());
+        let warnings = warning_lines(&layout_warnings(&diagram, &RenderOptions::default()));
 
         assert_eq!(
             warnings,
@@ -1595,7 +1681,7 @@ mod tests {
     #[test]
     fn layout_warnings_suggest_td_for_wide_flowcharts() {
         let diagram = parse_diagram("graph LR\nA --> B\nB --> C").unwrap();
-        let warnings = layout_warnings(&diagram, &RenderOptions::default());
+        let warnings = warning_lines(&layout_warnings(&diagram, &RenderOptions::default()));
 
         assert_eq!(
             warnings,
@@ -1603,6 +1689,36 @@ mod tests {
                 "warning: flowchart layout is very wide (26x6); try `graph TD` to reduce horizontal space"
             ]
         );
+    }
+
+    #[test]
+    fn lint_parser_accepts_json_flag() {
+        let cli = Cli::try_parse_from(["kumeyuri", "lint", "diagram.mmd", "--json"]).unwrap();
+        let Command::Lint { file, json } = cli.command else {
+            panic!("expected lint command");
+        };
+
+        assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
+        assert!(json);
+    }
+
+    #[test]
+    fn lint_report_formats_text_and_json() {
+        let report = lint_source("diagram.mmd", "graph TD\nA\nB --> C").unwrap();
+
+        assert!(!report.ok);
+        assert_eq!(report.warnings[0].code, "flowchart.orphan_node");
+        assert_eq!(
+            format_lint_text(&report),
+            "diagram.mmd: warning: orphan flowchart node `A` has no edges; add an edge such as `A --> <target>` or remove the node\n"
+        );
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains(r#""file":"diagram.mmd""#));
+        assert!(json.contains(r#""code":"flowchart.orphan_node""#));
+
+        let ok = lint_source("ok.mmd", "graph TD\nA --> B").unwrap();
+        assert!(ok.ok);
+        assert_eq!(format_lint_text(&ok), "ok.mmd: ok\n");
     }
 
     #[test]
@@ -2023,6 +2139,10 @@ mod tests {
         let timeline = timeline_from_source("%%{ animate: 'none' }%%\ngraph TD\nA --> B").unwrap();
 
         assert_eq!(timeline.len(), 1);
+    }
+
+    fn warning_lines(warnings: &[super::LayoutWarning]) -> Vec<String> {
+        warnings.iter().map(super::LayoutWarning::line).collect()
     }
 
     #[test]
