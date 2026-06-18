@@ -42,31 +42,36 @@ const githubSvgAllowlist = {
 for (const [mode, svg] of fixtures) {
   const sanitized = purify.sanitize(svg, githubSvgAllowlist);
   assertClean(mode, sanitized);
+  const folded = collapseWhitespace(sanitized.toLowerCase());
   if (mode === "smil") {
-    assertIncludes(mode, sanitized, /<animate\b/i, "SMIL animate element stripped");
-    assertIncludes(
-      mode,
-      sanitized,
-      /attributeName="opacity"|attributename="opacity"/i,
-      "SMIL opacity attribute stripped"
-    );
+    assertIncludes(mode, folded, "<animate", "SMIL animate element stripped");
+    assertIncludes(mode, folded, 'attributename="opacity"', "SMIL opacity attribute stripped");
   } else if (mode === "css") {
-    assertIncludes(mode, sanitized, /<style\b/i, "CSS style element stripped");
-    assertIncludes(mode, sanitized, /@keyframes\s+kumeyuri-frame-0/i, "CSS keyframes stripped");
+    assertIncludes(mode, folded, "<style", "CSS style element stripped");
+    assertIncludes(mode, folded, "@keyframes kumeyuri-frame-0", "CSS keyframes stripped");
   } else {
     throw new Error(`unknown fixture mode: ${mode}`);
   }
 }
 
 function parseFixtures(source) {
-  const marker = /^--kumeyuri-svg-mode:([a-z]+)--$/gm;
   const fixtures = new Map();
-  const matches = [...source.matchAll(marker)];
-  for (let index = 0; index < matches.length; index += 1) {
-    const mode = matches[index][1];
-    const start = matches[index].index + matches[index][0].length;
-    const end = matches[index + 1]?.index ?? source.length;
-    fixtures.set(mode, source.slice(start, end).trim());
+  let mode = undefined;
+  let buffer = [];
+  for (const line of source.split("\n")) {
+    const nextMode = parseFixtureMarker(line);
+    if (nextMode) {
+      if (mode) {
+        fixtures.set(mode, buffer.join("\n").trim());
+      }
+      mode = nextMode;
+      buffer = [];
+    } else if (mode) {
+      buffer.push(line);
+    }
+  }
+  if (mode) {
+    fixtures.set(mode, buffer.join("\n").trim());
   }
   for (const mode of ["smil", "css"]) {
     if (!fixtures.has(mode)) {
@@ -77,19 +82,47 @@ function parseFixtures(source) {
 }
 
 function assertClean(mode, sanitized) {
-  assertIncludes(mode, sanitized, /<svg\b/i, "SVG root stripped");
-  assertIncludes(mode, sanitized, /<title\b/i, "title stripped");
-  assertIncludes(mode, sanitized, /<desc\b/i, "description stripped");
-  assertIncludes(mode, sanitized, /<metadata\b/i, "text fallback stripped");
-  assertIncludes(mode, sanitized, /<g\b/i, "frame groups stripped");
-  assertIncludes(mode, sanitized, /<text\b/i, "text output stripped");
-  assertIncludes(mode, sanitized, /prefers-color-scheme/i, "colour-scheme CSS stripped");
+  const folded = sanitized.toLowerCase();
+  assertIncludes(mode, folded, "<svg", "SVG root stripped");
+  assertIncludes(mode, folded, "<title", "title stripped");
+  assertIncludes(mode, folded, "<desc", "description stripped");
+  assertIncludes(mode, folded, "<metadata", "text fallback stripped");
+  assertIncludes(mode, folded, "<g", "frame groups stripped");
+  assertIncludes(mode, folded, "<text", "text output stripped");
+  assertIncludes(mode, folded, "prefers-color-scheme", "colour-scheme CSS stripped");
 }
 
-function assertIncludes(mode, value, pattern, message) {
-  if (!pattern.test(value)) {
+function assertIncludes(mode, value, needle, message) {
+  if (!value.includes(needle)) {
     throw new Error(`${mode}: ${message}\nSanitized SVG:\n${value}`);
   }
+}
+
+function parseFixtureMarker(line) {
+  const prefix = "--kumeyuri-svg-mode:";
+  const suffix = "--";
+  if (!line.startsWith(prefix) || !line.endsWith(suffix)) {
+    return undefined;
+  }
+  const mode = line.slice(prefix.length, -suffix.length);
+  return mode && Array.from(mode).every((char) => char >= "a" && char <= "z") ? mode : undefined;
+}
+
+function collapseWhitespace(value) {
+  let output = "";
+  let pendingSpace = false;
+  for (const char of value) {
+    if (char.trim() === "") {
+      pendingSpace = output.length > 0;
+    } else {
+      if (pendingSpace) {
+        output += " ";
+        pendingSpace = false;
+      }
+      output += char;
+    }
+  }
+  return output;
 }
 
 function readStdin() {

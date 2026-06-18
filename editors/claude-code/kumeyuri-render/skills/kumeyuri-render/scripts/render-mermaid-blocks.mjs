@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const MERMAID_FENCE = /^([ \t]*)```([^\n`]*)\n([\s\S]*?)\n\1```[ \t]*$/gm;
 
 export function parseArgs(argv) {
   const options = {
@@ -42,20 +41,103 @@ export function parseArgs(argv) {
 
 export function findMermaidBlocks(markdown) {
   const blocks = [];
-  for (const match of markdown.matchAll(MERMAID_FENCE)) {
-    const info = match[2].trim().toLowerCase();
-    if (!info.split(/\s+/).some((part) => part === "mermaid" || part === "mmd")) {
+  const lines = markdown.split("\n");
+  const starts = lineStarts(lines);
+  for (let index = 0; index < lines.length; index += 1) {
+    const opening = parseMermaidOpening(lines[index]);
+    if (!opening) {
       continue;
     }
+    const closingIndex = findClosingFence(lines, index + 1, opening.indent);
+    if (closingIndex === -1) {
+      continue;
+    }
+    const start = starts[index];
+    const sourceStart = Math.min(starts[index] + lines[index].length + 1, markdown.length);
+    const closeStart = starts[closingIndex];
+    const sourceEnd = closeStart > sourceStart && markdown[closeStart - 1] === "\n" ? closeStart - 1 : closeStart;
+    const end = starts[closingIndex] + lines[closingIndex].length;
     blocks.push({
       index: blocks.length + 1,
-      start: match.index,
-      end: match.index + match[0].length,
-      fence: match[0],
-      source: match[3],
+      start,
+      end,
+      fence: markdown.slice(start, end),
+      source: markdown.slice(sourceStart, sourceEnd),
     });
+    index = closingIndex;
   }
   return blocks;
+}
+
+function lineStarts(lines) {
+  const starts = [];
+  let offset = 0;
+  for (const line of lines) {
+    starts.push(offset);
+    offset += line.length + 1;
+  }
+  return starts;
+}
+
+function parseMermaidOpening(line) {
+  const indentEnd = readIndentEnd(line);
+  if (!line.startsWith("```", indentEnd)) {
+    return undefined;
+  }
+  const info = line.slice(indentEnd + 3);
+  if (info.includes("`") || !hasMermaidInfo(info)) {
+    return undefined;
+  }
+  return { indent: line.slice(0, indentEnd) };
+}
+
+function readIndentEnd(line) {
+  let index = 0;
+  while (line[index] === " " || line[index] === "\t") {
+    index += 1;
+  }
+  return index;
+}
+
+function hasMermaidInfo(info) {
+  return splitWhitespace(info.toLowerCase()).some((part) => part === "mermaid" || part === "mmd");
+}
+
+function splitWhitespace(value) {
+  const parts = [];
+  let part = "";
+  for (const char of value) {
+    if (char.trim() === "") {
+      if (part) {
+        parts.push(part);
+        part = "";
+      }
+    } else {
+      part += char;
+    }
+  }
+  if (part) {
+    parts.push(part);
+  }
+  return parts;
+}
+
+function findClosingFence(lines, start, indent) {
+  for (let index = start; index < lines.length; index += 1) {
+    if (isClosingFence(lines[index], indent)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function isClosingFence(line, indent) {
+  const fence = `${indent}\`\`\``;
+  if (!line.startsWith(fence)) {
+    return false;
+  }
+  const rest = line.slice(fence.length);
+  return Array.from(rest).every((char) => char === " " || char === "\t");
 }
 
 export function injectRenderedBlocks(markdown, blocks, rendered, options = {}) {

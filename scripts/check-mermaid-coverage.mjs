@@ -120,7 +120,7 @@ function splitMarkdownRow(line) {
   const cells = [];
   let cell = "";
   let inCode = false;
-  const body = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const body = stripOuterPipes(line.trim());
   for (let index = 0; index < body.length; index += 1) {
     const char = body[index];
     if (char === "`") {
@@ -135,6 +135,12 @@ function splitMarkdownRow(line) {
   }
   cells.push(cell.trim());
   return cells;
+}
+
+function stripOuterPipes(value) {
+  const start = value.startsWith("|") ? 1 : 0;
+  const end = value.endsWith("|") ? value.length - 1 : value.length;
+  return value.slice(start, end);
 }
 
 function formatList(items) {

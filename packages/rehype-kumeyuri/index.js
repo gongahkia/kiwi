@@ -73,9 +73,28 @@ function classNames(node) {
     return value.map(String);
   }
   if (typeof value === "string") {
-    return value.split(/\s+/).filter(Boolean);
+    return splitWhitespace(value);
   }
   return [];
+}
+
+function splitWhitespace(value) {
+  const parts = [];
+  let part = "";
+  for (const char of value) {
+    if (char.trim() === "") {
+      if (part) {
+        parts.push(part);
+        part = "";
+      }
+    } else {
+      part += char;
+    }
+  }
+  if (part) {
+    parts.push(part);
+  }
+  return parts;
 }
 
 function textContent(node) {

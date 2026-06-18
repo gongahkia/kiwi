@@ -97,10 +97,10 @@ function dispatchChangeEvidence(diff) {
 
 function isDispatchChange(file, text) {
   if (file.endsWith("/ast.rs")) {
-    return text.includes("DiagramKind") || /^\s*[A-Z][A-Za-z0-9_]*\(Box<.+Ast>\),/.test(text);
+    return text.includes("DiagramKind") || isAstVariantLine(text);
   }
   if (file.endsWith("/parser.rs")) {
-    return text.includes("DiagramKind::") || /parse_[a-z_]+_header/.test(text);
+    return text.includes("DiagramKind::") || isParserHeaderReference(text);
   }
   if (file.endsWith("/frame.rs")) {
     return text.includes("DiagramKind::") || text.includes("render_diagram");
@@ -150,7 +150,7 @@ function splitMarkdownRow(line) {
   const cells = [];
   let cell = "";
   let inCode = false;
-  const body = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const body = stripOuterPipes(line.trim());
   for (let index = 0; index < body.length; index += 1) {
     const char = body[index];
     if (char === "`") {
@@ -174,7 +174,58 @@ function revExists(revision) {
 }
 
 function allZeros(value) {
-  return /^0+$/.test(value);
+  return value.length > 0 && Array.from(value).every((char) => char === "0");
+}
+
+function isAstVariantLine(text) {
+  const trimmed = text.trimStart();
+  const box = "(Box<";
+  const boxIndex = trimmed.indexOf(box);
+  if (boxIndex <= 0 || !trimmed.endsWith(">),")) {
+    return false;
+  }
+  const variant = trimmed.slice(0, boxIndex);
+  return isRustUpperIdentifier(variant) && trimmed.slice(boxIndex + box.length, -3).endsWith("Ast");
+}
+
+function isParserHeaderReference(text) {
+  const marker = "parse_";
+  let cursor = text.indexOf(marker);
+  while (cursor !== -1) {
+    const end = readRustIdentifierEnd(text, cursor);
+    if (text.slice(cursor, end).endsWith("_header")) {
+      return true;
+    }
+    cursor = text.indexOf(marker, cursor + marker.length);
+  }
+  return false;
+}
+
+function readRustIdentifierEnd(text, start) {
+  let end = start;
+  while (end < text.length && isRustIdentifierChar(text[end])) {
+    end += 1;
+  }
+  return end;
+}
+
+function isRustUpperIdentifier(value) {
+  return (
+    value.length > 0 &&
+    value[0] >= "A" &&
+    value[0] <= "Z" &&
+    Array.from(value).every(isRustIdentifierChar)
+  );
+}
+
+function isRustIdentifierChar(char) {
+  return (char >= "A" && char <= "Z") || (char >= "a" && char <= "z") || (char >= "0" && char <= "9") || char === "_";
+}
+
+function stripOuterPipes(value) {
+  let start = value.startsWith("|") ? 1 : 0;
+  let end = value.endsWith("|") ? value.length - 1 : value.length;
+  return value.slice(start, end);
 }
 
 function coverageAtRevision(revision) {

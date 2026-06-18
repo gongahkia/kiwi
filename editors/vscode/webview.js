@@ -1,9 +1,13 @@
-const MERMAID_FILE = /\.(mmd|mermaid)$/i;
 const ANIMATIONS = new Set(["default", "none", "trace", "playback", "transitions"]);
 
 function isMermaidDocument(document) {
   const fileName = document?.uri?.fsPath || document?.fileName || "";
-  return document?.languageId === "mermaid" || MERMAID_FILE.test(fileName);
+  return document?.languageId === "mermaid" || hasMermaidExtension(fileName);
+}
+
+function hasMermaidExtension(fileName) {
+  const lower = fileName.toLowerCase();
+  return lower.endsWith(".mmd") || lower.endsWith(".mermaid");
 }
 
 function normalizeOptions(options = {}) {
@@ -119,12 +123,23 @@ function buildWebviewHtml({ nonce, cspSource, assetUris, source, fileName, optio
 }
 
 function serializeForScript(value) {
-  return JSON.stringify(value)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
+  let output = "";
+  for (const char of JSON.stringify(value)) {
+    if (char === "<") {
+      output += "\\u003c";
+    } else if (char === ">") {
+      output += "\\u003e";
+    } else if (char === "&") {
+      output += "\\u0026";
+    } else if (char === "\u2028") {
+      output += "\\u2028";
+    } else if (char === "\u2029") {
+      output += "\\u2029";
+    } else {
+      output += char;
+    }
+  }
+  return output;
 }
 
 module.exports = {
