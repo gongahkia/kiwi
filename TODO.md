@@ -327,7 +327,7 @@
 - [ ] Verify NVDA, VoiceOver, JAWS narration of `aria-live` region
 - [x] Verify touch targets ≥ 44×44 px on the web player
 - [x] Verify SVG `<title>` and `<desc>` populate from diagram metadata
-- [ ] Verify `.vtt` caption track generated and synced to animation
+- [x] Verify `.vtt` caption track generated and synced to animation
 - [ ] Verify `--narrate` flag emits sensible prose for each diagram type
 - [ ] Verify `--alt-text` flag returns paste-ready alt strings
 

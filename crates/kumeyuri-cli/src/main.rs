@@ -136,6 +136,7 @@ enum RenderFormat {
     Gif,
     Apng,
     Webp,
+    Vtt,
     Tui,
 }
 
@@ -1251,6 +1252,7 @@ fn render_source(
         RenderFormat::Gif => render_raster_source(source, options, RasterRenderer::render_gif),
         RenderFormat::Apng => render_raster_source(source, options, RasterRenderer::render_apng),
         RenderFormat::Webp => render_raster_source(source, options, RasterRenderer::render_webp),
+        RenderFormat::Vtt => Ok(render_vtt_source(source, options)?.into_bytes()),
         RenderFormat::Tui => Err(msg("render-tui-interactive")),
     }
 }
@@ -1300,6 +1302,12 @@ fn render_raster_source(
             &[msg_arg("error", format!("{error:?}"))],
         )
     })
+}
+
+fn render_vtt_source(source: &str, options: &RenderOptions) -> Result<String, String> {
+    let timeline =
+        timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
+    Ok(render_timeline_vtt(&timeline))
 }
 
 fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
@@ -1613,6 +1621,46 @@ fn parse_diagram(source: &str) -> Result<Diagram, String> {
             ],
         )
     })
+}
+
+fn render_timeline_vtt(timeline: &Timeline) -> String {
+    let mut output = String::from("WEBVTT\n\n");
+    let mut cursor_ms = 0_u128;
+    for (index, keyframe) in timeline.keyframes().iter().enumerate() {
+        let start_ms = cursor_ms;
+        let end_ms = start_ms.saturating_add(keyframe.duration().as_millis().max(1));
+        cursor_ms = end_ms;
+        output.push_str(&format!(
+            "frame-{index}\n{} --> {}\n",
+            format_vtt_timestamp(start_ms),
+            format_vtt_timestamp(end_ms),
+        ));
+        for line in keyframe.frame().to_lines() {
+            if line.trim().is_empty() {
+                output.push_str(" \n");
+            } else {
+                output.push_str(&escape_vtt_text(&line));
+                output.push('\n');
+            }
+        }
+        output.push('\n');
+    }
+    output
+}
+
+fn format_vtt_timestamp(value_ms: u128) -> String {
+    let hours = value_ms / 3_600_000;
+    let minutes = (value_ms / 60_000) % 60;
+    let seconds = (value_ms / 1_000) % 60;
+    let milliseconds = value_ms % 1_000;
+    format!("{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}")
+}
+
+fn escape_vtt_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1980,8 +2028,8 @@ mod tests {
         parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
         parse_speed_override, playback_options, plugin_runtime_policy,
         read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
-        resolve_ai_library_path, resolve_crates_plugin_metadata, resolve_npm_plugin_metadata,
-        timeline_from_source, timeline_from_source_with_options,
+        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
+        resolve_npm_plugin_metadata, timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options, write_plugin_install_record,
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -1989,7 +2037,11 @@ mod tests {
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
-    use kumeyuri_core::{abi::Capability, animator::AnimationOptions};
+    use kumeyuri_core::{
+        abi::Capability,
+        animator::{AnimationOptions, KeyFrame, Timeline},
+        frame::Frame,
+    };
     #[cfg(not(target_arch = "wasm32"))]
     use notify::{
         Event, EventKind,
@@ -2125,11 +2177,28 @@ mod tests {
 
     #[test]
     fn render_format_parser_accepts_all_values() {
-        for value in ["text", "svg", "gif", "apng", "webp", "tui"] {
+        for value in ["text", "svg", "gif", "apng", "webp", "vtt", "tui"] {
             let cli = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--format", value])
                 .unwrap();
             assert!(matches!(cli.command, Command::Render { .. }));
         }
+    }
+
+    #[test]
+    fn renders_vtt_captions_synced_to_animation() {
+        let mut first = Frame::new(3, 1);
+        first.write_text(0, 0, "A&B", Default::default()).unwrap();
+        let mut second = Frame::new(3, 1);
+        second.write_text(0, 0, "<C>", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![
+            KeyFrame::new(first, Duration::from_millis(100)),
+            KeyFrame::new(second, Duration::from_millis(2_500)),
+        ]);
+
+        assert_eq!(
+            render_timeline_vtt(&timeline),
+            "WEBVTT\n\nframe-0\n00:00:00.000 --> 00:00:00.100\nA&amp;B\n\nframe-1\n00:00:00.100 --> 00:00:02.600\n&lt;C&gt;\n\n"
+        );
     }
 
     #[test]
