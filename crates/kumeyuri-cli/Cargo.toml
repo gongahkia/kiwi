@@ -1,6 +1,6 @@
 [package]
 name = "kumeyuri-cli"
-version = "0.1.0-static"
+version = "1.1.0-plugins"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/gongahkia/kumeyuri"
@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
-kumeyuri-core = { version = "0.1.0-static", path = "../kumeyuri-core" }
+kumeyuri-core = { version = "1.1.0-plugins", path = "../kumeyuri-core" }
 kumeyuri-render-raster = { path = "../kumeyuri-render-raster" }
 kumeyuri-render-svg = { path = "../kumeyuri-render-svg" }
 kumeyuri-render-tui = { path = "../kumeyuri-render-tui" }
