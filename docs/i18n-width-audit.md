@@ -12,6 +12,7 @@ The core exposes `kumeyuri_core::unicode` helpers:
 
 - `display_width`;
 - `display_width_i32`;
+- `truncate_display_width`;
 - `wrap_display_width_lines`.
 
 ## Updated Paths
@@ -20,6 +21,8 @@ The core exposes `kumeyuri_core::unicode` helpers:
   `label_metrics`.
 - `--max-label-width` wrapping now compares display width and splits long words
   on grapheme boundaries.
+- Layout sizing now has no direct `.chars().count()` width callsites in
+  `crates/kumeyuri-core/src/layout.rs`.
 
 ## Remaining Width Paths
 
@@ -27,7 +30,6 @@ The core exposes `kumeyuri_core::unicode` helpers:
 
 | Area | Current use | Follow-up |
 | --- | --- | --- |
-| `crates/kumeyuri-core/src/layout.rs` | Diagram-specific label sizing for sequence, class, ER, Gantt, pie, journey, gitGraph, timeline, mindmap, requirement, and C4 paths. | Migrate during the CJK layout TODO. |
 | `crates/kumeyuri-core/src/frame.rs` | Centering, label positioning, and text writes into the glyph grid. | Migrate after BiDi and CJK cell occupancy rules are defined. |
 | `crates/kumeyuri-core/src/animator.rs` | Marker regions derived from positioned labels. | Migrate after layout/frame width semantics match. |
 | `crates/kumeyuri-cli/src/main.rs` and `crates/kumeyuri-render-wasm/src/lib.rs` | ASCII-only fixed-width assertions in tests. | Keep unless tests add non-ASCII fixtures. |

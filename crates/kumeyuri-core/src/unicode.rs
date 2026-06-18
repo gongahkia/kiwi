@@ -22,6 +22,21 @@ pub fn bidi_visual_order_line(text: &str) -> String {
 }
 
 #[must_use]
+pub fn truncate_display_width(text: &str, max_width: usize) -> String {
+    let mut output = String::new();
+    let mut width = 0usize;
+    for grapheme in UnicodeSegmentation::graphemes(text, true) {
+        let grapheme_width = display_width(grapheme);
+        if width + grapheme_width > max_width {
+            break;
+        }
+        output.push_str(grapheme);
+        width += grapheme_width;
+    }
+    output
+}
+
+#[must_use]
 pub fn wrap_display_width_lines(text: &str, max_width: usize) -> Vec<String> {
     if text.is_empty() {
         return Vec::new();
@@ -104,7 +119,9 @@ fn push_wrapped_word(
 
 #[cfg(test)]
 mod tests {
-    use super::{bidi_visual_order_line, display_width, wrap_display_width_lines};
+    use super::{
+        bidi_visual_order_line, display_width, truncate_display_width, wrap_display_width_lines,
+    };
 
     #[test]
     fn bidi_visual_order_reorders_rtl_runs() {
@@ -117,6 +134,15 @@ mod tests {
         assert_eq!(display_width("ascii"), 5);
         assert_eq!(display_width("漢字"), 4);
         assert_eq!(display_width("e\u{301}"), 1);
+    }
+
+    #[test]
+    fn truncate_display_width_preserves_graphemes() {
+        assert_eq!(truncate_display_width("漢字abc", 4), "漢字");
+        assert_eq!(
+            truncate_display_width("e\u{301}e\u{301}e\u{301}", 2),
+            "e\u{301}e\u{301}"
+        );
     }
 
     #[test]

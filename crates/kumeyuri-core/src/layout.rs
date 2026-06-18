@@ -21,7 +21,9 @@ use crate::ast::{
     WardleyLinkKind, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
     ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
-use crate::unicode::{display_width_i32, wrap_display_width_lines};
+use crate::unicode::{
+    display_width, display_width_i32, truncate_display_width, wrap_display_width_lines,
+};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 pub mod optimise {
@@ -2299,8 +2301,8 @@ impl SequenceLayoutEngine {
             .collect::<Vec<_>>();
         let min_x = lanes.iter().copied().min().unwrap_or(0);
         let max_x = lanes.iter().copied().max().unwrap_or(min_x);
-        let width = (max_x - min_x + self.config.participant_width)
-            .max(note.label.text.chars().count() as i32 + 2);
+        let width =
+            (max_x - min_x + self.config.participant_width).max(label_width(&note.label.text) + 2);
         PositionedSequenceNote {
             participants: note
                 .participants
@@ -2509,7 +2511,7 @@ fn position_sequence_box(
     let label_width = sequence_box
         .label
         .as_ref()
-        .map_or(0, |label| label.text.chars().count() as i32 + 2);
+        .map_or(0, |label| label_width(&label.text) + 2);
     let width = (max_x - min_x).max(label_width);
     let top = box_participants
         .iter()
@@ -2538,8 +2540,8 @@ fn sequence_message_text_width(message: &PositionedSequenceMessage) -> Option<us
     let number_width = message
         .number
         .as_ref()
-        .map(|number| number.chars().count() + 2);
-    let label_width = message.label.as_ref().map(|label| label.chars().count());
+        .map(|number| display_width(number) + 2);
+    let label_width = message.label.as_ref().map(|label| display_width(label));
     match (number_width, label_width) {
         (Some(number), Some(label)) => Some(number + label),
         (Some(number), None) => Some(number),
@@ -4608,8 +4610,8 @@ fn event_modeling_data_block(
 
 fn event_modeling_data_summary(value: &str) -> String {
     let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if compact.chars().count() > 32 {
-        let prefix = compact.chars().take(29).collect::<String>();
+    if display_width(&compact) > 32 {
+        let prefix = truncate_display_width(&compact, 29);
         format!("{prefix}...")
     } else {
         compact
@@ -5904,7 +5906,7 @@ fn requirement_node_size(ast: &RequirementAst, id: &str, config: RequirementLayo
     let lines = requirement_node_lines(ast, id);
     let width = lines
         .iter()
-        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .map(|line| label_width(line) + config.horizontal_padding)
         .max()
         .unwrap_or(config.min_node_width)
         .max(config.min_node_width);
@@ -6100,7 +6102,7 @@ impl C4LayoutEngine {
             height: origin.y + content_size.height,
         };
         if let Some(title) = &title {
-            size.width = size.width.max(title.chars().count() as i32);
+            size.width = size.width.max(label_width(title));
             size.height = size.height.max(1);
         }
         size = layout_size_with_c4_relationships(size, &relationships);
@@ -6574,10 +6576,7 @@ fn c4_style_rows(styles: &HashMap<String, Vec<String>>, id: &str) -> Vec<String>
 }
 
 fn c4_max_width<'a>(rows: impl IntoIterator<Item = &'a str>) -> i32 {
-    rows.into_iter()
-        .map(|row| row.chars().count() as i32)
-        .max()
-        .unwrap_or(0)
+    rows.into_iter().map(label_width).max().unwrap_or(0)
 }
 
 fn c4_rect_map(
@@ -6830,7 +6829,7 @@ fn c4_relationship_label_width(relationship: &PositionedC4Relationship) -> Optio
     let point = c4_polyline_label_point(&relationship.points)?;
     let width = c4_relationship_rows(relationship)
         .iter()
-        .map(|row| row.chars().count() as i32)
+        .map(|row| label_width(row))
         .max()
         .unwrap_or(0);
     Some((point.x - width / 2).max(0) + width + 1)
@@ -6956,9 +6955,9 @@ impl GanttLayoutEngine {
         let title_width = ast
             .title
             .as_ref()
-            .map_or(0, |title| title.text.chars().count() as i32);
+            .map_or(0, |title| label_width(&title.text));
         let tick_width = ticks.iter().fold(0, |width, tick| {
-            width.max(tick.x + tick.label.chars().count() as i32 + 1)
+            width.max(tick.x + label_width(&tick.label) + 1)
         });
         GanttLayout {
             title: ast.title.as_ref().map(|title| title.text.clone()),
@@ -7427,7 +7426,7 @@ impl PieLayoutEngine {
         let title_width = ast
             .title
             .as_ref()
-            .map_or(0, |title| title.text.chars().count() as i32);
+            .map_or(0, |title| label_width(&title.text));
         let legend_width = slice_inputs
             .iter()
             .map(|slice| pie_legend_width(slice, ast.show_data))
@@ -7819,15 +7818,15 @@ fn pie_label_origin(
     let label = pie_slice_percent_label(percent_basis_points);
     Point {
         x: (f64::from(center.x) + angle.sin() * f64::from(config.radius_x) * ratio).round() as i32
-            - (label.chars().count() as i32 / 2),
+            - (label_width(&label) / 2),
         y: (f64::from(center.y) - angle.cos() * f64::from(config.radius_y) * ratio).round() as i32,
     }
 }
 
 fn pie_legend_width(slice: &PieSliceLayoutInput, show_data: bool) -> i32 {
-    let mut width = 2 + slice.label.chars().count() as i32;
+    let mut width = 2 + label_width(&slice.label);
     if show_data {
-        width += 3 + slice.value_text.chars().count() as i32;
+        width += 3 + label_width(&slice.value_text);
     }
     width
 }
@@ -7946,10 +7945,10 @@ impl JourneyLayoutEngine {
         let title_width = ast
             .title
             .as_ref()
-            .map_or(0, |title| title.text.chars().count() as i32);
+            .map_or(0, |title| label_width(&title.text));
         let section_width = sections
             .iter()
-            .map(|section| section.label.chars().count() as i32)
+            .map(|section| label_width(&section.label))
             .max()
             .unwrap_or(0);
         let task_width = tasks
@@ -7981,9 +7980,9 @@ fn journey_actor_index(actors: &mut Vec<String>, actor: &str) -> usize {
 
 fn journey_task_width(task: &PositionedJourneyTask, config: JourneyLayoutConfig) -> i32 {
     let actor_width = journey_actor_text_width(task);
-    let label_width = task.label.chars().count() as i32;
+    let label_extent = label_width(&task.label);
     let score_end = task.score_origin.x + config.score_label_width;
-    label_width
+    label_extent
         .max(score_end)
         .max(task.actors_origin.x + actor_width)
 }
@@ -7995,7 +7994,7 @@ fn journey_actor_text_width(task: &PositionedJourneyTask) -> i32 {
     let actor_names = task
         .actors
         .iter()
-        .map(|actor| actor.chars().count() as i32 + 2)
+        .map(|actor| label_width(actor) + 2)
         .sum::<i32>();
     let separators = (task.actors.len().saturating_sub(1) * 2) as i32;
     actor_names + separators
@@ -8299,7 +8298,7 @@ fn gitgraph_point(
 }
 
 fn gitgraph_label_origin(orientation: GitGraphOrientation, point: Point, label: &str) -> Point {
-    let width = label.chars().count() as i32;
+    let width = label_width(label);
     match orientation {
         GitGraphOrientation::LeftRight => Point {
             x: point.x - width / 2,
@@ -8313,7 +8312,7 @@ fn gitgraph_label_origin(orientation: GitGraphOrientation, point: Point, label: 
 }
 
 fn gitgraph_tag_origin(orientation: GitGraphOrientation, point: Point, tag: &str) -> Point {
-    let width = tag.chars().count() as i32 + 2;
+    let width = label_width(tag) + 2;
     match orientation {
         GitGraphOrientation::LeftRight => Point {
             x: point.x - width / 2,
@@ -8377,7 +8376,7 @@ fn gitgraph_layout_size(
     let mut width = 1;
     let mut height = 1;
     for branch in branches {
-        width = width.max(branch.label_origin.x + branch.name.chars().count() as i32);
+        width = width.max(branch.label_origin.x + label_width(&branch.name));
         height = height.max(branch.label_origin.y + 1);
         for point in &branch.points {
             width = width.max(point.x + 1);
@@ -8387,10 +8386,10 @@ fn gitgraph_layout_size(
     for commit in commits {
         width = width.max(commit.point.x + 1);
         height = height.max(commit.point.y + 1);
-        width = width.max(commit.label_origin.x + commit.id.chars().count() as i32);
+        width = width.max(commit.label_origin.x + label_width(&commit.id));
         height = height.max(commit.label_origin.y + 1);
         if let (Some(tag), Some(origin)) = (&commit.tag, commit.tag_origin) {
-            width = width.max(origin.x + tag.chars().count() as i32 + 2);
+            width = width.max(origin.x + label_width(tag) + 2);
             height = height.max(origin.y + 1);
         }
     }
@@ -8552,21 +8551,21 @@ fn timeline_groups(ast: &TimelineAst) -> Vec<TimelineGroup> {
 
 fn centered_origin(center_x: i32, y: i32, label: &str) -> Point {
     Point {
-        x: (center_x - label.chars().count() as i32 / 2).max(0),
+        x: (center_x - label_width(label) / 2).max(0),
         y,
     }
 }
 
 fn timeline_layout_size(title: Option<&str>, periods: &[PositionedTimelinePeriod]) -> Size {
-    let mut width = title.map_or(1, |title| title.chars().count() as i32);
+    let mut width = title.map_or(1, label_width);
     let mut height = 1;
     for period in periods {
         width = width.max(period.point.x + 1);
         height = height.max(period.point.y + 1);
-        width = width.max(period.label_origin.x + period.label.chars().count() as i32);
+        width = width.max(period.label_origin.x + label_width(&period.label));
         height = height.max(period.label_origin.y + 1);
         for (event, origin) in period.events.iter().zip(&period.event_origins) {
-            width = width.max(origin.x + event.chars().count() as i32);
+            width = width.max(origin.x + label_width(event));
             height = height.max(origin.y + 1);
         }
     }
@@ -8641,8 +8640,8 @@ fn mindmap_node_width(node: &MindmapNode, config: &MindmapLayoutConfig) -> i32 {
     let icon_width = node
         .icon
         .as_ref()
-        .map_or(0, |icon| icon.value.chars().count() as i32 + 1);
-    (node.label.text.chars().count() as i32 + icon_width + config.node_padding * 2)
+        .map_or(0, |icon| label_width(&icon.value) + 1);
+    (label_width(&node.label.text) + icon_width + config.node_padding * 2)
         .max(config.min_node_width)
 }
 
@@ -9954,7 +9953,7 @@ fn class_node_size(class: &ClassNode, config: ClassLayoutConfig) -> Size {
         )
         .chain(fields.iter().map(String::as_str))
         .chain(methods.iter().map(String::as_str))
-        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .map(|line| label_width(line) + config.horizontal_padding)
         .max()
         .unwrap_or(config.min_node_width)
         .max(config.min_node_width);
@@ -9994,7 +9993,7 @@ fn er_entity_size(entity: &ErEntity, config: ClassLayoutConfig) -> Size {
     let attributes = er_attribute_lines(entity);
     let width = std::iter::once(entity.id.value.as_str())
         .chain(attributes.iter().map(String::as_str))
-        .map(|line| line.chars().count() as i32 + config.horizontal_padding)
+        .map(|line| label_width(line) + config.horizontal_padding)
         .max()
         .unwrap_or(config.min_node_width)
         .max(config.min_node_width);
@@ -10125,7 +10124,7 @@ fn relationship_label_width(relationship: &PositionedRequirementRelationship) ->
     let first = relationship.points.first()?;
     let last = relationship.points.last()?;
     let mid_x = (first.x + last.x) / 2;
-    Some(mid_x + relationship.label.chars().count() as i32 + 1)
+    Some(mid_x + label_width(&relationship.label) + 1)
 }
 
 fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) -> Size {
@@ -10147,7 +10146,7 @@ mod tests {
         C4LayoutEngine, FlowLayoutConfig, FlowLayoutEngine, Point, SequenceLayoutEngine,
         StateLayoutEngine, optimise,
     };
-    use crate::ast::{ArrowHead, DiagramKind, FlowShape, FlowchartAst};
+    use crate::ast::{ArrowHead, ClassNode, DiagramKind, FlowShape, FlowchartAst};
     use crate::ast::{
         Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowStatement, FlowSubgraph,
         FlowchartDirective, FlowchartHeader, Label, LabelKind, SequenceArrow, SequenceAst,
@@ -10234,6 +10233,28 @@ mod tests {
         assert_eq!(
             super::wrap_label("SuperLongName", Some(4)),
             "Supe\nrLon\ngNam\ne"
+        );
+    }
+
+    #[test]
+    fn cjk_display_width_expands_layout_labels() {
+        let ast = flowchart(
+            Direction::TopDown,
+            vec![FlowStatement::Node(labelled_node("A", "漢字"))],
+        );
+        let layout = FlowLayoutEngine::default().layout(&ast);
+        let class = ClassNode {
+            id: Spanned::new("漢字".to_owned(), Span::new(0, 0)),
+            annotations: Vec::new(),
+            members: Vec::new(),
+            span: Span::new(0, 0),
+        };
+
+        assert_eq!(node(&layout, "A").rect.size.width, 8);
+        assert_eq!(super::wrap_label("漢字abc", Some(4)), "漢字\nabc");
+        assert_eq!(
+            super::class_node_size(&class, super::ClassLayoutConfig::default()).width,
+            8
         );
     }
 
