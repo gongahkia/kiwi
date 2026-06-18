@@ -236,7 +236,7 @@
 
 - [x] Author RFC `docs/rfcs/0001-plugin-abi.md` proposing plugin ABI semantics
 - [x] Define `kumeyuri_abi` semver scheme and capability flags in core
-- [ ] Define `RenderBackend` trait stable surface (target ABI 1.0)
+- [x] Define `RenderBackend` trait stable surface (target ABI 1.0)
 - [ ] Define `DiagramType` trait surface covering parser + layout hooks
 - [ ] Define `ThemeTransform` trait surface for theme preprocessors
 - [ ] Decide host runtime: `wasmtime` vs `wasmer` vs `wasm-bindgen-cli` — record in `docs/adr/0010-wasm-host.md`

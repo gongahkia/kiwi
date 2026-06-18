@@ -1,5 +1,7 @@
 use std::{fmt, str::FromStr};
 
+use crate::animator::Timeline;
+
 pub const KUMEYURI_ABI_VERSION: AbiVersion = AbiVersion::new(1, 0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -173,9 +175,123 @@ impl FromIterator<Capability> for CapabilitySet {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderBackendMetadata {
+    pub title: Option<String>,
+    pub source_path: Option<String>,
+}
+
+impl RenderBackendMetadata {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            title: None,
+            source_path: None,
+        }
+    }
+}
+
+impl Default for RenderBackendMetadata {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+#[derive(Debug)]
+pub struct RenderBackendRequest<'timeline, 'metadata> {
+    pub abi: AbiVersion,
+    pub format: &'static str,
+    pub theme: &'static str,
+    pub timeline: &'timeline Timeline,
+    pub metadata: &'metadata RenderBackendMetadata,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderArtifact {
+    pub bytes: Vec<u8>,
+    pub media_type: String,
+    pub extension: String,
+}
+
+impl RenderArtifact {
+    #[must_use]
+    pub fn new(
+        bytes: Vec<u8>,
+        media_type: impl Into<String>,
+        extension: impl Into<String>,
+    ) -> Self {
+        Self {
+            bytes,
+            media_type: media_type.into(),
+            extension: extension.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenderBackendError {
+    IncompatibleAbi {
+        host: AbiVersion,
+        required: AbiVersion,
+    },
+    MissingCapabilities(CapabilitySet),
+    UnsupportedFormat(String),
+    RenderFailed(String),
+}
+
+pub trait RenderBackend {
+    fn id(&self) -> &'static str;
+
+    fn abi_version(&self) -> AbiVersion {
+        KUMEYURI_ABI_VERSION
+    }
+
+    fn format(&self) -> &'static str;
+
+    fn media_type(&self) -> &'static str;
+
+    fn extension(&self) -> &'static str;
+
+    fn required_capabilities(&self) -> CapabilitySet {
+        CapabilitySet::empty()
+    }
+
+    fn validate(
+        &self,
+        host_abi: AbiVersion,
+        granted: CapabilitySet,
+    ) -> Result<(), RenderBackendError> {
+        let required_abi = self.abi_version();
+        if !host_abi.supports(required_abi) {
+            return Err(RenderBackendError::IncompatibleAbi {
+                host: host_abi,
+                required: required_abi,
+            });
+        }
+        let required_capabilities = self.required_capabilities();
+        if !required_capabilities.is_subset(granted) {
+            return Err(RenderBackendError::MissingCapabilities(
+                required_capabilities,
+            ));
+        }
+        Ok(())
+    }
+
+    fn render(
+        &self,
+        request: RenderBackendRequest<'_, '_>,
+    ) -> Result<RenderArtifact, RenderBackendError>;
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION};
+    use std::time::Duration;
+
+    use super::{
+        AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION, RenderArtifact, RenderBackend,
+        RenderBackendError, RenderBackendMetadata, RenderBackendRequest,
+    };
+    use crate::{animator::Timeline, frame::Frame};
 
     #[test]
     fn abi_version_parses_and_formats_major_minor() {
@@ -223,5 +339,96 @@ mod tests {
         granted.remove(Capability::FsRead);
         assert!(!granted.contains(Capability::FsRead));
         assert_eq!(CapabilitySet::all().iter().count(), Capability::ALL.len());
+    }
+
+    #[test]
+    fn render_backend_surface_validates_abi_and_capabilities() {
+        let backend = FakeRenderBackend;
+        let granted = CapabilitySet::from_iter([Capability::FsWrite]);
+
+        assert!(backend.validate(KUMEYURI_ABI_VERSION, granted).is_ok());
+        assert_eq!(
+            backend
+                .validate(KUMEYURI_ABI_VERSION, CapabilitySet::empty())
+                .unwrap_err(),
+            RenderBackendError::MissingCapabilities(CapabilitySet::from_iter([
+                Capability::FsWrite
+            ]))
+        );
+        assert!(matches!(
+            backend
+                .validate(AbiVersion::new(0, 9), granted)
+                .unwrap_err(),
+            RenderBackendError::IncompatibleAbi { .. }
+        ));
+    }
+
+    #[test]
+    fn render_backend_surface_returns_artifacts() {
+        let backend = FakeRenderBackend;
+        let timeline = Timeline::from_frame(Frame::new(2, 1), Duration::from_millis(1));
+        let metadata = RenderBackendMetadata {
+            title: Some("diagram".to_owned()),
+            source_path: Some("docs/diagram.mmd".to_owned()),
+        };
+        let request = RenderBackendRequest {
+            abi: KUMEYURI_ABI_VERSION,
+            format: "fake",
+            theme: "github",
+            timeline: &timeline,
+            metadata: &metadata,
+        };
+
+        let artifact = backend.render(request).unwrap();
+
+        assert_eq!(artifact.media_type, "application/x-kumeyuri-test");
+        assert_eq!(artifact.extension, "fake");
+        assert_eq!(artifact.bytes, b"fake:1:diagram".to_vec());
+    }
+
+    struct FakeRenderBackend;
+
+    impl RenderBackend for FakeRenderBackend {
+        fn id(&self) -> &'static str {
+            "fake"
+        }
+
+        fn format(&self) -> &'static str {
+            "fake"
+        }
+
+        fn media_type(&self) -> &'static str {
+            "application/x-kumeyuri-test"
+        }
+
+        fn extension(&self) -> &'static str {
+            "fake"
+        }
+
+        fn required_capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_iter([Capability::FsWrite])
+        }
+
+        fn render(
+            &self,
+            request: RenderBackendRequest<'_, '_>,
+        ) -> Result<RenderArtifact, RenderBackendError> {
+            if request.format != self.format() {
+                return Err(RenderBackendError::UnsupportedFormat(
+                    request.format.to_owned(),
+                ));
+            }
+            Ok(RenderArtifact::new(
+                format!(
+                    "{}:{}:{}",
+                    self.id(),
+                    request.timeline.len(),
+                    request.metadata.title.as_deref().unwrap_or("untitled")
+                )
+                .into_bytes(),
+                self.media_type(),
+                self.extension(),
+            ))
+        }
     }
 }
