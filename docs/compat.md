@@ -41,6 +41,7 @@ Run this before any release that claims Mermaid compatibility:
 rg -n "pub enum DiagramKind|parse_.*_header|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment" crates/kumeyuri-core/src
 find tests/snapshots -path '*/input/*.mmd' -print | sed 's#tests/snapshots/##; s#/input/.*##' | sort | uniq -c
 npm run test:compat
+npm run test:compat-versions
 npm run test:coverage-gate
 npm run docs:build
 ```

@@ -12,6 +12,7 @@
   "scripts": {
     "docs:build": "mdbook build",
     "test:compat": "node scripts/check-mermaid-coverage.mjs",
+    "test:compat-versions": "node scripts/check-compat-doc-versions.mjs",
     "test:coverage-gate": "node scripts/check-coverage-snapshot-delta.mjs",
     "test:render-action": "node scripts/test-render-action.mjs",
     "import:official-mermaid": "node scripts/import-official-mermaid-fixtures.mjs",
