@@ -258,7 +258,7 @@
 - [x] Implement crossing-minimisation pass (Sugiyama phase 3) in `kumeyuri-core::layout::optimise`
 - [x] Implement long-label auto-wrap with `--max-label-width`
 - [x] Implement disconnected-subgraph clusterer with padding heuristic
-- [ ] Implement orphan-node detector emitting actionable stderr suggestions
+- [x] Implement orphan-node detector emitting actionable stderr suggestions
 - [ ] Implement direction-swap suggestion when aspect ratio extreme
 - [ ] Add `kumeyuri lint <file>` subcommand producing layout report (JSON via `--json`)
 - [ ] Build a `kumeyuri-ai` companion crate (separate repo, optional dep)

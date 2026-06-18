@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs, io,
     io::Write,
     path::{Path, PathBuf},
@@ -10,7 +10,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
     abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
-    ast::Diagram,
+    ast::{Diagram, DiagramKind, FlowStatement, FlowchartAst},
     frame::{Charset, Frame, StaticFrameRenderer},
     layout::FlowLayoutConfig,
     parser::Parser as MermaidParser,
@@ -436,6 +436,8 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
     validate_render_options(format, options)?;
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let diagram = parse_diagram(&source)?;
+    emit_layout_warnings(&diagram);
     if format == RenderFormat::Tui {
         let timeline = timeline_from_source_with_render_options(
             &source,
@@ -1207,6 +1209,90 @@ fn parse_diagram(source: &str) -> Result<Diagram, String> {
     })
 }
 
+fn emit_layout_warnings(diagram: &Diagram) {
+    for warning in layout_warnings(diagram) {
+        eprintln!("{warning}");
+    }
+}
+
+fn layout_warnings(diagram: &Diagram) -> Vec<String> {
+    match &diagram.kind {
+        DiagramKind::Flowchart(ast) => orphan_flowchart_nodes(ast)
+            .into_iter()
+            .map(|id| {
+                format!(
+                    "warning: orphan flowchart node `{id}` has no edges; add an edge such as `{id} --> <target>` or remove the node"
+                )
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn orphan_flowchart_nodes(ast: &FlowchartAst) -> Vec<String> {
+    let mut nodes = Vec::new();
+    let mut connected = BTreeSet::new();
+    for node in &ast.nodes {
+        push_unique_node_id(&mut nodes, &node.id.value);
+    }
+    for edge in &ast.edges {
+        collect_flow_edge(
+            &mut nodes,
+            &mut connected,
+            &edge.from.id.value,
+            &edge.to.id.value,
+        );
+    }
+    collect_flow_statements(&ast.statements, &mut nodes, &mut connected);
+    for subgraph in &ast.subgraphs {
+        collect_flow_statements(&subgraph.statements, &mut nodes, &mut connected);
+    }
+    nodes
+        .into_iter()
+        .filter(|id| !connected.contains(id))
+        .collect()
+}
+
+fn collect_flow_statements(
+    statements: &[FlowStatement],
+    nodes: &mut Vec<String>,
+    connected: &mut BTreeSet<String>,
+) {
+    for statement in statements {
+        match statement {
+            FlowStatement::Node(node) => push_unique_node_id(nodes, &node.id.value),
+            FlowStatement::Edge(edge) => {
+                collect_flow_edge(nodes, connected, &edge.from.id.value, &edge.to.id.value);
+            }
+            FlowStatement::Subgraph(subgraph) => {
+                collect_flow_statements(&subgraph.statements, nodes, connected);
+            }
+            FlowStatement::ClassDef(_)
+            | FlowStatement::ClassApply(_)
+            | FlowStatement::Comment(_)
+            | FlowStatement::Directive(_) => {}
+        }
+    }
+}
+
+fn collect_flow_edge(
+    nodes: &mut Vec<String>,
+    connected: &mut BTreeSet<String>,
+    from: &str,
+    to: &str,
+) {
+    push_unique_node_id(nodes, from);
+    push_unique_node_id(nodes, to);
+    connected.insert(from.to_owned());
+    connected.insert(to.to_owned());
+}
+
+fn push_unique_node_id(nodes: &mut Vec<String>, id: &str) {
+    if !nodes.iter().any(|node| node == id) {
+        nodes.push(id.to_owned());
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn play_timeline(timeline: &Timeline) -> Result<(), String> {
     enable_raw_mode().map_err(|error| format!("failed to enable raw mode: {error}"))?;
@@ -1387,9 +1473,9 @@ mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, PluginCommand, PluginRegistry, RenderCharset,
         RenderFormat, RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS,
-        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, parse_non_empty_string,
-        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
-        read_installed_plugin_records, remove_plugin_records, render_source,
+        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, layout_warnings, parse_diagram,
+        parse_non_empty_string, parse_positive_usize, parse_speed_override, playback_options,
+        plugin_runtime_policy, read_installed_plugin_records, remove_plugin_records, render_source,
         resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, timeline_from_source,
         timeline_from_source_with_options, timeline_from_source_with_render_options,
         write_plugin_install_record,
@@ -1427,6 +1513,27 @@ mod tests {
         assert!(output.contains('A'));
         assert!(output.contains('B'));
         assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn layout_warnings_flag_orphan_flowchart_nodes() {
+        let diagram = parse_diagram("graph TD\nA\nB --> C\nsubgraph group\nD\nend").unwrap();
+        let warnings = layout_warnings(&diagram);
+
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: orphan flowchart node `A` has no edges; add an edge such as `A --> <target>` or remove the node",
+                "warning: orphan flowchart node `D` has no edges; add an edge such as `D --> <target>` or remove the node",
+            ]
+        );
+    }
+
+    #[test]
+    fn layout_warnings_ignore_connected_flowchart_nodes() {
+        let diagram = parse_diagram("graph TD\nA --> B\nB --> C").unwrap();
+
+        assert!(layout_warnings(&diagram).is_empty());
     }
 
     #[test]

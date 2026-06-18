@@ -44,6 +44,7 @@ kumeyuri render [OPTIONS] <FILE>
 | `--plugin-allow` | Comma-separated plugin capabilities: `fs.read`, `fs.write`, `net.fetch`, `env.read`, `cache.read`, `cache.write`, `clock.now`, `random.bytes` |
 
 `--format` defaults to `text`.
+`render` prints non-fatal layout warnings, such as orphan flowchart nodes, to stderr.
 
 Examples:
 
