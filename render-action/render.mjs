@@ -62,10 +62,10 @@ function findSourceFiles(patterns) {
   const allFiles = walk(workspace)
     .filter((file) => extname(file) === ".mmd")
     .sort((left, right) => left.localeCompare(right));
-  const regexes = patterns.map(globToRegExp);
+  const globs = patterns.map(normalizeGlob);
   return allFiles.filter((file) => {
     const rel = relative(workspace, file).replaceAll("\\", "/");
-    return regexes.some((regex) => regex.test(rel));
+    return globs.some((glob) => matchesGlob(glob, rel));
   });
 }
 
@@ -89,36 +89,84 @@ function walk(root) {
   return files;
 }
 
-function globToRegExp(pattern) {
-  const normalized = pattern.replaceAll("\\", "/").replace(/^\.\//, "");
-  let regex = "^";
-  for (let index = 0; index < normalized.length; index += 1) {
-    const char = normalized[index];
-    const next = normalized[index + 1];
-    const afterNext = normalized[index + 2];
-    if (char === "*" && next === "*" && afterNext === "/") {
-      regex += "(?:.*/)?";
-      index += 2;
-    } else if (char === "*" && next === "*") {
-      regex += ".*";
-      index += 1;
-    } else if (char === "*") {
-      regex += "[^/]*";
-    } else if (char === "?") {
-      regex += "[^/]";
-    } else {
-      regex += escapeRegex(char);
-    }
+function normalizeGlob(pattern) {
+  let normalized = pattern.replaceAll("\\", "/");
+  while (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
   }
-  regex += "$";
-  return new RegExp(regex);
+  return normalized.split("/").filter(Boolean);
+}
+
+function matchesGlob(glob, file) {
+  const parts = file.split("/").filter(Boolean);
+  const memo = new Map();
+  return matchesGlobParts(glob, parts, 0, 0, memo);
+}
+
+function matchesGlobParts(glob, parts, globIndex, partIndex, memo) {
+  const key = `${globIndex}:${partIndex}`;
+  if (memo.has(key)) {
+    return memo.get(key);
+  }
+  let matched;
+  if (globIndex === glob.length) {
+    matched = partIndex === parts.length;
+  } else if (glob[globIndex] === "**") {
+    matched = false;
+    for (let next = partIndex; next <= parts.length; next += 1) {
+      if (matchesGlobParts(glob, parts, globIndex + 1, next, memo)) {
+        matched = true;
+        break;
+      }
+    }
+  } else {
+    matched =
+      partIndex < parts.length &&
+      matchesGlobSegment(glob[globIndex], parts[partIndex]) &&
+      matchesGlobParts(glob, parts, globIndex + 1, partIndex + 1, memo);
+  }
+  memo.set(key, matched);
+  return matched;
+}
+
+function matchesGlobSegment(pattern, value) {
+  const patternChars = Array.from(pattern);
+  const valueChars = Array.from(value);
+  let previous = Array(valueChars.length + 1).fill(false);
+  previous[0] = true;
+  for (const char of patternChars) {
+    const current = Array(valueChars.length + 1).fill(false);
+    for (let index = 0; index <= valueChars.length; index += 1) {
+      if (char === "*") {
+        current[index] = previous[index] || (index > 0 && current[index - 1]);
+      } else if (char === "?") {
+        current[index] = index > 0 && previous[index - 1];
+      } else {
+        current[index] = index > 0 && previous[index - 1] && valueChars[index - 1] === char;
+      }
+    }
+    previous = current;
+  }
+  return previous[valueChars.length];
 }
 
 function splitList(value) {
-  return value
-    .split(/[\s,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const items = [];
+  let item = "";
+  for (const char of value) {
+    if (char === "," || char.trim() === "") {
+      if (item) {
+        items.push(item);
+        item = "";
+      }
+    } else {
+      item += char;
+    }
+  }
+  if (item) {
+    items.push(item);
+  }
+  return items;
 }
 
 function replaceExtension(file, extension) {
@@ -139,10 +187,6 @@ function input(name, fallback) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
-}
-
-function escapeRegex(value) {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
 }
 
 function writeOutputs(fileCount, renderedCount) {
