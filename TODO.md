@@ -274,7 +274,7 @@
 - [x] Add `unicode-width` + `unicode-segmentation` dependencies and audit current width code paths
 - [x] Add `unicode-bidi` and integrate BiDi pass in label rendering
 - [x] Add CJK full-width glyph awareness throughout layout engine
-- [ ] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
+- [x] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
 - [ ] Add CJK snapshot tests with Japanese, Korean, Simplified + Traditional Chinese samples
 - [ ] Integrate `fluent-rs` for user-facing strings
 - [ ] Extract every user-facing string into `locales/en-US.ftl`
