@@ -1,0 +1,15 @@
+[package]
+name = "kumeyuri-ai"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Optional AI companion crate for kumeyuri smart-layout rewrites."
+
+[lib]
+name = "kumeyuri_ai"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[workspace]

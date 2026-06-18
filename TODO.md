@@ -261,7 +261,7 @@
 - [x] Implement orphan-node detector emitting actionable stderr suggestions
 - [x] Implement direction-swap suggestion when aspect ratio extreme
 - [x] Add `kumeyuri lint <file>` subcommand producing layout report (JSON via `--json`)
-- [ ] Build a `kumeyuri-ai` companion crate (separate repo, optional dep)
+- [x] Build a `kumeyuri-ai` companion crate (separate repo, optional dep)
 - [ ] Implement BYOK envvar resolution (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`)
 - [ ] Implement provider abstraction supporting OpenAI, Anthropic, OpenRouter, local llama.cpp
 - [ ] Implement diff-presenter that shows AI-rewritten source vs original before apply
