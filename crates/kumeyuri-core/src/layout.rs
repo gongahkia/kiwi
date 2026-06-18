@@ -4183,15 +4183,15 @@ impl RadarLayoutEngine {
                     .label
                     .as_ref()
                     .map_or_else(|| curve.id.value.clone(), |label| label.text.clone());
-                let points = radar_curve_points(
-                    curve,
-                    &axis_index,
-                    ast.axes.len(),
+                let point_context = RadarCurveContext {
+                    axis_index: &axis_index,
+                    axis_count: ast.axes.len(),
                     center,
                     min,
                     max,
-                    self.config.radius,
-                );
+                    radius: self.config.radius,
+                };
+                let points = radar_curve_points(curve, &point_context);
                 PositionedRadarCurve {
                     id: curve.id.value.clone(),
                     label,
@@ -4289,14 +4289,18 @@ fn radar_ticks(ast: &RadarAst) -> usize {
         .unwrap_or(5)
 }
 
-fn radar_curve_points(
-    curve: &RadarCurve,
-    axis_index: &HashMap<&str, usize>,
+struct RadarCurveContext<'a> {
+    axis_index: &'a HashMap<&'a str, usize>,
     axis_count: usize,
     center: Point,
     min: f64,
     max: f64,
     radius: i32,
+}
+
+fn radar_curve_points(
+    curve: &RadarCurve,
+    context: &RadarCurveContext<'_>,
 ) -> Vec<PositionedRadarPoint> {
     curve
         .values
@@ -4306,15 +4310,15 @@ fn radar_curve_points(
             let axis_position = value
                 .axis
                 .as_ref()
-                .and_then(|axis| axis_index.get(axis.value.as_str()).copied())
+                .and_then(|axis| context.axis_index.get(axis.value.as_str()).copied())
                 .unwrap_or(value_index);
-            (axis_position < axis_count).then(|| {
-                let raw = value.value.value.parse::<f64>().unwrap_or(min);
-                let scaled = ((raw - min) / (max - min)).clamp(0.0, 1.0);
+            (axis_position < context.axis_count).then(|| {
+                let raw = value.value.value.parse::<f64>().unwrap_or(context.min);
+                let scaled = ((raw - context.min) / (context.max - context.min)).clamp(0.0, 1.0);
                 let point = radar_point(
-                    center,
-                    radar_angle(axis_position, axis_count),
-                    (scaled * f64::from(radius)).round() as i32,
+                    context.center,
+                    radar_angle(axis_position, context.axis_count),
+                    (scaled * f64::from(context.radius)).round() as i32,
                 );
                 PositionedRadarPoint {
                     axis_id: value
@@ -6094,7 +6098,12 @@ impl C4LayoutEngine {
             y: if title.is_some() { 2 } else { 0 },
         };
         let mut placement = C4Placement::default();
-        let content_size = c4_place_group(ast, None, origin, 0, &config, &styles, &mut placement);
+        let context = C4PlacementContext {
+            ast,
+            config: &config,
+            styles: &styles,
+        };
+        let content_size = c4_place_group(&context, None, origin, 0, &mut placement);
         let rects = c4_rect_map(&placement.elements, &placement.boundaries);
         let relationships = c4_position_relationships(ast, &rects, &styles);
         let mut size = Size {
@@ -6121,6 +6130,12 @@ struct C4Placement {
     elements: Vec<PositionedC4Element>,
     boundaries: Vec<PositionedC4Boundary>,
     order: usize,
+}
+
+struct C4PlacementContext<'a> {
+    ast: &'a C4Ast,
+    config: &'a C4LayoutConfig,
+    styles: &'a HashMap<String, Vec<String>>,
 }
 
 fn c4_config_from_statements(mut config: C4LayoutConfig, ast: &C4Ast) -> C4LayoutConfig {
@@ -6196,40 +6211,46 @@ fn c4_arg_text(arg: &C4CallArg) -> Option<String> {
 }
 
 fn c4_place_group(
-    ast: &C4Ast,
+    context: &C4PlacementContext<'_>,
     parent: Option<&str>,
     origin: Point,
     depth: usize,
-    config: &C4LayoutConfig,
-    styles: &HashMap<String, Vec<String>>,
     placement: &mut C4Placement,
 ) -> Size {
-    let elements = c4_child_elements(ast, parent);
+    let elements = c4_child_elements(context.ast, parent);
     let element_sizes = elements
         .iter()
-        .map(|element| c4_element_size(element, config, styles))
+        .map(|element| c4_element_size(element, context.config, context.styles))
         .collect::<Vec<_>>();
-    let (element_rects, element_size) =
-        c4_pack_rects(&element_sizes, origin, config.shape_in_row, config);
+    let (element_rects, element_size) = c4_pack_rects(
+        &element_sizes,
+        origin,
+        context.config.shape_in_row,
+        context.config,
+    );
     for (element, rect) in elements.into_iter().zip(element_rects) {
         let order = placement.order;
         placement.order += 1;
-        placement
-            .elements
-            .push(c4_positioned_element(element, rect, depth, order, styles));
+        placement.elements.push(c4_positioned_element(
+            element,
+            rect,
+            depth,
+            order,
+            context.styles,
+        ));
     }
 
-    let boundaries = c4_child_boundaries(ast, parent);
+    let boundaries = c4_child_boundaries(context.ast, parent);
     let boundary_sizes = boundaries
         .iter()
-        .map(|boundary| c4_boundary_size(ast, boundary, config, styles))
+        .map(|boundary| c4_boundary_size(context.ast, boundary, context.config, context.styles))
         .collect::<Vec<_>>();
     let boundary_origin = Point {
         x: origin.x,
         y: origin.y
             + element_size.height
             + if element_size.height > 0 && !boundary_sizes.is_empty() {
-                config.vertical_spacing
+                context.config.vertical_spacing
             } else {
                 0
             },
@@ -6237,31 +6258,30 @@ fn c4_place_group(
     let (boundary_rects, boundary_size) = c4_pack_rects(
         &boundary_sizes,
         boundary_origin,
-        config.boundary_in_row,
-        config,
+        context.config.boundary_in_row,
+        context.config,
     );
     for (boundary, rect) in boundaries.into_iter().zip(boundary_rects) {
         let order = placement.order;
         placement.order += 1;
-        let positioned = c4_positioned_boundary(boundary, rect, depth, order, config, styles);
+        let positioned =
+            c4_positioned_boundary(boundary, rect, depth, order, context.config, context.styles);
         let child_origin = Point {
-            x: rect.origin.x + config.boundary_padding_x,
-            y: rect.origin.y + positioned.header_height + config.boundary_padding_y,
+            x: rect.origin.x + context.config.boundary_padding_x,
+            y: rect.origin.y + positioned.header_height + context.config.boundary_padding_y,
         };
         let child_parent = positioned.id.clone();
         placement.boundaries.push(positioned);
         c4_place_group(
-            ast,
+            context,
             Some(&child_parent),
             child_origin,
             depth + 1,
-            config,
-            styles,
             placement,
         );
     }
 
-    c4_stack_size(element_size, boundary_size, config.vertical_spacing)
+    c4_stack_size(element_size, boundary_size, context.config.vertical_spacing)
 }
 
 fn c4_group_size(
@@ -6809,7 +6829,7 @@ fn layout_size_with_c4_relationships(
                     .points
                     .iter()
                     .map(|point| point.x + 1)
-                    .chain(c4_relationship_label_width(relationship).into_iter())
+                    .chain(c4_relationship_label_width(relationship))
             })
             .fold(size.width, i32::max),
         height: relationships
@@ -6819,7 +6839,7 @@ fn layout_size_with_c4_relationships(
                     .points
                     .iter()
                     .map(|point| point.y + 1)
-                    .chain(c4_relationship_label_height(relationship).into_iter())
+                    .chain(c4_relationship_label_height(relationship))
             })
             .fold(size.height, i32::max),
     }
@@ -6945,7 +6965,7 @@ impl GanttLayoutEngine {
             .collect::<Vec<_>>();
         let today_x = schedule_config
             .today_marker
-            .then(|| gantt_today_day())
+            .then(gantt_today_day)
             .flatten()
             .and_then(|today| {
                 (min_day..=max_day)
@@ -7444,18 +7464,21 @@ impl PieLayoutEngine {
             y: regions.pie_origin.y + self.config.top_padding + self.config.radius_y,
         };
         let cells = pie_cells(&self.config, center, total, &cumulative);
+        let label_context = PieLabelContext {
+            config: self.config,
+            center,
+            total,
+            text_position_milli: ast.config.text_position_milli,
+        };
         let slices = slice_inputs
             .into_iter()
             .enumerate()
             .map(|(index, slice)| PositionedPieSlice {
                 label_origin: pie_label_origin(
-                    self.config,
-                    center,
-                    total,
+                    label_context,
                     slice.start_units,
                     slice.end_units,
                     slice.percent_basis_points,
-                    ast.config.text_position_milli,
                 ),
                 legend_origin: Point {
                     x: regions.legend_origin.x,
@@ -7800,26 +7823,33 @@ fn pie_percent_basis_points(value: u64, total: u64) -> u16 {
     ((value.saturating_mul(10_000).saturating_add(total / 2)) / total) as u16
 }
 
-fn pie_label_origin(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PieLabelContext {
     config: PieLayoutConfig,
     center: Point,
     total: u64,
+    text_position_milli: u16,
+}
+
+fn pie_label_origin(
+    context: PieLabelContext,
     start_units: u64,
     end_units: u64,
     percent_basis_points: u16,
-    text_position_milli: u16,
 ) -> Point {
-    if total == 0 {
-        return center;
+    if context.total == 0 {
+        return context.center;
     }
     let midpoint = start_units as f64 + (end_units.saturating_sub(start_units) as f64 / 2.0);
-    let angle = midpoint / total as f64 * std::f64::consts::PI * 2.0;
-    let ratio = f64::from(text_position_milli) / 1000.0;
+    let angle = midpoint / context.total as f64 * std::f64::consts::PI * 2.0;
+    let ratio = f64::from(context.text_position_milli) / 1000.0;
     let label = pie_slice_percent_label(percent_basis_points);
     Point {
-        x: (f64::from(center.x) + angle.sin() * f64::from(config.radius_x) * ratio).round() as i32
+        x: (f64::from(context.center.x) + angle.sin() * f64::from(context.config.radius_x) * ratio)
+            .round() as i32
             - (label_width(&label) / 2),
-        y: (f64::from(center.y) - angle.cos() * f64::from(config.radius_y) * ratio).round() as i32,
+        y: (f64::from(context.center.y) - angle.cos() * f64::from(context.config.radius_y) * ratio)
+            .round() as i32,
     }
 }
 
@@ -10110,7 +10140,7 @@ fn layout_size_with_requirement_relationships(
                     .points
                     .iter()
                     .map(|point| point.x + 1)
-                    .chain(relationship_label_width(relationship).into_iter())
+                    .chain(relationship_label_width(relationship))
             })
             .fold(size.width, i32::max),
         height: relationships

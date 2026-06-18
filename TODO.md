@@ -463,7 +463,7 @@
 ## Quality gates (must pass before tagging any release)
 
 - [ ] `cargo fmt --check` clean
-- [ ] `cargo clippy --workspace -- -D warnings` clean
+- [x] `cargo clippy --workspace -- -D warnings` clean
 - [ ] `cargo test --workspace` green
 - [ ] `cargo audit` clean
 - [ ] `cargo deny check` clean

@@ -6146,8 +6146,7 @@ fn parse_block_container_header(source: &str) -> Result<Option<BlockContainer>, 
         return Ok(None);
     };
     if !source[start..end].starts_with("block")
-        || source[start..end]
-            .as_bytes()
+        || source.as_bytes()[start..end]
             .get("block".len())
             .is_some_and(|byte| !byte.is_ascii_whitespace() && *byte != b':')
     {
@@ -10250,12 +10249,14 @@ fn parse_venn_identifier(
     ))
 }
 
+type ParsedVennLabelSize = (Option<Label>, Option<Spanned<String>>, usize);
+
 fn parse_venn_label_size(
     source: &str,
     start: usize,
     end: usize,
     kind: ParseErrorKind,
-) -> Result<(Option<Label>, Option<Spanned<String>>, usize), ParseError> {
+) -> Result<ParsedVennLabelSize, ParseError> {
     let mut cursor = skip_ascii_ws(source, start, end);
     let mut label = None;
     if source.as_bytes().get(cursor) == Some(&b'[') {
@@ -11353,9 +11354,7 @@ fn parse_zenuml_participant_decl(
 fn find_zenuml_as(source: &str, start: usize, end: usize) -> Option<usize> {
     let mut cursor = start;
     while cursor < end {
-        let Some(offset) = source[cursor..end].find("as") else {
-            return None;
-        };
+        let offset = source[cursor..end].find("as")?;
         let absolute = cursor + offset;
         let before = absolute == start
             || source

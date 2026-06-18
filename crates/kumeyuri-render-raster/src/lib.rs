@@ -231,7 +231,12 @@ impl RasterRenderer {
         let font_fallbacks = FontFallbackChain::new();
         for (row, line) in frame.to_lines().iter().enumerate() {
             for (column, glyph) in line.chars().enumerate() {
-                self.draw_glyph(&mut pixmap, &paint, column, row, glyph, &font_fallbacks)?;
+                let mut glyph_context = GlyphDrawContext {
+                    pixmap: &mut pixmap,
+                    paint: &paint,
+                    font_fallbacks: &font_fallbacks,
+                };
+                self.draw_glyph(&mut glyph_context, column, row, glyph)?;
             }
         }
         Ok(pixmap)
@@ -239,23 +244,21 @@ impl RasterRenderer {
 
     fn draw_glyph(
         &self,
-        pixmap: &mut Pixmap,
-        paint: &Paint,
+        context: &mut GlyphDrawContext<'_, '_>,
         column: usize,
         row: usize,
         glyph: char,
-        font_fallbacks: &FontFallbackChain,
     ) -> Result<(), RasterRenderError> {
         if glyph == ' ' {
             return Ok(());
         }
-        if self.draw_bitmap_glyph(pixmap, paint, column, row, glyph)? {
+        if self.draw_bitmap_glyph(context.pixmap, context.paint, column, row, glyph)? {
             return Ok(());
         }
-        if self.draw_font_glyph(pixmap, column, row, glyph, font_fallbacks)? {
+        if self.draw_font_glyph(context.pixmap, column, row, glyph, context.font_fallbacks)? {
             return Ok(());
         }
-        let _ = self.draw_bitmap_glyph(pixmap, paint, column, row, '?')?;
+        let _ = self.draw_bitmap_glyph(context.pixmap, context.paint, column, row, '?')?;
         Ok(())
     }
 
@@ -302,6 +305,12 @@ impl RasterRenderer {
     ) -> Result<bool, RasterRenderError> {
         draw_font_glyph(self.config, pixmap, column, row, glyph, font_fallbacks)
     }
+}
+
+struct GlyphDrawContext<'a, 'paint> {
+    pixmap: &'a mut Pixmap,
+    paint: &'a Paint<'paint>,
+    font_fallbacks: &'a FontFallbackChain,
 }
 
 #[derive(Debug)]

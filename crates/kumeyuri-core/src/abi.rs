@@ -132,16 +132,22 @@ impl CapabilitySet {
 
     #[must_use]
     pub fn all() -> Self {
-        Self::from_iter(Capability::ALL)
+        Self::from_capabilities(Capability::ALL)
     }
 
     #[must_use]
-    pub fn from_iter(capabilities: impl IntoIterator<Item = Capability>) -> Self {
+    pub fn from_capabilities(capabilities: impl IntoIterator<Item = Capability>) -> Self {
         let mut set = Self::empty();
         for capability in capabilities {
             set.insert(capability);
         }
         set
+    }
+
+    #[must_use]
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_iter(capabilities: impl IntoIterator<Item = Capability>) -> Self {
+        Self::from_capabilities(capabilities)
     }
 
     #[must_use]
@@ -171,7 +177,7 @@ impl CapabilitySet {
 
 impl FromIterator<Capability> for CapabilitySet {
     fn from_iter<T: IntoIterator<Item = Capability>>(iter: T) -> Self {
-        Self::from_iter(iter)
+        Self::from_capabilities(iter)
     }
 }
 
