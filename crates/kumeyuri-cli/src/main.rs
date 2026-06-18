@@ -2,8 +2,8 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     env,
     ffi::OsString,
-    fs, io,
-    io::Write,
+    fs,
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -52,6 +52,14 @@ use {
 struct Cli {
     #[arg(long, global = true, value_name = "LOCALE", value_parser = parse_locale_override)]
     lang: Option<String>,
+    #[arg(
+        long,
+        global = true,
+        value_name = "BYTES",
+        default_value_t = DEFAULT_INPUT_LIMIT_BYTES,
+        value_parser = parse_positive_input_bytes
+    )]
+    max_input_bytes: usize,
     #[command(subcommand)]
     command: Command,
 }
@@ -203,6 +211,7 @@ fn run() -> Result<(), String> {
     let matches = Cli::command().about(msg("cli-about")).get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
     i18n::configure(cli.lang.as_deref(), |name| env::var(name).ok())?;
+    let max_input_bytes = cli.max_input_bytes;
 
     match cli.command {
         Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
@@ -210,15 +219,15 @@ fn run() -> Result<(), String> {
             file,
             format,
             options,
-        } => render_file(&file, format, &options),
-        Command::Lint { file, json } => lint_file(&file, json),
-        Command::Layout { file, ai } => layout_file(&file, ai),
-        Command::Watch { file } => watch_file(&file),
+        } => render_file(&file, format, &options, max_input_bytes),
+        Command::Lint { file, json } => lint_file(&file, json, max_input_bytes),
+        Command::Layout { file, ai } => layout_file(&file, ai, max_input_bytes),
+        Command::Watch { file } => watch_file(&file, max_input_bytes),
         Command::Play {
             file,
             speed,
             repeat,
-        } => play_file(&file, playback_options(speed, repeat)?),
+        } => play_file(&file, playback_options(speed, repeat)?, max_input_bytes),
         Command::Plugin { command } => run_plugin_command(command),
     }
 }
@@ -230,6 +239,7 @@ const MERMAID_COMPAT_VERSION: &str = "11.15.0";
 const EXTREME_ASPECT_RATIO: usize = 4;
 const KUMEYURI_AI_DYLIB_ENV: &str = "KUMEYURI_AI_DYLIB";
 const KUMEYURI_AI_ABI_VERSION: u32 = 1;
+const DEFAULT_INPUT_LIMIT_BYTES: usize = 1024 * 1024;
 
 fn msg(id: &str) -> String {
     i18n::message(id)
@@ -487,14 +497,14 @@ fn append_compat_roots(output: &mut String, roots: &[CompatRoot]) {
     }
 }
 
-fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
+fn render_file(
+    path: &Path,
+    format: RenderFormat,
+    options: &RenderOptions,
+    max_input_bytes: usize,
+) -> Result<(), String> {
     validate_render_options(format, options)?;
-    let source = fs::read_to_string(path).map_err(|error| {
-        msg_args(
-            "error-read-path",
-            &[msg_arg("path", path.display()), msg_arg("error", error)],
-        )
-    })?;
+    let source = read_source_file(path, max_input_bytes)?;
     let diagram = parse_diagram(&source)?;
     emit_layout_warnings(&diagram, options);
     if format == RenderFormat::Tui {
@@ -511,13 +521,8 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
         .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
 }
 
-fn lint_file(path: &Path, json: bool) -> Result<(), String> {
-    let source = fs::read_to_string(path).map_err(|error| {
-        msg_args(
-            "error-read-path",
-            &[msg_arg("path", path.display()), msg_arg("error", error)],
-        )
-    })?;
+fn lint_file(path: &Path, json: bool, max_input_bytes: usize) -> Result<(), String> {
+    let source = read_source_file(path, max_input_bytes)?;
     let report = lint_source(&path.display().to_string(), &source)?;
     print_lint_report(&report, json)
 }
@@ -570,16 +575,11 @@ fn format_lint_text(report: &LayoutReport) -> String {
     output
 }
 
-fn layout_file(path: &Path, ai: bool) -> Result<(), String> {
+fn layout_file(path: &Path, ai: bool, max_input_bytes: usize) -> Result<(), String> {
     if !ai {
         return Err(msg("layout-requires-ai"));
     }
-    let source = fs::read_to_string(path).map_err(|error| {
-        msg_args(
-            "error-read-path",
-            &[msg_arg("path", path.display()), msg_arg("error", error)],
-        )
-    })?;
+    let source = read_source_file(path, max_input_bytes)?;
     let _diagram = parse_diagram(&source)?;
     let library_path = resolve_ai_library_path(|name| env::var_os(name))?;
     let version = load_ai_binding_version(&library_path)?;
@@ -1175,6 +1175,40 @@ fn fetch_url_bytes(url: &str) -> Result<Vec<u8>, String> {
         .map_err(|error| msg_args("http-read", &[msg_arg("url", url), msg_arg("error", error)]))
 }
 
+fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, String> {
+    let file = fs::File::open(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
+    let mut bytes = Vec::new();
+    file.take(u64::try_from(max_input_bytes.saturating_add(1)).unwrap_or(u64::MAX))
+        .read_to_end(&mut bytes)
+        .map_err(|error| {
+            msg_args(
+                "error-read-path",
+                &[msg_arg("path", path.display()), msg_arg("error", error)],
+            )
+        })?;
+    if bytes.len() > max_input_bytes {
+        return Err(msg_args(
+            "error-input-too-large",
+            &[
+                msg_arg("path", path.display()),
+                msg_arg("bytes", bytes.len()),
+                msg_arg("limit", max_input_bytes),
+            ],
+        ));
+    }
+    String::from_utf8(bytes).map_err(|error| {
+        msg_args(
+            "error-read-utf8",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })
+}
+
 fn has_plugin_keyword(keywords: &[String]) -> bool {
     keywords.iter().any(|keyword| keyword == PLUGIN_KEYWORD)
 }
@@ -1356,21 +1390,16 @@ fn rgba_color(color: RgbColor) -> RgbaColor {
     RgbaColor::rgb(color.red, color.green, color.blue)
 }
 
-fn play_file(path: &Path, options: AnimationOptions) -> Result<(), String> {
-    let source = fs::read_to_string(path).map_err(|error| {
-        msg_args(
-            "error-read-path",
-            &[msg_arg("path", path.display()), msg_arg("error", error)],
-        )
-    })?;
+fn play_file(path: &Path, options: AnimationOptions, max_input_bytes: usize) -> Result<(), String> {
+    let source = read_source_file(path, max_input_bytes)?;
     let timeline = timeline_from_source_with_options(&source, options)?;
     play_timeline(&timeline)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn watch_file(path: &Path) -> Result<(), String> {
+fn watch_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
     let watch_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    redraw_watched_file(&watch_path)?;
+    redraw_watched_file(&watch_path, max_input_bytes)?;
 
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher = RecommendedWatcher::new(
@@ -1395,7 +1424,7 @@ fn watch_file(path: &Path) -> Result<(), String> {
     for event in rx {
         match event {
             Ok(event) if should_rerender(&event, &watch_path) => {
-                redraw_watched_file(&watch_path)?;
+                redraw_watched_file(&watch_path, max_input_bytes)?;
             }
             Ok(_) => {}
             Err(error) => redraw_message(&format!(
@@ -1408,7 +1437,7 @@ fn watch_file(path: &Path) -> Result<(), String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn watch_file(_path: &Path) -> Result<(), String> {
+fn watch_file(_path: &Path, _max_input_bytes: usize) -> Result<(), String> {
     Err(msg("watch-wasm"))
 }
 
@@ -1421,14 +1450,8 @@ fn should_rerender(event: &Event, path: &Path) -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn redraw_watched_file(path: &Path) -> Result<(), String> {
-    let output = fs::read_to_string(path)
-        .map_err(|error| {
-            msg_args(
-                "error-read-path",
-                &[msg_arg("path", path.display()), msg_arg("error", error)],
-            )
-        })
+fn redraw_watched_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
+    let output = read_source_file(path, max_input_bytes)
         .and_then(|source| render_text_source(&source, &RenderOptions::default()))
         .unwrap_or_else(|error| format!("{error}\n"));
     redraw_message(&output)
@@ -1508,6 +1531,22 @@ fn parse_positive_usize(value: &str) -> Result<usize, String> {
     if parsed == 0 {
         return Err(msg_args(
             "parse-width",
+            &[msg_arg("value", format!("{value:?}"))],
+        ));
+    }
+    Ok(parsed)
+}
+
+fn parse_positive_input_bytes(value: &str) -> Result<usize, String> {
+    let parsed = value.parse::<usize>().map_err(|_| {
+        msg_args(
+            "parse-max-input-bytes",
+            &[msg_arg("value", format!("{value:?}"))],
+        )
+    })?;
+    if parsed == 0 {
+        return Err(msg_args(
+            "parse-max-input-bytes",
             &[msg_arg("value", format!("{value:?}"))],
         ));
     }
@@ -1914,12 +1953,13 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        ANIMATED_PARTIAL_ROOTS, Cli, Command, PluginCommand, PluginRegistry, RenderCharset,
-        RenderFormat, RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS,
-        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, format_lint_text,
-        layout_warnings, lint_source, parse_diagram, parse_non_empty_string, parse_positive_usize,
+        ANIMATED_PARTIAL_ROOTS, Cli, Command, DEFAULT_INPUT_LIMIT_BYTES, PluginCommand,
+        PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
+        ResolvedPluginPackage, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS, compat_report,
+        disable_plugin_records, format_lint_text, layout_warnings, lint_source, parse_diagram,
+        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
         parse_speed_override, playback_options, plugin_runtime_policy,
-        read_installed_plugin_records, remove_plugin_records, render_source,
+        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
         resolve_ai_library_path, resolve_crates_plugin_metadata, resolve_npm_plugin_metadata,
         timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options, write_plugin_install_record,
@@ -2521,8 +2561,41 @@ mod tests {
     fn render_option_parsers_reject_invalid_values() {
         assert_eq!(parse_positive_usize("12").unwrap(), 12);
         assert!(parse_positive_usize("0").is_err());
+        assert_eq!(parse_positive_input_bytes("64").unwrap(), 64);
+        assert!(parse_positive_input_bytes("0").is_err());
         assert_eq!(parse_non_empty_string("Fira Code").unwrap(), "Fira Code");
         assert!(parse_non_empty_string(" ").is_err());
+    }
+
+    #[test]
+    fn global_input_limit_parser_accepts_override() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "render",
+            "diagram.mmd",
+            "--max-input-bytes",
+            "64",
+        ])
+        .unwrap();
+
+        assert_eq!(cli.max_input_bytes, 64);
+    }
+
+    #[test]
+    fn source_reader_enforces_configured_input_limit() {
+        let root = unique_temp_dir("input-limit");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("diagram.mmd");
+        fs::write(&path, "graph TD\nA --> B\n").unwrap();
+
+        assert_eq!(read_source_file(&path, 64).unwrap(), "graph TD\nA --> B\n");
+        let error = read_source_file(&path, 8).unwrap_err();
+        assert!(error.contains("larger than 8 bytes"));
+
+        fs::write(&path, vec![b'a'; DEFAULT_INPUT_LIMIT_BYTES + 1]).unwrap();
+        let error = read_source_file(&path, DEFAULT_INPUT_LIMIT_BYTES).unwrap_err();
+        assert!(error.contains(&format!("larger than {DEFAULT_INPUT_LIMIT_BYTES} bytes")));
+        let _ = fs::remove_dir_all(root);
     }
 
     #[cfg(not(target_arch = "wasm32"))]

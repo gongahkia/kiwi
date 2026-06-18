@@ -339,7 +339,7 @@
 - [x] Audit JS regex usage in packages/scripts/editors; replace backtracking runtime parsers or document bounded/test-only uses
 - [x] Audit SVG output sanitiser; verify no `<foreignObject>`, no `<script>`, no `href=external`
 - [ ] Verify `--allow-external` is opt-in and gated
-- [ ] Verify input size limit enforced (default 1 MB; configurable)
+- [x] Verify input size limit enforced (default 1 MB; configurable)
 - [x] Verify `cargo-deny` advisory check passes (no known CVEs)
 - [x] Verify `cargo-deny` licence check passes (allowlist enforced)
 - [ ] Verify SLSA provenance attestation generated per release

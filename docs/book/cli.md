@@ -16,6 +16,13 @@ kumeyuri <COMMAND>
 | `compat` | Print Mermaid root support for the tracked docs version |
 | `plugin` | Install, list, update, disable, or remove cached plugin packages |
 
+## Global Options
+
+| Option | Values |
+| --- | --- |
+| `--lang` | Locale override, currently backed by en-US messages |
+| `--max-input-bytes` | Positive byte limit for diagram source files; defaults to `1048576` |
+
 ## Compat
 
 ```text
