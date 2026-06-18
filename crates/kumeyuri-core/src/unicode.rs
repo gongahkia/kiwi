@@ -1,3 +1,4 @@
+use unicode_bidi::BidiInfo;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -9,6 +10,15 @@ pub fn display_width(text: &str) -> usize {
 #[must_use]
 pub fn display_width_i32(text: &str) -> i32 {
     i32::try_from(display_width(text)).unwrap_or(i32::MAX)
+}
+
+#[must_use]
+pub fn bidi_visual_order_line(text: &str) -> String {
+    let bidi = BidiInfo::new(text, None);
+    let Some(paragraph) = bidi.paragraphs.first() else {
+        return text.to_owned();
+    };
+    bidi.reorder_line(paragraph, 0..text.len()).into_owned()
 }
 
 #[must_use]
@@ -94,7 +104,13 @@ fn push_wrapped_word(
 
 #[cfg(test)]
 mod tests {
-    use super::{display_width, wrap_display_width_lines};
+    use super::{bidi_visual_order_line, display_width, wrap_display_width_lines};
+
+    #[test]
+    fn bidi_visual_order_reorders_rtl_runs() {
+        assert_eq!(bidi_visual_order_line("A אבג"), "A גבא");
+        assert_eq!(bidi_visual_order_line("ABC"), "ABC");
+    }
 
     #[test]
     fn display_width_counts_cells_not_codepoints() {

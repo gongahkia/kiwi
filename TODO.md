@@ -272,7 +272,7 @@
 ## Phase 9 — Internationalisation deep pass (~month 6)
 
 - [x] Add `unicode-width` + `unicode-segmentation` dependencies and audit current width code paths
-- [ ] Add `unicode-bidi` and integrate BiDi pass in label rendering
+- [x] Add `unicode-bidi` and integrate BiDi pass in label rendering
 - [ ] Add CJK full-width glyph awareness throughout layout engine
 - [ ] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
 - [ ] Add CJK snapshot tests with Japanese, Korean, Simplified + Traditional Chinese samples

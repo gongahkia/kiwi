@@ -37,6 +37,7 @@ use crate::layout::{
     XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
+use crate::unicode::bidi_visual_order_line;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
@@ -134,6 +135,7 @@ impl Frame {
         if y >= self.height || x >= self.width {
             return Err(FrameError::OutOfBounds { x, y });
         }
+        let text = bidi_visual_order_line(text);
         let mut written = 0usize;
         for (offset, glyph) in text.chars().enumerate() {
             let column = x + offset;
@@ -4416,6 +4418,16 @@ mod tests {
         assert_eq!(written, 3);
         assert_eq!(frame.cell(1, 0).unwrap().glyph, 'a');
         assert!(frame.cell(3, 0).unwrap().style.bold);
+    }
+
+    #[test]
+    fn write_text_applies_bidi_visual_order() {
+        let mut frame = Frame::new(6, 1);
+        frame
+            .write_text(0, 0, "A אבג", CellStyle::default())
+            .unwrap();
+
+        assert_eq!(frame.to_lines(), vec!["A גבא "]);
     }
 
     #[test]
