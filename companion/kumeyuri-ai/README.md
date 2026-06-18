@@ -11,11 +11,12 @@ Initial scope:
 
 - accept Mermaid source plus layout diagnostics from `kumeyuri lint --json`
 - return rewritten Mermaid source plus a short summary
+- resolve BYOK provider API keys from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+  and `OPENROUTER_API_KEY`
 - validate that provider output is non-empty before any caller applies it
 
 Out of scope here:
 
 - provider selection
-- API key resolution
 - applying rewrites to files
 - dynamic loading from the main CLI
