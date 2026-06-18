@@ -44,7 +44,6 @@
 *Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
 
 - [ ] **A10. CI: build matrix.** DoD: GitHub Actions builds on Linux + macOS (Windows optional flag), fails on warnings; badge in README.
-- [ ] **A11. `BENCHMARKS.md` created.** DoD: file exists with a template table (machine, cols×rows, mode, sustained fps, bytes/frame) to be filled from Phase C on.
 - [ ] **Phase A exit criteria.** DoD: clean build on ≥2 OSes in CI; raw-mode guard provably restores on normal exit, Ctrl-C, and exception; size query + SIGWINCH working.
 
 ---
