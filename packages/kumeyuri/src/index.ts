@@ -188,14 +188,17 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       const play = document.createElement("button");
       play.type = "button";
       play.dataset.action = "play";
+      play.style.cssText = controlButtonStyle();
       const restart = document.createElement("button");
       restart.type = "button";
       restart.dataset.action = "restart";
       restart.textContent = "restart";
       restart.setAttribute("aria-label", "Restart animation");
+      restart.style.cssText = controlButtonStyle();
       const scrub = document.createElement("input");
       scrub.type = "range";
       scrub.setAttribute("aria-label", "Animation frame");
+      scrub.style.cssText = "box-sizing:border-box;min-width:8rem;min-height:44px;";
       scrub.min = "0";
       scrub.max = String(output.frames.length - 1);
       scrub.step = "1";
@@ -309,4 +312,8 @@ function withAnimationDirective(source: string, animate: string | null): string 
     throw new Error(`invalid animate ${JSON.stringify(animate)}`);
   }
   return `%%{ animate: '${animate}' }%%\n${source}`;
+}
+
+function controlButtonStyle(): string {
+  return "box-sizing:border-box;min-width:44px;min-height:44px;padding:0 0.75rem;";
 }

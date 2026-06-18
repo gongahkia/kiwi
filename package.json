@@ -27,6 +27,7 @@
     "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs",
     "test:web-component:a11y": "npm --workspace kumeyuri run build && node scripts/test-web-component-a11y.mjs",
     "test:web-component:keyboard": "npm --workspace kumeyuri run build && node scripts/test-web-component-keyboard.mjs",
+    "test:web-component:touch-targets": "npm --workspace kumeyuri run build && node scripts/test-web-component-touch-targets.mjs",
     "test:docs:a11y": "npm run docs:build && node scripts/test-docs-pa11y.mjs"
   },
   "devDependencies": {
