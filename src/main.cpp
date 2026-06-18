@@ -1,9 +1,11 @@
 #include "cli.hpp"
+#include "log.hpp"
 #include "terminal.hpp"
 
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <unistd.h>
 
@@ -31,7 +33,14 @@ int runApp(int argc, char** argv) {
     return 0;
   }
 
+  contourtty::Logger logger;
+  if (parsed.options.log_file.has_value()) {
+    logger = contourtty::Logger(*parsed.options.log_file);
+    CONTOURTTY_LOG_INFO(logger, "logger initialized");
+  }
+
   if (!contourtty::terminalSessionAvailable()) {
+    CONTOURTTY_LOG_WARN(logger, "tty unavailable; terminal session skipped");
     std::cout << "contourtty " << CONTOURTTY_VERSION << '\n';
     return 0;
   }
@@ -40,12 +49,14 @@ int runApp(int argc, char** argv) {
   contourtty::installQuitSignalHandlers();
   contourtty::installResizeSignalHandler();
   contourtty::TerminalSession session;
+  CONTOURTTY_LOG_INFO(logger, "terminal session started");
   if (const char* throw_after_terminal = std::getenv("CONTOURTTY_THROW_AFTER_TERMINAL");
       throw_after_terminal != nullptr && std::string_view(throw_after_terminal) == "1") {
     throw std::runtime_error("forced terminal exception");
   }
-  const auto print_size = [] {
+  const auto print_size = [&logger] {
     const auto size = contourtty::queryTerminalSize();
+    CONTOURTTY_LOG_INFO(logger, "terminal size " + std::to_string(size.cols) + "x" + std::to_string(size.rows));
     std::cout << "\x1b[Hcontourtty " << CONTOURTTY_VERSION << "\npress q to quit\nsize: "
               << size.cols << 'x' << size.rows << "\n" << std::flush;
   };
@@ -55,11 +66,15 @@ int runApp(int argc, char** argv) {
     char input = 0;
     const ssize_t n = ::read(STDIN_FILENO, &input, 1);
     if (n == 1 && (input == 'q' || input == 'Q')) {
+      CONTOURTTY_LOG_INFO(logger, "quit requested by keyboard");
       break;
     }
     if (contourtty::consumeResizeFlag()) {
       print_size();
     }
+  }
+  if (contourtty::shouldQuit()) {
+    CONTOURTTY_LOG_INFO(logger, "quit requested by signal");
   }
   return 0;
 }

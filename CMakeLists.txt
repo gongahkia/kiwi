@@ -6,6 +6,7 @@ option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 add_executable(contourtty
   src/cli.cpp
+  src/log.cpp
   src/main.cpp
   src/terminal.cpp
 )
