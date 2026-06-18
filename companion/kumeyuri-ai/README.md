@@ -13,10 +13,12 @@ Initial scope:
 - return rewritten Mermaid source plus a short summary
 - resolve BYOK provider API keys from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
   and `OPENROUTER_API_KEY`
+- define provider configuration/request/response abstractions for OpenAI,
+  Anthropic, OpenRouter, and local llama.cpp backends
 - validate that provider output is non-empty before any caller applies it
 
 Out of scope here:
 
-- provider selection
+- network calls to provider APIs
 - applying rewrites to files
 - dynamic loading from the main CLI

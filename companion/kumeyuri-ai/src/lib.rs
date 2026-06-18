@@ -72,16 +72,30 @@ pub enum AiProvider {
     OpenAi,
     Anthropic,
     OpenRouter,
+    LlamaCpp,
 }
 
 impl AiProvider {
+    pub const ALL: [Self; 4] = [
+        Self::OpenAi,
+        Self::Anthropic,
+        Self::OpenRouter,
+        Self::LlamaCpp,
+    ];
+
     #[must_use]
-    pub const fn env_var(self) -> &'static str {
+    pub const fn api_key_env_var(self) -> Option<&'static str> {
         match self {
-            Self::OpenAi => "OPENAI_API_KEY",
-            Self::Anthropic => "ANTHROPIC_API_KEY",
-            Self::OpenRouter => "OPENROUTER_API_KEY",
+            Self::OpenAi => Some("OPENAI_API_KEY"),
+            Self::Anthropic => Some("ANTHROPIC_API_KEY"),
+            Self::OpenRouter => Some("OPENROUTER_API_KEY"),
+            Self::LlamaCpp => None,
         }
+    }
+
+    #[must_use]
+    pub const fn requires_api_key(self) -> bool {
+        self.api_key_env_var().is_some()
     }
 }
 
@@ -91,8 +105,82 @@ impl fmt::Display for AiProvider {
             Self::OpenAi => formatter.write_str("OpenAI"),
             Self::Anthropic => formatter.write_str("Anthropic"),
             Self::OpenRouter => formatter.write_str("OpenRouter"),
+            Self::LlamaCpp => formatter.write_str("llama.cpp"),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderConfig {
+    pub provider: AiProvider,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+}
+
+impl ProviderConfig {
+    #[must_use]
+    pub const fn new(provider: AiProvider) -> Self {
+        Self {
+            provider,
+            endpoint: None,
+            model: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.endpoint = Some(endpoint.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = Some(model.into());
+        self
+    }
+
+    pub fn resolve_api_key_with(
+        &self,
+        lookup: impl FnMut(&str) -> Option<String>,
+    ) -> Result<Option<ApiKey>, AiError> {
+        if self.provider.requires_api_key() {
+            return resolve_api_key_with(self.provider, lookup).map(Some);
+        }
+        Ok(None)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderRequest {
+    pub config: ProviderConfig,
+    pub prompt: String,
+}
+
+impl ProviderRequest {
+    #[must_use]
+    pub fn new(config: ProviderConfig, prompt: impl Into<String>) -> Self {
+        Self {
+            config,
+            prompt: prompt.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderResponse {
+    pub text: String,
+}
+
+impl ProviderResponse {
+    #[must_use]
+    pub fn new(text: impl Into<String>) -> Self {
+        Self { text: text.into() }
+    }
+}
+
+pub trait ProviderClient {
+    fn provider(&self) -> AiProvider;
+    fn complete(&self, request: &ProviderRequest) -> Result<ProviderResponse, AiError>;
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -132,6 +220,9 @@ impl fmt::Debug for ApiKey {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AiError {
+    ApiKeyNotRequired {
+        provider: AiProvider,
+    },
     MissingApiKey {
         provider: AiProvider,
         env_var: &'static str,
@@ -143,6 +234,9 @@ pub enum AiError {
 impl fmt::Display for AiError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::ApiKeyNotRequired { provider } => {
+                write!(formatter, "{provider} does not use an API key")
+            }
             Self::MissingApiKey { provider, env_var } => {
                 write!(formatter, "missing {provider} API key in {env_var}")
             }
@@ -164,7 +258,9 @@ pub fn resolve_api_key_with(
     provider: AiProvider,
     mut lookup: impl FnMut(&str) -> Option<String>,
 ) -> Result<ApiKey, AiError> {
-    let env_var = provider.env_var();
+    let Some(env_var) = provider.api_key_env_var() else {
+        return Err(AiError::ApiKeyNotRequired { provider });
+    };
     let Some(raw) = lookup(env_var) else {
         return Err(AiError::MissingApiKey { provider, env_var });
     };
@@ -196,8 +292,8 @@ pub fn validate_rewrite(rewrite: &LayoutRewrite) -> Result<(), AiError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AiError, AiProvider, LayoutDiagnostic, LayoutRewrite, LayoutRewriteRequest,
-        resolve_api_key_with, validate_rewrite,
+        AiError, AiProvider, LayoutDiagnostic, LayoutRewrite, LayoutRewriteRequest, ProviderConfig,
+        ProviderRequest, ProviderResponse, resolve_api_key_with, validate_rewrite,
     };
 
     #[test]
@@ -246,8 +342,14 @@ mod tests {
         assert_eq!(key.env_var(), "OPENAI_API_KEY");
         assert_eq!(key.expose_secret(), "sk-openai");
         assert!(format!("{key:?}").contains("<redacted>"));
-        assert_eq!(AiProvider::Anthropic.env_var(), "ANTHROPIC_API_KEY");
-        assert_eq!(AiProvider::OpenRouter.env_var(), "OPENROUTER_API_KEY");
+        assert_eq!(
+            AiProvider::Anthropic.api_key_env_var(),
+            Some("ANTHROPIC_API_KEY")
+        );
+        assert_eq!(
+            AiProvider::OpenRouter.api_key_env_var(),
+            Some("OPENROUTER_API_KEY")
+        );
     }
 
     #[test]
@@ -266,5 +368,56 @@ mod tests {
                 env_var: "OPENROUTER_API_KEY",
             }
         );
+    }
+
+    #[test]
+    fn provider_catalog_covers_cloud_and_local_backends() {
+        assert_eq!(
+            AiProvider::ALL,
+            [
+                AiProvider::OpenAi,
+                AiProvider::Anthropic,
+                AiProvider::OpenRouter,
+                AiProvider::LlamaCpp,
+            ]
+        );
+        assert!(AiProvider::OpenAi.requires_api_key());
+        assert!(!AiProvider::LlamaCpp.requires_api_key());
+        assert_eq!(AiProvider::LlamaCpp.api_key_env_var(), None);
+    }
+
+    #[test]
+    fn provider_config_resolves_optional_api_keys() {
+        let openai = ProviderConfig::new(AiProvider::OpenAi)
+            .with_endpoint("https://example.invalid")
+            .with_model("layout-model");
+        let key = openai
+            .resolve_api_key_with(|name| (name == "OPENAI_API_KEY").then(|| "sk".to_owned()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(key.expose_secret(), "sk");
+
+        let local =
+            ProviderConfig::new(AiProvider::LlamaCpp).with_endpoint("http://127.0.0.1:8080");
+        assert_eq!(local.resolve_api_key_with(|_| None).unwrap(), None);
+        assert_eq!(
+            resolve_api_key_with(AiProvider::LlamaCpp, |_| Some("unused".to_owned())).unwrap_err(),
+            AiError::ApiKeyNotRequired {
+                provider: AiProvider::LlamaCpp,
+            }
+        );
+    }
+
+    #[test]
+    fn provider_request_and_response_hold_transport_payloads() {
+        let request = ProviderRequest::new(
+            ProviderConfig::new(AiProvider::OpenRouter).with_model("layout-model"),
+            "rewrite this diagram",
+        );
+        let response = ProviderResponse::new("graph LR\nA --> B");
+
+        assert_eq!(request.config.provider, AiProvider::OpenRouter);
+        assert_eq!(request.prompt, "rewrite this diagram");
+        assert_eq!(response.text, "graph LR\nA --> B");
     }
 }
