@@ -247,12 +247,27 @@ impl PluginCache {
         manifest: &PluginManifest,
         content_hash: &str,
     ) -> Result<PathBuf, PluginCacheError> {
+        self.package_dir_for(
+            &manifest.name,
+            &manifest.version,
+            manifest.abi.major,
+            content_hash,
+        )
+    }
+
+    pub fn package_dir_for(
+        &self,
+        name: &str,
+        version: &str,
+        abi_major: u16,
+        content_hash: &str,
+    ) -> Result<PathBuf, PluginCacheError> {
         validate_content_hash(content_hash)?;
         Ok(self
             .root
-            .join(encode_cache_component(&manifest.name))
-            .join(encode_cache_component(&manifest.version))
-            .join(format!("abi-{}", manifest.abi.major))
+            .join(encode_cache_component(name))
+            .join(encode_cache_component(version))
+            .join(format!("abi-{abi_major}"))
             .join(content_hash))
     }
 
@@ -261,7 +276,12 @@ impl PluginCache {
         manifest: &PluginManifest,
         content_hash: &str,
     ) -> Result<PathBuf, PluginCacheError> {
-        let package_dir = self.package_dir(manifest, content_hash)?;
+        let package_dir = self.package_dir_for(
+            &manifest.name,
+            &manifest.version,
+            manifest.abi.major,
+            content_hash,
+        )?;
         fs::create_dir_all(&package_dir).map_err(|source| PluginCacheError::CreateDir {
             path: package_dir.clone(),
             source: source.to_string(),

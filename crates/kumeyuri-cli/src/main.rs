@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs, io,
     io::Write,
     path::{Path, PathBuf},
@@ -7,17 +8,18 @@ use std::{
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
-    abi::{Capability, CapabilitySet},
+    abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
     ast::Diagram,
     frame::{Charset, Frame, StaticFrameRenderer},
     parser::Parser as MermaidParser,
-    plugins::PluginRuntimePolicy,
+    plugins::{PluginCache, PluginRuntimePolicy},
     text::{TextOutputBackend, TextOutputConfig},
     theme::{BuiltInTheme, RgbColor, Theme},
 };
 use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
+use serde::Deserialize;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -76,6 +78,18 @@ enum Command {
         speed: Option<f32>,
         #[arg(long = "loop")]
         repeat: bool,
+    },
+    Plugin {
+        #[command(subcommand)]
+        command: PluginCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PluginCommand {
+    Install {
+        #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: String,
     },
 }
 
@@ -169,8 +183,12 @@ fn run() -> Result<(), String> {
             speed,
             repeat,
         } => play_file(&file, playback_options(speed, repeat)?),
+        Command::Plugin { command } => run_plugin_command(command),
     }
 }
+
+const PLUGIN_KEYWORD: &str = "kumeyuri-plugin";
+const KUMEYURI_USER_AGENT: &str = concat!("kumeyuri/", env!("CARGO_PKG_VERSION"));
 
 const MERMAID_COMPAT_VERSION: &str = "11.15.0";
 
@@ -414,6 +432,296 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
     io::stdout()
         .write_all(&output)
         .map_err(|error| format!("failed to write stdout: {error}"))
+}
+
+fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
+    match command {
+        PluginCommand::Install { name } => {
+            let installed = install_plugin_package(&name)?;
+            println!(
+                "installed {} {} from {} to {}",
+                installed.package.name,
+                installed.package.version,
+                installed.package.registry,
+                installed.cache_dir.display()
+            );
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PluginRegistry {
+    Npm,
+    CratesIo,
+}
+
+impl std::fmt::Display for PluginRegistry {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Npm => formatter.write_str("npm"),
+            Self::CratesIo => formatter.write_str("crates.io"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedPluginPackage {
+    registry: PluginRegistry,
+    name: String,
+    version: String,
+    archive_url: String,
+    content_hash: String,
+    archive_file: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InstalledPluginPackage {
+    package: ResolvedPluginPackage,
+    cache_dir: PathBuf,
+}
+
+fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> {
+    let package = resolve_plugin_package(name)?;
+    let cache =
+        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let cache_dir = cache
+        .package_dir_for(
+            &package.name,
+            &package.version,
+            KUMEYURI_ABI_VERSION.major,
+            &package.content_hash,
+        )
+        .map_err(|error| format!("plugin cache error: {error:?}"))?;
+    fs::create_dir_all(&cache_dir)
+        .map_err(|error| format!("failed to create {}: {error}", cache_dir.display()))?;
+    let archive = fetch_url_bytes(&package.archive_url)?;
+    fs::write(cache_dir.join(package.archive_file), archive)
+        .map_err(|error| format!("failed to write plugin archive: {error}"))?;
+    fs::write(
+        cache_dir.join("source.txt"),
+        format!(
+            "registry={}\nname={}\nversion={}\nurl={}\n",
+            package.registry, package.name, package.version, package.archive_url
+        ),
+    )
+    .map_err(|error| format!("failed to write plugin source metadata: {error}"))?;
+
+    Ok(InstalledPluginPackage { package, cache_dir })
+}
+
+fn resolve_plugin_package(name: &str) -> Result<ResolvedPluginPackage, String> {
+    let npm_error = match resolve_npm_plugin(name) {
+        Ok(package) => return Ok(package),
+        Err(error) => error,
+    };
+    let crates_error = match resolve_crates_plugin(name) {
+        Ok(package) => return Ok(package),
+        Err(error) => error,
+    };
+    Err(format!(
+        "failed to resolve `{name}` as `{PLUGIN_KEYWORD}` plugin; npm: {npm_error}; crates.io: {crates_error}"
+    ))
+}
+
+fn resolve_npm_plugin(name: &str) -> Result<ResolvedPluginPackage, String> {
+    resolve_npm_plugin_metadata(
+        name,
+        &fetch_url_string(
+            &format!(
+                "https://registry.npmjs.org/{}",
+                encode_url_path_component(name)
+            ),
+            Some("application/vnd.npm.install-v1+json"),
+        )?,
+    )
+}
+
+fn resolve_crates_plugin(name: &str) -> Result<ResolvedPluginPackage, String> {
+    resolve_crates_plugin_metadata(
+        name,
+        &fetch_url_string(
+            &format!(
+                "https://crates.io/api/v1/crates/{}",
+                encode_url_path_component(name)
+            ),
+            Some("application/json"),
+        )?,
+    )
+}
+
+fn resolve_npm_plugin_metadata(name: &str, source: &str) -> Result<ResolvedPluginPackage, String> {
+    let metadata: NpmPackageMetadata =
+        serde_json::from_str(source).map_err(|error| format!("invalid npm metadata: {error}"))?;
+    let latest = metadata
+        .dist_tags
+        .get("latest")
+        .ok_or_else(|| "npm package has no latest dist-tag".to_owned())?;
+    let version = metadata
+        .versions
+        .get(latest)
+        .ok_or_else(|| format!("npm package latest version `{latest}` is missing"))?;
+    let keywords = if version.keywords.is_empty() {
+        &metadata.keywords
+    } else {
+        &version.keywords
+    };
+    if !has_plugin_keyword(keywords) {
+        return Err(format!("npm package is missing `{PLUGIN_KEYWORD}` keyword"));
+    }
+    let content_hash = version
+        .dist
+        .shasum
+        .as_deref()
+        .filter(|value| is_hex(value))
+        .ok_or_else(|| "npm package latest version has no hex shasum".to_owned())?;
+
+    Ok(ResolvedPluginPackage {
+        registry: PluginRegistry::Npm,
+        name: metadata.name.unwrap_or_else(|| name.to_owned()),
+        version: latest.clone(),
+        archive_url: version.dist.tarball.clone(),
+        content_hash: content_hash.to_owned(),
+        archive_file: "package.tgz",
+    })
+}
+
+fn resolve_crates_plugin_metadata(
+    name: &str,
+    source: &str,
+) -> Result<ResolvedPluginPackage, String> {
+    let metadata: CratesPackageMetadata = serde_json::from_str(source)
+        .map_err(|error| format!("invalid crates.io metadata: {error}"))?;
+    if !has_plugin_keyword(&metadata.krate.keywords) {
+        return Err(format!("crate is missing `{PLUGIN_KEYWORD}` keyword"));
+    }
+    let version_number = metadata
+        .krate
+        .max_version
+        .or(metadata.krate.default_version)
+        .ok_or_else(|| "crate has no max/default version".to_owned())?;
+    let version = metadata
+        .versions
+        .iter()
+        .find(|version| version.num == version_number && !version.yanked)
+        .ok_or_else(|| format!("crate version `{version_number}` is missing or yanked"))?;
+    if !is_hex(&version.checksum) {
+        return Err("crate version checksum is not hex".to_owned());
+    }
+    let archive_url = if version.dl_path.starts_with("https://") {
+        version.dl_path.clone()
+    } else {
+        format!("https://crates.io{}", version.dl_path)
+    };
+
+    Ok(ResolvedPluginPackage {
+        registry: PluginRegistry::CratesIo,
+        name: metadata.krate.name.unwrap_or_else(|| name.to_owned()),
+        version: version.num.clone(),
+        archive_url,
+        content_hash: version.checksum.clone(),
+        archive_file: "package.crate",
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct NpmPackageMetadata {
+    name: Option<String>,
+    #[serde(rename = "dist-tags")]
+    dist_tags: BTreeMap<String, String>,
+    #[serde(default)]
+    keywords: Vec<String>,
+    versions: BTreeMap<String, NpmVersionMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NpmVersionMetadata {
+    #[serde(default)]
+    keywords: Vec<String>,
+    dist: NpmDistMetadata,
+}
+
+#[derive(Debug, Deserialize)]
+struct NpmDistMetadata {
+    tarball: String,
+    shasum: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CratesPackageMetadata {
+    #[serde(rename = "crate")]
+    krate: CrateSummaryMetadata,
+    versions: Vec<CrateVersionMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CrateSummaryMetadata {
+    name: Option<String>,
+    max_version: Option<String>,
+    default_version: Option<String>,
+    #[serde(default)]
+    keywords: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CrateVersionMetadata {
+    num: String,
+    checksum: String,
+    yanked: bool,
+    dl_path: String,
+}
+
+fn fetch_url_string(url: &str, accept: Option<&str>) -> Result<String, String> {
+    let mut request = ureq::get(url).header("User-Agent", KUMEYURI_USER_AGENT);
+    if let Some(accept) = accept {
+        request = request.header("Accept", accept);
+    }
+    request
+        .call()
+        .map_err(|error| format!("GET {url}: {error}"))?
+        .body_mut()
+        .read_to_string()
+        .map_err(|error| format!("read {url}: {error}"))
+}
+
+fn fetch_url_bytes(url: &str) -> Result<Vec<u8>, String> {
+    ureq::get(url)
+        .header("User-Agent", KUMEYURI_USER_AGENT)
+        .call()
+        .map_err(|error| format!("GET {url}: {error}"))?
+        .body_mut()
+        .read_to_vec()
+        .map_err(|error| format!("read {url}: {error}"))
+}
+
+fn has_plugin_keyword(keywords: &[String]) -> bool {
+    keywords.iter().any(|keyword| keyword == PLUGIN_KEYWORD)
+}
+
+fn is_hex(value: &str) -> bool {
+    !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn encode_url_path_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(hex_digit(byte >> 4));
+            encoded.push(hex_digit(byte & 0x0f));
+        }
+    }
+    encoded
+}
+
+fn hex_digit(value: u8) -> char {
+    match value {
+        0..=9 => char::from(b'0' + value),
+        10..=15 => char::from(b'A' + value - 10),
+        _ => unreachable!("hex digit input is masked to four bits"),
+    }
 }
 
 fn render_source(
@@ -886,10 +1194,11 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        ANIMATED_PARTIAL_ROOTS, Cli, Command, RenderCharset, RenderFormat, RenderOptions,
-        RenderTheme, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS, compat_report, parse_non_empty_string,
-        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
-        render_source, timeline_from_source, timeline_from_source_with_options,
+        ANIMATED_PARTIAL_ROOTS, Cli, Command, PluginCommand, PluginRegistry, RenderCharset,
+        RenderFormat, RenderOptions, RenderTheme, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS,
+        compat_report, parse_non_empty_string, parse_positive_usize, parse_speed_override,
+        playback_options, plugin_runtime_policy, render_source, resolve_crates_plugin_metadata,
+        resolve_npm_plugin_metadata, timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options,
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -942,6 +1251,20 @@ mod tests {
         };
 
         assert_eq!(mermaid_version.as_deref(), Some("11.15.0"));
+    }
+
+    #[test]
+    fn plugin_install_parser_accepts_package_name() {
+        let cli =
+            Cli::try_parse_from(["kumeyuri", "plugin", "install", "kumeyuri-render-pdf"]).unwrap();
+        let Command::Plugin {
+            command: PluginCommand::Install { name },
+        } = cli.command
+        else {
+            panic!("expected plugin install command");
+        };
+
+        assert_eq!(name, "kumeyuri-render-pdf");
     }
 
     #[test]
@@ -1027,6 +1350,86 @@ mod tests {
         .to_string();
 
         assert!(error.contains("unknown plugin capability `process.spawn`"));
+    }
+
+    #[test]
+    fn npm_plugin_metadata_resolves_tagged_latest_package() {
+        let package = resolve_npm_plugin_metadata(
+            "kumeyuri-render-pdf",
+            r#"{
+  "name": "kumeyuri-render-pdf",
+  "dist-tags": { "latest": "0.1.0" },
+  "versions": {
+    "0.1.0": {
+      "keywords": ["kumeyuri-plugin"],
+      "dist": {
+        "tarball": "https://registry.npmjs.org/kumeyuri-render-pdf/-/kumeyuri-render-pdf-0.1.0.tgz",
+        "shasum": "abcdef0123456789"
+      }
+    }
+  }
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(package.registry, PluginRegistry::Npm);
+        assert_eq!(package.name, "kumeyuri-render-pdf");
+        assert_eq!(package.version, "0.1.0");
+        assert_eq!(package.content_hash, "abcdef0123456789");
+        assert_eq!(package.archive_file, "package.tgz");
+    }
+
+    #[test]
+    fn crates_plugin_metadata_resolves_tagged_package() {
+        let package = resolve_crates_plugin_metadata(
+            "kumeyuri-render-pdf",
+            r#"{
+  "crate": {
+    "name": "kumeyuri-render-pdf",
+    "max_version": "0.1.0",
+    "keywords": ["kumeyuri-plugin"]
+  },
+  "versions": [
+    {
+      "num": "0.1.0",
+      "checksum": "0123456789abcdef",
+      "yanked": false,
+      "dl_path": "/api/v1/crates/kumeyuri-render-pdf/0.1.0/download"
+    }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(package.registry, PluginRegistry::CratesIo);
+        assert_eq!(package.name, "kumeyuri-render-pdf");
+        assert_eq!(package.version, "0.1.0");
+        assert_eq!(package.content_hash, "0123456789abcdef");
+        assert_eq!(
+            package.archive_url,
+            "https://crates.io/api/v1/crates/kumeyuri-render-pdf/0.1.0/download"
+        );
+        assert_eq!(package.archive_file, "package.crate");
+    }
+
+    #[test]
+    fn plugin_metadata_requires_keyword() {
+        let error = resolve_npm_plugin_metadata(
+            "not-a-plugin",
+            r#"{
+  "name": "not-a-plugin",
+  "dist-tags": { "latest": "0.1.0" },
+  "versions": {
+    "0.1.0": {
+      "keywords": ["other"],
+      "dist": { "tarball": "https://registry.npmjs.org/not-a-plugin.tgz", "shasum": "abcdef" }
+    }
+  }
+}"#,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("kumeyuri-plugin"));
     }
 
     #[test]

@@ -12,6 +12,7 @@ kumeyuri <COMMAND>
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated TUI timeline |
 | `compat` | Print Mermaid root support for the tracked docs version |
+| `plugin install` | Resolve and cache a `kumeyuri-plugin` package from npm or crates.io |
 
 ## Compat
 
@@ -59,6 +60,17 @@ kumeyuri watch <FILE>
 ```
 
 `watch` renders text output, listens for file changes, and redraws in place.
+
+## Plugins
+
+```text
+kumeyuri plugin install <NAME>
+```
+
+`plugin install` resolves `<NAME>` from npm first, then crates.io. Packages must
+carry the `kumeyuri-plugin` keyword. The resolved archive is cached under
+`$XDG_DATA_HOME/kumeyuri/plugins/`, or `$HOME/.local/share/kumeyuri/plugins/`
+when `XDG_DATA_HOME` is unset.
 
 ## Play
 
