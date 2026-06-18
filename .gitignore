@@ -10,5 +10,8 @@ plugins/*/Cargo.lock
 node_modules/
 dist/
 
+# Generated benchmark outputs
+benches/compare/results/
+
 # OS
 .DS_Store

@@ -16,3 +16,12 @@ Rules:
 * Prefer inputs copied from first-party fixtures or examples so expected
   behavior is already covered elsewhere.
 * Do not add generated SVG, raster, or text outputs here.
+
+Adapters:
+
+* `npm run bench:compare:beautiful-mermaid` renders the manifest through
+  `beautiful-mermaid@1.1.3` via `benches/compare/tools/beautiful-mermaid.mjs`
+  and writes generated text/error outputs under `benches/compare/results/`.
+  Current upstream support is limited to flowchart, state, sequence, class, ER,
+  and XY chart inputs, so unsupported corpus roots are recorded as adapter
+  errors rather than committed fixtures.
