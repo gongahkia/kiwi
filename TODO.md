@@ -43,7 +43,6 @@
 ## PHASE A — Foundations & scaffolding
 *Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
 
-- [ ] **A5. CLI argument parser wired.** DoD: `--help`, `--version`, positional `<input>`, and stub flags (`--width`, `--fps`, `--mode`, `--color`) parse without error; bad flags produce a clear message and non-zero exit. Reference: PHASE_A §CLI.
 - [ ] **A6. Terminal raw-mode RAII guard.** DoD: a `TerminalSession` object enters raw mode + alternate screen + hides cursor in its constructor and *always* restores on destruction; verified by running, Ctrl-C, and confirming the shell prompt is normal (echo on, cursor visible, main screen). Reference: PHASE_A §RawMode.
 - [ ] **A7. Signal & panic safety.** DoD: SIGINT, SIGTERM, and an uncaught C++ exception all restore the terminal before exit (no garbled shell). Tested by killing mid-run. Reference: PHASE_A §Teardown.
 - [ ] **A8. Terminal size query + SIGWINCH.** DoD: program prints current cols×rows; resizing the window updates the value live via SIGWINCH handler (no busy-poll). Reference: PHASE_A §Size.

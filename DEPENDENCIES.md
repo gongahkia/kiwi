@@ -46,9 +46,9 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 
 | Library | Minimum | Strategy | Used for |
 |---|---:|---|---|
-| CLI11 | pinned vendored header | vendored | `--help`, `--version`, positional input, typed flags, enum validation. |
+| internal parser | in-tree | source | `--help`, `--version`, positional input, typed flags, enum validation. |
 
-`third_party/CLI11.hpp` will be committed before CLI parsing is wired. Vendoring keeps release builds reproducible and avoids requiring users to install a C++ package manager.
+The Phase A parser is hand-rolled and in-tree to avoid an early external dependency. Revisit CLI11 only if flag complexity grows enough to justify vendoring it.
 
 ## Install prerequisites
 
