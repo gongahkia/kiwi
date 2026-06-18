@@ -7,6 +7,7 @@ option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 add_executable(contourtty
   src/cli.cpp
   src/main.cpp
+  src/terminal.cpp
 )
 target_compile_features(contourtty PRIVATE cxx_std_20)
 set_target_properties(contourtty PROPERTIES
