@@ -8,7 +8,7 @@ use std::{
     process::ExitCode,
 };
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
     abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
@@ -48,11 +48,7 @@ use {
 };
 
 #[derive(Debug, Parser)]
-#[command(
-    name = "kumeyuri",
-    version,
-    about = "Render Mermaid as animated text artifacts."
-)]
+#[command(name = "kumeyuri", version)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -200,7 +196,8 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let cli = Cli::parse();
+    let matches = Cli::command().about(msg("cli-about")).get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
 
     match cli.command {
         Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
@@ -229,84 +226,96 @@ const EXTREME_ASPECT_RATIO: usize = 4;
 const KUMEYURI_AI_DYLIB_ENV: &str = "KUMEYURI_AI_DYLIB";
 const KUMEYURI_AI_ABI_VERSION: u32 = 1;
 
+fn msg(id: &str) -> String {
+    i18n::message(id)
+}
+
+fn msg_args(id: &str, args: &[(&str, String)]) -> String {
+    i18n::format_message(id, args)
+}
+
+fn msg_arg(name: &'static str, value: impl ToString) -> (&'static str, String) {
+    (name, value.to_string())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct CompatRoot {
-    label: &'static str,
+    label_id: &'static str,
     roots: &'static [&'static str],
-    caveat: &'static str,
+    caveat_id: &'static str,
 }
 
 const ANIMATED_PARTIAL_ROOTS: &[CompatRoot] = &[
     CompatRoot {
-        label: "Flowchart",
+        label_id: "compat-label-flowchart",
         roots: &["graph", "flowchart"],
-        caveat: "trace animation; Mermaid config, styling, and exact visual parity are partial",
+        caveat_id: "compat-caveat-flowchart",
     },
     CompatRoot {
-        label: "Sequence Diagram",
+        label_id: "compat-label-sequence",
         roots: &["sequenceDiagram"],
-        caveat: "playback animation; colors, actor menus, links, and rich styling are partial",
+        caveat_id: "compat-caveat-sequence",
     },
     CompatRoot {
-        label: "State Diagram",
+        label_id: "compat-label-state",
         roots: &["stateDiagram", "stateDiagram-v2"],
-        caveat: "transition animation; Mermaid layout/look config is rejected",
+        caveat_id: "compat-caveat-state",
     },
     CompatRoot {
-        label: "Class Diagram",
+        label_id: "compat-label-class",
         roots: &["classDiagram"],
-        caveat: "relationship trace animation; callbacks, links, and CSS styling are semantic-only",
+        caveat_id: "compat-caveat-class",
     },
     CompatRoot {
-        label: "Entity Relationship Diagram",
+        label_id: "compat-label-er",
         roots: &["erDiagram"],
-        caveat: "relationship trace animation; Mermaid styling/config is not interpreted",
+        caveat_id: "compat-caveat-er",
     },
     CompatRoot {
-        label: "Gantt",
+        label_id: "compat-label-gantt",
         roots: &["gantt"],
-        caveat: "timeline trace animation; date handling is day-level",
+        caveat_id: "compat-caveat-gantt",
     },
     CompatRoot {
-        label: "Pie Chart",
+        label_id: "compat-label-pie",
         roots: &["pie"],
-        caveat: "slice trace animation; theme variables and hover behavior are not rendered",
+        caveat_id: "compat-caveat-pie",
     },
     CompatRoot {
-        label: "Mindmaps",
+        label_id: "compat-label-mindmap",
         roots: &["mindmap"],
-        caveat: "tree trace animation; CSS classes and icon registration are semantic-only",
+        caveat_id: "compat-caveat-mindmap",
     },
     CompatRoot {
-        label: "User Journey",
+        label_id: "compat-label-journey",
         roots: &["journey"],
-        caveat: "trace animation; Mermaid color palettes are approximated",
+        caveat_id: "compat-caveat-journey",
     },
     CompatRoot {
-        label: "GitGraph Diagram",
+        label_id: "compat-label-gitgraph",
         roots: &["gitGraph"],
-        caveat: "commit trace animation; display config fields are semantic-only",
+        caveat_id: "compat-caveat-gitgraph",
     },
     CompatRoot {
-        label: "Timeline",
+        label_id: "compat-label-timeline",
         roots: &["timeline"],
-        caveat: "reveal animation; theme variables and direction styling are not rendered",
+        caveat_id: "compat-caveat-timeline",
     },
 ];
 
 const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
     CompatRoot {
-        label: "Quadrant Chart",
+        label_id: "compat-label-quadrant",
         roots: &["quadrantChart"],
-        caveat: "static frame; classes are semantic-only",
+        caveat_id: "compat-caveat-quadrant",
     },
     CompatRoot {
-        label: "Requirement Diagram",
+        label_id: "compat-label-requirement",
         roots: &["requirementDiagram"],
-        caveat: "static frame; styles/classes are semantic-only",
+        caveat_id: "compat-caveat-requirement",
     },
     CompatRoot {
-        label: "C4 Diagram",
+        label_id: "compat-label-c4",
         roots: &[
             "C4Context",
             "C4Container",
@@ -314,95 +323,95 @@ const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
             "C4Dynamic",
             "C4Deployment",
         ],
-        caveat: "static frame; C4 geometry is schematic and CSS colors are style rows",
+        caveat_id: "compat-caveat-c4",
     },
     CompatRoot {
-        label: "ZenUML",
+        label_id: "compat-label-zenuml",
         roots: &["zenuml"],
-        caveat: "static frame; activation stack styling is not modeled",
+        caveat_id: "compat-caveat-zenuml",
     },
     CompatRoot {
-        label: "Sankey",
+        label_id: "compat-label-sankey",
         roots: &["sankey", "sankey-beta"],
-        caveat: "static frame; link widths/colors are schematic",
+        caveat_id: "compat-caveat-sankey",
     },
     CompatRoot {
-        label: "XY Chart",
+        label_id: "compat-label-xy",
         roots: &["xychart", "xychart-beta"],
-        caveat: "static frame; horizontal orientation is parsed but rendered schematically",
+        caveat_id: "compat-caveat-xy",
     },
     CompatRoot {
-        label: "Block Diagram",
+        label_id: "compat-label-block",
         roots: &["block"],
-        caveat: "static frame; styles/classes and arrow geometry are approximate",
+        caveat_id: "compat-caveat-block",
     },
     CompatRoot {
-        label: "Packet",
+        label_id: "compat-label-packet",
         roots: &["packet", "packet-beta"],
-        caveat: "static frame; packet sizing config is not interpreted",
+        caveat_id: "compat-caveat-packet",
     },
     CompatRoot {
-        label: "Kanban",
+        label_id: "compat-label-kanban",
         roots: &["kanban"],
-        caveat: "static frame; metadata is rendered as text",
+        caveat_id: "compat-caveat-kanban",
     },
     CompatRoot {
-        label: "Architecture",
+        label_id: "compat-label-architecture",
         roots: &["architecture-beta"],
-        caveat: "static frame; icons/classes are text-only",
+        caveat_id: "compat-caveat-architecture",
     },
     CompatRoot {
-        label: "Radar",
+        label_id: "compat-label-radar",
         roots: &["radar-beta"],
-        caveat: "static frame; circular styling and curve fills are approximate",
+        caveat_id: "compat-caveat-radar",
     },
     CompatRoot {
-        label: "Event Modeling",
+        label_id: "compat-label-event-modeling",
         roots: &["eventmodeling"],
-        caveat: "static frame; Mermaid padding/rowHeight config is not interpreted",
+        caveat_id: "compat-caveat-event-modeling",
     },
     CompatRoot {
-        label: "Treemap",
+        label_id: "compat-label-treemap",
         roots: &["treemap-beta"],
-        caveat: "static frame; classDef and D3 value formatting are semantic-only",
+        caveat_id: "compat-caveat-treemap",
     },
     CompatRoot {
-        label: "Venn",
+        label_id: "compat-label-venn",
         roots: &["venn-beta"],
-        caveat: "static frame; proportional area and theme colors are approximate",
+        caveat_id: "compat-caveat-venn",
     },
     CompatRoot {
-        label: "Ishikawa",
+        label_id: "compat-label-ishikawa",
         roots: &["ishikawa-beta"],
-        caveat: "static frame; fishbone geometry is approximate",
+        caveat_id: "compat-caveat-ishikawa",
     },
     CompatRoot {
-        label: "Wardley",
+        label_id: "compat-label-wardley",
         roots: &["wardley-beta"],
-        caveat: "static frame; exact Mermaid geometry and styling are approximate",
+        caveat_id: "compat-caveat-wardley",
     },
     CompatRoot {
-        label: "TreeView",
+        label_id: "compat-label-treeview",
         roots: &["treeView-beta"],
-        caveat: "static frame; icons/classes are text-only",
+        caveat_id: "compat-caveat-treeview",
     },
 ];
 
 const UNSUPPORTED_ROOTS: &[CompatRoot] = &[
     CompatRoot {
-        label: "Cynefin Framework Diagram",
+        label_id: "compat-label-cynefin",
         roots: &["cynefin-beta"],
-        caveat: "no parser root; rejected at parser-header detection",
+        caveat_id: "compat-caveat-cynefin",
     },
     CompatRoot {
-        label: "Railroad Diagram",
+        label_id: "compat-label-railroad",
         roots: &["railroad-diagram"],
-        caveat: "no parser root; rejected at parser-header detection",
+        caveat_id: "compat-caveat-railroad",
     },
     CompatRoot {
-        label: "Swimlanes Diagram",
+        label_id: "compat-label-swimlanes",
         roots: &["swimlane"],
-        caveat: "no parser root; rejected at parser-header detection",
+        caveat_id: "compat-caveat-swimlanes",
     },
 ];
 
@@ -410,55 +419,77 @@ fn print_compat_report(mermaid_version: Option<&str>) -> Result<(), String> {
     let output = compat_report(mermaid_version);
     io::stdout()
         .write_all(output.as_bytes())
-        .map_err(|error| format!("failed to write stdout: {error}"))
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
 }
 
 fn compat_report(mermaid_version: Option<&str>) -> String {
-    let i18n = i18n::I18n::en_us().expect("embedded Fluent resources must be valid");
     let requested_version = mermaid_version.unwrap_or(MERMAID_COMPAT_VERSION);
     let mut output = String::new();
-    output.push_str(&i18n.message("compat-title").expect("compat title exists"));
+    output.push_str(&msg("compat-title"));
     output.push('\n');
-    output.push_str(&format!("requested Mermaid version: {requested_version}\n"));
-    output.push_str(&format!(
-        "reference Mermaid version: {MERMAID_COMPAT_VERSION}\n\n"
+    output.push_str(&msg_args(
+        "compat-requested-version",
+        &[msg_arg("version", requested_version)],
     ));
+    output.push('\n');
+    output.push_str(&msg_args(
+        "compat-reference-version",
+        &[msg_arg("version", MERMAID_COMPAT_VERSION)],
+    ));
+    output.push_str("\n\n");
     if requested_version != MERMAID_COMPAT_VERSION {
-        output.push_str(
-            "version note: this build only verifies the reference Mermaid version listed above.\n\n",
-        );
+        output.push_str(&msg("compat-version-note"));
+        output.push_str("\n\n");
     }
-    output.push_str("Supported roots - animated partial\n");
+    output.push_str(&msg("compat-supported-animated"));
+    output.push('\n');
     append_compat_roots(&mut output, ANIMATED_PARTIAL_ROOTS);
-    output.push_str("\nSupported roots - static-only partial\n");
+    output.push('\n');
+    output.push_str(&msg("compat-supported-static"));
+    output.push('\n');
     append_compat_roots(&mut output, STATIC_ONLY_ROOTS);
-    output.push_str("\nUnsupported roots\n");
+    output.push('\n');
+    output.push_str(&msg("compat-unsupported"));
+    output.push('\n');
     append_compat_roots(&mut output, UNSUPPORTED_ROOTS);
-    output.push_str("\nCaveats\n");
-    output.push_str("- Partial: parser and renderer exist, but this is not full Mermaid parity.\n");
-    output.push_str(
-        "- Static-only: parser and renderer exist; animation collapses to a static frame.\n",
-    );
-    output.push_str("- Unsupported: no parser root exists; input is rejected.\n");
-    output.push_str("- Common: Mermaid frontmatter/init/theme/layout/click parity is not supported except kumeyuri animation directives.\n");
+    output.push('\n');
+    output.push_str(&msg("compat-caveats"));
+    output.push('\n');
+    for caveat in [
+        "compat-caveat-partial",
+        "compat-caveat-static",
+        "compat-caveat-unsupported",
+        "compat-caveat-common",
+    ] {
+        output.push_str("- ");
+        output.push_str(&msg(caveat));
+        output.push('\n');
+    }
     output
 }
 
 fn append_compat_roots(output: &mut String, roots: &[CompatRoot]) {
     for root in roots {
-        output.push_str(&format!(
-            "- {}: `{}`; {}\n",
-            root.label,
-            root.roots.join("`, `"),
-            root.caveat
+        output.push_str(&msg_args(
+            "compat-root",
+            &[
+                msg_arg("label", msg(root.label_id)),
+                msg_arg("roots", root.roots.join("`, `")),
+                msg_arg("caveat", msg(root.caveat_id)),
+            ],
         ));
+        output.push('\n');
     }
 }
 
 fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
     validate_render_options(format, options)?;
-    let source = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let source = fs::read_to_string(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
     let diagram = parse_diagram(&source)?;
     emit_layout_warnings(&diagram, options);
     if format == RenderFormat::Tui {
@@ -472,12 +503,16 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
     let output = render_source(&source, format, options)?;
     io::stdout()
         .write_all(&output)
-        .map_err(|error| format!("failed to write stdout: {error}"))
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
 }
 
 fn lint_file(path: &Path, json: bool) -> Result<(), String> {
-    let source = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let source = fs::read_to_string(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
     let report = lint_source(&path.display().to_string(), &source)?;
     print_lint_report(&report, json)
 }
@@ -496,26 +531,35 @@ fn print_lint_report(report: &LayoutReport, json: bool) -> Result<(), String> {
     let output = if json {
         format!(
             "{}\n",
-            serde_json::to_string_pretty(report)
-                .map_err(|error| format!("failed to encode lint report: {error}"))?
+            serde_json::to_string_pretty(report).map_err(|error| msg_args(
+                "error-encode-lint-report",
+                &[msg_arg("error", error)]
+            ))?
         )
     } else {
         format_lint_text(report)
     };
     io::stdout()
         .write_all(output.as_bytes())
-        .map_err(|error| format!("failed to write stdout: {error}"))
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
 }
 
 fn format_lint_text(report: &LayoutReport) -> String {
     if report.warnings.is_empty() {
-        return format!("{}: ok\n", report.file);
+        return format!(
+            "{}\n",
+            msg_args("lint-ok", &[msg_arg("file", &report.file)])
+        );
     }
     let mut output = String::new();
     for warning in &report.warnings {
-        output.push_str(&report.file);
-        output.push_str(": ");
-        output.push_str(&warning.line());
+        output.push_str(&msg_args(
+            "lint-warning-line",
+            &[
+                msg_arg("file", &report.file),
+                msg_arg("warning", warning.line()),
+            ],
+        ));
         output.push('\n');
     }
     output
@@ -523,16 +567,26 @@ fn format_lint_text(report: &LayoutReport) -> String {
 
 fn layout_file(path: &Path, ai: bool) -> Result<(), String> {
     if !ai {
-        return Err("layout currently requires --ai".to_owned());
+        return Err(msg("layout-requires-ai"));
     }
-    let source = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let source = fs::read_to_string(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
     let _diagram = parse_diagram(&source)?;
     let library_path = resolve_ai_library_path(|name| env::var_os(name))?;
     let version = load_ai_binding_version(&library_path)?;
     println!(
-        "loaded kumeyuri-ai ABI {version} from {}",
-        library_path.display()
+        "{}",
+        msg_args(
+            "layout-loaded-ai",
+            &[
+                msg_arg("version", version),
+                msg_arg("path", library_path.display()),
+            ],
+        )
     );
     Ok(())
 }
@@ -544,8 +598,9 @@ fn resolve_ai_library_path(
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .ok_or_else(|| {
-            format!(
-                "--ai requires {KUMEYURI_AI_DYLIB_ENV} to point at a kumeyuri-ai dynamic library"
+            msg_args(
+                "layout-ai-env-required",
+                &[msg_arg("env", KUMEYURI_AI_DYLIB_ENV)],
             )
         })
 }
@@ -553,20 +608,28 @@ fn resolve_ai_library_path(
 #[cfg(not(target_arch = "wasm32"))]
 fn load_ai_binding_version(path: &Path) -> Result<u32, String> {
     unsafe {
-        let library = libloading::Library::new(path)
-            .map_err(|error| format!("failed to load {}: {error}", path.display()))?;
+        let library = libloading::Library::new(path).map_err(|error| {
+            msg_args(
+                "layout-ai-load",
+                &[msg_arg("path", path.display()), msg_arg("error", error)],
+            )
+        })?;
         let abi_version = library
             .get::<unsafe extern "C" fn() -> u32>(b"kumeyuri_ai_abi_version\0")
             .map_err(|error| {
-                format!(
-                    "failed to load kumeyuri-ai ABI symbol from {}: {error}",
-                    path.display()
+                msg_args(
+                    "layout-ai-symbol",
+                    &[msg_arg("path", path.display()), msg_arg("error", error)],
                 )
             })?;
         let version = abi_version();
         if version != KUMEYURI_AI_ABI_VERSION {
-            return Err(format!(
-                "unsupported kumeyuri-ai ABI {version}; expected {KUMEYURI_AI_ABI_VERSION}"
+            return Err(msg_args(
+                "layout-ai-unsupported-abi",
+                &[
+                    msg_arg("version", version),
+                    msg_arg("expected", KUMEYURI_AI_ABI_VERSION),
+                ],
             ));
         }
         Ok(version)
@@ -575,7 +638,7 @@ fn load_ai_binding_version(path: &Path) -> Result<u32, String> {
 
 #[cfg(target_arch = "wasm32")]
 fn load_ai_binding_version(_path: &Path) -> Result<u32, String> {
-    Err("kumeyuri-ai dynamic loading is unsupported on wasm32".to_owned())
+    Err(msg("layout-ai-wasm"))
 }
 
 fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
@@ -583,11 +646,16 @@ fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
         PluginCommand::Install { name } => {
             let installed = install_plugin_package(&name)?;
             println!(
-                "installed {} {} from {} to {}",
-                installed.package.name,
-                installed.package.version,
-                installed.package.registry,
-                installed.cache_dir.display()
+                "{}",
+                msg_args(
+                    "plugin-installed",
+                    &[
+                        msg_arg("name", &installed.package.name),
+                        msg_arg("version", &installed.package.version),
+                        msg_arg("registry", installed.package.registry),
+                        msg_arg("path", installed.cache_dir.display()),
+                    ],
+                )
             );
             Ok(())
         }
@@ -596,11 +664,16 @@ fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
         PluginCommand::Update { name } => {
             let installed = install_plugin_package(&name)?;
             println!(
-                "updated {} {} from {} at {}",
-                installed.package.name,
-                installed.package.version,
-                installed.package.registry,
-                installed.cache_dir.display()
+                "{}",
+                msg_args(
+                    "plugin-updated",
+                    &[
+                        msg_arg("name", &installed.package.name),
+                        msg_arg("version", &installed.package.version),
+                        msg_arg("registry", installed.package.registry),
+                        msg_arg("path", installed.cache_dir.display()),
+                    ],
+                )
             );
             Ok(())
         }
@@ -658,8 +731,12 @@ struct InstalledPluginRecord {
 
 fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> {
     let package = resolve_plugin_package(name)?;
-    let cache =
-        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let cache = PluginCache::from_env().map_err(|error| {
+        msg_args(
+            "plugin-cache-error",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })?;
     let cache_dir = cache
         .package_dir_for(
             &package.name,
@@ -667,12 +744,24 @@ fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> 
             KUMEYURI_ABI_VERSION.major,
             &package.content_hash,
         )
-        .map_err(|error| format!("plugin cache error: {error:?}"))?;
-    fs::create_dir_all(&cache_dir)
-        .map_err(|error| format!("failed to create {}: {error}", cache_dir.display()))?;
+        .map_err(|error| {
+            msg_args(
+                "plugin-cache-error",
+                &[msg_arg("error", format!("{error:?}"))],
+            )
+        })?;
+    fs::create_dir_all(&cache_dir).map_err(|error| {
+        msg_args(
+            "error-create-dir",
+            &[
+                msg_arg("path", cache_dir.display()),
+                msg_arg("error", error),
+            ],
+        )
+    })?;
     let archive = fetch_url_bytes(&package.archive_url)?;
     fs::write(cache_dir.join(package.archive_file), archive)
-        .map_err(|error| format!("failed to write plugin archive: {error}"))?;
+        .map_err(|error| msg_args("plugin-write-archive", &[msg_arg("error", error)]))?;
     fs::write(
         cache_dir.join("source.txt"),
         format!(
@@ -680,43 +769,79 @@ fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> 
             package.registry, package.name, package.version, package.archive_url
         ),
     )
-    .map_err(|error| format!("failed to write plugin source metadata: {error}"))?;
+    .map_err(|error| msg_args("plugin-write-source-metadata", &[msg_arg("error", error)]))?;
     write_plugin_install_record(&cache_dir, &package)?;
 
     Ok(InstalledPluginPackage { package, cache_dir })
 }
 
 fn list_plugin_packages() -> Result<(), String> {
-    let cache =
-        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let cache = PluginCache::from_env().map_err(|error| {
+        msg_args(
+            "plugin-cache-error",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })?;
     let records = read_installed_plugin_records(cache.root())?;
     if records.is_empty() {
-        println!("no plugins installed");
+        println!("{}", msg("plugin-no-installed"));
         return Ok(());
     }
     for installed in records {
-        let suffix = if installed.disabled { " disabled" } else { "" };
+        let suffix = if installed.disabled {
+            msg("plugin-list-disabled-suffix")
+        } else {
+            String::new()
+        };
         println!(
-            "{} {} {}{}",
-            installed.record.name, installed.record.version, installed.record.registry, suffix
+            "{}",
+            msg_args(
+                "plugin-list-entry",
+                &[
+                    msg_arg("name", &installed.record.name),
+                    msg_arg("version", &installed.record.version),
+                    msg_arg("registry", &installed.record.registry),
+                    msg_arg("suffix", suffix),
+                ],
+            )
         );
     }
     Ok(())
 }
 
 fn remove_plugin_package(name: &str) -> Result<(), String> {
-    let cache =
-        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let cache = PluginCache::from_env().map_err(|error| {
+        msg_args(
+            "plugin-cache-error",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })?;
     let removed = remove_plugin_records(cache.root(), name)?;
-    println!("removed {removed} plugin package(s) for {name}");
+    println!(
+        "{}",
+        msg_args(
+            "plugin-removed",
+            &[msg_arg("count", removed), msg_arg("name", name)],
+        )
+    );
     Ok(())
 }
 
 fn disable_plugin_package(name: &str) -> Result<(), String> {
-    let cache =
-        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let cache = PluginCache::from_env().map_err(|error| {
+        msg_args(
+            "plugin-cache-error",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })?;
     let disabled = disable_plugin_records(cache.root(), name)?;
-    println!("disabled {disabled} plugin package(s) for {name}");
+    println!(
+        "{}",
+        msg_args(
+            "plugin-disabled",
+            &[msg_arg("count", disabled), msg_arg("name", name)],
+        )
+    );
     Ok(())
 }
 
@@ -733,9 +858,9 @@ fn write_plugin_install_record(
         archive_file: package.archive_file.to_owned(),
     };
     let json = serde_json::to_string_pretty(&record)
-        .map_err(|error| format!("failed to encode plugin install metadata: {error}"))?;
+        .map_err(|error| msg_args("plugin-encode-install-metadata", &[msg_arg("error", error)]))?;
     fs::write(cache_dir.join("install.json"), format!("{json}\n"))
-        .map_err(|error| format!("failed to write plugin install metadata: {error}"))
+        .map_err(|error| msg_args("plugin-write-install-metadata", &[msg_arg("error", error)]))
 }
 
 fn read_installed_plugin_records(root: &Path) -> Result<Vec<InstalledPluginRecord>, String> {
@@ -760,10 +885,22 @@ fn collect_installed_plugin_records(
 ) -> Result<(), String> {
     let record_path = dir.join("install.json");
     if record_path.is_file() {
-        let record_source = fs::read_to_string(&record_path)
-            .map_err(|error| format!("failed to read {}: {error}", record_path.display()))?;
-        let record: PluginInstallRecord = serde_json::from_str(&record_source)
-            .map_err(|error| format!("invalid plugin install metadata: {error}"))?;
+        let record_source = fs::read_to_string(&record_path).map_err(|error| {
+            msg_args(
+                "error-read-path",
+                &[
+                    msg_arg("path", record_path.display()),
+                    msg_arg("error", error),
+                ],
+            )
+        })?;
+        let record: PluginInstallRecord =
+            serde_json::from_str(&record_source).map_err(|error| {
+                msg_args(
+                    "plugin-invalid-install-metadata",
+                    &[msg_arg("error", error)],
+                )
+            })?;
         records.push(InstalledPluginRecord {
             cache_dir: dir.to_path_buf(),
             record,
@@ -771,11 +908,14 @@ fn collect_installed_plugin_records(
         });
         return Ok(());
     }
-    for entry in fs::read_dir(dir).map_err(|error| format!("failed to read dir: {error}"))? {
-        let entry = entry.map_err(|error| format!("failed to read dir entry: {error}"))?;
+    for entry in
+        fs::read_dir(dir).map_err(|error| msg_args("error-read-dir", &[msg_arg("error", error)]))?
+    {
+        let entry =
+            entry.map_err(|error| msg_args("error-read-dir-entry", &[msg_arg("error", error)]))?;
         if entry
             .file_type()
-            .map_err(|error| format!("failed to read file type: {error}"))?
+            .map_err(|error| msg_args("error-read-file-type", &[msg_arg("error", error)]))?
             .is_dir()
         {
             collect_installed_plugin_records(&entry.path(), records)?;
@@ -792,15 +932,18 @@ fn remove_plugin_records(root: &Path, name: &str) -> Result<usize, String> {
         .filter(|installed| installed.record.name == name)
     {
         fs::remove_dir_all(&installed.cache_dir).map_err(|error| {
-            format!(
-                "failed to remove {}: {error}",
-                installed.cache_dir.display()
+            msg_args(
+                "plugin-remove-path",
+                &[
+                    msg_arg("path", installed.cache_dir.display()),
+                    msg_arg("error", error),
+                ],
             )
         })?;
         removed += 1;
     }
     if removed == 0 {
-        return Err(format!("plugin `{name}` is not installed"));
+        return Err(msg_args("plugin-not-installed", &[msg_arg("name", name)]));
     }
     Ok(removed)
 }
@@ -812,12 +955,16 @@ fn disable_plugin_records(root: &Path, name: &str) -> Result<usize, String> {
         .into_iter()
         .filter(|installed| installed.record.name == name)
     {
-        fs::write(installed.cache_dir.join(".disabled"), b"")
-            .map_err(|error| format!("failed to disable plugin `{name}`: {error}"))?;
+        fs::write(installed.cache_dir.join(".disabled"), b"").map_err(|error| {
+            msg_args(
+                "plugin-disable",
+                &[msg_arg("name", name), msg_arg("error", error)],
+            )
+        })?;
         disabled += 1;
     }
     if disabled == 0 {
-        return Err(format!("plugin `{name}` is not installed"));
+        return Err(msg_args("plugin-not-installed", &[msg_arg("name", name)]));
     }
     Ok(disabled)
 }
@@ -831,8 +978,14 @@ fn resolve_plugin_package(name: &str) -> Result<ResolvedPluginPackage, String> {
         Ok(package) => return Ok(package),
         Err(error) => error,
     };
-    Err(format!(
-        "failed to resolve `{name}` as `{PLUGIN_KEYWORD}` plugin; npm: {npm_error}; crates.io: {crates_error}"
+    Err(msg_args(
+        "plugin-resolve",
+        &[
+            msg_arg("name", name),
+            msg_arg("keyword", PLUGIN_KEYWORD),
+            msg_arg("npm_error", npm_error),
+            msg_arg("crates_error", crates_error),
+        ],
     ))
 }
 
@@ -863,30 +1016,33 @@ fn resolve_crates_plugin(name: &str) -> Result<ResolvedPluginPackage, String> {
 }
 
 fn resolve_npm_plugin_metadata(name: &str, source: &str) -> Result<ResolvedPluginPackage, String> {
-    let metadata: NpmPackageMetadata =
-        serde_json::from_str(source).map_err(|error| format!("invalid npm metadata: {error}"))?;
+    let metadata: NpmPackageMetadata = serde_json::from_str(source)
+        .map_err(|error| msg_args("plugin-invalid-npm-metadata", &[msg_arg("error", error)]))?;
     let latest = metadata
         .dist_tags
         .get("latest")
-        .ok_or_else(|| "npm package has no latest dist-tag".to_owned())?;
+        .ok_or_else(|| msg("plugin-npm-no-latest"))?;
     let version = metadata
         .versions
         .get(latest)
-        .ok_or_else(|| format!("npm package latest version `{latest}` is missing"))?;
+        .ok_or_else(|| msg_args("plugin-npm-latest-missing", &[msg_arg("version", latest)]))?;
     let keywords = if version.keywords.is_empty() {
         &metadata.keywords
     } else {
         &version.keywords
     };
     if !has_plugin_keyword(keywords) {
-        return Err(format!("npm package is missing `{PLUGIN_KEYWORD}` keyword"));
+        return Err(msg_args(
+            "plugin-npm-missing-keyword",
+            &[msg_arg("keyword", PLUGIN_KEYWORD)],
+        ));
     }
     let content_hash = version
         .dist
         .shasum
         .as_deref()
         .filter(|value| is_hex(value))
-        .ok_or_else(|| "npm package latest version has no hex shasum".to_owned())?;
+        .ok_or_else(|| msg("plugin-npm-no-shasum"))?;
 
     Ok(ResolvedPluginPackage {
         registry: PluginRegistry::Npm,
@@ -903,22 +1059,30 @@ fn resolve_crates_plugin_metadata(
     source: &str,
 ) -> Result<ResolvedPluginPackage, String> {
     let metadata: CratesPackageMetadata = serde_json::from_str(source)
-        .map_err(|error| format!("invalid crates.io metadata: {error}"))?;
+        .map_err(|error| msg_args("plugin-invalid-crates-metadata", &[msg_arg("error", error)]))?;
     if !has_plugin_keyword(&metadata.krate.keywords) {
-        return Err(format!("crate is missing `{PLUGIN_KEYWORD}` keyword"));
+        return Err(msg_args(
+            "plugin-crate-missing-keyword",
+            &[msg_arg("keyword", PLUGIN_KEYWORD)],
+        ));
     }
     let version_number = metadata
         .krate
         .max_version
         .or(metadata.krate.default_version)
-        .ok_or_else(|| "crate has no max/default version".to_owned())?;
+        .ok_or_else(|| msg("plugin-crate-no-version"))?;
     let version = metadata
         .versions
         .iter()
         .find(|version| version.num == version_number && !version.yanked)
-        .ok_or_else(|| format!("crate version `{version_number}` is missing or yanked"))?;
+        .ok_or_else(|| {
+            msg_args(
+                "plugin-crate-version-missing",
+                &[msg_arg("version", &version_number)],
+            )
+        })?;
     if !is_hex(&version.checksum) {
-        return Err("crate version checksum is not hex".to_owned());
+        return Err(msg("plugin-crate-checksum-not-hex"));
     }
     let archive_url = if version.dl_path.starts_with("https://") {
         version.dl_path.clone()
@@ -990,20 +1154,20 @@ fn fetch_url_string(url: &str, accept: Option<&str>) -> Result<String, String> {
     }
     request
         .call()
-        .map_err(|error| format!("GET {url}: {error}"))?
+        .map_err(|error| msg_args("http-get", &[msg_arg("url", url), msg_arg("error", error)]))?
         .body_mut()
         .read_to_string()
-        .map_err(|error| format!("read {url}: {error}"))
+        .map_err(|error| msg_args("http-read", &[msg_arg("url", url), msg_arg("error", error)]))
 }
 
 fn fetch_url_bytes(url: &str) -> Result<Vec<u8>, String> {
     ureq::get(url)
         .header("User-Agent", KUMEYURI_USER_AGENT)
         .call()
-        .map_err(|error| format!("GET {url}: {error}"))?
+        .map_err(|error| msg_args("http-get", &[msg_arg("url", url), msg_arg("error", error)]))?
         .body_mut()
         .read_to_vec()
-        .map_err(|error| format!("read {url}: {error}"))
+        .map_err(|error| msg_args("http-read", &[msg_arg("url", url), msg_arg("error", error)]))
 }
 
 fn has_plugin_keyword(keywords: &[String]) -> bool {
@@ -1048,13 +1212,13 @@ fn render_source(
         RenderFormat::Gif => render_raster_source(source, options, RasterRenderer::render_gif),
         RenderFormat::Apng => render_raster_source(source, options, RasterRenderer::render_apng),
         RenderFormat::Webp => render_raster_source(source, options, RasterRenderer::render_webp),
-        RenderFormat::Tui => Err("tui format requires an interactive terminal".to_owned()),
+        RenderFormat::Tui => Err(msg("render-tui-interactive")),
     }
 }
 
 fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
     if options.dark_theme.is_some() && format != RenderFormat::Svg {
-        return Err("--dark-theme only supports --format svg".to_owned());
+        return Err(msg("render-dark-theme-svg-only"));
     }
     let _plugin_policy = plugin_runtime_policy(options);
     Ok(())
@@ -1090,8 +1254,12 @@ fn render_raster_source(
 ) -> Result<Vec<u8>, String> {
     let timeline =
         timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
-    render(&raster_renderer(options)?, &timeline)
-        .map_err(|error| format!("raster render error: {error:?}"))
+    render(&raster_renderer(options)?, &timeline).map_err(|error| {
+        msg_args(
+            "render-raster-error",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })
 }
 
 fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
@@ -1146,7 +1314,12 @@ fn raster_renderer(options: &RenderOptions) -> Result<RasterRenderer, String> {
         background: rgba_color(theme.colors.background),
         ..RasterRenderConfig::default()
     })
-    .map_err(|error| format!("invalid raster render options: {error:?}"))
+    .map_err(|error| {
+        msg_args(
+            "render-invalid-raster-options",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })
 }
 
 fn apply_frame_width(frame: Frame, options: &RenderOptions) -> Frame {
@@ -1179,8 +1352,12 @@ fn rgba_color(color: RgbColor) -> RgbaColor {
 }
 
 fn play_file(path: &Path, options: AnimationOptions) -> Result<(), String> {
-    let source = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let source = fs::read_to_string(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
     let timeline = timeline_from_source_with_options(&source, options)?;
     play_timeline(&timeline)
 }
@@ -1197,10 +1374,18 @@ fn watch_file(path: &Path) -> Result<(), String> {
         },
         NotifyConfig::default(),
     )
-    .map_err(|error| format!("failed to create watcher: {error}"))?;
+    .map_err(|error| msg_args("watch-create", &[msg_arg("error", error)]))?;
     watcher
         .watch(&watch_path, RecursiveMode::NonRecursive)
-        .map_err(|error| format!("failed to watch {}: {error}", watch_path.display()))?;
+        .map_err(|error| {
+            msg_args(
+                "watch-path",
+                &[
+                    msg_arg("path", watch_path.display()),
+                    msg_arg("error", error),
+                ],
+            )
+        })?;
 
     for event in rx {
         match event {
@@ -1208,15 +1393,18 @@ fn watch_file(path: &Path) -> Result<(), String> {
                 redraw_watched_file(&watch_path)?;
             }
             Ok(_) => {}
-            Err(error) => redraw_message(&format!("watch error: {error}\n"))?,
+            Err(error) => redraw_message(&format!(
+                "{}\n",
+                msg_args("watch-error", &[msg_arg("error", error)])
+            ))?,
         }
     }
-    Err("file watcher stopped".to_owned())
+    Err(msg("watch-stopped"))
 }
 
 #[cfg(target_arch = "wasm32")]
 fn watch_file(_path: &Path) -> Result<(), String> {
-    Err("watch is unsupported on wasm32".to_owned())
+    Err(msg("watch-wasm"))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1230,7 +1418,12 @@ fn should_rerender(event: &Event, path: &Path) -> bool {
 #[cfg(not(target_arch = "wasm32"))]
 fn redraw_watched_file(path: &Path) -> Result<(), String> {
     let output = fs::read_to_string(path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))
+        .map_err(|error| {
+            msg_args(
+                "error-read-path",
+                &[msg_arg("path", path.display()), msg_arg("error", error)],
+            )
+        })
         .and_then(|source| render_text_source(&source, &RenderOptions::default()))
         .unwrap_or_else(|error| format!("{error}\n"));
     redraw_message(&output)
@@ -1240,13 +1433,13 @@ fn redraw_watched_file(path: &Path) -> Result<(), String> {
 fn redraw_message(output: &str) -> Result<(), String> {
     let mut stdout = io::stdout();
     execute!(stdout, Clear(ClearType::All), MoveTo(0, 0))
-        .map_err(|error| format!("failed to redraw terminal: {error}"))?;
+        .map_err(|error| msg_args("terminal-redraw", &[msg_arg("error", error)]))?;
     stdout
         .write_all(output.as_bytes())
-        .map_err(|error| format!("failed to write stdout: {error}"))?;
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))?;
     stdout
         .flush()
-        .map_err(|error| format!("failed to flush stdout: {error}"))
+        .map_err(|error| msg_args("terminal-flush-stdout", &[msg_arg("error", error)]))
 }
 
 #[cfg(test)]
@@ -1272,21 +1465,33 @@ fn timeline_from_source_with_render_options(
         options,
         frame_renderer(render_options),
     )
-    .map_err(|error| format!("animation config error: {error:?}"))?;
+    .map_err(|error| {
+        msg_args(
+            "animation-config",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })?;
     Ok(apply_timeline_width(timeline, render_options))
 }
 
 fn playback_options(speed: Option<f32>, repeat: bool) -> Result<AnimationOptions, String> {
-    AnimationOptions::new(speed, repeat.then_some(true))
-        .map_err(|error| format!("invalid playback options: {error:?}"))
+    AnimationOptions::new(speed, repeat.then_some(true)).map_err(|error| {
+        msg_args(
+            "playback-options",
+            &[msg_arg("error", format!("{error:?}"))],
+        )
+    })
 }
 
 fn parse_speed_override(value: &str) -> Result<f32, String> {
     let speed = value
         .parse::<f32>()
-        .map_err(|_| format!("invalid speed {value:?}: expected finite f32 > 0"))?;
+        .map_err(|_| msg_args("parse-speed", &[msg_arg("value", format!("{value:?}"))]))?;
     if !speed.is_finite() || speed <= 0.0 {
-        return Err(format!("invalid speed {value:?}: expected finite f32 > 0"));
+        return Err(msg_args(
+            "parse-speed",
+            &[msg_arg("value", format!("{value:?}"))],
+        ));
     }
     Ok(speed)
 }
@@ -1294,9 +1499,12 @@ fn parse_speed_override(value: &str) -> Result<f32, String> {
 fn parse_positive_usize(value: &str) -> Result<usize, String> {
     let parsed = value
         .parse::<usize>()
-        .map_err(|_| format!("invalid width {value:?}: expected integer > 0"))?;
+        .map_err(|_| msg_args("parse-width", &[msg_arg("value", format!("{value:?}"))]))?;
     if parsed == 0 {
-        return Err(format!("invalid width {value:?}: expected integer > 0"));
+        return Err(msg_args(
+            "parse-width",
+            &[msg_arg("value", format!("{value:?}"))],
+        ));
     }
     Ok(parsed)
 }
@@ -1309,11 +1517,11 @@ fn parse_plugin_allow(value: &str) -> Result<CapabilitySet, String> {
     for raw in value.split(',') {
         let capability = raw.trim();
         if capability.is_empty() {
-            return Err("--plugin-allow contains an empty capability".to_owned());
+            return Err(msg("plugin-allow-empty"));
         }
         let capability = capability
             .parse::<Capability>()
-            .map_err(|_| format!("unknown plugin capability `{capability}`"))?;
+            .map_err(|_| msg_args("plugin-allow-unknown", &[msg_arg("capability", capability)]))?;
         capabilities.insert(capability);
     }
     Ok(capabilities)
@@ -1321,16 +1529,20 @@ fn parse_plugin_allow(value: &str) -> Result<CapabilitySet, String> {
 
 fn parse_non_empty_string(value: &str) -> Result<String, String> {
     if value.trim().is_empty() {
-        return Err("invalid font: expected non-empty family name".to_owned());
+        return Err(msg("invalid-non-empty"));
     }
     Ok(value.to_owned())
 }
 
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
     MermaidParser::parse_diagram(source).map_err(|error| {
-        format!(
-            "parse error {:?} at {}..{}",
-            error.kind, error.span.start, error.span.end
+        msg_args(
+            "parse-error",
+            &[
+                msg_arg("kind", format!("{:?}", error.kind)),
+                msg_arg("start", error.span.start),
+                msg_arg("end", error.span.end),
+            ],
         )
     })
 }
@@ -1351,7 +1563,13 @@ struct LayoutWarning {
 
 impl LayoutWarning {
     fn line(&self) -> String {
-        format!("warning: {}; {}", self.message, self.suggestion)
+        msg_args(
+            "warning-line",
+            &[
+                msg_arg("message", &self.message),
+                msg_arg("suggestion", &self.suggestion),
+            ],
+        )
     }
 }
 
@@ -1378,8 +1596,8 @@ fn layout_warnings(diagram: &Diagram, options: &RenderOptions) -> Vec<LayoutWarn
 fn orphan_flowchart_node_warning(id: String) -> LayoutWarning {
     LayoutWarning {
         code: "flowchart.orphan_node",
-        message: format!("orphan flowchart node `{id}` has no edges"),
-        suggestion: format!("add an edge such as `{id} --> <target>` or remove the node"),
+        message: msg_args("layout-warning-orphan-message", &[msg_arg("id", &id)]),
+        suggestion: msg_args("layout-warning-orphan-suggestion", &[msg_arg("id", &id)]),
     }
 }
 
@@ -1397,10 +1615,16 @@ fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<
         {
             Some(LayoutWarning {
                 code: "flowchart.extreme_aspect_ratio",
-                message: format!("flowchart layout is very tall ({width}x{height})"),
-                suggestion: format!(
-                    "try `graph {}` to reduce vertical space",
-                    suggested_flowchart_direction(direction)
+                message: msg_args(
+                    "layout-warning-tall-message",
+                    &[msg_arg("width", width), msg_arg("height", height)],
+                ),
+                suggestion: msg_args(
+                    "layout-warning-tall-suggestion",
+                    &[msg_arg(
+                        "direction",
+                        suggested_flowchart_direction(direction),
+                    )],
                 ),
             })
         }
@@ -1409,10 +1633,16 @@ fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<
         {
             Some(LayoutWarning {
                 code: "flowchart.extreme_aspect_ratio",
-                message: format!("flowchart layout is very wide ({width}x{height})"),
-                suggestion: format!(
-                    "try `graph {}` to reduce horizontal space",
-                    suggested_flowchart_direction(direction)
+                message: msg_args(
+                    "layout-warning-wide-message",
+                    &[msg_arg("width", width), msg_arg("height", height)],
+                ),
+                suggestion: msg_args(
+                    "layout-warning-wide-suggestion",
+                    &[msg_arg(
+                        "direction",
+                        suggested_flowchart_direction(direction),
+                    )],
                 ),
             })
         }
@@ -1495,11 +1725,15 @@ fn push_unique_node_id(nodes: &mut Vec<String>, id: &str) {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn play_timeline(timeline: &Timeline) -> Result<(), String> {
-    enable_raw_mode().map_err(|error| format!("failed to enable raw mode: {error}"))?;
+    enable_raw_mode()
+        .map_err(|error| msg_args("tui-enable-raw-mode", &[msg_arg("error", error)]))?;
     let mut stdout = io::stdout();
     if let Err(error) = execute!(stdout, EnterAlternateScreen) {
         let _ = disable_raw_mode();
-        return Err(format!("failed to enter alternate screen: {error}"));
+        return Err(msg_args(
+            "tui-enter-alternate-screen",
+            &[msg_arg("error", error)],
+        ));
     }
 
     let backend = CrosstermBackend::new(stdout);
@@ -1508,7 +1742,7 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
         Err(error) => {
             let _ = execute!(io::stdout(), LeaveAlternateScreen);
             let _ = disable_raw_mode();
-            return Err(format!("failed to create terminal: {error}"));
+            return Err(msg_args("tui-create-terminal", &[msg_arg("error", error)]));
         }
     };
     let render_result = TuiRenderer::new(TuiRenderConfig {
@@ -1516,14 +1750,14 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
         ..TuiRenderConfig::default()
     })
     .render_interactive_timeline(&mut terminal, timeline)
-    .map_err(|error| format!("failed to render timeline: {error}"));
+    .map_err(|error| msg_args("tui-render-timeline", &[msg_arg("error", error)]));
     let cursor_result = terminal
         .show_cursor()
-        .map_err(|error| format!("failed to show cursor: {error}"));
+        .map_err(|error| msg_args("tui-show-cursor", &[msg_arg("error", error)]));
     let leave_result = execute!(terminal.backend_mut(), LeaveAlternateScreen)
-        .map_err(|error| format!("failed to leave alternate screen: {error}"));
-    let raw_result =
-        disable_raw_mode().map_err(|error| format!("failed to disable raw mode: {error}"));
+        .map_err(|error| msg_args("tui-leave-alternate-screen", &[msg_arg("error", error)]));
+    let raw_result = disable_raw_mode()
+        .map_err(|error| msg_args("tui-disable-raw-mode", &[msg_arg("error", error)]));
 
     render_result?;
     cursor_result?;
@@ -1533,7 +1767,7 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
 
 #[cfg(target_arch = "wasm32")]
 fn play_timeline(_timeline: &Timeline) -> Result<(), String> {
-    Err("play is unsupported on wasm32".to_owned())
+    Err(msg("play-wasm"))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
