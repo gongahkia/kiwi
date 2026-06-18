@@ -301,7 +301,7 @@
 
 ## Phase 11 — Long-term maintenance & governance (ongoing, year 2+)
 
-- [ ] Write `GOVERNANCE.md` formalising maintainer ladder (triager → committer → maintainer)
+- [x] Write `GOVERNANCE.md` formalising maintainer ladder (triager → committer → maintainer)
 - [ ] Identify and invite first three triagers from contributor history
 - [ ] Move from solo-author MIT to multi-maintainer MIT with DCO sign-off enforcement
 - [ ] Establish monthly transparency post template for sponsorship income/spend
