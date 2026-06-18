@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use crate::{animator::Timeline, frame::Frame};
+use crate::{animator::Timeline, frame::Frame, theme::Theme};
 
 pub const KUMEYURI_ABI_VERSION: AbiVersion = AbiVersion::new(1, 0);
 
@@ -316,6 +316,58 @@ pub trait DiagramType {
     fn layout(&self, request: DiagramLayoutRequest<'_>) -> Result<Frame, DiagramTypeError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ThemeTransformRequest {
+    pub abi: AbiVersion,
+    pub theme: Theme,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ThemeTransformError {
+    IncompatibleAbi {
+        host: AbiVersion,
+        required: AbiVersion,
+    },
+    MissingCapabilities(CapabilitySet),
+    UnsupportedTheme(String),
+    TransformFailed(String),
+}
+
+pub trait ThemeTransform {
+    fn id(&self) -> &'static str;
+
+    fn abi_version(&self) -> AbiVersion {
+        KUMEYURI_ABI_VERSION
+    }
+
+    fn required_capabilities(&self) -> CapabilitySet {
+        CapabilitySet::empty()
+    }
+
+    fn validate(
+        &self,
+        host_abi: AbiVersion,
+        granted: CapabilitySet,
+    ) -> Result<(), ThemeTransformError> {
+        let required_abi = self.abi_version();
+        if !host_abi.supports(required_abi) {
+            return Err(ThemeTransformError::IncompatibleAbi {
+                host: host_abi,
+                required: required_abi,
+            });
+        }
+        let required_capabilities = self.required_capabilities();
+        if !required_capabilities.is_subset(granted) {
+            return Err(ThemeTransformError::MissingCapabilities(
+                required_capabilities,
+            ));
+        }
+        Ok(())
+    }
+
+    fn transform(&self, request: ThemeTransformRequest) -> Result<Theme, ThemeTransformError>;
+}
+
 pub trait RenderBackend {
     fn id(&self) -> &'static str;
 
@@ -368,7 +420,9 @@ mod tests {
         AbiVersion, Capability, CapabilitySet, DiagramLayoutRequest, DiagramParseRequest,
         DiagramType, DiagramTypeError, KUMEYURI_ABI_VERSION, ParsedDiagram, RenderArtifact,
         RenderBackend, RenderBackendError, RenderBackendMetadata, RenderBackendRequest,
+        ThemeTransform, ThemeTransformError, ThemeTransformRequest,
     };
+    use crate::theme::{RgbColor, Theme};
     use crate::{animator::Timeline, frame::Frame};
 
     #[test]
@@ -510,6 +564,43 @@ mod tests {
         assert_eq!(frame.height(), 1);
     }
 
+    #[test]
+    fn theme_transform_surface_validates_abi_and_capabilities() {
+        let transform = FakeThemeTransform;
+        let granted = CapabilitySet::from_iter([Capability::ClockNow]);
+
+        assert!(transform.validate(KUMEYURI_ABI_VERSION, granted).is_ok());
+        assert_eq!(
+            transform
+                .validate(KUMEYURI_ABI_VERSION, CapabilitySet::empty())
+                .unwrap_err(),
+            ThemeTransformError::MissingCapabilities(CapabilitySet::from_iter([
+                Capability::ClockNow
+            ]))
+        );
+        assert!(matches!(
+            transform
+                .validate(AbiVersion::new(0, 9), granted)
+                .unwrap_err(),
+            ThemeTransformError::IncompatibleAbi { .. }
+        ));
+    }
+
+    #[test]
+    fn theme_transform_surface_returns_theme() {
+        let transform = FakeThemeTransform;
+        let theme = transform
+            .transform(ThemeTransformRequest {
+                abi: KUMEYURI_ABI_VERSION,
+                theme: Theme::github(),
+            })
+            .unwrap();
+
+        assert_eq!(theme.name, "github");
+        assert_eq!(theme.colors.foreground, RgbColor::new(0x11, 0x11, 0x11));
+        assert_eq!(theme.colors.background, Theme::github().colors.background);
+    }
+
     struct FakeRenderBackend;
 
     impl RenderBackend for FakeRenderBackend {
@@ -588,6 +679,29 @@ mod tests {
 
         fn layout(&self, request: DiagramLayoutRequest<'_>) -> Result<Frame, DiagramTypeError> {
             Ok(Frame::new(request.diagram.bytes.len(), 1))
+        }
+    }
+
+    struct FakeThemeTransform;
+
+    impl ThemeTransform for FakeThemeTransform {
+        fn id(&self) -> &'static str {
+            "fake-theme-transform"
+        }
+
+        fn required_capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_iter([Capability::ClockNow])
+        }
+
+        fn transform(&self, request: ThemeTransformRequest) -> Result<Theme, ThemeTransformError> {
+            if request.theme.name != "github" {
+                return Err(ThemeTransformError::UnsupportedTheme(
+                    request.theme.name.to_owned(),
+                ));
+            }
+            let mut theme = request.theme;
+            theme.colors.foreground = RgbColor::new(0x11, 0x11, 0x11);
+            Ok(theme)
         }
     }
 }
