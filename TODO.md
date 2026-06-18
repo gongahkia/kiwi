@@ -337,7 +337,7 @@
 - [x] Audit Rust regex deps: no runtime `regex`/`fancy-regex`; only dev `regex-syntax` via `proptest`
 - [x] Replace render-action glob `RegExp` matching with bounded segment matcher
 - [x] Audit JS regex usage in packages/scripts/editors; replace backtracking runtime parsers or document bounded/test-only uses
-- [ ] Audit SVG output sanitiser; verify no `<foreignObject>`, no `<script>`, no `href=external`
+- [x] Audit SVG output sanitiser; verify no `<foreignObject>`, no `<script>`, no `href=external`
 - [ ] Verify `--allow-external` is opt-in and gated
 - [ ] Verify input size limit enforced (default 1 MB; configurable)
 - [x] Verify `cargo-deny` advisory check passes (no known CVEs)

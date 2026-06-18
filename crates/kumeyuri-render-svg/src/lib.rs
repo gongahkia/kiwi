@@ -467,4 +467,61 @@ mod tests {
         assert!(svg.contains("rect { fill: #000000; }"));
         assert!(svg.contains("text { fill: #eeeeee; }"));
     }
+
+    #[test]
+    fn escapes_user_content_without_forbidden_svg_markup() {
+        let mut frame = Frame::new(60, 1);
+        frame
+            .write_text(
+                0,
+                0,
+                r#"<foreignObject><script href="https://evil.test">"#,
+                Default::default(),
+            )
+            .unwrap();
+        let renderer = SvgRenderer::new(SvgRenderConfig {
+            title: r#"<script>title</script>"#.to_owned(),
+            description: r#"<foreignObject href="https://evil.test">"#.to_owned(),
+            ..SvgRenderConfig::default()
+        });
+
+        let svg = renderer.render_frame(&frame);
+
+        assert!(svg.contains("&lt;script&gt;title&lt;/script&gt;"));
+        assert!(svg.contains("&lt;foreignObject href=\"https://evil.test\"&gt;"));
+        assert_no_forbidden_svg_tags(&svg);
+    }
+
+    fn assert_no_forbidden_svg_tags(svg: &str) {
+        for tag in raw_svg_tags(svg) {
+            let lower = tag.to_ascii_lowercase();
+            assert!(
+                !lower.starts_with("<foreignobject") && !lower.starts_with("</foreignobject"),
+                "forbidden foreignObject tag emitted: {tag}"
+            );
+            assert!(
+                !lower.starts_with("<script") && !lower.starts_with("</script"),
+                "forbidden script tag emitted: {tag}"
+            );
+            assert!(
+                !lower.contains(" href=") && !lower.contains(" xlink:href="),
+                "forbidden external link attribute emitted: {tag}"
+            );
+        }
+    }
+
+    fn raw_svg_tags(svg: &str) -> Vec<&str> {
+        let mut tags = Vec::new();
+        let mut cursor = 0;
+        while let Some(start_offset) = svg[cursor..].find('<') {
+            let start = cursor + start_offset;
+            let Some(end_offset) = svg[start..].find('>') else {
+                break;
+            };
+            let end = start + end_offset + 1;
+            tags.push(&svg[start..end]);
+            cursor = end;
+        }
+        tags
+    }
 }
