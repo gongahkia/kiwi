@@ -1,0 +1,12 @@
+[package]
+name = "kumeyuri-render-pdf"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Reference PDF render-backend plugin for kumeyuri ABI 1.0."
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[workspace]

@@ -247,7 +247,7 @@
 - [x] Implement `kumeyuri plugin install <name>` resolving npm + crates.io tagged with `kumeyuri-plugin`
 - [x] Implement `kumeyuri plugin list / remove / update / disable` subcommands
 - [x] Author plugin author guide `docs/plugins/authoring.md` with hello-world example
-- [ ] Build reference plugin `kumeyuri-render-pdf` as the canonical example
+- [x] Build reference plugin `kumeyuri-render-pdf` as the canonical example
 - [ ] Build reference plugin `kumeyuri-diagram-sankey` as second canonical example
 - [ ] Add plugin smoke-test CI matrix: load each official plugin, render a sample, diff
 - [ ] Document ABI deprecation policy (2-year guarantee per ABI major)

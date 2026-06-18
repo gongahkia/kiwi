@@ -1,0 +1,20 @@
+{
+  "name": "kumeyuri-render-pdf",
+  "version": "0.1.0",
+  "description": "Reference PDF render-backend plugin package for kumeyuri ABI 1.0.",
+  "license": "MIT",
+  "keywords": [
+    "kumeyuri-plugin",
+    "kumeyuri",
+    "wasm",
+    "pdf"
+  ],
+  "files": [
+    "README.md",
+    "kumeyuri.plugin.json",
+    "plugin.wasm",
+    "wit/",
+    "src/",
+    "Cargo.toml"
+  ]
+}

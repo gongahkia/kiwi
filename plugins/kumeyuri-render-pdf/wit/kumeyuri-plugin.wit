@@ -1,0 +1,28 @@
+package kumeyuri:plugin;
+
+interface render-backend {
+  record metadata {
+    title: option<string>,
+    source-path: option<string>
+  }
+
+  record request {
+    abi: string,
+    format: string,
+    theme: string,
+    frames: string,
+    metadata: metadata
+  }
+
+  record artifact {
+    blob: string,
+    media-type: string,
+    extension: string
+  }
+
+  render: func(request: request) -> result<artifact, string>;
+}
+
+world plugin {
+  export render-backend;
+}

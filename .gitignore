@@ -3,6 +3,7 @@ CLAUDE.md
 # Rust
 target/
 crates/*/Cargo.lock
+plugins/*/Cargo.lock
 
 # Node
 node_modules/

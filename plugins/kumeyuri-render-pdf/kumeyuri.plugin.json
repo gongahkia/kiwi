@@ -1,0 +1,11 @@
+{
+  "name": "kumeyuri-render-pdf",
+  "version": "0.1.0",
+  "abi": "1.0",
+  "entry": "plugin.wasm",
+  "kind": "render-backend",
+  "capabilities": [],
+  "exports": {
+    "renderBackend": "pdf"
+  }
+}
