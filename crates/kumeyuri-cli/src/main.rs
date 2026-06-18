@@ -12,6 +12,7 @@ use kumeyuri_core::{
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
     ast::Diagram,
     frame::{Charset, Frame, StaticFrameRenderer},
+    layout::FlowLayoutConfig,
     parser::Parser as MermaidParser,
     plugins::{PluginCache, PluginRuntimePolicy},
     text::{TextOutputBackend, TextOutputConfig},
@@ -126,6 +127,8 @@ struct RenderOptions {
     charset: Option<RenderCharset>,
     #[arg(long, value_name = "CELLS", value_parser = parse_positive_usize)]
     width: Option<usize>,
+    #[arg(long, value_name = "CELLS", value_parser = parse_positive_usize)]
+    max_label_width: Option<usize>,
     #[arg(long, value_name = "PX")]
     padding: Option<u32>,
     #[arg(long, value_name = "FAMILY", value_parser = parse_non_empty_string)]
@@ -964,7 +967,14 @@ fn render_raster_source(
 }
 
 fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
-    StaticFrameRenderer::default().with_theme(render_theme(options))
+    let renderer = StaticFrameRenderer::default().with_theme(render_theme(options));
+    let Some(max_label_width) = options.max_label_width else {
+        return renderer;
+    };
+    renderer.with_flow_layout_config(FlowLayoutConfig {
+        max_label_width: Some(i32::try_from(max_label_width).unwrap_or(i32::MAX)),
+        ..FlowLayoutConfig::default()
+    })
 }
 
 fn render_theme(options: &RenderOptions) -> Theme {
@@ -1512,6 +1522,8 @@ mod tests {
             "unicode",
             "--width",
             "40",
+            "--max-label-width",
+            "12",
             "--padding",
             "12",
             "--font",
@@ -1528,6 +1540,7 @@ mod tests {
         assert_eq!(options.dark_theme, Some(RenderTheme::Dracula));
         assert_eq!(options.charset, Some(RenderCharset::Unicode));
         assert_eq!(options.width, Some(40));
+        assert_eq!(options.max_label_width, Some(12));
         assert_eq!(options.padding, Some(12));
         assert_eq!(options.font.as_deref(), Some("Fira Code"));
         let plugin_allow = options.plugin_allow.unwrap();
@@ -1783,6 +1796,27 @@ mod tests {
                 .iter()
                 .all(|keyframe| keyframe.frame().width() == 40)
         );
+    }
+
+    #[test]
+    fn max_label_width_wraps_flowchart_labels() {
+        let text = String::from_utf8(
+            render_source(
+                "graph TD\nA[Alpha Beta Gamma]",
+                RenderFormat::Text,
+                &RenderOptions {
+                    max_label_width: Some(5),
+                    ..RenderOptions::default()
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(text.lines().any(|line| line.contains("Alpha")));
+        assert!(text.lines().any(|line| line.contains("Beta")));
+        assert!(text.lines().any(|line| line.contains("Gamma")));
+        assert!(!text.contains("Alpha Beta Gamma"));
     }
 
     #[test]

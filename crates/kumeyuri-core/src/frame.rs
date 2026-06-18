@@ -11,24 +11,25 @@ use crate::ast::{
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
     BlockLayoutEngine, C4Layout, C4LayoutEngine, ClassLayout, ClassLayoutEngine, ErLayoutEngine,
-    EventModelingLayout, EventModelingLayoutEngine, FlowLayout, FlowLayoutEngine, GanttLayout,
-    GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, IshikawaLayout, IshikawaLayoutEngine,
-    JourneyLayout, JourneyLayoutEngine, KanbanLayout, KanbanLayoutEngine, MindmapLayout,
-    MindmapLayoutEngine, PacketLayout, PacketLayoutEngine, PieLayout, PieLayoutEngine, Point,
-    PositionedArchitectureEdge, PositionedArchitectureNode, PositionedBlockEdge,
-    PositionedBlockNode, PositionedC4Boundary, PositionedC4Element, PositionedC4Relationship,
-    PositionedClassNode, PositionedClassRelationship, PositionedEventModelingDataBlock,
-    PositionedEventModelingFrame, PositionedEventModelingRelation, PositionedFlowEdge,
-    PositionedFlowNode, PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit,
-    PositionedIshikawaEdge, PositionedIshikawaNode, PositionedJourneyTask, PositionedKanbanTask,
-    PositionedMindmapNode, PositionedPacketField, PositionedPieSlice, PositionedQuadrantPoint,
-    PositionedRadarCurve, PositionedRequirementNode, PositionedRequirementRelationship,
-    PositionedSankeyLink, PositionedSequenceActivation, PositionedSequenceBox,
-    PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
-    PositionedTreeViewNode, PositionedTreemapNode, PositionedVennSet, PositionedVennStyle,
-    PositionedVennUnion, PositionedWardleyComponent, PositionedWardleyEvolve,
-    PositionedWardleyLink, PositionedWardleyText, PositionedXyChartSeries, PositionedZenUmlMessage,
-    QuadrantLayout, QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
+    EventModelingLayout, EventModelingLayoutEngine, FlowLayout, FlowLayoutConfig, FlowLayoutEngine,
+    GanttLayout, GanttLayoutEngine, GitGraphLayout, GitGraphLayoutEngine, IshikawaLayout,
+    IshikawaLayoutEngine, JourneyLayout, JourneyLayoutEngine, KanbanLayout, KanbanLayoutEngine,
+    MindmapLayout, MindmapLayoutEngine, PacketLayout, PacketLayoutEngine, PieLayout,
+    PieLayoutEngine, Point, PositionedArchitectureEdge, PositionedArchitectureNode,
+    PositionedBlockEdge, PositionedBlockNode, PositionedC4Boundary, PositionedC4Element,
+    PositionedC4Relationship, PositionedClassNode, PositionedClassRelationship,
+    PositionedEventModelingDataBlock, PositionedEventModelingFrame,
+    PositionedEventModelingRelation, PositionedFlowEdge, PositionedFlowNode,
+    PositionedFlowSubgraph, PositionedGanttTask, PositionedGitGraphCommit, PositionedIshikawaEdge,
+    PositionedIshikawaNode, PositionedJourneyTask, PositionedKanbanTask, PositionedMindmapNode,
+    PositionedPacketField, PositionedPieSlice, PositionedQuadrantPoint, PositionedRadarCurve,
+    PositionedRequirementNode, PositionedRequirementRelationship, PositionedSankeyLink,
+    PositionedSequenceActivation, PositionedSequenceBox, PositionedSequenceDestroy,
+    PositionedSequenceMessage, PositionedSequenceNote, PositionedTreeViewNode,
+    PositionedTreemapNode, PositionedVennSet, PositionedVennStyle, PositionedVennUnion,
+    PositionedWardleyComponent, PositionedWardleyEvolve, PositionedWardleyLink,
+    PositionedWardleyText, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
+    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
     RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
     SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
     TreeViewLayout, TreeViewLayoutEngine, TreemapLayout, TreemapLayoutEngine, VennLayout,
@@ -517,6 +518,12 @@ impl StaticFrameRenderer {
     pub const fn with_theme(mut self, theme: Theme) -> Self {
         self.palette = GlyphPalette::for_charset(theme.charset);
         self.theme = theme;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_flow_layout_config(mut self, config: FlowLayoutConfig) -> Self {
+        self.flow = FlowLayoutEngine::new(config);
         self
     }
 
@@ -4301,10 +4308,14 @@ fn draw_vertical(
 }
 
 fn write_centered(frame: &mut Frame, rect: Rect, text: &str, style: CellStyle) {
-    let width = text.chars().count() as i32;
-    let x = rect.origin.x + (rect.size.width - width).max(0) / 2;
-    let y = rect.origin.y + rect.size.height / 2;
-    write_text_safe(frame, x, y, text, style);
+    let lines = text.lines().collect::<Vec<_>>();
+    let lines = if lines.is_empty() { vec![""] } else { lines };
+    let start_y = rect.origin.y + rect.size.height / 2 - lines.len() as i32 / 2;
+    for (offset, line) in lines.iter().enumerate() {
+        let width = line.chars().count() as i32;
+        let x = rect.origin.x + (rect.size.width - width).max(0) / 2;
+        write_text_safe(frame, x, start_y + offset as i32, line, style.clone());
+    }
 }
 
 fn write_text_safe(frame: &mut Frame, x: i32, y: i32, text: &str, style: CellStyle) {

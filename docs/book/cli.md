@@ -38,6 +38,7 @@ kumeyuri render [OPTIONS] <FILE>
 | `--dark-theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula` |
 | `--charset` | `ascii`, `unicode` |
 | `--width` | Positive cell count |
+| `--max-label-width` | Positive cell count for flowchart label wrapping |
 | `--padding` | Pixel count |
 | `--font` | Font family |
 | `--plugin-allow` | Comma-separated plugin capabilities: `fs.read`, `fs.write`, `net.fetch`, `env.read`, `cache.read`, `cache.write`, `clock.now`, `random.bytes` |

@@ -218,6 +218,7 @@ pub struct FlowLayoutConfig {
     pub horizontal_padding: i32,
     pub min_node_width: i32,
     pub node_height: i32,
+    pub max_label_width: Option<i32>,
 }
 
 impl Default for FlowLayoutConfig {
@@ -228,6 +229,7 @@ impl Default for FlowLayoutConfig {
             horizontal_padding: 4,
             min_node_width: 5,
             node_height: 5,
+            max_label_width: None,
         }
     }
 }
@@ -5638,6 +5640,7 @@ impl ClassLayoutEngine {
             horizontal_padding: self.config.horizontal_padding,
             min_node_width: self.config.min_node_width,
             node_height: 3,
+            max_label_width: None,
         };
         let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
         transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
@@ -5745,6 +5748,7 @@ impl ErLayoutEngine {
             horizontal_padding: self.config.horizontal_padding,
             min_node_width: self.config.min_node_width,
             node_height: 3,
+            max_label_width: None,
         };
         let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
         transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
@@ -5841,6 +5845,7 @@ impl RequirementLayoutEngine {
             horizontal_padding: self.config.horizontal_padding,
             min_node_width: self.config.min_node_width,
             node_height: 3,
+            max_label_width: None,
         };
         let mut rects = place_top_down(&sizes, &layers, &order, placement_config);
         transform_rects_for_direction(&mut rects, &layers, direction, placement_config);
@@ -9325,10 +9330,16 @@ fn place_graph(
     direction: Direction,
     config: FlowLayoutConfig,
 ) -> FlowLayout {
+    let labels = graph
+        .nodes
+        .iter()
+        .map(|node| wrap_label(&node.label, config.max_label_width))
+        .collect::<Vec<_>>();
     let sizes = graph
         .nodes
         .iter()
-        .map(|node| node_size(&node.label, config))
+        .enumerate()
+        .map(|(index, _)| node_size(&labels[index], config))
         .collect::<Vec<_>>();
     let mut rects = place_top_down(&sizes, layers, order, config);
     let mut size = layout_size(&rects);
@@ -9378,7 +9389,7 @@ fn place_graph(
         .enumerate()
         .map(|(index, node)| PositionedFlowNode {
             id: node.id.clone(),
-            label: node.label.clone(),
+            label: labels[index].clone(),
             shape: node.shape.clone(),
             rect: rects[index],
             layer: layers[index],
@@ -9765,11 +9776,85 @@ fn place_top_down(
 }
 
 fn node_size(label: &str, config: FlowLayoutConfig) -> Size {
+    let (line_width, line_count) = label_metrics(label);
     Size {
         width: config
             .min_node_width
-            .max(label.chars().count() as i32 + config.horizontal_padding),
-        height: config.node_height,
+            .max(line_width + config.horizontal_padding),
+        height: config.node_height.max(line_count + 2),
+    }
+}
+
+fn label_metrics(label: &str) -> (i32, i32) {
+    let mut width = 0i32;
+    let mut count = 0i32;
+    for line in label.lines() {
+        width = width.max(line.chars().count() as i32);
+        count += 1;
+    }
+    (width, count.max(1))
+}
+
+fn wrap_label(label: &str, max_label_width: Option<i32>) -> String {
+    let Some(width) = max_label_width.filter(|width| *width > 0) else {
+        return label.to_owned();
+    };
+    let width = width as usize;
+    let mut lines = Vec::new();
+    if label.is_empty() {
+        return String::new();
+    }
+    for line in label.lines() {
+        wrap_label_line(line, width, &mut lines);
+    }
+    lines.join("\n")
+}
+
+fn wrap_label_line(line: &str, width: usize, lines: &mut Vec<String>) {
+    if line.chars().count() <= width {
+        lines.push(line.to_owned());
+        return;
+    }
+    let mut current = String::new();
+    for word in line.split_whitespace() {
+        let word_width = word.chars().count();
+        let current_width = current.chars().count();
+        if current.is_empty() && word_width <= width {
+            current.push_str(word);
+        } else if !current.is_empty() && current_width + 1 + word_width <= width {
+            current.push(' ');
+            current.push_str(word);
+        } else {
+            if !current.is_empty() {
+                lines.push(std::mem::take(&mut current));
+            }
+            push_wrapped_word(word, width, lines, &mut current);
+        }
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    } else if lines.is_empty() {
+        lines.push(String::new());
+    }
+}
+
+fn push_wrapped_word(word: &str, width: usize, lines: &mut Vec<String>, current: &mut String) {
+    if word.chars().count() <= width {
+        current.push_str(word);
+        return;
+    }
+    let mut chunk = String::new();
+    let mut count = 0usize;
+    for character in word.chars() {
+        chunk.push(character);
+        count += 1;
+        if count == width {
+            lines.push(std::mem::take(&mut chunk));
+            count = 0;
+        }
+    }
+    if !chunk.is_empty() {
+        current.push_str(&chunk);
     }
 }
 
@@ -9989,7 +10074,8 @@ fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) 
 #[cfg(test)]
 mod tests {
     use super::{
-        C4LayoutEngine, FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine, optimise,
+        C4LayoutEngine, FlowLayoutConfig, FlowLayoutEngine, Point, SequenceLayoutEngine,
+        StateLayoutEngine, optimise,
     };
     use crate::ast::{ArrowHead, DiagramKind, FlowShape, FlowchartAst};
     use crate::ast::{
@@ -10057,6 +10143,28 @@ mod tests {
         assert!(node(&layout, "LongerName1").rect.size.width >= 11);
         assert!(node(&layout, "LongerName2").rect.size.width >= 11);
         assert_eq!(node(&layout, "LongerName1").rect.size.height, 5);
+    }
+
+    #[test]
+    fn wraps_flowchart_labels_to_max_width() {
+        let ast = flowchart(
+            Direction::TopDown,
+            vec![FlowStatement::Node(labelled_node("A", "Alpha Beta Gamma"))],
+        );
+        let layout = FlowLayoutEngine::new(FlowLayoutConfig {
+            max_label_width: Some(5),
+            ..FlowLayoutConfig::default()
+        })
+        .layout(&ast);
+        let node = node(&layout, "A");
+
+        assert_eq!(node.label, "Alpha\nBeta\nGamma");
+        assert_eq!(node.rect.size.width, 9);
+        assert_eq!(node.rect.size.height, 5);
+        assert_eq!(
+            super::wrap_label("SuperLongName", Some(4)),
+            "Supe\nrLon\ngNam\ne"
+        );
     }
 
     #[test]
@@ -10298,10 +10406,14 @@ System(c, "C")"#,
     }
 
     fn simple_node(id: &str) -> FlowNode {
+        labelled_node(id, id)
+    }
+
+    fn labelled_node(id: &str, label: &str) -> FlowNode {
         FlowNode {
             id: Spanned::new(id.to_owned(), Span::new(0, 0)),
             label: Some(Label {
-                text: id.to_owned(),
+                text: label.to_owned(),
                 kind: LabelKind::Plain,
                 span: Span::new(0, 0),
             }),
