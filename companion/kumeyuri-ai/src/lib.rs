@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt};
 
+pub const KUMEYURI_AI_ABI_VERSION: u32 = 1;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kumeyuri_ai_abi_version() -> u32 {
+    KUMEYURI_AI_ABI_VERSION
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LayoutRewriteRequest {
     pub source: String,

@@ -16,10 +16,11 @@ Initial scope:
 - define provider configuration/request/response abstractions for OpenAI,
   Anthropic, OpenRouter, and local llama.cpp backends
 - present a line-based diff of original Mermaid source vs AI-rewritten source
+- export a `kumeyuri_ai_abi_version` symbol for optional dynamic loading
 - validate that provider output is non-empty before any caller applies it
 
 Out of scope here:
 
 - network calls to provider APIs
 - applying rewrites to files after diff review
-- dynamic loading from the main CLI
+- executing a rewrite from the main CLI

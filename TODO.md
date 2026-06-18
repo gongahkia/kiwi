@@ -265,7 +265,7 @@
 - [x] Implement BYOK envvar resolution (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`)
 - [x] Implement provider abstraction supporting OpenAI, Anthropic, OpenRouter, local llama.cpp
 - [x] Implement diff-presenter that shows AI-rewritten source vs original before apply
-- [ ] Add `kumeyuri layout --ai` flag wiring to companion crate via dlopen-style optional binding
+- [x] Add `kumeyuri layout --ai` flag wiring to companion crate via dlopen-style optional binding
 - [ ] Document smart-layout heuristics + AI fallback in `docs/smart-layout.md`
 - [ ] Publish `v1.2.0-smart-layout` minor release
 

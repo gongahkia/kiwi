@@ -1,5 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    env,
+    ffi::OsString,
     fs, io,
     io::Write,
     path::{Path, PathBuf},
@@ -73,6 +75,12 @@ enum Command {
         file: PathBuf,
         #[arg(long)]
         json: bool,
+    },
+    Layout {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long)]
+        ai: bool,
     },
     Watch {
         #[arg(value_name = "FILE")]
@@ -200,6 +208,7 @@ fn run() -> Result<(), String> {
             options,
         } => render_file(&file, format, &options),
         Command::Lint { file, json } => lint_file(&file, json),
+        Command::Layout { file, ai } => layout_file(&file, ai),
         Command::Watch { file } => watch_file(&file),
         Command::Play {
             file,
@@ -215,6 +224,8 @@ const KUMEYURI_USER_AGENT: &str = concat!("kumeyuri/", env!("CARGO_PKG_VERSION")
 
 const MERMAID_COMPAT_VERSION: &str = "11.15.0";
 const EXTREME_ASPECT_RATIO: usize = 4;
+const KUMEYURI_AI_DYLIB_ENV: &str = "KUMEYURI_AI_DYLIB";
+const KUMEYURI_AI_ABI_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct CompatRoot {
@@ -504,6 +515,63 @@ fn format_lint_text(report: &LayoutReport) -> String {
         output.push('\n');
     }
     output
+}
+
+fn layout_file(path: &Path, ai: bool) -> Result<(), String> {
+    if !ai {
+        return Err("layout currently requires --ai".to_owned());
+    }
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let _diagram = parse_diagram(&source)?;
+    let library_path = resolve_ai_library_path(|name| env::var_os(name))?;
+    let version = load_ai_binding_version(&library_path)?;
+    println!(
+        "loaded kumeyuri-ai ABI {version} from {}",
+        library_path.display()
+    );
+    Ok(())
+}
+
+fn resolve_ai_library_path(
+    mut lookup: impl FnMut(&str) -> Option<OsString>,
+) -> Result<PathBuf, String> {
+    lookup(KUMEYURI_AI_DYLIB_ENV)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            format!(
+                "--ai requires {KUMEYURI_AI_DYLIB_ENV} to point at a kumeyuri-ai dynamic library"
+            )
+        })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_ai_binding_version(path: &Path) -> Result<u32, String> {
+    unsafe {
+        let library = libloading::Library::new(path)
+            .map_err(|error| format!("failed to load {}: {error}", path.display()))?;
+        let abi_version = library
+            .get::<unsafe extern "C" fn() -> u32>(b"kumeyuri_ai_abi_version\0")
+            .map_err(|error| {
+                format!(
+                    "failed to load kumeyuri-ai ABI symbol from {}: {error}",
+                    path.display()
+                )
+            })?;
+        let version = abi_version();
+        if version != KUMEYURI_AI_ABI_VERSION {
+            return Err(format!(
+                "unsupported kumeyuri-ai ABI {version}; expected {KUMEYURI_AI_ABI_VERSION}"
+            ));
+        }
+        Ok(version)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_ai_binding_version(_path: &Path) -> Result<u32, String> {
+    Err("kumeyuri-ai dynamic loading is unsupported on wasm32".to_owned())
 }
 
 fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
@@ -1605,9 +1673,9 @@ mod tests {
         layout_warnings, lint_source, parse_diagram, parse_non_empty_string, parse_positive_usize,
         parse_speed_override, playback_options, plugin_runtime_policy,
         read_installed_plugin_records, remove_plugin_records, render_source,
-        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, timeline_from_source,
-        timeline_from_source_with_options, timeline_from_source_with_render_options,
-        write_plugin_install_record,
+        resolve_ai_library_path, resolve_crates_plugin_metadata, resolve_npm_plugin_metadata,
+        timeline_from_source, timeline_from_source_with_options,
+        timeline_from_source_with_render_options, write_plugin_install_record,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackState, should_rerender};
@@ -1623,7 +1691,9 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     use std::path::Path;
     use std::{
-        env, fs, process,
+        env,
+        ffi::OsString,
+        fs, process,
         time::{Duration, SystemTime},
     };
 
@@ -1700,6 +1770,31 @@ mod tests {
 
         assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
         assert!(json);
+    }
+
+    #[test]
+    fn layout_parser_accepts_ai_flag() {
+        let cli = Cli::try_parse_from(["kumeyuri", "layout", "diagram.mmd", "--ai"]).unwrap();
+        let Command::Layout { file, ai } = cli.command else {
+            panic!("expected layout command");
+        };
+
+        assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
+        assert!(ai);
+    }
+
+    #[test]
+    fn ai_layout_requires_dynamic_library_path() {
+        let error = resolve_ai_library_path(|_| None).unwrap_err();
+
+        assert!(error.contains("KUMEYURI_AI_DYLIB"));
+        assert_eq!(
+            resolve_ai_library_path(|name| {
+                (name == "KUMEYURI_AI_DYLIB").then(|| OsString::from("/tmp/libkumeyuri_ai.dylib"))
+            })
+            .unwrap(),
+            std::path::PathBuf::from("/tmp/libkumeyuri_ai.dylib")
+        );
     }
 
     #[test]

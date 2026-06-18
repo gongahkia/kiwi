@@ -10,6 +10,7 @@ kumeyuri <COMMAND>
 | --- | --- |
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
 | `lint` | Print layout warnings as text or JSON |
+| `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated TUI timeline |
 | `compat` | Print Mermaid root support for the tracked docs version |
@@ -65,6 +66,16 @@ kumeyuri lint [--json] <FILE>
 `lint` parses the diagram and reports non-fatal layout warnings without rendering
 an artifact. Text output is intended for terminals; `--json` emits a stable
 report with `file`, `ok`, and `warnings` fields.
+
+## Layout
+
+```text
+kumeyuri layout --ai <FILE>
+```
+
+`layout --ai` parses the diagram, then loads the optional `kumeyuri-ai` dynamic
+library from `KUMEYURI_AI_DYLIB` and checks its ABI symbol before any rewrite is
+applied. The main CLI does not link an AI SDK directly.
 
 ## Watch
 
