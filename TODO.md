@@ -235,7 +235,7 @@
 ## Phase 7 — WASM plugin runtime (post-launch, ~months 4–6)
 
 - [x] Author RFC `docs/rfcs/0001-plugin-abi.md` proposing plugin ABI semantics
-- [ ] Define `kumeyuri_abi` semver scheme and capability flags in core
+- [x] Define `kumeyuri_abi` semver scheme and capability flags in core
 - [ ] Define `RenderBackend` trait stable surface (target ABI 1.0)
 - [ ] Define `DiagramType` trait surface covering parser + layout hooks
 - [ ] Define `ThemeTransform` trait surface for theme preprocessors
