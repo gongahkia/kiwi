@@ -255,7 +255,7 @@
 
 ## Phase 8 — Smart-layout assistant (post-launch, ~month 5)
 
-- [ ] Implement crossing-minimisation pass (Sugiyama phase 3) in `kumeyuri-core::layout::optimise`
+- [x] Implement crossing-minimisation pass (Sugiyama phase 3) in `kumeyuri-core::layout::optimise`
 - [ ] Implement long-label auto-wrap with `--max-label-width`
 - [ ] Implement disconnected-subgraph clusterer with padding heuristic
 - [ ] Implement orphan-node detector emitting actionable stderr suggestions

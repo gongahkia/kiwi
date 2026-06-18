@@ -23,6 +23,191 @@ use crate::ast::{
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
+pub mod optimise {
+    use std::cmp::Ordering;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct LayeredEdge {
+        pub from: usize,
+        pub to: usize,
+    }
+
+    impl LayeredEdge {
+        #[must_use]
+        pub const fn new(from: usize, to: usize) -> Self {
+            Self { from, to }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct CrossingMinimisationConfig {
+        pub sweeps: usize,
+    }
+
+    impl Default for CrossingMinimisationConfig {
+        fn default() -> Self {
+            Self::default_values()
+        }
+    }
+
+    impl CrossingMinimisationConfig {
+        #[must_use]
+        pub const fn default_values() -> Self {
+            Self { sweeps: 4 }
+        }
+    }
+
+    #[must_use]
+    pub fn minimise_crossings(layers: &[usize], edges: &[LayeredEdge]) -> Vec<usize> {
+        minimise_crossings_with_config(layers, edges, CrossingMinimisationConfig::default_values())
+    }
+
+    #[must_use]
+    pub fn minimise_crossings_with_config(
+        layers: &[usize],
+        edges: &[LayeredEdge],
+        config: CrossingMinimisationConfig,
+    ) -> Vec<usize> {
+        validate_edges(layers, edges);
+        let mut order = initial_order(layers);
+        for _ in 0..config.sweeps {
+            sweep(edges, layers, &mut order, true);
+            sweep(edges, layers, &mut order, false);
+        }
+        order
+    }
+
+    #[must_use]
+    pub fn count_crossings(layers: &[usize], order: &[usize], edges: &[LayeredEdge]) -> usize {
+        assert_eq!(layers.len(), order.len(), "order length must match layers");
+        validate_edges(layers, edges);
+        let mut count = 0usize;
+        for left_index in 0..edges.len() {
+            let Some(left) = normalised_edge(layers, edges[left_index]) else {
+                continue;
+            };
+            for right_edge in edges.iter().skip(left_index + 1) {
+                let Some(right) = normalised_edge(layers, *right_edge) else {
+                    continue;
+                };
+                if left.from_layer != right.from_layer || left.to_layer != right.to_layer {
+                    continue;
+                }
+                if left.from == right.from || left.to == right.to {
+                    continue;
+                }
+                let left_from_order = order[left.from];
+                let right_from_order = order[right.from];
+                let left_to_order = order[left.to];
+                let right_to_order = order[right.to];
+                if (left_from_order < right_from_order && left_to_order > right_to_order)
+                    || (left_from_order > right_from_order && left_to_order < right_to_order)
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct NormalisedEdge {
+        from: usize,
+        to: usize,
+        from_layer: usize,
+        to_layer: usize,
+    }
+
+    fn validate_edges(layers: &[usize], edges: &[LayeredEdge]) {
+        for edge in edges {
+            assert!(edge.from < layers.len(), "edge source index out of range");
+            assert!(edge.to < layers.len(), "edge target index out of range");
+        }
+    }
+
+    fn normalised_edge(layers: &[usize], edge: LayeredEdge) -> Option<NormalisedEdge> {
+        let from_layer = layers[edge.from];
+        let to_layer = layers[edge.to];
+        match from_layer.cmp(&to_layer) {
+            Ordering::Less => Some(NormalisedEdge {
+                from: edge.from,
+                to: edge.to,
+                from_layer,
+                to_layer,
+            }),
+            Ordering::Greater => Some(NormalisedEdge {
+                from: edge.to,
+                to: edge.from,
+                from_layer: to_layer,
+                to_layer: from_layer,
+            }),
+            Ordering::Equal => None,
+        }
+    }
+
+    fn initial_order(layers: &[usize]) -> Vec<usize> {
+        let mut next = vec![0usize; layers.iter().copied().max().unwrap_or(0) + 1];
+        let mut order = vec![0usize; layers.len()];
+        for (index, layer) in layers.iter().copied().enumerate() {
+            order[index] = next[layer];
+            next[layer] += 1;
+        }
+        order
+    }
+
+    fn sweep(edges: &[LayeredEdge], layers: &[usize], order: &mut [usize], forward: bool) {
+        let max_layer = layers.iter().copied().max().unwrap_or(0);
+        let mut layer_range = (0..=max_layer).collect::<Vec<_>>();
+        if !forward {
+            layer_range.reverse();
+        }
+
+        for layer in layer_range {
+            let mut nodes = layers
+                .iter()
+                .enumerate()
+                .filter_map(|(index, value)| (*value == layer).then_some(index))
+                .collect::<Vec<_>>();
+            nodes.sort_by_key(|index| order[*index]);
+            nodes.sort_by(|left, right| {
+                compare_positions(
+                    barycenter(edges, layers, order, *left, forward).unwrap_or((order[*left], 1)),
+                    barycenter(edges, layers, order, *right, forward).unwrap_or((order[*right], 1)),
+                )
+                .then_with(|| order[*left].cmp(&order[*right]))
+            });
+            for (next_order, index) in nodes.into_iter().enumerate() {
+                order[index] = next_order;
+            }
+        }
+    }
+
+    fn compare_positions(left: (usize, usize), right: (usize, usize)) -> Ordering {
+        ((left.0 as u128) * (right.1 as u128)).cmp(&((right.0 as u128) * (left.1 as u128)))
+    }
+
+    fn barycenter(
+        edges: &[LayeredEdge],
+        layers: &[usize],
+        order: &[usize],
+        index: usize,
+        forward: bool,
+    ) -> Option<(usize, usize)> {
+        let mut sum = 0usize;
+        let mut count = 0usize;
+        for edge in edges {
+            if forward && edge.to == index && layers[edge.from] < layers[index] {
+                sum += order[edge.from];
+                count += 1;
+            } else if !forward && edge.from == index && layers[edge.to] > layers[index] {
+                sum += order[edge.to];
+                count += 1;
+            }
+        }
+        (count > 0).then_some((sum, count))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout;
 
@@ -9125,74 +9310,12 @@ fn assign_layers_with_cycle_breaks(graph: &LayoutGraph) -> Vec<usize> {
 }
 
 fn minimise_crossings(graph: &LayoutGraph, layers: &[usize]) -> Vec<usize> {
-    let mut order = initial_order(layers);
-    for _ in 0..4 {
-        sweep(graph, layers, &mut order, true);
-        sweep(graph, layers, &mut order, false);
-    }
-    order
-}
-
-fn initial_order(layers: &[usize]) -> Vec<usize> {
-    let mut next = vec![0usize; layers.iter().copied().max().unwrap_or(0) + 1];
-    let mut order = vec![0usize; layers.len()];
-    for (index, layer) in layers.iter().copied().enumerate() {
-        order[index] = next[layer];
-        next[layer] += 1;
-    }
-    order
-}
-
-fn sweep(graph: &LayoutGraph, layers: &[usize], order: &mut [usize], forward: bool) {
-    let max_layer = layers.iter().copied().max().unwrap_or(0);
-    let mut layer_range = (0..=max_layer).collect::<Vec<_>>();
-    if !forward {
-        layer_range.reverse();
-    }
-
-    for layer in layer_range {
-        let mut nodes = layers
-            .iter()
-            .enumerate()
-            .filter_map(|(index, value)| (*value == layer).then_some(index))
-            .collect::<Vec<_>>();
-        nodes.sort_by_key(|index| {
-            barycenter(graph, layers, order, *index, forward)
-                .map(|(sum, count)| (sum / count, sum % count, 0usize))
-                .unwrap_or((order[*index], 0, 0))
-        });
-        for (next_order, index) in nodes.into_iter().enumerate() {
-            order[index] = next_order;
-        }
-    }
-}
-
-fn barycenter(
-    graph: &LayoutGraph,
-    layers: &[usize],
-    order: &[usize],
-    index: usize,
-    forward: bool,
-) -> Option<(usize, usize)> {
-    let adjacent = graph
+    let edges = graph
         .edges
         .iter()
-        .filter_map(|edge| {
-            if forward && edge.to == index && layers[edge.from] < layers[index] {
-                Some(edge.from)
-            } else if !forward && edge.from == index && layers[edge.to] > layers[index] {
-                Some(edge.to)
-            } else {
-                None
-            }
-        })
+        .map(|edge| optimise::LayeredEdge::new(edge.from, edge.to))
         .collect::<Vec<_>>();
-    (!adjacent.is_empty()).then(|| {
-        (
-            adjacent.iter().map(|index| order[*index]).sum(),
-            adjacent.len(),
-        )
-    })
+    optimise::minimise_crossings(layers, &edges)
 }
 
 fn place_graph(
@@ -9865,7 +9988,9 @@ fn layout_size_with_subgraphs(size: Size, subgraphs: &[PositionedFlowSubgraph]) 
 
 #[cfg(test)]
 mod tests {
-    use super::{C4LayoutEngine, FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine};
+    use super::{
+        C4LayoutEngine, FlowLayoutEngine, Point, SequenceLayoutEngine, StateLayoutEngine, optimise,
+    };
     use crate::ast::{ArrowHead, DiagramKind, FlowShape, FlowchartAst};
     use crate::ast::{
         Direction, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowStatement, FlowSubgraph,
@@ -10061,6 +10186,48 @@ mod tests {
 
         assert_eq!(layout.edges[0].arrow_start, ArrowHead::Cross);
         assert_eq!(layout.edges[0].arrow_end, ArrowHead::Circle);
+    }
+
+    #[test]
+    fn optimise_reduces_two_layer_crossings() {
+        let layers = [0, 0, 1, 1];
+        let edges = [
+            optimise::LayeredEdge::new(0, 3),
+            optimise::LayeredEdge::new(1, 2),
+        ];
+        let initial_order = [0, 1, 0, 1];
+        let optimised_order = optimise::minimise_crossings(&layers, &edges);
+
+        assert_eq!(
+            optimise::count_crossings(&layers, &initial_order, &edges),
+            1
+        );
+        assert_eq!(
+            optimise::count_crossings(&layers, &optimised_order, &edges),
+            0
+        );
+        assert!(optimised_order[3] < optimised_order[2]);
+    }
+
+    #[test]
+    fn flowchart_layout_uses_crossing_minimisation_order() {
+        let ast = flowchart(
+            Direction::TopDown,
+            vec![
+                FlowStatement::Node(simple_node("A")),
+                FlowStatement::Node(simple_node("B")),
+                FlowStatement::Node(simple_node("C")),
+                FlowStatement::Node(simple_node("D")),
+                FlowStatement::Edge(Box::new(edge("A", "D"))),
+                FlowStatement::Edge(Box::new(edge("B", "C"))),
+            ],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+
+        assert!(node(&layout, "D").rect.origin.x < node(&layout, "C").rect.origin.x);
+        assert_eq!(node(&layout, "D").order, 0);
+        assert_eq!(node(&layout, "C").order, 1);
     }
 
     #[test]
