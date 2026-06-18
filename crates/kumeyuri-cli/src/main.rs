@@ -7,10 +7,12 @@ use std::{
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
+    abi::{Capability, CapabilitySet},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
     ast::Diagram,
     frame::{Charset, Frame, StaticFrameRenderer},
     parser::Parser as MermaidParser,
+    plugins::PluginRuntimePolicy,
     text::{TextOutputBackend, TextOutputConfig},
     theme::{BuiltInTheme, RgbColor, Theme},
 };
@@ -101,6 +103,8 @@ struct RenderOptions {
     padding: Option<u32>,
     #[arg(long, value_name = "FAMILY", value_parser = parse_non_empty_string)]
     font: Option<String>,
+    #[arg(long = "plugin-allow", value_name = "CSV", value_parser = parse_plugin_allow)]
+    plugin_allow: Option<CapabilitySet>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -432,7 +436,12 @@ fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Res
     if options.dark_theme.is_some() && format != RenderFormat::Svg {
         return Err("--dark-theme only supports --format svg".to_owned());
     }
+    let _plugin_policy = plugin_runtime_policy(options);
     Ok(())
+}
+
+fn plugin_runtime_policy(options: &RenderOptions) -> PluginRuntimePolicy {
+    PluginRuntimePolicy::with_grants(options.plugin_allow.unwrap_or_default())
 }
 
 fn render_text_source(source: &str, options: &RenderOptions) -> Result<String, String> {
@@ -665,6 +674,24 @@ fn parse_positive_usize(value: &str) -> Result<usize, String> {
     Ok(parsed)
 }
 
+fn parse_plugin_allow(value: &str) -> Result<CapabilitySet, String> {
+    let mut capabilities = CapabilitySet::empty();
+    if value.trim().is_empty() {
+        return Ok(capabilities);
+    }
+    for raw in value.split(',') {
+        let capability = raw.trim();
+        if capability.is_empty() {
+            return Err("--plugin-allow contains an empty capability".to_owned());
+        }
+        let capability = capability
+            .parse::<Capability>()
+            .map_err(|_| format!("unknown plugin capability `{capability}`"))?;
+        capabilities.insert(capability);
+    }
+    Ok(capabilities)
+}
+
 fn parse_non_empty_string(value: &str) -> Result<String, String> {
     if value.trim().is_empty() {
         return Err("invalid font: expected non-empty family name".to_owned());
@@ -861,8 +888,8 @@ mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, RenderCharset, RenderFormat, RenderOptions,
         RenderTheme, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS, compat_report, parse_non_empty_string,
-        parse_positive_usize, parse_speed_override, playback_options, render_source,
-        timeline_from_source, timeline_from_source_with_options,
+        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
+        render_source, timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options,
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -870,7 +897,7 @@ mod tests {
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
-    use kumeyuri_core::animator::AnimationOptions;
+    use kumeyuri_core::{abi::Capability, animator::AnimationOptions};
     #[cfg(not(target_arch = "wasm32"))]
     use notify::{
         Event, EventKind,
@@ -966,6 +993,8 @@ mod tests {
             "12",
             "--font",
             "Fira Code",
+            "--plugin-allow",
+            "fs.write,cache.read",
         ])
         .unwrap();
         let Command::Render { options, .. } = cli.command else {
@@ -978,6 +1007,26 @@ mod tests {
         assert_eq!(options.width, Some(40));
         assert_eq!(options.padding, Some(12));
         assert_eq!(options.font.as_deref(), Some("Fira Code"));
+        let plugin_allow = options.plugin_allow.unwrap();
+        assert!(plugin_allow.contains(Capability::FsWrite));
+        assert!(plugin_allow.contains(Capability::CacheRead));
+        assert!(!plugin_allow.contains(Capability::NetFetch));
+        assert!(plugin_runtime_policy(&options).allows(Capability::FsWrite));
+    }
+
+    #[test]
+    fn plugin_allow_parser_rejects_unknown_capabilities() {
+        let error = Cli::try_parse_from([
+            "kumeyuri",
+            "render",
+            "diagram.mmd",
+            "--plugin-allow",
+            "fs.write,process.spawn",
+        ])
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("unknown plugin capability `process.spawn`"));
     }
 
     #[test]

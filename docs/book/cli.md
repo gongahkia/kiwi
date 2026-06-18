@@ -39,6 +39,7 @@ kumeyuri render [OPTIONS] <FILE>
 | `--width` | Positive cell count |
 | `--padding` | Pixel count |
 | `--font` | Font family |
+| `--plugin-allow` | Comma-separated plugin capabilities: `fs.read`, `fs.write`, `net.fetch`, `env.read`, `cache.read`, `cache.write`, `clock.now`, `random.bytes` |
 
 `--format` defaults to `text`.
 
