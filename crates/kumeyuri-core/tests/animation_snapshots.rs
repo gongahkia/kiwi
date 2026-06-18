@@ -241,6 +241,7 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Venn(_) => ("venn", "none"),
         DiagramKind::Ishikawa(_) => ("ishikawa", "none"),
         DiagramKind::Wardley(_) => ("wardley", "none"),
+        DiagramKind::TreeView(_) => ("tree_view", "none"),
         DiagramKind::Mindmap(_) => ("mindmap", "trace"),
         DiagramKind::Journey(_) => ("journey", "trace"),
         DiagramKind::GitGraph(_) => ("gitgraph", "trace"),

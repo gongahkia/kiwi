@@ -186,6 +186,14 @@
       "rootType": "wardley",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/tree_view.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/treeView.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "tree_view",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
     }
   ]
 }

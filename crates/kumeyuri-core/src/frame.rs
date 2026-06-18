@@ -5,8 +5,8 @@ use crate::ast::{
     GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, IshikawaAst, JourneyAst, KanbanAst,
     MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
     RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, TreemapAst, VennAst, WardleyAst, WardleyComponentKind, WardleyDecorator,
-    WardleyLinkKind, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    TimelineAst, TreeViewAst, TreemapAst, VennAst, WardleyAst, WardleyComponentKind,
+    WardleyDecorator, WardleyLinkKind, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
@@ -25,15 +25,15 @@ use crate::layout::{
     PositionedRadarCurve, PositionedRequirementNode, PositionedRequirementRelationship,
     PositionedSankeyLink, PositionedSequenceActivation, PositionedSequenceBox,
     PositionedSequenceDestroy, PositionedSequenceMessage, PositionedSequenceNote,
-    PositionedTreemapNode, PositionedVennSet, PositionedVennStyle, PositionedVennUnion,
-    PositionedWardleyComponent, PositionedWardleyEvolve, PositionedWardleyLink,
-    PositionedWardleyText, PositionedXyChartSeries, PositionedZenUmlMessage, QuadrantLayout,
-    QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
+    PositionedTreeViewNode, PositionedTreemapNode, PositionedVennSet, PositionedVennStyle,
+    PositionedVennUnion, PositionedWardleyComponent, PositionedWardleyEvolve,
+    PositionedWardleyLink, PositionedWardleyText, PositionedXyChartSeries, PositionedZenUmlMessage,
+    QuadrantLayout, QuadrantLayoutEngine, RadarLayout, RadarLayoutEngine, Rect, RequirementLayout,
     RequirementLayoutEngine, SankeyLayout, SankeyLayoutEngine, SequenceLayout,
     SequenceLayoutEngine, Size, StateLayoutEngine, TimelineLayout, TimelineLayoutEngine,
-    TreemapLayout, TreemapLayoutEngine, VennLayout, VennLayoutEngine, WardleyLayout,
-    WardleyLayoutEngine, WardleyTextKind, XyChartLayout, XyChartLayoutEngine, ZenUmlLayout,
-    ZenUmlLayoutEngine,
+    TreeViewLayout, TreeViewLayoutEngine, TreemapLayout, TreemapLayoutEngine, VennLayout,
+    VennLayoutEngine, WardleyLayout, WardleyLayoutEngine, WardleyTextKind, XyChartLayout,
+    XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
 
@@ -368,6 +368,7 @@ pub struct StaticFrameRenderer {
     venn: VennLayoutEngine,
     ishikawa: IshikawaLayoutEngine,
     wardley: WardleyLayoutEngine,
+    tree_view: TreeViewLayoutEngine,
     mindmap: MindmapLayoutEngine,
     journey: JourneyLayoutEngine,
     gitgraph: GitGraphLayoutEngine,
@@ -407,6 +408,7 @@ impl StaticFrameRenderer {
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
             wardley: WardleyLayoutEngine::default_values(),
+            tree_view: TreeViewLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -447,6 +449,7 @@ impl StaticFrameRenderer {
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
             wardley: WardleyLayoutEngine::default_values(),
+            tree_view: TreeViewLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -487,6 +490,7 @@ impl StaticFrameRenderer {
             venn: VennLayoutEngine::default_values(),
             ishikawa: IshikawaLayoutEngine::default_values(),
             wardley: WardleyLayoutEngine::default_values(),
+            tree_view: TreeViewLayoutEngine::default_values(),
             mindmap: MindmapLayoutEngine::default_values(),
             journey: JourneyLayoutEngine::default_values(),
             gitgraph: GitGraphLayoutEngine::default_values(),
@@ -550,6 +554,7 @@ impl StaticFrameRenderer {
             DiagramKind::Venn(ast) => self.render_venn(ast),
             DiagramKind::Ishikawa(ast) => self.render_ishikawa(ast),
             DiagramKind::Wardley(ast) => self.render_wardley(ast),
+            DiagramKind::TreeView(ast) => self.render_tree_view(ast),
             DiagramKind::Mindmap(ast) => self.render_mindmap(ast),
             DiagramKind::Journey(ast) => self.render_journey(ast),
             DiagramKind::GitGraph(ast) => self.render_gitgraph(ast),
@@ -682,6 +687,11 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_wardley(&self, ast: &WardleyAst) -> Frame {
         render_wardley_layout(&self.wardley.layout(ast), self.palette, self.theme)
+    }
+
+    #[must_use]
+    pub fn render_tree_view(&self, ast: &TreeViewAst) -> Frame {
+        render_tree_view_layout(&self.tree_view.layout(ast), self.theme)
     }
 
     #[must_use]
@@ -2516,6 +2526,63 @@ fn wardley_decorator_label(decorator: &WardleyDecorator) -> &'static str {
         WardleyDecorator::Buy => "buy",
         WardleyDecorator::Outsource => "outsource",
         WardleyDecorator::Market => "market",
+    }
+}
+
+fn render_tree_view_layout(layout: &TreeViewLayout, theme: Theme) -> Frame {
+    let mut frame = Frame::new_styled(
+        layout.size.width as usize + 1,
+        layout.size.height as usize + 1,
+        theme.style_for(ThemeRole::Background),
+    );
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    let node_style = theme.style_for(ThemeRole::Node);
+    for node in &layout.nodes {
+        draw_tree_view_node(
+            &mut frame,
+            node,
+            text_style.clone(),
+            muted_style.clone(),
+            node_style.clone(),
+        );
+    }
+    frame
+}
+
+fn draw_tree_view_node(
+    frame: &mut Frame,
+    node: &PositionedTreeViewNode,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+    node_style: CellStyle,
+) {
+    let mut x = node.point.x;
+    write_text_safe(frame, x, node.point.y, &node.prefix, muted_style.clone());
+    x += node.prefix.chars().count() as i32;
+    let icon = format!("[{}]", node.icon);
+    write_text_safe(frame, x, node.point.y, &icon, muted_style.clone());
+    x += icon.chars().count() as i32 + 1;
+    let label = if node.directory {
+        format!("{}/", node.label)
+    } else {
+        node.label.clone()
+    };
+    let label_style = if node.directory || node.classes.iter().any(|class| class == "highlight") {
+        node_style
+    } else {
+        text_style
+    };
+    write_text_safe(frame, x, node.point.y, &label, label_style);
+    x += label.chars().count() as i32;
+    if !node.classes.is_empty() {
+        let classes = format!(" [{}]", node.classes.join(","));
+        write_text_safe(frame, x, node.point.y, &classes, muted_style.clone());
+        x += classes.chars().count() as i32;
+    }
+    if let Some(description) = &node.description {
+        let description = format!(" ## {description}");
+        write_text_safe(frame, x, node.point.y, &description, muted_style);
     }
 }
 

@@ -367,6 +367,42 @@ Coordinates must be `0..=1`. Pipeline blocks are accepted for simple component
 lists and rendered as flattened `parent/component` labels. Mermaid Wardley
 styling and exact browser geometry are not interpreted yet.
 
+## TreeView
+
+Header:
+
+```mermaid
+treeView-beta
+```
+
+Indentation hierarchy:
+
+```mermaid
+treeView-beta
+my-project/
+  src/
+    index.js
+    utils.ts
+  package.json
+  README.md
+```
+
+Box-drawing input and annotations:
+
+```mermaid
+treeView-beta
+├── src/
+│ ├── App.tsx :::highlight icon(react) ## main component
+│ └── index.ts ## entry point
+├── .env ## environment variables
+├── Dockerfile
+└── package.json
+```
+
+Trailing `/` marks directories. `:::class`, `icon(name)`, and `##` descriptions
+are parsed and rendered as text annotations. Mermaid TreeView styling, icon
+packs, and exact browser connector geometry are not interpreted yet.
+
 ## Sequence diagrams
 
 Header:

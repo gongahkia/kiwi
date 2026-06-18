@@ -5,8 +5,8 @@ use crate::ast::{
     JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst, MindmapStatement,
     PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement, RequirementStatement,
     SankeyStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
-    TimelineStatement, TreemapStatement, VennStatement, WardleyStatement, XyChartStatement,
-    ZenUmlStatement,
+    TimelineStatement, TreeViewStatement, TreemapStatement, VennStatement, WardleyStatement,
+    XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -179,6 +179,7 @@ impl Animator {
             (DiagramKind::Venn(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Ishikawa(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Wardley(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::TreeView(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -347,6 +348,11 @@ impl AnimationConfig {
                     apply_wardley_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::TreeView(ast) => {
+                for statement in &ast.statements {
+                    apply_tree_view_animation_directives(statement, &mut config)?;
+                }
+            }
             DiagramKind::Mindmap(ast) => {
                 for statement in &ast.statements {
                     apply_mindmap_animation_directives(statement, &mut config)?;
@@ -470,6 +476,7 @@ pub enum AnimationDiagramKind {
     Venn,
     Ishikawa,
     Wardley,
+    TreeView,
     Mindmap,
     Journey,
     GitGraph,
@@ -502,6 +509,7 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Venn(_) => Self::Venn,
             DiagramKind::Ishikawa(_) => Self::Ishikawa,
             DiagramKind::Wardley(_) => Self::Wardley,
+            DiagramKind::TreeView(_) => Self::TreeView,
             DiagramKind::Mindmap(_) => Self::Mindmap,
             DiagramKind::Journey(_) => Self::Journey,
             DiagramKind::GitGraph(_) => Self::GitGraph,
@@ -943,6 +951,21 @@ fn apply_wardley_animation_directives(
     Ok(())
 }
 
+fn apply_tree_view_animation_directives(
+    statement: &TreeViewStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        TreeViewStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        TreeViewStatement::Node(_) | TreeViewStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn apply_mindmap_animation_directives(
     statement: &MindmapStatement,
     config: &mut Option<AnimationConfig>,
@@ -1179,6 +1202,7 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Venn(_) => AnimationMode::None,
         DiagramKind::Ishikawa(_) => AnimationMode::None,
         DiagramKind::Wardley(_) => AnimationMode::None,
+        DiagramKind::TreeView(_) => AnimationMode::None,
         DiagramKind::Mindmap(_) => AnimationMode::Trace,
         DiagramKind::Journey(_) => AnimationMode::Trace,
         DiagramKind::GitGraph(_) => AnimationMode::Trace,
@@ -1218,6 +1242,7 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Venn(_) => Duration::from_millis(700),
         DiagramKind::Ishikawa(_) => Duration::from_millis(700),
         DiagramKind::Wardley(_) => Duration::from_millis(700),
+        DiagramKind::TreeView(_) => Duration::from_millis(700),
         DiagramKind::Mindmap(_) => MindmapExpandAnimator::default_frame_duration(),
         DiagramKind::Journey(_) => JourneyTraceAnimator::default_frame_duration(),
         DiagramKind::GitGraph(_) => GitGraphTraceAnimator::default_frame_duration(),

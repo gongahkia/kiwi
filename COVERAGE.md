@@ -1,6 +1,6 @@
 # Mermaid coverage
 
-Last checked: 2026-06-17 against the official Mermaid docs sidebar for Mermaid
+Last checked: 2026-06-18 against the official Mermaid docs sidebar for Mermaid
 11.15.0.
 
 Sources:
@@ -22,6 +22,7 @@ Sources:
 - Venn syntax details: https://mermaid.js.org/syntax/venn.html
 - Ishikawa syntax details: https://mermaid.js.org/syntax/ishikawa.html
 - Wardley syntax details: https://mermaid.js.org/syntax/wardley.html
+- TreeView syntax details: https://mermaid.js.org/syntax/treeView.html
 - User Journey syntax details: https://mermaid.js.org/syntax/userJourney.html
 - GitGraph syntax details: https://mermaid.js.org/syntax/gitgraph.html
 - Timeline syntax details: https://mermaid.js.org/syntax/timeline.html
@@ -107,4 +108,4 @@ several parsed semantics:
 | Venn | Static-only | `venn-beta`; title, sets, unions of two or more sets, quoted or bare identifiers, bracket labels, non-negative numeric sizes, text entries attached to the preceding set/union, `style` declarations, comments, directives. | Fixed ellipse layout with set centers and union labels at averaged member centers. | Yes; set ellipses, set labels/sizes, union labels/sizes, text entries, and style rows render schematically. | Static frame. | Common kumeyuri options only; Mermaid Venn proportional area, fill opacity, stroke, and color theme config are not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Style declarations are semantic/text-only; text layout is approximate for dense overlaps. |
 | Ishikawa | Static-only | `ishikawa-beta`; first non-comment body line as event/problem, subsequent cause lines, indentation hierarchy, comments, directives. | Fixed fishbone layout with event head, horizontal spine, alternating root branches, recursive cause boxes, and line bones. | Yes; renders spine, event box, cause boxes, and nested cause connectors schematically. | Static frame. | Common kumeyuri options only; Mermaid Ishikawa-specific config is not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Text-frame layout is approximate and does not emulate Mermaid's exact fishbone geometry. |
 | Wardley | Static-only | `wardley-beta`; title, size, anchor/component coordinates, decorators, label offsets, links/dependencies, flow links, evolves, notes, annotations, accelerators/deaccelerators, evolution labels, simple pipeline components, comments, directives. | Fixed Wardley map plot with visibility/evolution axes and coordinate-projected labels. | Yes; renders axes, components, decorators, links, evolves, notes, annotations, forces, and pipeline labels schematically. | Static frame. | Common kumeyuri options only; Mermaid Wardley styling and interactive behavior are not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Pipeline syntax is flattened into labeled components; exact Mermaid geometry and styling are approximate. |
-| TreeView | None | Rejects `treeView-beta`. | No. | No. | No. | No. | No SVG output. | 0 | No parser root. |
+| TreeView | Static-only | `treeView-beta`; indentation hierarchy, box-drawing input, bare and quoted labels, trailing `/` directories, comments, directives, `:::class`, `icon(name)`, and `##` descriptions. | Flattened source-order file tree with ASCII connectors and auto/override icon labels. | Yes; renders folder/file labels, classes, icon names, and descriptions schematically. | Static frame. | Common kumeyuri options only; Mermaid TreeView row indent, padding, line thickness, icon visibility, and theme variables are not interpreted. | SVG role/title/desc/text fallback via renderer defaults; Mermaid `accTitle`/`accDescr` is not parsed. | 2 | Icons/classes are text-only; exact Mermaid connector geometry and styling are approximate. |

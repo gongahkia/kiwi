@@ -29,6 +29,7 @@ pub enum DiagramKind {
     Venn(Box<VennAst>),
     Ishikawa(Box<IshikawaAst>),
     Wardley(Box<WardleyAst>),
+    TreeView(Box<TreeViewAst>),
     Mindmap(Box<MindmapAst>),
     Journey(Box<JourneyAst>),
     GitGraph(Box<GitGraphAst>),
@@ -1738,6 +1739,37 @@ pub struct WardleyEvolution {
 pub struct WardleyEvolutionStage {
     pub label: Label,
     pub boundary: Option<Spanned<String>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeViewAst {
+    pub header: TreeViewHeader,
+    pub statements: Vec<TreeViewStatement>,
+    pub roots: Vec<TreeViewNode>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TreeViewHeader {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TreeViewStatement {
+    Node(Box<TreeViewNode>),
+    Comment(MermaidComment),
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeViewNode {
+    pub label: Label,
+    pub directory: bool,
+    pub icon: Option<Spanned<String>>,
+    pub classes: Vec<Spanned<String>>,
+    pub description: Option<Label>,
+    pub children: Vec<TreeViewNode>,
     pub span: Span,
 }
 

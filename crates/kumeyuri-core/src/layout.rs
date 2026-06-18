@@ -16,10 +16,10 @@ use crate::ast::{
     RequirementVerifyMethod, SankeyAst, SequenceActivation, SequenceAst, SequenceAutoNumber,
     SequenceBox, SequenceControlKind, SequenceMessage, SequenceNote, SequenceParticipant,
     SequenceStatement, Spanned, StateAst, StateNode, StateStatement, StateTransition, TimelineAst,
-    TreemapAst, TreemapNode, VennAst, VennSet, VennStyle, VennText, VennUnion, WardleyAst,
-    WardleyComponentKind, WardleyDecorator, WardleyForceKind, WardleyLinkKind, XyChartAst,
-    XyChartAxisScale, XyChartSeriesKind, ZenUmlAst, ZenUmlFragmentKind, ZenUmlMessageKind,
-    ZenUmlStatement,
+    TreeViewAst, TreeViewNode, TreemapAst, TreemapNode, VennAst, VennSet, VennStyle, VennText,
+    VennUnion, WardleyAst, WardleyComponentKind, WardleyDecorator, WardleyForceKind,
+    WardleyLinkKind, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
+    ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -1017,6 +1017,46 @@ pub struct WardleyLayout {
     pub size: Size,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TreeViewLayoutConfig {
+    pub padding_x: i32,
+    pub padding_y: i32,
+}
+
+impl Default for TreeViewLayoutConfig {
+    fn default() -> Self {
+        Self::default_values()
+    }
+}
+
+impl TreeViewLayoutConfig {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            padding_x: 1,
+            padding_y: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PositionedTreeViewNode {
+    pub prefix: String,
+    pub label: String,
+    pub directory: bool,
+    pub icon: String,
+    pub classes: Vec<String>,
+    pub description: Option<String>,
+    pub depth: usize,
+    pub point: Point,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeViewLayout {
+    pub nodes: Vec<PositionedTreeViewNode>,
+    pub size: Size,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateLayout {
     pub graph: FlowLayout,
@@ -1716,6 +1756,11 @@ pub struct IshikawaLayoutEngine {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct WardleyLayoutEngine {
     config: WardleyLayoutConfig,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TreeViewLayoutEngine {
+    config: TreeViewLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -5172,6 +5217,160 @@ fn normalize_wardley_layout(layout: &mut WardleyLayout) {
         height = height.max(text.point.y + 2);
     }
     layout.size = Size { width, height };
+}
+
+impl TreeViewLayoutEngine {
+    #[must_use]
+    pub const fn default_values() -> Self {
+        Self {
+            config: TreeViewLayoutConfig::default_values(),
+        }
+    }
+
+    #[must_use]
+    pub const fn new(config: TreeViewLayoutConfig) -> Self {
+        Self { config }
+    }
+
+    #[must_use]
+    pub fn layout(&self, ast: &TreeViewAst) -> TreeViewLayout {
+        let mut nodes = Vec::new();
+        let mut y = 0i32;
+        let mut width = 1i32;
+        for (index, root) in ast.roots.iter().enumerate() {
+            layout_tree_view_node(
+                root,
+                0,
+                index + 1 == ast.roots.len(),
+                &[],
+                &mut y,
+                &mut width,
+                &mut nodes,
+                self.config,
+            );
+        }
+        TreeViewLayout {
+            nodes,
+            size: Size {
+                width: width + self.config.padding_x * 2,
+                height: y + self.config.padding_y * 2,
+            },
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn layout_tree_view_node(
+    node: &TreeViewNode,
+    depth: usize,
+    is_last: bool,
+    ancestors: &[bool],
+    y: &mut i32,
+    width: &mut i32,
+    nodes: &mut Vec<PositionedTreeViewNode>,
+    config: TreeViewLayoutConfig,
+) {
+    let is_root = depth == 0;
+    let prefix = if is_root {
+        String::new()
+    } else {
+        tree_view_prefix(ancestors, is_last)
+    };
+    let icon = node
+        .icon
+        .as_ref()
+        .map_or_else(|| tree_view_auto_icon(node), |icon| icon.value.clone());
+    let positioned = PositionedTreeViewNode {
+        prefix,
+        label: node.label.text.clone(),
+        directory: node.directory,
+        icon,
+        classes: node
+            .classes
+            .iter()
+            .map(|class| class.value.clone())
+            .collect(),
+        description: node
+            .description
+            .as_ref()
+            .map(|description| description.text.clone()),
+        depth,
+        point: Point {
+            x: config.padding_x,
+            y: config.padding_y + *y,
+        },
+    };
+    *width = (*width).max(tree_view_line_width(&positioned));
+    nodes.push(positioned);
+    *y += 1;
+    let mut next_ancestors = ancestors.to_vec();
+    if !is_root {
+        next_ancestors.push(is_last);
+    }
+    for (index, child) in node.children.iter().enumerate() {
+        layout_tree_view_node(
+            child,
+            depth + 1,
+            index + 1 == node.children.len(),
+            &next_ancestors,
+            y,
+            width,
+            nodes,
+            config,
+        );
+    }
+}
+
+fn tree_view_prefix(ancestors: &[bool], is_last: bool) -> String {
+    let mut prefix = String::new();
+    for ancestor_last in ancestors {
+        prefix.push_str(if *ancestor_last { "   " } else { "|  " });
+    }
+    prefix.push_str(if is_last { "`-- " } else { "|-- " });
+    prefix
+}
+
+fn tree_view_line_width(node: &PositionedTreeViewNode) -> i32 {
+    let mut width = label_width(&node.prefix) + label_width(&node.icon) + 3;
+    width += label_width(&node.label);
+    if node.directory {
+        width += 1;
+    }
+    if !node.classes.is_empty() {
+        width += label_width(&format!(" [{}]", node.classes.join(",")));
+    }
+    if let Some(description) = &node.description {
+        width += label_width(description) + 4;
+    }
+    width
+}
+
+fn tree_view_auto_icon(node: &TreeViewNode) -> String {
+    if node.directory {
+        return "folder".to_owned();
+    }
+    let label = node.label.text.as_str();
+    let icon = match label {
+        "Dockerfile" => "docker",
+        "Makefile" => "terminal",
+        ".gitignore" => "git",
+        _ => match label.rsplit_once('.').map(|(_, extension)| extension) {
+            Some("js" | "mjs" | "cjs") => "javascript",
+            Some("ts") => "typescript",
+            Some("jsx" | "tsx") => "react",
+            Some("py") => "python",
+            Some("json") => "json",
+            Some("md" | "mdx") => "markdown",
+            Some("html" | "htm") => "html",
+            Some("css" | "scss") => "css",
+            Some("yaml" | "yml") => "yaml",
+            Some("sh" | "bash") => "terminal",
+            Some("sql" | "db" | "h5") => "database",
+            Some("lock") => "lock",
+            _ => "file",
+        },
+    };
+    icon.to_owned()
 }
 
 impl StateLayoutEngine {

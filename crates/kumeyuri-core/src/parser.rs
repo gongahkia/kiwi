@@ -32,9 +32,10 @@ use crate::ast::{
     SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
     SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
     StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
-    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, TreemapAst,
-    TreemapHeader, TreemapNode, TreemapStatement, VennAst, VennHeader, VennSet, VennStatement,
-    VennStyle, VennText, VennTextOwner, VennUnion, WardleyAnnotation, WardleyAst, WardleyComponent,
+    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, TreeViewAst,
+    TreeViewHeader, TreeViewNode, TreeViewStatement, TreemapAst, TreemapHeader, TreemapNode,
+    TreemapStatement, VennAst, VennHeader, VennSet, VennStatement, VennStyle, VennText,
+    VennTextOwner, VennUnion, WardleyAnnotation, WardleyAst, WardleyComponent,
     WardleyComponentKind, WardleyCoord, WardleyDecorator, WardleyEvolution, WardleyEvolutionStage,
     WardleyEvolve, WardleyForce, WardleyForceKind, WardleyHeader, WardleyLabelOffset, WardleyLink,
     WardleyLinkKind, WardleyNote, WardleySize, WardleyStatement, XyChartAst, XyChartAxis,
@@ -177,6 +178,10 @@ pub enum ParseErrorKind {
     ExpectedWardleyValue,
     ExpectedWardleyDecorator,
     ExpectedWardleyLink,
+    ExpectedTreeViewHeader,
+    UnknownTreeViewStatement,
+    ExpectedTreeViewNode,
+    ExpectedTreeViewAnnotation,
     ExpectedMindmapHeader,
     UnknownMindmapStatement,
     ExpectedMindmapNode,
@@ -304,6 +309,10 @@ impl Parser {
 
     pub fn parse_wardley(source: &str) -> Result<WardleyAst, ParseError> {
         DiagramParser::new(source).parse_wardley_only()
+    }
+
+    pub fn parse_tree_view(source: &str) -> Result<TreeViewAst, ParseError> {
+        DiagramParser::new(source).parse_tree_view_only()
     }
 
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
@@ -535,6 +544,14 @@ impl Parser {
         WardleyStatementParser::new(source).parse()
     }
 
+    pub fn parse_tree_view_header(source: &str) -> Result<TreeViewHeader, ParseError> {
+        TreeViewHeaderParser::new(source).parse()
+    }
+
+    pub fn parse_tree_view_statement(source: &str) -> Result<TreeViewStatement, ParseError> {
+        TreeViewStatementParser::new(source).parse()
+    }
+
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
@@ -721,6 +738,12 @@ impl<'source> DiagramParser<'source> {
             let ast =
                 self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Wardley(Box::new(ast))));
+        }
+        if let Ok(tree_view_header) = Parser::parse_tree_view_header(header.text) {
+            self.cursor = header.line.next;
+            let ast =
+                self.parse_tree_view_body(shift_tree_view_header(tree_view_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::TreeView(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
             self.cursor = header.line.next;
@@ -1021,6 +1044,18 @@ impl<'source> DiagramParser<'source> {
         let wardley_header = Parser::parse_wardley_header(header.text)?;
         self.cursor = header.line.next;
         self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))
+    }
+
+    fn parse_tree_view_only(mut self) -> Result<TreeViewAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let tree_view_header = Parser::parse_tree_view_header(header.text)?;
+        self.cursor = header.line.next;
+        self.parse_tree_view_body(shift_tree_view_header(tree_view_header, header.start))
     }
 
     fn parse_mindmap_only(mut self) -> Result<MindmapAst, ParseError> {
@@ -2133,6 +2168,71 @@ impl<'source> DiagramParser<'source> {
         }
 
         Ok(ast)
+    }
+
+    fn parse_tree_view_body(&mut self, header: TreeViewHeader) -> Result<TreeViewAst, ParseError> {
+        let span_start = header.span.start;
+        let mut parsed = Vec::<ParsedTreeViewNode>::new();
+        let mut roots = Vec::<usize>::new();
+        let mut stack = Vec::<(usize, usize)>::new();
+        let mut statements = Vec::new();
+
+        while let Some(line) = source_line(self.source, self.cursor) {
+            let Some((trim_start, trim_end)) = trim_ascii_range(line.text) else {
+                self.cursor = line.next;
+                continue;
+            };
+            let content = tree_view_line_content(line.text, trim_start, trim_end);
+            let statement = shift_tree_view_statement(
+                Parser::parse_tree_view_statement(&line.text[content.start..content.end])
+                    .map_err(|error| shift_error(error, line.start + content.start))?,
+                line.start + content.start,
+            );
+            match statement {
+                TreeViewStatement::Node(node) => {
+                    while stack
+                        .last()
+                        .is_some_and(|(depth, _)| *depth >= content.depth)
+                    {
+                        stack.pop();
+                    }
+                    let parent = stack.last().map(|(_, index)| *index);
+                    let index = parsed.len();
+                    if let Some(parent) = parent {
+                        parsed[parent].children.push(index);
+                    } else {
+                        roots.push(index);
+                    }
+                    parsed.push(ParsedTreeViewNode {
+                        node: *node,
+                        children: Vec::new(),
+                    });
+                    stack.push((content.depth, index));
+                }
+                TreeViewStatement::Comment(comment) => {
+                    statements.push(TreeViewStatement::Comment(comment));
+                }
+                TreeViewStatement::Directive(directive) => {
+                    statements.push(TreeViewStatement::Directive(directive));
+                }
+            }
+            self.cursor = line.next;
+        }
+
+        let roots = roots
+            .into_iter()
+            .map(|index| build_tree_view_node(index, &parsed))
+            .collect::<Vec<_>>();
+        for root in &roots {
+            statements.push(TreeViewStatement::Node(Box::new(root.clone())));
+        }
+
+        Ok(TreeViewAst {
+            header,
+            statements,
+            roots,
+            span: Span::new(span_start, self.source.len()),
+        })
     }
 
     fn parse_mindmap_body(&mut self, header: MindmapHeader) -> Result<MindmapAst, ParseError> {
@@ -4888,6 +4988,32 @@ impl<'source> WardleyHeaderParser<'source> {
             });
         }
         Ok(WardleyHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct TreeViewHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TreeViewHeaderParser<'source> {
+    const fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<TreeViewHeader, ParseError> {
+        let (start, end) = trim_ascii_range(self.source).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewHeader,
+            span: Span::new(0, self.source.len()),
+        })?;
+        if &self.source[start..end] != "treeView-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedTreeViewHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(TreeViewHeader {
             span: Span::new(start, end),
         })
     }
@@ -11426,6 +11552,261 @@ fn build_treemap_node(index: usize, parsed: &[ParsedTreemapNode]) -> TreemapNode
 }
 
 #[derive(Debug, Clone)]
+struct ParsedTreeViewNode {
+    node: TreeViewNode,
+    children: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TreeViewLineContent {
+    depth: usize,
+    start: usize,
+    end: usize,
+}
+
+struct TreeViewStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> TreeViewStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<TreeViewStatement, ParseError> {
+        let Some((start, end)) = trimmed_statement_bounds(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownTreeViewStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(TreeViewStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(TreeViewStatement::Comment(shift_comment(comment, start)));
+        }
+        parse_tree_view_node(self.source, start, end)
+            .map(|node| TreeViewStatement::Node(Box::new(node)))
+    }
+}
+
+fn tree_view_line_content(source: &str, trim_start: usize, trim_end: usize) -> TreeViewLineContent {
+    if let Some((depth, start)) = tree_view_box_content_start(source, trim_start, trim_end) {
+        return TreeViewLineContent {
+            depth,
+            start,
+            end: trim_end,
+        };
+    }
+    TreeViewLineContent {
+        depth: tree_view_display_column(&source[..trim_start]),
+        start: trim_start,
+        end: trim_end,
+    }
+}
+
+fn tree_view_box_content_start(
+    source: &str,
+    trim_start: usize,
+    trim_end: usize,
+) -> Option<(usize, usize)> {
+    let branch = source[trim_start..trim_end]
+        .char_indices()
+        .find_map(|(offset, glyph)| {
+            matches!(glyph, '├' | '└' | '┣' | '┗').then_some(trim_start + offset)
+        })?;
+    let prefix = &source[..branch];
+    let verticals = prefix
+        .chars()
+        .filter(|glyph| matches!(glyph, '│' | '┃'))
+        .count();
+    let depth = verticals.max(tree_view_display_column(prefix) / 4);
+    let mut cursor = branch + source[branch..].chars().next()?.len_utf8();
+    while cursor < trim_end {
+        let glyph = source[cursor..trim_end].chars().next()?;
+        if matches!(glyph, '─' | '━' | '-' | ' ' | '\t') {
+            cursor += glyph.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some((depth, cursor))
+}
+
+fn tree_view_display_column(source: &str) -> usize {
+    let mut column = 0usize;
+    for glyph in source.chars() {
+        if glyph == '\t' {
+            column += 4 - (column % 4);
+        } else {
+            column += 1;
+        }
+    }
+    column
+}
+
+fn parse_tree_view_node(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<TreeViewNode, ParseError> {
+    let (mut label, mut cursor, suffix_directory) = parse_tree_view_label(source, start, end)?;
+    let mut directory = suffix_directory;
+    if label.text.ends_with('/') {
+        label.text.pop();
+        label.span.end = label.span.end.saturating_sub(1);
+        directory = true;
+    }
+    if label.text.is_empty() {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewNode,
+            span: label.span,
+        });
+    }
+    let mut icon = None;
+    let mut classes = Vec::new();
+    let mut description = None;
+    cursor = skip_ascii_ws(source, cursor, end);
+    while cursor < end {
+        if source[cursor..end].starts_with(":::") {
+            let class_start = cursor + 3;
+            let class_end = treemap_class_token_end(source, class_start, end);
+            classes.push(parse_tree_view_class(source, class_start, class_end)?);
+            cursor = skip_ascii_ws(source, class_end, end);
+            continue;
+        }
+        if source[cursor..end].starts_with("icon(") {
+            let (parsed_icon, next) = parse_tree_view_icon(source, cursor, end)?;
+            icon = Some(parsed_icon);
+            cursor = skip_ascii_ws(source, next, end);
+            continue;
+        }
+        if source[cursor..end].starts_with("##") {
+            description = Some(
+                label_from_trimmed(source, cursor + 2, end).ok_or(ParseError {
+                    kind: ParseErrorKind::ExpectedTreeViewAnnotation,
+                    span: Span::new(cursor, end),
+                })?,
+            );
+            cursor = end;
+            continue;
+        }
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewAnnotation,
+            span: Span::new(cursor, end),
+        });
+    }
+    Ok(TreeViewNode {
+        label,
+        directory,
+        icon,
+        classes,
+        description,
+        children: Vec::new(),
+        span: Span::new(start, end),
+    })
+}
+
+fn parse_tree_view_label(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Label, usize, bool), ParseError> {
+    if source.as_bytes().get(start) == Some(&b'"') {
+        let quote_end = find_treemap_quote_end(source, start + 1, end).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewNode,
+            span: Span::new(start, end),
+        })?;
+        let label = label_from_body(source, start, quote_end + 1);
+        let mut cursor = quote_end + 1;
+        let directory = source.as_bytes().get(cursor) == Some(&b'/');
+        if directory {
+            cursor += 1;
+        }
+        return Ok((label, cursor, directory));
+    }
+    let mut cursor = start;
+    while cursor < end && !source.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += source[cursor..end].chars().next().map_or(1, char::len_utf8);
+    }
+    if cursor == start {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewNode,
+            span: Span::new(start, end),
+        });
+    }
+    Ok((label_from_body(source, start, cursor), cursor, false))
+}
+
+fn parse_tree_view_class(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<Spanned<String>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewAnnotation,
+            span: Span::new(start, end),
+        });
+    };
+    let class_start = start + trim_start;
+    let class_end = start + trim_end;
+    Ok(Spanned::new(
+        source[class_start..class_end].to_owned(),
+        Span::new(class_start, class_end),
+    ))
+}
+
+fn parse_tree_view_icon(
+    source: &str,
+    start: usize,
+    end: usize,
+) -> Result<(Spanned<String>, usize), ParseError> {
+    let value_start = start + "icon(".len();
+    let close = source[value_start..end]
+        .find(')')
+        .map(|offset| value_start + offset)
+        .ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewAnnotation,
+            span: Span::new(start, end),
+        })?;
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[value_start..close]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedTreeViewAnnotation,
+            span: Span::new(value_start, close),
+        });
+    };
+    let icon_start = value_start + trim_start;
+    let icon_end = value_start + trim_end;
+    Ok((
+        Spanned::new(
+            source[icon_start..icon_end].to_owned(),
+            Span::new(icon_start, icon_end),
+        ),
+        close + 1,
+    ))
+}
+
+fn build_tree_view_node(index: usize, parsed: &[ParsedTreeViewNode]) -> TreeViewNode {
+    let mut node = parsed[index].node.clone();
+    node.children = parsed[index]
+        .children
+        .iter()
+        .map(|child| build_tree_view_node(*child, parsed))
+        .collect();
+    if let Some(last) = node.children.last() {
+        node.span = Span::new(node.span.start, last.span.end);
+    }
+    node
+}
+
+#[derive(Debug, Clone)]
 struct ParsedMindmapNode {
     node: MindmapNode,
     children: Vec<usize>,
@@ -14287,6 +14668,48 @@ fn shift_wardley_evolution(evolution: WardleyEvolution, offset: usize) -> Wardle
     }
 }
 
+fn shift_tree_view_header(header: TreeViewHeader, offset: usize) -> TreeViewHeader {
+    TreeViewHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_tree_view_statement(statement: TreeViewStatement, offset: usize) -> TreeViewStatement {
+    match statement {
+        TreeViewStatement::Node(node) => {
+            TreeViewStatement::Node(Box::new(shift_tree_view_node(*node, offset)))
+        }
+        TreeViewStatement::Comment(comment) => {
+            TreeViewStatement::Comment(shift_comment(comment, offset))
+        }
+        TreeViewStatement::Directive(directive) => {
+            TreeViewStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_tree_view_node(node: TreeViewNode, offset: usize) -> TreeViewNode {
+    TreeViewNode {
+        label: shift_label(node.label, offset),
+        directory: node.directory,
+        icon: node.icon.map(|icon| shift_spanned(icon, offset)),
+        classes: node
+            .classes
+            .into_iter()
+            .map(|class| shift_spanned(class, offset))
+            .collect(),
+        description: node
+            .description
+            .map(|description| shift_label(description, offset)),
+        children: node
+            .children
+            .into_iter()
+            .map(|child| shift_tree_view_node(child, offset))
+            .collect(),
+        span: shift_span(node.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -15774,7 +16197,7 @@ cherry-pick id: "feat" parent: "base""#,
 
     #[test]
     fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
-        let cases = [("TreeView", "treeView-beta")];
+        let cases: [(&str, &str); 0] = [];
 
         for (name, source) in cases {
             let error = Parser::parse_diagram(source).unwrap_err();

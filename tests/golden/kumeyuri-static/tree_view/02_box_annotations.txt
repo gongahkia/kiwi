@@ -1,0 +1,7 @@
+
+ [folder] src/
+ |-- [react] App.tsx [highlight] ## main component
+ `-- [typescript] index.ts ## entry point
+ [file] .env ## environment variables
+ [docker] Dockerfile
+ [json] package.json
