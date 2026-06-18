@@ -53,9 +53,9 @@ demos/rendered/microservice-fan-out.gif
 Text:
 
 ```text
-Current scope is intentionally narrow: flowcharts, sequence diagrams, and state diagrams first.
+Current support is partial, not Mermaid-complete: 11 animated families, 17 static-only families, and 3 rejected upstream roots tracked in COVERAGE.md.
 
-Tests cover parser fixtures, static snapshots, animation hashes, SVG sanitization, raster snapshots, browser playback, and WASM bundle size.
+Tests cover parser fixtures, snapshots, fuzz/negative cases, compat drift, SVG sanitization, raster output, browser playback, and WASM bundle size.
 ```
 
 Attachment:

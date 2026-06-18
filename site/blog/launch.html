@@ -40,7 +40,7 @@
         <section>
           <h2>Why not just SVG?</h2>
           <p>SVG is a good publishing target, but it is not where every diagram is read. Engineers inspect diagrams in terminals, issue comments, READMEs, static sites, slides, and local previews. Kumeyuri treats SVG as one backend, not the center of the architecture.</p>
-          <p>The current core supports flowcharts, sequence diagrams, and state diagrams. Each parser produces semantic AST data, layout produces stable coordinates, and animation produces ordered frames with marker metadata. Renderers can then pick the best surface for their environment.</p>
+          <p>The current core supports a partial Mermaid matrix: 11 animated diagram families, 17 static-only families, and 3 known upstream roots that are rejected intentionally. Each parser produces semantic AST data, layout produces stable coordinates, and animation produces ordered frames with marker metadata where animation is supported. Renderers can then pick the best surface for their environment.</p>
         </section>
 
         <figure class="post-figure">
@@ -56,8 +56,8 @@
 
         <section>
           <h2>Design constraints</h2>
-          <p>Kumeyuri deliberately starts narrow. It does not try to cover every Mermaid diagram type yet. The first target is a dependable subset with clear behavior across renderers: flowcharts for graph traces, sequence diagrams for message playback, and state diagrams for transition animation.</p>
-          <p>That constraint keeps parity testable. Static snapshots, animation hashes, sanitizer checks, raster snapshots, Playwright browser coverage, and a WASM bundle budget all run against the same source tree.</p>
+          <p>Kumeyuri does not claim full Mermaid parity. The compatibility matrix separates animated partial support, static-only partial support, unsupported roots, and schematic renderers where parser coverage is ahead of visual fidelity.</p>
+          <p>That constraint keeps parity testable. Static snapshots, animation hashes, sanitizer checks, raster snapshots, fuzz and negative fixtures, compatibility drift checks, Playwright browser coverage, and a WASM bundle budget all run against the same source tree.</p>
         </section>
 
         <figure class="post-figure">

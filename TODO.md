@@ -120,7 +120,7 @@
 - [x] Write Hacker News submission title + first comment (technical depth, no marketing fluff)
 - [x] Draft X launch thread (3 posts max) with one GIF per post
 - [ ] Schedule X launch thread for Tue/Wed 9–11am PT
-- [ ] Update launch comms drafts to match current supported-root matrix before posting
+- [x] Update launch comms drafts to match current supported-root matrix before posting
 - [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR
 - [ ] Post to r/rust, r/programming, r/commandline with the same blog post
 - [ ] Tag `v1.0.0` and publish to crates.io, npm, Homebrew tap
