@@ -9,5 +9,9 @@ description = "Core parser, layout, animation, and frame model for kumeyuri."
 [lib]
 path = "src/lib.rs"
 
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
 [dev-dependencies]
 proptest = "1.11.0"

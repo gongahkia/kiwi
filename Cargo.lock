@@ -760,6 +760,8 @@ name = "kumeyuri-core"
 version = "0.1.0-static"
 dependencies = [
  "proptest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

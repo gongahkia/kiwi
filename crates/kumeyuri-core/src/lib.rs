@@ -4,5 +4,6 @@ pub mod ast;
 pub mod frame;
 pub mod layout;
 pub mod parser;
+pub mod plugins;
 pub mod text;
 pub mod theme;
