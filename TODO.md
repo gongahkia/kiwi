@@ -323,7 +323,7 @@
 - [x] Run `pa11y` against every doc-site page; zero violations
 - [x] Verify all themes meet 4.5:1 contrast ratio (automated headless render + colour sample)
 - [x] Verify `prefers-reduced-motion: reduce` produces static SVG with progress dots
-- [ ] Verify keyboard-only navigation reaches every control (manual smoke test)
+- [x] Verify keyboard-only navigation reaches every control (manual smoke test)
 - [ ] Verify NVDA, VoiceOver, JAWS narration of `aria-live` region
 - [ ] Verify touch targets ≥ 44×44 px on the web player
 - [x] Verify SVG `<title>` and `<desc>` populate from diagram metadata
