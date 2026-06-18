@@ -2032,6 +2032,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
+            reject_directive_like_statement(
+                line.text,
+                line.start,
+                ParseErrorKind::UnknownIshikawaStatement,
+            )?;
             if let Ok(comment) = Parser::parse_mermaid_comment(line.text) {
                 statements.push(IshikawaStatement::Comment(shift_comment(
                     comment, line.start,
@@ -2252,6 +2257,11 @@ impl<'source> DiagramParser<'source> {
                 self.cursor = line.line.next;
                 continue;
             }
+            reject_directive_like_statement(
+                trimmed,
+                line.start,
+                ParseErrorKind::UnknownMindmapStatement,
+            )?;
             if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
                 statements.push(MindmapStatement::Comment(shift_comment(
                     comment, line.start,
@@ -2646,6 +2656,20 @@ fn parse_flow_document_statements(
         kind: ParseErrorKind::UnknownFlowStatement,
         span: Span::new(offset, offset + statement.len()),
     })
+}
+
+fn reject_directive_like_statement(
+    statement: &str,
+    offset: usize,
+    kind: ParseErrorKind,
+) -> Result<(), ParseError> {
+    if statement.starts_with("%%{") {
+        return Err(ParseError {
+            kind,
+            span: Span::new(offset, offset + statement.len()),
+        });
+    }
+    Ok(())
 }
 
 fn push_flow_statement(ast: &mut FlowchartAst, statement: FlowStatement) {
@@ -10307,6 +10331,7 @@ impl<'source> IshikawaStatementParser<'source> {
                 directive, start,
             )));
         }
+        reject_directive_like_statement(trimmed, start, ParseErrorKind::UnknownIshikawaStatement)?;
         if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
             return Ok(IshikawaStatement::Comment(shift_comment(comment, start)));
         }
@@ -11588,6 +11613,7 @@ impl<'source> TreeViewStatementParser<'source> {
                 directive, start,
             )));
         }
+        reject_directive_like_statement(trimmed, start, ParseErrorKind::UnknownTreeViewStatement)?;
         if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
             return Ok(TreeViewStatement::Comment(shift_comment(comment, start)));
         }

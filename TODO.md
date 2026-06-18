@@ -193,7 +193,7 @@
 - [x] Add cross-format snapshot coverage for all supported roots: text, SVG, PNG, GIF, APNG, WebP, TUI timeline hashes, and WASM render output
 - [x] Add browser visual regression screenshots for `<kumeyuri-diagram>` controls across desktop and mobile viewport sizes
 - [x] Add fuzz/property tests for supported-root parsers with round-trip invariants over AST counts and source spans
-- [ ] Add mutation tests for parsers to ensure invalid Mermaid syntax fails fast instead of silently dropping statements
+- [x] Add mutation tests for parsers to ensure invalid Mermaid syntax fails fast instead of silently dropping statements
 - [ ] Add compatibility CI that diffs Mermaid docs root list against `COVERAGE.md` and opens/fails on missing roots
 - [ ] Add `kumeyuri compat --mermaid-version` command that prints supported roots, unsupported roots, and partial/static-only caveats
 - [ ] Add a coverage gate requiring snapshot-count deltas when `DiagramKind`, parser root dispatch, or render dispatch changes
