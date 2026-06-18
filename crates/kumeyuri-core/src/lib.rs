@@ -7,3 +7,4 @@ pub mod parser;
 pub mod plugins;
 pub mod text;
 pub mod theme;
+pub mod unicode;

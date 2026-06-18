@@ -21,6 +21,7 @@ use crate::ast::{
     WardleyLinkKind, XyChartAst, XyChartAxisScale, XyChartSeriesKind, ZenUmlAst,
     ZenUmlFragmentKind, ZenUmlMessageKind, ZenUmlStatement,
 };
+use crate::unicode::{display_width_i32, wrap_display_width_lines};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 pub mod optimise {
@@ -7631,7 +7632,7 @@ fn quadrant_section_origin(plot: Rect, index: u8) -> Point {
 }
 
 fn label_width(label: &str) -> i32 {
-    label.chars().count() as i32
+    display_width_i32(label)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9909,7 +9910,7 @@ fn label_metrics(label: &str) -> (i32, i32) {
     let mut width = 0i32;
     let mut count = 0i32;
     for line in label.lines() {
-        width = width.max(line.chars().count() as i32);
+        width = width.max(display_width_i32(line));
         count += 1;
     }
     (width, count.max(1))
@@ -9920,62 +9921,11 @@ fn wrap_label(label: &str, max_label_width: Option<i32>) -> String {
         return label.to_owned();
     };
     let width = width as usize;
-    let mut lines = Vec::new();
     if label.is_empty() {
         return String::new();
     }
-    for line in label.lines() {
-        wrap_label_line(line, width, &mut lines);
-    }
+    let lines = wrap_display_width_lines(label, width);
     lines.join("\n")
-}
-
-fn wrap_label_line(line: &str, width: usize, lines: &mut Vec<String>) {
-    if line.chars().count() <= width {
-        lines.push(line.to_owned());
-        return;
-    }
-    let mut current = String::new();
-    for word in line.split_whitespace() {
-        let word_width = word.chars().count();
-        let current_width = current.chars().count();
-        if current.is_empty() && word_width <= width {
-            current.push_str(word);
-        } else if !current.is_empty() && current_width + 1 + word_width <= width {
-            current.push(' ');
-            current.push_str(word);
-        } else {
-            if !current.is_empty() {
-                lines.push(std::mem::take(&mut current));
-            }
-            push_wrapped_word(word, width, lines, &mut current);
-        }
-    }
-    if !current.is_empty() {
-        lines.push(current);
-    } else if lines.is_empty() {
-        lines.push(String::new());
-    }
-}
-
-fn push_wrapped_word(word: &str, width: usize, lines: &mut Vec<String>, current: &mut String) {
-    if word.chars().count() <= width {
-        current.push_str(word);
-        return;
-    }
-    let mut chunk = String::new();
-    let mut count = 0usize;
-    for character in word.chars() {
-        chunk.push(character);
-        count += 1;
-        if count == width {
-            lines.push(std::mem::take(&mut chunk));
-            count = 0;
-        }
-    }
-    if !chunk.is_empty() {
-        current.push_str(&chunk);
-    }
 }
 
 fn class_node_size(class: &ClassNode, config: ClassLayoutConfig) -> Size {
