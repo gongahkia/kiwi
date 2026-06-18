@@ -281,7 +281,7 @@
 - [x] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
 - [x] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
 - [x] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
-- [ ] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
+- [x] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
 - [ ] Document i18n behaviour in `docs/i18n.md` including known limitations
 - [ ] Publish `v1.3.0-i18n` minor release
 
