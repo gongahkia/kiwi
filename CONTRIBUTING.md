@@ -46,3 +46,15 @@ Pull requests should include:
 
 Review should check behavior, security, parser compatibility, renderer output,
 accessibility impact, and whether the change stays inside the requested scope.
+
+## Translation Contributions
+
+Open a Translation issue before starting a new locale or broad terminology
+review.
+
+Use `locales/en-US.ftl` as the source catalog. Fluent-file PRs should add or
+update `locales/<locale>.ftl`, keep message ids aligned with `en-US.ftl`, wire
+the locale in `crates/kumeyuri-cli/src/i18n.rs`, and include CLI verification.
+
+If a Crowdin project is configured for the locale, link the project/export in
+the issue. Otherwise, use a direct Fluent-file PR.

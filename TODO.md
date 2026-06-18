@@ -279,7 +279,7 @@
 - [x] Integrate `fluent-rs` for user-facing strings
 - [x] Extract every user-facing string into `locales/en-US.ftl`
 - [x] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
-- [ ] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
+- [x] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
 - [ ] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
 - [ ] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
 - [ ] Document i18n behaviour in `docs/i18n.md` including known limitations

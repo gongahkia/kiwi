@@ -1,0 +1,41 @@
+name: Translation
+description: Coordinate a locale translation or review.
+title: "i18n: "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: locale
+    attributes:
+      label: Locale
+      description: BCP 47 language tag.
+      placeholder: e.g. fr-FR, ja-JP, pt-BR
+    validations:
+      required: true
+  - type: dropdown
+    id: path
+    attributes:
+      label: Contribution Path
+      options:
+        - Fluent file PR
+        - Crowdin project request
+        - Review existing locale
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: New locale, partial update, terminology review, or typo fix.
+    validations:
+      required: true
+  - type: textarea
+    id: terminology
+    attributes:
+      label: Terminology Notes
+      description: CLI terms, Mermaid terms, or locale-specific style choices.
+  - type: input
+    id: reviewer
+    attributes:
+      label: Native Reviewer
+      description: GitHub handle for a reviewer, if known.
