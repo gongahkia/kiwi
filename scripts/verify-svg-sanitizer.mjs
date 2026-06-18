@@ -90,6 +90,8 @@ function assertClean(mode, sanitized) {
   assertIncludes(mode, folded, "<g", "frame groups stripped");
   assertIncludes(mode, folded, "<text", "text output stripped");
   assertIncludes(mode, folded, "prefers-color-scheme", "colour-scheme CSS stripped");
+  assertIncludes(mode, folded, "prefers-reduced-motion", "reduced-motion CSS stripped");
+  assertIncludes(mode, folded, "kumeyuri-progress-dots", "progress dots stripped");
 }
 
 function assertIncludes(mode, value, needle, message) {

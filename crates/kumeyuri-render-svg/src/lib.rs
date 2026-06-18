@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use kumeyuri_core::{animator::Timeline, frame::Frame};
 
+const MAX_PROGRESS_DOTS: usize = 32;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SvgRenderConfig {
     pub char_width: u16,
@@ -68,10 +70,11 @@ impl SvgRenderer {
 
     #[must_use]
     pub fn render_frame(&self, frame: &Frame) -> String {
-        let mut svg = self.open_svg(frame);
+        let (width, height) = self.svg_dimensions(frame, 0, 0);
+        let mut svg = open_svg(width, height);
         self.push_accessibility(&mut svg, &frame_fallback(frame));
         self.push_color_scheme_style(&mut svg);
-        self.push_background(&mut svg, frame);
+        self.push_background(&mut svg, width, height);
         self.push_frame_group(&mut svg, frame, "frame-0", 1.0, "");
         svg.push_str("</svg>\n");
         svg
@@ -82,15 +85,20 @@ impl SvgRenderer {
         let Some(first) = timeline.keyframes().first() else {
             return self.empty_svg();
         };
-        let mut svg = self.open_svg(first.frame());
+        let progress_dot_count = progress_dot_count(timeline.len());
+        let progress_row_count = if progress_dot_count > 0 { 1 } else { 0 };
+        let (width, height) =
+            self.svg_dimensions(first.frame(), progress_row_count, progress_dot_count);
+        let mut svg = open_svg(width, height);
         self.push_accessibility(&mut svg, &timeline_fallback(timeline));
         self.push_color_scheme_style(&mut svg);
-        self.push_background(&mut svg, first.frame());
         let boundaries = animation_boundaries(timeline);
         let total = animation_duration(timeline);
         if self.config.animation == SvgAnimationMode::CssKeyframes {
             self.push_css_keyframes(&mut svg, timeline, &boundaries, total);
         }
+        self.push_reduced_motion_style(&mut svg, timeline.len());
+        self.push_background(&mut svg, width, height);
         for (index, keyframe) in timeline.keyframes().iter().enumerate() {
             let animate = match self.config.animation {
                 SvgAnimationMode::Smil => {
@@ -106,30 +114,36 @@ impl SvgRenderer {
                 &animate,
             );
         }
+        self.push_progress_dots(&mut svg, first.frame(), progress_dot_count, width);
         svg.push_str("</svg>\n");
         svg
     }
 
     fn empty_svg(&self) -> String {
         let frame = Frame::new(0, 0);
-        let mut svg = self.open_svg(&frame);
+        let (width, height) = self.svg_dimensions(&frame, 0, 0);
+        let mut svg = open_svg(width, height);
         svg.push_str("</svg>\n");
         svg
     }
 
-    fn open_svg(&self, frame: &Frame) -> String {
+    fn svg_dimensions(
+        &self,
+        frame: &Frame,
+        extra_rows: usize,
+        min_content_columns: usize,
+    ) -> (usize, usize) {
         let width = frame
             .width()
+            .max(min_content_columns)
             .saturating_mul(usize::from(self.config.char_width))
             .saturating_add(usize::from(self.config.padding).saturating_mul(2));
         let height = frame
             .height()
+            .saturating_add(extra_rows)
             .saturating_mul(usize::from(self.config.line_height))
             .saturating_add(usize::from(self.config.padding).saturating_mul(2));
-        format!(
-            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
-"#
-        )
+        (width, height)
     }
 
     fn push_accessibility(&self, svg: &mut String, fallback: &str) {
@@ -144,15 +158,7 @@ impl SvgRenderer {
         ));
     }
 
-    fn push_background(&self, svg: &mut String, frame: &Frame) {
-        let width = frame
-            .width()
-            .saturating_mul(usize::from(self.config.char_width))
-            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
-        let height = frame
-            .height()
-            .saturating_mul(usize::from(self.config.line_height))
-            .saturating_add(usize::from(self.config.padding).saturating_mul(2));
+    fn push_background(&self, svg: &mut String, width: usize, height: usize) {
         svg.push_str(&format!(
             r#"<rect width="{width}" height="{height}" fill="{}"/>
 "#,
@@ -211,6 +217,20 @@ impl SvgRenderer {
         svg.push_str("</style>\n");
     }
 
+    fn push_reduced_motion_style(&self, svg: &mut String, frame_count: usize) {
+        if frame_count < 2 {
+            return;
+        }
+        svg.push_str("<style>\n");
+        svg.push_str("@media (prefers-reduced-motion: reduce) {\n");
+        svg.push_str(
+            "  g[id^=\"frame-\"] { animation: none !important; opacity: 0 !important; }\n",
+        );
+        svg.push_str("  #frame-0 { opacity: 1 !important; }\n");
+        svg.push_str("  #kumeyuri-progress-dots { opacity: 1 !important; }\n");
+        svg.push_str("}\n</style>\n");
+    }
+
     fn push_frame_group(
         &self,
         svg: &mut String,
@@ -239,6 +259,49 @@ impl SvgRenderer {
             ));
         }
         svg.push_str("</g>\n");
+    }
+
+    fn push_progress_dots(
+        &self,
+        svg: &mut String,
+        frame: &Frame,
+        dot_count: usize,
+        svg_width: usize,
+    ) {
+        if dot_count == 0 {
+            return;
+        }
+        let dots = ".".repeat(dot_count);
+        let padding = usize::from(self.config.padding);
+        let char_width = usize::from(self.config.char_width);
+        let line_height = usize::from(self.config.line_height);
+        let x = svg_width
+            .saturating_sub(padding)
+            .saturating_sub(dot_count.saturating_mul(char_width));
+        let y = padding.saturating_add((frame.height() + 1).saturating_mul(line_height));
+        svg.push_str(&format!(
+            r#"<text id="kumeyuri-progress-dots" opacity="0" x="{x}" y="{y}" xml:space="preserve" font-family="{}" font-size="{}" fill="{}">{}</text>
+"#,
+            escape_attr(&self.config.font_family),
+            self.config.font_size,
+            escape_attr(&self.config.foreground),
+            escape_text(&dots),
+        ));
+    }
+}
+
+fn open_svg(width: usize, height: usize) -> String {
+    format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+"#
+    )
+}
+
+fn progress_dot_count(frame_count: usize) -> usize {
+    if frame_count < 2 {
+        0
+    } else {
+        frame_count.min(MAX_PROGRESS_DOTS)
     }
 }
 
@@ -395,6 +458,8 @@ mod tests {
         ));
         assert!(svg.contains(r#"<g id="frame-0" opacity="1">"#));
         assert!(svg.contains("A&lt;&amp;B"));
+        assert!(!svg.contains("prefers-reduced-motion"));
+        assert!(!svg.contains("kumeyuri-progress-dots"));
         assert!(svg.ends_with("</svg>\n"));
     }
 
@@ -418,6 +483,18 @@ mod tests {
         assert!(svg.contains(r#"keyTimes="0;0.25;1""#));
         assert!(svg.contains(r#"dur="400ms""#));
         assert!(svg.contains(r#"repeatCount="indefinite""#));
+        assert!(svg.contains("@media (prefers-reduced-motion: reduce)"));
+        assert!(
+            svg.contains(
+                r#"g[id^="frame-"] { animation: none !important; opacity: 0 !important; }"#
+            )
+        );
+        assert!(svg.contains(r#"#frame-0 { opacity: 1 !important; }"#));
+        assert!(svg.contains(r#"#kumeyuri-progress-dots { opacity: 1 !important; }"#));
+        assert!(svg.contains(
+            r#"<text id="kumeyuri-progress-dots" opacity="0" x="0" y="32" xml:space="preserve""#
+        ));
+        assert!(svg.contains(">..</text>"));
         assert!(svg.contains("frame 0\nA\n\nframe 1\nB"));
     }
 
@@ -444,6 +521,8 @@ mod tests {
             svg.contains("#frame-0 { animation: kumeyuri-frame-0 400ms step-end 1 forwards; }")
         );
         assert!(svg.contains("25% { opacity: 0; }"));
+        assert!(svg.contains("@media (prefers-reduced-motion: reduce)"));
+        assert!(svg.contains(r#"<text id="kumeyuri-progress-dots" opacity="0""#));
         assert!(!svg.contains(r#"<animate attributeName="opacity""#));
     }
 
