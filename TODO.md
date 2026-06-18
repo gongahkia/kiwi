@@ -310,7 +310,7 @@
 - [ ] Apply for SLSA Level 3 build provenance attestation
 - [ ] Apply for OpenSSF Best Practices Badge silver/gold
 - [ ] Migrate to multi-maintainer release signing via threshold sigstore
-- [ ] Decide policy on AI-generated contributions; document in `CONTRIBUTING.md`
+- [x] Decide policy on AI-generated contributions; document in `CONTRIBUTING.md`
 - [ ] Annual archive of `metrics/dashboard.svg` snapshots for historical trends
 
 ---

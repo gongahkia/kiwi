@@ -58,3 +58,25 @@ the locale in `crates/kumeyuri-cli/src/i18n.rs`, and include CLI verification.
 
 If a Crowdin project is configured for the locale, link the project/export in
 the issue. Otherwise, use a direct Fluent-file PR.
+
+## AI-Generated Contributions
+
+AI-assisted contributions are allowed when the contributor remains accountable
+for the result.
+
+Pull requests that use AI-generated code, tests, docs, fixtures, images, or
+translations should disclose that in the PR description. Include the tool name
+when practical and describe the human review performed.
+
+Contributors must verify that AI-assisted changes:
+
+* Match the requested issue or TODO scope.
+* Build and pass the relevant tests.
+* Do not include secrets, private data, copied proprietary code, or incompatible
+  license text.
+* Do not invent compatibility claims, benchmarks, security guarantees, or
+  release status.
+* Preserve attribution for third-party material.
+
+Maintainers may ask for manual rewrites, smaller diffs, stronger tests, or
+source citations when AI-assisted output is difficult to review.
