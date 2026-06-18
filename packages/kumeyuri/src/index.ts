@@ -1,4 +1,4 @@
-export type KumeyuriTheme = "default" | "mono" | "tokyo-night" | "github" | "dracula";
+export type KumeyuriTheme = "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
 export type KumeyuriCharset = "ascii" | "unicode";
 export type KumeyuriSvgAnimation = "smil" | "css-keyframes";
 

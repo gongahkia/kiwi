@@ -158,6 +158,7 @@ enum RenderTheme {
     TokyoNight,
     Github,
     Dracula,
+    PrintMono,
 }
 
 impl RenderTheme {
@@ -168,6 +169,7 @@ impl RenderTheme {
             Self::TokyoNight => BuiltInTheme::TokyoNight,
             Self::Github => BuiltInTheme::Github,
             Self::Dracula => BuiltInTheme::Dracula,
+            Self::PrintMono => BuiltInTheme::PrintMono,
         }
     }
 }

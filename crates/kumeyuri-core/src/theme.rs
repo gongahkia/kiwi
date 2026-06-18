@@ -8,6 +8,7 @@ pub enum BuiltInTheme {
     TokyoNight,
     Github,
     Dracula,
+    PrintMono,
 }
 
 impl BuiltInTheme {
@@ -19,6 +20,7 @@ impl BuiltInTheme {
             Self::TokyoNight => "tokyo-night",
             Self::Github => "github",
             Self::Dracula => "dracula",
+            Self::PrintMono => "print-mono",
         }
     }
 
@@ -30,6 +32,7 @@ impl BuiltInTheme {
             "tokyo-night" => Some(Self::TokyoNight),
             "github" => Some(Self::Github),
             "dracula" => Some(Self::Dracula),
+            "print-mono" => Some(Self::PrintMono),
             _ => None,
         }
     }
@@ -102,17 +105,19 @@ impl Theme {
             BuiltInTheme::TokyoNight => Self::tokyo_night(),
             BuiltInTheme::Github => Self::github(),
             BuiltInTheme::Dracula => Self::dracula(),
+            BuiltInTheme::PrintMono => Self::print_mono(),
         }
     }
 
     #[must_use]
-    pub const fn starter_themes() -> [Self; 5] {
+    pub const fn starter_themes() -> [Self; 6] {
         [
             Self::default_theme(),
             Self::mono(),
             Self::tokyo_night(),
             Self::github(),
             Self::dracula(),
+            Self::print_mono(),
         ]
     }
 
@@ -202,6 +207,23 @@ impl Theme {
     }
 
     #[must_use]
+    pub const fn print_mono() -> Self {
+        Self {
+            name: "print-mono",
+            charset: Charset::Ascii,
+            colors: ThemeColors {
+                background: RgbColor::new(0xff, 0xff, 0xff),
+                foreground: RgbColor::new(0x00, 0x00, 0x00),
+                accent: RgbColor::new(0x00, 0x00, 0x00),
+                edge: RgbColor::new(0x00, 0x00, 0x00),
+                edge_alt: RgbColor::new(0x00, 0x00, 0x00),
+                highlight: RgbColor::new(0x00, 0x00, 0x00),
+                muted: RgbColor::new(0x00, 0x00, 0x00),
+            },
+        }
+    }
+
+    #[must_use]
     pub fn style_for(self, role: ThemeRole) -> CellStyle {
         let foreground = match role {
             ThemeRole::Background | ThemeRole::Text => self.colors.foreground,
@@ -233,12 +255,19 @@ mod tests {
     use crate::frame::{Charset, Color};
 
     #[test]
-    fn exposes_five_starter_themes() {
+    fn exposes_built_in_themes() {
         let names = Theme::starter_themes().map(|theme| theme.name);
 
         assert_eq!(
             names,
-            ["default", "mono", "tokyo-night", "github", "dracula"]
+            [
+                "default",
+                "mono",
+                "tokyo-night",
+                "github",
+                "dracula",
+                "print-mono",
+            ]
         );
     }
 
@@ -250,6 +279,7 @@ mod tests {
         );
         assert_eq!(BuiltInTheme::from_name("missing"), None);
         assert_eq!(BuiltInTheme::Dracula.name(), "dracula");
+        assert_eq!(BuiltInTheme::PrintMono.name(), "print-mono");
     }
 
     #[test]
@@ -258,6 +288,12 @@ mod tests {
 
         assert_eq!(theme.charset, Charset::Unicode);
         assert_eq!(theme.colors.background, RgbColor::new(0x1a, 0x1b, 0x26));
+
+        let print = Theme::print_mono();
+        assert_eq!(print.charset, Charset::Ascii);
+        assert_eq!(print.colors.background, RgbColor::new(0xff, 0xff, 0xff));
+        assert_eq!(print.colors.foreground, RgbColor::new(0x00, 0x00, 0x00));
+        assert_eq!(print.colors.accent, print.colors.foreground);
     }
 
     #[test]

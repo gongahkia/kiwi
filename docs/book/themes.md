@@ -23,6 +23,10 @@ kumeyuri render diagram.mmd --format svg --theme github --dark-theme tokyo-night
 | `tokyo-night` | Unicode | `#1a1b26` | `#c0caf5` | `#7aa2f7` |
 | `github` | Unicode | `#ffffff` | `#24292f` | `#0969da` |
 | `dracula` | Unicode | `#282a36` | `#f8f8f2` | `#bd93f9` |
+| `print-mono` | ASCII | `#ffffff` | `#000000` | `#000000` |
+
+`print-mono` is intended for print/PDF pipelines that need high-contrast
+monochrome output and ASCII glyph fallback.
 
 ## Charset override
 

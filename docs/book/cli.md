@@ -36,8 +36,8 @@ kumeyuri render [OPTIONS] <FILE>
 | Option | Values |
 | --- | --- |
 | `--format` | `text`, `svg`, `gif`, `apng`, `webp`, `tui` |
-| `--theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula` |
-| `--dark-theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula` |
+| `--theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula`, `print-mono` |
+| `--dark-theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula`, `print-mono` |
 | `--charset` | `ascii`, `unicode` |
 | `--width` | Positive cell count |
 | `--max-label-width` | Positive cell count for flowchart label wrapping |

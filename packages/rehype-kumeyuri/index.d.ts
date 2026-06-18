@@ -2,8 +2,8 @@ export interface RehypeKumeyuriOptions {
   format?: "svg" | "text";
   kumeyuri?: string;
   replace?: boolean;
-  theme?: "default" | "mono" | "tokyo-night" | "github" | "dracula";
-  darkTheme?: "default" | "mono" | "tokyo-night" | "github" | "dracula";
+  theme?: "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
+  darkTheme?: "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
   charset?: "ascii" | "unicode";
   width?: number;
   padding?: number;
