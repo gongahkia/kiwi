@@ -6,7 +6,8 @@
     "packages/astro",
     "packages/kumeyuri",
     "packages/docusaurus-plugin-kumeyuri",
-    "packages/rehype-kumeyuri"
+    "packages/rehype-kumeyuri",
+    "packages/remark-kumeyuri"
   ],
   "scripts": {
     "docs:build": "mdbook build",
@@ -18,6 +19,7 @@
     "test:astro": "npm --workspace @kumeyuri/astro run test",
     "test:ts-package": "npm --workspace kumeyuri run test",
     "test:docusaurus-plugin": "npm --workspace @docusaurus/plugin-kumeyuri run test",
+    "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs"
   },
