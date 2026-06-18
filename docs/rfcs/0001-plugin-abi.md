@@ -77,6 +77,23 @@ ABI versions use `major.minor`.
 ABI 1.x promises additive changes only. Removing fields, changing wire types, or
 changing host-call semantics requires ABI 2.0.
 
+## ABI Deprecation Policy
+
+Each ABI major has a minimum 24-month support window starting from the first
+non-prerelease kumeyuri release that accepts that major. During that window,
+the host keeps loading compatible plugins for that major according to the
+version rules above.
+
+Deprecation steps for an ABI major:
+
+1. Announce the replacement ABI and migration path in release notes and docs.
+2. Keep the old major loadable for the rest of its 24-month window.
+3. Emit host diagnostics before removal once a newer stable ABI exists.
+4. Remove or adapter-gate the old major only after the support window ends.
+
+Minor ABI releases in a supported major remain additive. Plugin authors should
+target the lowest minor version they need so older hosts can load their package.
+
 ## Wire Types
 
 Plugins exchange data with the host as length-prefixed UTF-8 JSON envelopes.

@@ -81,6 +81,21 @@ Request only the capabilities required for the extension point. A hello-world
 render backend that only writes its artifact through host-managed blobs should
 declare an empty capability list.
 
+## ABI Deprecation Policy
+
+Each ABI major has a minimum 24-month support window starting from the first
+non-prerelease kumeyuri release that accepts that major. ABI 1.x changes are
+additive only; removals, wire-type changes, or host-call semantic changes move
+to a new major.
+
+When a major is deprecated, release notes and docs announce the replacement ABI
+and migration path. The deprecated major stays loadable for the rest of its
+24-month window, then may require a compatibility adapter or be rejected by new
+hosts.
+
+Plugin packages should set `abi` to the lowest `major.minor` they require. A
+host with the same major and an equal or newer minor can load the package.
+
 ## Hello-World Render Backend
 
 The hello-world backend returns a UTF-8 text artifact from the frame timeline it
