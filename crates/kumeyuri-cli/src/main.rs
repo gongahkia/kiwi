@@ -10,7 +10,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
     abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
-    ast::{Diagram, DiagramKind, FlowStatement, FlowchartAst},
+    ast::{Diagram, DiagramKind, Direction, FlowStatement, FlowchartAst},
     frame::{Charset, Frame, StaticFrameRenderer},
     layout::FlowLayoutConfig,
     parser::Parser as MermaidParser,
@@ -207,6 +207,7 @@ const PLUGIN_KEYWORD: &str = "kumeyuri-plugin";
 const KUMEYURI_USER_AGENT: &str = concat!("kumeyuri/", env!("CARGO_PKG_VERSION"));
 
 const MERMAID_COMPAT_VERSION: &str = "11.15.0";
+const EXTREME_ASPECT_RATIO: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct CompatRoot {
@@ -437,7 +438,7 @@ fn render_file(path: &Path, format: RenderFormat, options: &RenderOptions) -> Re
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let diagram = parse_diagram(&source)?;
-    emit_layout_warnings(&diagram);
+    emit_layout_warnings(&diagram, options);
     if format == RenderFormat::Tui {
         let timeline = timeline_from_source_with_render_options(
             &source,
@@ -1209,14 +1210,14 @@ fn parse_diagram(source: &str) -> Result<Diagram, String> {
     })
 }
 
-fn emit_layout_warnings(diagram: &Diagram) {
-    for warning in layout_warnings(diagram) {
+fn emit_layout_warnings(diagram: &Diagram, options: &RenderOptions) {
+    for warning in layout_warnings(diagram, options) {
         eprintln!("{warning}");
     }
 }
 
-fn layout_warnings(diagram: &Diagram) -> Vec<String> {
-    match &diagram.kind {
+fn layout_warnings(diagram: &Diagram, options: &RenderOptions) -> Vec<String> {
+    let mut warnings = match &diagram.kind {
         DiagramKind::Flowchart(ast) => orphan_flowchart_nodes(ast)
             .into_iter()
             .map(|id| {
@@ -1226,6 +1227,48 @@ fn layout_warnings(diagram: &Diagram) -> Vec<String> {
             })
             .collect(),
         _ => Vec::new(),
+    };
+    if let Some(warning) = direction_swap_warning(diagram, options) {
+        warnings.push(warning);
+    }
+    warnings
+}
+
+fn direction_swap_warning(diagram: &Diagram, options: &RenderOptions) -> Option<String> {
+    let DiagramKind::Flowchart(ast) = &diagram.kind else {
+        return None;
+    };
+    let frame = frame_renderer(options).render_diagram(diagram);
+    let width = frame.width().max(1);
+    let height = frame.height().max(1);
+    let direction = ast.header.direction.value;
+    match direction {
+        Direction::TopDown | Direction::BottomTop
+            if height >= width.saturating_mul(EXTREME_ASPECT_RATIO) =>
+        {
+            Some(format!(
+                "warning: flowchart layout is very tall ({width}x{height}); try `graph {}` to reduce vertical space",
+                suggested_flowchart_direction(direction)
+            ))
+        }
+        Direction::LeftRight | Direction::RightLeft
+            if width >= height.saturating_mul(EXTREME_ASPECT_RATIO) =>
+        {
+            Some(format!(
+                "warning: flowchart layout is very wide ({width}x{height}); try `graph {}` to reduce horizontal space",
+                suggested_flowchart_direction(direction)
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn suggested_flowchart_direction(direction: Direction) -> &'static str {
+    match direction {
+        Direction::TopDown => "LR",
+        Direction::BottomTop => "RL",
+        Direction::LeftRight => "TD",
+        Direction::RightLeft => "BT",
     }
 }
 
@@ -1518,7 +1561,7 @@ mod tests {
     #[test]
     fn layout_warnings_flag_orphan_flowchart_nodes() {
         let diagram = parse_diagram("graph TD\nA\nB --> C\nsubgraph group\nD\nend").unwrap();
-        let warnings = layout_warnings(&diagram);
+        let warnings = layout_warnings(&diagram, &RenderOptions::default());
 
         assert_eq!(
             warnings,
@@ -1531,9 +1574,35 @@ mod tests {
 
     #[test]
     fn layout_warnings_ignore_connected_flowchart_nodes() {
-        let diagram = parse_diagram("graph TD\nA --> B\nB --> C").unwrap();
+        let diagram = parse_diagram("graph TD\nA --> B").unwrap();
 
-        assert!(layout_warnings(&diagram).is_empty());
+        assert!(layout_warnings(&diagram, &RenderOptions::default()).is_empty());
+    }
+
+    #[test]
+    fn layout_warnings_suggest_lr_for_tall_flowcharts() {
+        let diagram = parse_diagram("graph TD\nA --> B\nB --> C").unwrap();
+        let warnings = layout_warnings(&diagram, &RenderOptions::default());
+
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: flowchart layout is very tall (6x26); try `graph LR` to reduce vertical space"
+            ]
+        );
+    }
+
+    #[test]
+    fn layout_warnings_suggest_td_for_wide_flowcharts() {
+        let diagram = parse_diagram("graph LR\nA --> B\nB --> C").unwrap();
+        let warnings = layout_warnings(&diagram, &RenderOptions::default());
+
+        assert_eq!(
+            warnings,
+            vec![
+                "warning: flowchart layout is very wide (26x6); try `graph TD` to reduce horizontal space"
+            ]
+        );
     }
 
     #[test]
