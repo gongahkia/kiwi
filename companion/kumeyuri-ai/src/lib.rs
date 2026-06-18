@@ -183,6 +183,123 @@ pub trait ProviderClient {
     fn complete(&self, request: &ProviderRequest) -> Result<ProviderResponse, AiError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DiffLineKind {
+    Context,
+    Removed,
+    Added,
+}
+
+impl DiffLineKind {
+    const fn prefix(self) -> char {
+        match self {
+            Self::Context => ' ',
+            Self::Removed => '-',
+            Self::Added => '+',
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiffLine {
+    pub kind: DiffLineKind,
+    pub text: String,
+}
+
+impl DiffLine {
+    #[must_use]
+    pub fn new(kind: DiffLineKind, text: impl Into<String>) -> Self {
+        Self {
+            kind,
+            text: text.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RewriteDiff {
+    pub original_label: String,
+    pub rewritten_label: String,
+    pub lines: Vec<DiffLine>,
+}
+
+impl RewriteDiff {
+    #[must_use]
+    pub fn has_changes(&self) -> bool {
+        self.lines
+            .iter()
+            .any(|line| line.kind != DiffLineKind::Context)
+    }
+
+    #[must_use]
+    pub fn to_unified_string(&self) -> String {
+        let mut output = String::new();
+        output.push_str("--- ");
+        output.push_str(&self.original_label);
+        output.push('\n');
+        output.push_str("+++ ");
+        output.push_str(&self.rewritten_label);
+        output.push('\n');
+        if self.lines.is_empty() {
+            output.push_str(" no changes\n");
+            return output;
+        }
+        for line in &self.lines {
+            output.push(line.kind.prefix());
+            output.push_str(&line.text);
+            output.push('\n');
+        }
+        output
+    }
+}
+
+#[must_use]
+pub fn present_rewrite_diff(original_source: &str, rewrite: &LayoutRewrite) -> RewriteDiff {
+    RewriteDiff {
+        original_label: "original".to_owned(),
+        rewritten_label: "ai-rewrite".to_owned(),
+        lines: diff_lines(original_source, &rewrite.rewritten_source),
+    }
+}
+
+fn diff_lines(original_source: &str, rewritten_source: &str) -> Vec<DiffLine> {
+    let original = original_source.lines().collect::<Vec<_>>();
+    let rewritten = rewritten_source.lines().collect::<Vec<_>>();
+    let mut lengths = vec![vec![0usize; rewritten.len() + 1]; original.len() + 1];
+    for i in (0..original.len()).rev() {
+        for j in (0..rewritten.len()).rev() {
+            lengths[i][j] = if original[i] == rewritten[j] {
+                lengths[i + 1][j + 1] + 1
+            } else {
+                lengths[i + 1][j].max(lengths[i][j + 1])
+            };
+        }
+    }
+
+    let mut lines = Vec::new();
+    let mut i = 0usize;
+    let mut j = 0usize;
+    while i < original.len() || j < rewritten.len() {
+        if i < original.len() && j < rewritten.len() && original[i] == rewritten[j] {
+            lines.push(DiffLine::new(DiffLineKind::Context, original[i]));
+            i += 1;
+            j += 1;
+        } else if j < rewritten.len()
+            && (i == original.len() || lengths[i][j + 1] >= lengths[i + 1][j])
+        {
+            lines.push(DiffLine::new(DiffLineKind::Added, rewritten[j]));
+            j += 1;
+        } else if i < original.len() {
+            lines.push(DiffLine::new(DiffLineKind::Removed, original[i]));
+            i += 1;
+        }
+    }
+    if lines.iter().all(|line| line.kind == DiffLineKind::Context) {
+        return Vec::new();
+    }
+    lines
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct ApiKey {
     provider: AiProvider,
@@ -292,8 +409,9 @@ pub fn validate_rewrite(rewrite: &LayoutRewrite) -> Result<(), AiError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AiError, AiProvider, LayoutDiagnostic, LayoutRewrite, LayoutRewriteRequest, ProviderConfig,
-        ProviderRequest, ProviderResponse, resolve_api_key_with, validate_rewrite,
+        AiError, AiProvider, DiffLineKind, LayoutDiagnostic, LayoutRewrite, LayoutRewriteRequest,
+        ProviderConfig, ProviderRequest, ProviderResponse, present_rewrite_diff,
+        resolve_api_key_with, validate_rewrite,
     };
 
     #[test]
@@ -419,5 +537,33 @@ mod tests {
         assert_eq!(request.config.provider, AiProvider::OpenRouter);
         assert_eq!(request.prompt, "rewrite this diagram");
         assert_eq!(response.text, "graph LR\nA --> B");
+    }
+
+    #[test]
+    fn presents_rewrite_diff_before_apply() {
+        let rewrite = LayoutRewrite::new("graph LR\nA --> B\nB --> C", "swapped direction");
+        let diff = present_rewrite_diff("graph TD\nA --> B\nB --> C", &rewrite);
+
+        assert!(diff.has_changes());
+        assert_eq!(diff.lines[0].kind, DiffLineKind::Added);
+        assert_eq!(diff.lines[0].text, "graph LR");
+        assert_eq!(diff.lines[1].kind, DiffLineKind::Removed);
+        assert_eq!(
+            diff.to_unified_string(),
+            "--- original\n+++ ai-rewrite\n+graph LR\n-graph TD\n A --> B\n B --> C\n"
+        );
+    }
+
+    #[test]
+    fn rewrite_diff_reports_no_changes() {
+        let rewrite = LayoutRewrite::new("graph TD\nA --> B", "same");
+        let diff = present_rewrite_diff("graph TD\nA --> B", &rewrite);
+
+        assert!(!diff.has_changes());
+        assert!(diff.lines.is_empty());
+        assert_eq!(
+            diff.to_unified_string(),
+            "--- original\n+++ ai-rewrite\n no changes\n"
+        );
     }
 }

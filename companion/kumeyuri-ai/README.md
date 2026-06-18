@@ -15,10 +15,11 @@ Initial scope:
   and `OPENROUTER_API_KEY`
 - define provider configuration/request/response abstractions for OpenAI,
   Anthropic, OpenRouter, and local llama.cpp backends
+- present a line-based diff of original Mermaid source vs AI-rewritten source
 - validate that provider output is non-empty before any caller applies it
 
 Out of scope here:
 
 - network calls to provider APIs
-- applying rewrites to files
+- applying rewrites to files after diff review
 - dynamic loading from the main CLI
