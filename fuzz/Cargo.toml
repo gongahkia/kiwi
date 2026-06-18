@@ -1,0 +1,21 @@
+[package]
+name = "kumeyuri-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+kumeyuri-core = { path = "../crates/kumeyuri-core" }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "parse_diagram"
+path = "fuzz_targets/parse_diagram.rs"
+test = false
+doc = false
+bench = false

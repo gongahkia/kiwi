@@ -333,7 +333,7 @@
 
 ### Security audit checklist (continuous; gate every release)
 
-- [ ] Continuous fuzzing of parser via `cargo-fuzz`; corpus refreshed weekly
+- [x] Continuous fuzzing of parser via `cargo-fuzz`; corpus refreshed weekly
 - [x] Audit Rust regex deps: no runtime `regex`/`fancy-regex`; only dev `regex-syntax` via `proptest`
 - [x] Replace render-action glob `RegExp` matching with bounded segment matcher
 - [x] Audit JS regex usage in packages/scripts/editors; replace backtracking runtime parsers or document bounded/test-only uses
