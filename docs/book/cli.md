@@ -12,7 +12,7 @@ kumeyuri <COMMAND>
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated TUI timeline |
 | `compat` | Print Mermaid root support for the tracked docs version |
-| `plugin install` | Resolve and cache a `kumeyuri-plugin` package from npm or crates.io |
+| `plugin` | Install, list, update, disable, or remove cached plugin packages |
 
 ## Compat
 
@@ -65,6 +65,10 @@ kumeyuri watch <FILE>
 
 ```text
 kumeyuri plugin install <NAME>
+kumeyuri plugin list
+kumeyuri plugin update <NAME>
+kumeyuri plugin disable <NAME>
+kumeyuri plugin remove <NAME>
 ```
 
 `plugin install` resolves `<NAME>` from npm first, then crates.io. Packages must

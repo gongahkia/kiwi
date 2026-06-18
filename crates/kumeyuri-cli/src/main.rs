@@ -19,7 +19,7 @@ use kumeyuri_core::{
 };
 use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -88,6 +88,19 @@ enum Command {
 #[derive(Debug, Subcommand)]
 enum PluginCommand {
     Install {
+        #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: String,
+    },
+    List,
+    Remove {
+        #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: String,
+    },
+    Update {
+        #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: String,
+    },
+    Disable {
         #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
         name: String,
     },
@@ -447,6 +460,20 @@ fn run_plugin_command(command: PluginCommand) -> Result<(), String> {
             );
             Ok(())
         }
+        PluginCommand::List => list_plugin_packages(),
+        PluginCommand::Remove { name } => remove_plugin_package(&name),
+        PluginCommand::Update { name } => {
+            let installed = install_plugin_package(&name)?;
+            println!(
+                "updated {} {} from {} at {}",
+                installed.package.name,
+                installed.package.version,
+                installed.package.registry,
+                installed.cache_dir.display()
+            );
+            Ok(())
+        }
+        PluginCommand::Disable { name } => disable_plugin_package(&name),
     }
 }
 
@@ -481,6 +508,23 @@ struct InstalledPluginPackage {
     cache_dir: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct PluginInstallRecord {
+    registry: String,
+    name: String,
+    version: String,
+    archive_url: String,
+    content_hash: String,
+    archive_file: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InstalledPluginRecord {
+    cache_dir: PathBuf,
+    record: PluginInstallRecord,
+    disabled: bool,
+}
+
 fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> {
     let package = resolve_plugin_package(name)?;
     let cache =
@@ -506,8 +550,145 @@ fn install_plugin_package(name: &str) -> Result<InstalledPluginPackage, String> 
         ),
     )
     .map_err(|error| format!("failed to write plugin source metadata: {error}"))?;
+    write_plugin_install_record(&cache_dir, &package)?;
 
     Ok(InstalledPluginPackage { package, cache_dir })
+}
+
+fn list_plugin_packages() -> Result<(), String> {
+    let cache =
+        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let records = read_installed_plugin_records(cache.root())?;
+    if records.is_empty() {
+        println!("no plugins installed");
+        return Ok(());
+    }
+    for installed in records {
+        let suffix = if installed.disabled { " disabled" } else { "" };
+        println!(
+            "{} {} {}{}",
+            installed.record.name, installed.record.version, installed.record.registry, suffix
+        );
+    }
+    Ok(())
+}
+
+fn remove_plugin_package(name: &str) -> Result<(), String> {
+    let cache =
+        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let removed = remove_plugin_records(cache.root(), name)?;
+    println!("removed {removed} plugin package(s) for {name}");
+    Ok(())
+}
+
+fn disable_plugin_package(name: &str) -> Result<(), String> {
+    let cache =
+        PluginCache::from_env().map_err(|error| format!("plugin cache error: {error:?}"))?;
+    let disabled = disable_plugin_records(cache.root(), name)?;
+    println!("disabled {disabled} plugin package(s) for {name}");
+    Ok(())
+}
+
+fn write_plugin_install_record(
+    cache_dir: &Path,
+    package: &ResolvedPluginPackage,
+) -> Result<(), String> {
+    let record = PluginInstallRecord {
+        registry: package.registry.to_string(),
+        name: package.name.clone(),
+        version: package.version.clone(),
+        archive_url: package.archive_url.clone(),
+        content_hash: package.content_hash.clone(),
+        archive_file: package.archive_file.to_owned(),
+    };
+    let json = serde_json::to_string_pretty(&record)
+        .map_err(|error| format!("failed to encode plugin install metadata: {error}"))?;
+    fs::write(cache_dir.join("install.json"), format!("{json}\n"))
+        .map_err(|error| format!("failed to write plugin install metadata: {error}"))
+}
+
+fn read_installed_plugin_records(root: &Path) -> Result<Vec<InstalledPluginRecord>, String> {
+    let mut records = Vec::new();
+    if !root.exists() {
+        return Ok(records);
+    }
+    collect_installed_plugin_records(root, &mut records)?;
+    records.sort_by(|left, right| {
+        left.record
+            .name
+            .cmp(&right.record.name)
+            .then_with(|| left.record.version.cmp(&right.record.version))
+            .then_with(|| left.cache_dir.cmp(&right.cache_dir))
+    });
+    Ok(records)
+}
+
+fn collect_installed_plugin_records(
+    dir: &Path,
+    records: &mut Vec<InstalledPluginRecord>,
+) -> Result<(), String> {
+    let record_path = dir.join("install.json");
+    if record_path.is_file() {
+        let record_source = fs::read_to_string(&record_path)
+            .map_err(|error| format!("failed to read {}: {error}", record_path.display()))?;
+        let record: PluginInstallRecord = serde_json::from_str(&record_source)
+            .map_err(|error| format!("invalid plugin install metadata: {error}"))?;
+        records.push(InstalledPluginRecord {
+            cache_dir: dir.to_path_buf(),
+            record,
+            disabled: dir.join(".disabled").exists(),
+        });
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir).map_err(|error| format!("failed to read dir: {error}"))? {
+        let entry = entry.map_err(|error| format!("failed to read dir entry: {error}"))?;
+        if entry
+            .file_type()
+            .map_err(|error| format!("failed to read file type: {error}"))?
+            .is_dir()
+        {
+            collect_installed_plugin_records(&entry.path(), records)?;
+        }
+    }
+    Ok(())
+}
+
+fn remove_plugin_records(root: &Path, name: &str) -> Result<usize, String> {
+    let records = read_installed_plugin_records(root)?;
+    let mut removed = 0;
+    for installed in records
+        .into_iter()
+        .filter(|installed| installed.record.name == name)
+    {
+        fs::remove_dir_all(&installed.cache_dir).map_err(|error| {
+            format!(
+                "failed to remove {}: {error}",
+                installed.cache_dir.display()
+            )
+        })?;
+        removed += 1;
+    }
+    if removed == 0 {
+        return Err(format!("plugin `{name}` is not installed"));
+    }
+    Ok(removed)
+}
+
+fn disable_plugin_records(root: &Path, name: &str) -> Result<usize, String> {
+    let records = read_installed_plugin_records(root)?;
+    let mut disabled = 0;
+    for installed in records
+        .into_iter()
+        .filter(|installed| installed.record.name == name)
+    {
+        fs::write(installed.cache_dir.join(".disabled"), b"")
+            .map_err(|error| format!("failed to disable plugin `{name}`: {error}"))?;
+        disabled += 1;
+    }
+    if disabled == 0 {
+        return Err(format!("plugin `{name}` is not installed"));
+    }
+    Ok(disabled)
 }
 
 fn resolve_plugin_package(name: &str) -> Result<ResolvedPluginPackage, String> {
@@ -1195,11 +1376,13 @@ enum PlaybackAction {
 mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, PluginCommand, PluginRegistry, RenderCharset,
-        RenderFormat, RenderOptions, RenderTheme, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS,
-        compat_report, parse_non_empty_string, parse_positive_usize, parse_speed_override,
-        playback_options, plugin_runtime_policy, render_source, resolve_crates_plugin_metadata,
-        resolve_npm_plugin_metadata, timeline_from_source, timeline_from_source_with_options,
-        timeline_from_source_with_render_options,
+        RenderFormat, RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS,
+        UNSUPPORTED_ROOTS, compat_report, disable_plugin_records, parse_non_empty_string,
+        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
+        read_installed_plugin_records, remove_plugin_records, render_source,
+        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, timeline_from_source,
+        timeline_from_source_with_options, timeline_from_source_with_render_options,
+        write_plugin_install_record,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackState, should_rerender};
@@ -1214,7 +1397,10 @@ mod tests {
     };
     #[cfg(not(target_arch = "wasm32"))]
     use std::path::Path;
-    use std::time::Duration;
+    use std::{
+        env, fs, process,
+        time::{Duration, SystemTime},
+    };
 
     #[test]
     fn renders_mermaid_source_to_text() {
@@ -1265,6 +1451,20 @@ mod tests {
         };
 
         assert_eq!(name, "kumeyuri-render-pdf");
+    }
+
+    #[test]
+    fn plugin_management_parser_accepts_subcommands() {
+        for args in [
+            ["kumeyuri", "plugin", "list", ""],
+            ["kumeyuri", "plugin", "remove", "kumeyuri-render-pdf"],
+            ["kumeyuri", "plugin", "update", "kumeyuri-render-pdf"],
+            ["kumeyuri", "plugin", "disable", "kumeyuri-render-pdf"],
+        ] {
+            let cli =
+                Cli::try_parse_from(args.into_iter().filter(|value| !value.is_empty())).unwrap();
+            assert!(matches!(cli.command, Command::Plugin { .. }));
+        }
     }
 
     #[test]
@@ -1430,6 +1630,46 @@ mod tests {
         .unwrap_err();
 
         assert!(error.contains("kumeyuri-plugin"));
+    }
+
+    #[test]
+    fn plugin_records_list_disable_and_remove_from_cache() {
+        let root = unique_temp_dir("plugin-records");
+        let cache_dir = root
+            .join("kumeyuri-render-pdf")
+            .join("0.1.0")
+            .join("abi-1")
+            .join("abcdef");
+        fs::create_dir_all(&cache_dir).unwrap();
+        let package = ResolvedPluginPackage {
+            registry: PluginRegistry::Npm,
+            name: "kumeyuri-render-pdf".to_owned(),
+            version: "0.1.0".to_owned(),
+            archive_url: "https://registry.npmjs.org/kumeyuri-render-pdf.tgz".to_owned(),
+            content_hash: "abcdef".to_owned(),
+            archive_file: "package.tgz",
+        };
+        write_plugin_install_record(&cache_dir, &package).unwrap();
+
+        let records = read_installed_plugin_records(&root).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].record.name, "kumeyuri-render-pdf");
+        assert!(!records[0].disabled);
+
+        assert_eq!(
+            disable_plugin_records(&root, "kumeyuri-render-pdf").unwrap(),
+            1
+        );
+        let records = read_installed_plugin_records(&root).unwrap();
+        assert!(records[0].disabled);
+
+        assert_eq!(
+            remove_plugin_records(&root, "kumeyuri-render-pdf").unwrap(),
+            1
+        );
+        assert!(read_installed_plugin_records(&root).unwrap().is_empty());
+
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]
@@ -1657,5 +1897,13 @@ mod tests {
         assert_eq!(state.index, 1);
         assert!(state.advance(2, true));
         assert_eq!(state.index, 0);
+    }
+
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!("kumeyuri-cli-{label}-{}-{nanos}", process::id()))
     }
 }

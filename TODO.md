@@ -245,7 +245,7 @@
 - [x] Implement explicit grants via `--plugin-allow=<csv>`
 - [x] Implement plugin caching at `$XDG_DATA_HOME/kumeyuri/plugins/`
 - [x] Implement `kumeyuri plugin install <name>` resolving npm + crates.io tagged with `kumeyuri-plugin`
-- [ ] Implement `kumeyuri plugin list / remove / update / disable` subcommands
+- [x] Implement `kumeyuri plugin list / remove / update / disable` subcommands
 - [ ] Author plugin author guide `docs/plugins/authoring.md` with hello-world example
 - [ ] Build reference plugin `kumeyuri-render-pdf` as the canonical example
 - [ ] Build reference plugin `kumeyuri-diagram-sankey` as second canonical example
