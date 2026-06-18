@@ -1,0 +1,10 @@
+C4Container
+System_Boundary(system, "Internet Banking System") {
+  Container(web_app, "Web Application", "Java/Spring MVC", "Delivers static content")
+  ContainerDb(database, "Database", "Relational Database", "Stores account data")
+  ContainerQueue(queue, "Queue", "RabbitMQ", "Async work")
+}
+Person(customer, "Customer", "Uses online banking")
+Rel(customer, web_app, "Uses", "HTTPS")
+Rel(web_app, database, "DB")
+Rel(web_app, queue, "Publishes messages", "AMQP")

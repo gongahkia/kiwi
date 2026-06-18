@@ -348,7 +348,7 @@
 
 ### Benchmark harness build (Phase 1, maintained continuously)
 
-- [ ] Create `benches/compare/` directory with shared input corpus
+- [x] Create `benches/compare/` directory with shared input corpus
 - [ ] Wire `beautiful-mermaid` invocation (Node.js subprocess)
 - [ ] Wire `AlexanderGrooff/mermaid-ascii` invocation (Go binary subprocess)
 - [ ] Wire `pgavlin/mermaid-ascii` invocation (Go binary subprocess)

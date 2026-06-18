@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "inputs": [
+    {
+      "id": "flowchart-dense",
+      "root": "flowchart",
+      "path": "flowchart-dense.mmd",
+      "source": "tests/snapshots/flowchart/input/28_dense_fan_in_out.mmd",
+      "reason": "fan-in/fan-out layout pressure"
+    },
+    {
+      "id": "sequence-control",
+      "root": "sequenceDiagram",
+      "path": "sequence-control.mmd",
+      "source": "tests/snapshots/sequence/input/19_critical_break.mmd",
+      "reason": "control blocks and bidirectional actor lanes"
+    },
+    {
+      "id": "state-composite",
+      "root": "stateDiagram-v2",
+      "path": "state-composite.mmd",
+      "source": "tests/snapshots/state/input/10_composite_opening.mmd",
+      "reason": "nested state layout"
+    },
+    {
+      "id": "class-cardinality",
+      "root": "classDiagram",
+      "path": "class-cardinality.mmd",
+      "source": "tests/snapshots/class/input/05_cardinality_markers.mmd",
+      "reason": "relationship labels and cardinality markers"
+    },
+    {
+      "id": "er-attributes",
+      "root": "erDiagram",
+      "path": "er-attributes.mmd",
+      "source": "tests/snapshots/er/input/03_non_identifying.mmd",
+      "reason": "entity attributes and non-identifying relation"
+    },
+    {
+      "id": "gantt-calendar",
+      "root": "gantt",
+      "path": "gantt-calendar.mmd",
+      "source": "tests/snapshots/gantt/input/04_excludes_weekends.mmd",
+      "reason": "date scale, excludes, and dependency semantics"
+    },
+    {
+      "id": "pie-config",
+      "root": "pie",
+      "path": "pie-config.mmd",
+      "source": "tests/snapshots/pie/input/04_config_legend_bottom.mmd",
+      "reason": "config, values, labels, and legend placement"
+    },
+    {
+      "id": "mindmap-shapes",
+      "root": "mindmap",
+      "path": "mindmap-shapes.mmd",
+      "source": "tests/snapshots/mindmap/input/04_parity_shapes_markdown.mmd",
+      "reason": "shape, icon, class, and markdown label coverage"
+    },
+    {
+      "id": "gitgraph-merge",
+      "root": "gitGraph",
+      "path": "gitgraph-merge.mmd",
+      "source": "tests/snapshots/gitgraph/input/02_merge_cherry_pick.mmd",
+      "reason": "branch, merge, tag, and cherry-pick operations"
+    },
+    {
+      "id": "c4-container",
+      "root": "C4Container",
+      "path": "c4-container.mmd",
+      "source": "tests/snapshots/c4/input/02_container_boundary.mmd",
+      "reason": "container boundary and relationship labels"
+    }
+  ]
+}
