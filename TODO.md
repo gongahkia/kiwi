@@ -465,7 +465,7 @@
 - [x] `cargo fmt --check` clean
 - [x] `cargo clippy --workspace -- -D warnings` clean
 - [x] `cargo test --workspace` green
-- [ ] `cargo audit` clean
+- [x] `cargo audit` clean
 - [ ] `cargo deny check` clean
 - [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
 - [ ] Snapshot tests green (text + SVG + raster + cast)
