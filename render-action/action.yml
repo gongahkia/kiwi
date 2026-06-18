@@ -1,0 +1,126 @@
+name: Kumeyuri Render
+description: Render Mermaid .mmd files to SVG/GIF artifacts with kumeyuri.
+author: kumeyuri
+
+inputs:
+  source:
+    description: Newline, comma, or space separated .mmd files/globs.
+    required: false
+    default: "**/*.mmd"
+  output-dir:
+    description: Directory for rendered artifacts.
+    required: false
+    default: kumeyuri-output
+  formats:
+    description: Comma or space separated output formats.
+    required: false
+    default: svg,gif
+  theme:
+    description: kumeyuri theme.
+    required: false
+    default: github
+  dark-theme:
+    description: Optional SVG dark theme.
+    required: false
+    default: ""
+  charset:
+    description: Optional charset, ascii or unicode.
+    required: false
+    default: ""
+  width:
+    description: Optional minimum text cell width.
+    required: false
+    default: ""
+  padding:
+    description: Optional SVG/raster padding.
+    required: false
+    default: "12"
+  font:
+    description: Optional SVG font family.
+    required: false
+    default: ""
+  kumeyuri-command:
+    description: Command used to invoke the kumeyuri binary.
+    required: false
+    default: kumeyuri
+  install-command:
+    description: Command run when kumeyuri-command is not available.
+    required: false
+    default: cargo install --git https://github.com/gongahkia/kumeyuri kumeyuri-cli --locked
+  fail-on-empty:
+    description: Fail when no source files match.
+    required: false
+    default: "true"
+  upload-artifact:
+    description: Upload rendered files as a workflow artifact.
+    required: false
+    default: "true"
+  artifact-name:
+    description: Uploaded artifact name.
+    required: false
+    default: kumeyuri-rendered
+
+outputs:
+  file-count:
+    description: Number of .mmd files rendered.
+    value: ${{ steps.render.outputs.file-count }}
+  rendered-count:
+    description: Number of output files rendered.
+    value: ${{ steps.render.outputs.rendered-count }}
+  output-dir:
+    description: Directory containing rendered artifacts.
+    value: ${{ steps.render.outputs.output-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Ensure Rust when installing kumeyuri
+      shell: bash
+      run: |
+        set -euo pipefail
+        command_name="${{ inputs.kumeyuri-command }}"
+        command_name="${command_name%% *}"
+        if command -v "$command_name" >/dev/null 2>&1; then
+          exit 0
+        fi
+        if command -v cargo >/dev/null 2>&1; then
+          exit 0
+        fi
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+    - name: Install kumeyuri
+      shell: bash
+      run: |
+        set -euo pipefail
+        command_name="${{ inputs.kumeyuri-command }}"
+        command_name="${command_name%% *}"
+        if command -v "$command_name" >/dev/null 2>&1; then
+          exit 0
+        fi
+        ${{ inputs.install-command }}
+
+    - name: Render Mermaid files
+      id: render
+      shell: bash
+      env:
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
+        INPUT_FORMATS: ${{ inputs.formats }}
+        INPUT_THEME: ${{ inputs.theme }}
+        INPUT_DARK_THEME: ${{ inputs.dark-theme }}
+        INPUT_CHARSET: ${{ inputs.charset }}
+        INPUT_WIDTH: ${{ inputs.width }}
+        INPUT_PADDING: ${{ inputs.padding }}
+        INPUT_FONT: ${{ inputs.font }}
+        INPUT_KUMEYURI_COMMAND: ${{ inputs.kumeyuri-command }}
+        INPUT_FAIL_ON_EMPTY: ${{ inputs.fail-on-empty }}
+      run: node "$GITHUB_ACTION_PATH/render.mjs"
+
+    - name: Upload rendered diagrams
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.render.outputs.output-dir }}
+        if-no-files-found: error

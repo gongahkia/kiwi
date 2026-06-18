@@ -204,7 +204,7 @@
 - [x] Build VSCode extension — webview embedding the WASM player; auto-render `.mmd` files on save
 - [x] Build Claude-Code skill / plugin rendering mermaid blocks inline in agent output
 - [x] Build opencode plugin equivalent
-- [ ] Author GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
+- [x] Author GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
 - [ ] Publish GitHub Action `kumeyuri/render-action@v1` — converts `.mmd` files to SVG/GIF on PRs
 - [x] Author rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
 - [ ] Publish rehype plugin `rehype-kumeyuri` for unified/markdown pipelines
