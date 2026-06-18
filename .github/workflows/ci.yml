@@ -101,6 +101,46 @@ jobs:
       - name: Compare static fixtures against golden outputs
         run: cargo test -p kumeyuri-core --test visual_diff
 
+  reference-plugins:
+    name: Reference Plugin (${{ matrix.plugin }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - kumeyuri-render-pdf
+          - kumeyuri-diagram-sankey
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Cache Cargo
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            plugins/${{ matrix.plugin }}/target
+          key: ${{ runner.os }}-reference-plugin-${{ matrix.plugin }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-reference-plugin-${{ matrix.plugin }}-
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Load plugin manifest
+        run: node scripts/test-reference-plugins.mjs ${{ matrix.plugin }}
+
+      - name: Render sample and diff golden output
+        run: cargo test --manifest-path plugins/${{ matrix.plugin }}/Cargo.toml
+
   coverage-metadata:
     name: Coverage Metadata
     runs-on: ubuntu-latest

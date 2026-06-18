@@ -178,6 +178,16 @@ mod tests {
     }
 
     #[test]
+    fn lower_reference_frames_sample_matches_golden() {
+        let document =
+            parse_reference_sankey(include_str!("../tests/fixtures/sample.mmd")).unwrap();
+        assert_eq!(
+            lower_reference_frames(&document),
+            include_str!("../tests/golden/sample.frames.json").trim_end()
+        );
+    }
+
+    #[test]
     fn parse_reference_sankey_rejects_invalid_input() {
         assert!(
             parse_reference_sankey("")

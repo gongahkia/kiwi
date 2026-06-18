@@ -25,10 +25,10 @@ pub fn render_reference_pdf(title: Option<&str>) -> Vec<u8> {
     }
     let xref_offset = pdf.len();
     pdf.extend_from_slice(
-        format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).as_bytes(),
+        format!("xref\n0 {}\n0000000000 65535 f\n", objects.len() + 1).as_bytes(),
     );
     for offset in offsets {
-        pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+        pdf.extend_from_slice(format!("{offset:010} 00000 n\n").as_bytes());
     }
     pdf.extend_from_slice(
         format!(
@@ -73,5 +73,14 @@ mod tests {
         assert_eq!(FORMAT, "pdf");
         assert_eq!(MEDIA_TYPE, "application/pdf");
         assert_eq!(EXTENSION, "pdf");
+    }
+
+    #[test]
+    fn render_reference_pdf_sample_matches_golden() {
+        let title = include_str!("../tests/fixtures/sample-title.txt").trim_end();
+        assert_eq!(
+            render_reference_pdf(Some(title)),
+            include_bytes!("../tests/golden/sample.pdf")
+        );
     }
 }

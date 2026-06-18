@@ -5,15 +5,20 @@ import process from "node:process";
 
 const root = process.cwd();
 const pluginsDir = path.join(root, "plugins");
-const pluginNames = fs.existsSync(pluginsDir)
+const allPluginNames = fs.existsSync(pluginsDir)
   ? fs.readdirSync(pluginsDir).filter((name) => !name.startsWith(".")).sort()
   : [];
+const requestedPluginNames = process.argv.slice(2);
+const pluginNames = requestedPluginNames.length > 0 ? requestedPluginNames : allPluginNames;
 
 if (pluginNames.length === 0) {
   throw new Error("no reference plugins found");
 }
 
 for (const pluginName of pluginNames) {
+  if (!allPluginNames.includes(pluginName)) {
+    throw new Error(`${pluginName}: reference plugin not found`);
+  }
   const pluginDir = path.join(pluginsDir, pluginName);
   const packageJson = readJson(path.join(pluginDir, "package.json"));
   const manifest = readJson(path.join(pluginDir, "kumeyuri.plugin.json"));

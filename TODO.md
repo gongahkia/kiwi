@@ -249,7 +249,7 @@
 - [x] Author plugin author guide `docs/plugins/authoring.md` with hello-world example
 - [x] Build reference plugin `kumeyuri-render-pdf` as the canonical example
 - [x] Build reference plugin `kumeyuri-diagram-sankey` as second canonical example
-- [ ] Add plugin smoke-test CI matrix: load each official plugin, render a sample, diff
+- [x] Add plugin smoke-test CI matrix: load each official plugin, render a sample, diff
 - [ ] Document ABI deprecation policy (2-year guarantee per ABI major)
 - [ ] Publish `v1.1.0-plugins` minor release
 
