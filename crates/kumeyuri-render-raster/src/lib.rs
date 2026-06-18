@@ -1,12 +1,32 @@
+#[cfg(not(target_arch = "wasm32"))]
+use font_kit::{
+    canvas::{Canvas, Format, RasterizationOptions},
+    family_name::FamilyName,
+    font::Font,
+    hinting::HintingOptions,
+    properties::Properties,
+    source::SystemSource,
+};
 use font8x8::{BASIC_FONTS, BLOCK_FONTS, BOX_FONTS, MISC_FONTS, UnicodeFonts};
 use gif::{Encoder as GifEncoder, Frame as GifFrame, Repeat};
 use kumeyuri_core::{animator::Timeline, frame::Frame};
+#[cfg(not(target_arch = "wasm32"))]
+use pathfinder_geometry::{
+    transform2d::Transform2F,
+    vector::{Vector2F, Vector2I},
+};
 use png::{BitDepth, ColorType, Encoder as PngEncoder};
 use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
 #[cfg(not(target_arch = "wasm32"))]
 use webp_animation::{Encoder as WebPEncoder, EncoderOptions as WebPEncoderOptions};
 
 const GLYPH_SIZE: u32 = 8;
+pub const FONT_FALLBACK_FAMILIES: &[&str] = &[
+    "Noto Sans",
+    "Noto Sans CJK",
+    "Noto Sans Arabic",
+    "Noto Color Emoji",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RasterRenderConfig {
@@ -208,9 +228,10 @@ impl RasterRenderer {
 
         let mut paint = Paint::default();
         paint.set_color(self.config.foreground.to_skia());
+        let font_fallbacks = FontFallbackChain::new();
         for (row, line) in frame.to_lines().iter().enumerate() {
             for (column, glyph) in line.chars().enumerate() {
-                self.draw_glyph(&mut pixmap, &paint, column, row, glyph)?;
+                self.draw_glyph(&mut pixmap, &paint, column, row, glyph, &font_fallbacks)?;
             }
         }
         Ok(pixmap)
@@ -223,12 +244,31 @@ impl RasterRenderer {
         column: usize,
         row: usize,
         glyph: char,
+        font_fallbacks: &FontFallbackChain,
     ) -> Result<(), RasterRenderError> {
         if glyph == ' ' {
             return Ok(());
         }
-        let Some(bitmap) = glyph_bitmap(glyph) else {
+        if self.draw_bitmap_glyph(pixmap, paint, column, row, glyph)? {
             return Ok(());
+        }
+        if self.draw_font_glyph(pixmap, column, row, glyph, font_fallbacks)? {
+            return Ok(());
+        }
+        let _ = self.draw_bitmap_glyph(pixmap, paint, column, row, '?')?;
+        Ok(())
+    }
+
+    fn draw_bitmap_glyph(
+        &self,
+        pixmap: &mut Pixmap,
+        paint: &Paint,
+        column: usize,
+        row: usize,
+        glyph: char,
+    ) -> Result<bool, RasterRenderError> {
+        let Some(bitmap) = glyph_bitmap(glyph) else {
+            return Ok(false);
         };
         let origin_x = self.config.padding + usize_to_u32(column)? * GLYPH_SIZE * self.config.scale;
         let origin_y = self.config.padding + usize_to_u32(row)? * GLYPH_SIZE * self.config.scale;
@@ -249,8 +289,125 @@ impl RasterRenderer {
                 pixmap.fill_rect(rect, paint, Transform::identity(), None);
             }
         }
-        Ok(())
+        Ok(true)
     }
+
+    fn draw_font_glyph(
+        &self,
+        pixmap: &mut Pixmap,
+        column: usize,
+        row: usize,
+        glyph: char,
+        font_fallbacks: &FontFallbackChain,
+    ) -> Result<bool, RasterRenderError> {
+        draw_font_glyph(self.config, pixmap, column, row, glyph, font_fallbacks)
+    }
+}
+
+#[derive(Debug)]
+struct FontFallbackChain {
+    #[cfg(not(target_arch = "wasm32"))]
+    fonts: Vec<Font>,
+}
+
+impl FontFallbackChain {
+    fn new() -> Self {
+        Self::from_families(FONT_FALLBACK_FAMILIES)
+    }
+
+    fn from_families(families: &[&str]) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let source = SystemSource::new();
+            let fonts = families
+                .iter()
+                .filter_map(|family| {
+                    source
+                        .select_best_match(
+                            &[FamilyName::Title((*family).to_owned())],
+                            &Properties::new(),
+                        )
+                        .ok()
+                        .and_then(|handle| handle.load().ok())
+                })
+                .collect();
+            Self { fonts }
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = families;
+            Self {}
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn font_for_char(&self, glyph: char) -> Option<(&Font, u32)> {
+        self.fonts
+            .iter()
+            .find_map(|font| font.glyph_for_char(glyph).map(|glyph_id| (font, glyph_id)))
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn draw_font_glyph(
+    config: RasterRenderConfig,
+    pixmap: &mut Pixmap,
+    column: usize,
+    row: usize,
+    glyph: char,
+    font_fallbacks: &FontFallbackChain,
+) -> Result<bool, RasterRenderError> {
+    let Some((font, glyph_id)) = font_fallbacks.font_for_char(glyph) else {
+        return Ok(false);
+    };
+    let cell_size = GLYPH_SIZE
+        .checked_mul(config.scale)
+        .ok_or(RasterRenderError::ImageTooLarge)?;
+    let mut canvas = Canvas::new(
+        Vector2I::new(u32_to_i32(cell_size)?, u32_to_i32(cell_size)?),
+        Format::A8,
+    );
+    if font
+        .rasterize_glyph(
+            &mut canvas,
+            glyph_id,
+            cell_size as f32,
+            Transform2F::from_translation(Vector2F::new(0.0, cell_size as f32)),
+            HintingOptions::None,
+            RasterizationOptions::GrayscaleAa,
+        )
+        .is_err()
+    {
+        return Ok(false);
+    }
+    let origin_x = config.padding + usize_to_u32(column)? * GLYPH_SIZE * config.scale;
+    let origin_y = config.padding + usize_to_u32(row)? * GLYPH_SIZE * config.scale;
+    let mut paint = Paint::default();
+    for y in 0..cell_size {
+        for x in 0..cell_size {
+            let coverage = canvas.pixels[(y as usize * canvas.stride) + x as usize];
+            if coverage == 0 {
+                continue;
+            }
+            paint.set_color(color_with_coverage(config.foreground, coverage));
+            let rect = Rect::from_xywh((origin_x + x) as f32, (origin_y + y) as f32, 1.0, 1.0)
+                .ok_or(RasterRenderError::InvalidRect)?;
+            pixmap.fill_rect(rect, &paint, Transform::identity(), None);
+        }
+    }
+    Ok(true)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn draw_font_glyph(
+    _config: RasterRenderConfig,
+    _pixmap: &mut Pixmap,
+    _column: usize,
+    _row: usize,
+    _glyph: char,
+    _font_fallbacks: &FontFallbackChain,
+) -> Result<bool, RasterRenderError> {
+    Ok(false)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -329,13 +486,21 @@ fn usize_to_u32(value: usize) -> Result<u32, RasterRenderError> {
     u32::try_from(value).map_err(|_| RasterRenderError::ImageTooLarge)
 }
 
+fn u32_to_i32(value: u32) -> Result<i32, RasterRenderError> {
+    i32::try_from(value).map_err(|_| RasterRenderError::ImageTooLarge)
+}
+
+fn color_with_coverage(color: RgbaColor, coverage: u8) -> Color {
+    let alpha = (u16::from(color.alpha) * u16::from(coverage) / u16::from(u8::MAX)) as u8;
+    Color::from_rgba8(color.red, color.green, color.blue, alpha)
+}
+
 fn glyph_bitmap(glyph: char) -> Option<[u8; 8]> {
     BASIC_FONTS
         .get(glyph)
         .or_else(|| BOX_FONTS.get(glyph))
         .or_else(|| BLOCK_FONTS.get(glyph))
         .or_else(|| MISC_FONTS.get(glyph))
-        .or_else(|| BASIC_FONTS.get('?'))
 }
 
 #[cfg(test)]
@@ -349,7 +514,39 @@ mod tests {
     };
     use tiny_skia::Pixmap;
 
-    use super::{RasterRenderConfig, RasterRenderError, RasterRenderer};
+    use super::{
+        FONT_FALLBACK_FAMILIES, FontFallbackChain, RasterRenderConfig, RasterRenderError,
+        RasterRenderer,
+    };
+
+    #[test]
+    fn default_font_fallback_chain_names_are_ordered() {
+        assert_eq!(
+            FONT_FALLBACK_FAMILIES,
+            &[
+                "Noto Sans",
+                "Noto Sans CJK",
+                "Noto Sans Arabic",
+                "Noto Color Emoji"
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_font_fallback_chain_has_no_fonts() {
+        let chain = FontFallbackChain::from_families(&[]);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        assert!(chain.font_for_char('漢').is_none());
+        #[cfg(target_arch = "wasm32")]
+        let _ = chain;
+    }
+
+    #[test]
+    fn missing_bitmap_glyphs_are_not_replaced_before_font_fallback() {
+        assert!(super::glyph_bitmap('漢').is_none());
+        assert!(super::glyph_bitmap('?').is_some());
+    }
 
     #[test]
     fn renders_frame_to_png_bytes() {

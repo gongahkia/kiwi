@@ -17,6 +17,8 @@ png = "0.18.1"
 tiny-skia = "0.12.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+font-kit = "0.14.3"
+pathfinder_geometry = "0.5.1"
 webp-animation = { version = "0.10.0", features = ["static"] }
 
 [dev-dependencies]
