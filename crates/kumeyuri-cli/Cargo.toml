@@ -14,9 +14,9 @@ path = "src/main.rs"
 clap = { version = "4.6.1", features = ["derive"] }
 fluent-bundle = "0.16.0"
 kumeyuri-core = { version = "1.1.0-plugins", path = "../kumeyuri-core" }
-kumeyuri-render-raster = { path = "../kumeyuri-render-raster" }
-kumeyuri-render-svg = { path = "../kumeyuri-render-svg" }
-kumeyuri-render-tui = { path = "../kumeyuri-render-tui" }
+kumeyuri-render-raster = { version = "0.0.0", path = "../kumeyuri-render-raster" }
+kumeyuri-render-svg = { version = "0.0.0", path = "../kumeyuri-render-svg" }
+kumeyuri-render-tui = { version = "0.0.0", path = "../kumeyuri-render-tui" }
 libloading = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

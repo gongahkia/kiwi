@@ -466,7 +466,7 @@
 - [x] `cargo clippy --workspace -- -D warnings` clean
 - [x] `cargo test --workspace` green
 - [x] `cargo audit` clean
-- [ ] `cargo deny check` clean
+- [x] `cargo deny check` clean
 - [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
 - [ ] Snapshot tests green (text + SVG + raster + cast)
 - [ ] Performance benchmarks within budget (§18 of NORTHSTAR.md)

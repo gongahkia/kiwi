@@ -7,8 +7,10 @@ allow = [
   "BSD-2-Clause",
   "BSD-3-Clause",
   "CC0-1.0",
+  "CDLA-Permissive-2.0",
   "ISC",
   "MIT",
+  "MPL-2.0",
   "Unicode-3.0",
   "Zlib",
 ]
@@ -27,7 +29,21 @@ workspace-default-features = "allow"
 external-default-features = "allow"
 allow = []
 deny = []
-skip = []
+skip = [
+  { name = "bitflags", version = "1.3.2" },
+  { name = "hashbrown", version = "0.16.1" },
+  { name = "windows-sys", version = "0.52.0" },
+  { name = "windows-sys", version = "0.60.2" },
+  { name = "windows-targets", version = "0.52.6" },
+  { name = "windows_aarch64_gnullvm", version = "0.52.6" },
+  { name = "windows_aarch64_msvc", version = "0.52.6" },
+  { name = "windows_i686_gnu", version = "0.52.6" },
+  { name = "windows_i686_gnullvm", version = "0.52.6" },
+  { name = "windows_i686_msvc", version = "0.52.6" },
+  { name = "windows_x86_64_gnu", version = "0.52.6" },
+  { name = "windows_x86_64_gnullvm", version = "0.52.6" },
+  { name = "windows_x86_64_msvc", version = "0.52.6" },
+]
 skip-tree = []
 
 [sources]

@@ -12,7 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 font8x8 = "0.3.1"
 gif = "0.14.2"
-kumeyuri-core = { path = "../kumeyuri-core" }
+kumeyuri-core = { version = "1.1.0-plugins", path = "../kumeyuri-core" }
 png = "0.18.1"
 tiny-skia = "0.12.0"
 
@@ -24,4 +24,4 @@ webp-animation = { version = "0.10.0", features = ["static"] }
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.5.0"
-kumeyuri-render-svg = { path = "../kumeyuri-render-svg" }
+kumeyuri-render-svg = { version = "0.0.0", path = "../kumeyuri-render-svg" }

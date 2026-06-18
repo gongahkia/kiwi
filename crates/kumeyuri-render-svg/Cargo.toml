@@ -10,4 +10,4 @@ description = "SVG renderer for kumeyuri frames and timelines."
 path = "src/lib.rs"
 
 [dependencies]
-kumeyuri-core = { path = "../kumeyuri-core" }
+kumeyuri-core = { version = "1.1.0-plugins", path = "../kumeyuri-core" }
