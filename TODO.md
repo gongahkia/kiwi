@@ -43,7 +43,6 @@
 ## PHASE A — Foundations & scaffolding
 *Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
 
-- [ ] **A7. Signal & panic safety.** DoD: SIGINT, SIGTERM, and an uncaught C++ exception all restore the terminal before exit (no garbled shell). Tested by killing mid-run. Reference: PHASE_A §Teardown.
 - [ ] **A8. Terminal size query + SIGWINCH.** DoD: program prints current cols×rows; resizing the window updates the value live via SIGWINCH handler (no busy-poll). Reference: PHASE_A §Size.
 - [ ] **A9. Logging to stderr/file (not the rendered screen).** DoD: a `--log <file>` writes diagnostics without corrupting the alt-screen render; default is silent. Reference: PHASE_A §Logging.
 - [ ] **A10. CI: build matrix.** DoD: GitHub Actions builds on Linux + macOS (Windows optional flag), fails on warnings; badge in README.

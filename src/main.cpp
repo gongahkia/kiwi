@@ -1,7 +1,9 @@
 #include "cli.hpp"
 #include "terminal.hpp"
 
+#include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
 #include <unistd.h>
 
@@ -9,7 +11,9 @@
 #define CONTOURTTY_VERSION "0.0.0"
 #endif
 
-int main(int argc, char** argv) {
+namespace {
+
+int runApp(int argc, char** argv) {
   const auto parsed = contourtty::parseArgs(argc, argv);
   if (!parsed.error.empty()) {
     std::cerr << parsed.error << '\n';
@@ -35,6 +39,10 @@ int main(int argc, char** argv) {
   contourtty::resetQuitFlag();
   contourtty::installQuitSignalHandlers();
   contourtty::TerminalSession session;
+  if (const char* throw_after_terminal = std::getenv("CONTOURTTY_THROW_AFTER_TERMINAL");
+      throw_after_terminal != nullptr && std::string_view(throw_after_terminal) == "1") {
+    throw std::runtime_error("forced terminal exception");
+  }
   std::cout << "\x1b[Hcontourtty " << CONTOURTTY_VERSION << "\npress q to quit\n";
   while (!contourtty::shouldQuit()) {
     char input = 0;
@@ -44,4 +52,18 @@ int main(int argc, char** argv) {
     }
   }
   return 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  try {
+    return runApp(argc, argv);
+  } catch (const std::exception& error) {
+    std::cerr << "fatal: " << error.what() << '\n';
+    return 1;
+  } catch (...) {
+    std::cerr << "fatal: unknown exception\n";
+    return 1;
+  }
 }

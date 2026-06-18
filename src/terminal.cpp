@@ -83,6 +83,7 @@ void installQuitSignalHandlers() {
   action.sa_flags = 0;
   sigaction(SIGINT, &action, nullptr);
   sigaction(SIGTERM, &action, nullptr);
+  sigaction(SIGHUP, &action, nullptr);
 }
 
 bool shouldQuit() noexcept {
