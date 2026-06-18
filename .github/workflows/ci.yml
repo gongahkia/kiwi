@@ -101,6 +101,27 @@ jobs:
       - name: Compare static fixtures against golden outputs
         run: cargo test -p kumeyuri-core --test visual_diff
 
+  coverage-metadata:
+    name: Coverage Metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check snapshot-count deltas
+        env:
+          COVERAGE_GATE_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          COVERAGE_GATE_HEAD: ${{ github.sha }}
+        run: npm run test:coverage-gate
+
   svg-sanitizer:
     name: SVG Sanitizer
     runs-on: ubuntu-latest
