@@ -276,7 +276,7 @@
 - [x] Add CJK full-width glyph awareness throughout layout engine
 - [x] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
 - [x] Add CJK snapshot tests with Japanese, Korean, Simplified + Traditional Chinese samples
-- [ ] Integrate `fluent-rs` for user-facing strings
+- [x] Integrate `fluent-rs` for user-facing strings
 - [ ] Extract every user-facing string into `locales/en-US.ftl`
 - [ ] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
 - [ ] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs

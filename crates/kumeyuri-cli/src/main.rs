@@ -24,6 +24,8 @@ use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
 use serde::{Deserialize, Serialize};
 
+mod i18n;
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
@@ -412,9 +414,11 @@ fn print_compat_report(mermaid_version: Option<&str>) -> Result<(), String> {
 }
 
 fn compat_report(mermaid_version: Option<&str>) -> String {
+    let i18n = i18n::I18n::en_us().expect("embedded Fluent resources must be valid");
     let requested_version = mermaid_version.unwrap_or(MERMAID_COMPAT_VERSION);
     let mut output = String::new();
-    output.push_str("Mermaid compatibility\n");
+    output.push_str(&i18n.message("compat-title").expect("compat title exists"));
+    output.push('\n');
     output.push_str(&format!("requested Mermaid version: {requested_version}\n"));
     output.push_str(&format!(
         "reference Mermaid version: {MERMAID_COMPAT_VERSION}\n\n"
