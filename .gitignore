@@ -1,4 +1,35 @@
-*.love
-makelove-build/
-
 .DS_Store
+
+# build outputs
+build/
+cmake-build-*/
+out/
+dist/
+bin/
+lib/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# compiled artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.app
+*.dSYM/
+
+# editor/local
+.cache/
+.idea/
+.vscode/
+*.swp
+*.swo
