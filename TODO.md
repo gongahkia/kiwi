@@ -282,7 +282,7 @@
 - [x] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
 - [x] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
 - [x] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
-- [ ] Document i18n behaviour in `docs/i18n.md` including known limitations
+- [x] Document i18n behaviour in `docs/i18n.md` including known limitations
 - [ ] Publish `v1.3.0-i18n` minor release
 
 ## Phase 10 — Print / PDF / slide-deck integrations (~months 7–8)
