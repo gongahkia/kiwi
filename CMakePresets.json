@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "ci",
+      "displayName": "CI",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONTOURTTY_WARNINGS_AS_ERRORS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci"
+    }
+  ]
+}
