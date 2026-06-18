@@ -326,7 +326,7 @@
 - [ ] Verify keyboard-only navigation reaches every control (manual smoke test)
 - [ ] Verify NVDA, VoiceOver, JAWS narration of `aria-live` region
 - [ ] Verify touch targets ≥ 44×44 px on the web player
-- [ ] Verify SVG `<title>` and `<desc>` populate from diagram metadata
+- [x] Verify SVG `<title>` and `<desc>` populate from diagram metadata
 - [ ] Verify `.vtt` caption track generated and synced to animation
 - [ ] Verify `--narrate` flag emits sensible prose for each diagram type
 - [ ] Verify `--alt-text` flag returns paste-ready alt strings

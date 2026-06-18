@@ -1278,9 +1278,10 @@ fn render_text_source(source: &str, options: &RenderOptions) -> Result<String, S
 }
 
 fn render_svg_source(source: &str, options: &RenderOptions) -> Result<String, String> {
+    let diagram = parse_diagram(source)?;
     let timeline =
-        timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
-    Ok(SvgRenderer::new(svg_config(options)).render_timeline(&timeline))
+        timeline_from_diagram_with_render_options(&diagram, AnimationOptions::default(), options)?;
+    Ok(SvgRenderer::new(svg_config_for_diagram(options, &diagram)).render_timeline(&timeline))
 }
 
 fn render_raster_source(
@@ -1339,6 +1340,17 @@ fn svg_config(options: &RenderOptions) -> SvgRenderConfig {
         let dark_theme = dark_theme.theme().theme();
         config.dark_foreground = Some(css_color(dark_theme.colors.foreground));
         config.dark_background = Some(css_color(dark_theme.colors.background));
+    }
+    config
+}
+
+fn svg_config_for_diagram(options: &RenderOptions, diagram: &Diagram) -> SvgRenderConfig {
+    let mut config = svg_config(options);
+    if let Some(title) = &diagram.metadata.accessibility_title {
+        config.title = title.text.clone();
+    }
+    if let Some(description) = &diagram.metadata.accessibility_description {
+        config.description = description.text.clone();
     }
     config
 }
@@ -1488,8 +1500,16 @@ fn timeline_from_source_with_render_options(
     render_options: &RenderOptions,
 ) -> Result<Timeline, String> {
     let diagram = parse_diagram(source)?;
+    timeline_from_diagram_with_render_options(&diagram, options, render_options)
+}
+
+fn timeline_from_diagram_with_render_options(
+    diagram: &Diagram,
+    options: AnimationOptions,
+    render_options: &RenderOptions,
+) -> Result<Timeline, String> {
     let timeline = Animator::animate_diagram_with_options_and_renderer(
-        &diagram,
+        diagram,
         options,
         frame_renderer(render_options),
     )
@@ -2380,6 +2400,22 @@ mod tests {
 
         assert!(output.starts_with("<svg "));
         assert!(output.contains("<animate "));
+    }
+
+    #[test]
+    fn renders_svg_accessibility_metadata_from_mermaid_source() {
+        let output = String::from_utf8(
+            render_source(
+                "graph TD\naccTitle: Checkout & pay\naccDescr: Choose <card>\nA --> B",
+                RenderFormat::Svg,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(output.contains(r#"<title id="kumeyuri-title">Checkout &amp; pay</title>"#));
+        assert!(output.contains(r#"<desc id="kumeyuri-desc">Choose &lt;card&gt;</desc>"#));
     }
 
     #[test]

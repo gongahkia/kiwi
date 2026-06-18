@@ -212,6 +212,7 @@ pub enum ParseErrorKind {
     ExpectedC4Argument,
     ExpectedC4Name,
     ExpectedC4Relationship,
+    UnterminatedAccessibilityDescription,
     UnsupportedMermaidConfig,
     TrailingInput,
 }
@@ -601,6 +602,7 @@ struct DiagramParser<'source> {
     source: &'source str,
     cursor: usize,
     directives: Vec<MermaidDirective>,
+    metadata: DiagramMetadata,
 }
 
 impl<'source> DiagramParser<'source> {
@@ -609,6 +611,12 @@ impl<'source> DiagramParser<'source> {
             source,
             cursor: 0,
             directives: Vec::new(),
+            metadata: DiagramMetadata {
+                title: None,
+                accessibility_title: None,
+                accessibility_description: None,
+                span: Span::new(0, 0),
+            },
         }
     }
 
@@ -622,81 +630,81 @@ impl<'source> DiagramParser<'source> {
 
         if let Ok(flow_header) = Parser::parse_flowchart_header(header.text) {
             reject_unsupported_flowchart_config_directives(&self.directives)?;
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Flowchart(Box::new(ast))));
         }
         if let Ok(sequence_header) = Parser::parse_sequence_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_sequence_body(shift_sequence_header(sequence_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Sequence(Box::new(ast))));
         }
         if let Ok(state_header) = Parser::parse_state_header(header.text) {
             reject_unsupported_state_config_directives(&self.directives)?;
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_state_body(shift_state_header(state_header, header.start))?;
             return Ok(self.diagram(DiagramKind::State(Box::new(ast))));
         }
         if let Ok(class_header) = Parser::parse_class_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_class_body(shift_class_header(class_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Class(Box::new(ast))));
         }
         if let Ok(er_header) = Parser::parse_er_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_er_body(shift_er_header(er_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Er(Box::new(ast))));
         }
         if let Ok(gantt_header) = Parser::parse_gantt_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Gantt(Box::new(ast))));
         }
         if let Ok(pie_header) = Parser::parse_pie_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_pie_body(shift_pie_header(pie_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Pie(Box::new(ast))));
         }
         if let Ok(quadrant_header) = Parser::parse_quadrant_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Quadrant(Box::new(ast))));
         }
         if let Ok(zenuml_header) = Parser::parse_zenuml_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))?;
             return Ok(self.diagram(DiagramKind::ZenUml(Box::new(ast))));
         }
         if let Ok(sankey_header) = Parser::parse_sankey_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Sankey(Box::new(ast))));
         }
         if let Ok(xy_header) = Parser::parse_xy_chart_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))?;
             return Ok(self.diagram(DiagramKind::XyChart(Box::new(ast))));
         }
         if let Ok(block_header) = Parser::parse_block_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_block_body(shift_block_header(block_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Block(Box::new(ast))));
         }
         if let Ok(packet_header) = Parser::parse_packet_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_packet_body(shift_packet_header(packet_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Packet(Box::new(ast))));
         }
         if let Ok(kanban_header) = Parser::parse_kanban_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Kanban(Box::new(ast))));
         }
         if let Ok(architecture_header) = Parser::parse_architecture_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_architecture_body(shift_architecture_header(
                 architecture_header,
                 header.start,
@@ -704,12 +712,12 @@ impl<'source> DiagramParser<'source> {
             return Ok(self.diagram(DiagramKind::Architecture(Box::new(ast))));
         }
         if let Ok(radar_header) = Parser::parse_radar_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_radar_body(shift_radar_header(radar_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Radar(Box::new(ast))));
         }
         if let Ok(event_modeling_header) = Parser::parse_event_modeling_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_event_modeling_body(shift_event_modeling_header(
                 event_modeling_header,
                 header.start,
@@ -717,60 +725,60 @@ impl<'source> DiagramParser<'source> {
             return Ok(self.diagram(DiagramKind::EventModeling(Box::new(ast))));
         }
         if let Ok(treemap_header) = Parser::parse_treemap_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Treemap(Box::new(ast))));
         }
         if let Ok(venn_header) = Parser::parse_venn_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_venn_body(shift_venn_header(venn_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Venn(Box::new(ast))));
         }
         if let Ok(ishikawa_header) = Parser::parse_ishikawa_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Ishikawa(Box::new(ast))));
         }
         if let Ok(wardley_header) = Parser::parse_wardley_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Wardley(Box::new(ast))));
         }
         if let Ok(tree_view_header) = Parser::parse_tree_view_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_tree_view_body(shift_tree_view_header(tree_view_header, header.start))?;
             return Ok(self.diagram(DiagramKind::TreeView(Box::new(ast))));
         }
         if let Ok(mindmap_header) = Parser::parse_mindmap_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Mindmap(Box::new(ast))));
         }
         if let Ok(journey_header) = Parser::parse_journey_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_journey_body(shift_journey_header(journey_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Journey(Box::new(ast))));
         }
         if let Ok(gitgraph_header) = Parser::parse_gitgraph_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))?;
             return Ok(self.diagram(DiagramKind::GitGraph(Box::new(ast))));
         }
         if let Ok(timeline_header) = Parser::parse_timeline_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast =
                 self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))?;
             return Ok(self.diagram(DiagramKind::Timeline(Box::new(ast))));
         }
         if let Ok(requirement_header) = Parser::parse_requirement_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_requirement_body(shift_requirement_header(
                 requirement_header,
                 header.start,
@@ -778,7 +786,7 @@ impl<'source> DiagramParser<'source> {
             return Ok(self.diagram(DiagramKind::Requirement(Box::new(ast))));
         }
         if let Ok(c4_header) = Parser::parse_c4_header(header.text) {
-            self.cursor = header.line.next;
+            self.advance_past_header(header)?;
             let ast = self.parse_c4_body(shift_c4_header(c4_header, header.start))?;
             return Ok(self.diagram(DiagramKind::C4(Box::new(ast))));
         }
@@ -798,7 +806,7 @@ impl<'source> DiagramParser<'source> {
         })?;
         let flow_header = Parser::parse_flowchart_header(header.text)?;
         reject_unsupported_flowchart_config_directives(&self.directives)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_flowchart_body(shift_flowchart_header(flow_header, header.start))
     }
 
@@ -810,7 +818,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let sequence_header = Parser::parse_sequence_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_sequence_body(shift_sequence_header(sequence_header, header.start))
     }
 
@@ -823,7 +831,7 @@ impl<'source> DiagramParser<'source> {
         })?;
         let state_header = Parser::parse_state_header(header.text)?;
         reject_unsupported_state_config_directives(&self.directives)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_state_body(shift_state_header(state_header, header.start))
     }
 
@@ -835,7 +843,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let class_header = Parser::parse_class_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_class_body(shift_class_header(class_header, header.start))
     }
 
@@ -847,7 +855,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let er_header = Parser::parse_er_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_er_body(shift_er_header(er_header, header.start))
     }
 
@@ -859,7 +867,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let gantt_header = Parser::parse_gantt_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_gantt_body(shift_gantt_header(gantt_header, header.start))
     }
 
@@ -871,7 +879,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let pie_header = Parser::parse_pie_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_pie_body(shift_pie_header(pie_header, header.start))
     }
 
@@ -883,7 +891,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let quadrant_header = Parser::parse_quadrant_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_quadrant_body(shift_quadrant_header(quadrant_header, header.start))
     }
 
@@ -895,7 +903,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let zenuml_header = Parser::parse_zenuml_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_zenuml_body(shift_zenuml_header(zenuml_header, header.start))
     }
 
@@ -907,7 +915,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let sankey_header = Parser::parse_sankey_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_sankey_body(shift_sankey_header(sankey_header, header.start))
     }
 
@@ -919,7 +927,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let xy_header = Parser::parse_xy_chart_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_xy_chart_body(shift_xy_chart_header(xy_header, header.start))
     }
 
@@ -931,7 +939,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let block_header = Parser::parse_block_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_block_body(shift_block_header(block_header, header.start))
     }
 
@@ -943,7 +951,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let packet_header = Parser::parse_packet_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_packet_body(shift_packet_header(packet_header, header.start))
     }
 
@@ -955,7 +963,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let kanban_header = Parser::parse_kanban_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_kanban_body(shift_kanban_header(kanban_header, header.start))
     }
 
@@ -967,7 +975,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let architecture_header = Parser::parse_architecture_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_architecture_body(shift_architecture_header(architecture_header, header.start))
     }
 
@@ -979,7 +987,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let radar_header = Parser::parse_radar_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_radar_body(shift_radar_header(radar_header, header.start))
     }
 
@@ -991,7 +999,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let event_modeling_header = Parser::parse_event_modeling_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_event_modeling_body(shift_event_modeling_header(
             event_modeling_header,
             header.start,
@@ -1006,7 +1014,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let treemap_header = Parser::parse_treemap_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_treemap_body(shift_treemap_header(treemap_header, header.start))
     }
 
@@ -1018,7 +1026,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let venn_header = Parser::parse_venn_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_venn_body(shift_venn_header(venn_header, header.start))
     }
 
@@ -1030,7 +1038,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let ishikawa_header = Parser::parse_ishikawa_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_ishikawa_body(shift_ishikawa_header(ishikawa_header, header.start))
     }
 
@@ -1042,7 +1050,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let wardley_header = Parser::parse_wardley_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_wardley_body(shift_wardley_header(wardley_header, header.start))
     }
 
@@ -1054,7 +1062,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let tree_view_header = Parser::parse_tree_view_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_tree_view_body(shift_tree_view_header(tree_view_header, header.start))
     }
 
@@ -1066,7 +1074,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let mindmap_header = Parser::parse_mindmap_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_mindmap_body(shift_mindmap_header(mindmap_header, header.start))
     }
 
@@ -1078,7 +1086,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let journey_header = Parser::parse_journey_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_journey_body(shift_journey_header(journey_header, header.start))
     }
 
@@ -1090,7 +1098,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let gitgraph_header = Parser::parse_gitgraph_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_gitgraph_body(shift_gitgraph_header(gitgraph_header, header.start))
     }
 
@@ -1102,7 +1110,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let timeline_header = Parser::parse_timeline_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_timeline_body(shift_timeline_header(timeline_header, header.start))
     }
 
@@ -1114,7 +1122,7 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let requirement_header = Parser::parse_requirement_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_requirement_body(shift_requirement_header(requirement_header, header.start))
     }
 
@@ -1126,22 +1134,107 @@ impl<'source> DiagramParser<'source> {
             span: Span::new(self.source.len(), self.source.len()),
         })?;
         let c4_header = Parser::parse_c4_header(header.text)?;
-        self.cursor = header.line.next;
+        self.advance_past_header(header)?;
         self.parse_c4_body(shift_c4_header(c4_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
         Diagram {
-            metadata: DiagramMetadata {
-                title: None,
-                accessibility_title: None,
-                accessibility_description: None,
-                span: Span::new(0, 0),
-            },
+            metadata: self.metadata,
             directives: self.directives,
             kind,
             span: Span::new(0, self.source.len()),
         }
+    }
+
+    fn advance_past_header(
+        &mut self,
+        header: TrimmedSourceLine<'source>,
+    ) -> Result<(), ParseError> {
+        self.cursor = header.line.next;
+        self.skip_metadata_lines()
+    }
+
+    fn skip_metadata_lines(&mut self) -> Result<(), ParseError> {
+        while let Some(line) = self.current_trimmed_line() {
+            if self.consume_accessibility_title(line) {
+                continue;
+            }
+            if self.consume_accessibility_description(line)? {
+                continue;
+            }
+            break;
+        }
+        Ok(())
+    }
+
+    fn consume_accessibility_title(&mut self, line: TrimmedSourceLine<'source>) -> bool {
+        let Some(rest) = line.text.strip_prefix("accTitle:") else {
+            return false;
+        };
+        let value_start = line.end - rest.len();
+        let label = metadata_label_from_range(self.source, value_start, line.end);
+        self.metadata.accessibility_title = Some(label);
+        self.record_metadata_span(Span::new(line.start, line.end));
+        self.cursor = line.line.next;
+        true
+    }
+
+    fn consume_accessibility_description(
+        &mut self,
+        line: TrimmedSourceLine<'source>,
+    ) -> Result<bool, ParseError> {
+        if is_accessibility_description_block_start(line.text) {
+            let (label, span, next) = self.accessibility_description_block(line)?;
+            self.metadata.accessibility_description = Some(label);
+            self.record_metadata_span(span);
+            self.cursor = next;
+            return Ok(true);
+        }
+        let Some(rest) = line.text.strip_prefix("accDescr:") else {
+            return Ok(false);
+        };
+        let value_start = line.end - rest.len();
+        let label = metadata_label_from_range(self.source, value_start, line.end);
+        self.metadata.accessibility_description = Some(label);
+        self.record_metadata_span(Span::new(line.start, line.end));
+        self.cursor = line.line.next;
+        Ok(true)
+    }
+
+    fn accessibility_description_block(
+        &self,
+        open: TrimmedSourceLine<'source>,
+    ) -> Result<(Label, Span, usize), ParseError> {
+        let mut cursor = open.line.next;
+        while let Some(line) = source_line(self.source, cursor) {
+            let next = line.next;
+            if trim_ascii_range(line.text).is_some_and(|(start, end)| &line.text[start..end] == "}")
+            {
+                let body = metadata_label_from_range(self.source, open.line.next, line.start);
+                return Ok((
+                    body,
+                    Span::new(open.start, line.start + line.text.len()),
+                    next,
+                ));
+            }
+            cursor = next;
+        }
+        Err(ParseError {
+            kind: ParseErrorKind::UnterminatedAccessibilityDescription,
+            span: Span::new(open.start, open.end),
+        })
+    }
+
+    fn record_metadata_span(&mut self, span: Span) {
+        self.metadata.span = if self.metadata.span == Span::new(0, 0) {
+            span
+        } else {
+            Span::new(
+                self.metadata.span.start.min(span.start),
+                self.metadata.span.end.max(span.end),
+            )
+        };
     }
 
     fn skip_preamble(&mut self) {
@@ -15328,6 +15421,21 @@ fn label_from_trimmed(source: &str, start: usize, end: usize) -> Option<Label> {
     ))
 }
 
+fn metadata_label_from_range(source: &str, start: usize, end: usize) -> Label {
+    label_from_trimmed(source, start, end).unwrap_or_else(|| Label {
+        text: String::new(),
+        kind: LabelKind::Plain,
+        span: Span::new(start, start),
+    })
+}
+
+fn is_accessibility_description_block_start(text: &str) -> bool {
+    let Some(rest) = text.strip_prefix("accDescr") else {
+        return false;
+    };
+    trim_ascii_range(rest).is_some_and(|(start, end)| &rest[start..end] == "{")
+}
+
 fn label_from_body(source: &str, start: usize, end: usize) -> Label {
     let raw = &source[start..end];
     if raw.len() >= 2
@@ -15673,6 +15781,55 @@ mod tests {
         assert_eq!(ast.edges.len(), 1);
         assert_eq!(ast.subgraphs.len(), 1);
         assert!(matches!(ast.statements[1], FlowStatement::Subgraph(_)));
+    }
+
+    #[test]
+    fn parses_accessibility_metadata_after_header() {
+        let diagram = Parser::parse_diagram(
+            "graph TD\naccTitle: Checkout flow\naccDescr: User completes checkout\nA --> B",
+        )
+        .unwrap();
+
+        assert_eq!(
+            diagram.metadata.accessibility_title.unwrap().text,
+            "Checkout flow"
+        );
+        assert_eq!(
+            diagram.metadata.accessibility_description.unwrap().text,
+            "User completes checkout"
+        );
+        let DiagramKind::Flowchart(ast) = diagram.kind else {
+            panic!("expected flowchart diagram");
+        };
+        assert_eq!(ast.edges.len(), 1);
+    }
+
+    #[test]
+    fn parses_block_accessibility_description_after_header() {
+        let diagram = Parser::parse_diagram(
+            "sequenceDiagram\naccTitle: \"Chat\"\naccDescr {\nAlice greets Bob\nBob replies\n}\nAlice->>Bob: hi",
+        )
+        .unwrap();
+
+        assert_eq!(diagram.metadata.accessibility_title.unwrap().text, "Chat");
+        assert_eq!(
+            diagram.metadata.accessibility_description.unwrap().text,
+            "Alice greets Bob\nBob replies"
+        );
+        let DiagramKind::Sequence(ast) = diagram.kind else {
+            panic!("expected sequence diagram");
+        };
+        assert_eq!(ast.statements.len(), 1);
+    }
+
+    #[test]
+    fn rejects_unterminated_accessibility_description_block() {
+        assert_eq!(
+            Parser::parse_diagram("graph TD\naccDescr {\nmissing close")
+                .unwrap_err()
+                .kind,
+            ParseErrorKind::UnterminatedAccessibilityDescription,
+        );
     }
 
     #[test]
