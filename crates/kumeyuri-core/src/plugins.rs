@@ -7,7 +7,7 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::abi::{AbiVersion, CapabilitySet, KUMEYURI_ABI_VERSION};
+use crate::abi::{AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION};
 
 pub const PLUGIN_MANIFEST_FILE: &str = "kumeyuri.plugin.json";
 
@@ -157,6 +157,53 @@ impl Default for PluginLoader {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PluginRuntimePolicy {
+    granted: CapabilitySet,
+}
+
+impl PluginRuntimePolicy {
+    #[must_use]
+    pub const fn deny_all() -> Self {
+        Self {
+            granted: CapabilitySet::empty(),
+        }
+    }
+
+    #[must_use]
+    pub const fn with_grants(granted: CapabilitySet) -> Self {
+        Self { granted }
+    }
+
+    #[must_use]
+    pub const fn granted(self) -> CapabilitySet {
+        self.granted
+    }
+
+    #[must_use]
+    pub const fn allows(self, capability: Capability) -> bool {
+        self.granted.contains(capability)
+    }
+
+    pub fn validate_manifest(&self, manifest: &PluginManifest) -> Result<(), PluginPolicyError> {
+        if !manifest.capabilities.is_subset(self.granted) {
+            return Err(PluginPolicyError::CapabilityDenied(manifest.capabilities));
+        }
+        Ok(())
+    }
+}
+
+impl Default for PluginRuntimePolicy {
+    fn default() -> Self {
+        Self::deny_all()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PluginPolicyError {
+    CapabilityDenied(CapabilitySet),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginLoadError {
     ReadManifest {
@@ -227,8 +274,11 @@ fn validate_entry(value: &str) -> Result<PathBuf, PluginLoadError> {
 mod tests {
     use std::{env, fs, process, time::SystemTime};
 
-    use super::{PLUGIN_MANIFEST_FILE, PluginKind, PluginLoadError, PluginLoader};
-    use crate::abi::{AbiVersion, Capability};
+    use super::{
+        PLUGIN_MANIFEST_FILE, PluginKind, PluginLoadError, PluginLoader, PluginPolicyError,
+        PluginRuntimePolicy,
+    };
+    use crate::abi::{AbiVersion, Capability, CapabilitySet};
 
     #[test]
     fn plugin_loader_loads_manifest_and_component() {
@@ -341,6 +391,35 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error, PluginLoadError::MissingExport("diagramType"));
+    }
+
+    #[test]
+    fn plugin_runtime_policy_denies_capabilities_by_default() {
+        let manifest = PluginLoader::default()
+            .parse_manifest_json(
+                r#"{
+  "name": "writer",
+  "version": "1.0.0",
+  "abi": "1.0",
+  "entry": "plugin.wasm",
+  "kind": "render-backend",
+  "capabilities": ["fs.write"],
+  "exports": { "renderBackend": "writer" }
+}"#,
+            )
+            .unwrap();
+        let denied = PluginRuntimePolicy::default();
+
+        assert!(!denied.allows(Capability::FsWrite));
+        assert_eq!(
+            denied.validate_manifest(&manifest).unwrap_err(),
+            PluginPolicyError::CapabilityDenied(CapabilitySet::from_iter([Capability::FsWrite]))
+        );
+
+        let granted =
+            PluginRuntimePolicy::with_grants(CapabilitySet::from_iter([Capability::FsWrite]));
+        assert!(granted.allows(Capability::FsWrite));
+        assert!(granted.validate_manifest(&manifest).is_ok());
     }
 
     fn unique_temp_dir(label: &str) -> std::path::PathBuf {
