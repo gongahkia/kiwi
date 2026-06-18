@@ -1,0 +1,26 @@
+package kumeyuri:plugin;
+
+interface diagram-type {
+  record options {
+    theme: string,
+    charset: string
+  }
+
+  record request {
+    abi: string,
+    root: string,
+    source: string,
+    options: options
+  }
+
+  record response {
+    frames: string,
+    default-animation: string
+  }
+
+  parse-and-layout: func(request: request) -> result<response, string>;
+}
+
+world plugin {
+  export diagram-type;
+}

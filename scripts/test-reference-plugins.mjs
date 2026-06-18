@@ -24,6 +24,7 @@ for (const pluginName of pluginNames) {
   assertEqual(manifest.abi, "1.0", `${pluginName}: unexpected ABI`);
   assertEqual(path.isAbsolute(manifest.entry), false, `${pluginName}: entry must be relative`);
   assertEqual(path.extname(manifest.entry), ".wasm", `${pluginName}: entry must be .wasm`);
+  assertEqual(Array.isArray(manifest.capabilities), true, `${pluginName}: capabilities must be an array`);
   assertKindExport(pluginName, manifest);
   assertEntryLooksLikeWasm(path.join(pluginDir, manifest.entry), pluginName);
 }
