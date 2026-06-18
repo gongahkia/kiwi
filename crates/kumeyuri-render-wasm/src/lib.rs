@@ -193,7 +193,56 @@ fn parse_diagram(source: &str) -> Result<Diagram, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        fmt::Write as _,
+        fs,
+        path::{Path, PathBuf},
+    };
+
     use super::{WasmRenderOptions, render_output};
+
+    const FIXTURES: [Fixture; 28] = [
+        Fixture::new("flowchart", "01_single_node"),
+        Fixture::new("sequence", "01_single_message"),
+        Fixture::new("state", "01_start_to_idle"),
+        Fixture::new("class", "01_basic_class"),
+        Fixture::new("er", "01_basic_relationship"),
+        Fixture::new("gantt", "01_basic_schedule"),
+        Fixture::new("pie", "01_basic"),
+        Fixture::new("quadrant", "01_basic"),
+        Fixture::new("zenuml", "01_basic"),
+        Fixture::new("sankey", "01_basic"),
+        Fixture::new("xychart", "01_basic"),
+        Fixture::new("block", "01_basic"),
+        Fixture::new("packet", "01_tcp"),
+        Fixture::new("kanban", "01_basic"),
+        Fixture::new("architecture", "01_basic"),
+        Fixture::new("radar", "01_basic"),
+        Fixture::new("event_modeling", "01_basic"),
+        Fixture::new("treemap", "01_basic"),
+        Fixture::new("venn", "01_basic"),
+        Fixture::new("ishikawa", "01_basic"),
+        Fixture::new("wardley", "01_basic"),
+        Fixture::new("tree_view", "01_basic"),
+        Fixture::new("mindmap", "01_basic_tree"),
+        Fixture::new("journey", "01_basic"),
+        Fixture::new("gitgraph", "01_basic"),
+        Fixture::new("timeline", "01_basic"),
+        Fixture::new("requirement", "01_basic"),
+        Fixture::new("c4", "01_context"),
+    ];
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct Fixture {
+        kind: &'static str,
+        name: &'static str,
+    }
+
+    impl Fixture {
+        const fn new(kind: &'static str, name: &'static str) -> Self {
+            Self { kind, name }
+        }
+    }
 
     #[test]
     fn renders_svg_and_text_frames() {
@@ -259,5 +308,90 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn all_supported_roots_have_wasm_output_hash_snapshots() {
+        let root = repo_root();
+        let actual = wasm_hashes(&root);
+        let expected_path = root
+            .join("tests/golden/kumeyuri-cross-format")
+            .join("wasm_hashes.txt");
+        let expected = fs::read_to_string(&expected_path).unwrap_or_else(|error| {
+            panic!(
+                "failed to read {}: {error}\nexpected contents:\n{actual}",
+                expected_path.display(),
+            )
+        });
+
+        assert_eq!(actual, expected);
+    }
+
+    fn wasm_hashes(root: &Path) -> String {
+        let mut output = String::new();
+        for fixture in FIXTURES {
+            let source = read_fixture(root, fixture);
+            let rendered =
+                render_output(&source, &WasmRenderOptions::default()).unwrap_or_else(|error| {
+                    panic!(
+                        "failed to render {}/{}: {error}",
+                        fixture.kind, fixture.name
+                    )
+                });
+            let mut fingerprint = String::new();
+            fingerprint.push_str(&normalize_svg(&rendered.svg));
+            for (index, frame) in rendered.frames.iter().enumerate() {
+                writeln!(
+                    &mut fingerprint,
+                    "frame:{index}:duration_ms:{}",
+                    frame.duration_ms
+                )
+                .expect("failed to write wasm frame header");
+                fingerprint.push_str(&frame.text);
+                fingerprint.push('\n');
+            }
+            writeln!(
+                &mut output,
+                "{}/{} wasm={:016x}",
+                fixture.kind,
+                fixture.name,
+                hash_str(&fingerprint),
+            )
+            .expect("failed to write wasm hash line");
+        }
+        output
+    }
+
+    fn normalize_svg(svg: &str) -> String {
+        let mut normalized = svg
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n");
+        normalized.push('\n');
+        normalized
+    }
+
+    fn read_fixture(root: &Path, fixture: Fixture) -> String {
+        let path = root
+            .join("tests/snapshots")
+            .join(fixture.kind)
+            .join("input")
+            .join(format!("{}.mmd", fixture.name));
+        fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()))
+    }
+
+    fn hash_str(value: &str) -> u64 {
+        let mut hash = 0xcbf29ce484222325u64;
+        for byte in value.as_bytes() {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        hash
+    }
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 }
