@@ -192,8 +192,10 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       restart.type = "button";
       restart.dataset.action = "restart";
       restart.textContent = "restart";
+      restart.setAttribute("aria-label", "Restart animation");
       const scrub = document.createElement("input");
       scrub.type = "range";
+      scrub.setAttribute("aria-label", "Animation frame");
       scrub.min = "0";
       scrub.max = String(output.frames.length - 1);
       scrub.step = "1";
@@ -206,6 +208,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       const setPlaying = (next: boolean): void => {
         playing = next;
         play.textContent = playing ? "pause" : "play";
+        play.setAttribute("aria-label", playing ? "Pause animation" : "Play animation");
         this.#stopPlayback();
         if (playing) {
           schedule();

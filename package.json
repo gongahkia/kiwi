@@ -23,9 +23,11 @@
     "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",
-    "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs"
+    "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs",
+    "test:web-component:a11y": "npm --workspace kumeyuri run build && node scripts/test-web-component-a11y.mjs"
   },
   "devDependencies": {
+    "axe-core": "^4.12.1",
     "dompurify": "3.4.10",
     "jsdom": "29.1.1",
     "playwright": "1.61.0",
