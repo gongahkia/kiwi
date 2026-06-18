@@ -464,7 +464,7 @@
 
 - [x] `cargo fmt --check` clean
 - [x] `cargo clippy --workspace -- -D warnings` clean
-- [ ] `cargo test --workspace` green
+- [x] `cargo test --workspace` green
 - [ ] `cargo audit` clean
 - [ ] `cargo deny check` clean
 - [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
