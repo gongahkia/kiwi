@@ -195,7 +195,7 @@
 - [x] Add fuzz/property tests for supported-root parsers with round-trip invariants over AST counts and source spans
 - [x] Add mutation tests for parsers to ensure invalid Mermaid syntax fails fast instead of silently dropping statements
 - [x] Add compatibility CI that diffs Mermaid docs root list against `COVERAGE.md` and opens/fails on missing roots
-- [ ] Add `kumeyuri compat --mermaid-version` command that prints supported roots, unsupported roots, and partial/static-only caveats
+- [x] Add `kumeyuri compat --mermaid-version` command that prints supported roots, unsupported roots, and partial/static-only caveats
 - [ ] Add a coverage gate requiring snapshot-count deltas when `DiagramKind`, parser root dispatch, or render dispatch changes
 
 ## Phase 6 — Ecosystem (ongoing, post-launch)

@@ -51,6 +51,10 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Compat {
+        #[arg(long, value_name = "VERSION", value_parser = parse_non_empty_string)]
+        mermaid_version: Option<String>,
+    },
     Render {
         #[arg(value_name = "FILE")]
         file: PathBuf,
@@ -149,6 +153,7 @@ fn run() -> Result<(), String> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
         Command::Render {
             file,
             format,
@@ -160,6 +165,232 @@ fn run() -> Result<(), String> {
             speed,
             repeat,
         } => play_file(&file, playback_options(speed, repeat)?),
+    }
+}
+
+const MERMAID_COMPAT_VERSION: &str = "11.15.0";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CompatRoot {
+    label: &'static str,
+    roots: &'static [&'static str],
+    caveat: &'static str,
+}
+
+const ANIMATED_PARTIAL_ROOTS: &[CompatRoot] = &[
+    CompatRoot {
+        label: "Flowchart",
+        roots: &["graph", "flowchart"],
+        caveat: "trace animation; Mermaid config, styling, and exact visual parity are partial",
+    },
+    CompatRoot {
+        label: "Sequence Diagram",
+        roots: &["sequenceDiagram"],
+        caveat: "playback animation; colors, actor menus, links, and rich styling are partial",
+    },
+    CompatRoot {
+        label: "State Diagram",
+        roots: &["stateDiagram", "stateDiagram-v2"],
+        caveat: "transition animation; Mermaid layout/look config is rejected",
+    },
+    CompatRoot {
+        label: "Class Diagram",
+        roots: &["classDiagram"],
+        caveat: "relationship trace animation; callbacks, links, and CSS styling are semantic-only",
+    },
+    CompatRoot {
+        label: "Entity Relationship Diagram",
+        roots: &["erDiagram"],
+        caveat: "relationship trace animation; Mermaid styling/config is not interpreted",
+    },
+    CompatRoot {
+        label: "Gantt",
+        roots: &["gantt"],
+        caveat: "timeline trace animation; date handling is day-level",
+    },
+    CompatRoot {
+        label: "Pie Chart",
+        roots: &["pie"],
+        caveat: "slice trace animation; theme variables and hover behavior are not rendered",
+    },
+    CompatRoot {
+        label: "Mindmaps",
+        roots: &["mindmap"],
+        caveat: "tree trace animation; CSS classes and icon registration are semantic-only",
+    },
+    CompatRoot {
+        label: "User Journey",
+        roots: &["journey"],
+        caveat: "trace animation; Mermaid color palettes are approximated",
+    },
+    CompatRoot {
+        label: "GitGraph Diagram",
+        roots: &["gitGraph"],
+        caveat: "commit trace animation; display config fields are semantic-only",
+    },
+    CompatRoot {
+        label: "Timeline",
+        roots: &["timeline"],
+        caveat: "reveal animation; theme variables and direction styling are not rendered",
+    },
+];
+
+const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
+    CompatRoot {
+        label: "Quadrant Chart",
+        roots: &["quadrantChart"],
+        caveat: "static frame; classes are semantic-only",
+    },
+    CompatRoot {
+        label: "Requirement Diagram",
+        roots: &["requirementDiagram"],
+        caveat: "static frame; styles/classes are semantic-only",
+    },
+    CompatRoot {
+        label: "C4 Diagram",
+        roots: &[
+            "C4Context",
+            "C4Container",
+            "C4Component",
+            "C4Dynamic",
+            "C4Deployment",
+        ],
+        caveat: "static frame; C4 geometry is schematic and CSS colors are style rows",
+    },
+    CompatRoot {
+        label: "ZenUML",
+        roots: &["zenuml"],
+        caveat: "static frame; activation stack styling is not modeled",
+    },
+    CompatRoot {
+        label: "Sankey",
+        roots: &["sankey", "sankey-beta"],
+        caveat: "static frame; link widths/colors are schematic",
+    },
+    CompatRoot {
+        label: "XY Chart",
+        roots: &["xychart", "xychart-beta"],
+        caveat: "static frame; horizontal orientation is parsed but rendered schematically",
+    },
+    CompatRoot {
+        label: "Block Diagram",
+        roots: &["block"],
+        caveat: "static frame; styles/classes and arrow geometry are approximate",
+    },
+    CompatRoot {
+        label: "Packet",
+        roots: &["packet", "packet-beta"],
+        caveat: "static frame; packet sizing config is not interpreted",
+    },
+    CompatRoot {
+        label: "Kanban",
+        roots: &["kanban"],
+        caveat: "static frame; metadata is rendered as text",
+    },
+    CompatRoot {
+        label: "Architecture",
+        roots: &["architecture-beta"],
+        caveat: "static frame; icons/classes are text-only",
+    },
+    CompatRoot {
+        label: "Radar",
+        roots: &["radar-beta"],
+        caveat: "static frame; circular styling and curve fills are approximate",
+    },
+    CompatRoot {
+        label: "Event Modeling",
+        roots: &["eventmodeling"],
+        caveat: "static frame; Mermaid padding/rowHeight config is not interpreted",
+    },
+    CompatRoot {
+        label: "Treemap",
+        roots: &["treemap-beta"],
+        caveat: "static frame; classDef and D3 value formatting are semantic-only",
+    },
+    CompatRoot {
+        label: "Venn",
+        roots: &["venn-beta"],
+        caveat: "static frame; proportional area and theme colors are approximate",
+    },
+    CompatRoot {
+        label: "Ishikawa",
+        roots: &["ishikawa-beta"],
+        caveat: "static frame; fishbone geometry is approximate",
+    },
+    CompatRoot {
+        label: "Wardley",
+        roots: &["wardley-beta"],
+        caveat: "static frame; exact Mermaid geometry and styling are approximate",
+    },
+    CompatRoot {
+        label: "TreeView",
+        roots: &["treeView-beta"],
+        caveat: "static frame; icons/classes are text-only",
+    },
+];
+
+const UNSUPPORTED_ROOTS: &[CompatRoot] = &[
+    CompatRoot {
+        label: "Cynefin Framework Diagram",
+        roots: &["cynefin-beta"],
+        caveat: "no parser root; rejected at parser-header detection",
+    },
+    CompatRoot {
+        label: "Railroad Diagram",
+        roots: &["railroad-diagram"],
+        caveat: "no parser root; rejected at parser-header detection",
+    },
+    CompatRoot {
+        label: "Swimlanes Diagram",
+        roots: &["swimlane"],
+        caveat: "no parser root; rejected at parser-header detection",
+    },
+];
+
+fn print_compat_report(mermaid_version: Option<&str>) -> Result<(), String> {
+    let output = compat_report(mermaid_version);
+    io::stdout()
+        .write_all(output.as_bytes())
+        .map_err(|error| format!("failed to write stdout: {error}"))
+}
+
+fn compat_report(mermaid_version: Option<&str>) -> String {
+    let requested_version = mermaid_version.unwrap_or(MERMAID_COMPAT_VERSION);
+    let mut output = String::new();
+    output.push_str("Mermaid compatibility\n");
+    output.push_str(&format!("requested Mermaid version: {requested_version}\n"));
+    output.push_str(&format!(
+        "reference Mermaid version: {MERMAID_COMPAT_VERSION}\n\n"
+    ));
+    if requested_version != MERMAID_COMPAT_VERSION {
+        output.push_str(
+            "version note: this build only verifies the reference Mermaid version listed above.\n\n",
+        );
+    }
+    output.push_str("Supported roots - animated partial\n");
+    append_compat_roots(&mut output, ANIMATED_PARTIAL_ROOTS);
+    output.push_str("\nSupported roots - static-only partial\n");
+    append_compat_roots(&mut output, STATIC_ONLY_ROOTS);
+    output.push_str("\nUnsupported roots\n");
+    append_compat_roots(&mut output, UNSUPPORTED_ROOTS);
+    output.push_str("\nCaveats\n");
+    output.push_str("- Partial: parser and renderer exist, but this is not full Mermaid parity.\n");
+    output.push_str(
+        "- Static-only: parser and renderer exist; animation collapses to a static frame.\n",
+    );
+    output.push_str("- Unsupported: no parser root exists; input is rejected.\n");
+    output.push_str("- Common: Mermaid frontmatter/init/theme/layout/click parity is not supported except kumeyuri animation directives.\n");
+    output
+}
+
+fn append_compat_roots(output: &mut String, roots: &[CompatRoot]) {
+    for root in roots {
+        output.push_str(&format!(
+            "- {}: `{}`; {}\n",
+            root.label,
+            root.roots.join("`, `"),
+            root.caveat
+        ));
     }
 }
 
@@ -628,9 +859,10 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, Command, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
-        parse_non_empty_string, parse_positive_usize, parse_speed_override, playback_options,
-        render_source, timeline_from_source, timeline_from_source_with_options,
+        ANIMATED_PARTIAL_ROOTS, Cli, Command, RenderCharset, RenderFormat, RenderOptions,
+        RenderTheme, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS, compat_report, parse_non_empty_string,
+        parse_positive_usize, parse_speed_override, playback_options, render_source,
+        timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options,
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -672,6 +904,48 @@ mod tests {
                 .unwrap();
             assert!(matches!(cli.command, Command::Render { .. }));
         }
+    }
+
+    #[test]
+    fn compat_parser_accepts_mermaid_version() {
+        let cli =
+            Cli::try_parse_from(["kumeyuri", "compat", "--mermaid-version", "11.15.0"]).unwrap();
+        let Command::Compat { mermaid_version } = cli.command else {
+            panic!("expected compat command");
+        };
+
+        assert_eq!(mermaid_version.as_deref(), Some("11.15.0"));
+    }
+
+    #[test]
+    fn compat_report_lists_roots_and_caveats() {
+        let output = compat_report(Some("11.15.0"));
+
+        assert!(output.contains("requested Mermaid version: 11.15.0"));
+        assert!(output.contains("reference Mermaid version: 11.15.0"));
+        assert!(output.contains("Supported roots - animated partial"));
+        assert!(output.contains("`graph`, `flowchart`"));
+        assert!(output.contains("Supported roots - static-only partial"));
+        assert!(output.contains("`quadrantChart`"));
+        assert!(output.contains("Unsupported roots"));
+        assert!(output.contains("`cynefin-beta`"));
+        assert!(output.contains("Partial: parser and renderer exist"));
+        assert!(output.contains("Static-only: parser and renderer exist"));
+    }
+
+    #[test]
+    fn compat_report_labels_unverified_requested_versions() {
+        let output = compat_report(Some("12.0.0"));
+
+        assert!(output.contains("requested Mermaid version: 12.0.0"));
+        assert!(output.contains("version note: this build only verifies"));
+    }
+
+    #[test]
+    fn compat_tables_match_current_coverage_counts() {
+        assert_eq!(ANIMATED_PARTIAL_ROOTS.len(), 11);
+        assert_eq!(STATIC_ONLY_ROOTS.len(), 17);
+        assert_eq!(UNSUPPORTED_ROOTS.len(), 3);
     }
 
     #[test]

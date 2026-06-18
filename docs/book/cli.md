@@ -11,6 +11,18 @@ kumeyuri <COMMAND>
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated TUI timeline |
+| `compat` | Print Mermaid root support for the tracked docs version |
+
+## Compat
+
+```text
+kumeyuri compat [--mermaid-version <VERSION>]
+```
+
+`compat` prints animated partial roots, static-only partial roots, unsupported
+roots, and common caveats. `--mermaid-version` is reported beside the tracked
+reference version from the current `COVERAGE.md` matrix. If the requested
+version differs, output is labelled as unverified for that requested version.
 
 ## Render
 
