@@ -1,6 +1,7 @@
 # contourtty
 
 ![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
+![CI](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
 
 contourtty is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
 
