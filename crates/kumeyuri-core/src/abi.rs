@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use crate::animator::Timeline;
+use crate::{animator::Timeline, frame::Frame};
 
 pub const KUMEYURI_ABI_VERSION: AbiVersion = AbiVersion::new(1, 0);
 
@@ -239,6 +239,83 @@ pub enum RenderBackendError {
     RenderFailed(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedDiagram {
+    pub bytes: Vec<u8>,
+    pub media_type: String,
+}
+
+impl ParsedDiagram {
+    #[must_use]
+    pub fn new(bytes: Vec<u8>, media_type: impl Into<String>) -> Self {
+        Self {
+            bytes,
+            media_type: media_type.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DiagramParseRequest<'source> {
+    pub abi: AbiVersion,
+    pub source: &'source str,
+}
+
+#[derive(Debug)]
+pub struct DiagramLayoutRequest<'diagram> {
+    pub abi: AbiVersion,
+    pub diagram: &'diagram ParsedDiagram,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiagramTypeError {
+    IncompatibleAbi {
+        host: AbiVersion,
+        required: AbiVersion,
+    },
+    MissingCapabilities(CapabilitySet),
+    UnsupportedHeader(String),
+    ParseFailed(String),
+    LayoutFailed(String),
+}
+
+pub trait DiagramType {
+    fn id(&self) -> &'static str;
+
+    fn abi_version(&self) -> AbiVersion {
+        KUMEYURI_ABI_VERSION
+    }
+
+    fn headers(&self) -> &'static [&'static str];
+
+    fn required_capabilities(&self) -> CapabilitySet {
+        CapabilitySet::empty()
+    }
+
+    fn validate(
+        &self,
+        host_abi: AbiVersion,
+        granted: CapabilitySet,
+    ) -> Result<(), DiagramTypeError> {
+        let required_abi = self.abi_version();
+        if !host_abi.supports(required_abi) {
+            return Err(DiagramTypeError::IncompatibleAbi {
+                host: host_abi,
+                required: required_abi,
+            });
+        }
+        let required_capabilities = self.required_capabilities();
+        if !required_capabilities.is_subset(granted) {
+            return Err(DiagramTypeError::MissingCapabilities(required_capabilities));
+        }
+        Ok(())
+    }
+
+    fn parse(&self, request: DiagramParseRequest<'_>) -> Result<ParsedDiagram, DiagramTypeError>;
+
+    fn layout(&self, request: DiagramLayoutRequest<'_>) -> Result<Frame, DiagramTypeError>;
+}
+
 pub trait RenderBackend {
     fn id(&self) -> &'static str;
 
@@ -288,8 +365,9 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION, RenderArtifact, RenderBackend,
-        RenderBackendError, RenderBackendMetadata, RenderBackendRequest,
+        AbiVersion, Capability, CapabilitySet, DiagramLayoutRequest, DiagramParseRequest,
+        DiagramType, DiagramTypeError, KUMEYURI_ABI_VERSION, ParsedDiagram, RenderArtifact,
+        RenderBackend, RenderBackendError, RenderBackendMetadata, RenderBackendRequest,
     };
     use crate::{animator::Timeline, frame::Frame};
 
@@ -386,6 +464,52 @@ mod tests {
         assert_eq!(artifact.bytes, b"fake:1:diagram".to_vec());
     }
 
+    #[test]
+    fn diagram_type_surface_validates_abi_and_capabilities() {
+        let diagram_type = FakeDiagramType;
+        let granted = CapabilitySet::from_iter([Capability::CacheRead]);
+
+        assert!(diagram_type.validate(KUMEYURI_ABI_VERSION, granted).is_ok());
+        assert_eq!(
+            diagram_type
+                .validate(KUMEYURI_ABI_VERSION, CapabilitySet::empty())
+                .unwrap_err(),
+            DiagramTypeError::MissingCapabilities(CapabilitySet::from_iter([
+                Capability::CacheRead
+            ]))
+        );
+        assert!(matches!(
+            diagram_type
+                .validate(AbiVersion::new(0, 9), granted)
+                .unwrap_err(),
+            DiagramTypeError::IncompatibleAbi { .. }
+        ));
+    }
+
+    #[test]
+    fn diagram_type_surface_parses_and_lays_out() {
+        let diagram_type = FakeDiagramType;
+        let parsed = diagram_type
+            .parse(DiagramParseRequest {
+                abi: KUMEYURI_ABI_VERSION,
+                source: "fake\nalpha",
+            })
+            .unwrap();
+
+        assert_eq!(parsed.media_type, "application/x-kumeyuri-fake-ast");
+        assert_eq!(parsed.bytes, b"alpha".to_vec());
+
+        let frame = diagram_type
+            .layout(DiagramLayoutRequest {
+                abi: KUMEYURI_ABI_VERSION,
+                diagram: &parsed,
+            })
+            .unwrap();
+
+        assert_eq!(frame.width(), 5);
+        assert_eq!(frame.height(), 1);
+    }
+
     struct FakeRenderBackend;
 
     impl RenderBackend for FakeRenderBackend {
@@ -429,6 +553,41 @@ mod tests {
                 self.media_type(),
                 self.extension(),
             ))
+        }
+    }
+
+    struct FakeDiagramType;
+
+    impl DiagramType for FakeDiagramType {
+        fn id(&self) -> &'static str {
+            "fake-diagram"
+        }
+
+        fn headers(&self) -> &'static [&'static str] {
+            &["fake"]
+        }
+
+        fn required_capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_iter([Capability::CacheRead])
+        }
+
+        fn parse(
+            &self,
+            request: DiagramParseRequest<'_>,
+        ) -> Result<ParsedDiagram, DiagramTypeError> {
+            let Some(body) = request.source.strip_prefix("fake\n") else {
+                return Err(DiagramTypeError::UnsupportedHeader(
+                    request.source.lines().next().unwrap_or("").to_owned(),
+                ));
+            };
+            Ok(ParsedDiagram::new(
+                body.as_bytes().to_vec(),
+                "application/x-kumeyuri-fake-ast",
+            ))
+        }
+
+        fn layout(&self, request: DiagramLayoutRequest<'_>) -> Result<Frame, DiagramTypeError> {
+            Ok(Frame::new(request.diagram.bytes.len(), 1))
         }
     }
 }
