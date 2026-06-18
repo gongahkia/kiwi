@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "docs:build": "mdbook build",
+    "test:compat": "node scripts/check-mermaid-coverage.mjs",
     "import:official-mermaid": "node scripts/import-official-mermaid-fixtures.mjs",
     "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
     "test:astro": "npm --workspace @kumeyuri/astro run test",

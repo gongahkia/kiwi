@@ -1,0 +1,85 @@
+name: Mermaid Compatibility
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-root-diff:
+    name: Docs Root Diff
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check Mermaid docs roots
+        run: npm run test:compat
+
+  open-drift-issue:
+    name: Open Drift Issue
+    if: ${{ always() && github.event_name == 'schedule' && needs.docs-root-diff.result == 'failure' }}
+    needs: docs-root-diff
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Capture Mermaid docs root drift
+        id: compat
+        continue-on-error: true
+        run: npm run test:compat > mermaid-compat.log 2>&1
+
+      - name: Open drift issue
+        if: ${{ steps.compat.outcome == 'failure' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require("node:fs");
+            const title = "Mermaid docs root list drifted from COVERAGE.md";
+            const log = fs.readFileSync("mermaid-compat.log", "utf8").trim();
+            const { owner, repo } = context.repo;
+            const existing = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              per_page: 100,
+            });
+            if (!existing.data.some((issue) => issue.title === title)) {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body: `Scheduled compatibility check failed.\n\n\`\`\`\n${log}\n\`\`\``,
+              });
+            }
+
+      - name: Fail compatibility check
+        if: ${{ steps.compat.outcome == 'failure' }}
+        run: exit 1
