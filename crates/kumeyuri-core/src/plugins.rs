@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    fmt, fs,
+    env, fmt, fs,
     path::{Component, Path, PathBuf},
     str::FromStr,
 };
@@ -10,6 +10,8 @@ use serde::Deserialize;
 use crate::abi::{AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION};
 
 pub const PLUGIN_MANIFEST_FILE: &str = "kumeyuri.plugin.json";
+pub const PLUGIN_CACHE_APP_DIR: &str = "kumeyuri";
+pub const PLUGIN_CACHE_PLUGINS_DIR: &str = "plugins";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PluginKind {
@@ -205,6 +207,77 @@ pub enum PluginPolicyError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginCache {
+    root: PathBuf,
+}
+
+impl PluginCache {
+    #[must_use]
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+
+    #[must_use]
+    pub fn from_data_home(data_home: impl AsRef<Path>) -> Self {
+        Self::new(
+            data_home
+                .as_ref()
+                .join(PLUGIN_CACHE_APP_DIR)
+                .join(PLUGIN_CACHE_PLUGINS_DIR),
+        )
+    }
+
+    pub fn from_env() -> Result<Self, PluginCacheError> {
+        if let Some(data_home) = non_empty_env_path("XDG_DATA_HOME") {
+            return Ok(Self::from_data_home(data_home));
+        }
+        if let Some(home) = non_empty_env_path("HOME") {
+            return Ok(Self::from_data_home(home.join(".local/share")));
+        }
+        Err(PluginCacheError::MissingDataHome)
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn package_dir(
+        &self,
+        manifest: &PluginManifest,
+        content_hash: &str,
+    ) -> Result<PathBuf, PluginCacheError> {
+        validate_content_hash(content_hash)?;
+        Ok(self
+            .root
+            .join(encode_cache_component(&manifest.name))
+            .join(encode_cache_component(&manifest.version))
+            .join(format!("abi-{}", manifest.abi.major))
+            .join(content_hash))
+    }
+
+    pub fn ensure_package_dir(
+        &self,
+        manifest: &PluginManifest,
+        content_hash: &str,
+    ) -> Result<PathBuf, PluginCacheError> {
+        let package_dir = self.package_dir(manifest, content_hash)?;
+        fs::create_dir_all(&package_dir).map_err(|source| PluginCacheError::CreateDir {
+            path: package_dir.clone(),
+            source: source.to_string(),
+        })?;
+        Ok(package_dir)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PluginCacheError {
+    MissingDataHome,
+    InvalidContentHash(String),
+    CreateDir { path: PathBuf, source: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginLoadError {
     ReadManifest {
         path: PathBuf,
@@ -270,13 +343,50 @@ fn validate_entry(value: &str) -> Result<PathBuf, PluginLoadError> {
     Ok(path.to_path_buf())
 }
 
+fn non_empty_env_path(name: &str) -> Option<PathBuf> {
+    let value = env::var_os(name)?;
+    if value.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(value))
+}
+
+fn validate_content_hash(value: &str) -> Result<(), PluginCacheError> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(PluginCacheError::InvalidContentHash(value.to_owned()));
+    }
+    Ok(())
+}
+
+fn encode_cache_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(hex_digit(byte >> 4));
+            encoded.push(hex_digit(byte & 0x0f));
+        }
+    }
+    encoded
+}
+
+fn hex_digit(value: u8) -> char {
+    match value {
+        0..=9 => char::from(b'0' + value),
+        10..=15 => char::from(b'a' + value - 10),
+        _ => unreachable!("hex digit input is masked to four bits"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{env, fs, process, time::SystemTime};
 
     use super::{
-        PLUGIN_MANIFEST_FILE, PluginKind, PluginLoadError, PluginLoader, PluginPolicyError,
-        PluginRuntimePolicy,
+        PLUGIN_MANIFEST_FILE, PluginCache, PluginCacheError, PluginKind, PluginLoadError,
+        PluginLoader, PluginPolicyError, PluginRuntimePolicy,
     };
     use crate::abi::{AbiVersion, Capability, CapabilitySet};
 
@@ -420,6 +530,45 @@ mod tests {
             PluginRuntimePolicy::with_grants(CapabilitySet::from_iter([Capability::FsWrite]));
         assert!(granted.allows(Capability::FsWrite));
         assert!(granted.validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
+    fn plugin_cache_uses_xdg_data_home_namespace() {
+        let cache = PluginCache::from_data_home("/tmp/xdg-data");
+
+        assert_eq!(
+            cache.root(),
+            std::path::Path::new("/tmp/xdg-data/kumeyuri/plugins")
+        );
+    }
+
+    #[test]
+    fn plugin_cache_places_packages_by_name_version_abi_and_hash() {
+        let manifest = PluginLoader::default()
+            .parse_manifest_json(
+                r#"{
+  "name": "@scope/render-pdf",
+  "version": "0.1.0",
+  "abi": "1.0",
+  "entry": "plugin.wasm",
+  "kind": "render-backend",
+  "capabilities": [],
+  "exports": { "renderBackend": "pdf" }
+}"#,
+            )
+            .unwrap();
+        let cache = PluginCache::new("/tmp/kumeyuri-cache");
+
+        assert_eq!(
+            cache.package_dir(&manifest, "abcdef012345").unwrap(),
+            std::path::Path::new(
+                "/tmp/kumeyuri-cache/%40scope%2frender-pdf/0.1.0/abi-1/abcdef012345"
+            )
+        );
+        assert_eq!(
+            cache.package_dir(&manifest, "not-a-hash").unwrap_err(),
+            PluginCacheError::InvalidContentHash("not-a-hash".to_owned())
+        );
     }
 
     fn unique_temp_dir(label: &str) -> std::path::PathBuf {

@@ -243,7 +243,7 @@
 - [x] Implement plugin loader in `kumeyuri-core::plugins`
 - [x] Implement capability denial defaults (no fs, no net, no env)
 - [x] Implement explicit grants via `--plugin-allow=<csv>`
-- [ ] Implement plugin caching at `$XDG_DATA_HOME/kumeyuri/plugins/`
+- [x] Implement plugin caching at `$XDG_DATA_HOME/kumeyuri/plugins/`
 - [ ] Implement `kumeyuri plugin install <name>` resolving npm + crates.io tagged with `kumeyuri-plugin`
 - [ ] Implement `kumeyuri plugin list / remove / update / disable` subcommands
 - [ ] Author plugin author guide `docs/plugins/authoring.md` with hello-world example
