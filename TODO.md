@@ -328,8 +328,8 @@
 - [x] Verify touch targets ≥ 44×44 px on the web player
 - [x] Verify SVG `<title>` and `<desc>` populate from diagram metadata
 - [x] Verify `.vtt` caption track generated and synced to animation
-- [ ] Verify `--narrate` flag emits sensible prose for each diagram type
-- [ ] Verify `--alt-text` flag returns paste-ready alt strings
+- [x] Verify `--narrate` flag emits sensible prose for each diagram type
+- [x] Verify `--alt-text` flag returns paste-ready alt strings
 
 ### Security audit checklist (continuous; gate every release)
 

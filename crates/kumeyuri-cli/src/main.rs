@@ -12,7 +12,10 @@ use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use kumeyuri_core::{
     abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
-    ast::{Diagram, DiagramKind, Direction, FlowStatement, FlowchartAst},
+    ast::{
+        Diagram, DiagramKind, Direction, FlowStatement, FlowchartAst, IshikawaNode, MindmapNode,
+        SequenceStatement, TimelinePeriod, TreeViewNode, TreemapNode,
+    },
     frame::{Charset, Frame, StaticFrameRenderer},
     layout::FlowLayoutConfig,
     parser::Parser as MermaidParser,
@@ -142,6 +145,10 @@ enum RenderFormat {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Args)]
 struct RenderOptions {
+    #[arg(long)]
+    narrate: bool,
+    #[arg(long = "alt-text")]
+    alt_text: bool,
     #[arg(long, value_enum)]
     theme: Option<RenderTheme>,
     #[arg(long, value_enum)]
@@ -1246,6 +1253,12 @@ fn render_source(
     options: &RenderOptions,
 ) -> Result<Vec<u8>, String> {
     validate_render_options(format, options)?;
+    if options.narrate {
+        return Ok(render_narration_source(source)?.into_bytes());
+    }
+    if options.alt_text {
+        return Ok(render_alt_text_source(source)?.into_bytes());
+    }
     match format {
         RenderFormat::Text => Ok(render_text_source(source, options)?.into_bytes()),
         RenderFormat::Svg => Ok(render_svg_source(source, options)?.into_bytes()),
@@ -1258,7 +1271,17 @@ fn render_source(
 }
 
 fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
-    if options.dark_theme.is_some() && format != RenderFormat::Svg {
+    if options.narrate && options.alt_text {
+        return Err("--narrate and --alt-text cannot be used together".to_owned());
+    }
+    if (options.narrate || options.alt_text) && format != RenderFormat::Text {
+        return Err("--narrate and --alt-text cannot be combined with --format".to_owned());
+    }
+    if !options.narrate
+        && !options.alt_text
+        && options.dark_theme.is_some()
+        && format != RenderFormat::Svg
+    {
         return Err(msg("render-dark-theme-svg-only"));
     }
     let _plugin_policy = plugin_runtime_policy(options);
@@ -1308,6 +1331,16 @@ fn render_vtt_source(source: &str, options: &RenderOptions) -> Result<String, St
     let timeline =
         timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
     Ok(render_timeline_vtt(&timeline))
+}
+
+fn render_narration_source(source: &str) -> Result<String, String> {
+    let diagram = parse_diagram(source)?;
+    Ok(format!("{}\n", narrate_diagram(&diagram)))
+}
+
+fn render_alt_text_source(source: &str) -> Result<String, String> {
+    let diagram = parse_diagram(source)?;
+    Ok(format!("{}\n", alt_text_for_diagram(&diagram)))
 }
 
 fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
@@ -1661,6 +1694,377 @@ fn escape_vtt_text(value: &str) -> String {
         .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+}
+
+fn narrate_diagram(diagram: &Diagram) -> String {
+    let summary = diagram_kind_summary(&diagram.kind);
+    match accessible_title(diagram) {
+        Some(title) => format!("{title}. {summary}"),
+        None => summary,
+    }
+}
+
+fn alt_text_for_diagram(diagram: &Diagram) -> String {
+    if let Some(description) = &diagram.metadata.accessibility_description {
+        return normalize_inline_text(&description.text);
+    }
+    narrate_diagram(diagram)
+}
+
+fn accessible_title(diagram: &Diagram) -> Option<String> {
+    diagram
+        .metadata
+        .accessibility_title
+        .as_ref()
+        .or(diagram.metadata.title.as_ref())
+        .map(|label| normalize_inline_text(&label.text))
+        .or_else(|| diagram_kind_title(&diagram.kind))
+}
+
+fn diagram_kind_title(kind: &DiagramKind) -> Option<String> {
+    match kind {
+        DiagramKind::Gantt(ast) => ast.title.as_ref(),
+        DiagramKind::Pie(ast) => ast.title.as_ref(),
+        DiagramKind::Quadrant(ast) => ast.title.as_ref(),
+        DiagramKind::ZenUml(ast) => ast.title.as_ref(),
+        DiagramKind::XyChart(ast) => ast.title.as_ref(),
+        DiagramKind::Packet(ast) => ast.title.as_ref(),
+        DiagramKind::Radar(ast) => ast.title.as_ref(),
+        DiagramKind::Venn(ast) => ast.title.as_ref(),
+        DiagramKind::Wardley(ast) => ast.title.as_ref(),
+        DiagramKind::Journey(ast) => ast.title.as_ref(),
+        DiagramKind::Timeline(ast) => ast.title.as_ref(),
+        DiagramKind::C4(ast) => ast.title.as_ref(),
+        DiagramKind::Flowchart(_)
+        | DiagramKind::Sequence(_)
+        | DiagramKind::State(_)
+        | DiagramKind::Class(_)
+        | DiagramKind::Er(_)
+        | DiagramKind::Sankey(_)
+        | DiagramKind::Block(_)
+        | DiagramKind::Kanban(_)
+        | DiagramKind::Architecture(_)
+        | DiagramKind::EventModeling(_)
+        | DiagramKind::Treemap(_)
+        | DiagramKind::Ishikawa(_)
+        | DiagramKind::TreeView(_)
+        | DiagramKind::Mindmap(_)
+        | DiagramKind::GitGraph(_)
+        | DiagramKind::Requirement(_) => None,
+    }
+    .map(|label| normalize_inline_text(&label.text))
+}
+
+fn diagram_kind_summary(kind: &DiagramKind) -> String {
+    match kind {
+        DiagramKind::Flowchart(ast) => format!(
+            "Flowchart with {}, {}, {}, and {} direction.",
+            count_phrase(flowchart_node_count(ast), "node", "nodes"),
+            count_phrase(ast.edges.len(), "edge", "edges"),
+            count_phrase(ast.subgraphs.len(), "subgraph", "subgraphs"),
+            direction_label(ast.header.direction.value)
+        ),
+        DiagramKind::Sequence(ast) => format!(
+            "Sequence diagram with {}, {}, and {}.",
+            count_phrase(ast.participants.len(), "participant", "participants"),
+            count_phrase(
+                sequence_message_count(&ast.statements),
+                "message",
+                "messages"
+            ),
+            count_phrase(ast.boxes.len(), "box", "boxes")
+        ),
+        DiagramKind::State(ast) => format!(
+            "State diagram with {} and {}.",
+            count_phrase(ast.states.len(), "state", "states"),
+            count_phrase(ast.transitions.len(), "transition", "transitions")
+        ),
+        DiagramKind::Class(ast) => format!(
+            "Class diagram with {} and {}.",
+            count_phrase(ast.classes.len(), "class", "classes"),
+            count_phrase(ast.relationships.len(), "relationship", "relationships")
+        ),
+        DiagramKind::Er(ast) => format!(
+            "Entity relationship diagram with {} and {}.",
+            count_phrase(ast.entities.len(), "entity", "entities"),
+            count_phrase(ast.relationships.len(), "relationship", "relationships")
+        ),
+        DiagramKind::Gantt(ast) => {
+            format!(
+                "Gantt chart with {}.",
+                count_phrase(ast.tasks.len(), "task", "tasks")
+            )
+        }
+        DiagramKind::Pie(ast) => format!(
+            "Pie chart with {} totaling {} units.",
+            count_phrase(ast.slices.len(), "slice", "slices"),
+            ast.slices
+                .iter()
+                .map(|slice| slice.value_units.value)
+                .sum::<u64>()
+        ),
+        DiagramKind::Quadrant(ast) => format!(
+            "Quadrant chart with {}, {}, and {}.",
+            count_phrase(ast.points.len(), "point", "points"),
+            count_phrase(ast.quadrants.len(), "quadrant label", "quadrant labels"),
+            count_phrase(
+                axis_count(ast.x_axis.is_some(), ast.y_axis.is_some()),
+                "axis",
+                "axes"
+            )
+        ),
+        DiagramKind::ZenUml(ast) => format!(
+            "ZenUML sequence with {}, {}, and {}.",
+            count_phrase(ast.participants.len(), "participant", "participants"),
+            count_phrase(ast.messages.len(), "message", "messages"),
+            count_phrase(ast.fragments.len(), "fragment", "fragments")
+        ),
+        DiagramKind::Sankey(ast) => {
+            format!(
+                "Sankey diagram with {}.",
+                count_phrase(ast.links.len(), "link", "links")
+            )
+        }
+        DiagramKind::XyChart(ast) => format!(
+            "XY chart with {}, {}, and {}.",
+            count_phrase(ast.series.len(), "series", "series"),
+            count_phrase(
+                axis_count(ast.x_axis.is_some(), ast.y_axis.is_some()),
+                "axis",
+                "axes"
+            ),
+            xy_series_kinds(ast.series.iter().map(|series| series.kind.value))
+        ),
+        DiagramKind::Block(ast) => format!(
+            "Block diagram with {}, {}, and {}.",
+            count_phrase(ast.blocks.len(), "block", "blocks"),
+            count_phrase(ast.edges.len(), "edge", "edges"),
+            count_phrase(ast.styles.len(), "style rule", "style rules")
+        ),
+        DiagramKind::Packet(ast) => format!(
+            "Packet diagram with {}.",
+            count_phrase(ast.fields.len(), "field", "fields")
+        ),
+        DiagramKind::Kanban(ast) => format!(
+            "Kanban board with {} and {}.",
+            count_phrase(ast.columns.len(), "column", "columns"),
+            count_phrase(
+                ast.columns
+                    .iter()
+                    .map(|column| column.tasks.len())
+                    .sum::<usize>(),
+                "task",
+                "tasks"
+            )
+        ),
+        DiagramKind::Architecture(ast) => format!(
+            "Architecture diagram with {}, {}, {}, and {}.",
+            count_phrase(ast.groups.len(), "group", "groups"),
+            count_phrase(ast.services.len(), "service", "services"),
+            count_phrase(ast.junctions.len(), "junction", "junctions"),
+            count_phrase(ast.edges.len(), "edge", "edges")
+        ),
+        DiagramKind::Radar(ast) => format!(
+            "Radar chart with {} and {}.",
+            count_phrase(ast.axes.len(), "axis", "axes"),
+            count_phrase(ast.curves.len(), "curve", "curves")
+        ),
+        DiagramKind::EventModeling(ast) => format!(
+            "Event modeling diagram with {} and {}.",
+            count_phrase(ast.timeframes.len(), "timeframe", "timeframes"),
+            count_phrase(ast.data_blocks.len(), "data block", "data blocks")
+        ),
+        DiagramKind::Treemap(ast) => format!(
+            "Treemap with {} and {} total.",
+            count_phrase(ast.roots.len(), "root", "roots"),
+            count_phrase(
+                ast.roots.iter().map(treemap_node_count).sum::<usize>(),
+                "node",
+                "nodes"
+            )
+        ),
+        DiagramKind::Venn(ast) => format!(
+            "Venn diagram with {}, {}, and {}.",
+            count_phrase(ast.sets.len(), "set", "sets"),
+            count_phrase(ast.unions.len(), "union", "unions"),
+            count_phrase(ast.texts.len(), "text label", "text labels")
+        ),
+        DiagramKind::Ishikawa(ast) => format!(
+            "Ishikawa diagram for {} with {}.",
+            normalize_inline_text(&ast.event.text),
+            count_phrase(
+                ast.causes.iter().map(ishikawa_node_count).sum::<usize>(),
+                "cause",
+                "causes"
+            )
+        ),
+        DiagramKind::Wardley(ast) => format!(
+            "Wardley map with {}, {}, {}, and {}.",
+            count_phrase(ast.components.len(), "component", "components"),
+            count_phrase(ast.links.len(), "link", "links"),
+            count_phrase(ast.evolves.len(), "evolution marker", "evolution markers"),
+            count_phrase(ast.annotations.len(), "annotation", "annotations")
+        ),
+        DiagramKind::TreeView(ast) => format!(
+            "Tree view with {} and {} total.",
+            count_phrase(ast.roots.len(), "root", "roots"),
+            count_phrase(
+                ast.roots.iter().map(tree_view_node_count).sum::<usize>(),
+                "node",
+                "nodes"
+            )
+        ),
+        DiagramKind::Mindmap(ast) => format!(
+            "Mind map with {} and {} total.",
+            count_phrase(ast.roots.len(), "root", "roots"),
+            count_phrase(
+                ast.roots.iter().map(mindmap_node_count).sum::<usize>(),
+                "node",
+                "nodes"
+            )
+        ),
+        DiagramKind::Journey(ast) => format!(
+            "User journey with {}.",
+            count_phrase(ast.tasks.len(), "task", "tasks")
+        ),
+        DiagramKind::GitGraph(ast) => format!(
+            "Git graph with {}, {}, {}, and {}.",
+            count_phrase(ast.commits.len(), "commit", "commits"),
+            count_phrase(ast.branches.len(), "branch", "branches"),
+            count_phrase(ast.merges.len(), "merge", "merges"),
+            count_phrase(ast.cherry_picks.len(), "cherry-pick", "cherry-picks")
+        ),
+        DiagramKind::Timeline(ast) => format!(
+            "Timeline with {}, {}, and {}.",
+            count_phrase(ast.periods.len(), "period", "periods"),
+            count_phrase(timeline_event_count(&ast.periods), "event", "events"),
+            count_phrase(
+                ast.periods
+                    .iter()
+                    .filter(|period| period.section.is_some())
+                    .count(),
+                "sectioned period",
+                "sectioned periods"
+            )
+        ),
+        DiagramKind::Requirement(ast) => format!(
+            "Requirement diagram with {}, {}, and {}.",
+            count_phrase(ast.requirements.len(), "requirement", "requirements"),
+            count_phrase(ast.elements.len(), "element", "elements"),
+            count_phrase(ast.relationships.len(), "relationship", "relationships")
+        ),
+        DiagramKind::C4(ast) => format!(
+            "C4 {} diagram with {}, {}, and {}.",
+            c4_diagram_type_label(ast.header.diagram_type.value),
+            count_phrase(ast.elements.len(), "element", "elements"),
+            count_phrase(ast.relationships.len(), "relationship", "relationships"),
+            count_phrase(ast.boundaries.len(), "boundary", "boundaries")
+        ),
+    }
+}
+
+fn sequence_message_count(statements: &[SequenceStatement]) -> usize {
+    statements
+        .iter()
+        .map(|statement| match statement {
+            SequenceStatement::Message(_) => 1,
+            SequenceStatement::Control(block) => sequence_message_count(&block.statements),
+            SequenceStatement::Participant(_)
+            | SequenceStatement::Create(_)
+            | SequenceStatement::Destroy(_)
+            | SequenceStatement::Box(_)
+            | SequenceStatement::ActivationStart(_)
+            | SequenceStatement::ActivationEnd(_)
+            | SequenceStatement::Note(_)
+            | SequenceStatement::AutoNumber(_)
+            | SequenceStatement::Comment(_)
+            | SequenceStatement::Directive(_) => 0,
+        })
+        .sum()
+}
+
+fn flowchart_node_count(ast: &FlowchartAst) -> usize {
+    let mut nodes = Vec::new();
+    let mut connected = BTreeSet::new();
+    collect_flow_statements(&ast.statements, &mut nodes, &mut connected);
+    nodes.len()
+}
+
+fn treemap_node_count(node: &TreemapNode) -> usize {
+    1 + node.children.iter().map(treemap_node_count).sum::<usize>()
+}
+
+fn tree_view_node_count(node: &TreeViewNode) -> usize {
+    1 + node
+        .children
+        .iter()
+        .map(tree_view_node_count)
+        .sum::<usize>()
+}
+
+fn mindmap_node_count(node: &MindmapNode) -> usize {
+    1 + node.children.iter().map(mindmap_node_count).sum::<usize>()
+}
+
+fn ishikawa_node_count(node: &IshikawaNode) -> usize {
+    1 + node.causes.iter().map(ishikawa_node_count).sum::<usize>()
+}
+
+fn timeline_event_count(periods: &[TimelinePeriod]) -> usize {
+    periods.iter().map(|period| period.events.len()).sum()
+}
+
+fn xy_series_kinds(
+    values: impl IntoIterator<Item = kumeyuri_core::ast::XyChartSeriesKind>,
+) -> String {
+    let mut bar = 0_usize;
+    let mut line = 0_usize;
+    for value in values {
+        match value {
+            kumeyuri_core::ast::XyChartSeriesKind::Bar => bar += 1,
+            kumeyuri_core::ast::XyChartSeriesKind::Line => line += 1,
+        }
+    }
+    format!(
+        "{} and {}",
+        count_phrase(bar, "bar series", "bar series"),
+        count_phrase(line, "line series", "line series")
+    )
+}
+
+fn axis_count(x_axis: bool, y_axis: bool) -> usize {
+    usize::from(u8::from(x_axis) + u8::from(y_axis))
+}
+
+fn direction_label(direction: Direction) -> &'static str {
+    match direction {
+        Direction::TopDown => "top-down",
+        Direction::BottomTop => "bottom-top",
+        Direction::LeftRight => "left-to-right",
+        Direction::RightLeft => "right-to-left",
+    }
+}
+
+fn c4_diagram_type_label(diagram_type: kumeyuri_core::ast::C4DiagramType) -> &'static str {
+    match diagram_type {
+        kumeyuri_core::ast::C4DiagramType::Context => "context",
+        kumeyuri_core::ast::C4DiagramType::Container => "container",
+        kumeyuri_core::ast::C4DiagramType::Component => "component",
+        kumeyuri_core::ast::C4DiagramType::Dynamic => "dynamic",
+        kumeyuri_core::ast::C4DiagramType::Deployment => "deployment",
+    }
+}
+
+fn count_phrase(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {singular}")
+    } else {
+        format!("{count} {plural}")
+    }
+}
+
+fn normalize_inline_text(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -2321,6 +2725,25 @@ mod tests {
     }
 
     #[test]
+    fn render_mode_parser_accepts_narrate_and_alt_text_flags() {
+        let narrate =
+            Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--narrate"]).unwrap();
+        let Command::Render { options, .. } = narrate.command else {
+            panic!("expected render command");
+        };
+        assert!(options.narrate);
+        assert!(!options.alt_text);
+
+        let alt_text =
+            Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--alt-text"]).unwrap();
+        let Command::Render { options, .. } = alt_text.command else {
+            panic!("expected render command");
+        };
+        assert!(options.alt_text);
+        assert!(!options.narrate);
+    }
+
+    #[test]
     fn plugin_allow_parser_rejects_unknown_capabilities() {
         let error = Cli::try_parse_from([
             "kumeyuri",
@@ -2485,6 +2908,71 @@ mod tests {
 
         assert!(output.contains(r#"<title id="kumeyuri-title">Checkout &amp; pay</title>"#));
         assert!(output.contains(r#"<desc id="kumeyuri-desc">Choose &lt;card&gt;</desc>"#));
+    }
+
+    #[test]
+    fn narrate_flag_emits_type_specific_prose() {
+        let output = String::from_utf8(
+            render_source(
+                "graph TD\nA --> B",
+                RenderFormat::Text,
+                &RenderOptions {
+                    narrate: true,
+                    ..RenderOptions::default()
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            output,
+            "Flowchart with 2 nodes, 1 edge, 0 subgraphs, and top-down direction.\n"
+        );
+    }
+
+    #[test]
+    fn alt_text_flag_prefers_accessibility_description() {
+        let output = String::from_utf8(
+            render_source(
+                "graph TD\naccTitle: Checkout flow\naccDescr: Choose <card>\nA --> B",
+                RenderFormat::Text,
+                &RenderOptions {
+                    alt_text: true,
+                    ..RenderOptions::default()
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(output, "Choose <card>\n");
+    }
+
+    #[test]
+    fn narration_mode_flags_reject_conflicts() {
+        let conflict = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Text,
+            &RenderOptions {
+                narrate: true,
+                alt_text: true,
+                ..RenderOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(conflict.contains("--narrate and --alt-text cannot be used together"));
+
+        let format_conflict = render_source(
+            "graph TD\nA --> B",
+            RenderFormat::Svg,
+            &RenderOptions {
+                alt_text: true,
+                ..RenderOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(format_conflict.contains("cannot be combined with --format"));
     }
 
     #[test]
