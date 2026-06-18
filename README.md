@@ -1,12 +1,25 @@
-# strok
+# contourtty
 
 ![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
 
-strok is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
+contourtty is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
 
 ## Status
 
 Pre-alpha. The repo is being scaffolded from the phase plan in `TODO.md`; no playable renderer exists yet.
+
+## Name
+
+Chosen name: `contourtty`.
+
+Public namespace checks on 2026-06-18:
+
+- GitHub user/org path: `https://github.com/contourtty` returned 404.
+- GitHub public repository search: no exact `contourtty` repository name in the first 100 `in:name` matches.
+- Homebrew Formula API: `https://formulae.brew.sh/api/formula/contourtty.json` returned 404.
+- Homebrew Cask API: `https://formulae.brew.sh/api/cask/contourtty.json` returned 404.
+- Saturated names rejected: `timg`, `tplay`, `chafa`, `ascii-video-player`.
+- Alternatives rejected: `strok` (`https://github.com/strok` exists), `glyph`/`hatch` (Homebrew collisions), `glyphstream`/`etch`/`inkterm` (GitHub exact-repo collisions).
 
 ## License
 

@@ -43,7 +43,6 @@
 ## PHASE A — Foundations & scaffolding
 *Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
 
-- [ ] **A2. Decide & document name.** DoD: project name chosen, checked free on GitHub + Homebrew + not colliding with `timg`/`tplay`/`chafa`/`ascii-video-player`; recorded in README.
 - [ ] **A3. CMake build skeleton.** DoD: `cmake -B build && cmake --build build` produces an empty binary that prints `--version`; C++20 standard enforced; warnings-as-errors in CI profile.
 - [ ] **A4. Dependency strategy doc.** DoD: `DEPENDENCIES.md` lists FFmpeg libs (libavformat/libavcodec/libavutil/libswscale), audio lib, CLI parser, and states find-package vs vendored vs pkg-config for each; documents minimum FFmpeg version.
 - [ ] **A5. CLI argument parser wired.** DoD: `--help`, `--version`, positional `<input>`, and stub flags (`--width`, `--fps`, `--mode`, `--color`) parse without error; bad flags produce a clear message and non-zero exit. Reference: PHASE_A §CLI.
