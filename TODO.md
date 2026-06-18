@@ -191,7 +191,7 @@
 - [x] Wardley: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] TreeView: implement parser, layout, static renderer, animation default, docs, and snapshot coverage
 - [x] Add cross-format snapshot coverage for all supported roots: text, SVG, PNG, GIF, APNG, WebP, TUI timeline hashes, and WASM render output
-- [ ] Add browser visual regression screenshots for `<kumeyuri-diagram>` controls across desktop and mobile viewport sizes
+- [x] Add browser visual regression screenshots for `<kumeyuri-diagram>` controls across desktop and mobile viewport sizes
 - [ ] Add fuzz/property tests for supported-root parsers with round-trip invariants over AST counts and source spans
 - [ ] Add mutation tests for parsers to ensure invalid Mermaid syntax fails fast instead of silently dropping statements
 - [ ] Add compatibility CI that diffs Mermaid docs root list against `COVERAGE.md` and opens/fails on missing roots

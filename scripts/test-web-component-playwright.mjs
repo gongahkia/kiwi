@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { chromium, devices, firefox, webkit } from "playwright";
 
 const root = process.cwd();
+const updateScreenshots = process.env.KUMEYURI_UPDATE_WEB_COMPONENT_SCREENSHOTS === "1";
 const componentModule = await readFile(join(root, "packages/kumeyuri/dist/index.js"), "utf8");
 const targets = [
   { name: "chromium", browserType: chromium },
@@ -73,9 +75,31 @@ async function runTarget(target, baseUrl) {
     });
     assert.equal(await page.locator("#frame-0").getAttribute("opacity"), "0");
     assert.equal(await page.locator("#frame-1").getAttribute("opacity"), "1");
+
+    await assertScreenshot(target.name, await diagram.screenshot({ animations: "disabled" }));
   } finally {
     await browser.close();
   }
+}
+
+async function assertScreenshot(name, actual) {
+  const dir = join(root, "tests/golden/web-component");
+  const path = join(dir, `${name}.png`);
+  if (updateScreenshots) {
+    await mkdir(dir, { recursive: true });
+    await writeFile(path, actual);
+    return;
+  }
+  const expected = await readFile(path);
+  assert.equal(
+    sha256(actual),
+    sha256(expected),
+    `${name} screenshot mismatch; rerun with KUMEYURI_UPDATE_WEB_COMPONENT_SCREENSHOTS=1 to update`,
+  );
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 async function serve() {
@@ -103,6 +127,14 @@ async function serve() {
 function pageHtml() {
   return `<!doctype html>
 <html>
+  <head>
+    <style>
+      body { margin: 0; padding: 16px; background: #f6f8fa; }
+      kumeyuri-diagram { display: block; width: max-content; color: #24292f; }
+      kumeyuri-diagram svg { display: block; width: 360px; height: 180px; background: #ffffff; border: 1px solid #d0d7de; }
+      kumeyuri-diagram [data-kumeyuri-controls='true'] { border-radius: 4px; }
+    </style>
+  </head>
   <body>
     <kumeyuri-diagram
       inline="graph TD&#10;A --> B"
