@@ -133,7 +133,7 @@ impl Theme {
                 edge: RgbColor::new(0x8b, 0x94, 0x9e),
                 edge_alt: RgbColor::new(0xd2, 0xa8, 0xff),
                 highlight: RgbColor::new(0xf2, 0xcc, 0x60),
-                muted: RgbColor::new(0x48, 0x4f, 0x58),
+                muted: RgbColor::new(0x7d, 0x85, 0x90),
             },
         }
     }
@@ -167,7 +167,7 @@ impl Theme {
                 edge: RgbColor::new(0x9e, 0xce, 0x6a),
                 edge_alt: RgbColor::new(0xf7, 0x76, 0x8e),
                 highlight: RgbColor::new(0xe0, 0xaf, 0x68),
-                muted: RgbColor::new(0x41, 0x48, 0x68),
+                muted: RgbColor::new(0x7c, 0x85, 0xb6),
             },
         }
     }
@@ -183,8 +183,8 @@ impl Theme {
                 accent: RgbColor::new(0x09, 0x69, 0xda),
                 edge: RgbColor::new(0x57, 0x60, 0x6a),
                 edge_alt: RgbColor::new(0x82, 0x50, 0xdf),
-                highlight: RgbColor::new(0xbf, 0x87, 0x00),
-                muted: RgbColor::new(0x8c, 0x95, 0x9f),
+                highlight: RgbColor::new(0x9a, 0x67, 0x00),
+                muted: RgbColor::new(0x6e, 0x77, 0x81),
             },
         }
     }
@@ -201,7 +201,7 @@ impl Theme {
                 edge: RgbColor::new(0x50, 0xfa, 0x7b),
                 edge_alt: RgbColor::new(0xff, 0x79, 0xc6),
                 highlight: RgbColor::new(0xf1, 0xfa, 0x8c),
-                muted: RgbColor::new(0x62, 0x72, 0xa4),
+                muted: RgbColor::new(0x8b, 0x96, 0xbd),
             },
         }
     }
@@ -309,5 +309,62 @@ mod tests {
             })
         );
         assert!(style.bold);
+    }
+
+    #[test]
+    fn built_in_theme_roles_meet_wcag_aa_contrast() {
+        let roles = [
+            ThemeRole::Background,
+            ThemeRole::Text,
+            ThemeRole::Node,
+            ThemeRole::Edge,
+            ThemeRole::EdgeAlt,
+            ThemeRole::Highlight,
+            ThemeRole::Muted,
+        ];
+
+        for theme in Theme::starter_themes() {
+            for role in roles {
+                let style = theme.style_for(role);
+                let foreground = rgb_from_style(style.foreground);
+                let background = rgb_from_style(style.background);
+                let ratio = contrast_ratio(foreground, background);
+                assert!(
+                    ratio >= 4.5,
+                    "{} {role:?} contrast {ratio:.2} is below 4.5:1",
+                    theme.name,
+                );
+            }
+        }
+    }
+
+    fn rgb_from_style(color: Option<Color>) -> RgbColor {
+        let Some(Color::Rgb { red, green, blue }) = color else {
+            panic!("expected RGB style color");
+        };
+        RgbColor::new(red, green, blue)
+    }
+
+    fn contrast_ratio(first: RgbColor, second: RgbColor) -> f64 {
+        let first = relative_luminance(first);
+        let second = relative_luminance(second);
+        let lighter = first.max(second);
+        let darker = first.min(second);
+        (lighter + 0.05) / (darker + 0.05)
+    }
+
+    fn relative_luminance(color: RgbColor) -> f64 {
+        0.2126 * linear_channel(color.red)
+            + 0.7152 * linear_channel(color.green)
+            + 0.0722 * linear_channel(color.blue)
+    }
+
+    fn linear_channel(value: u8) -> f64 {
+        let value = f64::from(value) / 255.0;
+        if value <= 0.03928 {
+            value / 12.92
+        } else {
+            ((value + 0.055) / 1.055).powf(2.4)
+        }
     }
 }

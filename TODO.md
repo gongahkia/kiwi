@@ -321,7 +321,7 @@
 
 - [x] Run `axe-core` against web player; zero violations
 - [x] Run `pa11y` against every doc-site page; zero violations
-- [ ] Verify all themes meet 4.5:1 contrast ratio (automated headless render + colour sample)
+- [x] Verify all themes meet 4.5:1 contrast ratio (automated headless render + colour sample)
 - [ ] Verify `prefers-reduced-motion: reduce` produces static SVG with progress dots
 - [ ] Verify keyboard-only navigation reaches every control (manual smoke test)
 - [ ] Verify NVDA, VoiceOver, JAWS narration of `aria-live` region
@@ -388,7 +388,7 @@
 - [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
 - [ ] Implement theme hot-reload in `kumeyuri watch`
 - [ ] Document theme authoring in `docs/theming.md`
-- [ ] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
+- [x] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
 
 ### `.kumecast` format build (Phase 3)
 
