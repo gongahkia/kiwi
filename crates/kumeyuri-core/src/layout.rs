@@ -9342,45 +9342,11 @@ fn place_graph(
         .map(|(index, _)| node_size(&labels[index], config))
         .collect::<Vec<_>>();
     let mut rects = place_top_down(&sizes, layers, order, config);
+    transform_rects_for_direction(&mut rects, layers, direction, config);
+
+    let mut subgraphs = position_subgraphs(graph, &mut rects);
+    pack_disconnected_components(graph, &mut rects, &mut subgraphs, direction, config);
     let mut size = layout_size(&rects);
-
-    match direction {
-        Direction::TopDown => {}
-        Direction::BottomTop => {
-            for rect in &mut rects {
-                rect.origin.y = size.height - rect.bottom();
-            }
-        }
-        Direction::LeftRight | Direction::RightLeft => {
-            let max_layer = layers.iter().copied().max().unwrap_or(0);
-            let mut layer_widths = vec![0i32; max_layer + 1];
-            for (index, layer) in layers.iter().copied().enumerate() {
-                layer_widths[layer] = layer_widths[layer].max(rects[index].size.width);
-            }
-            let mut layer_offsets = vec![0i32; max_layer + 1];
-            let mut next_x = 0i32;
-            for (layer, width) in layer_widths.iter().copied().enumerate() {
-                layer_offsets[layer] = next_x;
-                next_x += width + config.horizontal_spacing;
-            }
-            for (index, rect) in rects.iter_mut().enumerate() {
-                let y = rect.origin.x;
-                rect.origin = Point {
-                    x: layer_offsets[layers[index]],
-                    y,
-                };
-            }
-            size = layout_size(&rects);
-            if direction == Direction::RightLeft {
-                for rect in &mut rects {
-                    rect.origin.x = size.width - rect.right();
-                }
-            }
-        }
-    }
-
-    let subgraphs = position_subgraphs(graph, &mut rects);
-    size = layout_size(&rects);
     size = layout_size_with_subgraphs(size, &subgraphs);
 
     let nodes = graph
@@ -9452,6 +9418,160 @@ fn position_subgraphs(graph: &LayoutGraph, rects: &mut [Rect]) -> Vec<Positioned
             })
         })
         .collect()
+}
+
+fn pack_disconnected_components(
+    graph: &LayoutGraph,
+    rects: &mut [Rect],
+    subgraphs: &mut [PositionedFlowSubgraph],
+    direction: Direction,
+    config: FlowLayoutConfig,
+) {
+    let components = layout_components(graph);
+    if components.len() <= 1 {
+        return;
+    }
+
+    let mut node_components = vec![usize::MAX; graph.nodes.len()];
+    for (component, nodes) in components.iter().enumerate() {
+        for index in nodes {
+            node_components[*index] = component;
+        }
+    }
+
+    let mut bounds = components
+        .iter()
+        .map(|nodes| {
+            bounding_rect(nodes.iter().map(|index| rects[*index]))
+                .expect("component must contain nodes")
+        })
+        .collect::<Vec<_>>();
+    for subgraph in subgraphs.iter() {
+        if let Some(component) = subgraph_component(graph, subgraph, &node_components) {
+            bounds[component] = enclosing_rect(bounds[component], subgraph.rect);
+        }
+    }
+
+    let gap = component_gap(direction, config);
+    let mut offsets = vec![Point { x: 0, y: 0 }; components.len()];
+    match direction {
+        Direction::TopDown | Direction::BottomTop => {
+            let mut next_x = 0;
+            for (component, bounds) in bounds.iter().copied().enumerate() {
+                offsets[component] = Point {
+                    x: next_x - bounds.origin.x,
+                    y: -bounds.origin.y,
+                };
+                next_x += bounds.size.width + gap;
+            }
+        }
+        Direction::LeftRight | Direction::RightLeft => {
+            let mut next_y = 0;
+            for (component, bounds) in bounds.iter().copied().enumerate() {
+                offsets[component] = Point {
+                    x: -bounds.origin.x,
+                    y: next_y - bounds.origin.y,
+                };
+                next_y += bounds.size.height + gap;
+            }
+        }
+    }
+
+    for (index, rect) in rects.iter_mut().enumerate() {
+        translate_rect(rect, offsets[node_components[index]]);
+    }
+    for subgraph in subgraphs {
+        if let Some(component) = subgraph_component(graph, subgraph, &node_components) {
+            translate_rect(&mut subgraph.rect, offsets[component]);
+        }
+    }
+}
+
+fn layout_components(graph: &LayoutGraph) -> Vec<Vec<usize>> {
+    let mut adjacency = vec![Vec::new(); graph.nodes.len()];
+    for edge in &graph.edges {
+        adjacency[edge.from].push(edge.to);
+        adjacency[edge.to].push(edge.from);
+    }
+    for subgraph in &graph.subgraphs {
+        let indexes = subgraph
+            .child_ids
+            .iter()
+            .filter_map(|id| graph.node_index(id))
+            .collect::<Vec<_>>();
+        if let Some(first) = indexes.first().copied() {
+            for index in indexes.iter().copied().skip(1) {
+                adjacency[first].push(index);
+                adjacency[index].push(first);
+            }
+        }
+    }
+
+    let mut components = Vec::new();
+    let mut seen = vec![false; graph.nodes.len()];
+    for start in 0..graph.nodes.len() {
+        if seen[start] {
+            continue;
+        }
+        let mut nodes = Vec::new();
+        let mut queue = VecDeque::from([start]);
+        seen[start] = true;
+        while let Some(index) = queue.pop_front() {
+            nodes.push(index);
+            for next in adjacency[index].iter().copied() {
+                if !seen[next] {
+                    seen[next] = true;
+                    queue.push_back(next);
+                }
+            }
+        }
+        components.push(nodes);
+    }
+    components
+}
+
+fn subgraph_component(
+    graph: &LayoutGraph,
+    subgraph: &PositionedFlowSubgraph,
+    node_components: &[usize],
+) -> Option<usize> {
+    subgraph
+        .child_ids
+        .iter()
+        .filter_map(|id| graph.node_index(id))
+        .find_map(|index| node_components.get(index).copied())
+        .filter(|component| *component != usize::MAX)
+}
+
+fn enclosing_rect(left: Rect, right: Rect) -> Rect {
+    let x = left.origin.x.min(right.origin.x);
+    let y = left.origin.y.min(right.origin.y);
+    let right_edge = left.right().max(right.right());
+    let bottom = left.bottom().max(right.bottom());
+    Rect {
+        origin: Point { x, y },
+        size: Size {
+            width: right_edge - x,
+            height: bottom - y,
+        },
+    }
+}
+
+fn translate_rect(rect: &mut Rect, offset: Point) {
+    rect.origin.x += offset.x;
+    rect.origin.y += offset.y;
+}
+
+fn component_gap(direction: Direction, config: FlowLayoutConfig) -> i32 {
+    match direction {
+        Direction::TopDown | Direction::BottomTop => config
+            .horizontal_spacing
+            .max(config.horizontal_padding.saturating_mul(2))
+            .max(4),
+        Direction::LeftRight | Direction::RightLeft => {
+            config.vertical_spacing.max(config.node_height).max(4)
+        }
+    }
 }
 
 fn bounding_rect(rects: impl IntoIterator<Item = Rect>) -> Option<Rect> {
@@ -10281,6 +10401,50 @@ mod tests {
     }
 
     #[test]
+    fn clusters_disconnected_subgraphs_with_padding() {
+        let alpha = FlowSubgraph {
+            id: Spanned::new("alpha".to_owned(), Span::new(0, 0)),
+            label: None,
+            direction: None,
+            statements: vec![
+                FlowStatement::Node(simple_node("A1")),
+                FlowStatement::Node(simple_node("A2")),
+            ],
+            span: Span::new(0, 0),
+        };
+        let beta = FlowSubgraph {
+            id: Spanned::new("beta".to_owned(), Span::new(0, 0)),
+            label: None,
+            direction: None,
+            statements: vec![FlowStatement::Edge(Box::new(edge("B1", "B2")))],
+            span: Span::new(0, 0),
+        };
+        let ast = flowchart(
+            Direction::TopDown,
+            vec![
+                FlowStatement::Subgraph(alpha),
+                FlowStatement::Subgraph(beta),
+                FlowStatement::Node(simple_node("C1")),
+            ],
+        );
+
+        let layout = FlowLayoutEngine::default().layout(&ast);
+        let alpha = subgraph(&layout, "alpha");
+        let beta = subgraph(&layout, "beta");
+        let gap = if alpha.rect.origin.x < beta.rect.origin.x {
+            beta.rect.origin.x - alpha.rect.right()
+        } else {
+            alpha.rect.origin.x - beta.rect.right()
+        };
+
+        assert!(gap >= FlowLayoutConfig::default().horizontal_spacing);
+        assert!(contains_rect(alpha.rect, node(&layout, "A1").rect));
+        assert!(contains_rect(alpha.rect, node(&layout, "A2").rect));
+        assert!(contains_rect(beta.rect, node(&layout, "B1").rect));
+        assert!(contains_rect(beta.rect, node(&layout, "B2").rect));
+    }
+
+    #[test]
     fn carries_flow_edge_arrowheads() {
         let mut edge = edge("A", "B");
         edge.link.value.arrow_start = ArrowHead::Cross;
@@ -10431,6 +10595,24 @@ System(c, "C")"#,
             .iter()
             .find(|node| node.id == id)
             .unwrap_or_else(|| panic!("missing node {id}"))
+    }
+
+    fn subgraph<'layout>(
+        layout: &'layout super::FlowLayout,
+        id: &str,
+    ) -> &'layout super::PositionedFlowSubgraph {
+        layout
+            .subgraphs
+            .iter()
+            .find(|subgraph| subgraph.id == id)
+            .unwrap_or_else(|| panic!("missing subgraph {id}"))
+    }
+
+    fn contains_rect(outer: super::Rect, inner: super::Rect) -> bool {
+        outer.origin.x <= inner.origin.x
+            && outer.origin.y <= inner.origin.y
+            && inner.right() <= outer.right()
+            && inner.bottom() <= outer.bottom()
     }
 
     #[test]
