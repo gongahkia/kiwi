@@ -1,10 +1,13 @@
+use std::cell::RefCell;
+
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
 use unic_langid::LanguageIdentifier;
 
+const DEFAULT_LOCALE: &str = "en-US";
 const EN_US_FTL: &str = include_str!("../../../locales/en-US.ftl");
 
 thread_local! {
-    static EN_US: I18n = I18n::en_us().expect("embedded Fluent resources must be valid");
+    static CURRENT: RefCell<I18n> = RefCell::new(I18n::en_us().expect("embedded Fluent resources must be valid"));
 }
 
 pub fn message(id: &str) -> String {
@@ -12,9 +15,71 @@ pub fn message(id: &str) -> String {
 }
 
 pub fn format_message(id: &str, args: &[(&str, String)]) -> String {
-    EN_US.with(|i18n| {
-        i18n.format(id, args)
+    CURRENT.with(|current| {
+        current
+            .borrow()
+            .format(id, args)
             .expect("embedded Fluent message exists")
+    })
+}
+
+pub fn configure(
+    override_locale: Option<&str>,
+    lookup_env: impl FnMut(&str) -> Option<String>,
+) -> Result<(), String> {
+    let locale = resolve_locale(override_locale, lookup_env)?;
+    CURRENT.with(|current| {
+        *current.borrow_mut() = I18n::for_locale(locale)?;
+        Ok(())
+    })
+}
+
+pub fn resolve_locale(
+    override_locale: Option<&str>,
+    mut lookup_env: impl FnMut(&str) -> Option<String>,
+) -> Result<LanguageIdentifier, String> {
+    if let Some(locale) = override_locale {
+        return parse_locale(locale);
+    }
+    for name in ["LC_ALL", "LANG"] {
+        if let Some(locale) = lookup_env(name).and_then(|value| normalize_locale_tag(&value)) {
+            return parse_locale(&locale);
+        }
+    }
+    parse_locale(DEFAULT_LOCALE)
+}
+
+pub fn canonical_locale(value: &str) -> Result<String, String> {
+    let normalized = normalize_locale_tag(value)
+        .ok_or_else(|| format_message("locale-empty", &[("value", format!("{value:?}"))]))?;
+    parse_locale(&normalized)?;
+    Ok(normalized)
+}
+
+pub fn normalize_locale_tag(value: &str) -> Option<String> {
+    let tag = value
+        .trim()
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .split('@')
+        .next()
+        .unwrap_or_default();
+    if tag.is_empty() || tag.eq_ignore_ascii_case("C") || tag.eq_ignore_ascii_case("POSIX") {
+        return None;
+    }
+    Some(tag.replace('_', "-"))
+}
+
+fn parse_locale(value: &str) -> Result<LanguageIdentifier, String> {
+    value.parse::<LanguageIdentifier>().map_err(|error| {
+        format_message(
+            "locale-invalid",
+            &[
+                ("value", format!("{value:?}")),
+                ("error", error.to_string()),
+            ],
+        )
     })
 }
 
@@ -24,9 +89,10 @@ pub struct I18n {
 
 impl I18n {
     pub fn en_us() -> Result<Self, String> {
-        let locale = "en-US"
-            .parse::<LanguageIdentifier>()
-            .map_err(|error| format!("invalid locale en-US: {error}"))?;
+        Self::for_locale(parse_locale(DEFAULT_LOCALE)?)
+    }
+
+    fn for_locale(locale: LanguageIdentifier) -> Result<Self, String> {
         let resource = FluentResource::try_new(EN_US_FTL.to_owned())
             .map_err(|errors| format!("invalid en-US Fluent resource: {errors:?}"))?;
         let mut bundle = FluentBundle::new(vec![locale]);
@@ -70,7 +136,7 @@ impl I18n {
 
 #[cfg(test)]
 mod tests {
-    use super::I18n;
+    use super::{I18n, canonical_locale, resolve_locale};
 
     #[test]
     fn formats_en_us_message() {
@@ -92,5 +158,38 @@ mod tests {
                 .unwrap(),
             "requested Mermaid version: 11.15.0"
         );
+    }
+
+    #[test]
+    fn canonicalizes_posix_locale_tags() {
+        assert_eq!(canonical_locale("en_US.UTF-8").unwrap(), "en-US");
+    }
+
+    #[test]
+    fn resolves_override_before_environment() {
+        let locale = resolve_locale(Some("fr-FR"), |_| Some("ja_JP.UTF-8".to_owned())).unwrap();
+        assert_eq!(locale.to_string(), "fr-FR");
+    }
+
+    #[test]
+    fn resolves_lc_all_before_lang() {
+        let locale = resolve_locale(None, |name| match name {
+            "LC_ALL" => Some("ko_KR.UTF-8".to_owned()),
+            "LANG" => Some("ja_JP.UTF-8".to_owned()),
+            _ => None,
+        })
+        .unwrap();
+        assert_eq!(locale.to_string(), "ko-KR");
+    }
+
+    #[test]
+    fn falls_back_to_default_for_c_locale() {
+        let locale = resolve_locale(None, |name| match name {
+            "LC_ALL" => Some("C.UTF-8".to_owned()),
+            "LANG" => None,
+            _ => None,
+        })
+        .unwrap();
+        assert_eq!(locale.to_string(), "en-US");
     }
 }

@@ -50,6 +50,8 @@ use {
 #[derive(Debug, Parser)]
 #[command(name = "kumeyuri", version)]
 struct Cli {
+    #[arg(long, global = true, value_name = "LOCALE", value_parser = parse_locale_override)]
+    lang: Option<String>,
     #[command(subcommand)]
     command: Command,
 }
@@ -198,6 +200,7 @@ fn main() -> ExitCode {
 fn run() -> Result<(), String> {
     let matches = Cli::command().about(msg("cli-about")).get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
+    i18n::configure(cli.lang.as_deref(), |name| env::var(name).ok())?;
 
     match cli.command {
         Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
@@ -1534,6 +1537,10 @@ fn parse_non_empty_string(value: &str) -> Result<String, String> {
     Ok(value.to_owned())
 }
 
+fn parse_locale_override(value: &str) -> Result<String, String> {
+    i18n::canonical_locale(value)
+}
+
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
     MermaidParser::parse_diagram(source).map_err(|error| {
         msg_args(
@@ -2072,6 +2079,13 @@ mod tests {
         };
 
         assert_eq!(mermaid_version.as_deref(), Some("11.15.0"));
+    }
+
+    #[test]
+    fn global_lang_parser_accepts_locale_override() {
+        let cli = Cli::try_parse_from(["kumeyuri", "--lang", "ja_JP.UTF-8", "compat"]).unwrap();
+
+        assert_eq!(cli.lang.as_deref(), Some("ja-JP"));
     }
 
     #[test]

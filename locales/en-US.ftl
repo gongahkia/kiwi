@@ -1,4 +1,6 @@
 cli-about = Render Mermaid as animated text artifacts.
+locale-empty = invalid locale { $value }: expected non-empty locale tag
+locale-invalid = invalid locale { $value }: { $error }
 compat-title = Mermaid compatibility
 compat-requested-version = requested Mermaid version: { $version }
 compat-reference-version = reference Mermaid version: { $version }
