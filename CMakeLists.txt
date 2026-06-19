@@ -14,6 +14,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 )
 
 add_executable(contourtty
+  src/ansi.cpp
   src/cli.cpp
   src/glyph_ramp.cpp
   src/luminance.cpp
@@ -116,3 +117,27 @@ else()
   endif()
 endif()
 add_test(NAME cell_buffer COMMAND cell_buffer_tests)
+
+add_executable(ansi_tests
+  tests/ansi_tests.cpp
+  src/ansi.cpp
+)
+target_include_directories(ansi_tests PRIVATE src)
+target_compile_features(ansi_tests PRIVATE cxx_std_20)
+set_target_properties(ansi_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(ansi_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(ansi_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(ansi_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(ansi_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME ansi COMMAND ansi_tests)

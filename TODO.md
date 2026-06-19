@@ -58,7 +58,6 @@
 ## PHASE C — Luminance renderer + emission  → **v0.1**
 *Doc: `PHASE_C.md`. Goal: the full live pipeline with the baseline brightness→glyph renderer, truecolor, and the differential emitter that makes high framerates possible.*
 
-- [ ] **C4. Truecolor SGR emission.** DoD: emits `\e[38;2;r;g;bm` (fg) and `\e[48;2;r;g;bm` (bg) per the ANSI spec; a static image renders with correct colors in a truecolor terminal. Reference: PHASE_C §SGR.
 - [ ] **C5. Differential frame emitter.** DoD: only changed cells are re-emitted; uses cursor positioning (`\e[row;colH`) to jump over unchanged runs; SGR color state tracked so color codes emit only on change; full frame built into one buffer and written with a single `write()`/flush per frame. Verified: a near-static scene emits far fewer bytes than a full repaint (measured). Reference: PHASE_C §Diff.
 - [ ] **C6. Mono mode.** DoD: `--mono` ignores color, emits glyphs only; works on 8-color terminals. Reference: PHASE_C §Mono.
 - [ ] **C7. Live playback loop (no audio yet).** DoD: a video plays start-to-finish in the terminal as luminance ASCII, auto-fit to terminal size, responding to resize; quit on `q`/Ctrl-C with clean restore. Reference: PHASE_C §Loop.
