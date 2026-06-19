@@ -44,7 +44,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add search analytics events (no PII) — done when each search logs query_hash, latency, layer_hit, confidence_distribution.
 
 ## P1 — Public corpus ingestion framework
-- [ ] Implement dedup algorithm by `(term_normalized, expansion_normalized)` w/ fuzzy similarity threshold — done when running ingestion twice produces zero duplicates.
 - [ ] Implement merge-when-equivalent: same term+expansion from multiple sources → single entry w/ multi-source citations — done when CAP from Wikipedia + textbook → one entry, two sources.
 - [ ] Implement provenance tracking — done when every entry retains list of source URLs + retrieval timestamps.
 - [ ] Implement confidence-tier auto-assignment based on source quality — done when entries are correctly tiered on a 50-entry test set.
