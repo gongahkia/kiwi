@@ -80,7 +80,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Rate-limit suggestions per user (10/day) — done when 11th submission 429s.
 
 ## P2 — Web app: team admin
-- [ ] Team entry CRUD UI — done when admin can create/edit/delete team entries w/ live preview of merge result.
 
 ## P2 — Web app: personal layer
 - [ ] Personal glossary CRUD — done when user can add private entries visible only to them.

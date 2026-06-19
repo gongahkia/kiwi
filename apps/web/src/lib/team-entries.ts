@@ -90,6 +90,45 @@ export function importTeamEntries(entries: TeamEntry[]): {
   return { inserted, skipped };
 }
 
+export function createTeamEntry(entry: TeamEntry): TeamEntry {
+  const key = importKey(entry);
+  if (teamEntries.some((item) => importKey(item) === key || item.id === entry.id)) {
+    throw new Error("team entry already exists");
+  }
+
+  teamEntries.push(structuredClone(entry));
+  return structuredClone(entry);
+}
+
+export function updateTeamEntry(entryId: string, patch: Partial<TeamEntry>): TeamEntry {
+  const entry = teamEntries.find((item) => item.id === entryId);
+  if (!entry) {
+    throw new Error("team entry not found");
+  }
+
+  if (patch.term?.trim()) entry.term = patch.term.trim();
+  if (patch.expansion?.trim()) entry.expansion = patch.expansion.trim();
+  if (patch.meaning?.trim()) entry.meaning = patch.meaning.trim();
+  if (patch.domains) entry.domains = patch.domains;
+  if (patch.sources) entry.sources = patch.sources;
+
+  return structuredClone(entry);
+}
+
+export function deleteTeamEntry(entryId: string): TeamEntry {
+  const index = teamEntries.findIndex((entry) => entry.id === entryId);
+  if (index === -1) {
+    throw new Error("team entry not found");
+  }
+
+  const [removed] = teamEntries.splice(index, 1);
+  if (!removed) {
+    throw new Error("team entry not found");
+  }
+
+  return structuredClone(removed);
+}
+
 function csvCell(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
