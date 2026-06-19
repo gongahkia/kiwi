@@ -188,7 +188,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Profile warm search path — done when warm p95 <80ms server-side excluding network.
 - [ ] Optimize Postgres queries via EXPLAIN ANALYZE — done when no seq scans on hot paths.
 - [ ] Tune ivfflat/HNSW index params — done when recall@10 ≥95% on benchmark.
-- [ ] Add HTTP cache headers + ETag on entry pages — done when conditional GET returns 304.
 - [ ] Add Redis cache layer for top 1000 queries (optional) — done when Redis-enabled mode reduces DB load by ≥40%.
 - [ ] Implement structured rate-limiting per-user, per-IP, per-team — done when limits are configurable and tested.
 
