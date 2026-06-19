@@ -5,6 +5,7 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavformat
@@ -12,6 +13,44 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavutil
   libswscale
 )
+
+add_library(contourtty_audio STATIC
+  src/audio_backend.cpp
+)
+target_include_directories(contourtty_audio PUBLIC src)
+target_include_directories(contourtty_audio SYSTEM PUBLIC third_party)
+target_compile_features(contourtty_audio PRIVATE cxx_std_20)
+set_target_properties(contourtty_audio PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(contourtty_audio PUBLIC Threads::Threads)
+if(APPLE)
+  find_library(COREAUDIO_FRAMEWORK CoreAudio REQUIRED)
+  find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox REQUIRED)
+  find_library(AUDIOUNIT_FRAMEWORK AudioUnit REQUIRED)
+  find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+  target_link_libraries(contourtty_audio PUBLIC
+    ${COREAUDIO_FRAMEWORK}
+    ${AUDIOTOOLBOX_FRAMEWORK}
+    ${AUDIOUNIT_FRAMEWORK}
+    ${COREFOUNDATION_FRAMEWORK}
+  )
+elseif(UNIX)
+  target_link_libraries(contourtty_audio PUBLIC ${CMAKE_DL_LIBS} m)
+endif()
+if(MSVC)
+  target_compile_options(contourtty_audio PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(contourtty_audio PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(contourtty_audio PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(contourtty_audio PRIVATE -Werror)
+  endif()
+endif()
 
 add_executable(contourtty
   src/ansi.cpp
@@ -44,6 +83,28 @@ else()
   target_compile_options(contourtty PRIVATE -Wall -Wextra -Wpedantic)
   if(CONTOURTTY_WARNINGS_AS_ERRORS)
     target_compile_options(contourtty PRIVATE -Werror)
+  endif()
+endif()
+
+add_executable(audio_sine_smoke
+  tools/audio_sine_smoke.cpp
+)
+target_compile_features(audio_sine_smoke PRIVATE cxx_std_20)
+set_target_properties(audio_sine_smoke PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(audio_sine_smoke PRIVATE contourtty_audio)
+if(MSVC)
+  target_compile_options(audio_sine_smoke PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_sine_smoke PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(audio_sine_smoke PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_sine_smoke PRIVATE -Werror)
   endif()
 endif()
 

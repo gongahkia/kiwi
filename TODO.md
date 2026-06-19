@@ -64,7 +64,6 @@
 ## PHASE D — Audio & sync
 *Doc: `PHASE_D.md`. Goal: audio playback with the audio track as the master clock, and adaptive frame-skip so video tracks audio rather than drifting.*
 
-- [ ] **D1. Audio backend chosen + integrated.** DoD: `DEPENDENCIES.md` records the choice (miniaudio recommended: header-only, cross-platform, no system deps; SDL2 as alternative); a sine wave plays through it from a smoke test. Reference: PHASE_D §Backend.
 - [ ] **D2. Decode audio stream.** DoD: the audio stream is decoded (libav) and resampled (`swresample`) to the backend's required format/rate; verified by playing a clip's audio alone, no glitches. Reference: PHASE_D §AudioDecode.
 - [ ] **D3. Master clock = audio playback position.** DoD: a query returns current audio playback time in microseconds, advancing in real time. Reference: PHASE_D §Clock.
 - [ ] **D4. Video-to-audio sync.** DoD: the render loop selects the video frame whose PTS matches the audio clock; A/V drift stays under ~50 ms over a 3-minute clip (measured by logging |video_pts − audio_clock|). Reference: PHASE_D §Sync.

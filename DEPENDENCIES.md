@@ -39,9 +39,15 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 
 | Library | Minimum | Strategy | Used for |
 |---|---:|---|---|
-| miniaudio | pinned vendored header | vendored | Cross-platform playback, master audio clock, pause/seek in Phase D. |
+| miniaudio | 0.11.25 | vendored header | Cross-platform playback, master audio clock, pause/seek in Phase D. |
 
-`third_party/miniaudio.h` will be committed with version/source metadata when Phase D starts. No system audio library is required by default.
+`third_party/miniaudio.h` is pinned to upstream tag `0.11.25` (`miniaudio - v0.11.25 - 2026-03-04`) from `https://github.com/mackron/miniaudio`. The header offers public domain or MIT-0 licensing. It is linked through `contourtty_audio`; the manual smoke executable is:
+
+```sh
+./build/ci/audio_sine_smoke 0.25
+```
+
+The smoke target initializes the default playback device at f32/stereo/48 kHz and emits a generated sine wave. It is not added to CTest because hardware audio availability is environment-dependent.
 
 ## CLI
 
