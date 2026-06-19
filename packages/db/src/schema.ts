@@ -24,6 +24,11 @@ const vector384 = customType<{ data: number[] }>({
 });
 
 export const userRole = pgEnum("user_role", ["admin", "member"]);
+export const suggestedEditStatus = pgEnum("suggested_edit_status", [
+  "pending",
+  "approved",
+  "rejected"
+]);
 
 export const entries = pgTable(
   "entries",
@@ -215,4 +220,17 @@ export const auditLog = pgTable("audit_log", {
   beforeJsonb: jsonb("before_jsonb"),
   afterJsonb: jsonb("after_jsonb"),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const suggestedEdits = pgTable("suggested_edits", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id").references(() => users.id),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id"),
+  status: suggestedEditStatus("status").notNull().default("pending"),
+  beforeJsonb: jsonb("before_jsonb"),
+  afterJsonb: jsonb("after_jsonb").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  reviewedBy: text("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true })
 });

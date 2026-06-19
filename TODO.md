@@ -18,7 +18,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P0 — Database & migrations
 - [ ] Create `sources` table FK to entries — done when migration applies and FK enforces cascade.
 - [ ] Create `examples` table FK to entries — done when migration applies.
-- [ ] Create `suggested_edits` table — done when migration creates suggestion queue w/ status enum (pending/approved/rejected).
 - [ ] Add GIN index on `entries.tsvector` — done when `\d entries` shows index of type gin.
 - [ ] Add ivfflat or HNSW index on `entries.embedding` — done when index exists and EXPLAIN uses it on cosine query.
 - [ ] Add trigram index on `entries.term_normalized` — done when GIN trgm index exists.
