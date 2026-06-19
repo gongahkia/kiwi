@@ -1,0 +1,38 @@
+{
+  "name": "quartz-plugin-kumeyuri",
+  "version": "0.0.0",
+  "description": "Quartz transformer plugin for kumeyuri .kumecast embeds.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/quartz-plugin-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "quartz": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "quartz": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/quartz-plugin.test.mjs",
+    "prepack": "npm test"
+  }
+}

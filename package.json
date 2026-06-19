@@ -9,6 +9,7 @@
     "packages/reveal-plugin-kumeyuri",
     "packages/marp-plugin-kumeyuri",
     "packages/slidev-addon-kumeyuri",
+    "packages/quartz-plugin-kumeyuri",
     "packages/rehype-kumeyuri",
     "packages/remark-kumeyuri"
   ],
@@ -30,6 +31,7 @@
     "test:slidev-addon": "npm --workspace slidev-addon-kumeyuri run test",
     "test:obsidian-plugin": "node editors/obsidian/test/plugin.test.mjs",
     "test:logseq-plugin": "node editors/logseq/test/plugin.test.mjs",
+    "test:quartz-plugin": "npm --workspace quartz-plugin-kumeyuri run test",
     "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",

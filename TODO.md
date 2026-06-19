@@ -294,7 +294,7 @@
 - [x] Implement Slidev component `<KumeyuriDiagram>`
 - [x] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
 - [x] Implement Logseq plugin equivalent
-- [ ] Implement Quartz plugin for digital gardens
+- [x] Implement Quartz plugin for digital gardens
 - [ ] Implement Zola shortcode for kumeyuri embeds
 - [x] Add `docs/integrations/` directory with one page per integration
 - [ ] Publish `v1.4.0-deck` minor release
