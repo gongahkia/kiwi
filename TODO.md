@@ -425,7 +425,7 @@
 - [x] Write `docs/book/cli.md` reference for every flag and subcommand
 - [x] Write `docs/api.md` Rust API reference (rustdoc + curated narrative)
 - [x] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
-- [ ] Expand `docs/book/recipes.md` from current short cookbook to 30+ tasks
+- [x] Expand `docs/book/recipes.md` from current short cookbook to 30+ tasks
 - [x] Write `docs/migrating-from-beautiful-mermaid.md`
 - [x] Write `docs/migrating-from-mermaid-ascii.md`
 - [x] Write `docs/migrating-from-mermaid-cli.md`
