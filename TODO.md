@@ -359,7 +359,7 @@
 - [x] Implement output-size measurement
 - [x] Emit results as `bench/results.json`
 - [x] Generate static comparison page `kumeyuri.dev/vs/`
-- [ ] Add weekly cron via GitHub Actions to refresh results
+- [x] Add weekly cron via GitHub Actions to refresh results
 - [ ] If kumeyuri loses on a metric, mark loss with explanation; never hide it
 
 ### MCP server build (Phase 6, drill-down)
