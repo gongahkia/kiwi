@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   customType,
+  index,
   integer,
   pgEnum,
   jsonb,
@@ -75,6 +76,7 @@ export const entries = pgTable(
     embedding: vector384("embedding")
   },
   (table) => [
+    index("entries_tsvector_gin_idx").using("gin", table.tsvector),
     check(
       "entries_confidence_tier_check",
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`

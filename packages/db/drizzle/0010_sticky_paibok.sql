@@ -1,0 +1,1 @@
+CREATE INDEX "entries_tsvector_gin_idx" ON "entries" USING gin ("tsvector");

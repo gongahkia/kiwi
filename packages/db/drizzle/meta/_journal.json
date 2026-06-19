@@ -71,6 +71,13 @@
       "when": 1781886272830,
       "tag": "0009_gigantic_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781886355048,
+      "tag": "0010_sticky_paibok",
+      "breakpoints": true
     }
   ]
 }

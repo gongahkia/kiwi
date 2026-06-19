@@ -158,6 +158,10 @@ erDiagram
 - `sources.entry_id` cascades on entry delete.
 - `examples.entry_id` cascades on entry delete.
 
+## Indexes
+
+- `entries_tsvector_gin_idx`: GIN index on `entries.tsvector`.
+
 ## Constraints
 
 - `teams.email_domain` is unique.
