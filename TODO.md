@@ -130,13 +130,7 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P3 — MCP server
 - [ ] Scaffold MCP TS server in `apps/mcp` — done when `npx @wat/mcp` connects via stdio to Claude Desktop locally.
-- [ ] Implement `lookup(term, context?)` tool — done when MCP tool returns top-N typed results w/ citations.
-- [ ] Implement `list_team_acronyms(domain?)` tool — done when call returns paged list of team entries.
-- [ ] Implement API-key auth — done when MCP rejects calls w/o valid key; key scoped to a team.
 - [ ] Publish `@wat/mcp` to npm — done when `npx @wat/mcp@latest` is installable.
-- [ ] Document Claude Desktop install — done when README has working config snippet.
-- [ ] Document Cursor install — done when README has working config snippet.
-- [ ] Document VSCode + Continue.dev install — done when README has snippet.
 - [ ] Submit to Anthropic MCP registry — done when PR opened to `modelcontextprotocol/servers`.
 - [ ] Submit to Cursor's MCP catalog — done when listed or in-review.
 - [ ] Record demo of Claude Desktop calling wat MCP — done when GIF in `/docs/assets/mcp-demo.gif`.

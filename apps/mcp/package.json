@@ -2,7 +2,26 @@
   "name": "@wat/mcp",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "bin": {
+    "wat-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "test": "pnpm build && vitest run src"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "vitest": "^4.1.9"
   }
 }
