@@ -538,7 +538,6 @@ Aggregated weekly into a public `metrics/dashboard.svg` (yes, generated with kum
 
 - [Speculation] Print/PDF backend for academic-paper figures (`kumeyuri render --format pdf`).
 - [Speculation] reveal.js / Marp / Slidev presenter plugin auto-pulling kumecasts.
-- [Speculation] Excalidraw round-trip — read `.excalidraw` files containing mermaid, render in place.
 - [Speculation] Real-time collaboration playground (multi-cursor mermaid editing) — likely requires server, skip unless monetisation flips.
 - [Speculation] Native macOS app (`Kumeyuri.app`) wrapping the WASM player with quick-look integration.
 - [Speculation] Obsidian plugin replacing built-in Mermaid render with animated output.
@@ -548,4 +547,3 @@ Aggregated weekly into a public `metrics/dashboard.svg` (yes, generated with kum
 - [Speculation] `kumeyuri server` for self-hosted teams who want a shared gallery without paid SaaS.
 
 Each item must pass the "does this serve the north star?" test before moving to TODO.
-
