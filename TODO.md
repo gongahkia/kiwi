@@ -199,7 +199,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P5 — Docs & demos
 - [ ] Write top-level `README.md` w/ install + screenshots — done when README renders correctly on GitHub and includes badges.
-- [ ] Write `docs/api.md` — done when REST + MCP APIs are fully documented w/ examples.
 - [ ] Build interactive search demo on landing page — done when anyone can search w/o login from `/`.
 - [ ] Build "Try with my domain" CTA on landing — done when enter-email flow shows a teaser of team mode.
 - [ ] Record 60-sec product hero video — done when MP4 committed and embedded in README.
