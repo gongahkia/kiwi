@@ -32,6 +32,7 @@
     "test:obsidian-plugin": "node editors/obsidian/test/plugin.test.mjs",
     "test:logseq-plugin": "node editors/logseq/test/plugin.test.mjs",
     "test:quartz-plugin": "npm --workspace quartz-plugin-kumeyuri run test",
+    "test:zola-shortcode": "node integrations/zola/test/shortcode.test.mjs",
     "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",

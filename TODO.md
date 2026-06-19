@@ -295,7 +295,7 @@
 - [x] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
 - [x] Implement Logseq plugin equivalent
 - [x] Implement Quartz plugin for digital gardens
-- [ ] Implement Zola shortcode for kumeyuri embeds
+- [x] Implement Zola shortcode for kumeyuri embeds
 - [x] Add `docs/integrations/` directory with one page per integration
 - [ ] Publish `v1.4.0-deck` minor release
 

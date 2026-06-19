@@ -1,0 +1,12 @@
+{% set wrapper_class = class | default(value="kumeyuri-zola-cast") %}
+{% set controls_value = controls | default(value=true) %}
+<div
+  class="{{ wrapper_class }}"
+  data-kumeyuri-cast="{{ src }}"
+  data-controls="{% if controls_value %}true{% else %}false{% endif %}"
+  {% if autoplay | default(value=false) %}data-autoplay="true"{% endif %}
+  {% if loop | default(value=false) %}data-loop="true"{% endif %}
+></div>
+{% if script | default(value="") %}
+<script type="module" src="{{ script }}"></script>
+{% endif %}
