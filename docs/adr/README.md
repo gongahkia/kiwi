@@ -18,6 +18,7 @@ security posture.
 | [0015](0015-mcp-sdk.md) | Accepted | Use the official `rmcp` Rust SDK for MCP server work |
 | [0016](0016-site-hosting.md) | Accepted | Host `kumeyuri.dev` on Cloudflare Pages |
 | [0017](0017-ai-provider-abstraction.md) | Accepted | Use one companion provider trait surface instead of per-provider crate features |
+| [0018](0018-flow-layout-benchmark.md) | Accepted | Keep the native flow layout engine after measuring `layout-rs` |
 
 ## Maintenance
 

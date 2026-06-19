@@ -480,7 +480,7 @@
 
 ## Open questions to resolve before each phase
 
-- [ ] Phase 1: Sugiyama port vs `layout-rs` wrap — measure both on benchmark corpus
+- [x] Phase 1: Sugiyama port vs `layout-rs` wrap — measure both on benchmark corpus
 - [x] Phase 2: tachyonfx integration depth — wrap or fork
 - [x] Phase 3: SMIL vs CSS-keyframe-only SVG (GitHub sanitiser behaviour decisive)
 - [x] Phase 3: GIF encoder choice — `gif` crate vs `gifski` bindings (quality vs deps)
