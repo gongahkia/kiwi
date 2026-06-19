@@ -71,7 +71,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 
 ## P2 — Web app: contribution flows
-- [ ] Email notification on suggestion outcome — done when email sent on approve/reject (configurable).
 
 ## P2 — Web app: team admin
 

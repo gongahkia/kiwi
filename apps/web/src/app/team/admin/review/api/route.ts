@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { sendSuggestionOutcomeEmail } from "@/lib/email-notifications";
 import { approveSuggestion } from "@/lib/suggestion-approval";
 import {
   getSuggestedEdits,
@@ -31,9 +32,11 @@ export async function PATCH(request: NextRequest) {
     const reviewerId = request.cookies.get(sessionCookie)?.value ?? "admin";
     const suggestion = reviewSuggestedEdit(body.id, reviewerId, body.status, body.after_jsonb);
     const approval = body.status === "approved" ? approveSuggestion(suggestion, reviewerId) : null;
+    const notification = await sendSuggestionOutcomeEmail(suggestion, body.status);
 
     return NextResponse.json({
       approval,
+      notification,
       suggestion
     });
   } catch (error) {
