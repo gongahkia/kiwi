@@ -6,38 +6,13 @@ import {
   putCachedLookup,
   type LookupCacheEntry
 } from "../src/lookup-cache.js";
+import { isLookupMessage, type LookupMessage, type LookupResponse } from "../src/messages.js";
 import {
   defaultOptions,
   loadWatOptions,
   optionsStorageKey,
   type WatOptions
 } from "../src/options.js";
-
-interface LookupMessage {
-  context?: string;
-  limit?: number;
-  term: string;
-  type: "wat.lookup";
-}
-
-type LookupResponse =
-  | {
-      body: unknown;
-      cached: boolean;
-      ok: true;
-    }
-  | {
-      error: string;
-      ok: false;
-      status?: number;
-    };
-
-function isLookupMessage(message: unknown): message is LookupMessage {
-  if (!message || typeof message !== "object") return false;
-  const candidate = message as Partial<LookupMessage>;
-
-  return candidate.type === "wat.lookup" && typeof candidate.term === "string";
-}
 
 function boundedLimit(limit: number | undefined): string {
   if (!limit || !Number.isInteger(limit)) return "5";
