@@ -3255,17 +3255,20 @@ mod tests {
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
         ExportFormat, McpTransport, PluginCommand, PluginRegistry, RenderCharset, RenderFormat,
         RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand,
-        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, decode_gzip_bytes,
-        disable_plugin_records, export_source, format_lint_text, format_theme_list,
-        layout_warnings, lint_source, load_render_theme_file, parse_diagram,
+        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, count_phrase, decode_gzip_bytes,
+        diagram_kind_id, diagram_kind_summary, direction_label, disable_plugin_records,
+        encode_url_path_component, export_source, format_lint_text, format_theme_list, is_hex,
+        is_kumecast_gz_path, is_kumecast_path, layout_warnings, lint_source,
+        load_render_theme_file, normalize_inline_text, parse_diagram, parse_locale_override,
         parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_speed_override, playback_options, playback_timeline_from_source,
+        parse_socket_addr, parse_speed_override, playback_options, playback_timeline_from_source,
         plugin_runtime_policy, publish_theme_file, read_cast_source_file,
-        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
-        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
-        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
-        timeline_from_source_with_options, timeline_from_source_with_render_options,
-        validate_theme_file, write_plugin_install_record, write_theme_template,
+        read_installed_plugin_records, read_playback_file_source, read_source_file,
+        remove_plugin_records, render_source, render_timeline_vtt, resolve_ai_library_path,
+        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
+        timeline_from_source, timeline_from_source_with_options,
+        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
+        write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{
@@ -3275,9 +3278,11 @@ mod tests {
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
+    use flate2::{Compression, write::GzEncoder};
     use kumeyuri_core::{
         abi::Capability,
         animator::{AnimationOptions, KeyFrame, Timeline},
+        ast::Direction,
         cast::Kumecast,
         frame::{Charset, Frame},
     };
@@ -3291,7 +3296,9 @@ mod tests {
     use std::{
         env,
         ffi::OsString,
-        fs, process,
+        fs,
+        io::Write as _,
+        process,
         time::{Duration, Instant, SystemTime},
     };
 
@@ -4152,6 +4159,108 @@ muted = "#7d8590"
     }
 
     #[test]
+    fn plugin_metadata_reports_registry_shape_errors() {
+        assert!(
+            resolve_npm_plugin_metadata("missing-latest", r#"{"dist-tags": {}, "versions": {}}"#)
+                .unwrap_err()
+                .contains("latest")
+        );
+        assert!(
+            resolve_npm_plugin_metadata(
+                "missing-version",
+                r#"{
+  "dist-tags": { "latest": "0.2.0" },
+  "keywords": ["kumeyuri-plugin"],
+  "versions": {
+    "0.1.0": {
+      "dist": { "tarball": "https://registry.npmjs.org/pkg.tgz", "shasum": "abcdef" }
+    }
+  }
+}"#,
+            )
+            .unwrap_err()
+            .contains("0.2.0")
+        );
+        assert!(
+            resolve_npm_plugin_metadata(
+                "bad-sha",
+                r#"{
+  "dist-tags": { "latest": "0.1.0" },
+  "keywords": ["kumeyuri-plugin"],
+  "versions": {
+    "0.1.0": {
+      "dist": { "tarball": "https://registry.npmjs.org/pkg.tgz", "shasum": "not hex" }
+    }
+  }
+}"#,
+            )
+            .unwrap_err()
+            .contains("shasum")
+        );
+        assert!(
+            resolve_crates_plugin_metadata(
+                "missing-version",
+                r#"{
+  "crate": { "keywords": ["kumeyuri-plugin"] },
+  "versions": []
+}"#,
+            )
+            .unwrap_err()
+            .contains("version")
+        );
+        assert!(
+            resolve_crates_plugin_metadata(
+                "bad-checksum",
+                r#"{
+  "crate": {
+    "max_version": "0.1.0",
+    "keywords": ["kumeyuri-plugin"]
+  },
+  "versions": [
+    {
+      "num": "0.1.0",
+      "checksum": "not hex",
+      "yanked": false,
+      "dl_path": "https://example.test/pkg.crate"
+    }
+  ]
+}"#,
+            )
+            .unwrap_err()
+            .contains("checksum")
+        );
+    }
+
+    #[test]
+    fn plugin_metadata_uses_default_crate_version_and_absolute_download_url() {
+        let package = resolve_crates_plugin_metadata(
+            "kumeyuri-render-pdf",
+            r#"{
+  "crate": {
+    "name": "kumeyuri-render-pdf",
+    "default_version": "0.2.0",
+    "keywords": ["kumeyuri-plugin"]
+  },
+  "versions": [
+    {
+      "num": "0.2.0",
+      "checksum": "0123456789abcdef",
+      "yanked": false,
+      "dl_path": "https://mirror.example.test/kumeyuri-render-pdf.crate"
+    }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(package.version, "0.2.0");
+        assert_eq!(
+            package.archive_url,
+            "https://mirror.example.test/kumeyuri-render-pdf.crate"
+        );
+    }
+
+    #[test]
     fn plugin_records_list_disable_and_remove_from_cache() {
         let root = unique_temp_dir("plugin-records");
         let cache_dir = root
@@ -4187,6 +4296,30 @@ muted = "#7d8590"
             1
         );
         assert!(read_installed_plugin_records(&root).unwrap().is_empty());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn plugin_records_missing_name_errors_without_mutating_cache() {
+        let root = unique_temp_dir("plugin-record-missing");
+        fs::create_dir_all(&root).unwrap();
+
+        assert!(
+            remove_plugin_records(&root, "missing")
+                .unwrap_err()
+                .contains("not installed")
+        );
+        assert!(
+            disable_plugin_records(&root, "missing")
+                .unwrap_err()
+                .contains("not installed")
+        );
+        assert!(
+            read_installed_plugin_records(&root.join("absent"))
+                .unwrap()
+                .is_empty()
+        );
 
         fs::remove_dir_all(root).ok();
     }
@@ -4422,6 +4555,56 @@ muted = "#7d8590"
     }
 
     #[test]
+    fn narrates_each_supported_diagram_kind_fixture() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for (kind, name, expected_id) in [
+            ("flowchart", "01_single_node", "flowchart"),
+            ("sequence", "01_single_message", "sequence"),
+            ("state", "01_start_to_idle", "state"),
+            ("class", "01_basic_class", "class"),
+            ("er", "01_basic_relationship", "er"),
+            ("gantt", "01_basic_schedule", "gantt"),
+            ("pie", "01_basic", "pie"),
+            ("quadrant", "01_basic", "quadrant"),
+            ("zenuml", "01_basic", "zenuml"),
+            ("sankey", "01_basic", "sankey"),
+            ("xychart", "01_basic", "xychart"),
+            ("block", "01_basic", "block"),
+            ("packet", "01_tcp", "packet"),
+            ("kanban", "01_basic", "kanban"),
+            ("architecture", "01_basic", "architecture"),
+            ("radar", "01_basic", "radar"),
+            ("event_modeling", "01_basic", "event-modeling"),
+            ("treemap", "01_basic", "treemap"),
+            ("venn", "01_basic", "venn"),
+            ("ishikawa", "01_basic", "ishikawa"),
+            ("wardley", "01_basic", "wardley"),
+            ("tree_view", "01_basic", "treeview"),
+            ("mindmap", "01_basic_tree", "mindmap"),
+            ("journey", "01_basic", "journey"),
+            ("gitgraph", "01_basic", "gitgraph"),
+            ("timeline", "01_basic", "timeline"),
+            ("requirement", "01_basic", "requirement"),
+            ("c4", "01_context", "c4"),
+        ] {
+            let path = root
+                .join("tests/snapshots")
+                .join(kind)
+                .join("input")
+                .join(format!("{name}.mmd"));
+            let source = fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let diagram = parse_diagram(&source)
+                .unwrap_or_else(|error| panic!("failed to parse {}/{}: {error}", kind, name));
+            let summary = diagram_kind_summary(&diagram.kind);
+
+            assert_eq!(diagram_kind_id(&diagram.kind), expected_id);
+            assert!(!summary.is_empty(), "{kind}/{name}");
+            assert!(!summary.contains("  "), "{summary}");
+        }
+    }
+
+    #[test]
     fn builds_timeline_from_mermaid_source() {
         let timeline = timeline_from_source("graph TD\nA --> B").unwrap();
 
@@ -4474,6 +4657,39 @@ muted = "#7d8590"
     }
 
     #[test]
+    fn parsers_and_small_helpers_cover_error_edges() {
+        assert!(parse_positive_usize("abc").unwrap_err().contains("invalid"));
+        assert!(
+            parse_positive_input_bytes("abc")
+                .unwrap_err()
+                .contains("invalid")
+        );
+        assert_eq!(parse_locale_override("en_US.UTF-8").unwrap(), "en-US");
+        assert!(parse_locale_override(" ").is_err());
+        assert_eq!(
+            parse_socket_addr("127.0.0.1:9000").unwrap(),
+            "127.0.0.1:9000".parse().unwrap()
+        );
+        assert!(parse_socket_addr("not-an-addr").is_err());
+        assert_eq!(direction_label(Direction::BottomTop), "bottom-top");
+        assert_eq!(direction_label(Direction::LeftRight), "left-to-right");
+        assert_eq!(direction_label(Direction::RightLeft), "right-to-left");
+        assert_eq!(count_phrase(1, "node", "nodes"), "1 node");
+        assert_eq!(count_phrase(2, "node", "nodes"), "2 nodes");
+        assert_eq!(
+            normalize_inline_text(" alpha\n beta\tgamma "),
+            "alpha beta gamma"
+        );
+        assert_eq!(
+            encode_url_path_component("@scope/pkg name"),
+            "%40scope%2Fpkg%20name"
+        );
+        assert!(is_hex("abcdef0123456789"));
+        assert!(!is_hex(""));
+        assert!(!is_hex("xyz"));
+    }
+
+    #[test]
     fn global_input_limit_parser_accepts_override() {
         let cli = Cli::try_parse_from([
             "kumeyuri",
@@ -4502,6 +4718,49 @@ muted = "#7d8590"
         let error = read_source_file(&path, DEFAULT_INPUT_LIMIT_BYTES).unwrap_err();
         assert!(error.contains(&format!("larger than {DEFAULT_INPUT_LIMIT_BYTES} bytes")));
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn source_readers_report_utf8_gzip_and_path_variants() {
+        let root = unique_temp_dir("source-reader-variants");
+        fs::create_dir_all(&root).unwrap();
+        let invalid_utf8 = root.join("bad.mmd");
+        fs::write(&invalid_utf8, [0xff, 0xfe]).unwrap();
+        assert!(
+            read_source_file(&invalid_utf8, 16)
+                .unwrap_err()
+                .contains("UTF-8")
+        );
+
+        let cast = root.join("diagram.kumecast");
+        fs::write(&cast, "{\"version\":1}").unwrap();
+        assert!(is_kumecast_path(&cast));
+        assert!(!is_kumecast_gz_path(&cast));
+        assert_eq!(
+            read_playback_file_source(&cast, 64).unwrap(),
+            "{\"version\":1}"
+        );
+
+        let gz = root.join("diagram.kumecast.gz");
+        fs::write(&gz, b"not gzip").unwrap();
+        assert!(is_kumecast_path(&gz));
+        assert!(is_kumecast_gz_path(&gz));
+        assert!(
+            read_cast_source_file(&gz, 64)
+                .unwrap_err()
+                .contains("invalid gzip stream")
+        );
+
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(b"0123456789").unwrap();
+        let compressed = encoder.finish().unwrap();
+        assert!(
+            decode_gzip_bytes(&compressed, 4)
+                .unwrap_err()
+                .contains("too large")
+        );
+
+        fs::remove_dir_all(root).ok();
     }
 
     #[cfg(not(target_arch = "wasm32"))]

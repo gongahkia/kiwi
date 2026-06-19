@@ -136,7 +136,7 @@ impl I18n {
 
 #[cfg(test)]
 mod tests {
-    use super::{I18n, canonical_locale, resolve_locale};
+    use super::{I18n, canonical_locale, normalize_locale_tag, resolve_locale};
 
     #[test]
     fn formats_en_us_message() {
@@ -191,5 +191,31 @@ mod tests {
         })
         .unwrap();
         assert_eq!(locale.to_string(), "en-US");
+    }
+
+    #[test]
+    fn normalizes_locale_tags_and_ignores_empty_posix_values() {
+        assert_eq!(
+            normalize_locale_tag(" fr_CA.UTF-8@calendar "),
+            Some("fr-CA".to_owned())
+        );
+        assert_eq!(normalize_locale_tag("POSIX"), None);
+        assert_eq!(normalize_locale_tag(""), None);
+    }
+
+    #[test]
+    fn reports_invalid_and_missing_messages() {
+        assert!(
+            canonical_locale("not a locale")
+                .unwrap_err()
+                .contains("invalid locale")
+        );
+        assert!(
+            I18n::en_us()
+                .unwrap()
+                .format("missing-message", &[])
+                .unwrap_err()
+                .contains("missing Fluent message")
+        );
     }
 }

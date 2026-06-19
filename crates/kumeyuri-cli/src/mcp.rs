@@ -636,6 +636,66 @@ mod tests {
     }
 
     #[test]
+    fn render_diagram_tool_surface_renders_binary_and_vtt_formats() {
+        for (format, mime_type) in [
+            (McpRenderFormat::Gif, "image/gif"),
+            (McpRenderFormat::Apng, "image/apng"),
+            (McpRenderFormat::Webp, "image/webp"),
+        ] {
+            let response = render_diagram(&RenderDiagramRequest {
+                source: "graph TD\nA --> B\n".to_owned(),
+                format,
+                theme: Some(McpRenderTheme::Default),
+                dark_theme: None,
+                charset: Some(McpRenderCharset::Unicode),
+                width: Some(24),
+                max_label_width: Some(12),
+            })
+            .unwrap();
+
+            assert_eq!(response.encoding, McpContentEncoding::Base64);
+            assert_eq!(response.mime_type, mime_type);
+            assert!(!response.content.is_empty());
+        }
+
+        let vtt = render_diagram(&RenderDiagramRequest {
+            source: "sequenceDiagram\nAlice->>Bob: hello\n".to_owned(),
+            format: McpRenderFormat::Vtt,
+            theme: Some(McpRenderTheme::SolarizedDark),
+            dark_theme: None,
+            charset: None,
+            width: None,
+            max_label_width: None,
+        })
+        .unwrap();
+        assert_eq!(vtt.encoding, McpContentEncoding::Utf8);
+        assert_eq!(vtt.mime_type, "text/vtt; charset=utf-8");
+        assert!(vtt.content.starts_with("WEBVTT"));
+    }
+
+    #[test]
+    fn render_and_lint_tool_surfaces_report_parse_errors() {
+        let render_error = render_diagram(&RenderDiagramRequest {
+            source: "notARoot\nA".to_owned(),
+            format: McpRenderFormat::Text,
+            theme: None,
+            dark_theme: None,
+            charset: None,
+            width: None,
+            max_label_width: None,
+        })
+        .unwrap_err();
+        assert!(render_error.contains("parse"));
+
+        let lint_error = lint_diagram(&LintDiagramRequest {
+            source: "notARoot\nA".to_owned(),
+            file: Some("bad.mmd".to_owned()),
+        })
+        .unwrap_err();
+        assert!(lint_error.contains("parse"));
+    }
+
+    #[test]
     fn render_diagram_tool_surface_reports_layout_warnings() {
         let response = render_diagram(&RenderDiagramRequest {
             source: "graph TD\nA\n".to_owned(),
@@ -725,6 +785,31 @@ mod tests {
     }
 
     #[test]
+    fn play_diagram_tool_surface_rejects_empty_path_and_spawner_failure() {
+        let empty_path_error = play_diagram_args(&PlayDiagramRequest {
+            file: PathBuf::new(),
+            speed: None,
+            repeat: false,
+            debug: false,
+        })
+        .unwrap_err();
+        assert!(empty_path_error.contains("file path"));
+
+        let spawn_error = play_diagram_with_spawner(
+            &PlayDiagramRequest {
+                file: PathBuf::from("diagram.mmd"),
+                speed: None,
+                repeat: false,
+                debug: false,
+            },
+            PathBuf::from("/bin/kumeyuri"),
+            |_, _| Err("spawn failed".to_owned()),
+        )
+        .unwrap_err();
+        assert_eq!(spawn_error, "spawn failed");
+    }
+
+    #[test]
     fn list_themes_tool_surface_reports_discovered_themes() {
         let response = list_themes().unwrap();
 
@@ -784,6 +869,15 @@ mod tests {
     }
 
     #[test]
+    fn http_bearer_token_rejects_empty_cli_and_env_values() {
+        let error =
+            resolve_http_bearer_token_with_env(Some("  ".to_owned()), |_| Some(" ".to_owned()))
+                .unwrap_err();
+
+        assert!(error.contains(MCP_BEARER_TOKEN_ENV));
+    }
+
+    #[test]
     fn authorization_header_parses_bearer_token() {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -792,5 +886,24 @@ mod tests {
         );
 
         assert_eq!(request_bearer_token(&headers), Some("test-token"));
+    }
+
+    #[test]
+    fn authorization_header_rejects_missing_malformed_and_non_utf8_values() {
+        assert_eq!(request_bearer_token(&HeaderMap::new()), None);
+
+        let mut malformed = HeaderMap::new();
+        malformed.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Basic token"),
+        );
+        assert_eq!(request_bearer_token(&malformed), None);
+
+        let mut non_utf8 = HeaderMap::new();
+        non_utf8.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_bytes(b"Bearer \xff").unwrap(),
+        );
+        assert_eq!(request_bearer_token(&non_utf8), None);
     }
 }
