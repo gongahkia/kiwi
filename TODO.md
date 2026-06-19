@@ -96,11 +96,13 @@
 - [ ] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.
   - 2026-06-19: local `asan-ubsan` build, CTest, structure export smoke, and shutdown-path smoke are clean; sanitizer CI is configured to run them, but hosted proof remains blocked by GitHub Actions billing/spending-limit state.
   - 2026-06-19: after the Metal structure backend changes, local macOS `asan-ubsan` configure/build, 19-test CTest suite, `--gpu` structure diagnostic dump, and shutdown-path smoke are clean. macOS ASan reports `detect_leaks` unsupported, so leak proof still depends on hosted Linux ASan/Valgrind once Actions billing is fixed.
+  - 2026-06-19: after GPU DoG completion, local macOS `asan-ubsan` configure/build, 19-test CTest suite, decode/render dump smoke, and shutdown-path smoke are clean with `ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1`; `detect_leaks=1` still aborts as unsupported on macOS, so hosted Linux proof remains blocked by GitHub Actions billing/spending-limit state.
 - [ ] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
   - 2026-06-19: macOS `leaks --atExit` reports `0 leaks for 0 total leaked bytes` on normal structure export shutdown; Valgrind is unavailable locally, and Ctrl-C/seek leak paths remain unverified.
   - 2026-06-19: `scripts/verify_shutdown_paths.sh` proves normal export, keyboard quit, seek+quit, and SIGINT reach clean shutdown logs locally and is wired into sanitizer CI; this verifies shutdown behavior locally, with hosted ASan/LSan proof still blocked by GitHub Actions billing/spending-limit state.
   - 2026-06-19: Valgrind CI job is configured for normal structure export leak checks on Ubuntu; hosted Valgrind result and Ctrl-C/seek leak accounting remain unverified while GitHub Actions is billing-blocked.
   - 2026-06-19: Valgrind CI now wraps `scripts/verify_shutdown_paths.sh`, so normal export, keyboard quit, seek+quit, and SIGINT all run under definite-leak checks; sanitizer shutdown smoke now sets `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`. Hosted proof remains blocked by GitHub Actions billing/spending-limit state.
+  - 2026-06-19: after GPU DoG completion, macOS `leaks --atExit -- ./build/ci/contourtty --gpu --mode structure --dog-sigma 0.5,1.4 ...` reports `0 leaks for 0 total leaked bytes` on normal ANSI export. Hosted Valgrind/ASan leak proof for normal, Ctrl-C, and seek remains blocked by GitHub Actions billing/spending-limit state.
 
 ---
 
