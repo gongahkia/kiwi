@@ -28,7 +28,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P0 — Core package
 - [ ] Implement entry validator (Zod + business rules) — done when all 50 seed entries validate.
-- [ ] Implement confidence-tier resolver — done when each tier has rule documented + unit-tested.
 
 ## P1 — Search engine
 - [ ] Implement BM25-ish query via Postgres `ts_rank_cd` — done when query returns ranked entries for 20 fixture queries.
