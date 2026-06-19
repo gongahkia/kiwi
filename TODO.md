@@ -378,7 +378,7 @@
 
 ### Theming system build (Phase 1 base, expanded Phase 3+)
 
-- [ ] Define `.kumetheme.toml` schema in `crates/kumeyuri-core/src/theme.rs`
+- [x] Define `.kumetheme.toml` schema in `crates/kumeyuri-core/src/theme.rs`
 - [ ] Validate theme files with `--validate-theme <file>` CLI flag
 - [ ] Ship 10 built-in themes (default, mono, tokyo-night, github, dracula, solarized-light, solarized-dark, nord, catppuccin-mocha, high-contrast)
 - [ ] Implement theme search across XDG paths + project dir + bundled

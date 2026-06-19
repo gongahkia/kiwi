@@ -1,4 +1,5 @@
 use crate::frame::{CellStyle, Charset, Color};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltInTheme {
@@ -65,6 +66,131 @@ impl From<RgbColor> for Color {
             blue: color.blue,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KumethemeToml {
+    pub name: String,
+    pub charset: KumethemeCharset,
+    pub colors: KumethemeColors,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum KumethemeCharset {
+    Ascii,
+    Unicode,
+}
+
+impl From<KumethemeCharset> for Charset {
+    fn from(charset: KumethemeCharset) -> Self {
+        match charset {
+            KumethemeCharset::Ascii => Self::Ascii,
+            KumethemeCharset::Unicode => Self::Unicode,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KumethemeColors {
+    pub background: String,
+    pub foreground: String,
+    pub accent: String,
+    pub edge: String,
+    pub edge_alt: String,
+    pub highlight: String,
+    pub muted: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KumethemeError {
+    InvalidName(String),
+    InvalidHexColor { field: &'static str, value: String },
+}
+
+impl KumethemeToml {
+    pub fn validate(&self) -> Result<(), KumethemeError> {
+        validate_theme_name(&self.name)?;
+        self.colors.validate()
+    }
+
+    pub fn to_theme(&self) -> Result<OwnedTheme, KumethemeError> {
+        self.validate()?;
+        Ok(OwnedTheme {
+            name: self.name.clone(),
+            charset: self.charset.into(),
+            colors: ThemeColors {
+                background: parse_hex_color("background", &self.colors.background)?,
+                foreground: parse_hex_color("foreground", &self.colors.foreground)?,
+                accent: parse_hex_color("accent", &self.colors.accent)?,
+                edge: parse_hex_color("edge", &self.colors.edge)?,
+                edge_alt: parse_hex_color("edge_alt", &self.colors.edge_alt)?,
+                highlight: parse_hex_color("highlight", &self.colors.highlight)?,
+                muted: parse_hex_color("muted", &self.colors.muted)?,
+            },
+        })
+    }
+}
+
+impl KumethemeColors {
+    pub fn validate(&self) -> Result<(), KumethemeError> {
+        parse_hex_color("background", &self.background)?;
+        parse_hex_color("foreground", &self.foreground)?;
+        parse_hex_color("accent", &self.accent)?;
+        parse_hex_color("edge", &self.edge)?;
+        parse_hex_color("edge_alt", &self.edge_alt)?;
+        parse_hex_color("highlight", &self.highlight)?;
+        parse_hex_color("muted", &self.muted)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedTheme {
+    pub name: String,
+    pub charset: Charset,
+    pub colors: ThemeColors,
+}
+
+fn validate_theme_name(name: &str) -> Result<(), KumethemeError> {
+    if is_kebab_case_identifier(name) {
+        Ok(())
+    } else {
+        Err(KumethemeError::InvalidName(name.to_owned()))
+    }
+}
+
+fn is_kebab_case_identifier(value: &str) -> bool {
+    if value.is_empty() || value.starts_with('-') || value.ends_with('-') || value.contains("--") {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn parse_hex_color(field: &'static str, value: &str) -> Result<RgbColor, KumethemeError> {
+    let Some(hex) = value.strip_prefix('#') else {
+        return Err(KumethemeError::InvalidHexColor {
+            field,
+            value: value.to_owned(),
+        });
+    };
+    if hex.len() != 6 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(KumethemeError::InvalidHexColor {
+            field,
+            value: value.to_owned(),
+        });
+    }
+    Ok(RgbColor::new(
+        parse_hex_byte(&hex[0..2]),
+        parse_hex_byte(&hex[2..4]),
+        parse_hex_byte(&hex[4..6]),
+    ))
+}
+
+fn parse_hex_byte(value: &str) -> u8 {
+    u8::from_str_radix(value, 16).expect("validated hex byte")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -251,7 +377,10 @@ impl Default for Theme {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuiltInTheme, RgbColor, Theme, ThemeRole};
+    use super::{
+        BuiltInTheme, KumethemeCharset, KumethemeColors, KumethemeError, KumethemeToml, RgbColor,
+        Theme, ThemeRole,
+    };
     use crate::frame::{Charset, Color};
 
     #[test]
@@ -309,6 +438,63 @@ mod tests {
             })
         );
         assert!(style.bold);
+    }
+
+    #[test]
+    fn validates_kumetheme_schema_and_converts_to_owned_theme() {
+        let schema = KumethemeToml {
+            name: "solarized-light".to_owned(),
+            charset: KumethemeCharset::Unicode,
+            colors: KumethemeColors {
+                background: "#fdf6e3".to_owned(),
+                foreground: "#073642".to_owned(),
+                accent: "#268bd2".to_owned(),
+                edge: "#586e75".to_owned(),
+                edge_alt: "#6c71c4".to_owned(),
+                highlight: "#b58900".to_owned(),
+                muted: "#657b83".to_owned(),
+            },
+        };
+
+        let theme = schema.to_theme().unwrap();
+
+        assert_eq!(theme.name, "solarized-light");
+        assert_eq!(theme.charset, Charset::Unicode);
+        assert_eq!(theme.colors.background, RgbColor::new(0xfd, 0xf6, 0xe3));
+        assert_eq!(theme.colors.edge_alt, RgbColor::new(0x6c, 0x71, 0xc4));
+    }
+
+    #[test]
+    fn rejects_invalid_kumetheme_fields() {
+        let mut schema = KumethemeToml {
+            name: "BadName".to_owned(),
+            charset: KumethemeCharset::Ascii,
+            colors: KumethemeColors {
+                background: "#000000".to_owned(),
+                foreground: "#ffffff".to_owned(),
+                accent: "#ffffff".to_owned(),
+                edge: "#ffffff".to_owned(),
+                edge_alt: "#ffffff".to_owned(),
+                highlight: "#ffffff".to_owned(),
+                muted: "#ffffff".to_owned(),
+            },
+        };
+
+        assert_eq!(
+            schema.validate(),
+            Err(KumethemeError::InvalidName("BadName".to_owned())),
+        );
+
+        schema.name = "valid-name".to_owned();
+        schema.colors.accent = "ffffff".to_owned();
+
+        assert_eq!(
+            schema.validate(),
+            Err(KumethemeError::InvalidHexColor {
+                field: "accent",
+                value: "ffffff".to_owned(),
+            }),
+        );
     }
 
     #[test]
