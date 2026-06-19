@@ -1758,6 +1758,171 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["TLS", "RBAC", "API"]
+    },
+    {
+      "id": "seed-csp-content-security-policy",
+      "term": "CSP",
+      "term_normalized": "csp",
+      "expansions": ["Content Security Policy"],
+      "domains": ["web", "security"],
+      "meaning_short": "A browser policy mechanism for reducing web content injection risks.",
+      "meaning_long": "Content Security Policy lets sites restrict where scripts, styles, images, and other resources may load from, helping mitigate attacks such as cross-site scripting.",
+      "examples": ["Set a CSP header that only allows scripts from the application origin."],
+      "sources": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/CSP",
+          "title": "CSP",
+          "publisher": "MDN Web Docs",
+          "license": "CC-BY-SA-2.5",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "MDN describes CSP as a policy used to detect and mitigate attacks such as cross-site scripting.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-SA-2.5",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["content-security-policy"],
+      "related_terms": ["XSS", "HTTP", "CORS"]
+    },
+    {
+      "id": "seed-svg-scalable-vector-graphics",
+      "term": "SVG",
+      "term_normalized": "svg",
+      "expansions": ["Scalable Vector Graphics"],
+      "domains": ["web", "frontend"],
+      "meaning_short": "An XML-based vector image format for two-dimensional graphics.",
+      "meaning_long": "SVG represents scalable shapes, paths, and text in an XML syntax that can be embedded in HTML, styled with CSS, and manipulated with JavaScript.",
+      "examples": ["Use an inline SVG icon for a toolbar button."],
+      "sources": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/SVG",
+          "title": "SVG",
+          "publisher": "MDN Web Docs",
+          "license": "CC-BY-SA-2.5",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "MDN defines SVG as a 2D vector image format based on XML syntax.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-SA-2.5",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["XML", "CSS", "DOM"]
+    },
+    {
+      "id": "seed-xml-extensible-markup-language",
+      "term": "XML",
+      "term_normalized": "xml",
+      "expansions": ["eXtensible Markup Language"],
+      "domains": ["web", "data"],
+      "meaning_short": "A flexible markup language for structured data documents.",
+      "meaning_long": "XML lets authors define custom tags for data-description languages and is used by formats and protocols that exchange structured documents.",
+      "examples": ["Parse an XML feed before transforming it into JSON."],
+      "sources": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/XML",
+          "title": "XML",
+          "publisher": "MDN Web Docs",
+          "license": "CC-BY-SA-2.5",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "MDN describes XML as a generic markup language specified by the W3C.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-SA-2.5",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["SVG", "HTML", "XSLT"]
+    },
+    {
+      "id": "seed-webrtc-web-real-time-communication",
+      "term": "WebRTC",
+      "term_normalized": "webrtc",
+      "expansions": ["Web Real-Time Communication"],
+      "domains": ["web", "networking"],
+      "meaning_short": "A browser API family for real-time media and peer-to-peer data.",
+      "meaning_long": "WebRTC enables web apps to access media devices, establish peer connections, and exchange real-time audio, video, or data between browsers.",
+      "examples": ["Use WebRTC to build an in-browser video call."],
+      "sources": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/WebRTC",
+          "title": "WebRTC",
+          "publisher": "MDN Web Docs",
+          "license": "CC-BY-SA-2.5",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "MDN describes WebRTC as an API used by video chat, voice calling, and peer-to-peer file sharing web apps.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-SA-2.5",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["real-time communication"],
+      "related_terms": ["ICE", "TURN", "API"]
+    },
+    {
+      "id": "seed-pwa-progressive-web-application",
+      "term": "PWA",
+      "term_normalized": "pwa",
+      "expansions": ["Progressive Web Application"],
+      "domains": ["web", "frontend"],
+      "meaning_short": "A web app enhanced to behave more like a platform-specific app.",
+      "meaning_long": "A PWA is built with web platform technologies while using capabilities such as manifests, service workers, and push APIs to provide installable, app-like behavior.",
+      "examples": ["Add a web app manifest and service worker before shipping a PWA."],
+      "sources": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Glossary/Progressive_web_apps",
+          "title": "Progressive web applications",
+          "publisher": "MDN Web Docs",
+          "license": "CC-BY-SA-2.5",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "MDN describes PWAs as applications built with web platform technologies that provide a platform-specific-app-like experience.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-SA-2.5",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["progressive web app"],
+      "related_terms": ["HTML", "CSS", "API"]
     }
   ]
 }

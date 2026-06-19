@@ -77,14 +77,8 @@ export const entries = pgTable(
     embedding: vector384("embedding")
   },
   (table) => [
-    index("entries_embedding_hnsw_idx").using(
-      "hnsw",
-      table.embedding.op("vector_cosine_ops")
-    ),
-    index("entries_term_normalized_trgm_idx").using(
-      "gin",
-      table.termNormalized.op("gin_trgm_ops")
-    ),
+    index("entries_embedding_hnsw_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
+    index("entries_term_normalized_trgm_idx").using("gin", table.termNormalized.op("gin_trgm_ops")),
     index("entries_tsvector_gin_idx").using("gin", table.tsvector),
     uniqueIndex("entries_term_layer_team_unique_idx")
       .on(table.termNormalized, table.layer, table.teamId)

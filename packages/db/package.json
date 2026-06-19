@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "db:generate": "drizzle-kit generate --config drizzle.config.ts"
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "seed:dev": "pnpm build && node dist/src/seed-dev.js"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
