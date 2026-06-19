@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -214,6 +216,7 @@ struct VideoDecoder::Impl {
     std::string open_input = input_string;
     const AVInputFormat* input_format = nullptr;
     AVDictionary* options = nullptr;
+    live_input = camera.has_value();
     if (camera.has_value()) {
       avdevice_register_all();
       input_format = av_find_input_format(camera->format.c_str());
@@ -221,6 +224,7 @@ struct VideoDecoder::Impl {
         throw std::runtime_error("FFmpeg input device unavailable: " + camera->format);
       }
       open_input = camera->device;
+      av_dict_set(&options, "video_size", "640x480", 0);
       av_dict_set(&options, "framerate", "30", 0);
       if (camera->format == "avfoundation") {
         av_dict_set(&options, "pixel_format", "nv12", 0);
@@ -315,6 +319,10 @@ struct VideoDecoder::Impl {
         }
         continue;
       }
+      if (read_result == AVERROR(EAGAIN) && live_input && !shouldQuit()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        continue;
+      }
       if (read_result < 0) {
         throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));
       }
@@ -362,6 +370,7 @@ struct VideoDecoder::Impl {
   std::optional<double> average_fps;
   int64_t frame_index = 0;
   bool eof = false;
+  bool live_input = false;
   bool still_image = false;
   bool animated_image = false;
   SwsContext* sws_context = nullptr;

@@ -352,7 +352,7 @@ void receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConv
   }
 }
 
-void decodeWorker(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options, FrameQueue* queue) {
+void decodeWorker(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, bool live_input, const MediaProbeOptions& options, FrameQueue* queue) {
   PacketPtr packet(av_packet_alloc());
   if (packet == nullptr) {
     throw std::runtime_error("failed to allocate packet");
@@ -368,6 +368,10 @@ void decodeWorker(AVFormatContext* format_context, AVCodecContext* codec_context
     const int read_result = av_read_frame(format_context, packet.get());
     if (read_result == AVERROR_EOF) {
       break;
+    }
+    if (read_result == AVERROR(EAGAIN) && live_input) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      continue;
     }
     if (read_result < 0) {
       throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));
@@ -396,7 +400,7 @@ void decodeWorker(AVFormatContext* format_context, AVCodecContext* codec_context
   receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options, queue);
 }
 
-DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
+DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, bool live_input, const MediaProbeOptions& options) {
   constexpr std::size_t queue_capacity = 6;
   FrameQueue queue(queue_capacity);
   DecodeStats stats;
@@ -406,7 +410,7 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
   std::exception_ptr worker_error;
   std::thread worker([&] {
     try {
-      decodeWorker(format_context, codec_context, video_stream_index, time_base, average_fps, options, &queue);
+      decodeWorker(format_context, codec_context, video_stream_index, time_base, average_fps, live_input, options, &queue);
     } catch (const DecodeCancelled&) {
     } catch (...) {
       worker_error = std::current_exception();
@@ -426,6 +430,9 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
         consume_index == *options.dump_frame_index) {
       writePngRgb24(*options.dump_png, frame.w, frame.h, frame.rgb);
       stats.dumped_png = *options.dump_png;
+      queue.close();
+      ++consume_index;
+      break;
     }
     if (options.on_frame && !options.on_frame(frame, consume_index)) {
       queue.close();
@@ -484,6 +491,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
       throw std::runtime_error("FFmpeg input device unavailable: " + camera->format);
     }
     open_input = camera->device;
+    av_dict_set(&open_options, "video_size", "640x480", 0);
     av_dict_set(&open_options, "framerate", "30", 0);
     if (camera->format == "avfoundation") {
       av_dict_set(&open_options, "pixel_format", "nv12", 0);
@@ -527,7 +535,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   const auto decoder_context = openVideoDecoder(codec_parameters);
   const auto average_fps = rationalToDouble(video_stream->avg_frame_rate);
   const auto decode_started = std::chrono::steady_clock::now();
-  const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, video_stream->time_base, average_fps, options);
+  const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, video_stream->time_base, average_fps, camera.has_value(), options);
   const std::chrono::duration<double> decode_elapsed = std::chrono::steady_clock::now() - decode_started;
 
   MediaProbeInfo info;
