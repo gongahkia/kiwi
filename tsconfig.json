@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/slack" },
+    { "path": "./apps/mcp" },
+    { "path": "./packages/core" },
+    { "path": "./packages/db" },
+    { "path": "./packages/search" },
+    { "path": "./packages/ingest" },
+    { "path": "./extensions/browser" }
+  ]
+}

@@ -4,6 +4,10 @@
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "build": "echo \"wat root build noop\""
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

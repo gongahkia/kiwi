@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "outDir": "dist",
+    "paths": {
+      "@wat/core": ["packages/core/src/index.ts"],
+      "@wat/core/*": ["packages/core/src/*"],
+      "@wat/db": ["packages/db/src/index.ts"],
+      "@wat/db/*": ["packages/db/src/*"],
+      "@wat/ingest": ["packages/ingest/src/index.ts"],
+      "@wat/ingest/*": ["packages/ingest/src/*"],
+      "@wat/search": ["packages/search/src/index.ts"],
+      "@wat/search/*": ["packages/search/src/*"]
+    },
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022"
+  }
+}
