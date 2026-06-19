@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getSuggestedEdits,
   resetSuggestedEditsForTest,
+  reviewSuggestedEdit,
   submitEntryEditSuggestion,
   submitNewEntrySuggestion,
   validateSuggestedEntry,
@@ -56,6 +57,29 @@ describe("suggestions", () => {
       target_id: "seed-dom"
     });
     expect(getSuggestedEdits()).toHaveLength(1);
+    resetSuggestedEditsForTest();
+  });
+
+  it("reviews and edits queued suggestions", () => {
+    resetSuggestedEditsForTest();
+    const input = validateSuggestedEntry({
+      domains: ["web"],
+      expansion: "Document Object Model",
+      meaning: "Browser document tree API.",
+      source_url: "https://example.com/dom",
+      term: "DOM"
+    });
+    const suggestion = submitNewEntrySuggestion("user_admin", input!);
+    const reviewed = reviewSuggestedEdit(suggestion.id, "reviewer", "approved", {
+      ...input!,
+      meaning: "Updated meaning."
+    });
+
+    expect(reviewed).toMatchObject({
+      reviewed_by: "reviewer",
+      status: "approved"
+    });
+    expect(reviewed.after_jsonb).toMatchObject({ meaning: "Updated meaning." });
     resetSuggestedEditsForTest();
   });
 });

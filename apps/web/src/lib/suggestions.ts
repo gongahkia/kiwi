@@ -17,14 +17,14 @@ export interface SuggestedEntryEditInput {
   source_url: string;
 }
 
-type SuggestedAfter = SuggestedEntryEditInput | SuggestedEntryInput;
-
 export interface SuggestedEdit {
   actor_id: string;
-  after_jsonb: SuggestedAfter;
+  after_jsonb: unknown;
   before_jsonb: unknown | null;
   created_at: string;
   id: string;
+  reviewed_at?: string;
+  reviewed_by?: string;
   status: SuggestedEditStatus;
   target_id: string | null;
   target_type: SuggestedTargetType;
@@ -123,6 +123,24 @@ export function submitEntryEditSuggestion(
     target_type: "entry"
   };
   suggestedEdits.push(structuredClone(suggestion));
+  return structuredClone(suggestion);
+}
+
+export function reviewSuggestedEdit(
+  suggestionId: string,
+  reviewerId: string,
+  status: SuggestedEditStatus,
+  afterJsonb?: unknown
+): SuggestedEdit {
+  const suggestion = suggestedEdits.find((item) => item.id === suggestionId);
+  if (!suggestion) {
+    throw new Error("suggestion not found");
+  }
+
+  suggestion.status = status;
+  suggestion.reviewed_by = reviewerId;
+  suggestion.reviewed_at = new Date().toISOString();
+  suggestion.after_jsonb = afterJsonb ?? suggestion.after_jsonb;
   return structuredClone(suggestion);
 }
 

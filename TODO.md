@@ -71,7 +71,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 
 ## P2 — Web app: contribution flows
-- [ ] Build team-admin review queue UI — done when admin can approve/reject/edit each suggestion.
 - [ ] Wire approval → entry insert/update + audit_log entry — done when audit table records actor + before/after.
 - [ ] Email notification on suggestion outcome — done when email sent on approve/reject (configurable).
 - [ ] Rate-limit suggestions per user (10/day) — done when 11th submission 429s.
