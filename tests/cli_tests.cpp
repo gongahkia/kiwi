@@ -47,6 +47,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--input", "cam"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "input flag parses");
+    expect(parsed.options.input.has_value() && *parsed.options.input == "cam", "input flag stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--mode", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "mode rejects invalid value");

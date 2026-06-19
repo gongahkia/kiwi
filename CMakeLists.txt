@@ -10,6 +10,7 @@ find_package(ZLIB REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavformat
   libavcodec
+  libavdevice
   libavutil
   libswscale
   libswresample
@@ -68,6 +69,7 @@ add_executable(contourtty
   src/luminance.cpp
   src/log.cpp
   src/main.cpp
+  src/media_input.cpp
   src/media_probe.cpp
   src/png_writer.cpp
   src/player.cpp
@@ -434,6 +436,30 @@ else()
   endif()
 endif()
 add_test(NAME render_layout COMMAND render_layout_tests)
+
+add_executable(media_input_tests
+  tests/media_input_tests.cpp
+  src/media_input.cpp
+)
+target_include_directories(media_input_tests PRIVATE src)
+target_compile_features(media_input_tests PRIVATE cxx_std_20)
+set_target_properties(media_input_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(media_input_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(media_input_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(media_input_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(media_input_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME media_input COMMAND media_input_tests)
 
 add_executable(stream_resolver_tests
   tests/stream_resolver_tests.cpp

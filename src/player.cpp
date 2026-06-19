@@ -11,6 +11,7 @@
 #include "glyph_shape.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
+#include "media_input.hpp"
 #include "render_layout.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
@@ -411,12 +412,16 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
 
   std::optional<DecodedAudio> decoded_audio;
-  try {
-    decoded_audio = decodeAudioFile(*options.input);
-    CONTOURTTY_LOG_INFO(logger, "audio decoded frames=" + std::to_string(decoded_audio->decoded_frames) +
-                                  " duration_us=" + std::to_string(decoded_audio->duration_us));
-  } catch (const NoAudioStreamError&) {
+  if (isCameraInput(*options.input)) {
     CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+  } else {
+    try {
+      decoded_audio = decodeAudioFile(*options.input);
+      CONTOURTTY_LOG_INFO(logger, "audio decoded frames=" + std::to_string(decoded_audio->decoded_frames) +
+                                    " duration_us=" + std::to_string(decoded_audio->duration_us));
+    } catch (const NoAudioStreamError&) {
+      CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+    }
   }
 
   resetQuitFlag();

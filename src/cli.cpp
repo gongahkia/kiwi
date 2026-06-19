@@ -150,6 +150,7 @@ CliParseResult parseArgs(int argc, char** argv) {
     if (!isOneOf(flag, {
           "--width",
           "--height",
+          "--input",
           "--cell-aspect",
           "--fps",
           "--max-fps",
@@ -177,7 +178,13 @@ CliParseResult parseArgs(int argc, char** argv) {
       return result;
     }
 
-    if (flag == "--width") {
+    if (flag == "--input") {
+      if (result.options.input.has_value()) {
+        result.error = "unexpected argument: " + std::string(*value);
+        return result;
+      }
+      result.options.input = std::string(*value);
+    } else if (flag == "--width") {
       const auto parsed = parsePositiveInt(*value);
       if (!parsed.has_value()) {
         result.error = "invalid value for --width: " + std::string(*value);
@@ -297,6 +304,7 @@ std::string helpText(std::string_view program_name) {
       << "  --version                      show version\n"
       << "  --width N                      target terminal columns\n"
       << "  --height N                     target terminal rows\n"
+      << "  --input PATH|URL|cam           input path, stream URL, or camera alias\n"
       << "  --cell-aspect N                terminal cell width/height ratio\n"
       << "  --fit                          fit output to terminal\n"
       << "  --fps N                        override source fps\n"
