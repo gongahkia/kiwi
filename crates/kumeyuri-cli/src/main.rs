@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 mod i18n;
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -43,7 +43,7 @@ use {
             enable_raw_mode,
         },
     },
-    kumeyuri_render_tui::{TuiRenderConfig, TuiRenderer, TuiTransitionEffect},
+    kumeyuri_render_tui::{TuiDebugOverlay, TuiRenderConfig, TuiRenderer, TuiTransitionEffect},
     notify::{
         Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
     },
@@ -104,6 +104,8 @@ enum Command {
         speed: Option<f32>,
         #[arg(long = "loop")]
         repeat: bool,
+        #[arg(long)]
+        debug: bool,
     },
     Plugin {
         #[command(subcommand)]
@@ -235,7 +237,13 @@ fn run() -> Result<(), String> {
             file,
             speed,
             repeat,
-        } => play_file(&file, playback_options(speed, repeat)?, max_input_bytes),
+            debug,
+        } => play_file(
+            &file,
+            playback_options(speed, repeat)?,
+            max_input_bytes,
+            debug,
+        ),
         Command::Plugin { command } => run_plugin_command(command),
     }
 }
@@ -521,7 +529,7 @@ fn render_file(
             AnimationOptions::default(),
             options,
         )?;
-        return play_timeline(&timeline);
+        return play_timeline(&timeline, false);
     }
     let output = render_source(&source, format, options)?;
     io::stdout()
@@ -1443,10 +1451,15 @@ fn rgba_color(color: RgbColor) -> RgbaColor {
     RgbaColor::rgb(color.red, color.green, color.blue)
 }
 
-fn play_file(path: &Path, options: AnimationOptions, max_input_bytes: usize) -> Result<(), String> {
+fn play_file(
+    path: &Path,
+    options: AnimationOptions,
+    max_input_bytes: usize,
+    debug: bool,
+) -> Result<(), String> {
     let source = read_source_file(path, max_input_bytes)?;
     let timeline = timeline_from_source_with_options(&source, options)?;
-    play_timeline(&timeline)
+    play_timeline(&timeline, debug)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -2244,7 +2257,7 @@ fn push_unique_node_id(nodes: &mut Vec<String>, id: &str) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn play_timeline(timeline: &Timeline) -> Result<(), String> {
+fn play_timeline(timeline: &Timeline, debug: bool) -> Result<(), String> {
     enable_raw_mode()
         .map_err(|error| msg_args("tui-enable-raw-mode", &[msg_arg("error", error)]))?;
     let mut stdout = io::stdout();
@@ -2269,7 +2282,7 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
         transition: TuiTransitionEffect::Fade,
         ..TuiRenderConfig::default()
     })
-    .render_interactive_timeline(&mut terminal, timeline)
+    .render_interactive_timeline(&mut terminal, timeline, debug)
     .map_err(|error| msg_args("tui-render-timeline", &[msg_arg("error", error)]));
     let cursor_result = terminal
         .show_cursor()
@@ -2286,7 +2299,7 @@ fn play_timeline(timeline: &Timeline) -> Result<(), String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn play_timeline(_timeline: &Timeline) -> Result<(), String> {
+fn play_timeline(_timeline: &Timeline, _debug: bool) -> Result<(), String> {
     Err(msg("play-wasm"))
 }
 
@@ -2296,6 +2309,7 @@ trait InteractiveTimelineRenderer {
         self,
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
         timeline: &Timeline,
+        debug: bool,
     ) -> Result<(), io::Error>;
 }
 
@@ -2305,14 +2319,21 @@ impl InteractiveTimelineRenderer for TuiRenderer {
         self,
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
         timeline: &Timeline,
+        debug: bool,
     ) -> Result<(), io::Error> {
         if timeline.is_empty() {
             return Ok(());
         }
 
         let mut state = PlaybackState::new();
+        let mut debug_state = PlaybackDebug::new(debug);
         loop {
-            self.draw(terminal, timeline.keyframes()[state.index].frame())?;
+            debug_state.record_draw(Instant::now());
+            self.draw_with_debug(
+                terminal,
+                timeline.keyframes()[state.index].frame(),
+                debug_state.overlay(state.index, timeline.len()),
+            )?;
             let timeout = if state.paused {
                 Duration::from_millis(100)
             } else {
@@ -2332,6 +2353,51 @@ impl InteractiveTimelineRenderer for TuiRenderer {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PlaybackDebug {
+    enabled: bool,
+    last_draw: Option<Instant>,
+    fps: f64,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PlaybackDebug {
+    const fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            last_draw: None,
+            fps: 0.0,
+        }
+    }
+
+    fn record_draw(&mut self, now: Instant) {
+        if let Some(last_draw) = self.last_draw {
+            let elapsed = now.saturating_duration_since(last_draw).as_secs_f64();
+            if elapsed > 0.0 {
+                let current = 1.0 / elapsed;
+                self.fps = if self.fps == 0.0 {
+                    current
+                } else {
+                    (self.fps * 0.8) + (current * 0.2)
+                };
+            }
+        }
+        self.last_draw = Some(now);
+    }
+
+    const fn overlay(self, frame_index: usize, frame_count: usize) -> Option<TuiDebugOverlay> {
+        if !self.enabled {
+            return None;
+        }
+        Some(TuiDebugOverlay {
+            fps: self.fps,
+            frame_index,
+            frame_count,
+        })
     }
 }
 
@@ -2437,7 +2503,7 @@ mod tests {
         timeline_from_source_with_render_options, write_plugin_install_record,
     };
     #[cfg(not(target_arch = "wasm32"))]
-    use super::{PlaybackAction, PlaybackState, should_rerender};
+    use super::{PlaybackAction, PlaybackDebug, PlaybackState, TuiDebugOverlay, should_rerender};
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
@@ -2457,7 +2523,7 @@ mod tests {
         env,
         ffi::OsString,
         fs, process,
-        time::{Duration, SystemTime},
+        time::{Duration, Instant, SystemTime},
     };
 
     #[test]
@@ -3242,6 +3308,26 @@ mod tests {
         assert_eq!(state.index, 1);
         assert!(state.advance(2, true));
         assert_eq!(state.index, 0);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn playback_debug_tracks_fps_overlay() {
+        let mut debug = PlaybackDebug::new(true);
+        let start = Instant::now();
+
+        debug.record_draw(start);
+        debug.record_draw(start + Duration::from_millis(100));
+
+        assert_eq!(
+            debug.overlay(1, 3),
+            Some(TuiDebugOverlay {
+                fps: 10.0,
+                frame_index: 1,
+                frame_count: 3,
+            }),
+        );
+        assert_eq!(PlaybackDebug::new(false).overlay(0, 1), None);
     }
 
     fn unique_temp_dir(label: &str) -> std::path::PathBuf {

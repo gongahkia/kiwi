@@ -8,8 +8,9 @@ use kumeyuri_core::{
 use ratatui::{
     Frame, Terminal,
     backend::Backend,
+    layout::{Alignment, Rect},
     style::Color,
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 use tachyonfx::{Effect, EffectRenderer, EffectTimer, Interpolation, Motion, fx, fx::Glitch};
 
@@ -66,6 +67,13 @@ pub struct TuiRenderer {
     output: TextOutputBackend,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TuiDebugOverlay {
+    pub fps: f64,
+    pub frame_index: usize,
+    pub frame_count: usize,
+}
+
 impl Default for TuiRenderer {
     fn default() -> Self {
         Self::new(TuiRenderConfig::default())
@@ -102,6 +110,17 @@ impl TuiRenderer {
         terminal.draw(|area| self.render(area, frame)).map(|_| ())
     }
 
+    pub fn draw_with_debug<B: Backend>(
+        self,
+        terminal: &mut Terminal<B>,
+        frame: &CoreFrame,
+        overlay: Option<TuiDebugOverlay>,
+    ) -> Result<(), B::Error> {
+        terminal
+            .draw(|area| self.render_with_debug(area, frame, overlay))
+            .map(|_| ())
+    }
+
     pub fn render_timeline<B: Backend>(
         self,
         terminal: &mut Terminal<B>,
@@ -120,6 +139,15 @@ impl TuiRenderer {
     }
 
     fn render(self, area: &mut Frame<'_>, frame: &CoreFrame) {
+        self.render_with_debug(area, frame, None);
+    }
+
+    fn render_with_debug(
+        self,
+        area: &mut Frame<'_>,
+        frame: &CoreFrame,
+        overlay: Option<TuiDebugOverlay>,
+    ) {
         let area_rect = area.area();
         let text = self.frame_text(frame);
         let mut paragraph = Paragraph::new(text);
@@ -130,7 +158,31 @@ impl TuiRenderer {
         if let Some(mut effect) = self.config.transition.build(self.config.transition_tick) {
             area.render_effect(&mut effect, area_rect, self.config.transition_tick.into());
         }
+        if let Some(overlay) = overlay {
+            render_debug_overlay(area, area_rect, overlay);
+        }
     }
+}
+
+fn render_debug_overlay(area: &mut Frame<'_>, area_rect: Rect, overlay: TuiDebugOverlay) {
+    let label = format!(
+        "fps {:>5.1} | frame {}/{}",
+        overlay.fps,
+        overlay.frame_index.saturating_add(1),
+        overlay.frame_count
+    );
+    let width = label.len().min(area_rect.width as usize) as u16;
+    if width == 0 || area_rect.height == 0 {
+        return;
+    }
+    let rect = Rect {
+        x: area_rect.x + area_rect.width.saturating_sub(width),
+        y: area_rect.y,
+        width,
+        height: 1,
+    };
+    area.render_widget(Clear, rect);
+    area.render_widget(Paragraph::new(label).alignment(Alignment::Right), rect);
 }
 
 fn effect_timer(duration: StdDuration) -> EffectTimer {
@@ -143,7 +195,7 @@ fn effect_duration_ms(duration: StdDuration) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{TuiRenderConfig, TuiRenderer, TuiTransitionEffect};
+    use super::{TuiDebugOverlay, TuiRenderConfig, TuiRenderer, TuiTransitionEffect};
     use kumeyuri_core::{
         animator::{KeyFrame, Timeline},
         frame::Frame,
@@ -186,6 +238,37 @@ mod tests {
         assert_eq!(buffer[(0, 0)].symbol(), "A");
         assert_eq!(buffer[(1, 0)].symbol(), "B");
         assert_eq!(buffer[(2, 0)].symbol(), "C");
+    }
+
+    #[test]
+    fn draws_debug_overlay_when_requested() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let backend = TestBackend::new(32, 2);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        TuiRenderer::default()
+            .draw_with_debug(
+                &mut terminal,
+                &frame,
+                Some(TuiDebugOverlay {
+                    fps: 12.5,
+                    frame_index: 1,
+                    frame_count: 3,
+                }),
+            )
+            .unwrap();
+
+        let content = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+
+        assert!(content.contains("fps  12.5"));
+        assert!(content.contains("frame 2/3"));
     }
 
     #[test]
