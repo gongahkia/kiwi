@@ -1,6 +1,7 @@
 import type { ScraperPlugin } from "../scraper.js";
 import { awsServicesScraper } from "./aws-services.js";
 import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
+import { gcpServicesScraper } from "./gcp-services.js";
 import { exampleScraper } from "./example.js";
 import { jargonFileScraper } from "./jargon-file.js";
 import { kubernetesGlossaryScraper } from "./kubernetes-glossary.js";
@@ -14,6 +15,7 @@ import { wikipediaAcronymsScraper } from "./wikipedia-acronyms.js";
 export const scrapers = new Map<string, ScraperPlugin>([
   [awsServicesScraper.name, awsServicesScraper],
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
+  [gcpServicesScraper.name, gcpServicesScraper],
   [exampleScraper.name, exampleScraper],
   [jargonFileScraper.name, jargonFileScraper],
   [kubernetesGlossaryScraper.name, kubernetesGlossaryScraper],

@@ -26,7 +26,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P1 — Public corpus scrapers (one task per source)
 - [ ] IETF RFC index scraper (RFCs that define acronyms) — done when ≥500 RFC-anchored acronyms imported (eg. TCP, BGP, SMTP) w/ RFC number + section.
 - [ ] CNCF Cloud Native Glossary scraper (CC-BY 4.0) — done when ≥120 cloud-native terms ingested.
-- [ ] GCP service-name expansion scraper — done when ≥150 GCP services covered.
 - [ ] Azure service-name expansion scraper — done when ≥150 Azure services covered.
 
 ## P1 — Corpus quality controls
