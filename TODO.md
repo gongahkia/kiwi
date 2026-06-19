@@ -26,7 +26,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P1 — Public corpus scrapers (one task per source)
 - [ ] Wikipedia acronym/disambiguation scraper — done when ≥3K entries imported w/ Wikipedia citations, license CC-BY-SA tagged.
 - [ ] IETF RFC index scraper (RFCs that define acronyms) — done when ≥500 RFC-anchored acronyms imported (eg. TCP, BGP, SMTP) w/ RFC number + section.
-- [ ] W3C glossary scraper — done when standards terms ingested w/ W3C URLs.
 - [ ] CNCF Cloud Native Glossary scraper (CC-BY 4.0) — done when ≥120 cloud-native terms ingested.
 - [ ] AWS service-name expansion scraper (EC2 → Elastic Compute Cloud) — done when ≥200 AWS services covered.
 - [ ] GCP service-name expansion scraper — done when ≥150 GCP services covered.
