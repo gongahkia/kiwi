@@ -31,7 +31,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] GCP service-name expansion scraper — done when ≥150 GCP services covered.
 - [ ] Azure service-name expansion scraper — done when ≥150 Azure services covered.
 - [ ] NIST CSRC glossary scraper (public domain) — done when ≥1K security terms ingested.
-- [ ] Linux Foundation glossary scraper — done when LF-published terms ingested where licensed.
 
 ## P1 — Corpus quality controls
 
