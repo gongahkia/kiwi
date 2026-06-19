@@ -1,6 +1,7 @@
 #include "media_probe.hpp"
 
 #include "frame.hpp"
+#include "media_input.hpp"
 #include "png_writer.hpp"
 
 #include <array>
@@ -21,6 +22,7 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavdevice/avdevice.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
@@ -458,7 +460,8 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   }
 
   const std::string input_string = input.string();
-  if (!looksRemote(input_string)) {
+  const std::optional<CameraInputSpec> camera = cameraInputSpec(input_string);
+  if (!camera.has_value() && !looksRemote(input_string)) {
     std::error_code stat_error;
     if (!std::filesystem::exists(input, stat_error)) {
       throw std::runtime_error("missing file: " + input_string);
@@ -471,8 +474,27 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
     }
   }
 
+  std::string open_input = input_string;
+  const AVInputFormat* input_format = nullptr;
+  AVDictionary* open_options = nullptr;
+  if (camera.has_value()) {
+    avdevice_register_all();
+    input_format = av_find_input_format(camera->format.c_str());
+    if (input_format == nullptr) {
+      throw std::runtime_error("FFmpeg input device unavailable: " + camera->format);
+    }
+    open_input = camera->device;
+    av_dict_set(&open_options, "framerate", "30", 0);
+    if (camera->format == "avfoundation") {
+      av_dict_set(&open_options, "pixel_format", "nv12", 0);
+    }
+    av_dict_set(&open_options, "fflags", "nobuffer", 0);
+    av_dict_set(&open_options, "flags", "low_delay", 0);
+  }
+
   AVFormatContext* raw_context = nullptr;
-  int result = avformat_open_input(&raw_context, input_string.c_str(), nullptr, nullptr);
+  int result = avformat_open_input(&raw_context, open_input.c_str(), input_format, &open_options);
+  av_dict_free(&open_options);
   if (result < 0) {
     if (result == AVERROR_INVALIDDATA) {
       throw std::runtime_error("corrupt or unsupported media: " + input_string + ": " + ffmpegError(result));
