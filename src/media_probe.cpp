@@ -1,5 +1,7 @@
 #include "media_probe.hpp"
 
+#include "png_writer.hpp"
+
 #include <array>
 #include <filesystem>
 #include <iomanip>
@@ -13,6 +15,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
+#include <libswscale/swscale.h>
 }
 
 namespace contourtty {
@@ -53,6 +56,61 @@ struct FrameDeleter {
 };
 
 using FramePtr = std::unique_ptr<AVFrame, FrameDeleter>;
+
+struct SwsContextDeleter {
+  void operator()(SwsContext* context) const noexcept {
+    sws_freeContext(context);
+  }
+};
+
+using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
+
+class RgbConverter {
+ public:
+  std::span<const uint8_t> convert(const AVFrame* frame) {
+    const auto format = static_cast<AVPixelFormat>(frame->format);
+    if (frame->width <= 0 || frame->height <= 0 || format == AV_PIX_FMT_NONE) {
+      throw std::runtime_error("decoded frame has invalid geometry or pixel format");
+    }
+    if (context_ == nullptr || width_ != frame->width || height_ != frame->height || format_ != format) {
+      reset(frame->width, frame->height, format);
+    }
+    uint8_t* dst_data[4] {rgb_.data(), nullptr, nullptr, nullptr};
+    int dst_linesize[4] {width_ * 3, 0, 0, 0};
+    const int scaled = sws_scale(context_.get(), frame->data, frame->linesize, 0, height_, dst_data, dst_linesize);
+    if (scaled != height_) {
+      throw std::runtime_error("failed to convert frame to RGB24");
+    }
+    return rgb_;
+  }
+
+  int width() const noexcept {
+    return width_;
+  }
+
+  int height() const noexcept {
+    return height_;
+  }
+
+ private:
+  void reset(int width, int height, AVPixelFormat format) {
+    SwsContext* raw_context = sws_getContext(width, height, format, width, height, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (raw_context == nullptr) {
+      throw std::runtime_error("failed to create RGB24 scaler");
+    }
+    context_.reset(raw_context);
+    width_ = width;
+    height_ = height;
+    format_ = format;
+    rgb_.assign(static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_) * 3, 0);
+  }
+
+  SwsContextPtr context_;
+  int width_ = 0;
+  int height_ = 0;
+  AVPixelFormat format_ = AV_PIX_FMT_NONE;
+  std::vector<uint8_t> rgb_;
+};
 
 std::string ffmpegError(int error_code) {
   std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer {};
@@ -106,23 +164,47 @@ CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
   return codec_context;
 }
 
-int64_t receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame) {
-  int64_t decoded = 0;
+struct DecodeStats {
+  int64_t decoded_frames = 0;
+  int64_t converted_rgb_frames = 0;
+  std::optional<std::filesystem::path> dumped_png;
+};
+
+DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, const MediaProbeOptions& options) {
+  DecodeStats stats;
   while (true) {
     const int result = avcodec_receive_frame(codec_context, frame);
     if (result == 0) {
-      ++decoded;
+      ++stats.decoded_frames;
+      if (converter != nullptr) {
+        const auto rgb = converter->convert(frame);
+        ++stats.converted_rgb_frames;
+        if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
+            *frame_index == *options.dump_frame_index) {
+          writePngRgb24(*options.dump_png, converter->width(), converter->height(), rgb);
+          stats.dumped_png = *options.dump_png;
+        }
+      }
+      ++(*frame_index);
       av_frame_unref(frame);
       continue;
     }
     if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
-      return decoded;
+      return stats;
     }
     throw std::runtime_error("failed to receive decoded frame: " + ffmpegError(result));
   }
 }
 
-int64_t countDecodedFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index) {
+void mergeStats(DecodeStats* target, const DecodeStats& update) {
+  target->decoded_frames += update.decoded_frames;
+  target->converted_rgb_frames += update.converted_rgb_frames;
+  if (update.dumped_png.has_value()) {
+    target->dumped_png = update.dumped_png;
+  }
+}
+
+DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, const MediaProbeOptions& options) {
   PacketPtr packet(av_packet_alloc());
   if (packet == nullptr) {
     throw std::runtime_error("failed to allocate packet");
@@ -132,7 +214,9 @@ int64_t countDecodedFrames(AVFormatContext* format_context, AVCodecContext* code
     throw std::runtime_error("failed to allocate frame");
   }
 
-  int64_t decoded_frames = 0;
+  DecodeStats stats;
+  RgbConverter converter;
+  int64_t frame_index = 0;
   while (true) {
     const int read_result = av_read_frame(format_context, packet.get());
     if (read_result == AVERROR_EOF) {
@@ -145,14 +229,14 @@ int64_t countDecodedFrames(AVFormatContext* format_context, AVCodecContext* code
     if (packet->stream_index == video_stream_index) {
       int send_result = avcodec_send_packet(codec_context, packet.get());
       if (send_result == AVERROR(EAGAIN)) {
-        decoded_frames += receiveDecodedFrames(codec_context, frame.get());
+        mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
         send_result = avcodec_send_packet(codec_context, packet.get());
       }
       if (send_result < 0) {
         av_packet_unref(packet.get());
         throw std::runtime_error("failed to send packet to decoder: " + ffmpegError(send_result));
       }
-      decoded_frames += receiveDecodedFrames(codec_context, frame.get());
+      mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
     }
 
     av_packet_unref(packet.get());
@@ -162,13 +246,20 @@ int64_t countDecodedFrames(AVFormatContext* format_context, AVCodecContext* code
   if (drain_result < 0 && drain_result != AVERROR_EOF) {
     throw std::runtime_error("failed to drain decoder: " + ffmpegError(drain_result));
   }
-  decoded_frames += receiveDecodedFrames(codec_context, frame.get());
-  return decoded_frames;
+  mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
+  if (options.dump_png.has_value() && !stats.dumped_png.has_value()) {
+    throw std::runtime_error("requested frame was not decoded: " + std::to_string(*options.dump_frame_index));
+  }
+  return stats;
 }
 
 }  // namespace
 
-MediaProbeInfo probeMedia(const std::filesystem::path& input) {
+MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options) {
+  if (options.dump_png.has_value() != options.dump_frame_index.has_value()) {
+    throw std::runtime_error("--dump-frame and --dump-png must be used together");
+  }
+
   const std::string input_string = input.string();
   if (!looksRemote(input_string)) {
     std::error_code stat_error;
@@ -212,7 +303,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input) {
   const AVStream* video_stream = format_context->streams[video_stream_index];
   const AVCodecParameters* codec_parameters = video_stream->codecpar;
   const auto decoder_context = openVideoDecoder(codec_parameters);
-  const int64_t decoded_frames = countDecodedFrames(format_context.get(), decoder_context.get(), video_stream_index);
+  const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, options);
 
   MediaProbeInfo info;
   info.input = input;
@@ -225,7 +316,9 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input) {
     info.duration_us = format_context->duration;
   }
   info.average_fps = rationalToDouble(video_stream->avg_frame_rate);
-  info.decoded_frames = decoded_frames;
+  info.decoded_frames = decode_stats.decoded_frames;
+  info.converted_rgb_frames = decode_stats.converted_rgb_frames;
+  info.dumped_png = decode_stats.dumped_png;
   return info;
 }
 
@@ -252,7 +345,11 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
     out << "unknown";
   }
   out << '\n'
-      << "decoded_frames: " << info.decoded_frames << '\n';
+      << "decoded_frames: " << info.decoded_frames << '\n'
+      << "converted_rgb_frames: " << info.converted_rgb_frames << '\n';
+  if (info.dumped_png.has_value()) {
+    out << "dumped_png: " << info.dumped_png->string() << '\n';
+  }
   return out.str();
 }
 

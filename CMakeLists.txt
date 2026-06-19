@@ -5,6 +5,7 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 find_package(PkgConfig REQUIRED)
+find_package(ZLIB REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavformat
   libavcodec
@@ -17,6 +18,7 @@ add_executable(contourtty
   src/log.cpp
   src/main.cpp
   src/media_probe.cpp
+  src/png_writer.cpp
   src/terminal.cpp
 )
 target_compile_features(contourtty PRIVATE cxx_std_20)
@@ -26,7 +28,7 @@ set_target_properties(contourtty PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(contourtty PRIVATE CONTOURTTY_VERSION="${PROJECT_VERSION}")
-target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG)
+target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB)
 
 if(MSVC)
   target_compile_options(contourtty PRIVATE /W4)

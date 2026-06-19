@@ -17,9 +17,16 @@ struct MediaProbeInfo {
   std::optional<int64_t> duration_us;
   std::optional<double> average_fps;
   int64_t decoded_frames = 0;
+  int64_t converted_rgb_frames = 0;
+  std::optional<std::filesystem::path> dumped_png;
 };
 
-MediaProbeInfo probeMedia(const std::filesystem::path& input);
+struct MediaProbeOptions {
+  std::optional<int64_t> dump_frame_index;
+  std::optional<std::filesystem::path> dump_png;
+};
+
+MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options = {});
 std::string formatMediaProbeInfo(const MediaProbeInfo& info);
 
 }  // namespace contourtty

@@ -9,6 +9,7 @@ contourtty keeps runtime dependencies explicit and avoids hidden package-manager
 | CMake | 3.20 | system | Required for configure/build. |
 | C++ compiler | C++20 | system | AppleClang, Clang, or GCC with C++20 support. |
 | pkg-config | any current | system | Used to discover FFmpeg libraries. |
+| zlib | any current | system/find-package | PNG dump compression for decode verification. |
 
 ## Media decode and conversion
 
@@ -63,5 +64,5 @@ Ubuntu/Debian:
 ```sh
 sudo apt-get update
 sudo apt-get install -y build-essential cmake pkg-config \
-  libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
+  libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev zlib1g-dev
 ```

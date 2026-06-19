@@ -31,6 +31,8 @@ struct CliOptions {
   bool gpu = false;
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;
+  std::optional<int> dump_frame;
+  std::optional<std::string> dump_png;
 };
 
 struct CliParseResult {

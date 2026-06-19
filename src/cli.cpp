@@ -134,6 +134,8 @@ CliParseResult parseArgs(int argc, char** argv) {
           "--dither",
           "--log",
           "--export",
+          "--dump-frame",
+          "--dump-png",
         })) {
       result.error = "unknown flag: " + std::string(flag);
       return result;
@@ -221,6 +223,15 @@ CliParseResult parseArgs(int argc, char** argv) {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {
       result.options.export_file = std::string(*value);
+    } else if (flag == "--dump-frame") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --dump-frame: " + std::string(*value);
+        return result;
+      }
+      result.options.dump_frame = *parsed;
+    } else if (flag == "--dump-png") {
+      result.options.dump_png = std::string(*value);
     }
   }
 
@@ -250,7 +261,9 @@ std::string helpText(std::string_view program_name) {
       << "  --loop                         loop input\n"
       << "  --log FILE                     write diagnostics to file\n"
       << "  --gpu                          request gpu analysis path\n"
-      << "  --export FILE                  render to output file\n";
+      << "  --export FILE                  render to output file\n"
+      << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
+      << "  --dump-png FILE                write dumped frame as RGB PNG\n";
   return out.str();
 }
 

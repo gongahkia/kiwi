@@ -41,7 +41,14 @@ int runApp(int argc, char** argv) {
   }
 
   if (parsed.options.input.has_value()) {
-    const auto info = contourtty::probeMedia(*parsed.options.input);
+    contourtty::MediaProbeOptions probe_options;
+    if (parsed.options.dump_frame.has_value()) {
+      probe_options.dump_frame_index = *parsed.options.dump_frame;
+    }
+    if (parsed.options.dump_png.has_value()) {
+      probe_options.dump_png = *parsed.options.dump_png;
+    }
+    const auto info = contourtty::probeMedia(*parsed.options.input, probe_options);
     std::cout << contourtty::formatMediaProbeInfo(info);
     return 0;
   }
