@@ -48,6 +48,13 @@ int runApp(int argc, char** argv) {
     if (parsed.options.dump_png.has_value()) {
       probe_options.dump_png = *parsed.options.dump_png;
     }
+    if (parsed.options.width.has_value()) {
+      probe_options.target_cols = *parsed.options.width;
+    }
+    if (parsed.options.height.has_value()) {
+      probe_options.target_rows = *parsed.options.height;
+    }
+    probe_options.cell_aspect = parsed.options.cell_aspect;
     const auto info = contourtty::probeMedia(*parsed.options.input, probe_options);
     std::cout << contourtty::formatMediaProbeInfo(info);
     return 0;

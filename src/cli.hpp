@@ -17,6 +17,7 @@ struct CliOptions {
   std::optional<std::string> input;
   std::optional<int> width;
   std::optional<int> height;
+  double cell_aspect = 0.5;
   std::optional<double> fps;
   std::optional<double> max_fps;
   std::string mode = "luminance";

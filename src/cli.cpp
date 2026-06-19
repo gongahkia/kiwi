@@ -122,6 +122,7 @@ CliParseResult parseArgs(int argc, char** argv) {
     if (!isOneOf(flag, {
           "--width",
           "--height",
+          "--cell-aspect",
           "--fps",
           "--max-fps",
           "--mode",
@@ -160,6 +161,13 @@ CliParseResult parseArgs(int argc, char** argv) {
         return result;
       }
       result.options.height = *parsed;
+    } else if (flag == "--cell-aspect") {
+      const auto parsed = parsePositiveDouble(*value, false);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --cell-aspect: " + std::string(*value);
+        return result;
+      }
+      result.options.cell_aspect = *parsed;
     } else if (flag == "--fps") {
       const auto parsed = parsePositiveDouble(*value, false);
       if (!parsed.has_value()) {
@@ -247,6 +255,7 @@ std::string helpText(std::string_view program_name) {
       << "  --version                      show version\n"
       << "  --width N                      target terminal columns\n"
       << "  --height N                     target terminal rows\n"
+      << "  --cell-aspect N                terminal cell width/height ratio\n"
       << "  --fit                          fit output to terminal\n"
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"

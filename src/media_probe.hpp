@@ -19,12 +19,17 @@ struct MediaProbeInfo {
   int64_t decoded_frames = 0;
   int64_t converted_rgb_frames = 0;
   int64_t owned_frames = 0;
+  int working_width = 0;
+  int working_height = 0;
   std::optional<std::filesystem::path> dumped_png;
 };
 
 struct MediaProbeOptions {
   std::optional<int64_t> dump_frame_index;
   std::optional<std::filesystem::path> dump_png;
+  std::optional<int> target_cols;
+  std::optional<int> target_rows;
+  double cell_aspect = 0.5;
 };
 
 MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options = {});

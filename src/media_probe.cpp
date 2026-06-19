@@ -4,6 +4,8 @@
 #include "png_writer.hpp"
 
 #include <array>
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <iomanip>
 #include <memory>
@@ -68,47 +70,52 @@ using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
 
 class RgbConverter {
  public:
-  std::span<const uint8_t> convert(const AVFrame* frame) {
+  std::span<const uint8_t> convert(const AVFrame* frame, int dst_width, int dst_height) {
     const auto format = static_cast<AVPixelFormat>(frame->format);
-    if (frame->width <= 0 || frame->height <= 0 || format == AV_PIX_FMT_NONE) {
+    if (frame->width <= 0 || frame->height <= 0 || dst_width <= 0 || dst_height <= 0 || format == AV_PIX_FMT_NONE) {
       throw std::runtime_error("decoded frame has invalid geometry or pixel format");
     }
-    if (context_ == nullptr || width_ != frame->width || height_ != frame->height || format_ != format) {
-      reset(frame->width, frame->height, format);
+    if (context_ == nullptr || src_width_ != frame->width || src_height_ != frame->height ||
+        dst_width_ != dst_width || dst_height_ != dst_height || format_ != format) {
+      reset(frame->width, frame->height, dst_width, dst_height, format);
     }
     uint8_t* dst_data[4] {rgb_.data(), nullptr, nullptr, nullptr};
-    int dst_linesize[4] {width_ * 3, 0, 0, 0};
-    const int scaled = sws_scale(context_.get(), frame->data, frame->linesize, 0, height_, dst_data, dst_linesize);
-    if (scaled != height_) {
+    int dst_linesize[4] {dst_width_ * 3, 0, 0, 0};
+    const int scaled = sws_scale(context_.get(), frame->data, frame->linesize, 0, src_height_, dst_data, dst_linesize);
+    if (scaled != dst_height_) {
       throw std::runtime_error("failed to convert frame to RGB24");
     }
     return rgb_;
   }
 
   int width() const noexcept {
-    return width_;
+    return dst_width_;
   }
 
   int height() const noexcept {
-    return height_;
+    return dst_height_;
   }
 
  private:
-  void reset(int width, int height, AVPixelFormat format) {
-    SwsContext* raw_context = sws_getContext(width, height, format, width, height, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+  void reset(int src_width, int src_height, int dst_width, int dst_height, AVPixelFormat format) {
+    SwsContext* raw_context = sws_getContext(src_width, src_height, format, dst_width, dst_height, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (raw_context == nullptr) {
       throw std::runtime_error("failed to create RGB24 scaler");
     }
     context_.reset(raw_context);
-    width_ = width;
-    height_ = height;
+    src_width_ = src_width;
+    src_height_ = src_height;
+    dst_width_ = dst_width;
+    dst_height_ = dst_height;
     format_ = format;
-    rgb_.assign(static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_) * 3, 0);
+    rgb_.assign(static_cast<std::size_t>(dst_width_) * static_cast<std::size_t>(dst_height_) * 3, 0);
   }
 
   SwsContextPtr context_;
-  int width_ = 0;
-  int height_ = 0;
+  int src_width_ = 0;
+  int src_height_ = 0;
+  int dst_width_ = 0;
+  int dst_height_ = 0;
   AVPixelFormat format_ = AV_PIX_FMT_NONE;
   std::vector<uint8_t> rgb_;
 };
@@ -138,6 +145,43 @@ std::optional<double> rationalToDouble(AVRational rational) {
     return std::nullopt;
   }
   return av_q2d(rational);
+}
+
+struct WorkingSize {
+  int w = 0;
+  int h = 0;
+};
+
+WorkingSize computeWorkingSize(int src_width, int src_height, const MediaProbeOptions& options) {
+  if (src_width <= 0 || src_height <= 0) {
+    throw std::runtime_error("invalid source size");
+  }
+  if (options.cell_aspect <= 0.0) {
+    throw std::runtime_error("cell aspect must be positive");
+  }
+
+  const double img_aspect = static_cast<double>(src_width) / static_cast<double>(src_height);
+  const auto rows_for_cols = [&](int cols) {
+    return std::max(1, static_cast<int>(std::llround(static_cast<double>(cols) * (1.0 / img_aspect) * options.cell_aspect)));
+  };
+  const auto cols_for_rows = [&](int rows) {
+    return std::max(1, static_cast<int>(std::llround(static_cast<double>(rows) * img_aspect / options.cell_aspect)));
+  };
+
+  if (options.target_cols.has_value() && options.target_rows.has_value()) {
+    const int rows = rows_for_cols(*options.target_cols);
+    if (rows <= *options.target_rows) {
+      return WorkingSize{.w = *options.target_cols, .h = rows};
+    }
+    return WorkingSize{.w = cols_for_rows(*options.target_rows), .h = *options.target_rows};
+  }
+  if (options.target_cols.has_value()) {
+    return WorkingSize{.w = *options.target_cols, .h = rows_for_cols(*options.target_cols)};
+  }
+  if (options.target_rows.has_value()) {
+    return WorkingSize{.w = cols_for_rows(*options.target_rows), .h = *options.target_rows};
+  }
+  return WorkingSize{.w = src_width, .h = src_height};
 }
 
 CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
@@ -170,6 +214,7 @@ struct DecodeStats {
   int64_t converted_rgb_frames = 0;
   int64_t owned_frames = 0;
   std::optional<std::filesystem::path> dumped_png;
+  WorkingSize working_size;
 };
 
 Frame makeOwnedFrame(int width, int height, std::span<const uint8_t> rgb) {
@@ -188,7 +233,8 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
     if (result == 0) {
       ++stats.decoded_frames;
       if (converter != nullptr) {
-        const auto rgb = converter->convert(frame);
+        const WorkingSize working_size = computeWorkingSize(frame->width, frame->height, options);
+        const auto rgb = converter->convert(frame, working_size.w, working_size.h);
         ++stats.converted_rgb_frames;
         const Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb);
         if (owned_frame.w != converter->width() || owned_frame.h != converter->height() ||
@@ -196,6 +242,7 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
           throw std::runtime_error("owned frame RGB24 copy failed");
         }
         ++stats.owned_frames;
+        stats.working_size = working_size;
         if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
             *frame_index == *options.dump_frame_index) {
           writePngRgb24(*options.dump_png, owned_frame.w, owned_frame.h, owned_frame.rgb);
@@ -217,6 +264,9 @@ void mergeStats(DecodeStats* target, const DecodeStats& update) {
   target->decoded_frames += update.decoded_frames;
   target->converted_rgb_frames += update.converted_rgb_frames;
   target->owned_frames += update.owned_frames;
+  if (update.working_size.w > 0 && update.working_size.h > 0) {
+    target->working_size = update.working_size;
+  }
   if (update.dumped_png.has_value()) {
     target->dumped_png = update.dumped_png;
   }
@@ -276,6 +326,12 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
 MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options) {
   if (options.dump_png.has_value() != options.dump_frame_index.has_value()) {
     throw std::runtime_error("--dump-frame and --dump-png must be used together");
+  }
+  if (options.target_cols.has_value() && *options.target_cols <= 0) {
+    throw std::runtime_error("target columns must be positive");
+  }
+  if (options.target_rows.has_value() && *options.target_rows <= 0) {
+    throw std::runtime_error("target rows must be positive");
   }
 
   const std::string input_string = input.string();
@@ -337,6 +393,8 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   info.decoded_frames = decode_stats.decoded_frames;
   info.converted_rgb_frames = decode_stats.converted_rgb_frames;
   info.owned_frames = decode_stats.owned_frames;
+  info.working_width = decode_stats.working_size.w;
+  info.working_height = decode_stats.working_size.h;
   info.dumped_png = decode_stats.dumped_png;
   return info;
 }
@@ -366,7 +424,8 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
   out << '\n'
       << "decoded_frames: " << info.decoded_frames << '\n'
       << "converted_rgb_frames: " << info.converted_rgb_frames << '\n'
-      << "owned_frames: " << info.owned_frames << '\n';
+      << "owned_frames: " << info.owned_frames << '\n'
+      << "working_resolution: " << info.working_width << 'x' << info.working_height << '\n';
   if (info.dumped_png.has_value()) {
     out << "dumped_png: " << info.dumped_png->string() << '\n';
   }
