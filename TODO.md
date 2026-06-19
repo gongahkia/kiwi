@@ -193,7 +193,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P6 — Launch (v0.1)
 - [ ] Pick launch date — done when date is set, internal owners assigned.
 - [ ] Draft Show HN title + opening comment — done when copy reviewed by 2 people.
-- [ ] Prepare press kit (screenshots, GIFs, logo) — done when `press/` dir contains assets.
 - [ ] Set up @watdev or similar handles on X / Bluesky / Mastodon — done when accounts exist w/ bio + pinned post draft.
 - [ ] Pre-launch beta: invite 20 friendly testers — done when ≥10 testers report back issues fixed.
 - [ ] Submit to Hacker News — done when Show HN post is live.
