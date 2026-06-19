@@ -47,6 +47,7 @@
   - 2026-06-19: blocked by GitHub Actions billing/spending-limit state before any job steps start. Owner override: continue Phase B while A10/Phase A exit remain pending.
   - 2026-06-19: `gh run view 27823322318` confirms all CI jobs fail before logs with: "recent account payments have failed or your spending limit needs to be increased."
 - [ ] **Phase A exit criteria.** DoD: clean build on ≥2 OSes in CI; raw-mode guard provably restores on normal exit, Ctrl-C, and exception; size query + SIGWINCH working.
+  - 2026-06-19: `scripts/verify_terminal_paths.sh` proves local PTY raw-mode restore on keyboard quit, Ctrl-C, and forced exception, plus terminal size query; `terminal_tests` covers SIGINT/SIGWINCH flags. CI proof remains blocked by billing/spending-limit state.
 
 ---
 

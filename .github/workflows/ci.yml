@@ -46,6 +46,7 @@ jobs:
         run: |
           ./build/ci/contourtty --version
           ./build/ci/contourtty --help >/dev/null
+          scripts/verify_terminal_paths.sh ./build/ci/contourtty
 
   sanitize:
     name: asan-ubsan (ubuntu-latest)

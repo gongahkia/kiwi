@@ -665,6 +665,30 @@ else()
 endif()
 add_test(NAME structure_edges COMMAND structure_edges_tests)
 
+add_executable(terminal_tests
+  tests/terminal_tests.cpp
+  src/terminal.cpp
+)
+target_include_directories(terminal_tests PRIVATE src)
+target_compile_features(terminal_tests PRIVATE cxx_std_20)
+set_target_properties(terminal_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(terminal_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(terminal_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(terminal_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(terminal_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME terminal COMMAND terminal_tests)
+
 set(CPACK_PACKAGE_NAME "contourtty")
 set(CPACK_PACKAGE_VENDOR "contourtty")
 set(CPACK_PACKAGE_CONTACT "https://github.com/gongahkia/strok")
