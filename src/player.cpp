@@ -363,13 +363,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
         .sample_rate = static_cast<uint32_t>(decoded_audio->sample_rate),
         .channels = static_cast<uint32_t>(decoded_audio->channels),
       });
-    audio_player->start();
   }
   const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
   DriftStats drift_stats;
   AudioSyncState audio_sync;
   bool quit = false;
   bool paused_without_audio = false;
+  bool audio_started = false;
   int64_t current_video_us = 0;
 
   std::string clear = "\x1b[2J";
@@ -438,6 +438,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (!frame.has_value()) {
       break;
     }
+    if (audio_player != nullptr && !audio_started) {
+      audio_player->start();
+      audio_started = true;
+    }
     if (audio_player != nullptr) {
       PlaybackCommand command = PlaybackCommand::None;
       const FrameAction action = waitForAudioClock(*frame, options, *audio_player, &audio_sync, &drift_stats, &command);
@@ -482,16 +486,17 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
   }
   if (!quit && !shouldQuit()) {
-    if (audio_player != nullptr) {
+    if (audio_player != nullptr && audio_started) {
       (void)audio_player->waitUntilComplete();
     } else {
       pacer.finish();
     }
   }
-  if (drift_stats.samples > 0) {
+  if (drift_stats.samples > 0 || drift_stats.dropped_frames > 0 || drift_stats.rendered_frames > 0) {
+    const int64_t avg_abs_us = drift_stats.samples > 0 ? drift_stats.sum_abs_us / drift_stats.samples : 0;
     CONTOURTTY_LOG_INFO(logger, "audio sync drift samples=" + std::to_string(drift_stats.samples) +
                                   " max_abs_us=" + std::to_string(drift_stats.max_abs_us) +
-                                  " avg_abs_us=" + std::to_string(drift_stats.sum_abs_us / drift_stats.samples) +
+                                  " avg_abs_us=" + std::to_string(avg_abs_us) +
                                   " rendered_frames=" + std::to_string(drift_stats.rendered_frames) +
                                   " dropped_frames=" + std::to_string(drift_stats.dropped_frames));
   }
