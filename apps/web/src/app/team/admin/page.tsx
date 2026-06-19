@@ -1,4 +1,5 @@
 import { Activity, BookOpen, Users } from "lucide-react";
+import Link from "next/link";
 
 import { getTeamDashboardSnapshot } from "@/lib/team-dashboard";
 
@@ -33,6 +34,20 @@ export default async function TeamAdminPage() {
             {dashboard.teamName}
           </p>
           <h1 className="text-4xl font-semibold">Team dashboard</h1>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link
+              className="rounded-md border border-input px-3 py-2"
+              href="/team/admin/export/json"
+            >
+              Export JSON
+            </Link>
+            <Link
+              className="rounded-md border border-input px-3 py-2"
+              href="/team/admin/export/csv"
+            >
+              Export CSV
+            </Link>
+          </div>
         </header>
         <div className="grid gap-4 md:grid-cols-4">
           <Stat icon={BookOpen} label="Team entries" value={dashboard.counts.team} />

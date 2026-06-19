@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { teamEntries } from "@/lib/team-entries";
+
 interface PublicEntry {
   layer: string;
 }
@@ -45,7 +47,7 @@ export async function getTeamDashboardSnapshot(): Promise<TeamDashboardSnapshot>
     counts: {
       personal: 0,
       public: publicCount,
-      team: 2
+      team: teamEntries.length
     },
     memberCount: 3,
     recentActivity: [
