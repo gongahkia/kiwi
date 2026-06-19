@@ -1,6 +1,6 @@
 # Mermaid coverage
 
-Last checked: 2026-06-18 against the official Mermaid docs sidebar for Mermaid
+Last checked: 2026-06-19 against the official Mermaid docs sidebar for Mermaid
 11.15.0.
 
 Sources:

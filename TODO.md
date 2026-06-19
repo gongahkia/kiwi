@@ -144,7 +144,7 @@
 
 ## Phase 5A — Mermaid parity correctness + coverage backlog
 
-- [ ] Update `COVERAGE.md` whenever parser/render behavior changes; keep Mermaid docs sidebar version and unsupported-root list current
+- [x] Update `COVERAGE.md` whenever parser/render behavior changes; keep Mermaid docs sidebar version and unsupported-root list current
 - [x] Add root-dispatch rejection tests for every unsupported Mermaid root listed in `COVERAGE.md`
 - [ ] Add one parser fixture, one static golden, and one animation/static-collapse assertion for every newly supported Mermaid root before marking it Partial or Static-only
 - [x] Split `COVERAGE.md` syntax claims into parser, layout, static-render, animation, config, accessibility, and snapshot-count columns
