@@ -382,7 +382,7 @@
 - [x] Validate theme files with `--validate-theme <file>` CLI flag
 - [x] Ship 10 built-in themes (default, mono, tokyo-night, github, dracula, solarized-light, solarized-dark, nord, catppuccin-mocha, high-contrast)
 - [x] Implement theme search across XDG paths + project dir + bundled
-- [ ] Implement `kumeyuri theme list / show / new / validate`
+- [x] Implement `kumeyuri theme list / show / new / validate`
 - [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
 - [ ] Implement theme hot-reload in `kumeyuri watch`
 - [x] Document theme authoring in `docs/theming.md`

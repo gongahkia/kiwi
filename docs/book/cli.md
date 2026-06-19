@@ -65,6 +65,19 @@ kumeyuri render diagram.mmd --format webp --padding 12 > diagram.webp
 kumeyuri render diagram.mmd --format tui
 ```
 
+## Theme
+
+```text
+kumeyuri theme list
+kumeyuri theme show <NAME>
+kumeyuri theme new <FILE> [--name <NAME>]
+kumeyuri theme validate <FILE>
+```
+
+`theme list` uses the project/XDG/bundled discovery order documented in the
+theming chapter. `theme show` prints canonical `.kumetheme.toml` for a bundled
+or discovered theme.
+
 ## Lint
 
 ```text

@@ -21,7 +21,10 @@ use kumeyuri_core::{
     parser::Parser as MermaidParser,
     plugins::{PluginCache, PluginRuntimePolicy},
     text::{TextOutputBackend, TextOutputConfig},
-    theme::{BuiltInTheme, KumethemeError, KumethemeToml, RgbColor, Theme},
+    theme::{
+        BuiltInTheme, KumethemeCharset, KumethemeColors, KumethemeError, KumethemeToml, RgbColor,
+        Theme, ThemeSearchEntry, ThemeSearchPaths, ThemeSource, discover_themes,
+    },
 };
 use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
@@ -113,6 +116,10 @@ enum Command {
         #[command(subcommand)]
         command: PluginCommand,
     },
+    Theme {
+        #[command(subcommand)]
+        command: ThemeCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -133,6 +140,25 @@ enum PluginCommand {
     Disable {
         #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
         name: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ThemeCommand {
+    List,
+    Show {
+        #[arg(value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: String,
+    },
+    New {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_name = "NAME", value_parser = parse_non_empty_string)]
+        name: Option<String>,
+    },
+    Validate {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
     },
 }
 
@@ -263,6 +289,7 @@ fn run() -> Result<(), String> {
             debug,
         ),
         Command::Plugin { command } => run_plugin_command(command),
+        Command::Theme { command } => run_theme_command(command, max_input_bytes),
     }
 }
 
@@ -1244,6 +1271,15 @@ fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, Strin
 }
 
 fn validate_theme_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
+    load_valid_theme_file(path, max_input_bytes)?;
+    println!(
+        "{}",
+        msg_args("theme-valid", &[msg_arg("path", path.display())])
+    );
+    Ok(())
+}
+
+fn load_valid_theme_file(path: &Path, max_input_bytes: usize) -> Result<KumethemeToml, String> {
     let source = read_source_file(path, max_input_bytes)?;
     let theme: KumethemeToml = toml::from_str(&source).map_err(|error| {
         msg_args(
@@ -1260,11 +1296,7 @@ fn validate_theme_file(path: &Path, max_input_bytes: usize) -> Result<(), String
             ],
         )
     })?;
-    println!(
-        "{}",
-        msg_args("theme-valid", &[msg_arg("path", path.display())])
-    );
-    Ok(())
+    Ok(theme)
 }
 
 fn format_theme_error(error: &KumethemeError) -> String {
@@ -1276,6 +1308,172 @@ fn format_theme_error(error: &KumethemeError) -> String {
             format!("invalid color `{field}` = `{value}`: expected #RRGGBB")
         }
     }
+}
+
+fn run_theme_command(command: ThemeCommand, max_input_bytes: usize) -> Result<(), String> {
+    match command {
+        ThemeCommand::List => {
+            print!("{}", format_theme_list(&theme_entries_for_current_dir()?));
+            Ok(())
+        }
+        ThemeCommand::Show { name } => {
+            print!(
+                "{}",
+                show_theme(&name, &theme_entries_for_current_dir()?, max_input_bytes)?
+            );
+            Ok(())
+        }
+        ThemeCommand::New { file, name } => write_theme_template(&file, name.as_deref()),
+        ThemeCommand::Validate { file } => validate_theme_file(&file, max_input_bytes),
+    }
+}
+
+fn theme_entries_for_current_dir() -> Result<Vec<ThemeSearchEntry>, String> {
+    let current_dir = env::current_dir()
+        .map_err(|error| msg_args("theme-current-dir", &[msg_arg("error", error)]))?;
+    let paths = ThemeSearchPaths::from_env(current_dir, |name| env::var(name).ok());
+    Ok(discover_themes(&paths))
+}
+
+fn format_theme_list(entries: &[ThemeSearchEntry]) -> String {
+    entries
+        .iter()
+        .map(|entry| format!("{}\t{}\n", entry.name, theme_source_label(&entry.source)))
+        .collect()
+}
+
+fn show_theme(
+    name: &str,
+    entries: &[ThemeSearchEntry],
+    max_input_bytes: usize,
+) -> Result<String, String> {
+    let entry = entries
+        .iter()
+        .find(|entry| entry.name == name)
+        .ok_or_else(|| msg_args("theme-not-found", &[msg_arg("name", name)]))?;
+    match &entry.source {
+        ThemeSource::Bundled(theme) => Ok(format_kumetheme_toml(&kumetheme_from_built_in(*theme))),
+        ThemeSource::Project(path)
+        | ThemeSource::XdgDataHome(path)
+        | ThemeSource::XdgDataDir(path) => Ok(format_kumetheme_toml(&load_valid_theme_file(
+            path,
+            max_input_bytes,
+        )?)),
+    }
+}
+
+fn write_theme_template(path: &Path, name: Option<&str>) -> Result<(), String> {
+    if path.exists() {
+        return Err(msg_args(
+            "theme-new-exists",
+            &[msg_arg("path", path.display())],
+        ));
+    }
+    let name = name
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            path.file_name()
+                .and_then(|file_name| file_name.to_str())
+                .and_then(|file_name| file_name.strip_suffix(".kumetheme.toml"))
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| "custom-theme".to_owned());
+    let theme = KumethemeToml {
+        name,
+        charset: KumethemeCharset::Unicode,
+        colors: KumethemeColors {
+            background: "#101418".to_owned(),
+            foreground: "#e6edf3".to_owned(),
+            accent: "#58a6ff".to_owned(),
+            edge: "#8b949e".to_owned(),
+            edge_alt: "#d2a8ff".to_owned(),
+            highlight: "#f2cc60".to_owned(),
+            muted: "#7d8590".to_owned(),
+        },
+    };
+    theme.validate().map_err(|error| {
+        msg_args(
+            "theme-invalid-schema",
+            &[
+                msg_arg("path", path.display()),
+                msg_arg("error", format_theme_error(&error)),
+            ],
+        )
+    })?;
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent).map_err(|error| {
+            msg_args(
+                "error-create-dir",
+                &[msg_arg("path", parent.display()), msg_arg("error", error)],
+            )
+        })?;
+    }
+    fs::write(path, format_kumetheme_toml(&theme)).map_err(|error| {
+        msg_args(
+            "theme-new-write",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
+    println!(
+        "{}",
+        msg_args("theme-new-created", &[msg_arg("path", path.display())])
+    );
+    Ok(())
+}
+
+fn theme_source_label(source: &ThemeSource) -> &'static str {
+    match source {
+        ThemeSource::Project(_) => "project",
+        ThemeSource::XdgDataHome(_) => "xdg-data-home",
+        ThemeSource::XdgDataDir(_) => "xdg-data-dir",
+        ThemeSource::Bundled(_) => "bundled",
+    }
+}
+
+fn kumetheme_from_built_in(theme: BuiltInTheme) -> KumethemeToml {
+    let theme = theme.theme();
+    KumethemeToml {
+        name: theme.name.to_owned(),
+        charset: match theme.charset {
+            Charset::Ascii => KumethemeCharset::Ascii,
+            Charset::Unicode => KumethemeCharset::Unicode,
+        },
+        colors: KumethemeColors {
+            background: rgb_hex(theme.colors.background),
+            foreground: rgb_hex(theme.colors.foreground),
+            accent: rgb_hex(theme.colors.accent),
+            edge: rgb_hex(theme.colors.edge),
+            edge_alt: rgb_hex(theme.colors.edge_alt),
+            highlight: rgb_hex(theme.colors.highlight),
+            muted: rgb_hex(theme.colors.muted),
+        },
+    }
+}
+
+fn format_kumetheme_toml(theme: &KumethemeToml) -> String {
+    let charset = match theme.charset {
+        KumethemeCharset::Ascii => "ascii",
+        KumethemeCharset::Unicode => "unicode",
+    };
+    format!(
+        "name = \"{}\"\ncharset = \"{}\"\n\n[colors]\nbackground = \"{}\"\nforeground = \"{}\"\naccent = \"{}\"\nedge = \"{}\"\nedge_alt = \"{}\"\nhighlight = \"{}\"\nmuted = \"{}\"\n",
+        theme.name,
+        charset,
+        theme.colors.background,
+        theme.colors.foreground,
+        theme.colors.accent,
+        theme.colors.edge,
+        theme.colors.edge_alt,
+        theme.colors.highlight,
+        theme.colors.muted,
+    )
+}
+
+fn rgb_hex(color: RgbColor) -> String {
+    format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue)
 }
 
 fn has_plugin_keyword(keywords: &[String]) -> bool {
@@ -2550,14 +2748,15 @@ mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, DEFAULT_INPUT_LIMIT_BYTES, PluginCommand,
         PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
-        ResolvedPluginPackage, STATIC_ONLY_ROOTS, UNSUPPORTED_ROOTS, compat_report,
-        disable_plugin_records, format_lint_text, layout_warnings, lint_source, parse_diagram,
-        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
+        ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS, compat_report,
+        disable_plugin_records, format_lint_text, format_theme_list, layout_warnings, lint_source,
+        parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
         parse_speed_override, playback_options, plugin_runtime_policy,
         read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
         render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
-        resolve_npm_plugin_metadata, timeline_from_source, timeline_from_source_with_options,
-        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
+        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
+        timeline_from_source_with_options, timeline_from_source_with_render_options,
+        validate_theme_file, write_plugin_install_record, write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackDebug, PlaybackState, TuiDebugOverlay, should_rerender};
@@ -2830,6 +3029,95 @@ muted = "#657b83"
         let error = validate_theme_file(&invalid, 1024).unwrap_err();
         assert!(error.contains("invalid theme schema"));
         assert!(error.contains("BadName"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn theme_subcommand_parser_accepts_list_show_new_and_validate() {
+        let list = Cli::try_parse_from(["kumeyuri", "theme", "list"]).unwrap();
+        assert!(matches!(
+            list.command,
+            Some(Command::Theme {
+                command: ThemeCommand::List
+            })
+        ));
+
+        let show = Cli::try_parse_from(["kumeyuri", "theme", "show", "github"]).unwrap();
+        assert!(matches!(
+            show.command,
+            Some(Command::Theme {
+                command: ThemeCommand::Show { .. }
+            })
+        ));
+
+        let new = Cli::try_parse_from([
+            "kumeyuri",
+            "theme",
+            "new",
+            "custom.kumetheme.toml",
+            "--name",
+            "custom",
+        ])
+        .unwrap();
+        assert!(matches!(
+            new.command,
+            Some(Command::Theme {
+                command: ThemeCommand::New { .. }
+            })
+        ));
+
+        let validate =
+            Cli::try_parse_from(["kumeyuri", "theme", "validate", "custom.kumetheme.toml"])
+                .unwrap();
+        assert!(matches!(
+            validate.command,
+            Some(Command::Theme {
+                command: ThemeCommand::Validate { .. }
+            })
+        ));
+    }
+
+    #[test]
+    fn theme_commands_format_list_show_and_new_template() {
+        let root = unique_temp_dir("theme-commands");
+        fs::create_dir_all(&root).unwrap();
+        let file = root.join("custom-theme.kumetheme.toml");
+
+        write_theme_template(&file, None).unwrap();
+        validate_theme_file(&file, 1024).unwrap();
+
+        let entries = vec![
+            kumeyuri_core::theme::ThemeSearchEntry {
+                name: "custom-theme".to_owned(),
+                source: kumeyuri_core::theme::ThemeSource::Project(file.clone()),
+            },
+            kumeyuri_core::theme::ThemeSearchEntry {
+                name: "github".to_owned(),
+                source: kumeyuri_core::theme::ThemeSource::Bundled(
+                    kumeyuri_core::theme::BuiltInTheme::Github,
+                ),
+            },
+        ];
+        let list = format_theme_list(&entries);
+        assert!(list.contains("custom-theme\tproject"));
+        assert!(list.contains("github\tbundled"));
+
+        let custom = show_theme("custom-theme", &entries, 1024).unwrap();
+        assert!(custom.contains("name = \"custom-theme\""));
+        assert!(custom.contains("charset = \"unicode\""));
+
+        let github = show_theme("github", &entries, 1024).unwrap();
+        assert!(github.contains("name = \"github\""));
+        assert!(github.contains("background = \"#ffffff\""));
+
+        let error = write_theme_template(&file, None).unwrap_err();
+        assert!(error.contains("already exists"));
+        assert!(
+            show_theme("missing", &entries, 1024)
+                .unwrap_err()
+                .contains("not found")
+        );
 
         fs::remove_dir_all(root).ok();
     }
