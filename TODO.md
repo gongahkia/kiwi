@@ -86,7 +86,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: public-facing pages
 
 ## P3 — Browser extension
-- [ ] Implement opt-in auto-highlight of acronyms on page — done when toggle reveals subtle underline + tooltip on detected acronyms.
 - [ ] Implement sidebar UI (side panel API for Chrome) — done when panel opens, mirrors web search, scoped to current page context.
 - [ ] Implement context-menu "Look up in wat" on text selection — done when right-clicking selected text opens sidebar w/ result.
 - [ ] Implement per-page context boost (use page title + headings as context string) — done when CAP on a k8s docs page favors Cluster Autoscaler over CAP-theorem.

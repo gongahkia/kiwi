@@ -1,7 +1,7 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 
 import { type LookupResponse } from "../src/messages.js";
-import { loadWatOptions, type WatOptions } from "../src/options.js";
+import { loadWatOptions } from "../src/options.js";
 
 interface SearchEntry {
   expansions?: string[];
@@ -20,7 +20,6 @@ interface TextHit {
 
 let activeToken = "";
 let hoverTimer: number | undefined;
-let options: WatOptions | null = null;
 let tooltip: HTMLDivElement | null = null;
 
 function domainAllowed(filters: string[]): boolean {
@@ -92,6 +91,68 @@ function tokenAt(hit: TextHit): string | null {
   return null;
 }
 
+function canHighlightNode(node: Text): boolean {
+  const parent = node.parentElement;
+  if (!parent || parent.closest("script, style, textarea, input, [contenteditable='true']")) {
+    return false;
+  }
+
+  return !parent.closest(".wat-acronym-highlight");
+}
+
+function installHighlightStyle() {
+  if (document.getElementById("wat-highlight-style")) return;
+
+  const style = document.createElement("style");
+  style.id = "wat-highlight-style";
+  style.textContent =
+    ".wat-acronym-highlight{text-decoration:underline dotted #2563eb 2px;text-underline-offset:3px;cursor:help;}";
+  document.documentElement.append(style);
+}
+
+function highlightTextNode(node: Text): number {
+  const text = node.textContent ?? "";
+  const matches = [...text.matchAll(/\b[A-Z][A-Z0-9]{1,9}\b/g)];
+  if (matches.length === 0) return 0;
+
+  const fragment = document.createDocumentFragment();
+  let cursor = 0;
+  for (const match of matches) {
+    const start = match.index ?? 0;
+    const token = match[0];
+    fragment.append(document.createTextNode(text.slice(cursor, start)));
+
+    const span = document.createElement("span");
+    span.className = "wat-acronym-highlight";
+    span.dataset.watToken = token;
+    span.textContent = token;
+    span.title = token;
+    fragment.append(span);
+    cursor = start + token.length;
+  }
+  fragment.append(document.createTextNode(text.slice(cursor)));
+  node.replaceWith(fragment);
+
+  return matches.length;
+}
+
+function highlightAcronyms(limit = 300) {
+  installHighlightStyle();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return canHighlightNode(node as Text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+
+  let count = 0;
+  for (const node of nodes) {
+    count += highlightTextNode(node);
+    if (count >= limit) return;
+  }
+}
+
 function topEntry(body: unknown): SearchEntry | null {
   const searchBody = body as SearchBody;
   return searchBody.matches?.[0]?.entry ?? null;
@@ -156,8 +217,10 @@ function scheduleLookup(event: MouseEvent) {
 export default defineContentScript({
   matches: ["<all_urls>"],
   async main() {
-    options = await loadWatOptions();
-    if (!options.hoverMode || !domainAllowed(options.domainFilters)) return;
+    const options = await loadWatOptions();
+    if (!domainAllowed(options.domainFilters)) return;
+    if (options.highlightMode) highlightAcronyms();
+    if (!options.hoverMode && !options.highlightMode) return;
 
     document.addEventListener("mousemove", scheduleLookup, { passive: true });
     document.addEventListener("scroll", hideTooltip, { passive: true });
