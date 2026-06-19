@@ -107,13 +107,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         stats->shape_match_cells += gpu_structure_glyphs->shape_match_cells;
       }
     }
-    if (!gpu_structure_glyphs.has_value() && options.gpu) {
-      structure_gradients = computeSobelGradientsGpu(analysis_luminance);
-    }
-    if (!structure_gradients.has_value()) {
-      structure_gradients = computeSobelGradients(analysis_luminance);
-    }
     if (!gpu_structure_glyphs.has_value()) {
+      if (options.gpu) {
+        structure_gradients = computeSobelGradientsGpu(analysis_luminance);
+      }
+      if (!structure_gradients.has_value()) {
+        structure_gradients = computeSobelGradients(analysis_luminance);
+      }
       structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
     }
   }
