@@ -234,7 +234,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Submit talk proposal to a small conf (eg. local meetup, MCP Summit) — done when proposal submitted.
 
 ## P8 — Maintenance & long-haul
-- [ ] Track surface adoption KPI — done when monthly report committed (web MAU, ext installs, Slack installs, MCP installs).
 
 ## Acceptance gates (must pass before declaring v0.1)
 - [ ] Hybrid search hit-rate ≥90% on top-1, ≥98% on top-5 — verified by `pnpm bench`.
