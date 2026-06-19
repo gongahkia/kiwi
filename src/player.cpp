@@ -5,8 +5,10 @@
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
 #include "diff_emitter.hpp"
+#include "frame_sampling.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
+#include "halfblock_renderer.hpp"
 #include "luminance.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
@@ -283,33 +285,6 @@ RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, Terminal
   return RenderSize{.cols = cols_for_rows(max_rows), .rows = max_rows};
 }
 
-Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
-  const int x0 = (col * frame.w) / cols;
-  const int x1 = std::max(x0 + 1, ((col + 1) * frame.w) / cols);
-  const int y0 = (row * frame.h) / rows;
-  const int y1 = std::max(y0 + 1, ((row + 1) * frame.h) / rows);
-
-  uint64_t r = 0;
-  uint64_t g = 0;
-  uint64_t b = 0;
-  uint64_t count = 0;
-  for (int y = y0; y < y1; ++y) {
-    for (int x = x0; x < x1; ++x) {
-      const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3;
-      r += frame.rgb[index];
-      g += frame.rgb[index + 1];
-      b += frame.rgb[index + 2];
-      ++count;
-    }
-  }
-
-  return Rgb{
-    .r = static_cast<uint8_t>(r / count),
-    .g = static_cast<uint8_t>(g / count),
-    .b = static_cast<uint8_t>(b / count),
-  };
-}
-
 DogOptions dogOptionsFromCli(const CliOptions& options) {
   const double sigma1 = options.dog_sigma.value_or(0.0);
   return DogOptions{
@@ -342,6 +317,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   if (stats != nullptr) {
     ++stats->frames;
     stats->cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
+  }
+  if (options.mode == "halfblock") {
+    renderHalfBlockFrame(frame, size.cols, size.rows, cells);
+    if (stats != nullptr) {
+      stats->render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
+    }
+    return;
   }
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;

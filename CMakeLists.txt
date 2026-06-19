@@ -59,8 +59,10 @@ add_executable(contourtty
   src/color_mode.cpp
   src/color_quantization.cpp
   src/diff_emitter.cpp
+  src/frame_sampling.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
+  src/halfblock_renderer.cpp
   src/luminance.cpp
   src/log.cpp
   src/main.cpp
@@ -328,6 +330,31 @@ else()
   endif()
 endif()
 add_test(NAME color_quantization COMMAND color_quantization_tests)
+
+add_executable(halfblock_renderer_tests
+  tests/halfblock_renderer_tests.cpp
+  src/frame_sampling.cpp
+  src/halfblock_renderer.cpp
+)
+target_include_directories(halfblock_renderer_tests PRIVATE src)
+target_compile_features(halfblock_renderer_tests PRIVATE cxx_std_20)
+set_target_properties(halfblock_renderer_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(halfblock_renderer_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(halfblock_renderer_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(halfblock_renderer_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(halfblock_renderer_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME halfblock_renderer COMMAND halfblock_renderer_tests)
 
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp
