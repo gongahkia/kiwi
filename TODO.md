@@ -109,7 +109,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Personal export — done when user can export their entries.
 
 ## P2 — Web app: public-facing pages
-- [ ] Status page or uptime widget for hosted — done when widget displays current status from health check.
 
 ## P3 — Browser extension
 - [ ] Scaffold WXT project in `extensions/browser` — done when `pnpm dev --filter @wat/ext` opens an extension-loaded Chrome.
