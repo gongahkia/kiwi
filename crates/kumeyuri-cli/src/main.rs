@@ -21,7 +21,7 @@ use kumeyuri_core::{
     parser::Parser as MermaidParser,
     plugins::{PluginCache, PluginRuntimePolicy},
     text::{TextOutputBackend, TextOutputConfig},
-    theme::{BuiltInTheme, RgbColor, Theme},
+    theme::{BuiltInTheme, KumethemeError, KumethemeToml, RgbColor, Theme},
 };
 use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
@@ -63,8 +63,10 @@ struct Cli {
         value_parser = parse_positive_input_bytes
     )]
     max_input_bytes: usize,
+    #[arg(long, value_name = "FILE")]
+    validate_theme: Option<PathBuf>,
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -225,7 +227,11 @@ fn run() -> Result<(), String> {
     i18n::configure(cli.lang.as_deref(), |name| env::var(name).ok())?;
     let max_input_bytes = cli.max_input_bytes;
 
-    match cli.command {
+    if let Some(path) = cli.validate_theme {
+        return validate_theme_file(&path, max_input_bytes);
+    }
+
+    match cli.command.ok_or_else(|| msg("missing-command"))? {
         Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
         Command::Render {
             file,
@@ -1225,6 +1231,41 @@ fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, Strin
             &[msg_arg("path", path.display()), msg_arg("error", error)],
         )
     })
+}
+
+fn validate_theme_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
+    let source = read_source_file(path, max_input_bytes)?;
+    let theme: KumethemeToml = toml::from_str(&source).map_err(|error| {
+        msg_args(
+            "theme-invalid-toml",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
+    theme.validate().map_err(|error| {
+        msg_args(
+            "theme-invalid-schema",
+            &[
+                msg_arg("path", path.display()),
+                msg_arg("error", format_theme_error(&error)),
+            ],
+        )
+    })?;
+    println!(
+        "{}",
+        msg_args("theme-valid", &[msg_arg("path", path.display())])
+    );
+    Ok(())
+}
+
+fn format_theme_error(error: &KumethemeError) -> String {
+    match error {
+        KumethemeError::InvalidName(name) => {
+            format!("invalid name `{name}`: expected kebab-case ASCII identifier")
+        }
+        KumethemeError::InvalidHexColor { field, value } => {
+            format!("invalid color `{field}` = `{value}`: expected #RRGGBB")
+        }
+    }
 }
 
 fn has_plugin_keyword(keywords: &[String]) -> bool {
@@ -2506,7 +2547,7 @@ mod tests {
         read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
         render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
         resolve_npm_plugin_metadata, timeline_from_source, timeline_from_source_with_options,
-        timeline_from_source_with_render_options, write_plugin_install_record,
+        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{PlaybackAction, PlaybackDebug, PlaybackState, TuiDebugOverlay, should_rerender};
@@ -2599,7 +2640,7 @@ mod tests {
     #[test]
     fn lint_parser_accepts_json_flag() {
         let cli = Cli::try_parse_from(["kumeyuri", "lint", "diagram.mmd", "--json"]).unwrap();
-        let Command::Lint { file, json } = cli.command else {
+        let Some(Command::Lint { file, json }) = cli.command else {
             panic!("expected lint command");
         };
 
@@ -2610,7 +2651,7 @@ mod tests {
     #[test]
     fn layout_parser_accepts_ai_flag() {
         let cli = Cli::try_parse_from(["kumeyuri", "layout", "diagram.mmd", "--ai"]).unwrap();
-        let Command::Layout { file, ai } = cli.command else {
+        let Some(Command::Layout { file, ai }) = cli.command else {
             panic!("expected layout command");
         };
 
@@ -2656,7 +2697,7 @@ mod tests {
         for value in ["text", "svg", "gif", "apng", "webp", "vtt", "tui"] {
             let cli = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--format", value])
                 .unwrap();
-            assert!(matches!(cli.command, Command::Render { .. }));
+            assert!(matches!(cli.command, Some(Command::Render { .. })));
         }
     }
 
@@ -2681,7 +2722,7 @@ mod tests {
     fn compat_parser_accepts_mermaid_version() {
         let cli =
             Cli::try_parse_from(["kumeyuri", "compat", "--mermaid-version", "11.15.0"]).unwrap();
-        let Command::Compat { mermaid_version } = cli.command else {
+        let Some(Command::Compat { mermaid_version }) = cli.command else {
             panic!("expected compat command");
         };
 
@@ -2696,12 +2737,79 @@ mod tests {
     }
 
     #[test]
+    fn validate_theme_flag_accepts_file_without_subcommand() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "--validate-theme",
+            "solarized-light.kumetheme.toml",
+        ])
+        .unwrap();
+
+        assert_eq!(
+            cli.validate_theme.as_deref(),
+            Some(Path::new("solarized-light.kumetheme.toml"))
+        );
+        assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn validate_theme_file_accepts_schema_and_rejects_bad_values() {
+        let root = unique_temp_dir("theme-validation");
+        fs::create_dir_all(&root).unwrap();
+        let valid = root.join("valid.kumetheme.toml");
+        fs::write(
+            &valid,
+            r##"
+name = "solarized-light"
+charset = "unicode"
+
+[colors]
+background = "#fdf6e3"
+foreground = "#073642"
+accent = "#268bd2"
+edge = "#586e75"
+edge_alt = "#6c71c4"
+highlight = "#b58900"
+muted = "#657b83"
+"##,
+        )
+        .unwrap();
+
+        validate_theme_file(&valid, 1024).unwrap();
+
+        let invalid = root.join("invalid.kumetheme.toml");
+        fs::write(
+            &invalid,
+            r##"
+name = "BadName"
+charset = "unicode"
+
+[colors]
+background = "#fdf6e3"
+foreground = "#073642"
+accent = "268bd2"
+edge = "#586e75"
+edge_alt = "#6c71c4"
+highlight = "#b58900"
+muted = "#657b83"
+"##,
+        )
+        .unwrap();
+
+        let error = validate_theme_file(&invalid, 1024).unwrap_err();
+        assert!(error.contains("invalid theme schema"));
+        assert!(error.contains("BadName"));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn plugin_install_parser_accepts_package_name() {
         let cli =
             Cli::try_parse_from(["kumeyuri", "plugin", "install", "kumeyuri-render-pdf"]).unwrap();
-        let Command::Plugin {
+        let Some(Command::Plugin {
             command: PluginCommand::Install { name },
-        } = cli.command
+        }) = cli.command
         else {
             panic!("expected plugin install command");
         };
@@ -2719,7 +2827,7 @@ mod tests {
         ] {
             let cli =
                 Cli::try_parse_from(args.into_iter().filter(|value| !value.is_empty())).unwrap();
-            assert!(matches!(cli.command, Command::Plugin { .. }));
+            assert!(matches!(cli.command, Some(Command::Plugin { .. })));
         }
     }
 
@@ -2779,7 +2887,7 @@ mod tests {
             "fs.write,cache.read",
         ])
         .unwrap();
-        let Command::Render { options, .. } = cli.command else {
+        let Some(Command::Render { options, .. }) = cli.command else {
             panic!("expected render command");
         };
 
@@ -2802,7 +2910,7 @@ mod tests {
     #[test]
     fn external_fetch_is_denied_unless_explicitly_allowed() {
         let default = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd"]).unwrap();
-        let Command::Render { options, .. } = default.command else {
+        let Some(Command::Render { options, .. }) = default.command else {
             panic!("expected render command");
         };
         assert!(!options.allow_external);
@@ -2810,7 +2918,7 @@ mod tests {
 
         let allowed =
             Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--allow-external"]).unwrap();
-        let Command::Render { options, .. } = allowed.command else {
+        let Some(Command::Render { options, .. }) = allowed.command else {
             panic!("expected render command");
         };
         assert!(options.allow_external);
@@ -2821,7 +2929,7 @@ mod tests {
     fn render_mode_parser_accepts_narrate_and_alt_text_flags() {
         let narrate =
             Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--narrate"]).unwrap();
-        let Command::Render { options, .. } = narrate.command else {
+        let Some(Command::Render { options, .. }) = narrate.command else {
             panic!("expected render command");
         };
         assert!(options.narrate);
@@ -2829,7 +2937,7 @@ mod tests {
 
         let alt_text =
             Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--alt-text"]).unwrap();
-        let Command::Render { options, .. } = alt_text.command else {
+        let Some(Command::Render { options, .. }) = alt_text.command else {
             panic!("expected render command");
         };
         assert!(options.alt_text);

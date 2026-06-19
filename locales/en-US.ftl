@@ -1,4 +1,5 @@
 cli-about = Render Mermaid as animated text artifacts.
+missing-command = missing command; use --help for usage
 locale-empty = invalid locale { $value }: expected non-empty locale tag
 locale-invalid = invalid locale { $value }: { $error }
 compat-title = Mermaid compatibility
@@ -80,6 +81,9 @@ error-write-stdout = failed to write stdout: { $error }
 error-read-path = failed to read { $path }: { $error }
 error-read-utf8 = failed to decode { $path } as UTF-8: { $error }
 error-input-too-large = input { $path } is larger than { $limit } bytes (read { $bytes } bytes); override with --max-input-bytes
+theme-valid = { $path }: valid theme
+theme-invalid-toml = invalid theme TOML { $path }: { $error }
+theme-invalid-schema = invalid theme schema { $path }: { $error }
 error-encode-lint-report = failed to encode lint report: { $error }
 lint-ok = { $file }: ok
 lint-warning-line = { $file }: { $warning }
