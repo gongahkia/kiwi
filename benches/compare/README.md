@@ -35,3 +35,7 @@ Adapters:
   it on `PATH`, or set `PGAVLIN_MERMAID_ASCII_BIN=/path/to/mermaid-ascii`.
   The adapter invokes `mermaid-ascii --file <input> --ascii` and records
   nonzero exits as per-input errors.
+* `npm run bench:compare:mermaid2term` renders the manifest through
+  `mermaid2term@0.1.0` via `benches/compare/tools/mermaid2term.mjs`. The
+  adapter invokes the local npm binary as `mermaid2term --ascii <input>` and
+  records nonzero exits as per-input errors.
