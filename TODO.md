@@ -70,8 +70,6 @@
 ## PHASE E — Structure mode (the differentiator)  → **v0.5**
 *Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
 
-- [ ] **Phase E exit criteria → tag `v0.5`.** DoD: structure mode renders live video with contour-following, sharp-edged ASCII that is *visibly* better than luminance mode, at an interactive framerate, with tunable parameters.
-
 ---
 
 ## PHASE F — Inputs & modes
