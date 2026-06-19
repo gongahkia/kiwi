@@ -6,6 +6,7 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
     process::ExitCode,
+    time::Duration,
 };
 
 use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
@@ -34,7 +35,7 @@ use serde::{Deserialize, Serialize};
 mod i18n;
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -1994,8 +1995,14 @@ fn play_file(
     debug: bool,
 ) -> Result<(), String> {
     let source = read_source_file(path, max_input_bytes)?;
-    let timeline = timeline_from_source_with_options(&source, options)?;
+    let timeline = playback_timeline_from_source(&source, options, is_kumecast_path(path))?;
     play_timeline(&timeline, debug)
+}
+
+fn is_kumecast_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "kumecast")
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -2129,6 +2136,52 @@ fn timeline_from_source_with_options(
     options: AnimationOptions,
 ) -> Result<Timeline, String> {
     timeline_from_source_with_render_options(source, options, &RenderOptions::default())
+}
+
+fn playback_timeline_from_source(
+    source: &str,
+    options: AnimationOptions,
+    prefer_cast: bool,
+) -> Result<Timeline, String> {
+    if prefer_cast {
+        return timeline_from_kumecast_source(source, options);
+    }
+    if let Ok(cast) = Kumecast::from_json_str(source) {
+        return timeline_from_kumecast(cast, options);
+    }
+    timeline_from_source_with_options(source, options)
+}
+
+fn timeline_from_kumecast_source(
+    source: &str,
+    options: AnimationOptions,
+) -> Result<Timeline, String> {
+    let cast = Kumecast::from_json_str(source).map_err(|error| error.to_string())?;
+    timeline_from_kumecast(cast, options)
+}
+
+fn timeline_from_kumecast(cast: Kumecast, options: AnimationOptions) -> Result<Timeline, String> {
+    let timeline = cast.to_timeline().map_err(|error| error.to_string())?;
+    Ok(apply_playback_options_to_timeline(timeline, options))
+}
+
+fn apply_playback_options_to_timeline(timeline: Timeline, options: AnimationOptions) -> Timeline {
+    let repeat = options.repeat().unwrap_or(timeline.repeat());
+    let Some(speed) = options.speed() else {
+        return timeline.with_repeat(repeat);
+    };
+    let mut scaled = Timeline::new().with_repeat(repeat);
+    for keyframe in timeline.keyframes() {
+        scaled.push(KeyFrame::new(
+            keyframe.frame().clone(),
+            scaled_keyframe_duration(keyframe.duration(), speed),
+        ));
+    }
+    scaled
+}
+
+fn scaled_keyframe_duration(duration: Duration, speed: f32) -> Duration {
+    Duration::from_secs_f64(duration.as_secs_f64() / f64::from(speed))
 }
 
 fn timeline_from_source_with_render_options(
@@ -3113,12 +3166,13 @@ mod tests {
         compat_report, convert_cast_source, disable_plugin_records, export_source,
         format_lint_text, format_theme_list, layout_warnings, lint_source, load_render_theme_file,
         parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_speed_override, playback_options, plugin_runtime_policy, publish_theme_file,
-        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
-        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
-        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
-        timeline_from_source_with_options, timeline_from_source_with_render_options,
-        validate_theme_file, write_plugin_install_record, write_theme_template,
+        parse_speed_override, playback_options, playback_timeline_from_source,
+        plugin_runtime_policy, publish_theme_file, read_installed_plugin_records, read_source_file,
+        remove_plugin_records, render_source, render_timeline_vtt, resolve_ai_library_path,
+        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
+        timeline_from_source, timeline_from_source_with_options,
+        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
+        write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{
@@ -3371,6 +3425,41 @@ mod tests {
         assert!(text.contains('B'));
         assert!(svg.starts_with("<svg "));
         assert!(svg.contains("kumeyuri diagram"));
+    }
+
+    #[test]
+    fn play_timeline_loader_accepts_kumecast_and_mermaid_sources() {
+        let cast = String::from_utf8(
+            export_source(
+                "graph TD\nA --> B",
+                ExportFormat::Kumecast,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let options = playback_options(Some(2.0), true).unwrap();
+        let timeline = playback_timeline_from_source(&cast, options, true).unwrap();
+
+        assert!(timeline.repeat());
+        assert_eq!(
+            timeline.keyframes()[0].duration(),
+            Duration::from_millis(275)
+        );
+
+        let mermaid =
+            playback_timeline_from_source("graph TD\nA --> B", AnimationOptions::default(), false)
+                .unwrap();
+        assert!(!mermaid.keyframes().is_empty());
+    }
+
+    #[test]
+    fn play_timeline_loader_rejects_invalid_kumecast_when_cast_is_expected() {
+        let error =
+            playback_timeline_from_source("graph TD\nA --> B", AnimationOptions::default(), true)
+                .unwrap_err();
+
+        assert!(error.contains("invalid kumecast JSON"));
     }
 
     #[test]

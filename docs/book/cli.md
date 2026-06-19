@@ -14,7 +14,7 @@ kumeyuri <COMMAND>
 | `lint` | Print layout warnings as text or JSON |
 | `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
-| `play` | Play an animated TUI timeline |
+| `play` | Play an animated Mermaid or `.kumecast` TUI timeline |
 | `compat` | Print Mermaid root support for the tracked docs version |
 | `plugin` | Install, list, update, disable, or remove cached plugin packages |
 
@@ -181,6 +181,9 @@ kumeyuri play [OPTIONS] <FILE>
 | --- | --- |
 | `--speed <FACTOR>` | Override timeline speed |
 | `--loop` | Repeat playback |
+
+`play` accepts Mermaid source files and `.kumecast` files. Cast files are decoded
+directly without reparsing Mermaid source.
 
 Interactive controls:
 

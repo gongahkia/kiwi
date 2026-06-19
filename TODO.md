@@ -395,7 +395,7 @@
 - [x] Implement decoder + validator
 - [x] Implement `kumeyuri export --format kumecast`
 - [x] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
-- [ ] Implement `kumeyuri play <cast>` in TUI
+- [x] Implement `kumeyuri play <cast>` in TUI
 - [ ] Add gzip variant `.kumecast.gz`
 - [ ] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
 - [ ] Build hosted player `play.kumeyuri.dev?cast=<url>`
