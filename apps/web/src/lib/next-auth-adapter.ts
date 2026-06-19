@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type {
   Adapter,
@@ -16,6 +16,8 @@ type UserRow = {
   id: string;
   image: string | null;
   name: string | null;
+  role: "admin" | "member";
+  team_id: string | null;
 };
 
 type AccountRow = {
@@ -44,6 +46,11 @@ type VerificationTokenRow = {
   token: string;
 };
 
+type WatAdapterUser = AdapterUser & {
+  role: "admin" | "member";
+  teamId: string | null;
+};
+
 export function watNextAuthAdapter(): Adapter {
   return {
     async createSession(session) {
@@ -59,18 +66,22 @@ export function watNextAuthAdapter(): Adapter {
     },
 
     async createUser(user: Omit<AdapterUser, "id">) {
+      const email = normalizeEmail(user.email);
+      const teamAssignment = await assignTeamForEmail(email);
       const { rows } = await authDb().query<UserRow>(
         `
-        insert into users (id, name, email, email_verified, image)
-        values ($1, $2, $3, $4, $5)
-        returning id, name, email, email_verified, image
+        insert into users (id, name, email, email_verified, image, team_id, role)
+        values ($1, $2, $3, $4, $5, $6, $7)
+        returning id, name, email, email_verified, image, team_id, role
         `,
         [
           randomUUID(),
           user.name ?? null,
-          normalizeEmail(user.email),
+          email,
           user.emailVerified ?? null,
-          user.image ?? null
+          user.image ?? null,
+          teamAssignment.teamId,
+          teamAssignment.role
         ]
       );
       return userFromRow(requireRow(rows[0], "user not created"));
@@ -105,7 +116,7 @@ export function watNextAuthAdapter(): Adapter {
         `
         delete from users
         where id = $1
-        returning id, name, email, email_verified, image
+        returning id, name, email, email_verified, image, team_id, role
         `,
         [userId]
       );
@@ -123,7 +134,9 @@ export function watNextAuthAdapter(): Adapter {
           u.name,
           u.email,
           u.email_verified,
-          u.image
+          u.image,
+          u.team_id,
+          u.role
         from sessions s
         inner join users u on u.id = s.user_id
         where s.session_token = $1
@@ -141,7 +154,7 @@ export function watNextAuthAdapter(): Adapter {
 
     async getUser(id) {
       const { rows } = await authDb().query<UserRow>(
-        "select id, name, email, email_verified, image from users where id = $1",
+        "select id, name, email, email_verified, image, team_id, role from users where id = $1",
         [id]
       );
       return rows[0] ? userFromRow(rows[0]) : null;
@@ -150,7 +163,7 @@ export function watNextAuthAdapter(): Adapter {
     async getUserByAccount(account) {
       const { rows } = await authDb().query<UserRow>(
         `
-        select u.id, u.name, u.email, u.email_verified, u.image
+        select u.id, u.name, u.email, u.email_verified, u.image, u.team_id, u.role
         from accounts a
         inner join users u on u.id = a.user_id
         where a.provider = $1 and a.provider_account_id = $2
@@ -162,7 +175,7 @@ export function watNextAuthAdapter(): Adapter {
 
     async getUserByEmail(email) {
       const { rows } = await authDb().query<UserRow>(
-        "select id, name, email, email_verified, image from users where lower(email) = lower($1)",
+        "select id, name, email, email_verified, image, team_id, role from users where lower(email) = lower($1)",
         [email]
       );
       return rows[0] ? userFromRow(rows[0]) : null;
@@ -231,7 +244,7 @@ export function watNextAuthAdapter(): Adapter {
           email_verified = coalesce($4, email_verified),
           image = coalesce($5, image)
         where id = $1
-        returning id, name, email, email_verified, image
+        returning id, name, email, email_verified, image, team_id, role
         `,
         [
           user.id,
@@ -299,12 +312,57 @@ function tokenFromRow(row: VerificationTokenRow): VerificationToken {
   };
 }
 
-function userFromRow(row: UserRow): AdapterUser {
+async function assignTeamForEmail(
+  email: string
+): Promise<{ role: "admin" | "member"; teamId: string | null }> {
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  if (!domain) return { role: "member", teamId: null };
+
+  const { rows } = await authDb().query<{ created: boolean; id: string }>(
+    `
+    with inserted as (
+      insert into teams (id, name, email_domain)
+      values ($1, $2, $3)
+      on conflict (email_domain) do nothing
+      returning id
+    )
+    select id, true as created from inserted
+    union all
+    select id, false as created from teams
+    where email_domain = $3 and not exists (select 1 from inserted)
+    limit 1
+    `,
+    [teamIdForDomain(domain), domain, domain]
+  );
+  const team = requireRow(rows[0], "team not assigned");
+  return {
+    role: team.created ? "admin" : "member",
+    teamId: team.id
+  };
+}
+
+function slug(input: string): string {
+  const value = input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return value || "domain";
+}
+
+function teamIdForDomain(domain: string): string {
+  const hash = createHash("sha256").update(domain).digest("hex").slice(0, 10);
+  return `team-${slug(domain)}-${hash}`;
+}
+
+function userFromRow(row: UserRow): WatAdapterUser {
   return {
     email: row.email,
     emailVerified: row.email_verified,
     id: row.id,
     image: row.image,
-    name: row.name
+    name: row.name,
+    role: row.role,
+    teamId: row.team_id
   };
 }

@@ -1,10 +1,36 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 const mailpitUrl = process.env.MAILPIT_HTTP_URL ?? "http://127.0.0.1:8025";
 
-test("email magic-link login works with Mailpit", async ({ page, request }) => {
-  const email = `auth-${Date.now()}@example.com`;
+test("email magic-link login works with Mailpit and auto-joins same-domain users", async ({
+  browser,
+  page,
+  request
+}) => {
+  const domain = `team-${Date.now()}.test`;
+  const ownerEmail = `owner@${domain}`;
+  const memberEmail = `member@${domain}`;
 
+  const ownerSession = await signInWithEmail(page, request, ownerEmail);
+  expect(ownerSession.user?.email).toBe(ownerEmail);
+  expect(ownerSession.user?.role).toBe("admin");
+  expect(ownerSession.user?.teamId).toContain(`team-${domain.replaceAll(".", "-")}-`);
+
+  const memberContext = await browser.newContext();
+  const memberPage = await memberContext.newPage();
+  const memberSession = await signInWithEmail(memberPage, request, memberEmail);
+  await memberContext.close();
+
+  expect(memberSession.user?.email).toBe(memberEmail);
+  expect(memberSession.user?.role).toBe("member");
+  expect(memberSession.user?.teamId).toBe(ownerSession.user?.teamId);
+});
+
+async function signInWithEmail(
+  page: Page,
+  request: APIRequestContext,
+  email: string
+): Promise<AuthSession> {
   await page.goto("/login?next=/");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Send magic link" }).click();
@@ -14,11 +40,8 @@ test("email magic-link login works with Mailpit", async ({ page, request }) => {
   await page.goto(magicLink);
 
   await expect(page).toHaveURL(/\/$/);
-  const session = (await (await page.request.get("/api/auth/session")).json()) as {
-    user?: { email?: string };
-  };
-  expect(session.user?.email).toBe(email);
-});
+  return (await (await page.request.get("/api/auth/session")).json()) as AuthSession;
+}
 
 async function waitForMagicLink(request: APIRequestContext, email: string): Promise<string> {
   const deadline = Date.now() + 30000;
@@ -61,4 +84,12 @@ function extractMagicLink(raw: string): string | null {
 interface MailpitMessage {
   ID: string;
   To: Array<{ Address: string }>;
+}
+
+interface AuthSession {
+  user?: {
+    email?: string;
+    role?: string | null;
+    teamId?: string | null;
+  };
 }

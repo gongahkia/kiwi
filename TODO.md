@@ -30,8 +30,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app foundation
 - [ ] Add Google OAuth provider — done when Google login produces a session.
 - [ ] Add Slack OAuth provider — done when Slack login produces a session.
-- [ ] Implement email-domain → auto-team join on signup — done when two users w/ same domain land in same team automatically.
-- [ ] Implement team creation on first signup of a new domain — done when team row created and user is admin.
 - [ ] Add Sentry or self-host error tracking — done when a thrown error in prod surfaces in dashboard.
 
 ## P2 — Web app: search UX
