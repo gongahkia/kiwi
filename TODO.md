@@ -98,6 +98,7 @@
   - 2026-06-19: macOS `leaks --atExit` reports `0 leaks for 0 total leaked bytes` on normal structure export shutdown; Valgrind is unavailable locally, and Ctrl-C/seek leak paths remain unverified.
   - 2026-06-19: `scripts/verify_shutdown_paths.sh` proves normal export, keyboard quit, seek+quit, and SIGINT reach clean shutdown logs locally and is wired into sanitizer CI; this verifies shutdown behavior locally, with hosted ASan/LSan proof still blocked by GitHub Actions billing/spending-limit state.
   - 2026-06-19: Valgrind CI job is configured for normal structure export leak checks on Ubuntu; hosted Valgrind result and Ctrl-C/seek leak accounting remain unverified while GitHub Actions is billing-blocked.
+  - 2026-06-19: Valgrind CI now wraps `scripts/verify_shutdown_paths.sh`, so normal export, keyboard quit, seek+quit, and SIGINT all run under definite-leak checks; sanitizer shutdown smoke now sets `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`. Hosted proof remains blocked by GitHub Actions billing/spending-limit state.
 
 ---
 

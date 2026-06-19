@@ -77,6 +77,9 @@ jobs:
           ./build/asan-ubsan/contourtty --width 16 --height 8 --dump-frame 1 --dump-png /tmp/contourtty-sanitize.png /tmp/contourtty-sanitize.mp4 >/tmp/contourtty-sanitize.probe
 
       - name: Shutdown path smoke
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
         run: scripts/verify_shutdown_paths.sh ./build/asan-ubsan/contourtty
 
   valgrind:
@@ -99,8 +102,12 @@ jobs:
       - name: Build
         run: cmake --build --preset ci --target contourtty
 
-      - name: Normal export leak check
+      - name: Shutdown path leak checks
         run: |
-          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/contourtty-valgrind.mp4
-          valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=99 \
-            ./build/ci/contourtty --mode structure --width 16 --height 8 --export /tmp/contourtty-valgrind.ansi --log /tmp/contourtty-valgrind.log /tmp/contourtty-valgrind.mp4
+          cat >/tmp/contourtty-valgrind-wrapper <<'EOF'
+          #!/usr/bin/env bash
+          exec valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=99 \
+            ./build/ci/contourtty "$@"
+          EOF
+          chmod +x /tmp/contourtty-valgrind-wrapper
+          scripts/verify_shutdown_paths.sh /tmp/contourtty-valgrind-wrapper
