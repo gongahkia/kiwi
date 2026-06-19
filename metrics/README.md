@@ -11,3 +11,15 @@ Planned generated files:
 
 Until the scheduled polling workflow is added, keep committed files limited to
 schema documentation and small hand-maintained examples.
+
+CSV schema:
+
+* `daily.csv`: `date,github_stars,github_forks,crates_downloads,npm_downloads`
+* `weekly.csv`: Monday-based `week_start`, observed `week_end`, final weekly
+  values, and deltas from first to last observed row in the week.
+
+Regenerate weekly rollups with:
+
+```sh
+node scripts/aggregate-weekly-metrics.mjs
+```

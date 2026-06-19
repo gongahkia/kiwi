@@ -42,7 +42,8 @@
     "bench:compare:output-size": "node benches/compare/tools/measure-output-sizes.mjs",
     "bench:compare:results": "node benches/compare/tools/measure-output-sizes.mjs --out bench/results.json",
     "bench:compare:timing": "node benches/compare/tools/run-hyperfine.mjs",
-    "bench:compare:fidelity": "node benches/compare/tools/score-fidelity.mjs"
+    "bench:compare:fidelity": "node benches/compare/tools/score-fidelity.mjs",
+    "metrics:weekly": "node scripts/aggregate-weekly-metrics.mjs"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "11.15.0",
