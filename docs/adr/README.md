@@ -14,6 +14,7 @@ security posture.
 | [0011](0011-svg-animation-mode.md) | Accepted | Default animated SVGs to SMIL while keeping CSS keyframes as fallback |
 | [0012](0012-gif-encoder.md) | Accepted | Use the `gif` crate for built-in animated GIF output |
 | [0013](0013-tachyonfx-integration.md) | Accepted | Wrap upstream tachyonfx behind kumeyuri transition names |
+| [0014](0014-long-tail-release-pacing.md) | Accepted | Ship new long-tail diagram family support one release at a time |
 
 ## Maintenance
 
