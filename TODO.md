@@ -67,7 +67,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Document each source's license in `docs/sources.md` — done when each scraper has matching entry.
 
 ## P1 — Corpus quality controls
-- [ ] Build sanity-check linter: every public entry has ≥1 source, every T1 has canonical-flagged source — done when `pnpm ingest lint` passes.
 - [ ] Build benchmark gate: corpus refresh PR is blocked if hit-rate drops >1pp — done when PR check fails in test scenario.
 - [ ] Build corpus stats dashboard page in web app — done when `/stats` shows entry counts by source, tier, domain.
 
