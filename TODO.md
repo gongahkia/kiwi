@@ -469,7 +469,7 @@
 - [x] `cargo deny check` clean
 - [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
 - [x] Snapshot tests green (text + SVG + raster + cast)
-- [ ] Performance benchmarks within budget (§18 of NORTHSTAR.md)
+- [x] Performance benchmarks within budget (§18 of NORTHSTAR.md)
 - [x] WASM bundle size within gzip budget
 - [x] `axe-core` + `pa11y` audits clean
 - [x] CHANGELOG.md updated via release-please
