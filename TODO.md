@@ -291,7 +291,7 @@
 - [x] Implement print-friendly theme `print-mono` (no colour, high contrast, monospace ASCII fallback)
 - [x] Implement reveal.js plugin loading kumecast files inline in slides
 - [x] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
-- [ ] Implement Slidev component `<KumeyuriDiagram>`
+- [x] Implement Slidev component `<KumeyuriDiagram>`
 - [ ] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
 - [ ] Implement Logseq plugin equivalent
 - [ ] Implement Quartz plugin for digital gardens

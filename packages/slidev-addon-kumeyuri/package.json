@@ -1,0 +1,33 @@
+{
+  "name": "slidev-addon-kumeyuri",
+  "version": "0.0.0",
+  "description": "Slidev addon exposing a <KumeyuriDiagram> component for .kumecast timelines.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/slidev-addon-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "components",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@slidev/cli": "^0.52.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@slidev/cli": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/slidev-addon.test.mjs",
+    "prepack": "npm test"
+  }
+}
