@@ -3,6 +3,7 @@
 #include "braille_renderer.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_ramp.hpp"
+#include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
 #include "render_layout.hpp"
@@ -99,7 +100,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     if (dog_options.enabled()) {
       analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
     }
-    structure_gradients = computeSobelGradients(analysis_luminance);
+    if (options.gpu) {
+      structure_gradients = computeSobelGradientsGpu(analysis_luminance);
+    }
+    if (!structure_gradients.has_value()) {
+      structure_gradients = computeSobelGradients(analysis_luminance);
+    }
     structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
   }
   std::vector<Cell>& cell_values = cells->cells();

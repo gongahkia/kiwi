@@ -10,6 +10,7 @@
 #include "frame_sampling.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
+#include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
@@ -775,9 +776,13 @@ void writeCastEvent(std::ofstream& out, double timestamp, std::string_view bytes
   out << '[' << std::fixed << std::setprecision(6) << timestamp << ",\"o\",\"" << jsonEscape(bytes) << "\"]\n";
 }
 
-void logGpuFallback(const CliOptions& options, Logger& logger) {
+void logGpuRequest(const CliOptions& options, Logger& logger) {
   if (options.gpu) {
-    CONTOURTTY_LOG_WARN(logger, "gpu analysis requested but unavailable; using cpu renderer");
+    if (gpuSobelAvailable()) {
+      CONTOURTTY_LOG_INFO(logger, "gpu analysis requested; using Metal sobel backend");
+    } else {
+      CONTOURTTY_LOG_WARN(logger, "gpu analysis requested but unavailable; using cpu renderer");
+    }
   }
 }
 
@@ -790,7 +795,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   if (!options.export_file.has_value()) {
     throw std::runtime_error("missing export file");
   }
-  logGpuFallback(options, logger);
+  logGpuRequest(options, logger);
 
   const std::filesystem::path output_path = *options.export_file;
   const ExportKind kind = exportKindForPath(output_path);
@@ -908,7 +913,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
   }
-  logGpuFallback(options, logger);
+  logGpuRequest(options, logger);
 
   std::optional<DecodedAudio> decoded_audio;
   const bool camera_input = isCameraInput(*options.input);

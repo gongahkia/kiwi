@@ -6,6 +6,17 @@ option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 include(GNUInstallDirs)
 
+set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_stub.cpp)
+set(CONTOURTTY_GPU_LIBS)
+if(APPLE)
+  enable_language(OBJCXX)
+  find_library(METAL_FRAMEWORK Metal REQUIRED)
+  find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+  set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_metal.mm)
+  set(CONTOURTTY_GPU_LIBS ${METAL_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
+  set_source_files_properties(src/gpu_sobel_metal.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+endif()
+
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -67,6 +78,7 @@ add_executable(contourtty
   src/frame_sampling.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
+  ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/luminance.cpp
   src/log.cpp
@@ -90,7 +102,7 @@ set_target_properties(contourtty PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(contourtty PRIVATE CONTOURTTY_VERSION="${PROJECT_VERSION}")
-target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty_audio contourtty_audio_decode)
+target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty_audio contourtty_audio_decode ${CONTOURTTY_GPU_LIBS})
 
 install(TARGETS contourtty
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -463,6 +475,7 @@ add_executable(golden_frame_tests
   src/frame_sampling.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
+  ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/luminance.cpp
   src/render_layout.cpp
@@ -477,7 +490,7 @@ set_target_properties(golden_frame_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(golden_frame_tests PRIVATE Threads::Threads)
+target_link_libraries(golden_frame_tests PRIVATE Threads::Threads ${CONTOURTTY_GPU_LIBS})
 if(MSVC)
   target_compile_options(golden_frame_tests PRIVATE /W4)
   if(CONTOURTTY_WARNINGS_AS_ERRORS)
@@ -641,6 +654,7 @@ add_test(NAME structure_sampling COMMAND structure_sampling_tests)
 
 add_executable(structure_edges_tests
   tests/structure_edges_tests.cpp
+  ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/luminance.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
@@ -662,6 +676,9 @@ else()
   if(CONTOURTTY_WARNINGS_AS_ERRORS)
     target_compile_options(structure_edges_tests PRIVATE -Werror)
   endif()
+endif()
+if(CONTOURTTY_GPU_LIBS)
+  target_link_libraries(structure_edges_tests PRIVATE ${CONTOURTTY_GPU_LIBS})
 endif()
 add_test(NAME structure_edges COMMAND structure_edges_tests)
 

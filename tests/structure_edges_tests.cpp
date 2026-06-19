@@ -1,6 +1,8 @@
+#include "gpu_sobel.hpp"
 #include "structure_edges.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <iostream>
 #include <utility>
@@ -50,6 +52,27 @@ int main() {
     expect(cell.magnitude > 0.0, "vertical edge magnitude");
     const auto glyph = contourtty::directionalGlyphForGradient(cell, 0.01);
     expect(glyph.has_value() && *glyph == U'|', "vertical edge maps to vertical glyph");
+  }
+
+  {
+    std::vector<double> values;
+    for (int y = 0; y < 8; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        values.push_back(static_cast<double>((x * 17 + y * 23) % 31) / 30.0);
+      }
+    }
+    const auto field = fieldFromValues(8, 8, values);
+    const auto cpu = contourtty::computeSobelGradients(field);
+    const auto gpu = contourtty::computeSobelGradientsGpu(field);
+    expect(gpu.has_value() == contourtty::gpuSobelAvailable(), "gpu sobel availability matches result");
+    if (gpu.has_value()) {
+      expect(gpu->width == cpu.width && gpu->height == cpu.height, "gpu sobel dimensions");
+      expect(gpu->values.size() == cpu.values.size(), "gpu sobel value count");
+      for (std::size_t index = 0; index < cpu.values.size(); ++index) {
+        expectNear(gpu->values[index].gx, cpu.values[index].gx, 1e-5, "gpu sobel gx");
+        expectNear(gpu->values[index].gy, cpu.values[index].gy, 1e-5, "gpu sobel gy");
+      }
+    }
   }
 
   {

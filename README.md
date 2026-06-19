@@ -45,7 +45,7 @@ With audio present, video is paced from the audio playback clock. Late video fra
 
 Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
-Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, and `braille`; `braille` packs a 2x4 luminance grid into each Unicode braille cell.
+Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, and `braille`; `braille` packs a 2x4 luminance grid into each Unicode braille cell. `--gpu` uses the optional Metal Sobel backend on macOS when available and falls back to CPU elsewhere.
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
 
@@ -92,7 +92,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
 | `--mirror`, `--no-mirror` | Enable or disable horizontal mirroring for camera playback. |
 | `--log FILE` | Write diagnostics. |
-| `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path; current builds log a CPU fallback. |
+| `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
 | `--dump-png FILE` | Write dumped frame as RGB PNG. |
