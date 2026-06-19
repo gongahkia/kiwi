@@ -24,7 +24,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add unique partial index `(term_normalized, layer, team_id)` — done when duplicate insert across same layer is rejected.
 - [ ] Seed migration script for dev DB — done when `pnpm db:seed:dev` populates 50 manual entries.
 - [ ] Write DB integration tests for CRUD + tsvector regeneration — done when `pnpm test --filter @wat/db` passes ≥10 cases.
-- [ ] Document DB schema in `docs/db-schema.md` w/ ER diagram — done when diagram is checked in (mermaid).
 
 ## P0 — Core package
 - [ ] Implement entry validator (Zod + business rules) — done when all 50 seed entries validate.
