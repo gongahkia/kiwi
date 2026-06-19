@@ -9,10 +9,13 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <sys/select.h>
+#include <thread>
 #include <unistd.h>
 
 namespace contourtty {
@@ -21,6 +24,66 @@ namespace {
 struct RenderSize {
   int cols = 0;
   int rows = 0;
+};
+
+class FramePacer {
+ public:
+  explicit FramePacer(const CliOptions& options) {
+    if (options.fps.has_value() && *options.fps > 0.0) {
+      override_frame_us_ = static_cast<int64_t>(std::llround(1000000.0 / *options.fps));
+      frame_duration_us_ = *override_frame_us_;
+    }
+  }
+
+  void waitForFrame(const Frame& frame) {
+    if (!start_.has_value()) {
+      start_ = std::chrono::steady_clock::now();
+      first_pts_us_ = frame.pts_us;
+      last_media_us_ = 0;
+      last_deadline_ = *start_;
+      ++frame_index_;
+      return;
+    }
+
+    const int64_t media_us = mediaTimeUs(frame);
+    const int64_t delta_us = media_us - last_media_us_;
+    if (delta_us > 0 && !override_frame_us_.has_value()) {
+      frame_duration_us_ = delta_us;
+    }
+    const auto deadline = *start_ + std::chrono::microseconds(media_us);
+    last_deadline_ = deadline;
+    if (deadline > std::chrono::steady_clock::now()) {
+      std::this_thread::sleep_until(deadline);
+    }
+    last_media_us_ = media_us;
+    ++frame_index_;
+  }
+
+  void finish() const {
+    if (!last_deadline_.has_value() || frame_duration_us_ <= 0) {
+      return;
+    }
+    const auto deadline = *last_deadline_ + std::chrono::microseconds(frame_duration_us_);
+    if (deadline > std::chrono::steady_clock::now()) {
+      std::this_thread::sleep_until(deadline);
+    }
+  }
+
+ private:
+  int64_t mediaTimeUs(const Frame& frame) const {
+    if (override_frame_us_.has_value()) {
+      return static_cast<int64_t>(frame_index_) * *override_frame_us_;
+    }
+    return std::max<int64_t>(0, frame.pts_us - first_pts_us_);
+  }
+
+  std::optional<std::chrono::steady_clock::time_point> start_;
+  std::optional<std::chrono::steady_clock::time_point> last_deadline_;
+  std::optional<int64_t> override_frame_us_;
+  int64_t first_pts_us_ = 0;
+  int64_t last_media_us_ = 0;
+  int64_t frame_duration_us_ = 33333;
+  int64_t frame_index_ = 0;
 };
 
 RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal) {
@@ -141,6 +204,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   TerminalSize terminal = queryTerminalSize();
   CellBuffer cells;
   DiffEmitter emitter;
+  FramePacer pacer(options);
   const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
   bool quit = false;
 
@@ -151,6 +215,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
   MediaProbeOptions decode_options;
   decode_options.cell_aspect = options.cell_aspect;
   decode_options.on_frame = [&](const Frame& frame, int64_t) {
+    if (shouldQuit() || keyboardQuitRequested()) {
+      quit = true;
+      return false;
+    }
+    pacer.waitForFrame(frame);
     if (shouldQuit() || keyboardQuitRequested()) {
       quit = true;
       return false;
@@ -172,6 +241,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   };
 
   (void)probeMedia(*options.input, decode_options);
+  if (!quit && !shouldQuit()) {
+    pacer.finish();
+  }
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
   } else {
