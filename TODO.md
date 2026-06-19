@@ -368,7 +368,7 @@
 - [x] Implement `render_diagram` tool surface
 - [ ] Implement `play_diagram` tool surface (opens TUI subprocess)
 - [x] Implement `lint_diagram` tool surface
-- [ ] Implement `list_themes`, `list_diagram_types` discovery tools
+- [x] Implement `list_themes`, `list_diagram_types` discovery tools
 - [ ] Implement stdio transport
 - [ ] Implement HTTP+SSE transport with bearer-token auth
 - [ ] Add `kumeyuri mcp` CLI subcommand wiring

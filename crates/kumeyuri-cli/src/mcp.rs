@@ -4,12 +4,15 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    RenderCharset, RenderFormat, RenderOptions, RenderTheme, layout_warnings, lint_source,
-    parse_diagram, render_source,
+    ANIMATED_PARTIAL_ROOTS, CompatRoot, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
+    STATIC_ONLY_ROOTS, ThemeSource, UNSUPPORTED_ROOTS, layout_warnings, lint_source, msg,
+    parse_diagram, render_source, theme_entries_for_current_dir, theme_source_label,
 };
 
 pub(crate) const RENDER_DIAGRAM_TOOL_NAME: &str = "render_diagram";
 pub(crate) const LINT_DIAGRAM_TOOL_NAME: &str = "lint_diagram";
+pub(crate) const LIST_THEMES_TOOL_NAME: &str = "list_themes";
+pub(crate) const LIST_DIAGRAM_TYPES_TOOL_NAME: &str = "list_diagram_types";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RenderDiagramRequest {
@@ -56,6 +59,40 @@ pub(crate) struct LintDiagramResponse {
     pub file: String,
     pub ok: bool,
     pub warnings: Vec<McpLayoutWarning>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct ListThemesResponse {
+    pub themes: Vec<McpThemeEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct McpThemeEntry {
+    pub name: String,
+    pub source: String,
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct ListDiagramTypesResponse {
+    pub diagram_types: Vec<McpDiagramType>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct McpDiagramType {
+    pub id: String,
+    pub label: String,
+    pub roots: Vec<String>,
+    pub support: McpDiagramSupport,
+    pub caveat: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum McpDiagramSupport {
+    AnimatedPartial,
+    StaticOnly,
+    Unsupported,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +187,39 @@ pub(crate) fn lint_diagram(request: &LintDiagramRequest) -> Result<LintDiagramRe
     })
 }
 
+pub(crate) fn list_themes() -> Result<ListThemesResponse, String> {
+    Ok(ListThemesResponse {
+        themes: theme_entries_for_current_dir()?
+            .into_iter()
+            .map(|entry| McpThemeEntry {
+                name: entry.name,
+                source: theme_source_label(&entry.source).to_owned(),
+                path: theme_path(&entry.source),
+            })
+            .collect(),
+    })
+}
+
+pub(crate) fn list_diagram_types() -> ListDiagramTypesResponse {
+    let mut diagram_types = Vec::new();
+    append_diagram_types(
+        &mut diagram_types,
+        ANIMATED_PARTIAL_ROOTS,
+        McpDiagramSupport::AnimatedPartial,
+    );
+    append_diagram_types(
+        &mut diagram_types,
+        STATIC_ONLY_ROOTS,
+        McpDiagramSupport::StaticOnly,
+    );
+    append_diagram_types(
+        &mut diagram_types,
+        UNSUPPORTED_ROOTS,
+        McpDiagramSupport::Unsupported,
+    );
+    ListDiagramTypesResponse { diagram_types }
+}
+
 impl RenderDiagramRequest {
     fn render_options(&self) -> RenderOptions {
         RenderOptions {
@@ -218,12 +288,42 @@ impl McpRenderCharset {
     }
 }
 
+fn theme_path(source: &ThemeSource) -> Option<String> {
+    match source {
+        ThemeSource::Project(path)
+        | ThemeSource::XdgDataHome(path)
+        | ThemeSource::XdgDataDir(path) => Some(path.display().to_string()),
+        ThemeSource::Bundled(_) => None,
+    }
+}
+
+fn append_diagram_types(
+    output: &mut Vec<McpDiagramType>,
+    roots: &[CompatRoot],
+    support: McpDiagramSupport,
+) {
+    output.extend(roots.iter().map(|root| {
+        McpDiagramType {
+            id: root
+                .label_id
+                .strip_prefix("compat-label-")
+                .unwrap_or(root.label_id)
+                .to_owned(),
+            label: msg(root.label_id),
+            roots: root.roots.iter().map(|value| (*value).to_owned()).collect(),
+            support,
+            caveat: msg(root.caveat_id),
+        }
+    }));
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        LINT_DIAGRAM_TOOL_NAME, LintDiagramRequest, McpContentEncoding, McpRenderCharset,
+        LINT_DIAGRAM_TOOL_NAME, LIST_DIAGRAM_TYPES_TOOL_NAME, LIST_THEMES_TOOL_NAME,
+        LintDiagramRequest, McpContentEncoding, McpDiagramSupport, McpRenderCharset,
         McpRenderFormat, McpRenderTheme, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest,
-        lint_diagram, render_diagram,
+        lint_diagram, list_diagram_types, list_themes, render_diagram,
     };
 
     #[test]
@@ -309,5 +409,37 @@ mod tests {
         assert_eq!(response.file, "<inline>");
         assert!(response.ok);
         assert!(response.warnings.is_empty());
+    }
+
+    #[test]
+    fn list_themes_tool_surface_reports_discovered_themes() {
+        let response = list_themes().unwrap();
+
+        assert_eq!(LIST_THEMES_TOOL_NAME, "list_themes");
+        assert!(response.themes.iter().any(|theme| theme.name == "default"));
+        assert!(
+            response
+                .themes
+                .iter()
+                .any(|theme| theme.name == "print-mono" && theme.source == "bundled")
+        );
+    }
+
+    #[test]
+    fn list_diagram_types_tool_surface_reports_supported_and_unsupported_roots() {
+        let response = list_diagram_types();
+
+        assert_eq!(LIST_DIAGRAM_TYPES_TOOL_NAME, "list_diagram_types");
+        assert_eq!(response.diagram_types.len(), 31);
+        assert!(response.diagram_types.iter().any(|diagram| {
+            diagram.id == "flowchart"
+                && diagram.support == McpDiagramSupport::AnimatedPartial
+                && diagram.roots == ["graph", "flowchart"]
+        }));
+        assert!(response.diagram_types.iter().any(|diagram| {
+            diagram.id == "cynefin"
+                && diagram.support == McpDiagramSupport::Unsupported
+                && diagram.roots == ["cynefin-beta"]
+        }));
     }
 }
