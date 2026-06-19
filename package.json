@@ -20,6 +20,7 @@
     "test:compat-versions": "node scripts/check-compat-doc-versions.mjs",
     "test:coverage-gate": "node scripts/check-coverage-snapshot-delta.mjs",
     "test:render-action": "node scripts/test-render-action.mjs",
+    "test:mcp-server": "node scripts/test-mcp-server.mjs",
     "import:official-mermaid": "node scripts/import-official-mermaid-fixtures.mjs",
     "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
     "test:svg-reduced-motion": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/test-svg-reduced-motion.mjs",
