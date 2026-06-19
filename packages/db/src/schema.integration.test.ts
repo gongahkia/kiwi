@@ -1,0 +1,204 @@
+import { execFile as execFileCallback } from "node:child_process";
+import { randomInt } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { promisify } from "node:util";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Client } from "pg";
+
+const execFile = promisify(execFileCallback);
+const containerName = `wat-db-test-${Date.now()}-${randomInt(1000, 9999)}`;
+const port = randomInt(20000, 40000);
+const connectionString = `postgres://wat:wat@localhost:${port}/wat`;
+const drizzleDir = new URL("../drizzle/", import.meta.url);
+
+let client: Client;
+
+describe("db schema integration", () => {
+  beforeAll(async () => {
+    await execFile("docker", [
+      "run",
+      "--rm",
+      "--name",
+      containerName,
+      "-e",
+      "POSTGRES_USER=wat",
+      "-e",
+      "POSTGRES_PASSWORD=wat",
+      "-e",
+      "POSTGRES_DB=wat",
+      "-p",
+      `${port}:5432`,
+      "-d",
+      "pgvector/pgvector:pg16"
+    ]);
+
+    client = await connectWithRetry();
+    await applyMigrations(client);
+  }, 120_000);
+
+  afterAll(async () => {
+    await client?.end();
+    await execFile("docker", ["rm", "-f", containerName]).catch(() => undefined);
+  }, 30_000);
+
+  it("applies required extensions", async () => {
+    const { rows } = await client.query<{ extname: string }>(
+      "select extname from pg_extension where extname in ('vector', 'pg_trgm') order by extname"
+    );
+
+    expect(rows.map((row) => row.extname)).toEqual(["pg_trgm", "vector"]);
+  });
+
+  it("creates entry rows", async () => {
+    await insertEntry("entry_crud", "API", "api", ["Application Programming Interface"]);
+
+    const { rows } = await client.query<{ term: string }>(
+      "select term from entries where id = 'entry_crud'"
+    );
+    expect(rows[0]?.term).toBe("API");
+  });
+
+  it("updates entry rows", async () => {
+    await insertEntry("entry_update", "DOM", "dom", ["Document Object Model"]);
+    await client.query("update entries set meaning_short = 'updated' where id = 'entry_update'");
+
+    const { rows } = await client.query<{ meaning_short: string }>(
+      "select meaning_short from entries where id = 'entry_update'"
+    );
+    expect(rows[0]?.meaning_short).toBe("updated");
+  });
+
+  it("deletes entry rows", async () => {
+    await insertEntry("entry_delete", "CSS", "css", ["Cascading Style Sheets"]);
+    await client.query("delete from entries where id = 'entry_delete'");
+
+    const { rows } = await client.query<{ count: number }>(
+      "select count(*)::int as count from entries where id = 'entry_delete'"
+    );
+    expect(rows[0]?.count).toBe(0);
+  });
+
+  it("generates tsvector from term", async () => {
+    await insertEntry("entry_tsv_term", "GraphQL", "graphql", ["Graph Query Language"]);
+
+    const { rows } = await client.query<{ matches: boolean }>(
+      "select tsvector @@ plainto_tsquery('english', 'graphql') as matches from entries where id = 'entry_tsv_term'"
+    );
+    expect(rows[0]?.matches).toBe(true);
+  });
+
+  it("generates tsvector from expansions", async () => {
+    await insertEntry("entry_tsv_expansion", "JWT", "jwt", ["JSON Web Token"]);
+
+    const { rows } = await client.query<{ matches: boolean }>(
+      "select tsvector @@ plainto_tsquery('english', 'token') as matches from entries where id = 'entry_tsv_expansion'"
+    );
+    expect(rows[0]?.matches).toBe(true);
+  });
+
+  it("regenerates tsvector on update", async () => {
+    await insertEntry("entry_tsv_update", "URI", "uri", ["Uniform Resource Identifier"]);
+    await client.query(
+      "update entries set meaning_long = 'websocket transport update' where id = $1",
+      ["entry_tsv_update"]
+    );
+
+    const { rows } = await client.query<{ matches: boolean }>(
+      "select tsvector @@ plainto_tsquery('english', 'websocket') as matches from entries where id = 'entry_tsv_update'"
+    );
+    expect(rows[0]?.matches).toBe(true);
+  });
+
+  it("rejects sources without an entry", async () => {
+    await expect(
+      client.query(
+        "insert into sources (id, entry_id, position, url, title, publisher, license, retrieved_at, snippet, source_quality) values ('source_bad', 'missing', 0, 'https://example.com', 'title', 'publisher', 'MIT', now(), 'snippet', 'canonical')"
+      )
+    ).rejects.toMatchObject({ code: "23503" });
+  });
+
+  it("cascades sources when entries are deleted", async () => {
+    await insertEntry("entry_source_cascade", "CORS", "cors", ["Cross-Origin Resource Sharing"]);
+    await client.query(
+      "insert into sources (id, entry_id, position, url, title, publisher, license, retrieved_at, snippet, source_quality) values ('source_cascade', 'entry_source_cascade', 0, 'https://example.com/cors', 'CORS', 'Example', 'MIT', now(), 'snippet', 'canonical')"
+    );
+    await client.query("delete from entries where id = 'entry_source_cascade'");
+
+    const { rows } = await client.query<{ count: number }>(
+      "select count(*)::int as count from sources where id = 'source_cascade'"
+    );
+    expect(rows[0]?.count).toBe(0);
+  });
+
+  it("rejects examples without an entry", async () => {
+    await expect(
+      client.query(
+        "insert into examples (id, entry_id, position, body) values ('example_bad', 'missing', 0, 'body')"
+      )
+    ).rejects.toMatchObject({ code: "23503" });
+  });
+
+  it("rejects duplicate active terms in the same layer", async () => {
+    await insertEntry("entry_unique_a", "SSO", "sso", ["Single Sign-On"]);
+
+    await expect(
+      insertEntry("entry_unique_b", "SSO", "sso", ["Single Sign-On"])
+    ).rejects.toMatchObject({
+      code: "23505"
+    });
+  });
+
+  it("allows duplicate deprecated terms in the same layer", async () => {
+    await insertEntry("entry_deprecated_a", "PWA", "pwa", ["Progressive Web Application"], true);
+    await insertEntry("entry_deprecated_b", "PWA", "pwa", ["Progressive Web Application"], true);
+
+    const { rows } = await client.query<{ count: number }>(
+      "select count(*)::int as count from entries where term_normalized = 'pwa'"
+    );
+    expect(rows[0]?.count).toBe(2);
+  });
+});
+
+async function connectWithRetry(): Promise<Client> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const pgClient = new Client({ connectionString });
+    try {
+      await pgClient.connect();
+      return pgClient;
+    } catch (error) {
+      lastError = error;
+      await pgClient.end().catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  throw lastError;
+}
+
+async function applyMigrations(pgClient: Client): Promise<void> {
+  const files = (await readdir(drizzleDir))
+    .filter((file) => file.endsWith(".sql"))
+    .sort((left, right) => left.localeCompare(right));
+
+  for (const file of files) {
+    await pgClient.query(await readFile(new URL(file, drizzleDir), "utf8"));
+  }
+}
+
+async function insertEntry(
+  id: string,
+  term: string,
+  termNormalized: string,
+  expansions: string[],
+  deprecated = false
+): Promise<void> {
+  await client.query(
+    `
+    insert into entries (
+      id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+      confidence_tier, license, layer, deprecated, aliases, related_terms
+    ) values ($1, $2, $3, $4, $5, 'short', 'long', 'T2', 'MIT', 'public', $6, $7, $8)
+    `,
+    [id, term, termNormalized, expansions, ["test"], deprecated, [], []]
+  );
+}

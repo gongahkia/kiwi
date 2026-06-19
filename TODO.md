@@ -15,7 +15,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
 
 ## P0 — Database & migrations
-- [ ] Write DB integration tests for CRUD + tsvector regeneration — done when `pnpm test --filter @wat/db` passes ≥10 cases.
 
 ## P0 — Core package
 
