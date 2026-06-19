@@ -44,6 +44,28 @@ std::optional<double> parsePositiveDouble(std::string_view value, bool allow_zer
   return parsed;
 }
 
+bool parseDogSigma(std::string_view value, CliOptions* options) {
+  const auto comma = value.find(',');
+  if (comma == std::string_view::npos) {
+    const auto parsed = parsePositiveDouble(value, true);
+    if (!parsed.has_value()) {
+      return false;
+    }
+    options->dog_sigma = *parsed;
+    options->dog_sigma2.reset();
+    return true;
+  }
+
+  const auto sigma1 = parsePositiveDouble(value.substr(0, comma), false);
+  const auto sigma2 = parsePositiveDouble(value.substr(comma + 1), false);
+  if (!sigma1.has_value() || !sigma2.has_value() || *sigma2 <= *sigma1) {
+    return false;
+  }
+  options->dog_sigma = *sigma1;
+  options->dog_sigma2 = *sigma2;
+  return true;
+}
+
 std::string_view stripFlagValue(std::string_view arg, std::string_view* value) {
   const auto equals = arg.find('=');
   if (equals == std::string_view::npos) {
@@ -137,6 +159,7 @@ CliParseResult parseArgs(int argc, char** argv) {
           "--charset",
           "--edge-threshold",
           "--dog-sigma",
+          "--dog-threshold",
           "--contrast",
           "--dither",
           "--log",
@@ -214,12 +237,17 @@ CliParseResult parseArgs(int argc, char** argv) {
       }
       result.options.edge_threshold = *parsed;
     } else if (flag == "--dog-sigma") {
-      const auto parsed = parsePositiveDouble(*value, true);
-      if (!parsed.has_value()) {
+      if (!parseDogSigma(*value, &result.options)) {
         result.error = "invalid value for --dog-sigma: " + std::string(*value);
         return result;
       }
-      result.options.dog_sigma = *parsed;
+    } else if (flag == "--dog-threshold") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --dog-threshold: " + std::string(*value);
+        return result;
+      }
+      result.options.dog_threshold = *parsed;
     } else if (flag == "--contrast") {
       const auto parsed = parsePositiveDouble(*value, true);
       if (!parsed.has_value()) {
@@ -271,7 +299,8 @@ std::string helpText(std::string_view program_name) {
       << "  --mono                         disable color output\n"
       << "  --charset NAME|string          glyph preset or custom glyph string\n"
       << "  --edge-threshold N             structure edge threshold\n"
-      << "  --dog-sigma N                  difference-of-gaussians sigma\n"
+      << "  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables\n"
+      << "  --dog-threshold N              difference-of-gaussians threshold\n"
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"

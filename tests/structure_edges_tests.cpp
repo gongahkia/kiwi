@@ -77,4 +77,21 @@ int main() {
     expect(cell.gx > 0.0 && cell.gy > 0.0, "diagonal edge gradient points down-right");
     expectNear(cell.orientation, kPi / 4.0, 0.15, "diagonal edge orientation");
   }
+
+  {
+    auto flat = fieldFromValues(5, 5, std::vector<double>(25, 0.5));
+    const auto dog = contourtty::differenceOfGaussians(flat, contourtty::DogOptions{.sigma1 = 0.6, .sigma2 = 1.2, .threshold = 0.01});
+    for (const double value : dog.values) {
+      expectNear(value, 0.0, 1e-12, "flat DoG suppresses constant field");
+    }
+  }
+
+  {
+    std::vector<double> impulse(25, 0.0);
+    impulse[12] = 1.0;
+    auto field = fieldFromValues(5, 5, impulse);
+    const auto dog = contourtty::differenceOfGaussians(field, contourtty::DogOptions{.sigma1 = 0.5, .sigma2 = 1.4, .threshold = 0.02});
+    expect(dog.at(2, 2) > 0.0, "DoG keeps isolated line/point response above threshold");
+    expectNear(dog.at(0, 0), 0.0, 1e-12, "DoG thresholds weak far response");
+  }
 }

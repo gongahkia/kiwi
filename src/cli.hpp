@@ -25,6 +25,8 @@ struct CliOptions {
   std::optional<std::string> charset;
   std::optional<double> edge_threshold;
   std::optional<double> dog_sigma;
+  std::optional<double> dog_sigma2;
+  std::optional<double> dog_threshold;
   std::optional<double> contrast;
   std::string dither = "none";
   bool fit = false;

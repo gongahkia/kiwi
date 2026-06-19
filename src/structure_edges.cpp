@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <stdexcept>
+#include <vector>
 
 namespace contourtty {
 namespace {
@@ -12,6 +13,25 @@ double sampleClamped(const LuminanceField& field, int x, int y) {
   const int clamped_x = std::min(std::max(x, 0), field.width - 1);
   const int clamped_y = std::min(std::max(y, 0), field.height - 1);
   return field.at(clamped_x, clamped_y);
+}
+
+std::vector<double> gaussianKernel(double sigma) {
+  if (sigma <= 0.0) {
+    throw std::invalid_argument("gaussian sigma must be positive");
+  }
+  const int radius = std::max(1, static_cast<int>(std::ceil(sigma * 3.0)));
+  std::vector<double> kernel;
+  kernel.reserve(static_cast<std::size_t>(radius * 2 + 1));
+  double sum = 0.0;
+  for (int i = -radius; i <= radius; ++i) {
+    const double value = std::exp(-(static_cast<double>(i * i)) / (2.0 * sigma * sigma));
+    kernel.push_back(value);
+    sum += value;
+  }
+  for (double& value : kernel) {
+    value /= sum;
+  }
+  return kernel;
 }
 
 }  // namespace
@@ -46,6 +66,65 @@ GradientField computeSobelGradients(const LuminanceField& field) {
     }
   }
   return gradients;
+}
+
+LuminanceField gaussianBlur(const LuminanceField& field, double sigma) {
+  if (field.width <= 0 || field.height <= 0 ||
+      field.values.size() != static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height)) {
+    throw std::invalid_argument("invalid luminance field");
+  }
+  const std::vector<double> kernel = gaussianKernel(sigma);
+  const int radius = static_cast<int>(kernel.size() / 2);
+
+  LuminanceField horizontal;
+  horizontal.width = field.width;
+  horizontal.height = field.height;
+  horizontal.values.assign(field.values.size(), 0.0);
+  for (int y = 0; y < field.height; ++y) {
+    for (int x = 0; x < field.width; ++x) {
+      double sum = 0.0;
+      for (int k = -radius; k <= radius; ++k) {
+        sum += sampleClamped(field, x + k, y) * kernel[static_cast<std::size_t>(k + radius)];
+      }
+      horizontal.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
+    }
+  }
+
+  LuminanceField output;
+  output.width = field.width;
+  output.height = field.height;
+  output.values.assign(field.values.size(), 0.0);
+  for (int y = 0; y < field.height; ++y) {
+    for (int x = 0; x < field.width; ++x) {
+      double sum = 0.0;
+      for (int k = -radius; k <= radius; ++k) {
+        sum += sampleClamped(horizontal, x, y + k) * kernel[static_cast<std::size_t>(k + radius)];
+      }
+      output.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
+    }
+  }
+  return output;
+}
+
+LuminanceField differenceOfGaussians(const LuminanceField& field, DogOptions options) {
+  if (!options.enabled()) {
+    return field;
+  }
+  if (options.threshold < 0.0) {
+    throw std::invalid_argument("DoG threshold must be non-negative");
+  }
+  const LuminanceField narrow = gaussianBlur(field, options.sigma1);
+  const LuminanceField wide = gaussianBlur(field, options.sigma2);
+
+  LuminanceField output;
+  output.width = field.width;
+  output.height = field.height;
+  output.values.reserve(field.values.size());
+  for (std::size_t i = 0; i < field.values.size(); ++i) {
+    const double value = std::abs(narrow.values[i] - wide.values[i]);
+    output.values.push_back(value >= options.threshold ? value : 0.0);
+  }
+  return output;
 }
 
 CellGradient cellGradient(const GradientField& gradients, int cols, int rows, int col, int row) {

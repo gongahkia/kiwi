@@ -6,6 +6,8 @@
 #include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
 #include "luminance.hpp"
+#include "structure_edges.hpp"
+#include "structure_sampling.hpp"
 #include "terminal.hpp"
 #include "video_decoder.hpp"
 
@@ -30,6 +32,8 @@ struct RenderSize {
   int cols = 0;
   int rows = 0;
 };
+
+constexpr double kDefaultDogThreshold = 0.02;
 
 class FramePacer {
  public:
@@ -293,14 +297,45 @@ Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
   };
 }
 
+DogOptions dogOptionsFromCli(const CliOptions& options) {
+  const double sigma1 = options.dog_sigma.value_or(0.0);
+  return DogOptions{
+    .sigma1 = sigma1,
+    .sigma2 = options.dog_sigma2.value_or(sigma1 > 0.0 ? sigma1 * 2.0 : 0.0),
+    .threshold = options.dog_threshold.value_or(kDefaultDogThreshold),
+  };
+}
+
+double averageCellLuminance(const LuminanceField& field, int cols, int rows, int col, int row) {
+  const CellLuminanceRegion region = sampleCellRegion(field, cols, rows, col, row);
+  if (region.values.empty()) {
+    return 0.0;
+  }
+  double sum = 0.0;
+  for (const double value : region.values) {
+    sum += value;
+  }
+  return sum / static_cast<double>(region.values.size());
+}
+
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, CellBuffer* cells) {
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
+  std::optional<LuminanceField> structure_luminance;
+  if (options.mode == "structure") {
+    const DogOptions dog_options = dogOptionsFromCli(options);
+    if (dog_options.enabled()) {
+      structure_luminance = differenceOfGaussians(makeLuminanceField(frame), dog_options);
+    }
+  }
   for (int row = 0; row < size.rows; ++row) {
     for (int col = 0; col < size.cols; ++col) {
       const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
       Cell& cell = cells->at(col, row);
-      cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
+      const double glyph_luminance = structure_luminance.has_value()
+                                       ? averageCellLuminance(*structure_luminance, size.cols, size.rows, col, row)
+                                       : relativeLuminance(avg);
+      cell.glyph = glyphForLuminance(glyph_luminance, ramp);
       cell.fg = avg;
       cell.bg = Rgb{};
     }
