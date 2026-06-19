@@ -30,7 +30,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] AWS service-name expansion scraper (EC2 → Elastic Compute Cloud) — done when ≥200 AWS services covered.
 - [ ] GCP service-name expansion scraper — done when ≥150 GCP services covered.
 - [ ] Azure service-name expansion scraper — done when ≥150 Azure services covered.
-- [ ] NIST CSRC glossary scraper (public domain) — done when ≥1K security terms ingested.
 
 ## P1 — Corpus quality controls
 
