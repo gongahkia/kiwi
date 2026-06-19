@@ -1,5 +1,6 @@
 #include "player.hpp"
 
+#include "ansi.hpp"
 #include "audio_backend.hpp"
 #include "audio_decode.hpp"
 #include "braille_renderer.hpp"
@@ -38,10 +39,16 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <sys/resource.h>
 #include <sys/select.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
+
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -165,6 +172,183 @@ void resetSyncForSeek(AudioSyncState* sync) {
 int64_t frameMediaUs(const Frame& frame, int64_t first_pts_us) {
   return std::max<int64_t>(0, frame.pts_us - first_pts_us);
 }
+
+bool writeAll(int fd, const std::string& bytes);
+
+double timevalSeconds(timeval value) {
+  return static_cast<double>(value.tv_sec) + (static_cast<double>(value.tv_usec) / 1000000.0);
+}
+
+uint64_t currentResidentBytes() {
+#if defined(__APPLE__)
+  mach_task_basic_info info {};
+  mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS) {
+    return static_cast<uint64_t>(info.resident_size);
+  }
+#elif defined(__linux__)
+  std::ifstream statm("/proc/self/statm");
+  long size_pages = 0;
+  long resident_pages = 0;
+  if (statm >> size_pages >> resident_pages) {
+    const long page_size = ::sysconf(_SC_PAGESIZE);
+    if (page_size > 0 && resident_pages >= 0) {
+      return static_cast<uint64_t>(resident_pages) * static_cast<uint64_t>(page_size);
+    }
+  }
+#endif
+  return 0;
+}
+
+struct ProcessMetrics {
+  double user_seconds = 0.0;
+  double system_seconds = 0.0;
+  uint64_t rss_bytes = 0;
+
+  double cpuSeconds() const noexcept {
+    return user_seconds + system_seconds;
+  }
+};
+
+ProcessMetrics sampleProcessMetrics() {
+  ProcessMetrics metrics;
+  rusage usage {};
+  if (::getrusage(RUSAGE_SELF, &usage) == 0) {
+    metrics.user_seconds = timevalSeconds(usage.ru_utime);
+    metrics.system_seconds = timevalSeconds(usage.ru_stime);
+  }
+  metrics.rss_bytes = currentResidentBytes();
+  return metrics;
+}
+
+TerminalSize debugRenderTerminal(TerminalSize terminal, const CliOptions& options) {
+  if (options.debug_stats && terminal.rows > 1) {
+    --terminal.rows;
+  }
+  return terminal;
+}
+
+CliOptions debugRenderOptions(const CliOptions& options, TerminalSize terminal) {
+  CliOptions render_options = options;
+  if (options.debug_stats && terminal.rows > 1) {
+    const int max_rows = terminal.rows - 1;
+    if (!render_options.height.has_value() || *render_options.height > max_rows) {
+      render_options.height = max_rows;
+    }
+  }
+  return render_options;
+}
+
+bool writeDebugStatusLine(TerminalSize terminal, std::string_view line) {
+  if (terminal.rows <= 0 || terminal.cols <= 0) {
+    return true;
+  }
+  std::string clipped(line.substr(0, static_cast<std::size_t>(terminal.cols)));
+  std::string out;
+  appendSgrReset(out);
+  appendCursorMove(out, terminal.rows, 1);
+  out += "\x1b[2K";
+  out += clipped;
+  appendSgrReset(out);
+  return writeAll(STDOUT_FILENO, out);
+}
+
+class RuntimeDebugStats {
+ public:
+  RuntimeDebugStats(const CliOptions& options, Logger* logger)
+      : enabled_(options.debug_stats),
+        logger_(logger),
+        started_(std::chrono::steady_clock::now()),
+        last_sample_(started_),
+        last_metrics_(sampleProcessMetrics()) {}
+
+  bool enabled() const noexcept {
+    return enabled_;
+  }
+
+  void recordInputFrame() noexcept {
+    ++input_frames_;
+    ++window_input_frames_;
+  }
+
+  void recordDroppedFrame() noexcept {
+    ++dropped_frames_;
+    ++window_dropped_frames_;
+  }
+
+  void recordPresentedFrame(const CellBuffer& cells, const EmissionResult& emission) noexcept {
+    ++presented_frames_;
+    ++window_presented_frames_;
+    window_changed_cells_ += static_cast<int64_t>(emission.changed_cells);
+    window_emitted_bytes_ += static_cast<int64_t>(emission.bytes.size());
+    last_cols_ = cells.cols();
+    last_rows_ = cells.rows();
+  }
+
+  bool maybeReport(TerminalSize terminal, bool force = false) {
+    if (!enabled_) {
+      return true;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const std::chrono::duration<double> window_elapsed = now - last_sample_;
+    if (!force && window_elapsed.count() < 1.0) {
+      return true;
+    }
+    const ProcessMetrics metrics = sampleProcessMetrics();
+    const std::string line = formatLine(now, metrics, std::max(window_elapsed.count(), 0.001));
+    if (logger_ != nullptr && logger_->enabled()) {
+      CONTOURTTY_LOG_INFO(*logger_, line);
+    }
+    last_sample_ = now;
+    last_metrics_ = metrics;
+    window_input_frames_ = 0;
+    window_presented_frames_ = 0;
+    window_dropped_frames_ = 0;
+    window_changed_cells_ = 0;
+    window_emitted_bytes_ = 0;
+    return writeDebugStatusLine(terminal, line);
+  }
+
+ private:
+  std::string formatLine(std::chrono::steady_clock::time_point now, ProcessMetrics metrics, double window_seconds) const {
+    const std::chrono::duration<double> elapsed = now - started_;
+    const double cpu_pct = 100.0 * ((metrics.cpuSeconds() - last_metrics_.cpuSeconds()) / window_seconds);
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(1)
+        << "debug elapsed=" << elapsed.count() << "s"
+        << " input_fps=" << (static_cast<double>(window_input_frames_) / window_seconds)
+        << " output_fps=" << (static_cast<double>(window_presented_frames_) / window_seconds)
+        << " drop_fps=" << (static_cast<double>(window_dropped_frames_) / window_seconds)
+        << " frames=" << presented_frames_ << "/" << input_frames_
+        << " dropped=" << dropped_frames_
+        << " cpu=" << std::max(0.0, cpu_pct) << "%"
+        << " changed_cells=" << window_changed_cells_
+        << " bytes=" << window_emitted_bytes_
+        << " size=" << last_cols_ << "x" << last_rows_;
+    if (metrics.rss_bytes > 0) {
+      out << " rss=" << (static_cast<double>(metrics.rss_bytes) / (1024.0 * 1024.0)) << "MiB";
+    } else {
+      out << " rss=unknown";
+    }
+    return out.str();
+  }
+
+  bool enabled_ = false;
+  Logger* logger_ = nullptr;
+  std::chrono::steady_clock::time_point started_;
+  std::chrono::steady_clock::time_point last_sample_;
+  ProcessMetrics last_metrics_;
+  int64_t input_frames_ = 0;
+  int64_t presented_frames_ = 0;
+  int64_t dropped_frames_ = 0;
+  int64_t window_input_frames_ = 0;
+  int64_t window_presented_frames_ = 0;
+  int64_t window_dropped_frames_ = 0;
+  int64_t window_changed_cells_ = 0;
+  int64_t window_emitted_bytes_ = 0;
+  int last_cols_ = 0;
+  int last_rows_ = 0;
+};
 
 PlaybackCommand pollKeyboardCommand() {
   if (!g_pending_commands.empty()) {
@@ -296,25 +480,36 @@ EmissionOptions centeredEmissionOptions(EmissionOptions options, TerminalSize te
   return options;
 }
 
-bool renderStillResize(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats) {
+bool renderStillResize(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats, RuntimeDebugStats* debug_stats) {
   *terminal = queryTerminalSize();
   emitter->reset();
   std::string clear = "\x1b[2J";
   if (!writeAll(STDOUT_FILENO, clear)) {
     return false;
   }
-  renderFrame(frame, ramp, options, *terminal, shape_table, cells, render_stats);
-  const EmissionResult emission = emitter->emit(*cells, centeredEmissionOptions(emission_options, *terminal, *cells));
-  return emission.bytes.empty() || writeAll(STDOUT_FILENO, emission.bytes);
+  const TerminalSize render_terminal = debugRenderTerminal(*terminal, options);
+  const CliOptions render_options = debugRenderOptions(options, *terminal);
+  renderFrame(frame, ramp, render_options, render_terminal, shape_table, cells, render_stats);
+  const EmissionResult emission = emitter->emit(*cells, centeredEmissionOptions(emission_options, render_terminal, *cells));
+  if (debug_stats != nullptr && debug_stats->enabled()) {
+    debug_stats->recordPresentedFrame(*cells, emission);
+  }
+  if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+    return false;
+  }
+  return debug_stats == nullptr || debug_stats->maybeReport(*terminal, true);
 }
 
-bool holdStillFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats) {
+bool holdStillFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats, RuntimeDebugStats* debug_stats) {
   while (!shouldQuit()) {
     const PlaybackCommand command = pollKeyboardCommand();
     if (command == PlaybackCommand::Quit) {
       return true;
     }
-    if (consumeResizeFlag() && !renderStillResize(frame, ramp, options, terminal, shape_table, cells, emitter, emission_options, render_stats)) {
+    if (consumeResizeFlag() && !renderStillResize(frame, ramp, options, terminal, shape_table, cells, emitter, emission_options, render_stats, debug_stats)) {
+      return true;
+    }
+    if (debug_stats != nullptr && !debug_stats->maybeReport(*terminal)) {
       return true;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -971,6 +1166,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
+  RuntimeDebugStats debug_stats(options, &logger);
   AudioSyncState audio_sync;
   bool quit = false;
   bool paused_without_audio = false;
@@ -1032,10 +1228,18 @@ int playMedia(const CliOptions& options, Logger& logger) {
       break;
     }
     if (audio_player != nullptr && audio_player->paused()) {
+      if (!debug_stats.maybeReport(terminal)) {
+        quit = true;
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
     }
     if (audio_player == nullptr && paused_without_audio) {
+      if (!debug_stats.maybeReport(terminal)) {
+        quit = true;
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
     }
@@ -1066,10 +1270,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
         continue;
       }
       if (video_decoder.isStillImage() && still_frame.has_value()) {
-        quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr);
+        quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr, &debug_stats);
       }
       break;
     }
+    debug_stats.recordInputFrame();
     if (mirror_camera) {
       mirrorFrameHorizontally(*frame);
     }
@@ -1092,6 +1297,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
         continue;
       }
       if (action == FrameAction::Drop) {
+        debug_stats.recordDroppedFrame();
+        if (!debug_stats.maybeReport(terminal)) {
+          quit = true;
+          break;
+        }
         continue;
       }
     } else {
@@ -1108,17 +1318,24 @@ int playMedia(const CliOptions& options, Logger& logger) {
       writeAll(STDOUT_FILENO, clear_resize);
     }
 
+    const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
+    const CliOptions render_options = debugRenderOptions(options, terminal);
     if (audio_sync.first_video_pts_us >= 0) {
       current_video_us = frameMediaUs(*frame, audio_sync.first_video_pts_us);
     } else {
       current_video_us = frame->pts_us;
     }
-    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr);
+    renderFrame(*frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr);
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }
-    const EmissionResult emission = emitter.emit(cells, centeredEmissionOptions(emission_options, terminal, cells));
+    const EmissionResult emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    debug_stats.recordPresentedFrame(cells, emission);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+      quit = true;
+      break;
+    }
+    if (!debug_stats.maybeReport(terminal)) {
       quit = true;
       break;
     }
@@ -1151,6 +1368,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
                                   " shape_match_us=" + std::to_string(shape_match_us) +
                                   " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns));
   }
+  (void)debug_stats.maybeReport(terminal, true);
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
   } else {

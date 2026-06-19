@@ -135,7 +135,7 @@ std::optional<std::filesystem::path> defaultConfigPath() {
 }
 
 bool isConfigBooleanKey(std::string_view key) {
-  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono"});
+  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats"});
 }
 
 std::optional<bool> parseConfigBool(std::string_view value) {
@@ -255,6 +255,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
     }
     if (flag == "--no-gpu") {
       result.options.gpu = false;
+      continue;
+    }
+    if (flag == "--debug-stats") {
+      result.options.debug_stats = true;
+      continue;
+    }
+    if (flag == "--no-debug-stats") {
+      result.options.debug_stats = false;
       continue;
     }
     if (flag == "--mono") {
@@ -508,6 +516,8 @@ std::string helpText(std::string_view program_name) {
       << "  --log FILE                     write diagnostics to file\n"
       << "  --gpu                          request gpu analysis path\n"
       << "  --no-gpu                       disable config-default gpu request\n"
+      << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
+      << "  --no-debug-stats               disable config-default debug stats\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
       << "  --dump-png FILE                write dumped frame as RGB PNG\n";

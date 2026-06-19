@@ -34,6 +34,7 @@ struct CliOptions {
   bool loop = false;
   bool mirror = true;
   bool gpu = false;
+  bool debug_stats = false;
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;
   std::optional<int> dump_frame;

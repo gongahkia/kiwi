@@ -93,6 +93,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--mirror`, `--no-mirror` | Enable or disable horizontal mirroring for camera playback. |
 | `--log FILE` | Write diagnostics. |
 | `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
+| `--debug-stats`, `--no-debug-stats` | Show or hide live FPS, CPU, and RSS diagnostics during playback; samples are also written when `--log` is set. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
 | `--dump-png FILE` | Write dumped frame as RGB PNG. |
