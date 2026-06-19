@@ -455,7 +455,7 @@
 - [x] Daily cron via GitHub Actions polling stars, forks, crates.io downloads, npm downloads
 - [x] Aggregate weekly into `metrics/weekly.csv`
 - [x] Generate `metrics/dashboard.svg` weekly using kumeyuri itself (dogfooding)
-- [ ] Publish dashboard as a README badge + dedicated `kumeyuri.dev/metrics` page
+- [x] Publish dashboard as a README badge + dedicated `kumeyuri.dev/metrics` page
 - [ ] Quarterly review: post X update with metrics screenshot + reflections
 
 ---
