@@ -42,6 +42,32 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+  slack:
+    build:
+      context: .
+      dockerfile: apps/slack/Dockerfile
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      SLACK_APP_TOKEN: xapp-local-dev
+      SLACK_HTTP_MODE: "true"
+      SLACK_SOCKET_MODE: "true"
+      WAT_API_BASE_URL: http://web:3000
+    ports:
+      - "${WAT_SLACK_PORT:-3001}:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   postgres-data:
