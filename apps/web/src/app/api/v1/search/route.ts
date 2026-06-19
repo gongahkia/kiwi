@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -66,7 +67,31 @@ function scoreEntry(query: string, entry: SearchEntry): SearchResult | null {
   };
 }
 
+function hashQuery(query: string): string {
+  return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");
+}
+
+function logSearchEvent(query: string, startedAt: number, matches: SearchResult[]) {
+  const confidenceDistribution = matches.reduce<Record<string, number>>((counts, match) => {
+    const tier = match.entry.confidence_tier;
+    counts[tier] = (counts[tier] ?? 0) + 1;
+    return counts;
+  }, {});
+  const layerHit = Array.from(new Set(matches.map((match) => match.entry.layer)));
+
+  console.info(
+    JSON.stringify({
+      confidence_distribution: confidenceDistribution,
+      event: "search",
+      latency_ms: Math.round(performance.now() - startedAt),
+      layer_hit: layerHit,
+      query_hash: hashQuery(query)
+    })
+  );
+}
+
 export async function GET(request: NextRequest) {
+  const startedAt = performance.now();
   const query =
     request.nextUrl.searchParams.get("q") ?? request.nextUrl.searchParams.get("query") ?? "";
   const limit = Number(request.nextUrl.searchParams.get("limit") ?? "10");
@@ -88,6 +113,8 @@ export async function GET(request: NextRequest) {
     .filter((result): result is SearchResult => result != null)
     .sort((left, right) => right.score - left.score || left.entry.id.localeCompare(right.entry.id))
     .slice(0, Number.isFinite(limit) && limit > 0 ? limit : 10);
+
+  logSearchEvent(query, startedAt, matches);
 
   return NextResponse.json<SearchResponse>({
     matches,
