@@ -52,7 +52,6 @@
 ## PHASE B — Decode & frame pipeline
 *Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
 
-- [ ] **Phase B exit criteria.** DoD: any common file (mp4/mkv/webm) decodes to correctly-scaled RGB frames at known fps, threaded, leak-free under ASan, circle test passing.
 
 ---
 
