@@ -1,6 +1,7 @@
 #include "cli.hpp"
 #include "log.hpp"
 #include "media_probe.hpp"
+#include "player.hpp"
 #include "terminal.hpp"
 
 #include <cstdlib>
@@ -41,6 +42,11 @@ int runApp(int argc, char** argv) {
   }
 
   if (parsed.options.input.has_value()) {
+    const bool diagnostic_probe = parsed.options.dump_frame.has_value() || parsed.options.dump_png.has_value();
+    if (contourtty::terminalSessionAvailable() && !diagnostic_probe) {
+      return contourtty::playMedia(parsed.options, logger);
+    }
+
     contourtty::MediaProbeOptions probe_options;
     if (parsed.options.dump_frame.has_value()) {
       probe_options.dump_frame_index = *parsed.options.dump_frame;

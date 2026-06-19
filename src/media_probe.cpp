@@ -290,6 +290,13 @@ class FrameQueue {
   bool closed_ = false;
 };
 
+class DecodeCancelled : public std::exception {
+ public:
+  const char* what() const noexcept override {
+    return "decode cancelled";
+  }
+};
+
 int64_t framePtsUs(const AVFrame* frame, AVRational time_base, int64_t frame_index, std::optional<double> average_fps) {
   int64_t pts = frame->best_effort_timestamp;
   if (pts == AV_NOPTS_VALUE) {
@@ -329,7 +336,7 @@ void receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConv
         }
         if (!queue->push(std::move(owned_frame))) {
           av_frame_unref(frame);
-          return;
+          throw DecodeCancelled();
         }
       }
       ++(*frame_index);
@@ -398,6 +405,7 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
   std::thread worker([&] {
     try {
       decodeWorker(format_context, codec_context, video_stream_index, time_base, average_fps, options, &queue);
+    } catch (const DecodeCancelled&) {
     } catch (...) {
       worker_error = std::current_exception();
     }
@@ -416,6 +424,11 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
         consume_index == *options.dump_frame_index) {
       writePngRgb24(*options.dump_png, frame.w, frame.h, frame.rgb);
       stats.dumped_png = *options.dump_png;
+    }
+    if (options.on_frame && !options.on_frame(frame, consume_index)) {
+      queue.close();
+      ++consume_index;
+      break;
     }
     ++consume_index;
   }

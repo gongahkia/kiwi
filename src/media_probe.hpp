@@ -1,7 +1,10 @@
 #pragma once
 
+#include "frame.hpp"
+
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -37,6 +40,7 @@ struct MediaProbeOptions {
   std::optional<int> target_cols;
   std::optional<int> target_rows;
   double cell_aspect = 0.5;
+  std::function<bool(const Frame&, int64_t)> on_frame;
 };
 
 MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options = {});

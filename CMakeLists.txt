@@ -23,6 +23,7 @@ add_executable(contourtty
   src/main.cpp
   src/media_probe.cpp
   src/png_writer.cpp
+  src/player.cpp
   src/terminal.cpp
 )
 target_compile_features(contourtty PRIVATE cxx_std_20)
