@@ -5,6 +5,7 @@
 #include "cell_buffer.hpp"
 #include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
+#include "glyph_shape.hpp"
 #include "luminance.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
@@ -382,6 +383,12 @@ int playMedia(const CliOptions& options, Logger& logger) {
   std::u32string ramp = kDefaultGlyphRamp.data();
   if (options.charset.has_value()) {
     ramp = decodeCharset(*options.charset);
+  }
+  std::optional<GlyphShapeTable> shape_vectors;
+  if (options.mode == "structure") {
+    shape_vectors = buildGlyphShapeTable(kDefaultShapeGlyphs, 10, 14);
+    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+                                  " features=" + std::to_string(kShapeRegionCount));
   }
 
   TerminalSize terminal = queryTerminalSize();
