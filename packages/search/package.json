@@ -23,10 +23,9 @@
     "@huggingface/transformers": "4.2.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.9",
+    "pg": "^8.22.0",
     "vitest": "^4.1.9"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "4.2.0"
   }
 }
