@@ -43,3 +43,6 @@ Adapters:
   `@mermaid-js/mermaid-cli@11.15.0` via `benches/compare/tools/mermaid-cli.mjs`.
   The adapter invokes the local `mmdc` binary with headless Puppeteer and writes
   SVG outputs under `benches/compare/results/mermaid-cli/`.
+* `npm run bench:compare:output-size` measures generated output size for each
+  adapter result under `benches/compare/results/`, reporting bytes, characters,
+  and line counts for successful outputs while preserving missing/error states.

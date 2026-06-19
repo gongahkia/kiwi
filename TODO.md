@@ -357,7 +357,7 @@
 - [ ] Wire `@tldraw/mermaid` invocation (Node + headless Chromium, sketchy SVG baseline) — added after threepointone/sunilpai-dev@f4bd28a published the pattern
 - [ ] Implement fidelity scorer comparing each tool's output against ground-truth SVG
 - [ ] Implement timing harness via `hyperfine`
-- [ ] Implement output-size measurement
+- [x] Implement output-size measurement
 - [ ] Emit results as `bench/results.json`
 - [ ] Generate static comparison page `kumeyuri.dev/vs/`
 - [ ] Add weekly cron via GitHub Actions to refresh results
