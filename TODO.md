@@ -79,7 +79,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: public-facing pages
 
 ## P3 — Browser extension
-- [ ] Implement account sync — done when logged-in user sees team entries in tooltips.
 - [ ] Implement offline cache w/ LRU for last 500 lookups — done when offline mode returns cached entries.
 - [ ] Implement telemetry-off-by-default — done when fresh install has zero outbound calls until user interacts.
 - [ ] Cross-browser test on Chrome, Firefox, Edge, Brave — done when feature parity verified manually.

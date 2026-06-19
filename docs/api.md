@@ -6,7 +6,7 @@ Base path: `/api/v1`
 
 ### `GET /search`
 
-Lookup public glossary entries.
+Lookup public glossary entries. Token requests can include scoped team entries.
 
 Query params:
 

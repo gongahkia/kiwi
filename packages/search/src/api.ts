@@ -38,6 +38,7 @@ export interface SearchScoreBreakdown {
   bm25?: number;
   context?: number;
   domain?: number;
+  layer?: number;
   rrf?: number;
   trigram?: number;
   vector?: number;
