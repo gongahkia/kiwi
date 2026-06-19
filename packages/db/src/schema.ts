@@ -9,7 +9,8 @@ import {
   jsonb,
   pgTable,
   text,
-  timestamp
+  timestamp,
+  uniqueIndex
 } from "drizzle-orm/pg-core";
 
 const tsvector = customType<{ data: string }>({
@@ -85,6 +86,9 @@ export const entries = pgTable(
       table.termNormalized.op("gin_trgm_ops")
     ),
     index("entries_tsvector_gin_idx").using("gin", table.tsvector),
+    uniqueIndex("entries_term_layer_team_unique_idx")
+      .on(table.termNormalized, table.layer, table.teamId)
+      .where(sql`${table.deprecated} = false`),
     check(
       "entries_confidence_tier_check",
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`

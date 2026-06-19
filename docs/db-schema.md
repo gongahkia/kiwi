@@ -163,6 +163,7 @@ erDiagram
 - `entries_tsvector_gin_idx`: GIN index on `entries.tsvector`.
 - `entries_embedding_hnsw_idx`: HNSW index on `entries.embedding` with `vector_cosine_ops`.
 - `entries_term_normalized_trgm_idx`: GIN trigram index on `entries.term_normalized`.
+- `entries_term_layer_team_unique_idx`: unique partial index on active `(term_normalized, layer, team_id)` rows, with `NULLS NOT DISTINCT`.
 
 ## Constraints
 
