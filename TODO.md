@@ -81,7 +81,7 @@
 - [x] Add animation speed override flag `--speed` and loop flag `--loop`
 - [x] Snapshot-test animation timelines: hash the keyframe sequence per fixture
 - [ ] Manual QA pass: every fixture run through `kumeyuri play` for visual sanity
-- [ ] Record three terminal demo GIFs (sequence, flowchart, state) using `vhs` or `asciinema-agg`
+- [x] Record three terminal demo GIFs (sequence, flowchart, state) using `vhs` or `asciinema-agg`
 - [ ] Publish `v0.2.0-animated-tui` to crates.io
 
 ## Phase 3 — Web / embed renderers (weeks 7–10)
