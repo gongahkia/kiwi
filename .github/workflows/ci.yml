@@ -46,3 +46,31 @@ jobs:
         run: |
           ./build/ci/contourtty --version
           ./build/ci/contourtty --help >/dev/null
+
+  sanitize:
+    name: asan-ubsan (ubuntu-latest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev zlib1g-dev
+
+      - name: Configure
+        run: cmake --preset asan-ubsan
+
+      - name: Build
+        run: cmake --build --preset asan-ubsan
+
+      - name: Test
+        run: ctest --test-dir build/asan-ubsan --output-on-failure
+
+      - name: Decode/render smoke
+        run: |
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/contourtty-sanitize.mp4
+          ./build/asan-ubsan/contourtty --width 16 --height 8 --dump-frame 1 --dump-png /tmp/contourtty-sanitize.png /tmp/contourtty-sanitize.mp4 >/tmp/contourtty-sanitize.probe

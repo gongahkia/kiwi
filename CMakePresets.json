@@ -10,12 +10,28 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CONTOURTTY_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "ASan UBSan",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/asan-ubsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONTOURTTY_WARNINGS_AS_ERRORS": "ON",
+        "CMAKE_CXX_FLAGS_DEBUG": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS_DEBUG": "-fsanitize=address,undefined"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "ci",
       "configurePreset": "ci"
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan"
     }
   ]
 }
