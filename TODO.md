@@ -198,7 +198,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement structured rate-limiting per-user, per-IP, per-team — done when limits are configurable and tested.
 
 ## P5 — Docs & demos
-- [ ] Build interactive search demo on landing page — done when anyone can search w/o login from `/`.
 - [ ] Build "Try with my domain" CTA on landing — done when enter-email flow shows a teaser of team mode.
 - [ ] Record 60-sec product hero video — done when MP4 committed and embedded in README.
 
