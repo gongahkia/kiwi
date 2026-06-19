@@ -403,7 +403,7 @@
 
 ### Performance budget enforcement (continuous)
 
-- [ ] Set up `criterion` benchmarks for parse, layout, render
+- [x] Set up `criterion` benchmarks for parse, layout, render
 - [ ] Set up `dhat-rs` heap profiling in dedicated CI job
 - [x] Set up `size-limit` (or equivalent) for WASM bundle gzip budget
 - [ ] Set up `playwright` perf test for first-contentful-render of web player
