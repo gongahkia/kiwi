@@ -472,7 +472,7 @@
 - [ ] Performance benchmarks within budget (§18 of NORTHSTAR.md)
 - [x] WASM bundle size within gzip budget
 - [x] `axe-core` + `pa11y` audits clean
-- [ ] CHANGELOG.md updated via release-please
+- [x] CHANGELOG.md updated via release-please
 - [ ] `docs/compat.md` matrix updated for any Mermaid grammar version change
 - [ ] All public Rust APIs documented with compiling doctests
 
