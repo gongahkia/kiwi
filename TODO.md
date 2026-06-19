@@ -419,7 +419,7 @@
 - [x] Write `docs/book/directives.md` cataloguing every `%%{ }%%` directive
 - [x] Write `docs/animations.md` documenting default + custom animations
 - [x] Write `docs/book/themes.md`
-- [ ] Write `docs/book/theming.md`
+- [x] Write `docs/book/theming.md`
 - [x] Write `docs/embedding.md` and `docs/book/embedding.md` (README, Hugo, Docusaurus, mdBook, plain HTML)
 - [ ] Add X card embedding docs
 - [x] Write `docs/book/cli.md` reference for every flag and subcommand

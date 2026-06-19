@@ -6,6 +6,7 @@
 - [Syntax](syntax.md)
 - [Directives](directives.md)
 - [Themes](themes.md)
+- [Theming](theming.md)
 - [Embedding](embedding.md)
 - [Metrics](metrics.md)
 - [Recipes](recipes.md)
