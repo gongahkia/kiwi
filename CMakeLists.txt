@@ -56,6 +56,7 @@ endif()
 add_executable(contourtty
   src/ansi.cpp
   src/cli.cpp
+  src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
   src/diff_emitter.cpp
@@ -331,6 +332,31 @@ else()
 endif()
 add_test(NAME color_quantization COMMAND color_quantization_tests)
 
+add_executable(color_dither_tests
+  tests/color_dither_tests.cpp
+  src/color_dither.cpp
+  src/color_quantization.cpp
+)
+target_include_directories(color_dither_tests PRIVATE src)
+target_compile_features(color_dither_tests PRIVATE cxx_std_20)
+set_target_properties(color_dither_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(color_dither_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_dither_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(color_dither_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_dither_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME color_dither COMMAND color_dither_tests)
+
 add_executable(halfblock_renderer_tests
   tests/halfblock_renderer_tests.cpp
   src/frame_sampling.cpp
@@ -406,6 +432,7 @@ add_test(NAME ansi COMMAND ansi_tests)
 add_executable(diff_emitter_tests
   tests/diff_emitter_tests.cpp
   src/ansi.cpp
+  src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
   src/diff_emitter.cpp

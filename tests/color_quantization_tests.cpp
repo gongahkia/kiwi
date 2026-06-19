@@ -20,6 +20,8 @@ int main() {
   expect(contourtty::quantizeXterm256(contourtty::Rgb{.r = 128, .g = 128, .b = 128}) >= 232, "gray maps to grayscale ramp");
   expect(contourtty::quantizeAnsi16(contourtty::Rgb{.r = 255, .g = 0, .b = 0}) == 9, "red maps to bright ansi red");
   expect(contourtty::quantizeAnsi16(contourtty::Rgb{.r = 0, .g = 0, .b = 255}) == 12, "blue maps to bright ansi blue");
+  expect(contourtty::xterm256Color(196).r == 255 && contourtty::xterm256Color(196).g == 0, "xterm index maps back to rgb");
+  expect(contourtty::ansi16Color(12).b == 255, "ansi index maps back to rgb");
 
   const auto dithered = contourtty::applyOrderedDither(contourtty::Rgb{.r = 128, .g = 128, .b = 128}, 0, 0, 16);
   expect(dithered.r < 128 && dithered.g < 128 && dithered.b < 128, "ordered dither adjusts channel");

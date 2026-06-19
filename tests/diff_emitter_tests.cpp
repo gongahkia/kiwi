@@ -80,4 +80,13 @@ int main() {
   expect(ansi16_first.changed_cells == 1, "16 emits glyph");
   expect(ansi16_first.bytes.find("\x1b[") != std::string::npos, "16 emits sgr");
   expect(ansi16_first.bytes.find("\x1b[38;2;") == std::string::npos, "16 has no truecolor sgr");
+
+  contourtty::DiffEmitter fs_emitter;
+  contourtty::CellBuffer gradient(2, 1);
+  gradient.at(0, 0) = cell(U'0', 160, 160, 160);
+  gradient.at(1, 0) = cell(U'1', 160, 160, 160);
+  const auto fs_first = fs_emitter.emit(gradient, contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Color16, .dither_mode = contourtty::DitherMode::FloydSteinberg});
+  expect(fs_first.changed_cells == 2, "fs emits full frame");
+  expect(fs_first.bytes.find("\x1b[90m") != std::string::npos, "fs emits dark gray first");
+  expect(fs_first.bytes.find("\x1b[37m") != std::string::npos, "fs emits diffused light gray");
 }

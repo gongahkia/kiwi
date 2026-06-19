@@ -120,4 +120,27 @@ uint8_t quantizeAnsi16(Rgb color) {
   return best_index;
 }
 
+Rgb xterm256Color(uint8_t index) {
+  if (index < 16) {
+    return kAnsi16Palette[index];
+  }
+  if (index < 232) {
+    const int offset = static_cast<int>(index) - 16;
+    const int r = offset / 36;
+    const int g = (offset / 6) % 6;
+    const int b = offset % 6;
+    return Rgb{
+      .r = static_cast<uint8_t>(kXtermCubeLevels[static_cast<std::size_t>(r)]),
+      .g = static_cast<uint8_t>(kXtermCubeLevels[static_cast<std::size_t>(g)]),
+      .b = static_cast<uint8_t>(kXtermCubeLevels[static_cast<std::size_t>(b)]),
+    };
+  }
+  const uint8_t gray = static_cast<uint8_t>(8 + (static_cast<int>(index) - 232) * 10);
+  return Rgb{.r = gray, .g = gray, .b = gray};
+}
+
+Rgb ansi16Color(uint8_t index) {
+  return kAnsi16Palette[index % kAnsi16Palette.size()];
+}
+
 }  // namespace contourtty

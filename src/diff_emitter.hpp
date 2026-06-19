@@ -5,6 +5,7 @@
 #include "color_quantization.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <string>
 
 namespace contourtty {
@@ -26,6 +27,7 @@ class DiffEmitter {
 
  private:
   CellBuffer previous_;
+  std::optional<EmissionOptions> previous_options_;
   bool has_previous_ = false;
 };
 
