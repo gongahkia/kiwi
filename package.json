@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "docs:build": "mdbook build",
+    "docs:pagefind": "npm run docs:build && npx -y pagefind --site target/mdbook",
     "test:compat": "node scripts/check-mermaid-coverage.mjs",
     "test:compat-versions": "node scripts/check-compat-doc-versions.mjs",
     "test:coverage-gate": "node scripts/check-coverage-snapshot-delta.mjs",

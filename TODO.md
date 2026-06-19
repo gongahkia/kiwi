@@ -412,7 +412,7 @@
 
 ### Documentation expansion (Phase 4+ continuous)
 
-- [ ] Set up hosted mdBook at `docs.kumeyuri.dev` with `mdbook-pagefind` for search
+- [x] Set up hosted mdBook at `docs.kumeyuri.dev` with `mdbook-pagefind` for search
 - [x] Write `docs/book/quickstart.md` (15-minute happy path)
 - [x] Write `docs/book/syntax.md` covering the current supported Mermaid subset + kumeyuri directives
 - [ ] Expand syntax docs toward full vanilla Mermaid parity as supported grammar grows
