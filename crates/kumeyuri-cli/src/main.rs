@@ -101,6 +101,8 @@ enum Command {
     Watch {
         #[arg(value_name = "FILE")]
         file: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        theme_file: Option<PathBuf>,
     },
     Play {
         #[arg(value_name = "FILE")]
@@ -210,6 +212,8 @@ struct RenderOptions {
     allow_external: bool,
     #[arg(long = "plugin-allow", value_name = "CSV", value_parser = parse_plugin_allow)]
     plugin_allow: Option<CapabilitySet>,
+    #[arg(skip)]
+    custom_theme: Option<Theme>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -289,7 +293,9 @@ fn run() -> Result<(), String> {
         } => render_file(&file, format, &options, max_input_bytes),
         Command::Lint { file, json } => lint_file(&file, json, max_input_bytes),
         Command::Layout { file, ai } => layout_file(&file, ai, max_input_bytes),
-        Command::Watch { file } => watch_file(&file, max_input_bytes),
+        Command::Watch { file, theme_file } => {
+            watch_file(&file, theme_file.as_deref(), max_input_bytes)
+        }
         Command::Play {
             file,
             speed,
@@ -1314,6 +1320,25 @@ fn load_valid_theme_file(path: &Path, max_input_bytes: usize) -> Result<Kumethem
     Ok(theme)
 }
 
+fn load_render_theme_file(path: &Path, max_input_bytes: usize) -> Result<Theme, String> {
+    let theme = load_valid_theme_file(path, max_input_bytes)?
+        .to_theme()
+        .map_err(|error| {
+            msg_args(
+                "theme-invalid-schema",
+                &[
+                    msg_arg("path", path.display()),
+                    msg_arg("error", format_theme_error(&error)),
+                ],
+            )
+        })?;
+    Ok(Theme {
+        name: "custom",
+        charset: theme.charset,
+        colors: theme.colors,
+    })
+}
+
 fn format_theme_error(error: &KumethemeError) -> String {
     match error {
         KumethemeError::InvalidName(name) => {
@@ -1751,6 +1776,9 @@ fn frame_renderer(options: &RenderOptions) -> StaticFrameRenderer {
 }
 
 fn render_theme(options: &RenderOptions) -> Theme {
+    if let Some(theme) = options.custom_theme {
+        return theme;
+    }
     let mut theme = options
         .theme
         .map_or_else(Theme::default_theme, |theme| theme.theme().theme());
@@ -1851,9 +1879,15 @@ fn play_file(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn watch_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
+fn watch_file(
+    path: &Path,
+    theme_file: Option<&Path>,
+    max_input_bytes: usize,
+) -> Result<(), String> {
     let watch_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    redraw_watched_file(&watch_path, max_input_bytes)?;
+    let theme_path =
+        theme_file.map(|path| path.canonicalize().unwrap_or_else(|_| path.to_path_buf()));
+    redraw_watched_file(&watch_path, theme_path.as_deref(), max_input_bytes)?;
 
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher = RecommendedWatcher::new(
@@ -1874,11 +1908,27 @@ fn watch_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
                 ],
             )
         })?;
+    if let Some(theme_path) = &theme_path {
+        watcher
+            .watch(theme_path, RecursiveMode::NonRecursive)
+            .map_err(|error| {
+                msg_args(
+                    "watch-path",
+                    &[
+                        msg_arg("path", theme_path.display()),
+                        msg_arg("error", error),
+                    ],
+                )
+            })?;
+    }
+    let watch_targets = std::iter::once(watch_path.clone())
+        .chain(theme_path.iter().cloned())
+        .collect::<Vec<_>>();
 
     for event in rx {
         match event {
-            Ok(event) if should_rerender(&event, &watch_path) => {
-                redraw_watched_file(&watch_path, max_input_bytes)?;
+            Ok(event) if should_rerender_any(&event, &watch_targets) => {
+                redraw_watched_file(&watch_path, theme_path.as_deref(), max_input_bytes)?;
             }
             Ok(_) => {}
             Err(error) => redraw_message(&format!(
@@ -1891,24 +1941,49 @@ fn watch_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn watch_file(_path: &Path, _max_input_bytes: usize) -> Result<(), String> {
+fn watch_file(
+    _path: &Path,
+    _theme_file: Option<&Path>,
+    _max_input_bytes: usize,
+) -> Result<(), String> {
     Err(msg("watch-wasm"))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn should_rerender(event: &Event, path: &Path) -> bool {
+fn should_rerender_any(event: &Event, paths: &[PathBuf]) -> bool {
     matches!(
         event.kind,
         EventKind::Any | EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
-    ) && (event.paths.is_empty() || event.paths.iter().any(|event_path| event_path == path))
+    ) && (event.paths.is_empty()
+        || event
+            .paths
+            .iter()
+            .any(|event_path| paths.iter().any(|path| event_path == path)))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn redraw_watched_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
+fn redraw_watched_file(
+    path: &Path,
+    theme_file: Option<&Path>,
+    max_input_bytes: usize,
+) -> Result<(), String> {
     let output = read_source_file(path, max_input_bytes)
-        .and_then(|source| render_text_source(&source, &RenderOptions::default()))
+        .and_then(|source| render_watched_source(&source, theme_file, max_input_bytes))
         .unwrap_or_else(|error| format!("{error}\n"));
     redraw_message(&output)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn render_watched_source(
+    source: &str,
+    theme_file: Option<&Path>,
+    max_input_bytes: usize,
+) -> Result<String, String> {
+    let mut options = RenderOptions::default();
+    if let Some(theme_file) = theme_file {
+        options.custom_theme = Some(load_render_theme_file(theme_file, max_input_bytes)?);
+    }
+    render_text_source(source, &options)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -2883,23 +2958,27 @@ mod tests {
         PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
         ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS, compat_report,
         disable_plugin_records, format_lint_text, format_theme_list, layout_warnings, lint_source,
-        parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_speed_override, playback_options, plugin_runtime_policy, publish_theme_file,
-        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
-        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
-        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
-        timeline_from_source_with_options, timeline_from_source_with_render_options,
-        validate_theme_file, write_plugin_install_record, write_theme_template,
+        load_render_theme_file, parse_diagram, parse_non_empty_string, parse_positive_input_bytes,
+        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
+        publish_theme_file, read_installed_plugin_records, read_source_file, remove_plugin_records,
+        render_source, render_timeline_vtt, resolve_ai_library_path,
+        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
+        timeline_from_source, timeline_from_source_with_options,
+        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
+        write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
-    use super::{PlaybackAction, PlaybackDebug, PlaybackState, TuiDebugOverlay, should_rerender};
+    use super::{
+        PlaybackAction, PlaybackDebug, PlaybackState, TuiDebugOverlay, render_watched_source,
+        should_rerender_any,
+    };
     use clap::Parser as _;
     #[cfg(not(target_arch = "wasm32"))]
     use crossterm::event::KeyCode;
     use kumeyuri_core::{
         abi::Capability,
         animator::{AnimationOptions, KeyFrame, Timeline},
-        frame::Frame,
+        frame::{Charset, Frame},
     };
     #[cfg(not(target_arch = "wasm32"))]
     use notify::{
@@ -2907,7 +2986,7 @@ mod tests {
         event::{DataChange, ModifyKind},
     };
     #[cfg(not(target_arch = "wasm32"))]
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::{
         env,
         ffi::OsString,
@@ -2999,6 +3078,27 @@ mod tests {
 
         assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
         assert!(ai);
+    }
+
+    #[test]
+    fn watch_parser_accepts_theme_file() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "watch",
+            "diagram.mmd",
+            "--theme-file",
+            "custom.kumetheme.toml",
+        ])
+        .unwrap();
+        let Some(Command::Watch { file, theme_file }) = cli.command else {
+            panic!("expected watch command");
+        };
+
+        assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
+        assert_eq!(
+            theme_file.as_deref(),
+            Some(Path::new("custom.kumetheme.toml"))
+        );
     }
 
     #[test]
@@ -3909,8 +4009,45 @@ muted = "#7d8590"
         let event = Event::new(EventKind::Modify(ModifyKind::Data(DataChange::Content)))
             .add_path("diagram.mmd".into());
 
-        assert!(should_rerender(&event, Path::new("diagram.mmd")));
-        assert!(!should_rerender(&event, Path::new("other.mmd")));
+        assert!(should_rerender_any(&event, &[PathBuf::from("diagram.mmd")]));
+        assert!(!should_rerender_any(&event, &[PathBuf::from("other.mmd")]));
+        assert!(should_rerender_any(
+            &event,
+            &[PathBuf::from("other.mmd"), PathBuf::from("diagram.mmd")]
+        ));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn watch_renders_with_reloaded_theme_file() {
+        let root = unique_temp_dir("watch-theme");
+        let theme = root.join("custom.kumetheme.toml");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            &theme,
+            r##"
+name = "watch-theme"
+charset = "unicode"
+
+[colors]
+background = "#101418"
+foreground = "#e6edf3"
+accent = "#58a6ff"
+edge = "#8b949e"
+edge_alt = "#d2a8ff"
+highlight = "#f2cc60"
+muted = "#7d8590"
+"##,
+        )
+        .unwrap();
+
+        let loaded = load_render_theme_file(&theme, 1024).unwrap();
+        assert_eq!(loaded.name, "custom");
+        assert_eq!(loaded.charset, Charset::Unicode);
+        let rendered = render_watched_source("graph TD\nA --> B", Some(&theme), 1024).unwrap();
+
+        assert!(rendered.contains('┌'));
+        fs::remove_dir_all(root).ok();
     }
 
     #[cfg(not(target_arch = "wasm32"))]

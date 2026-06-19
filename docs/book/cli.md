@@ -104,10 +104,12 @@ applied. The main CLI does not link an AI SDK directly.
 ## Watch
 
 ```text
-kumeyuri watch <FILE>
+kumeyuri watch <FILE> [--theme-file <FILE>]
 ```
 
-`watch` renders text output, listens for file changes, and redraws in place.
+`watch` renders text output, listens for diagram and optional theme-file
+changes, and redraws in place. `--theme-file` reloads the `.kumetheme.toml`
+file on every redraw.
 
 ## Plugins
 

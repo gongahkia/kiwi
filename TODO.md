@@ -384,7 +384,7 @@
 - [x] Implement theme search across XDG paths + project dir + bundled
 - [x] Implement `kumeyuri theme list / show / new / validate`
 - [x] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
-- [ ] Implement theme hot-reload in `kumeyuri watch`
+- [x] Implement theme hot-reload in `kumeyuri watch`
 - [x] Document theme authoring in `docs/theming.md`
 - [x] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
 
