@@ -1,3 +1,5 @@
+//! mdBook preprocessor that renders Mermaid code fences with kumeyuri.
+
 use std::{io, process};
 
 use anyhow::{Result, anyhow, bail};

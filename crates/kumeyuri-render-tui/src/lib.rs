@@ -1,3 +1,5 @@
+//! ratatui renderer for kumeyuri frames and timelines.
+
 use std::{thread, time::Duration as StdDuration};
 
 use kumeyuri_core::{
@@ -14,11 +16,16 @@ use ratatui::{
 };
 use tachyonfx::{Effect, EffectRenderer, EffectTimer, Interpolation, Motion, fx, fx::Glitch};
 
+/// Configuration for TUI frame rendering.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TuiRenderConfig {
+    /// Trim trailing whitespace from rendered frame text.
     pub trim_trailing_whitespace: bool,
+    /// Draw a terminal border around the rendered frame.
     pub border: bool,
+    /// Transition effect used between timeline frames.
     pub transition: TuiTransitionEffect,
+    /// Duration used for one transition tick.
     pub transition_tick: StdDuration,
 }
 
@@ -33,16 +40,22 @@ impl Default for TuiRenderConfig {
     }
 }
 
+/// Visual transition used when drawing timeline frames.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TuiTransitionEffect {
+    /// Draw frames without a transition.
     #[default]
     None,
+    /// Fade frame foreground from black.
     Fade,
+    /// Slide frame content into the terminal area.
     Slide,
+    /// Apply a brief glitch transition.
     Glitch,
 }
 
 impl TuiTransitionEffect {
+    /// Build the tachyonfx effect for this transition.
     #[must_use]
     pub fn build(self, duration: StdDuration) -> Option<Effect> {
         let timer = effect_timer(duration);
@@ -61,16 +74,21 @@ impl TuiTransitionEffect {
     }
 }
 
+/// Renderer that draws kumeyuri frames to a ratatui terminal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TuiRenderer {
     config: TuiRenderConfig,
     output: TextOutputBackend,
 }
 
+/// Debug overlay rendered above a frame.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TuiDebugOverlay {
+    /// Smoothed frames-per-second estimate.
     pub fps: f64,
+    /// One-based current frame index.
     pub frame_index: usize,
+    /// Total frame count.
     pub frame_count: usize,
 }
 
@@ -81,6 +99,7 @@ impl Default for TuiRenderer {
 }
 
 impl TuiRenderer {
+    /// Create a renderer with explicit configuration.
     #[must_use]
     pub const fn new(config: TuiRenderConfig) -> Self {
         Self {
@@ -92,16 +111,19 @@ impl TuiRenderer {
         }
     }
 
+    /// Return this renderer's configuration.
     #[must_use]
     pub const fn config(self) -> TuiRenderConfig {
         self.config
     }
 
+    /// Render a frame to plain terminal text.
     #[must_use]
     pub fn frame_text(self, frame: &CoreFrame) -> String {
         self.output.render_frame(frame)
     }
 
+    /// Draw one frame to a terminal.
     pub fn draw<B: Backend>(
         self,
         terminal: &mut Terminal<B>,
@@ -110,6 +132,7 @@ impl TuiRenderer {
         terminal.draw(|area| self.render(area, frame)).map(|_| ())
     }
 
+    /// Draw one frame with an optional debug overlay.
     pub fn draw_with_debug<B: Backend>(
         self,
         terminal: &mut Terminal<B>,
@@ -121,6 +144,7 @@ impl TuiRenderer {
             .map(|_| ())
     }
 
+    /// Play a complete timeline in a terminal.
     pub fn render_timeline<B: Backend>(
         self,
         terminal: &mut Terminal<B>,

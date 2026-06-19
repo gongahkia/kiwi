@@ -1,3 +1,5 @@
+//! Raster renderer for kumeyuri frames and timelines.
+
 #[cfg(not(target_arch = "wasm32"))]
 use font_kit::{
     canvas::{Canvas, Format, RasterizationOptions},
@@ -21,6 +23,7 @@ use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
 use webp_animation::{Encoder as WebPEncoder, EncoderOptions as WebPEncoderOptions};
 
 const GLYPH_SIZE: u32 = 8;
+/// Ordered font families used when bitmap fallback fonts cannot draw a glyph.
 pub const FONT_FALLBACK_FAMILIES: &[&str] = &[
     "Noto Sans",
     "Noto Sans CJK",
@@ -28,11 +31,16 @@ pub const FONT_FALLBACK_FAMILIES: &[&str] = &[
     "Noto Color Emoji",
 ];
 
+/// Configuration for PNG, GIF, APNG, and WebP output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RasterRenderConfig {
+    /// Pixel scale applied to each text cell.
     pub scale: u32,
+    /// Padding around the rendered frame in pixels.
     pub padding: u32,
+    /// Foreground color used for glyphs.
     pub foreground: RgbaColor,
+    /// Background color used for the canvas.
     pub background: RgbaColor,
 }
 
@@ -47,15 +55,21 @@ impl Default for RasterRenderConfig {
     }
 }
 
+/// Eight-bit RGBA color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RgbaColor {
+    /// Red channel.
     pub red: u8,
+    /// Green channel.
     pub green: u8,
+    /// Blue channel.
     pub blue: u8,
+    /// Alpha channel.
     pub alpha: u8,
 }
 
 impl RgbaColor {
+    /// Create an opaque RGB color.
     #[must_use]
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
         Self {
@@ -66,6 +80,7 @@ impl RgbaColor {
         }
     }
 
+    /// Create an RGBA color.
     #[must_use]
     pub const fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self {
@@ -81,6 +96,7 @@ impl RgbaColor {
     }
 }
 
+/// Renderer that converts kumeyuri frames and timelines into raster formats.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RasterRenderer {
     config: RasterRenderConfig,
@@ -93,6 +109,7 @@ impl Default for RasterRenderer {
 }
 
 impl RasterRenderer {
+    /// Create a renderer with explicit configuration.
     pub fn new(config: RasterRenderConfig) -> Result<Self, RasterRenderError> {
         if config.scale == 0 {
             return Err(RasterRenderError::InvalidScale);
@@ -100,11 +117,13 @@ impl RasterRenderer {
         Ok(Self { config })
     }
 
+    /// Return this renderer's configuration.
     #[must_use]
     pub const fn config(&self) -> RasterRenderConfig {
         self.config
     }
 
+    /// Render one frame as PNG bytes.
     pub fn render_frame(&self, frame: &Frame) -> Result<Vec<u8>, RasterRenderError> {
         let pixmap = self.frame_pixmap(frame)?;
         pixmap
@@ -112,6 +131,7 @@ impl RasterRenderer {
             .map_err(|error| RasterRenderError::PngEncode(error.to_string()))
     }
 
+    /// Render each timeline frame as PNG bytes.
     pub fn render_timeline_frames(
         &self,
         timeline: &Timeline,
@@ -123,6 +143,7 @@ impl RasterRenderer {
             .collect()
     }
 
+    /// Render a timeline as animated GIF bytes.
     pub fn render_gif(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
         let (width, height) = timeline_canvas_size(timeline, self.config)?;
         let width_u16 = u16::try_from(width).map_err(|_| RasterRenderError::ImageTooLarge)?;
@@ -149,6 +170,7 @@ impl RasterRenderer {
         Ok(output)
     }
 
+    /// Render a timeline as animated PNG bytes.
     pub fn render_apng(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
         let (width, height) = timeline_canvas_size(timeline, self.config)?;
         let frame_count =
@@ -181,6 +203,7 @@ impl RasterRenderer {
         Ok(output)
     }
 
+    /// Render a timeline as animated WebP bytes.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn render_webp(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
         let (width, height) = timeline_canvas_size(timeline, self.config)?;
@@ -205,6 +228,7 @@ impl RasterRenderer {
         Ok(data.as_ref().to_vec())
     }
 
+    /// Return an unsupported-target error for WebP on wasm32.
     #[cfg(target_arch = "wasm32")]
     pub fn render_webp(&self, timeline: &Timeline) -> Result<Vec<u8>, RasterRenderError> {
         let _ = timeline_canvas_size(timeline, self.config)?;
@@ -419,15 +443,24 @@ fn draw_font_glyph(
     Ok(false)
 }
 
+/// Error returned while rendering raster output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RasterRenderError {
+    /// The configured scale is zero.
     InvalidScale,
+    /// The timeline has no frames.
     EmptyTimeline,
+    /// The output dimensions exceed the target encoder limit.
     ImageTooLarge,
+    /// A drawing rectangle could not be represented.
     InvalidRect,
+    /// GIF encoding failed.
     GifEncode(String),
+    /// PNG or APNG encoding failed.
     PngEncode(String),
+    /// WebP encoding failed.
     WebPEncode(String),
+    /// The selected format is not supported on this target.
     UnsupportedTarget(&'static str),
 }
 

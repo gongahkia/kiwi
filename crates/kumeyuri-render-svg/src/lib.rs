@@ -1,22 +1,37 @@
+//! SVG renderer for kumeyuri frame timelines.
+
 use std::time::Duration;
 
 use kumeyuri_core::{animator::Timeline, frame::Frame};
 
 const MAX_PROGRESS_DOTS: usize = 32;
 
+/// Configuration for SVG output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SvgRenderConfig {
+    /// Width of one text cell in pixels.
     pub char_width: u16,
+    /// Height of one text line in pixels.
     pub line_height: u16,
+    /// Padding around the rendered frame in pixels.
     pub padding: u16,
+    /// Font size used for SVG text nodes.
     pub font_size: u16,
+    /// CSS font-family value used for SVG text nodes.
     pub font_family: String,
+    /// Foreground text color as a CSS color.
     pub foreground: String,
+    /// Background color as a CSS color.
     pub background: String,
+    /// Foreground color used when the viewer prefers a dark color scheme.
     pub dark_foreground: Option<String>,
+    /// Background color used when the viewer prefers a dark color scheme.
     pub dark_background: Option<String>,
+    /// Animation strategy used for timeline frames.
     pub animation: SvgAnimationMode,
+    /// Accessible SVG title.
     pub title: String,
+    /// Accessible SVG description.
     pub description: String,
 }
 
@@ -39,13 +54,17 @@ impl Default for SvgRenderConfig {
     }
 }
 
+/// Animation strategy for multi-frame SVG output.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum SvgAnimationMode {
+    /// Animate frame opacity with SVG SMIL.
     #[default]
     Smil,
+    /// Animate frame opacity with CSS keyframes.
     CssKeyframes,
 }
 
+/// Renderer that converts kumeyuri frames and timelines into SVG strings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SvgRenderer {
     config: SvgRenderConfig,
@@ -58,16 +77,19 @@ impl Default for SvgRenderer {
 }
 
 impl SvgRenderer {
+    /// Create a renderer with explicit configuration.
     #[must_use]
     pub const fn new(config: SvgRenderConfig) -> Self {
         Self { config }
     }
 
+    /// Return this renderer's configuration.
     #[must_use]
     pub const fn config(&self) -> &SvgRenderConfig {
         &self.config
     }
 
+    /// Render one static frame as an SVG document.
     #[must_use]
     pub fn render_frame(&self, frame: &Frame) -> String {
         let (width, height) = self.svg_dimensions(frame, 0, 0);
@@ -80,6 +102,7 @@ impl SvgRenderer {
         svg
     }
 
+    /// Render a timeline as an animated SVG document.
     #[must_use]
     pub fn render_timeline(&self, timeline: &Timeline) -> String {
         let Some(first) = timeline.keyframes().first() else {

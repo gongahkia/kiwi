@@ -1,3 +1,5 @@
+//! wasm-bindgen browser bindings for kumeyuri rendering.
+
 use std::time::Duration;
 
 use kumeyuri_core::{
@@ -13,27 +15,32 @@ use kumeyuri_render_svg::{SvgAnimationMode, SvgRenderConfig, SvgRenderer};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+/// Browser-facing renderer wrapper.
 #[wasm_bindgen]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct WasmRenderer;
 
 #[wasm_bindgen]
 impl WasmRenderer {
+    /// Create a browser renderer.
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self
     }
 
+    /// Render Mermaid source to SVG plus text frames.
     pub fn render(&self, source: &str, options: JsValue) -> Result<JsValue, JsValue> {
         render(source, options)
     }
 
+    /// Render a `.kumecast` JSON payload to SVG plus text frames.
     #[wasm_bindgen(js_name = renderCast)]
     pub fn render_cast(&self, source: &str, options: JsValue) -> Result<JsValue, JsValue> {
         render_cast(source, options)
     }
 }
 
+/// Render Mermaid source to SVG plus text frames.
 #[wasm_bindgen]
 pub fn render(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
     let options = decode_options(options)?;
@@ -42,6 +49,7 @@ pub fn render(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&error))
 }
 
+/// Render a `.kumecast` JSON payload to SVG plus text frames.
 #[wasm_bindgen(js_name = renderCast)]
 pub fn render_cast(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
     let options = decode_options(options)?;
