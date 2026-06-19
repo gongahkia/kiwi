@@ -111,6 +111,8 @@ When shape matching is enabled, the edge magnitude field inside the cell is samp
 
 Longer technique writeup: [docs/structure-mode-writeup.md](docs/structure-mode-writeup.md).
 
+Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
+
 ## Name
 
 Chosen name: `contourtty`.

@@ -2,8 +2,48 @@
 
 Record reproducible decode/render measurements here as phases add real media work.
 
+## Current Benchmark Host
+
+- Date: 2026-06-19.
+- Machine: MacBook Air `Mac15,12`, Apple M3, 8 cores (4 performance, 4 efficiency), 16 GB memory.
+- OS: macOS 26.5.1 (`25F80`), Darwin `25.5.0`, arm64.
+- Compiler: Apple clang `21.0.0`.
+- CMake: `4.3.3`.
+- FFmpeg: `8.1.2`, Homebrew build with shared libraries and NEON enabled.
+- Note: direct `sysctl` CPU queries are denied in this environment; hardware fields above come from `system_profiler SPHardwareDataType`.
+
+## Reproduce Current Final Suite
+
+Build Release first:
+
+```sh
+cmake -S . -B build/package -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_WARNINGS_AS_ERRORS=ON
+cmake --build build/package --parallel
+```
+
+Generate the fixture:
+
+```sh
+ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=duration=0.4:size=1280x720:rate=30 -frames:v 12 -pix_fmt yuv420p -y /tmp/contourtty-g10-720p-12f.mp4
+```
+
+Run the suite:
+
+```sh
+/usr/bin/time -p ./build/package/contourtty --mode luminance --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-luminance.ansi --log /tmp/contourtty-g10-luminance.log /tmp/contourtty-g10-720p-12f.mp4
+/usr/bin/time -p ./build/package/contourtty --mode structure --edge-threshold 0.02 --dog-sigma 0 --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-structure.ansi --log /tmp/contourtty-g10-structure.log /tmp/contourtty-g10-720p-12f.mp4
+/usr/bin/time -p ./build/package/contourtty --mode halfblock --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-halfblock.ansi --log /tmp/contourtty-g10-halfblock.log /tmp/contourtty-g10-720p-12f.mp4
+/usr/bin/time -p ./build/package/contourtty --mode luminance --charset braille --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-braille.ansi --log /tmp/contourtty-g10-braille.log /tmp/contourtty-g10-720p-12f.mp4
+```
+
+GPU row: not applicable; `--gpu` is currently a request flag with no completed compute backend, so the honest published comparison is CPU-only.
+
 | Date | Commit | Machine | OS | Source | Cols x rows | Mode | Color | Sustained fps | Bytes/frame | Command | Notes |
 |---|---|---|---|---|---:|---|---|---:|---:|---|---|
+| 2026-06-19 | 3194379 | MacBook Air Mac15,12; Apple M3; 8 cores; 16 GB | macOS 26.5.1 | generated 12-frame 1280x720 h264 testsrc2 | 160 x 45 | luminance ANSI export | mono | 16.000 | 7751.00 | `/usr/bin/time -p ./build/package/contourtty --mode luminance --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-luminance.ansi --log /tmp/contourtty-g10-luminance.log /tmp/contourtty-g10-720p-12f.mp4` | Release build; real 0.75s; `render_us=23435`; output 93012 bytes |
+| 2026-06-19 | 3194379 | MacBook Air Mac15,12; Apple M3; 8 cores; 16 GB | macOS 26.5.1 | generated 12-frame 1280x720 h264 testsrc2 | 160 x 45 | structure ANSI export | mono | 27.907 | 10339.17 | `/usr/bin/time -p ./build/package/contourtty --mode structure --edge-threshold 0.02 --dog-sigma 0 --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-structure.ansi --log /tmp/contourtty-g10-structure.log /tmp/contourtty-g10-720p-12f.mp4` | Release build; real 0.43s; `render_us=321402`; `shape_match_cells=11089`; output 124070 bytes |
+| 2026-06-19 | 3194379 | MacBook Air Mac15,12; Apple M3; 8 cores; 16 GB | macOS 26.5.1 | generated 12-frame 1280x720 h264 testsrc2 | 160 x 45 | halfblock ANSI export | truecolor | 34.286 | 6677.00 | `/usr/bin/time -p ./build/package/contourtty --mode halfblock --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-halfblock.ansi --log /tmp/contourtty-g10-halfblock.log /tmp/contourtty-g10-720p-12f.mp4` | Release build; real 0.35s; `render_us=46409`; output 80124 bytes |
+| 2026-06-19 | 3194379 | MacBook Air Mac15,12; Apple M3; 8 cores; 16 GB | macOS 26.5.1 | generated 12-frame 1280x720 h264 testsrc2 | 160 x 45 | braille ANSI export | mono | 35.294 | 7918.08 | `/usr/bin/time -p ./build/package/contourtty --mode luminance --charset braille --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-braille.ansi --log /tmp/contourtty-g10-braille.log /tmp/contourtty-g10-720p-12f.mp4` | Release build; real 0.34s; `render_us=218954`; output 95017 bytes |
 | 2026-06-19 | B8 commit | arm64; CPU brand unavailable (`sysctl` denied) | macOS 26.5.1 | generated 30-frame 1920x1080 h264 testsrc | 160 x 45 | decode+downscale probe | RGB24 | 1298.064 | n/a | `./build/ci/contourtty --width 160 /tmp/contourtty-b8-1080p.mp4` | no render; output `decode_seconds: 0.023111`, `decoded_frames: 30` |
 | 2026-06-19 | B10 commit | arm64; CPU brand unavailable (`sysctl` denied) | macOS 26.5.1 | generated 30-frame 1920x1080 h264 testsrc | 160 x 45 | threaded decode+downscale probe | RGB24 | 659.911 | n/a | `./build/ci/contourtty --width 160 /tmp/contourtty-b8-1080p.mp4` | bounded queue capacity 6; output `decode_seconds: 0.045461`, `decoded_frames: 30` |
 | 2026-06-19 | 4996882 | arm64; CPU brand unavailable (`sysctl` denied) | macOS 26.5.1 | generated 60-frame 1280x720 h264 testsrc | 160 x 45 | luminance playback | truecolor | 21.321 | 30440 | pty harness: `build/ci/contourtty --width 160 --fps 1000 /tmp/contourtty-c9-720p.mp4` | 3-run median; `--fps 1000` removes pacing ceiling; bytes include ANSI enter/clear/leave |
