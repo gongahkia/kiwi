@@ -110,7 +110,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: public-facing pages
 - [ ] Status page or uptime widget for hosted — done when widget displays current status from health check.
-- [ ] Terms of service — done when page committed.
 
 ## P3 — Browser extension
 - [ ] Scaffold WXT project in `extensions/browser` — done when `pnpm dev --filter @wat/ext` opens an extension-loaded Chrome.
