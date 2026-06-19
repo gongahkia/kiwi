@@ -261,7 +261,7 @@ DecodedAudio decodeAudioFile(const std::filesystem::path& input, const AudioDeco
     }
   }
   if (audio_stream_index < 0) {
-    throw std::runtime_error("no audio stream found: " + input_string);
+    throw NoAudioStreamError("no audio stream found: " + input_string);
   }
 
   const AVStream* audio_stream = format_context->streams[audio_stream_index];

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace contourtty {
@@ -17,6 +19,11 @@ struct DecodedAudio {
   int64_t duration_us = 0;
   int64_t decoded_frames = 0;
   std::vector<float> samples;
+};
+
+class NoAudioStreamError : public std::runtime_error {
+ public:
+  explicit NoAudioStreamError(const std::string& message) : std::runtime_error(message) {}
 };
 
 DecodedAudio decodeAudioFile(const std::filesystem::path& input, const AudioDecodeOptions& options = {});

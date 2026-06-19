@@ -1,5 +1,7 @@
 #include "player.hpp"
 
+#include "audio_backend.hpp"
+#include "audio_decode.hpp"
 #include "cell_buffer.hpp"
 #include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
@@ -12,6 +14,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
+#include <memory>
 #include <optional>
 #include <string>
 #include <sys/select.h>
@@ -85,6 +89,42 @@ class FramePacer {
   int64_t frame_duration_us_ = 33333;
   int64_t frame_index_ = 0;
 };
+
+struct DriftStats {
+  int64_t samples = 0;
+  int64_t max_abs_us = 0;
+  int64_t sum_abs_us = 0;
+};
+
+bool keyboardQuitRequested();
+
+int64_t frameMediaUs(const Frame& frame, int64_t first_pts_us) {
+  return std::max<int64_t>(0, frame.pts_us - first_pts_us);
+}
+
+bool waitForAudioClock(const Frame& frame, PcmPlayer& player, int64_t* first_pts_us, DriftStats* stats) {
+  if (*first_pts_us < 0) {
+    *first_pts_us = frame.pts_us;
+  }
+  const int64_t video_us = frameMediaUs(frame, *first_pts_us);
+  while (!shouldQuit()) {
+    if (keyboardQuitRequested()) {
+      return false;
+    }
+    const int64_t audio_us = player.masterClockUs();
+    if (audio_us >= video_us) {
+      const int64_t drift_abs = std::llabs(video_us - audio_us);
+      ++stats->samples;
+      stats->max_abs_us = std::max(stats->max_abs_us, drift_abs);
+      stats->sum_abs_us += drift_abs;
+      return true;
+    }
+    const int64_t remaining_us = video_us - audio_us;
+    const auto sleep_us = std::clamp<int64_t>(remaining_us / 2, 1000, 5000);
+    std::this_thread::sleep_for(std::chrono::microseconds(sleep_us));
+  }
+  return false;
+}
 
 RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal) {
   const int max_cols = std::max(1, options.width.value_or(terminal.cols));
@@ -190,6 +230,15 @@ int playMedia(const CliOptions& options, Logger& logger) {
     throw std::runtime_error("missing input");
   }
 
+  std::optional<DecodedAudio> decoded_audio;
+  try {
+    decoded_audio = decodeAudioFile(*options.input);
+    CONTOURTTY_LOG_INFO(logger, "audio decoded frames=" + std::to_string(decoded_audio->decoded_frames) +
+                                  " duration_us=" + std::to_string(decoded_audio->duration_us));
+  } catch (const NoAudioStreamError&) {
+    CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+  }
+
   resetQuitFlag();
   installQuitSignalHandlers();
   installResizeSignalHandler();
@@ -205,7 +254,19 @@ int playMedia(const CliOptions& options, Logger& logger) {
   CellBuffer cells;
   DiffEmitter emitter;
   FramePacer pacer(options);
+  std::unique_ptr<PcmPlayer> audio_player;
+  if (decoded_audio.has_value()) {
+    audio_player = std::make_unique<PcmPlayer>(
+      decoded_audio->samples,
+      PcmPlaybackOptions{
+        .sample_rate = static_cast<uint32_t>(decoded_audio->sample_rate),
+        .channels = static_cast<uint32_t>(decoded_audio->channels),
+      });
+    audio_player->start();
+  }
   const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
+  DriftStats drift_stats;
+  int64_t first_video_pts_us = -1;
   bool quit = false;
 
   std::string clear = "\x1b[2J";
@@ -219,7 +280,14 @@ int playMedia(const CliOptions& options, Logger& logger) {
       quit = true;
       return false;
     }
-    pacer.waitForFrame(frame);
+    if (audio_player != nullptr) {
+      if (!waitForAudioClock(frame, *audio_player, &first_video_pts_us, &drift_stats)) {
+        quit = true;
+        return false;
+      }
+    } else {
+      pacer.waitForFrame(frame);
+    }
     if (shouldQuit() || keyboardQuitRequested()) {
       quit = true;
       return false;
@@ -242,7 +310,16 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   (void)probeMedia(*options.input, decode_options);
   if (!quit && !shouldQuit()) {
-    pacer.finish();
+    if (audio_player != nullptr) {
+      (void)audio_player->waitUntilComplete();
+    } else {
+      pacer.finish();
+    }
+  }
+  if (drift_stats.samples > 0) {
+    CONTOURTTY_LOG_INFO(logger, "audio sync drift samples=" + std::to_string(drift_stats.samples) +
+                                  " max_abs_us=" + std::to_string(drift_stats.max_abs_us) +
+                                  " avg_abs_us=" + std::to_string(drift_stats.sum_abs_us / drift_stats.samples));
   }
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");

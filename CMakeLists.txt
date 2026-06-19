@@ -73,7 +73,7 @@ set_target_properties(contourtty PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(contourtty PRIVATE CONTOURTTY_VERSION="${PROJECT_VERSION}")
-target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB)
+target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty_audio contourtty_audio_decode)
 
 if(MSVC)
   target_compile_options(contourtty PRIVATE /W4)
