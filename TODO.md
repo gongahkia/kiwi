@@ -87,7 +87,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement permalink + share-link UI — done when share URL resolves back to entry.
 - [ ] Implement Open Graph image generation per entry — done when entry page meta has og:image w/ acronym + expansion.
 - [ ] Add sitemap.xml generator — done when `/sitemap.xml` lists all public entries.
-- [ ] Add robots.txt — done when file allows public pages, disallows admin/api.
 - [ ] Add 404 page w/ search suggestion — done when unknown term routes here.
 
 ## P2 — Web app: contribution flows
