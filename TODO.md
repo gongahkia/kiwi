@@ -56,7 +56,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Linux Foundation glossary scraper — done when LF-published terms ingested where licensed.
 - [ ] PostgreSQL glossary scraper — done when Postgres-doc terms ingested.
 - [ ] Kubernetes glossary scraper — done when k8s-doc terms ingested w/ CC-BY 4.0.
-- [ ] Document each source's license in `docs/sources.md` — done when each scraper has matching entry.
 
 ## P1 — Corpus quality controls
 - [ ] Build benchmark gate: corpus refresh PR is blocked if hit-rate drops >1pp — done when PR check fails in test scenario.
