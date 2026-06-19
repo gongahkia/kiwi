@@ -392,7 +392,7 @@
 
 - [x] Specify v1 JSON schema in `docs/spec/kumecast-v1.md`
 - [x] Implement encoder in `kumeyuri-core::cast`
-- [ ] Implement decoder + validator
+- [x] Implement decoder + validator
 - [ ] Implement `kumeyuri export --format kumecast`
 - [ ] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
 - [ ] Implement `kumeyuri play <cast>` in TUI
