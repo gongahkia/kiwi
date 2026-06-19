@@ -11,7 +11,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "spdx-license-ids": "^3.0.23",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/spdx-license-ids": "^3.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
     "vitest": "^4.1.9"
   }
 }

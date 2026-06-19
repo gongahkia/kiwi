@@ -164,8 +164,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Configure DNS + TLS — done when `https://wat.dev` resolves w/ valid cert.
 
 ## P5 — Testing
-- [ ] Unit tests for `packages/core` schema + normalization — done when ≥90% line coverage in package.
-- [ ] Unit tests for `packages/search` ranking + fusion — done when ≥85% coverage + benchmark regression test.
 - [ ] Integration tests for `packages/db` against ephemeral Postgres (testcontainers) — done when tests pass in CI.
 - [ ] E2E tests for web search UX (Playwright) — done when 10 scenarios pass headless in CI.
 - [ ] E2E tests for browser extension (Playwright + WXT testing helpers) — done when hover + sidebar scenarios pass.
