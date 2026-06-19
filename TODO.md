@@ -19,7 +19,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P0 — Core package
 
 ## P1 — Search engine
-- [ ] Build benchmark corpus of 500 dev-tooling acronyms — done when JSON file committed w/ query + expected answer.
 - [ ] Run benchmark on hybrid search — done when hit-rate ≥90% on top-1 and ≥98% on top-5.
 - [ ] Measure search latency on hosted (Vercel + Neon) — done when p95 < 150ms for 1k-warmup queries.
 - [ ] Measure search latency on self-host (single docker compose, 2-core) — done when p95 < 300ms.
