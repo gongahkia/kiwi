@@ -23,6 +23,11 @@ kumeyuri render diagram.mmd --format svg --theme github --dark-theme tokyo-night
 | `tokyo-night` | Unicode | `#1a1b26` | `#c0caf5` | `#7aa2f7` |
 | `github` | Unicode | `#ffffff` | `#24292f` | `#0969da` |
 | `dracula` | Unicode | `#282a36` | `#f8f8f2` | `#bd93f9` |
+| `solarized-light` | Unicode | `#fdf6e3` | `#073642` | `#073642` |
+| `solarized-dark` | Unicode | `#002b36` | `#eee8d5` | `#2aa198` |
+| `nord` | Unicode | `#2e3440` | `#eceff4` | `#88c0d0` |
+| `catppuccin-mocha` | Unicode | `#1e1e2e` | `#cdd6f4` | `#cba6f7` |
+| `high-contrast` | ASCII | `#000000` | `#ffffff` | `#00ffff` |
 | `print-mono` | ASCII | `#ffffff` | `#000000` | `#000000` |
 
 `print-mono` is intended for print/PDF pipelines that need high-contrast

@@ -9,6 +9,11 @@ pub enum BuiltInTheme {
     TokyoNight,
     Github,
     Dracula,
+    SolarizedLight,
+    SolarizedDark,
+    Nord,
+    CatppuccinMocha,
+    HighContrast,
     PrintMono,
 }
 
@@ -21,6 +26,11 @@ impl BuiltInTheme {
             Self::TokyoNight => "tokyo-night",
             Self::Github => "github",
             Self::Dracula => "dracula",
+            Self::SolarizedLight => "solarized-light",
+            Self::SolarizedDark => "solarized-dark",
+            Self::Nord => "nord",
+            Self::CatppuccinMocha => "catppuccin-mocha",
+            Self::HighContrast => "high-contrast",
             Self::PrintMono => "print-mono",
         }
     }
@@ -33,6 +43,11 @@ impl BuiltInTheme {
             "tokyo-night" => Some(Self::TokyoNight),
             "github" => Some(Self::Github),
             "dracula" => Some(Self::Dracula),
+            "solarized-light" => Some(Self::SolarizedLight),
+            "solarized-dark" => Some(Self::SolarizedDark),
+            "nord" => Some(Self::Nord),
+            "catppuccin-mocha" => Some(Self::CatppuccinMocha),
+            "high-contrast" => Some(Self::HighContrast),
             "print-mono" => Some(Self::PrintMono),
             _ => None,
         }
@@ -231,18 +246,28 @@ impl Theme {
             BuiltInTheme::TokyoNight => Self::tokyo_night(),
             BuiltInTheme::Github => Self::github(),
             BuiltInTheme::Dracula => Self::dracula(),
+            BuiltInTheme::SolarizedLight => Self::solarized_light(),
+            BuiltInTheme::SolarizedDark => Self::solarized_dark(),
+            BuiltInTheme::Nord => Self::nord(),
+            BuiltInTheme::CatppuccinMocha => Self::catppuccin_mocha(),
+            BuiltInTheme::HighContrast => Self::high_contrast(),
             BuiltInTheme::PrintMono => Self::print_mono(),
         }
     }
 
     #[must_use]
-    pub const fn starter_themes() -> [Self; 6] {
+    pub const fn starter_themes() -> [Self; 11] {
         [
             Self::default_theme(),
             Self::mono(),
             Self::tokyo_night(),
             Self::github(),
             Self::dracula(),
+            Self::solarized_light(),
+            Self::solarized_dark(),
+            Self::nord(),
+            Self::catppuccin_mocha(),
+            Self::high_contrast(),
             Self::print_mono(),
         ]
     }
@@ -333,6 +358,91 @@ impl Theme {
     }
 
     #[must_use]
+    pub const fn solarized_light() -> Self {
+        Self {
+            name: "solarized-light",
+            charset: Charset::Unicode,
+            colors: ThemeColors {
+                background: RgbColor::new(0xfd, 0xf6, 0xe3),
+                foreground: RgbColor::new(0x07, 0x36, 0x42),
+                accent: RgbColor::new(0x07, 0x36, 0x42),
+                edge: RgbColor::new(0x58, 0x6e, 0x75),
+                edge_alt: RgbColor::new(0x07, 0x36, 0x42),
+                highlight: RgbColor::new(0x58, 0x6e, 0x75),
+                muted: RgbColor::new(0x58, 0x6e, 0x75),
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn solarized_dark() -> Self {
+        Self {
+            name: "solarized-dark",
+            charset: Charset::Unicode,
+            colors: ThemeColors {
+                background: RgbColor::new(0x00, 0x2b, 0x36),
+                foreground: RgbColor::new(0xee, 0xe8, 0xd5),
+                accent: RgbColor::new(0x2a, 0xa1, 0x98),
+                edge: RgbColor::new(0x93, 0xa1, 0xa1),
+                edge_alt: RgbColor::new(0x2a, 0xa1, 0x98),
+                highlight: RgbColor::new(0xb5, 0x89, 0x00),
+                muted: RgbColor::new(0x83, 0x94, 0x96),
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn nord() -> Self {
+        Self {
+            name: "nord",
+            charset: Charset::Unicode,
+            colors: ThemeColors {
+                background: RgbColor::new(0x2e, 0x34, 0x40),
+                foreground: RgbColor::new(0xec, 0xef, 0xf4),
+                accent: RgbColor::new(0x88, 0xc0, 0xd0),
+                edge: RgbColor::new(0xd8, 0xde, 0xe9),
+                edge_alt: RgbColor::new(0x81, 0xa1, 0xc1),
+                highlight: RgbColor::new(0xeb, 0xcb, 0x8b),
+                muted: RgbColor::new(0xe5, 0xe9, 0xf0),
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn catppuccin_mocha() -> Self {
+        Self {
+            name: "catppuccin-mocha",
+            charset: Charset::Unicode,
+            colors: ThemeColors {
+                background: RgbColor::new(0x1e, 0x1e, 0x2e),
+                foreground: RgbColor::new(0xcd, 0xd6, 0xf4),
+                accent: RgbColor::new(0xcb, 0xa6, 0xf7),
+                edge: RgbColor::new(0xa6, 0xe3, 0xa1),
+                edge_alt: RgbColor::new(0x89, 0xb4, 0xfa),
+                highlight: RgbColor::new(0xf9, 0xe2, 0xaf),
+                muted: RgbColor::new(0xba, 0xc2, 0xde),
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn high_contrast() -> Self {
+        Self {
+            name: "high-contrast",
+            charset: Charset::Ascii,
+            colors: ThemeColors {
+                background: RgbColor::new(0x00, 0x00, 0x00),
+                foreground: RgbColor::new(0xff, 0xff, 0xff),
+                accent: RgbColor::new(0x00, 0xff, 0xff),
+                edge: RgbColor::new(0xff, 0xff, 0xff),
+                edge_alt: RgbColor::new(0xff, 0xff, 0x00),
+                highlight: RgbColor::new(0x00, 0xff, 0x00),
+                muted: RgbColor::new(0xd0, 0xd0, 0xd0),
+            },
+        }
+    }
+
+    #[must_use]
     pub const fn print_mono() -> Self {
         Self {
             name: "print-mono",
@@ -395,6 +505,11 @@ mod tests {
                 "tokyo-night",
                 "github",
                 "dracula",
+                "solarized-light",
+                "solarized-dark",
+                "nord",
+                "catppuccin-mocha",
+                "high-contrast",
                 "print-mono",
             ]
         );
@@ -408,6 +523,11 @@ mod tests {
         );
         assert_eq!(BuiltInTheme::from_name("missing"), None);
         assert_eq!(BuiltInTheme::Dracula.name(), "dracula");
+        assert_eq!(BuiltInTheme::CatppuccinMocha.name(), "catppuccin-mocha");
+        assert_eq!(
+            BuiltInTheme::from_name("solarized-dark"),
+            Some(BuiltInTheme::SolarizedDark)
+        );
         assert_eq!(BuiltInTheme::PrintMono.name(), "print-mono");
     }
 
@@ -417,6 +537,25 @@ mod tests {
 
         assert_eq!(theme.charset, Charset::Unicode);
         assert_eq!(theme.colors.background, RgbColor::new(0x1a, 0x1b, 0x26));
+
+        let solarized = Theme::solarized_light();
+        assert_eq!(solarized.name, "solarized-light");
+        assert_eq!(solarized.colors.background, RgbColor::new(0xfd, 0xf6, 0xe3));
+
+        let nord = Theme::nord();
+        assert_eq!(nord.name, "nord");
+        assert_eq!(nord.colors.accent, RgbColor::new(0x88, 0xc0, 0xd0));
+
+        let catppuccin = Theme::catppuccin_mocha();
+        assert_eq!(catppuccin.name, "catppuccin-mocha");
+        assert_eq!(
+            catppuccin.colors.background,
+            RgbColor::new(0x1e, 0x1e, 0x2e)
+        );
+
+        let high_contrast = Theme::high_contrast();
+        assert_eq!(high_contrast.charset, Charset::Ascii);
+        assert_eq!(high_contrast.colors.accent, RgbColor::new(0x00, 0xff, 0xff));
 
         let print = Theme::print_mono();
         assert_eq!(print.charset, Charset::Ascii);

@@ -27,6 +27,11 @@ Each role maps to an RGB color in `crates/kumeyuri-core/src/theme.rs`.
 | `tokyo-night` | Unicode | Dark SVG, raster, and modern terminal output |
 | `github` | Unicode | Light README/docs output |
 | `dracula` | Unicode | Dark presentation or editor-adjacent output |
+| `solarized-light` | Unicode | Light Solarized-inspired docs output |
+| `solarized-dark` | Unicode | Dark Solarized-inspired terminal/docs output |
+| `nord` | Unicode | Dark arctic palette output |
+| `catppuccin-mocha` | Unicode | Dark pastel presentation/editor output |
+| `high-contrast` | ASCII | Accessibility-first high-contrast output |
 | `print-mono` | ASCII | Print/PDF paths that need monochrome output |
 
 Render with a built-in theme:

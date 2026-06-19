@@ -210,6 +210,11 @@ fn parse_theme(value: &str) -> Result<BuiltInTheme> {
         "tokyo-night" => Ok(BuiltInTheme::TokyoNight),
         "github" => Ok(BuiltInTheme::Github),
         "dracula" => Ok(BuiltInTheme::Dracula),
+        "solarized-light" => Ok(BuiltInTheme::SolarizedLight),
+        "solarized-dark" => Ok(BuiltInTheme::SolarizedDark),
+        "nord" => Ok(BuiltInTheme::Nord),
+        "catppuccin-mocha" => Ok(BuiltInTheme::CatppuccinMocha),
+        "high-contrast" => Ok(BuiltInTheme::HighContrast),
         "print-mono" => Ok(BuiltInTheme::PrintMono),
         _ => bail!("unsupported kumeyuri theme {value:?}"),
     }

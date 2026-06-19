@@ -180,6 +180,11 @@ enum RenderTheme {
     TokyoNight,
     Github,
     Dracula,
+    SolarizedLight,
+    SolarizedDark,
+    Nord,
+    CatppuccinMocha,
+    HighContrast,
     PrintMono,
 }
 
@@ -191,6 +196,11 @@ impl RenderTheme {
             Self::TokyoNight => BuiltInTheme::TokyoNight,
             Self::Github => BuiltInTheme::Github,
             Self::Dracula => BuiltInTheme::Dracula,
+            Self::SolarizedLight => BuiltInTheme::SolarizedLight,
+            Self::SolarizedDark => BuiltInTheme::SolarizedDark,
+            Self::Nord => BuiltInTheme::Nord,
+            Self::CatppuccinMocha => BuiltInTheme::CatppuccinMocha,
+            Self::HighContrast => BuiltInTheme::HighContrast,
             Self::PrintMono => BuiltInTheme::PrintMono,
         }
     }
@@ -2696,6 +2706,27 @@ mod tests {
     fn render_format_parser_accepts_all_values() {
         for value in ["text", "svg", "gif", "apng", "webp", "vtt", "tui"] {
             let cli = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--format", value])
+                .unwrap();
+            assert!(matches!(cli.command, Some(Command::Render { .. })));
+        }
+    }
+
+    #[test]
+    fn render_theme_parser_accepts_all_built_ins() {
+        for value in [
+            "default",
+            "mono",
+            "tokyo-night",
+            "github",
+            "dracula",
+            "solarized-light",
+            "solarized-dark",
+            "nord",
+            "catppuccin-mocha",
+            "high-contrast",
+            "print-mono",
+        ] {
+            let cli = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--theme", value])
                 .unwrap();
             assert!(matches!(cli.command, Some(Command::Render { .. })));
         }

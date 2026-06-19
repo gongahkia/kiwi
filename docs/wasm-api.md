@@ -64,6 +64,11 @@ type KumeyuriTheme =
   | "tokyo-night"
   | "github"
   | "dracula"
+  | "solarized-light"
+  | "solarized-dark"
+  | "nord"
+  | "catppuccin-mocha"
+  | "high-contrast"
   | "print-mono";
 ```
 

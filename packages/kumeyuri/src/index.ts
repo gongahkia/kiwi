@@ -1,4 +1,15 @@
-export type KumeyuriTheme = "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
+export type KumeyuriTheme =
+  | "default"
+  | "mono"
+  | "tokyo-night"
+  | "github"
+  | "dracula"
+  | "solarized-light"
+  | "solarized-dark"
+  | "nord"
+  | "catppuccin-mocha"
+  | "high-contrast"
+  | "print-mono";
 export type KumeyuriCharset = "ascii" | "unicode";
 export type KumeyuriSvgAnimation = "smil" | "css-keyframes";
 

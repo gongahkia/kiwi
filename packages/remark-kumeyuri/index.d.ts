@@ -1,9 +1,22 @@
+type KumeyuriTheme =
+  | "default"
+  | "mono"
+  | "tokyo-night"
+  | "github"
+  | "dracula"
+  | "solarized-light"
+  | "solarized-dark"
+  | "nord"
+  | "catppuccin-mocha"
+  | "high-contrast"
+  | "print-mono";
+
 export interface RemarkKumeyuriOptions {
   format?: "svg" | "text";
   kumeyuri?: string;
   replace?: boolean;
-  theme?: "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
-  darkTheme?: "default" | "mono" | "tokyo-night" | "github" | "dracula" | "print-mono";
+  theme?: KumeyuriTheme;
+  darkTheme?: KumeyuriTheme;
   charset?: "ascii" | "unicode";
   width?: number;
   padding?: number;

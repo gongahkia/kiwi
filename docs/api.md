@@ -107,7 +107,8 @@ let theme = BuiltInTheme::Github.theme();
 ```
 
 Built-in theme names are `default`, `mono`, `tokyo-night`, `github`, `dracula`,
-and `print-mono`.
+`solarized-light`, `solarized-dark`, `nord`, `catppuccin-mocha`,
+`high-contrast`, and `print-mono`.
 
 ## Plugin ABI
 

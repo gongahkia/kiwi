@@ -15,6 +15,11 @@ Built-in themes live in `crates/kumeyuri-core/src/theme.rs`:
 | `tokyo-night` | Unicode | Dark docs/editor output |
 | `github` | Unicode | Light README/docs output |
 | `dracula` | Unicode | Dark presentation output |
+| `solarized-light` | Unicode | Light Solarized-inspired output |
+| `solarized-dark` | Unicode | Dark Solarized-inspired output |
+| `nord` | Unicode | Dark arctic palette output |
+| `catppuccin-mocha` | Unicode | Dark pastel output |
+| `high-contrast` | ASCII | Accessibility-first output |
 | `print-mono` | ASCII | Print/PDF paths |
 
 ## Proposed file shape
@@ -61,7 +66,7 @@ Required fields:
 
 ## Authoring workflow
 
-Until the validator lands, add experimental themes as built-ins:
+For built-in themes:
 
 1. Add the theme to `BuiltInTheme` and `Theme::built_in`.
 2. Add a constructor on `Theme`.
@@ -69,9 +74,9 @@ Until the validator lands, add experimental themes as built-ins:
 4. Update `docs/book/themes.md` and `docs/book/theming.md`.
 5. Run theme contrast tests and render a representative SVG/text fixture.
 
-After file loading lands, custom theme review should require:
+For custom theme files, review should require:
 
-- TOML parser validation for unknown or missing fields.
+- `kumeyuri --validate-theme <file>` passes.
 - Contrast-ratio check for text-bearing roles.
 - Snapshot coverage for text and SVG output.
 - A clear fallback when the theme cannot be found.
