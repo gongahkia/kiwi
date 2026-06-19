@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { approveSuggestion } from "@/lib/suggestion-approval";
 import {
   getSuggestedEdits,
   reviewSuggestedEdit,
@@ -27,13 +28,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    const reviewerId = request.cookies.get(sessionCookie)?.value ?? "admin";
+    const suggestion = reviewSuggestedEdit(body.id, reviewerId, body.status, body.after_jsonb);
+    const approval = body.status === "approved" ? approveSuggestion(suggestion, reviewerId) : null;
+
     return NextResponse.json({
-      suggestion: reviewSuggestedEdit(
-        body.id,
-        request.cookies.get(sessionCookie)?.value ?? "admin",
-        body.status,
-        body.after_jsonb
-      )
+      approval,
+      suggestion
     });
   } catch (error) {
     return NextResponse.json(
