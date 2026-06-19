@@ -158,7 +158,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Restore script — done when restore from tarball yields working DB on a fresh machine.
 - [ ] Helm chart `charts/wat` for k8s — done when `helm install wat charts/wat` brings up stack on a kind cluster.
 - [ ] Terraform module for Fly.io single-region deploy — done when `terraform apply` produces a working URL.
-- [ ] Document self-host in `docs/self-host.md` — done when guide includes Docker, Helm, Fly paths.
 
 ## P4 — Hosted instance (operator-side)
 - [ ] Provision hosted DB (Neon or Supabase) — done when DSN available and migrations applied.
