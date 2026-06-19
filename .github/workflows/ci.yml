@@ -40,11 +40,13 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm --filter @wat/core test
       - run: pnpm --filter @wat/db test
       - run: pnpm --filter @wat/search test
       - run: pnpm --filter @wat/ingest test
       - run: pnpm --filter @wat/slack test
+      - run: pnpm test:e2e:web
 
   build:
     runs-on: ubuntu-latest

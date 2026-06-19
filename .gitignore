@@ -8,3 +8,5 @@ coverage/
 .wxt/
 .output/
 reports/corpus-refresh-pr.md
+playwright-report/
+test-results/
