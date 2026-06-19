@@ -64,7 +64,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Build corpus stats dashboard page in web app — done when `/stats` shows entry counts by source, tier, domain.
 
 ## P2 — Web app foundation
-- [ ] Configure middleware for auth-protected routes — done when `/team/admin` redirects to login when unauth.
 - [ ] Set up NextAuth w/ email magic-link provider — done when end-to-end magic-link login works locally w/ Mailpit.
 - [ ] Add Google OAuth provider — done when Google login produces a session.
 - [ ] Add Slack OAuth provider — done when Slack login produces a session.
