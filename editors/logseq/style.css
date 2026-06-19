@@ -1,0 +1,23 @@
+.kumeyuri-logseq-cast {
+  border: 1px solid var(--ls-border-color);
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.kumeyuri-logseq-frame {
+  font-family: var(--ls-font-family-code), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.15;
+  margin: 0;
+  overflow: auto;
+  white-space: pre;
+}
+
+.kumeyuri-logseq-controls {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.kumeyuri-logseq-error {
+  color: var(--ls-error-text-color);
+}

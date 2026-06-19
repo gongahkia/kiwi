@@ -293,7 +293,7 @@
 - [x] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
 - [x] Implement Slidev component `<KumeyuriDiagram>`
 - [x] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
-- [ ] Implement Logseq plugin equivalent
+- [x] Implement Logseq plugin equivalent
 - [ ] Implement Quartz plugin for digital gardens
 - [ ] Implement Zola shortcode for kumeyuri embeds
 - [x] Add `docs/integrations/` directory with one page per integration

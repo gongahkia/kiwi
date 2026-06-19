@@ -1,0 +1,20 @@
+{
+  "name": "logseq-kumeyuri",
+  "version": "0.0.0",
+  "description": "Logseq plugin rendering kumeyuri .kumecast timelines through renderer macros.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "index.html",
+  "scripts": {
+    "test": "node test/plugin.test.mjs"
+  },
+  "devDependencies": {
+    "@logseq/libs": "^0.0.17"
+  },
+  "logseq": {
+    "id": "kumeyuri",
+    "title": "kumeyuri",
+    "main": "index.html"
+  }
+}
