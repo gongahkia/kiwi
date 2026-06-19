@@ -3,6 +3,7 @@ import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
 import { exampleScraper } from "./example.js";
 import { jargonFileScraper } from "./jargon-file.js";
 import { kubernetesGlossaryScraper } from "./kubernetes-glossary.js";
+import { mdnGlossaryScraper } from "./mdn-glossary.js";
 import { postgresqlGlossaryScraper } from "./postgresql-glossary.js";
 
 export const scrapers = new Map<string, ScraperPlugin>([
@@ -10,5 +11,6 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [exampleScraper.name, exampleScraper],
   [jargonFileScraper.name, jargonFileScraper],
   [kubernetesGlossaryScraper.name, kubernetesGlossaryScraper],
+  [mdnGlossaryScraper.name, mdnGlossaryScraper],
   [postgresqlGlossaryScraper.name, postgresqlGlossaryScraper]
 ]);
