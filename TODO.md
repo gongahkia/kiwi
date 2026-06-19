@@ -428,7 +428,7 @@
 - [ ] Expand `docs/book/recipes.md` from current short cookbook to 30+ tasks
 - [x] Write `docs/migrating-from-beautiful-mermaid.md`
 - [x] Write `docs/migrating-from-mermaid-ascii.md`
-- [ ] Write `docs/migrating-from-mermaid-cli.md`
+- [x] Write `docs/migrating-from-mermaid-cli.md`
 - [x] Add "Edit this page" GitHub links across every doc page
 - [ ] Add "Try in playground" CTA to every code block
 
