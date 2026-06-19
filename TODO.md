@@ -52,7 +52,6 @@
 ## PHASE B — Decode & frame pipeline
 *Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
 
-- [ ] **B7. Frame timing metadata.** DoD: each emitted `Frame` carries a presentation timestamp in microseconds derived from PTS × time_base; monotonic increasing on a normal clip. Reference: PHASE_B §PTS.
 - [ ] **B8. Decode throughput bench (no render).** DoD: decode+downscale-only loop reports frames/sec for a 1080p clip; recorded in `BENCHMARKS.md`. Establishes the decode ceiling. Reference: PHASE_B §Bench.
 - [ ] **B9. Robust error paths.** DoD: corrupt file, missing file, audio-only file, and zero-byte file each produce a specific non-crashing error message. Reference: PHASE_B §Errors.
 - [ ] **B10. Decode runs on its own thread.** DoD: decoder fills a bounded frame queue (e.g. capacity 4–8) on a worker thread; main thread consumes; no unbounded memory growth; clean shutdown joins the thread. Reference: PHASE_B §Threading.

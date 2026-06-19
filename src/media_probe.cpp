@@ -213,20 +213,47 @@ struct DecodeStats {
   int64_t decoded_frames = 0;
   int64_t converted_rgb_frames = 0;
   int64_t owned_frames = 0;
+  std::optional<int64_t> first_pts_us;
+  std::optional<int64_t> last_pts_us;
+  bool pts_monotonic = true;
   std::optional<std::filesystem::path> dumped_png;
   WorkingSize working_size;
 };
 
-Frame makeOwnedFrame(int width, int height, std::span<const uint8_t> rgb) {
+Frame makeOwnedFrame(int width, int height, std::span<const uint8_t> rgb, int64_t pts_us) {
   Frame frame;
   frame.w = width;
   frame.h = height;
   frame.rgb.assign(rgb.begin(), rgb.end());
-  frame.pts_us = 0;
+  frame.pts_us = pts_us;
   return frame;
 }
 
-DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, const MediaProbeOptions& options) {
+int64_t framePtsUs(const AVFrame* frame, AVRational time_base, int64_t frame_index, std::optional<double> average_fps) {
+  int64_t pts = frame->best_effort_timestamp;
+  if (pts == AV_NOPTS_VALUE) {
+    pts = frame->pts;
+  }
+  if (pts != AV_NOPTS_VALUE) {
+    return static_cast<int64_t>(std::llround(static_cast<double>(pts) * av_q2d(time_base) * 1000000.0));
+  }
+  if (average_fps.has_value() && *average_fps > 0.0) {
+    return static_cast<int64_t>(std::llround(static_cast<double>(frame_index) * 1000000.0 / *average_fps));
+  }
+  return frame_index * 33333;
+}
+
+void recordPts(DecodeStats* stats, int64_t pts_us) {
+  if (!stats->first_pts_us.has_value()) {
+    stats->first_pts_us = pts_us;
+  }
+  if (stats->last_pts_us.has_value() && pts_us <= *stats->last_pts_us) {
+    stats->pts_monotonic = false;
+  }
+  stats->last_pts_us = pts_us;
+}
+
+DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
   DecodeStats stats;
   while (true) {
     const int result = avcodec_receive_frame(codec_context, frame);
@@ -235,13 +262,15 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
       if (converter != nullptr) {
         const WorkingSize working_size = computeWorkingSize(frame->width, frame->height, options);
         const auto rgb = converter->convert(frame, working_size.w, working_size.h);
+        const int64_t pts_us = framePtsUs(frame, time_base, *frame_index, average_fps);
         ++stats.converted_rgb_frames;
-        const Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb);
+        const Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb, pts_us);
         if (owned_frame.w != converter->width() || owned_frame.h != converter->height() ||
-            owned_frame.rgb.size() != rgb.size()) {
+            owned_frame.rgb.size() != rgb.size() || owned_frame.pts_us != pts_us) {
           throw std::runtime_error("owned frame RGB24 copy failed");
         }
         ++stats.owned_frames;
+        recordPts(&stats, owned_frame.pts_us);
         stats.working_size = working_size;
         if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
             *frame_index == *options.dump_frame_index) {
@@ -264,6 +293,17 @@ void mergeStats(DecodeStats* target, const DecodeStats& update) {
   target->decoded_frames += update.decoded_frames;
   target->converted_rgb_frames += update.converted_rgb_frames;
   target->owned_frames += update.owned_frames;
+  if (!target->first_pts_us.has_value() && update.first_pts_us.has_value()) {
+    target->first_pts_us = update.first_pts_us;
+  }
+  if (target->last_pts_us.has_value() && update.first_pts_us.has_value() &&
+      *update.first_pts_us <= *target->last_pts_us) {
+    target->pts_monotonic = false;
+  }
+  if (update.last_pts_us.has_value()) {
+    target->last_pts_us = update.last_pts_us;
+  }
+  target->pts_monotonic = target->pts_monotonic && update.pts_monotonic;
   if (update.working_size.w > 0 && update.working_size.h > 0) {
     target->working_size = update.working_size;
   }
@@ -272,7 +312,7 @@ void mergeStats(DecodeStats* target, const DecodeStats& update) {
   }
 }
 
-DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, const MediaProbeOptions& options) {
+DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
   PacketPtr packet(av_packet_alloc());
   if (packet == nullptr) {
     throw std::runtime_error("failed to allocate packet");
@@ -297,14 +337,14 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
     if (packet->stream_index == video_stream_index) {
       int send_result = avcodec_send_packet(codec_context, packet.get());
       if (send_result == AVERROR(EAGAIN)) {
-        mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
+        mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
         send_result = avcodec_send_packet(codec_context, packet.get());
       }
       if (send_result < 0) {
         av_packet_unref(packet.get());
         throw std::runtime_error("failed to send packet to decoder: " + ffmpegError(send_result));
       }
-      mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
+      mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
     }
 
     av_packet_unref(packet.get());
@@ -314,7 +354,7 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
   if (drain_result < 0 && drain_result != AVERROR_EOF) {
     throw std::runtime_error("failed to drain decoder: " + ffmpegError(drain_result));
   }
-  mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, options));
+  mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
   if (options.dump_png.has_value() && !stats.dumped_png.has_value()) {
     throw std::runtime_error("requested frame was not decoded: " + std::to_string(*options.dump_frame_index));
   }
@@ -377,7 +417,8 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   const AVStream* video_stream = format_context->streams[video_stream_index];
   const AVCodecParameters* codec_parameters = video_stream->codecpar;
   const auto decoder_context = openVideoDecoder(codec_parameters);
-  const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, options);
+  const auto average_fps = rationalToDouble(video_stream->avg_frame_rate);
+  const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, video_stream->time_base, average_fps, options);
 
   MediaProbeInfo info;
   info.input = input;
@@ -389,10 +430,13 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   if (format_context->duration != AV_NOPTS_VALUE) {
     info.duration_us = format_context->duration;
   }
-  info.average_fps = rationalToDouble(video_stream->avg_frame_rate);
+  info.average_fps = average_fps;
   info.decoded_frames = decode_stats.decoded_frames;
   info.converted_rgb_frames = decode_stats.converted_rgb_frames;
   info.owned_frames = decode_stats.owned_frames;
+  info.first_pts_us = decode_stats.first_pts_us;
+  info.last_pts_us = decode_stats.last_pts_us;
+  info.pts_monotonic = decode_stats.pts_monotonic;
   info.working_width = decode_stats.working_size.w;
   info.working_height = decode_stats.working_size.h;
   info.dumped_png = decode_stats.dumped_png;
@@ -425,6 +469,9 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
       << "decoded_frames: " << info.decoded_frames << '\n'
       << "converted_rgb_frames: " << info.converted_rgb_frames << '\n'
       << "owned_frames: " << info.owned_frames << '\n'
+      << "first_pts_us: " << (info.first_pts_us.has_value() ? std::to_string(*info.first_pts_us) : "unknown") << '\n'
+      << "last_pts_us: " << (info.last_pts_us.has_value() ? std::to_string(*info.last_pts_us) : "unknown") << '\n'
+      << "pts_monotonic: " << (info.pts_monotonic ? "yes" : "no") << '\n'
       << "working_resolution: " << info.working_width << 'x' << info.working_height << '\n';
   if (info.dumped_png.has_value()) {
     out << "dumped_png: " << info.dumped_png->string() << '\n';
