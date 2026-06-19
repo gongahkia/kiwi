@@ -23,6 +23,9 @@ std::filesystem::path fakeYtDlp() {
   {
     std::ofstream out(path);
     out << "#!/bin/sh\n"
+        << "for arg in \"$@\"; do\n"
+        << "  [ \"$arg\" = best ] && exit 64\n"
+        << "done\n"
         << "echo https://cdn.example.test/media.m3u8\n";
   }
   chmod(path.c_str(), 0700);

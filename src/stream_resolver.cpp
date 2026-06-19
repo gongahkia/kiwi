@@ -60,7 +60,7 @@ std::string resolveWithYtDlp(std::string_view input) {
     close(pipefd[0]);
     dup2(pipefd[1], STDOUT_FILENO);
     close(pipefd[1]);
-    execlp(executable.c_str(), executable.c_str(), "-g", "--no-playlist", "-f", "best", url.c_str(), static_cast<char*>(nullptr));
+    execlp(executable.c_str(), executable.c_str(), "-g", "--no-playlist", "-f", "b", url.c_str(), static_cast<char*>(nullptr));
     _exit(errno == ENOENT ? 127 : 126);
   }
 

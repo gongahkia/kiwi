@@ -19,6 +19,7 @@
 #include "renderer.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
+#include "stream_resolver.hpp"
 #include "terminal.hpp"
 #include "video_decoder.hpp"
 
@@ -1112,10 +1113,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   std::optional<DecodedAudio> decoded_audio;
   const bool camera_input = isCameraInput(*options.input);
+  const bool remote_input = isUrlInput(*options.input);
   const bool mirror_camera = camera_input && options.mirror;
   if (camera_input) {
     CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
     CONTOURTTY_LOG_INFO(logger, mirror_camera ? "camera mirror enabled" : "camera mirror disabled");
+  } else if (remote_input) {
+    CONTOURTTY_LOG_INFO(logger, "remote audio predecode skipped; using wall-clock pacing");
   } else {
     try {
       decoded_audio = decodeAudioFile(*options.input);

@@ -41,7 +41,7 @@ The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. A hea
 
 ## Runtime notes
 
-With audio present, video is paced from the audio playback clock. Late video frames are dropped once they fall too far behind the clock, capped at 50ms, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
+With audio present in local files, video is paced from the audio playback clock. Remote streams and camera input use wall-clock pacing to avoid full audio predecode before playback. Late video frames are dropped once they fall too far behind the clock, capped at 50ms, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
 
 Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
