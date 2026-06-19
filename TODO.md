@@ -85,6 +85,7 @@
 *Doc: `PHASE_G.md`. Goal: make it fast, packaged, documented, and launched.*
 
 - [ ] **G2. Optional GPU compute path.** DoD: a compute-shader (Vulkan/OpenGL/compute via a chosen API) implementation of the analysis pass behind `--gpu`; falls back to CPU if unavailable; significant fps gain at high cell counts recorded. Reference: PHASE_G §GPU.
+  - 2026-06-19: `--gpu` is parsed and now logs an explicit CPU fallback when requested; actual compute implementation and fps-gain proof remain open.
 - [ ] **G7. Packaging.** DoD: single static-ish binary releases for Linux/macOS (+ Windows if feasible); a Homebrew formula and/or `.deb`; documented `ffmpeg` runtime requirement. Reference: PHASE_G §Packaging.
   - 2026-06-19: added CPack install/TGZ packaging, Linux DEB generation path, tag-driven release workflow, head-only Homebrew formula, and FFmpeg runtime docs. Local macOS package script builds, runs tests, emits TGZ, extracts it, and verifies `contourtty --version`; hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
 - [ ] **G9. Technique writeup / launch.** DoD: a blog post or video explaining the structure-mode technique (the shareable artifact); links from README. Reference: PHASE_G §Launch.

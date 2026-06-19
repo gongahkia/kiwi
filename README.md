@@ -91,7 +91,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--dither none\|ordered\|fs` | Palette dithering mode. |
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
 | `--log FILE` | Write diagnostics. |
-| `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
+| `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path; current builds log a CPU fallback. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
 | `--dump-png FILE` | Write dumped frame as RGB PNG. |
