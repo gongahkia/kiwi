@@ -74,3 +74,6 @@ jobs:
         run: |
           ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/contourtty-sanitize.mp4
           ./build/asan-ubsan/contourtty --width 16 --height 8 --dump-frame 1 --dump-png /tmp/contourtty-sanitize.png /tmp/contourtty-sanitize.mp4 >/tmp/contourtty-sanitize.probe
+
+      - name: Shutdown path smoke
+        run: scripts/verify_shutdown_paths.sh ./build/asan-ubsan/contourtty

@@ -54,25 +54,57 @@ expect_log() {
   fi
 }
 
+send_quit_keys() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 0.5
+    printf q
+  done
+}
+
+send_seek_then_quit_keys() {
+  for _ in 1 2 3 4 5 6 7 8; do
+    sleep 0.5
+    printf '\033[C'
+  done
+  for _ in 1 2 3 4 5 6 7 8; do
+    sleep 0.5
+    printf q
+  done
+}
+
 "$bin" --mode structure --width 24 --height 12 --fps 5 \
   --export "$tmp/normal.ansi" --log "$tmp/normal.log" "$tmp/fixture.mp4" >/dev/null
 expect_log "$tmp/normal.log" "exported frames="
 expect_log "$tmp/normal.log" "render stats frames="
 
-( sleep 1; printf q ) | run_pty "$tmp/quit.typescript" \
-  "$timeout_bin" 8 "$bin" --mode structure --width 24 --height 12 --fps 5 \
+set +e +o pipefail
+send_quit_keys | run_pty "$tmp/quit.typescript" \
+  "$timeout_bin" 30 "$bin" --mode structure --width 24 --height 12 --fps 5 \
   --log "$tmp/quit.log" "$tmp/fixture.mp4"
+quit_status=$?
+set -e -o pipefail
+if [[ "$quit_status" -ne 0 ]]; then
+  echo "keyboard quit path failed with status $quit_status" >&2
+  exit 1
+fi
 expect_log "$tmp/quit.log" "playback quit before eof"
 
-( sleep 1; printf '\033[C'; sleep 0.5; printf q ) | run_pty "$tmp/seek.typescript" \
-  "$timeout_bin" 10 "$bin" --mode structure --width 24 --height 12 --fps 5 \
+set +e +o pipefail
+send_seek_then_quit_keys | run_pty "$tmp/seek.typescript" \
+  "$timeout_bin" 40 "$bin" --mode structure --width 24 --height 12 --fps 5 \
   --log "$tmp/seek.log" "$tmp/fixture.mp4"
+seek_status=$?
+set -e -o pipefail
+if [[ "$seek_status" -ne 0 ]]; then
+  echo "seek path failed with status $seek_status" >&2
+  exit 1
+fi
 expect_log "$tmp/seek.log" "seek target_us="
 expect_log "$tmp/seek.log" "playback quit before eof"
 
 set +e
 run_pty "$tmp/sigint.typescript" \
-  "$timeout_bin" -s INT 2 "$bin" --mode structure --width 24 --height 12 --fps 5 \
+  "$timeout_bin" -s INT 8 "$bin" --mode structure --width 24 --height 12 --fps 5 \
   --log "$tmp/sigint.log" "$tmp/fixture.mp4"
 sigint_status=$?
 set -e
