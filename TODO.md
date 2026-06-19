@@ -223,7 +223,7 @@
 ## Cross-cutting / continuous
 
 - [ ] Keep visual-diff golden snapshots up to date on every renderer change
-- [ ] Maintain `CHANGELOG.md` via release-please
+- [x] Maintain `CHANGELOG.md` via release-please
 - [ ] Maintain `docs/adr/` decision log for any non-obvious architectural choice
 - [x] Run `cargo audit` weekly via Dependabot/Renovate
 - [x] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
