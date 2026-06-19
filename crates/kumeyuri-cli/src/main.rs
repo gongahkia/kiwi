@@ -10,6 +10,7 @@ use std::{
 };
 
 use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use kumeyuri_core::{
     abi::{Capability, CapabilitySet, KUMEYURI_ABI_VERSION},
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
@@ -207,6 +208,7 @@ enum RenderFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum ExportFormat {
     Kumecast,
+    KumecastGz,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -651,7 +653,7 @@ fn export_file(
 }
 
 fn convert_file(path: &Path, format: ConvertFormat, max_input_bytes: usize) -> Result<(), String> {
-    let source = read_source_file(path, max_input_bytes)?;
+    let source = read_cast_source_file(path, max_input_bytes)?;
     let output = convert_cast_source(&source, format)?;
     io::stdout()
         .write_all(&output)
@@ -1312,7 +1314,7 @@ fn fetch_url_bytes(url: &str) -> Result<Vec<u8>, String> {
         .map_err(|error| msg_args("http-read", &[msg_arg("url", url), msg_arg("error", error)]))
 }
 
-fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, String> {
+fn read_bytes_file(path: &Path, max_input_bytes: usize) -> Result<Vec<u8>, String> {
     let file = fs::File::open(path).map_err(|error| {
         msg_args(
             "error-read-path",
@@ -1338,12 +1340,48 @@ fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, Strin
             ],
         ));
     }
+    Ok(bytes)
+}
+
+fn read_source_file(path: &Path, max_input_bytes: usize) -> Result<String, String> {
+    let bytes = read_bytes_file(path, max_input_bytes)?;
     String::from_utf8(bytes).map_err(|error| {
         msg_args(
             "error-read-utf8",
             &[msg_arg("path", path.display()), msg_arg("error", error)],
         )
     })
+}
+
+fn read_playback_file_source(path: &Path, max_input_bytes: usize) -> Result<String, String> {
+    if is_kumecast_gz_path(path) {
+        return read_cast_source_file(path, max_input_bytes);
+    }
+    read_source_file(path, max_input_bytes)
+}
+
+fn read_cast_source_file(path: &Path, max_input_bytes: usize) -> Result<String, String> {
+    if !is_kumecast_gz_path(path) {
+        return read_source_file(path, max_input_bytes);
+    }
+    let bytes = read_bytes_file(path, max_input_bytes)?;
+    decode_gzip_bytes(&bytes, max_input_bytes)
+}
+
+fn decode_gzip_bytes(bytes: &[u8], max_output_bytes: usize) -> Result<String, String> {
+    let mut decoded = Vec::new();
+    GzDecoder::new(bytes)
+        .take(u64::try_from(max_output_bytes.saturating_add(1)).unwrap_or(u64::MAX))
+        .read_to_end(&mut decoded)
+        .map_err(|error| format!("invalid gzip stream: {error}"))?;
+    if decoded.len() > max_output_bytes {
+        return Err(format!(
+            "decompressed kumecast is too large: {} bytes exceeds limit {}",
+            decoded.len(),
+            max_output_bytes
+        ));
+    }
+    String::from_utf8(decoded).map_err(|error| format!("invalid kumecast UTF-8: {error}"))
 }
 
 fn validate_theme_file(path: &Path, max_input_bytes: usize) -> Result<(), String> {
@@ -1749,7 +1787,18 @@ fn export_source(
 ) -> Result<Vec<u8>, String> {
     match format {
         ExportFormat::Kumecast => Ok(render_kumecast_source(source, options)?.into_bytes()),
+        ExportFormat::KumecastGz => gzip_bytes(render_kumecast_source(source, options)?.as_bytes()),
     }
+}
+
+fn gzip_bytes(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder
+        .write_all(bytes)
+        .map_err(|error| format!("failed to encode gzip: {error}"))?;
+    encoder
+        .finish()
+        .map_err(|error| format!("failed to finish gzip stream: {error}"))
 }
 
 fn convert_cast_source(source: &str, format: ConvertFormat) -> Result<Vec<u8>, String> {
@@ -1994,15 +2043,27 @@ fn play_file(
     max_input_bytes: usize,
     debug: bool,
 ) -> Result<(), String> {
-    let source = read_source_file(path, max_input_bytes)?;
+    let source = read_playback_file_source(path, max_input_bytes)?;
     let timeline = playback_timeline_from_source(&source, options, is_kumecast_path(path))?;
     play_timeline(&timeline, debug)
 }
 
 fn is_kumecast_path(path: &Path) -> bool {
+    is_kumecast_gz_path(path)
+        || path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension == "kumecast")
+}
+
+fn is_kumecast_gz_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension == "kumecast")
+        .is_some_and(|extension| extension == "gz")
+        && path
+            .file_name()
+            .and_then(|file_name| file_name.to_str())
+            .is_some_and(|file_name| file_name.ends_with(".kumecast.gz"))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -3163,11 +3224,12 @@ mod tests {
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
         ExportFormat, PluginCommand, PluginRegistry, RenderCharset, RenderFormat, RenderOptions,
         RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS,
-        compat_report, convert_cast_source, disable_plugin_records, export_source,
-        format_lint_text, format_theme_list, layout_warnings, lint_source, load_render_theme_file,
-        parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_speed_override, playback_options, playback_timeline_from_source,
-        plugin_runtime_policy, publish_theme_file, read_installed_plugin_records, read_source_file,
+        compat_report, convert_cast_source, decode_gzip_bytes, disable_plugin_records,
+        export_source, format_lint_text, format_theme_list, layout_warnings, lint_source,
+        load_render_theme_file, parse_diagram, parse_non_empty_string, parse_positive_input_bytes,
+        parse_positive_usize, parse_speed_override, playback_options,
+        playback_timeline_from_source, plugin_runtime_policy, publish_theme_file,
+        read_cast_source_file, read_installed_plugin_records, read_source_file,
         remove_plugin_records, render_source, render_timeline_vtt, resolve_ai_library_path,
         resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
         timeline_from_source, timeline_from_source_with_options,
@@ -3353,15 +3415,19 @@ mod tests {
 
     #[test]
     fn export_parser_accepts_kumecast_format() {
-        let cli =
-            Cli::try_parse_from(["kumeyuri", "export", "diagram.mmd", "--format", "kumecast"])
+        for (value, expected) in [
+            ("kumecast", ExportFormat::Kumecast),
+            ("kumecast-gz", ExportFormat::KumecastGz),
+        ] {
+            let cli = Cli::try_parse_from(["kumeyuri", "export", "diagram.mmd", "--format", value])
                 .unwrap();
-        let Some(Command::Export { file, format, .. }) = cli.command else {
-            panic!("expected export command");
-        };
+            let Some(Command::Export { file, format, .. }) = cli.command else {
+                panic!("expected export command");
+            };
 
-        assert_eq!(file, PathBuf::from("diagram.mmd"));
-        assert_eq!(format, ExportFormat::Kumecast);
+            assert_eq!(file, PathBuf::from("diagram.mmd"));
+            assert_eq!(format, expected);
+        }
     }
 
     #[test]
@@ -3383,6 +3449,32 @@ mod tests {
         assert_eq!(cast.theme.name, "default");
         assert!(!cast.timeline.frames.is_empty());
         assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn exports_and_reads_gzipped_kumecast() {
+        let gzipped = export_source(
+            "graph TD\nA --> B",
+            ExportFormat::KumecastGz,
+            &RenderOptions::default(),
+        )
+        .unwrap();
+
+        assert_eq!(&gzipped[..2], &[0x1f, 0x8b]);
+        let json = decode_gzip_bytes(&gzipped, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+        let cast = Kumecast::from_json_str(&json).unwrap();
+        assert_eq!(cast.source.diagram_type, "flowchart");
+
+        let root = unique_temp_dir("kumecast-gzip");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("diagram.kumecast.gz");
+        fs::write(&path, gzipped).unwrap();
+        let source = read_cast_source_file(&path, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+        assert_eq!(
+            Kumecast::from_json_str(&source).unwrap().source.mermaid,
+            "graph TD\nA --> B"
+        );
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

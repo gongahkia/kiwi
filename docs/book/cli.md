@@ -9,8 +9,8 @@ kumeyuri <COMMAND>
 | Command | Purpose |
 | --- | --- |
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
-| `export` | Export a file to portable `.kumecast` JSON |
-| `convert` | Convert a `.kumecast` file back to SVG, GIF, or text frames |
+| `export` | Export a file to portable `.kumecast` JSON or `.kumecast.gz` gzip |
+| `convert` | Convert a `.kumecast`/`.kumecast.gz` file back to SVG, GIF, or text frames |
 | `lint` | Print layout warnings as text or JSON |
 | `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
@@ -75,18 +75,19 @@ kumeyuri export [OPTIONS] <FILE>
 
 | Option | Values |
 | --- | --- |
-| `--format` | `kumecast` |
+| `--format` | `kumecast`, `kumecast-gz` |
 | `--theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula`, `solarized-light`, `solarized-dark`, `nord`, `catppuccin-mocha`, `high-contrast`, `print-mono` |
 | `--charset` | `ascii`, `unicode` |
 | `--width` | Positive cell count |
 | `--max-label-width` | Positive cell count for flowchart label wrapping |
 
-`--format` defaults to `kumecast`. Export writes JSON to stdout.
+`--format` defaults to `kumecast`. `kumecast-gz` writes gzip-compressed JSON to stdout.
 
 Example:
 
 ```bash
 kumeyuri export diagram.mmd --format kumecast > diagram.kumecast
+kumeyuri export diagram.mmd --format kumecast-gz > diagram.kumecast.gz
 ```
 
 ## Convert
@@ -99,8 +100,8 @@ kumeyuri convert [OPTIONS] <CAST>
 | --- | --- |
 | `--format` | `svg`, `gif`, `text` |
 
-`--format` defaults to `svg`. Text conversion prints every cast frame with a
-duration header.
+`--format` defaults to `svg`. Input may be `.kumecast` or `.kumecast.gz`. Text
+conversion prints every cast frame with a duration header.
 
 Examples:
 
@@ -182,8 +183,8 @@ kumeyuri play [OPTIONS] <FILE>
 | `--speed <FACTOR>` | Override timeline speed |
 | `--loop` | Repeat playback |
 
-`play` accepts Mermaid source files and `.kumecast` files. Cast files are decoded
-directly without reparsing Mermaid source.
+`play` accepts Mermaid source files plus `.kumecast` and `.kumecast.gz` files.
+Cast files are decoded directly without reparsing Mermaid source.
 
 Interactive controls:
 

@@ -396,7 +396,7 @@
 - [x] Implement `kumeyuri export --format kumecast`
 - [x] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
 - [x] Implement `kumeyuri play <cast>` in TUI
-- [ ] Add gzip variant `.kumecast.gz`
+- [x] Add gzip variant `.kumecast.gz`
 - [ ] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
 - [ ] Build hosted player `play.kumeyuri.dev?cast=<url>`
 - [ ] Add cast-diffing CI test ensuring format determinism across kumeyuri patch versions
