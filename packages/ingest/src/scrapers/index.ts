@@ -5,6 +5,7 @@ import { cncfGlossaryScraper } from "./cncf-glossary.js";
 import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
 import { gcpServicesScraper } from "./gcp-services.js";
 import { exampleScraper } from "./example.js";
+import { ietfRfcIndexScraper } from "./ietf-rfc-index.js";
 import { jargonFileScraper } from "./jargon-file.js";
 import { kubernetesGlossaryScraper } from "./kubernetes-glossary.js";
 import { linuxFoundationGlossaryScraper } from "./linux-foundation-glossary.js";
@@ -21,6 +22,7 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
   [gcpServicesScraper.name, gcpServicesScraper],
   [exampleScraper.name, exampleScraper],
+  [ietfRfcIndexScraper.name, ietfRfcIndexScraper],
   [jargonFileScraper.name, jargonFileScraper],
   [kubernetesGlossaryScraper.name, kubernetesGlossaryScraper],
   [linuxFoundationGlossaryScraper.name, linuxFoundationGlossaryScraper],

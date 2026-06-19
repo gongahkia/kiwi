@@ -1,7 +1,7 @@
 import spdxLicenseIds from "spdx-license-ids";
 
 const spdxLicenseSet = new Set<string>(spdxLicenseIds);
-const localPublicDomainLicenses = new Set(["LicenseRef-Public-Domain"]);
+const localCompatibleLicenses = new Set(["LicenseRef-IETF-TLP-5.0", "LicenseRef-Public-Domain"]);
 const incompatibleLicenses = new Set(["CC-BY-NC-ND-3.0", "CC-BY-NC-ND-4.0"]);
 
 export class IncompatibleSourceLicenseError extends Error {
@@ -19,7 +19,7 @@ export class UnknownSourceLicenseError extends Error {
 }
 
 export function assertCompatibleSourceLicense(license: string): void {
-  if (!spdxLicenseSet.has(license) && !localPublicDomainLicenses.has(license)) {
+  if (!spdxLicenseSet.has(license) && !localCompatibleLicenses.has(license)) {
     throw new UnknownSourceLicenseError(license);
   }
 

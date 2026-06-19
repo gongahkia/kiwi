@@ -17,6 +17,10 @@ describe("source license validation", () => {
     expect(() => assertCompatibleSourceLicense("LicenseRef-Public-Domain")).not.toThrow();
   });
 
+  it("allows the IETF Trust Legal Provisions source marker", () => {
+    expect(() => assertCompatibleSourceLicense("LicenseRef-IETF-TLP-5.0")).not.toThrow();
+  });
+
   it("rejects unknown licenses", () => {
     expect(() => assertCompatibleSourceLicense("unknown")).toThrow(UnknownSourceLicenseError);
   });

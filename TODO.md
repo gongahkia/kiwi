@@ -24,7 +24,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P1 — Public corpus ingestion framework
 
 ## P1 — Public corpus scrapers (one task per source)
-- [ ] IETF RFC index scraper (RFCs that define acronyms) — done when ≥500 RFC-anchored acronyms imported (eg. TCP, BGP, SMTP) w/ RFC number + section.
 
 ## P1 — Corpus quality controls
 
