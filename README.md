@@ -1,22 +1,25 @@
-# kumeyuri
+# fried-apple-pie
 
-[![CI](https://github.com/gongahkia/kumeyuri/actions/workflows/ci.yml/badge.svg)](https://github.com/gongahkia/kumeyuri/actions/workflows/ci.yml)
-[![Project metrics](./metrics/dashboard.svg)](./docs/book/metrics.md)
+Personal pi customisations live here.
 
-Mermaid, animated. Anywhere text renders.
+## Terminal line
 
-Project direction: [NORTHSTAR.md](./NORTHSTAR.md)
+Extension: `extensions/terminal-line.ts`
 
-Docs: [docs/book](./docs/book/index.md)
+Shows real available pi data:
 
-Adoption: [docs/adoption.md](./docs/adoption.md)
+```txt
+gpt-5.5▸xhigh · ~/Desktop/coding/projects/... · main · Working · Context 36% left
+```
 
-Compatibility dashboard: [docs/book/compat-dashboard.md](./docs/book/compat-dashboard.md)
+Reload all pi resources:
 
-Migration audit: `kumeyuri audit-mermaid ./docs`
+```txt
+/reload
+```
 
-Website: [site](./site/index.html)
+Or reinstall this footer line:
 
-Examples: [examples](./examples/README.md)
-
-Demos: [demos](./demos/README.md)
+```txt
+/terminal-line
+```
