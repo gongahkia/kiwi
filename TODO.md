@@ -16,7 +16,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Hand-curate 50 high-quality seed entries in `packages/ingest/seeds/manual.json` — done when JSON validates against schema and includes ≥3 disambiguation cases (eg. CAP, SLA, REST).
 
 ## P0 — Database & migrations
-- [ ] Choose Postgres 16 as min version — done when `docker-compose.yml` pins `postgres:16-alpine`.
 - [ ] Install Drizzle ORM in `packages/db` — done when `drizzle.config.ts` exists and `pnpm db:generate` produces migration file.
 - [ ] Enable `pgvector` extension — done when migration creates `CREATE EXTENSION IF NOT EXISTS vector;`.
 - [ ] Enable `pg_trgm` extension — done when migration creates `CREATE EXTENSION IF NOT EXISTS pg_trgm;`.
