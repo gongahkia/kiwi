@@ -4,21 +4,11 @@ import { Check, Clipboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SearchEntry } from "@wat/search";
 
+import { copyTextToClipboard, formatCitation } from "@/components/copy-citation";
 import { Button } from "@/components/ui/button";
 
 interface CopyCitationButtonProps {
   entry: SearchEntry;
-}
-
-function formatCitation(entry: SearchEntry) {
-  const source = entry.sources[0];
-  const expansion = entry.expansions[0] ?? entry.term;
-
-  if (!source) {
-    return `**${entry.term}** — ${expansion}`;
-  }
-
-  return `**${entry.term}** — ${expansion}. [${source.title}](${source.url}) (${source.publisher}, ${source.license}).`;
 }
 
 export function CopyCitationButton({ entry }: CopyCitationButtonProps) {
@@ -34,8 +24,7 @@ export function CopyCitationButton({ entry }: CopyCitationButtonProps) {
   }, [copied]);
 
   async function copyCitation() {
-    await navigator.clipboard.writeText(formatCitation(entry));
-    setCopied(true);
+    setCopied(await copyTextToClipboard(formatCitation(entry)));
   }
 
   return (
