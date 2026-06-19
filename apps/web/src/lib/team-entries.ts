@@ -16,7 +16,7 @@ export interface TeamEntry {
   term: string;
 }
 
-export const teamEntries: TeamEntry[] = [
+export const initialTeamEntries: TeamEntry[] = [
   {
     domains: ["example.com", "platform"],
     expansion: "Change Approval Process",
@@ -53,11 +53,48 @@ export const teamEntries: TeamEntry[] = [
   }
 ];
 
+let teamEntries = structuredClone(initialTeamEntries);
+
+export function getTeamEntries(): TeamEntry[] {
+  return structuredClone(teamEntries);
+}
+
+export function resetTeamEntriesForTest() {
+  teamEntries = structuredClone(initialTeamEntries);
+}
+
+function importKey(entry: TeamEntry): string {
+  return `${entry.term.trim().toLowerCase()}:${entry.expansion.trim().toLowerCase()}`;
+}
+
+export function importTeamEntries(entries: TeamEntry[]): {
+  inserted: TeamEntry[];
+  skipped: TeamEntry[];
+} {
+  const existing = new Set(teamEntries.map(importKey));
+  const inserted: TeamEntry[] = [];
+  const skipped: TeamEntry[] = [];
+
+  for (const entry of entries) {
+    const key = importKey(entry);
+    if (existing.has(key)) {
+      skipped.push(entry);
+      continue;
+    }
+
+    teamEntries.push(structuredClone(entry));
+    existing.add(key);
+    inserted.push(entry);
+  }
+
+  return { inserted, skipped };
+}
+
 function csvCell(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
-export function teamEntriesCsv(entries = teamEntries): string {
+export function teamEntriesCsv(entries = getTeamEntries()): string {
   const header = ["id", "term", "expansion", "meaning", "domains", "sources"];
   const rows = entries.map((entry) =>
     [

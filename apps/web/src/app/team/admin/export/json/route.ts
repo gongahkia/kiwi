@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { teamEntries } from "@/lib/team-entries";
+import { getTeamEntries } from "@/lib/team-entries";
 
 export function GET() {
   return NextResponse.json({
-    entries: teamEntries,
+    entries: getTeamEntries(),
     exported_at: new Date().toISOString()
   });
 }
