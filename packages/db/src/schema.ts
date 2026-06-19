@@ -4,6 +4,7 @@ import {
   check,
   customType,
   integer,
+  pgEnum,
   jsonb,
   pgTable,
   text,
@@ -21,6 +22,8 @@ const vector384 = customType<{ data: number[] }>({
     return "vector(384)";
   }
 });
+
+export const userRole = pgEnum("user_role", ["admin", "member"]);
 
 export const entries = pgTable(
   "entries",
@@ -83,4 +86,12 @@ export const teams = pgTable("teams", {
   settingsJsonb: jsonb("settings_jsonb")
     .notNull()
     .default(sql`'{}'::jsonb`)
+});
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  teamId: text("team_id").references(() => teams.id),
+  role: userRole("role").notNull().default("member"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
