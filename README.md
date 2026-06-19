@@ -110,8 +110,6 @@ The luminance renderer picks a glyph from the brightness ramp for every cell. St
 
 When shape matching is enabled, the edge magnitude field inside the cell is sampled into a compact shape vector and compared against precomputed vectors for the structure glyph set. This lets the renderer choose by local stroke shape rather than by brightness alone. DoG (`--dog-sigma`) can isolate line-like detail before Sobel, and `--contrast` can widen separation in low-contrast footage.
 
-Longer technique writeup: [docs/structure-mode-writeup.md](docs/structure-mode-writeup.md).
-
 Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Name

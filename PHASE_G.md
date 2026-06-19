@@ -1,8 +1,8 @@
 # PHASE_G.md — Performance, Polish, Release (→ v1.0)
 
-**Goal:** Make it fast (SIMD/threads, optional GPU), add exports, package it, document it thoroughly, and launch with a technique writeup. This is what turns a working tool into a 3,000-star tool.
+**Goal:** Make it fast (SIMD/threads, optional GPU), add exports, package it, document it thoroughly, and launch with honest demos.
 
-**Exit criteria → tag `v1.0`:** fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with a published technique writeup and reproducible benchmarks.
+**Exit criteria → tag `v1.0`:** fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with reproducible benchmarks.
 
 ---
 
@@ -49,11 +49,6 @@
 - README: hero GIF (the structure-mode side-by-side from Phase E), one-line install, usage examples, full flag reference, a "How structure mode works" section (the technique, with a diagram), benchmarks link, license.
 - `CONTRIBUTING.md`, a generated man page, and inline `--help` parity with README.
 - **DoD:** a newcomer can install, run, and understand the differentiator from the README alone.
-
-## §Launch (G9)
-- A blog post and/or video explaining structure-mode (the shape-vector matching, the DoG edges, the cell-aspect problem, the differential emitter). This is the shareable artifact that drives adoption and is exactly what the graphics-programming audience (Acerola-style) engages with.
-- Post to relevant communities; link from README.
-- **DoD:** writeup published and linked.
 
 ## §Bench — publish honest numbers (G10)
 - Finalize `BENCHMARKS.md`: machine specs, exact commands, sustained cols×rows×fps per mode (luminance / directional / shape-match / half-block / braille), CPU vs GPU, A/V drift, dropped frames. Reproducible.

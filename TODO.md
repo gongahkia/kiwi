@@ -86,9 +86,7 @@
   - 2026-06-19: re-ran `scripts/package_release.sh` after adding the Objective-C++/Metal source; release build, 19 tests, and CPack TGZ generation passed locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
   - 2026-06-19: re-ran `scripts/package_release.sh` after the Metal average-output update; release build, 19 tests, and CPack TGZ generation still pass locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
   - 2026-06-19: re-ran `scripts/package_release.sh` after GPU DoG completion; release build, 19 tests, and CPack TGZ generation still pass locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
-- [ ] **G9. Technique writeup / launch.** DoD: a blog post or video explaining the structure-mode technique (the shareable artifact); links from README. Reference: PHASE_G §Launch.
-  - 2026-06-19: drafted and linked `docs/structure-mode-writeup.md`; external publication/launch post remains unverified.
-- [ ] **Phase G exit criteria → tag `v1.0`.** DoD: fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with a published technique writeup and reproducible benchmarks.
+- [ ] **Phase G exit criteria → tag `v1.0`.** DoD: fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with reproducible benchmarks.
 
 ---
 
