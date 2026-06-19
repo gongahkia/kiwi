@@ -48,3 +48,7 @@ Adapters:
   and line counts for successful outputs while preserving missing/error states.
 * `npm run bench:compare:results` writes the same aggregate payload to
   `bench/results.json` for downstream publishing jobs.
+* `npm run bench:compare:timing` runs `hyperfine` against available adapters for
+  one corpus input and writes the JSON export under
+  `benches/compare/results/timing.json`. Set `MERMAID_ASCII_BIN` and
+  `PGAVLIN_MERMAID_ASCII_BIN` to include external Go adapters.
