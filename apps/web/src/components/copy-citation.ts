@@ -25,20 +25,24 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
 }
 
 function copyTextWithTextarea(text: string): boolean {
-  if (typeof document === "undefined") return false;
+  if (typeof document === "undefined" || !document.body) return false;
 
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.left = "-9999px";
-  textarea.style.position = "fixed";
-  document.body.append(textarea);
-  textarea.select();
+  let textarea: HTMLTextAreaElement | null = null;
   try {
+    textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.dataset.copyFallback = "true";
+    textarea.setAttribute("readonly", "");
+    textarea.style.left = "-9999px";
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    document.body.append(textarea);
+    textarea.focus();
+    textarea.select();
     return document.execCommand("copy");
   } catch {
     return false;
   } finally {
-    textarea.remove();
+    textarea?.remove();
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clipboard } from "lucide-react";
+import { Check, Clipboard, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SearchEntry } from "@wat/search";
 
@@ -11,32 +11,41 @@ interface CopyCitationButtonProps {
   entry: SearchEntry;
 }
 
+type CopyState = "idle" | "copied" | "failed";
+
 export function CopyCitationButton({ entry }: CopyCitationButtonProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
 
   useEffect(() => {
-    if (!copied) {
+    if (copyState === "idle") {
       return;
     }
 
-    const timer = window.setTimeout(() => setCopied(false), 1200);
+    const timer = window.setTimeout(() => setCopyState("idle"), 1200);
     return () => window.clearTimeout(timer);
-  }, [copied]);
+  }, [copyState]);
 
   async function copyCitation() {
-    setCopied(await copyTextToClipboard(formatCitation(entry)));
+    setCopyState((await copyTextToClipboard(formatCitation(entry))) ? "copied" : "failed");
   }
+
+  const label =
+    copyState === "copied"
+      ? "Citation copied"
+      : copyState === "failed"
+        ? "Copy failed"
+        : "Copy citation";
 
   return (
     <Button
-      aria-label={copied ? "Citation copied" : "Copy citation"}
+      aria-label={label}
       onClick={copyCitation}
       size="icon"
-      title={copied ? "Citation copied" : "Copy citation"}
+      title={label}
       type="button"
       variant="outline"
     >
-      {copied ? <Check /> : <Clipboard />}
+      {copyState === "copied" ? <Check /> : copyState === "failed" ? <X /> : <Clipboard />}
     </Button>
   );
 }

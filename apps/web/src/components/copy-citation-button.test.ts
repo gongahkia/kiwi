@@ -47,6 +47,8 @@ describe("copy citation button helpers", () => {
 
   it("falls back when navigator clipboard is unavailable", async () => {
     const textarea = {
+      dataset: {} as Record<string, string>,
+      focus: vi.fn(),
       remove: vi.fn(),
       select: vi.fn(),
       setAttribute: vi.fn(),
@@ -64,7 +66,39 @@ describe("copy citation button helpers", () => {
 
     await expect(copyTextToClipboard("citation")).resolves.toBe(true);
     expect(append).toHaveBeenCalledWith(textarea);
+    expect(textarea.focus).toHaveBeenCalled();
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(textarea.remove).toHaveBeenCalled();
+  });
+
+  it("falls back when navigator clipboard rejects", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    const textarea = {
+      dataset: {} as Record<string, string>,
+      focus: vi.fn(),
+      remove: vi.fn(),
+      select: vi.fn(),
+      setAttribute: vi.fn(),
+      style: {} as Record<string, string>,
+      value: ""
+    };
+    const execCommand = vi.fn().mockReturnValue(true);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vi.stubGlobal("document", {
+      body: { append: vi.fn() },
+      createElement: vi.fn().mockReturnValue(textarea),
+      execCommand
+    });
+
+    await expect(copyTextToClipboard("citation")).resolves.toBe(true);
+    expect(writeText).toHaveBeenCalledWith("citation");
+    expect(execCommand).toHaveBeenCalledWith("copy");
+  });
+
+  it("returns false when no clipboard path is available", async () => {
+    vi.stubGlobal("navigator", {});
+    vi.stubGlobal("document", {});
+
+    await expect(copyTextToClipboard("citation")).resolves.toBe(false);
   });
 });
