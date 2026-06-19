@@ -82,7 +82,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement confidence-tier toggle — done when T3/T4 entries hidden by default, revealed by toggle.
 - [ ] Implement domain filter dropdown — done when filter narrows results live.
 - [ ] Implement keyboard nav (arrows + enter) — done when nav works without mouse.
-- [ ] Implement entry detail page `/term/[id]` — done when page renders meaning, examples, sources w/ links, history.
 - [ ] Implement copy-citation button — done when click copies Markdown citation to clipboard.
 - [ ] Implement permalink + share-link UI — done when share URL resolves back to entry.
 - [ ] Implement Open Graph image generation per entry — done when entry page meta has og:image w/ acronym + expansion.
