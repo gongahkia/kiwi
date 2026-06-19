@@ -38,7 +38,14 @@ importers:
 
   apps/mcp: {}
 
-  apps/slack: {}
+  apps/slack:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.0.0
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@26.0.0)(vite@8.0.16(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
 
   apps/web:
     dependencies:

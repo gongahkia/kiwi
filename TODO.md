@@ -127,7 +127,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement `/wat-suggest` for members — done when members can suggest, queued for admin review in web app.
 - [ ] Implement opt-in auto-detect mode (channel setting) — done when bot posts ephemeral suggestion in channels w/ unknown-acronym usage.
 - [ ] Implement rate limiting per-workspace — done when bursts >30/min throttle gracefully.
-- [ ] Token storage encryption — done when tokens encrypted w/ AES-GCM via env-provided KMS key.
 - [ ] Submit Slack App Directory listing — done when listing is in review w/ security questionnaire complete.
 - [ ] Record 30-sec demo GIF of `/wat` + message shortcut — done when GIF in `/docs/assets/slack-demo.gif`.
 
