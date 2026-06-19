@@ -16,6 +16,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
       - name: Poll daily metrics
         run: npm run metrics:poll
         env:
@@ -25,13 +29,15 @@ jobs:
           METRICS_NPM_PACKAGE: kumeyuri
       - name: Aggregate weekly metrics
         run: npm run metrics:weekly
+      - name: Generate dashboard
+        run: npm run metrics:dashboard
       - name: Commit metrics
         run: |
-          if git diff --quiet -- metrics/daily.csv metrics/weekly.csv; then
+          if git diff --quiet -- metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add metrics/daily.csv metrics/weekly.csv
+          git add metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg
           git commit -m "metrics: update daily snapshot"
           git push

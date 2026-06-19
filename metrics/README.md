@@ -9,9 +9,6 @@ Planned generated files:
 * `weekly.csv` - weekly rollups derived from `daily.csv`.
 * `dashboard.svg` - rendered weekly summary for README/docs embedding.
 
-Until the scheduled polling workflow is added, keep committed files limited to
-schema documentation and small hand-maintained examples.
-
 CSV schema:
 
 * `daily.csv`: `date,github_stars,github_forks,crates_downloads,npm_downloads`
@@ -28,4 +25,10 @@ Append or update today's row with:
 
 ```sh
 METRICS_GITHUB_REPO=kumeyuri/kumeyuri node scripts/poll-daily-metrics.mjs
+```
+
+Regenerate the dogfooded dashboard SVG with:
+
+```sh
+node scripts/generate-metrics-dashboard.mjs
 ```
