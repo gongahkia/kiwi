@@ -243,7 +243,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P8 — Maintenance & long-haul
 - [ ] Rotate API keys + tokens quarterly — done when calendar reminder + rotation script exist.
-- [ ] Quarterly license audit on corpus — done when audit log committed.
 - [ ] Track corpus quality KPI — done when monthly report committed (hit-rate, drift, source coverage).
 - [ ] Track surface adoption KPI — done when monthly report committed (web MAU, ext installs, Slack installs, MCP installs).
 
