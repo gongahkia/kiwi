@@ -13,7 +13,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
-- [ ] Define disambiguation rules document `docs/disambiguation.md` — done when doc specifies ranking inputs, tie-break order, and worked examples.
 - [ ] Hand-curate 50 high-quality seed entries in `packages/ingest/seeds/manual.json` — done when JSON validates against schema and includes ≥3 disambiguation cases (eg. CAP, SLA, REST).
 - [ ] Decide JSON-on-disk vs DB-on-day-one — done when ADR `docs/adr/0001-storage.md` documents choice (DB chosen) w/ rationale.
 - [ ] Write ADR `docs/adr/0002-search.md` for hybrid BM25 + vector + trigram via Postgres only — done when ADR committed.
