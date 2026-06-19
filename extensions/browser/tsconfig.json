@@ -5,5 +5,5 @@
     "rootDir": ".",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": [".wxt/wxt.d.ts", "entrypoints/**/*.ts", "wxt.config.ts"]
+  "include": [".wxt/wxt.d.ts", "entrypoints/**/*.ts", "src/**/*.ts", "wxt.config.ts"]
 }

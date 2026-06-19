@@ -1,19 +1,9 @@
-interface WatOptions {
-  accountEmail: string;
-  apiBaseUrl: string;
-  apiToken: string;
-  domainFilters: string[];
-  hoverMode: boolean;
-}
-
-const storageKey = "watOptions";
-const defaultOptions: WatOptions = {
-  accountEmail: "",
-  apiBaseUrl: "http://localhost:3000",
-  apiToken: "",
-  domainFilters: [],
-  hoverMode: false
-};
+import {
+  defaultOptions,
+  loadWatOptions,
+  optionsStorageKey,
+  type WatOptions
+} from "../../src/options.js";
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -62,17 +52,13 @@ function optionsFromForm(): WatOptions {
 }
 
 async function loadOptions() {
-  const stored = (await browser.storage.local.get(storageKey)) as Record<
-    string,
-    Partial<WatOptions>
-  >;
-  renderOptions({ ...defaultOptions, ...(stored[storageKey] ?? {}) });
+  renderOptions(await loadWatOptions());
 }
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const options = optionsFromForm();
-  void browser.storage.local.set({ [storageKey]: options }).then(() => {
+  void browser.storage.local.set({ [optionsStorageKey]: options }).then(() => {
     status.textContent = "Saved";
   });
 });
