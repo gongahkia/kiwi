@@ -25,7 +25,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Write DB integration tests for CRUD + tsvector regeneration — done when `pnpm test --filter @wat/db` passes ≥10 cases.
 
 ## P0 — Core package
-- [ ] Implement entry validator (Zod + business rules) — done when all 50 seed entries validate.
 
 ## P1 — Search engine
 - [ ] Implement BM25-ish query via Postgres `ts_rank_cd` — done when query returns ranked entries for 20 fixture queries.
