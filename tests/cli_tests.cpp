@@ -1,9 +1,14 @@
 #include "cli.hpp"
 
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <string>
 
 namespace {
+
+namespace fs = std::filesystem;
 
 void expect(bool condition, const char* label) {
   if (!condition) {
@@ -12,9 +17,29 @@ void expect(bool condition, const char* label) {
   }
 }
 
+void setConfigRoot(const fs::path& root) {
+  fs::create_directories(root / "contourtty");
+  const std::string value = root.string();
+#ifdef _WIN32
+  _putenv_s("XDG_CONFIG_HOME", value.c_str());
+#else
+  setenv("XDG_CONFIG_HOME", value.c_str(), 1);
+#endif
+}
+
+void writeConfig(const fs::path& root, const std::string& text) {
+  setConfigRoot(root);
+  std::ofstream output(root / "contourtty" / "config");
+  output << text;
+}
+
 }  // namespace
 
 int main() {
+  const fs::path test_root = fs::temp_directory_path() / "contourtty-cli-tests";
+  fs::remove_all(test_root);
+  setConfigRoot(test_root / "empty");
+
   {
     const char* argv[] = {"contourtty", "--dog-sigma", "0"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
@@ -85,4 +110,44 @@ int main() {
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "edge strength rejects negative");
   }
+
+  {
+    writeConfig(test_root / "defaults", "mode=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmono=true\n");
+    const char* argv[] = {"contourtty", "movie.mp4"};
+    const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "config defaults parse");
+    expect(parsed.options.mode == "structure", "config mode stored");
+    expect(parsed.options.charset.has_value() && *parsed.options.charset == " .#", "config charset stored");
+    expect(parsed.options.width.has_value() && *parsed.options.width == 33, "config width stored");
+    expect(parsed.options.fit, "config fit stored");
+    expect(parsed.options.color_mode == "mono", "config mono stored");
+    expect(parsed.options.input.has_value() && *parsed.options.input == "movie.mp4", "config keeps cli input");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--charset", "@%", "--width", "44", "--no-fit", "--color-mode", "truecolor", "movie.mp4"};
+    const auto parsed = contourtty::parseArgs(9, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "cli overrides config parse");
+    expect(parsed.options.mode == "structure", "config mode remains default");
+    expect(parsed.options.charset.has_value() && *parsed.options.charset == "@%", "cli charset overrides config");
+    expect(parsed.options.width.has_value() && *parsed.options.width == 44, "cli width overrides config");
+    expect(!parsed.options.fit, "cli no-fit overrides config");
+    expect(parsed.options.color_mode == "truecolor", "cli color overrides config mono");
+  }
+
+  {
+    writeConfig(test_root / "bad", "width=0\n");
+    const char* argv[] = {"contourtty", "movie.mp4"};
+    const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "invalid config fails");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--help"};
+    const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "help bypasses invalid config");
+    expect(parsed.action == contourtty::CliAction::Help, "help action bypasses invalid config");
+  }
+
+  fs::remove_all(test_root);
 }

@@ -4,9 +4,12 @@
 
 #include <charconv>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace contourtty {
 namespace {
@@ -88,10 +91,102 @@ std::optional<std::string_view> readValue(int argc, char** argv, int* index, std
   return std::string_view(argv[*index]);
 }
 
-}  // namespace
+std::string_view trim(std::string_view value) {
+  while (!value.empty() && (value.front() == ' ' || value.front() == '\t' || value.front() == '\r')) {
+    value.remove_prefix(1);
+  }
+  while (!value.empty() && (value.back() == ' ' || value.back() == '\t' || value.back() == '\r')) {
+    value.remove_suffix(1);
+  }
+  return value;
+}
 
-CliParseResult parseArgs(int argc, char** argv) {
+std::string unquote(std::string_view value) {
+  value = trim(value);
+  if (value.size() >= 2 && ((value.front() == '"' && value.back() == '"') || (value.front() == '\'' && value.back() == '\''))) {
+    value.remove_prefix(1);
+    value.remove_suffix(1);
+  }
+  return std::string(value);
+}
+
+std::optional<CliAction> earlyAction(int argc, char** argv) {
+  if (argc < 2) {
+    return std::nullopt;
+  }
+  const std::string_view arg(argv[1]);
+  if (arg == "--help") {
+    return CliAction::Help;
+  }
+  if (arg == "--version") {
+    return CliAction::Version;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::filesystem::path> defaultConfigPath() {
+  if (const char* xdg_config_home = std::getenv("XDG_CONFIG_HOME"); xdg_config_home != nullptr && *xdg_config_home != '\0') {
+    return std::filesystem::path(xdg_config_home) / "contourtty" / "config";
+  }
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+    return std::filesystem::path(home) / ".config" / "contourtty" / "config";
+  }
+  return std::nullopt;
+}
+
+bool isConfigBooleanKey(std::string_view key) {
+  return isOneOf(key, {"fit", "loop", "gpu", "mono"});
+}
+
+std::optional<bool> parseConfigBool(std::string_view value) {
+  value = trim(value);
+  if (isOneOf(value, {"true", "yes", "on", "1"})) {
+    return true;
+  }
+  if (isOneOf(value, {"false", "no", "off", "0"})) {
+    return false;
+  }
+  return std::nullopt;
+}
+
+std::string normalizeConfigKey(std::string_view key) {
+  key = trim(key);
+  if (key.starts_with("--")) {
+    key.remove_prefix(2);
+  }
+  std::string normalized(key);
+  for (char& ch : normalized) {
+    if (ch == '_') {
+      ch = '-';
+    }
+  }
+  return normalized;
+}
+
+bool appendConfigArg(std::vector<std::string>* args, std::string_view key_view, std::string_view value_view, std::string* error) {
+  const std::string key = normalizeConfigKey(key_view);
+  const std::string value = unquote(value_view);
+  if (key.empty()) {
+    *error = "empty config key";
+    return false;
+  }
+  if (isConfigBooleanKey(key)) {
+    const auto parsed = parseConfigBool(value);
+    if (!parsed.has_value()) {
+      *error = "invalid boolean for " + key + ": " + value;
+      return false;
+    }
+    args->push_back(*parsed ? "--" + key : "--no-" + key);
+    return true;
+  }
+  args->push_back("--" + key);
+  args->push_back(value);
+  return true;
+}
+
+CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
   CliParseResult result;
+  result.options = defaults;
 
   for (int i = 1; i < argc; ++i) {
     std::string_view arg(argv[i]);
@@ -134,16 +229,32 @@ CliParseResult parseArgs(int argc, char** argv) {
       result.options.fit = true;
       continue;
     }
+    if (flag == "--no-fit") {
+      result.options.fit = false;
+      continue;
+    }
     if (flag == "--loop") {
       result.options.loop = true;
+      continue;
+    }
+    if (flag == "--no-loop") {
+      result.options.loop = false;
       continue;
     }
     if (flag == "--gpu") {
       result.options.gpu = true;
       continue;
     }
+    if (flag == "--no-gpu") {
+      result.options.gpu = false;
+      continue;
+    }
     if (flag == "--mono") {
       result.options.color_mode = "mono";
+      continue;
+    }
+    if (flag == "--no-mono") {
+      result.options.color_mode = "auto";
       continue;
     }
 
@@ -295,6 +406,66 @@ CliParseResult parseArgs(int argc, char** argv) {
   return result;
 }
 
+CliParseResult loadConfigDefaults() {
+  CliParseResult result;
+  const auto config_path = defaultConfigPath();
+  if (!config_path.has_value() || !std::filesystem::exists(*config_path)) {
+    return result;
+  }
+  std::ifstream input(*config_path);
+  if (!input) {
+    result.error = "could not read config: " + config_path->string();
+    return result;
+  }
+
+  std::vector<std::string> args {"contourtty-config"};
+  std::string line;
+  int line_number = 0;
+  while (std::getline(input, line)) {
+    ++line_number;
+    std::string_view view = trim(line);
+    if (view.empty() || view.front() == '#') {
+      continue;
+    }
+    const auto equals = view.find('=');
+    if (equals == std::string_view::npos) {
+      result.error = "invalid config line " + std::to_string(line_number) + ": expected key=value";
+      return result;
+    }
+    std::string error;
+    if (!appendConfigArg(&args, view.substr(0, equals), view.substr(equals + 1), &error)) {
+      result.error = "invalid config line " + std::to_string(line_number) + ": " + error;
+      return result;
+    }
+  }
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  result = parseArgsFromArgv(static_cast<int>(argv.size()), argv.data(), CliOptions{});
+  if (!result.error.empty()) {
+    result.error = "invalid config " + config_path->string() + ": " + result.error;
+  }
+  return result;
+}
+
+}  // namespace
+
+CliParseResult parseArgs(int argc, char** argv) {
+  if (const auto action = earlyAction(argc, argv); action.has_value()) {
+    CliParseResult result;
+    result.action = *action;
+    return result;
+  }
+  CliParseResult defaults = loadConfigDefaults();
+  if (!defaults.error.empty()) {
+    return defaults;
+  }
+  return parseArgsFromArgv(argc, argv, defaults.options);
+}
+
 std::string helpText(std::string_view program_name) {
   std::ostringstream out;
   out << "usage: " << program_name << " [options] [<input>]\n"
@@ -307,12 +478,14 @@ std::string helpText(std::string_view program_name) {
       << "  --input PATH|URL|cam           input path, stream URL, or camera alias\n"
       << "  --cell-aspect N                terminal cell width/height ratio\n"
       << "  --fit                          fit output to terminal\n"
+      << "  --no-fit                       disable config-default fit\n"
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {luminance|structure|halfblock}\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
       << "  --mono                         disable color output\n"
+      << "  --no-mono                      restore automatic color detection\n"
       << "  --charset NAME|string          glyph preset or custom glyph string\n"
       << "  --edge-threshold N             structure edge threshold\n"
       << "  --edge-strength N              structure edge overlay strength\n"
@@ -321,8 +494,10 @@ std::string helpText(std::string_view program_name) {
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"
+      << "  --no-loop                      disable config-default looping\n"
       << "  --log FILE                     write diagnostics to file\n"
       << "  --gpu                          request gpu analysis path\n"
+      << "  --no-gpu                       disable config-default gpu request\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
       << "  --dump-png FILE                write dumped frame as RGB PNG\n";

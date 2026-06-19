@@ -45,6 +45,8 @@ Controls: `space` pauses/resumes audio and video together, left/right arrows see
 
 Export: `--export out.mp4` writes a silent rasterized video of the ASCII output; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
+Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `mode=structure` or `charset=" .#"`; CLI flags override config defaults.
+
 ## Name
 
 Chosen name: `contourtty`.
