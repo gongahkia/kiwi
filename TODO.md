@@ -451,7 +451,7 @@
 
 ### Metrics tracking pipeline (post-launch, ongoing)
 
-- [ ] Set up a `metrics/` directory in the repo (no external service)
+- [x] Set up a `metrics/` directory in the repo (no external service)
 - [ ] Daily cron via GitHub Actions polling stars, forks, crates.io downloads, npm downloads
 - [ ] Aggregate weekly into `metrics/weekly.csv`
 - [ ] Generate `metrics/dashboard.svg` weekly using kumeyuri itself (dogfooding)
