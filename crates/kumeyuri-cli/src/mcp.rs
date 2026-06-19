@@ -4,11 +4,12 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    RenderCharset, RenderFormat, RenderOptions, RenderTheme, layout_warnings, parse_diagram,
-    render_source,
+    RenderCharset, RenderFormat, RenderOptions, RenderTheme, layout_warnings, lint_source,
+    parse_diagram, render_source,
 };
 
 pub(crate) const RENDER_DIAGRAM_TOOL_NAME: &str = "render_diagram";
+pub(crate) const LINT_DIAGRAM_TOOL_NAME: &str = "lint_diagram";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RenderDiagramRequest {
@@ -30,7 +31,7 @@ pub(crate) struct RenderDiagramRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RenderDiagramResponse {
     pub format: McpRenderFormat,
-    pub mime_type: &'static str,
+    pub mime_type: String,
     pub encoding: McpContentEncoding,
     pub content: String,
     pub warnings: Vec<McpLayoutWarning>,
@@ -38,9 +39,23 @@ pub(crate) struct RenderDiagramResponse {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct McpLayoutWarning {
-    pub code: &'static str,
+    pub code: String,
     pub message: String,
     pub suggestion: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct LintDiagramRequest {
+    pub source: String,
+    #[serde(default)]
+    pub file: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct LintDiagramResponse {
+    pub file: String,
+    pub ok: bool,
+    pub warnings: Vec<McpLayoutWarning>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,7 +108,7 @@ pub(crate) fn render_diagram(
     let warnings = layout_warnings(&diagram, &options)
         .into_iter()
         .map(|warning| McpLayoutWarning {
-            code: warning.code,
+            code: warning.code.to_owned(),
             message: warning.message,
             suggestion: warning.suggestion,
         })
@@ -110,10 +125,28 @@ pub(crate) fn render_diagram(
     };
     Ok(RenderDiagramResponse {
         format: request.format,
-        mime_type: request.format.mime_type(),
+        mime_type: request.format.mime_type().to_owned(),
         encoding,
         content,
         warnings,
+    })
+}
+
+pub(crate) fn lint_diagram(request: &LintDiagramRequest) -> Result<LintDiagramResponse, String> {
+    let file = request.file.as_deref().unwrap_or("<inline>");
+    let report = lint_source(file, &request.source)?;
+    Ok(LintDiagramResponse {
+        file: report.file,
+        ok: report.ok,
+        warnings: report
+            .warnings
+            .into_iter()
+            .map(|warning| McpLayoutWarning {
+                code: warning.code.to_owned(),
+                message: warning.message,
+                suggestion: warning.suggestion,
+            })
+            .collect(),
     })
 }
 
@@ -188,8 +221,9 @@ impl McpRenderCharset {
 #[cfg(test)]
 mod tests {
     use super::{
-        McpContentEncoding, McpRenderCharset, McpRenderFormat, McpRenderTheme,
-        RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest, render_diagram,
+        LINT_DIAGRAM_TOOL_NAME, LintDiagramRequest, McpContentEncoding, McpRenderCharset,
+        McpRenderFormat, McpRenderTheme, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest,
+        lint_diagram, render_diagram,
     };
 
     #[test]
@@ -247,5 +281,33 @@ mod tests {
 
         assert_eq!(response.warnings.len(), 1);
         assert_eq!(response.warnings[0].code, "flowchart.orphan_node");
+    }
+
+    #[test]
+    fn lint_diagram_tool_surface_reports_existing_lint_shape() {
+        let response = lint_diagram(&LintDiagramRequest {
+            source: "graph TD\nA\nB --> C\n".to_owned(),
+            file: Some("diagram.mmd".to_owned()),
+        })
+        .unwrap();
+
+        assert_eq!(LINT_DIAGRAM_TOOL_NAME, "lint_diagram");
+        assert_eq!(response.file, "diagram.mmd");
+        assert!(!response.ok);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "flowchart.orphan_node");
+    }
+
+    #[test]
+    fn lint_diagram_tool_surface_defaults_inline_file() {
+        let response = lint_diagram(&LintDiagramRequest {
+            source: "graph TD\nA --> B\n".to_owned(),
+            file: None,
+        })
+        .unwrap();
+
+        assert_eq!(response.file, "<inline>");
+        assert!(response.ok);
+        assert!(response.warnings.is_empty());
     }
 }
