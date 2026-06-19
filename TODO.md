@@ -85,7 +85,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P4 — Self-host packaging
 - [ ] Write `Dockerfile` for Slack app — done when image builds and runs in socket-mode + HTTP-mode.
 - [ ] Write `docker-compose.yml` bundling web + slack + postgres — done when `docker compose up` boots full stack from clean machine in <5 min.
-- [ ] Health-check endpoints `/healthz`, `/readyz` — done when compose health-checks pass.
 - [ ] Helm chart `charts/wat` for k8s — done when `helm install wat charts/wat` brings up stack on a kind cluster.
 - [ ] Terraform module for Fly.io single-region deploy — done when `terraform apply` produces a working URL.
 
