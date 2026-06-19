@@ -88,6 +88,7 @@
 - [ ] **G7. Packaging.** DoD: single static-ish binary releases for Linux/macOS (+ Windows if feasible); a Homebrew formula and/or `.deb`; documented `ffmpeg` runtime requirement. Reference: PHASE_G §Packaging.
   - 2026-06-19: added CPack install/TGZ packaging, Linux DEB generation path, tag-driven release workflow, head-only Homebrew formula, and FFmpeg runtime docs. Local macOS TGZ builds, tests, extracts, and `contourtty --version` runs; hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
 - [ ] **G9. Technique writeup / launch.** DoD: a blog post or video explaining the structure-mode technique (the shareable artifact); links from README. Reference: PHASE_G §Launch.
+  - 2026-06-19: drafted and linked `docs/structure-mode-writeup.md`; external publication/launch post remains unverified.
 - [ ] **G10. Honest benchmark publication.** DoD: `BENCHMARKS.md` finalized with machine specs and reproducible commands; linked from README. Reference: PHASE_G §Bench.
 - [ ] **Phase G exit criteria → tag `v1.0`.** DoD: fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with a published technique writeup and reproducible benchmarks.
 
