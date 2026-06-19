@@ -91,7 +91,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: personal layer
 - [ ] Personal glossary CRUD — done when user can add private entries visible only to them.
-- [ ] Personal entry priority: shadow team and public entries — done when merge prefers personal > team > public.
 - [ ] Personal export — done when user can export their entries.
 
 ## P2 — Web app: public-facing pages
