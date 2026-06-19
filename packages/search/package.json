@@ -1,0 +1,8 @@
+{
+  "name": "@wat/search",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"@wat/search build noop\""
+  }
+}

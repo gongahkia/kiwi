@@ -1,0 +1,8 @@
+{
+  "name": "@wat/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"@wat/mcp build noop\""
+  }
+}
