@@ -399,7 +399,7 @@
 - [x] Add gzip variant `.kumecast.gz`
 - [x] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
 - [x] Build hosted player `play.kumeyuri.dev?cast=<url>`
-- [ ] Add cast-diffing CI test ensuring format determinism across kumeyuri patch versions
+- [x] Add cast-diffing CI test ensuring format determinism across kumeyuri patch versions
 
 ### Performance budget enforcement (continuous)
 

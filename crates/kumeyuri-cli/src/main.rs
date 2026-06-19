@@ -3478,6 +3478,28 @@ mod tests {
     }
 
     #[test]
+    fn kumecast_export_hashes_are_stable() {
+        for (name, source, expected_hash) in [
+            ("flowchart", "graph TD\nA --> B\n", 0xaba1_ce3b_a849_e3be),
+            (
+                "sequence",
+                "sequenceDiagram\nAlice->>Bob: hi\n",
+                0x381d_d15d_17b8_2da3,
+            ),
+            (
+                "state",
+                "stateDiagram-v2\n[*] --> Idle\nIdle --> Busy\n",
+                0xf690_9a8b_3a11_2f50,
+            ),
+        ] {
+            let output =
+                export_source(source, ExportFormat::Kumecast, &RenderOptions::default()).unwrap();
+
+            assert_eq!(fnv1a64(&output), expected_hash, "{name} cast hash drifted");
+        }
+    }
+
+    #[test]
     fn convert_parser_accepts_cast_formats() {
         for (value, expected) in [
             ("text", ConvertFormat::Text),
@@ -4530,5 +4552,14 @@ muted = "#7d8590"
             .unwrap()
             .as_nanos();
         env::temp_dir().join(format!("kumeyuri-cli-{label}-{}-{nanos}", process::id()))
+    }
+
+    fn fnv1a64(bytes: &[u8]) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325;
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        hash
     }
 }
