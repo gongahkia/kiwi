@@ -4,7 +4,7 @@ import manualSeeds from "../../ingest/seeds/manual.json" with { type: "json" };
 import { GlossaryEntrySchema } from "./schema.js";
 
 describe("manual seed entries", () => {
-  it("validates 52 curated public entries with disambiguation cases", () => {
+  it("validates 53 curated public entries with disambiguation cases", () => {
     const entries = GlossaryEntrySchema.array().parse(manualSeeds.entries);
     const ids = new Set(entries.map((entry) => entry.id));
     const expansionsByTerm = new Map<string, Set<string>>();
@@ -21,8 +21,8 @@ describe("manual seed entries", () => {
       (expansions) => expansions.size > 1
     );
 
-    expect(entries).toHaveLength(52);
-    expect(ids.size).toBe(52);
+    expect(entries).toHaveLength(53);
+    expect(ids.size).toBe(53);
     expect(entries.every((entry) => entry.layer === "public")).toBe(true);
     expect(entries.every((entry) => entry.sources.length > 0)).toBe(true);
     expect(entries.every((entry) => entry.examples.length > 0)).toBe(true);
