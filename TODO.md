@@ -68,7 +68,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement team creation on first signup of a new domain — done when team row created and user is admin.
 - [ ] Implement role guards (admin / member) — done when non-admin gets 403 on admin endpoints.
 - [ ] Add Sentry or self-host error tracking — done when a thrown error in prod surfaces in dashboard.
-- [ ] Add structured logging (pino) — done when each request emits a JSON log w/ request_id.
 
 ## P2 — Web app: search UX
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
