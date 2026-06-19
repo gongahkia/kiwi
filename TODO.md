@@ -391,7 +391,7 @@
 ### `.kumecast` format build (Phase 3)
 
 - [x] Specify v1 JSON schema in `docs/spec/kumecast-v1.md`
-- [ ] Implement encoder in `kumeyuri-core::cast`
+- [x] Implement encoder in `kumeyuri-core::cast`
 - [ ] Implement decoder + validator
 - [ ] Implement `kumeyuri export --format kumecast`
 - [ ] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering

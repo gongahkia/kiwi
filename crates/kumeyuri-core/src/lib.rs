@@ -1,6 +1,7 @@
 pub mod abi;
 pub mod animator;
 pub mod ast;
+pub mod cast;
 pub mod frame;
 pub mod layout;
 pub mod parser;
