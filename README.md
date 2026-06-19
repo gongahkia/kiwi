@@ -31,7 +31,7 @@ Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure`
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
 
-Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 currently fall back to mono until palette quantization lands.
+Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized, and `--dither ordered` applies Bayer dithering.
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 

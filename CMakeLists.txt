@@ -57,6 +57,7 @@ add_executable(contourtty
   src/ansi.cpp
   src/cli.cpp
   src/color_mode.cpp
+  src/color_quantization.cpp
   src/diff_emitter.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
@@ -304,6 +305,30 @@ else()
 endif()
 add_test(NAME color_mode COMMAND color_mode_tests)
 
+add_executable(color_quantization_tests
+  tests/color_quantization_tests.cpp
+  src/color_quantization.cpp
+)
+target_include_directories(color_quantization_tests PRIVATE src)
+target_compile_features(color_quantization_tests PRIVATE cxx_std_20)
+set_target_properties(color_quantization_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(color_quantization_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_quantization_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(color_quantization_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_quantization_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME color_quantization COMMAND color_quantization_tests)
+
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp
 )
@@ -355,6 +380,7 @@ add_executable(diff_emitter_tests
   tests/diff_emitter_tests.cpp
   src/ansi.cpp
   src/color_mode.cpp
+  src/color_quantization.cpp
   src/diff_emitter.cpp
 )
 target_include_directories(diff_emitter_tests PRIVATE src)

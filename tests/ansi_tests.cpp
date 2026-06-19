@@ -25,6 +25,16 @@ int main() {
   expectEqual(out, "\x1b[48;2;4;5;6m", "bg sgr");
 
   out.clear();
+  contourtty::appendSgrFg256(out, 196);
+  contourtty::appendSgrBg256(out, 16);
+  expectEqual(out, "\x1b[38;5;196m\x1b[48;5;16m", "256 sgr");
+
+  out.clear();
+  contourtty::appendSgrFg16(out, 9);
+  contourtty::appendSgrBg16(out, 4);
+  expectEqual(out, "\x1b[91m\x1b[44m", "16 sgr");
+
+  out.clear();
   contourtty::appendCursorMove(out, 12, 34);
   expectEqual(out, "\x1b[12;34H", "cursor");
 

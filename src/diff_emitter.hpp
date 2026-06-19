@@ -2,6 +2,7 @@
 
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
+#include "color_quantization.hpp"
 
 #include <cstddef>
 #include <string>
@@ -15,6 +16,7 @@ struct EmissionResult {
 
 struct EmissionOptions {
   ColorMode color_mode = ColorMode::Truecolor;
+  DitherMode dither_mode = DitherMode::None;
 };
 
 class DiffEmitter {

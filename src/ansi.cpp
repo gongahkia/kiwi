@@ -25,6 +25,30 @@ void appendSgrBg(std::string& out, Rgb color) {
   out += 'm';
 }
 
+void appendSgrFg256(std::string& out, uint8_t color_index) {
+  out += "\x1b[38;5;";
+  out += std::to_string(color_index);
+  out += 'm';
+}
+
+void appendSgrBg256(std::string& out, uint8_t color_index) {
+  out += "\x1b[48;5;";
+  out += std::to_string(color_index);
+  out += 'm';
+}
+
+void appendSgrFg16(std::string& out, uint8_t color_index) {
+  out += "\x1b[";
+  out += std::to_string(color_index < 8 ? 30 + color_index : 90 + color_index - 8);
+  out += 'm';
+}
+
+void appendSgrBg16(std::string& out, uint8_t color_index) {
+  out += "\x1b[";
+  out += std::to_string(color_index < 8 ? 40 + color_index : 100 + color_index - 8);
+  out += 'm';
+}
+
 void appendSgrReset(std::string& out) {
   out += "\x1b[0m";
 }

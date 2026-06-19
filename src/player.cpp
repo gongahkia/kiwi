@@ -478,7 +478,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
-  const EmissionOptions emission_options{.color_mode = color_mode};
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither)};
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;

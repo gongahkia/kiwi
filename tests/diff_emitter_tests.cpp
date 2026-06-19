@@ -71,6 +71,13 @@ int main() {
 
   contourtty::DiffEmitter indexed_emitter;
   const auto indexed_first = indexed_emitter.emit(mono, contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Color256});
-  expect(indexed_first.changed_cells == 1, "256 fallback emits glyph");
-  expect(indexed_first.bytes.find("\x1b[38;2;") == std::string::npos, "256 fallback has no truecolor sgr");
+  expect(indexed_first.changed_cells == 1, "256 emits glyph");
+  expect(indexed_first.bytes.find("\x1b[38;5;") != std::string::npos, "256 emits indexed fg");
+  expect(indexed_first.bytes.find("\x1b[38;2;") == std::string::npos, "256 has no truecolor sgr");
+
+  contourtty::DiffEmitter ansi16_emitter;
+  const auto ansi16_first = ansi16_emitter.emit(mono, contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Color16});
+  expect(ansi16_first.changed_cells == 1, "16 emits glyph");
+  expect(ansi16_first.bytes.find("\x1b[") != std::string::npos, "16 emits sgr");
+  expect(ansi16_first.bytes.find("\x1b[38;2;") == std::string::npos, "16 has no truecolor sgr");
 }
