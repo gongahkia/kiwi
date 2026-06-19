@@ -1,7 +1,8 @@
 "use client";
 
 import { Loader2, Search } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SearchResponse, SearchResult } from "@wat/search";
 
 import { SearchResultCard } from "@/components/search-result-card";
@@ -14,10 +15,12 @@ interface SearchShellProps {
 }
 
 export function SearchShell({ initialQuery = "" }: SearchShellProps) {
+  const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery.trim());
   const [matches, setMatches] = useState<SearchResult[]>([]);
   const [domain, setDomain] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [status, setStatus] = useState<SearchStatus>(initialQuery.trim() ? "loading" : "idle");
 
   const domainOptions = useMemo(
@@ -25,8 +28,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
     [matches]
   );
   const visibleMatches = useMemo(
-    () =>
-      domain ? matches.filter((match) => match.entry.domains.includes(domain)) : matches,
+    () => (domain ? matches.filter((match) => match.entry.domains.includes(domain)) : matches),
     [domain, matches]
   );
 
@@ -76,9 +78,40 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
     }
   }, [domain, domainOptions]);
 
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [debouncedQuery, domain]);
+
+  useEffect(() => {
+    if (selectedIndex >= visibleMatches.length) {
+      setSelectedIndex(-1);
+    }
+  }, [selectedIndex, visibleMatches.length]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setDebouncedQuery(query.trim());
+  }
+
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (visibleMatches.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((current) => (current + 1) % visibleMatches.length);
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex((current) => (current <= 0 ? visibleMatches.length - 1 : current - 1));
+    }
+
+    if (event.key === "Enter" && selectedIndex >= 0) {
+      event.preventDefault();
+      router.push(`/term/${visibleMatches[selectedIndex]!.entry.id}`);
+    }
   }
 
   return (
@@ -92,6 +125,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
             className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
             name="q"
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="API, CAP, TLS"
             type="search"
             value={query}
@@ -118,14 +152,18 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
             ))}
           </select>
         ) : null}
-        {status === "error" ? (
-          <p className="text-sm text-foreground/60">Search failed.</p>
-        ) : null}
+        {status === "error" ? <p className="text-sm text-foreground/60">Search failed.</p> : null}
         {status === "ready" && visibleMatches.length === 0 ? (
           <p className="text-sm text-foreground/60">No results.</p>
         ) : null}
-        {visibleMatches.map((result) => (
-          <SearchResultCard entry={result.entry} key={result.entry.id} />
+        {visibleMatches.map((result, index) => (
+          <SearchResultCard
+            className={
+              selectedIndex === index ? "border-ring bg-accent/40 ring-2 ring-ring" : undefined
+            }
+            entry={result.entry}
+            key={result.entry.id}
+          />
         ))}
       </div>
     </section>

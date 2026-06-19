@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { SearchEntry } from "@wat/search";
 
+import { cn } from "@/lib/utils";
+
 interface SearchResultCardProps {
+  className?: string;
   entry: SearchEntry;
 }
 
-export function SearchResultCard({ entry }: SearchResultCardProps) {
+export function SearchResultCard({ className, entry }: SearchResultCardProps) {
   return (
-    <article className="grid gap-3 rounded-md border border-input p-4">
+    <article className={cn("grid gap-3 rounded-md border border-input p-4", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <Link
           className="text-2xl font-semibold underline-offset-4 hover:underline"
