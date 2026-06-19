@@ -98,6 +98,7 @@
   - 2026-06-19: local `asan-ubsan` build, CTest, and structure export smoke are clean; CI proof remains blocked by GitHub Actions billing/spending-limit state.
 - [ ] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
   - 2026-06-19: macOS `leaks --atExit` reports `0 leaks for 0 total leaked bytes` on normal structure export shutdown; Valgrind is unavailable locally, and Ctrl-C/seek leak paths remain unverified.
+  - 2026-06-19: `scripts/verify_shutdown_paths.sh` proves normal export, keyboard quit, seek+quit, and SIGINT reach clean shutdown logs locally; this verifies shutdown behavior, not leak accounting for every path.
 
 ---
 
