@@ -3254,18 +3254,20 @@ mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
         ExportFormat, McpTransport, PluginCommand, PluginRegistry, RenderCharset, RenderFormat,
-        RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand,
-        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, count_phrase, decode_gzip_bytes,
-        diagram_kind_id, diagram_kind_summary, direction_label, disable_plugin_records,
-        encode_url_path_component, export_source, format_lint_text, format_theme_list, is_hex,
-        is_kumecast_gz_path, is_kumecast_path, layout_warnings, lint_source,
+        RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, Theme, ThemeCommand,
+        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, convert_file, count_phrase,
+        decode_gzip_bytes, diagram_kind_id, diagram_kind_summary, direction_label,
+        disable_plugin_records, encode_url_path_component, export_file, export_source,
+        format_lint_text, format_theme_error, format_theme_list, is_hex, is_kumecast_gz_path,
+        is_kumecast_path, layout_file, layout_warnings, lint_file, lint_source,
         load_render_theme_file, normalize_inline_text, parse_diagram, parse_locale_override,
         parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
         parse_socket_addr, parse_speed_override, playback_options, playback_timeline_from_source,
-        plugin_runtime_policy, publish_theme_file, read_cast_source_file,
-        read_installed_plugin_records, read_playback_file_source, read_source_file,
-        remove_plugin_records, render_source, render_timeline_vtt, resolve_ai_library_path,
-        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
+        plugin_runtime_policy, print_compat_report, print_lint_report, publish_theme_file,
+        read_cast_source_file, read_installed_plugin_records, read_playback_file_source,
+        read_source_file, read_theme_index, remove_plugin_records, render_file, render_source,
+        render_theme, render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
+        resolve_npm_plugin_metadata, show_theme, svg_config, theme_charset_name,
         timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
         write_theme_template,
@@ -3673,6 +3675,126 @@ mod tests {
     }
 
     #[test]
+    fn render_theme_maps_every_variant_to_core_theme() {
+        for (theme, expected) in [
+            (
+                RenderTheme::Default,
+                kumeyuri_core::theme::BuiltInTheme::Default,
+            ),
+            (RenderTheme::Mono, kumeyuri_core::theme::BuiltInTheme::Mono),
+            (
+                RenderTheme::TokyoNight,
+                kumeyuri_core::theme::BuiltInTheme::TokyoNight,
+            ),
+            (
+                RenderTheme::Github,
+                kumeyuri_core::theme::BuiltInTheme::Github,
+            ),
+            (
+                RenderTheme::Dracula,
+                kumeyuri_core::theme::BuiltInTheme::Dracula,
+            ),
+            (
+                RenderTheme::SolarizedLight,
+                kumeyuri_core::theme::BuiltInTheme::SolarizedLight,
+            ),
+            (
+                RenderTheme::SolarizedDark,
+                kumeyuri_core::theme::BuiltInTheme::SolarizedDark,
+            ),
+            (RenderTheme::Nord, kumeyuri_core::theme::BuiltInTheme::Nord),
+            (
+                RenderTheme::CatppuccinMocha,
+                kumeyuri_core::theme::BuiltInTheme::CatppuccinMocha,
+            ),
+            (
+                RenderTheme::HighContrast,
+                kumeyuri_core::theme::BuiltInTheme::HighContrast,
+            ),
+            (
+                RenderTheme::PrintMono,
+                kumeyuri_core::theme::BuiltInTheme::PrintMono,
+            ),
+        ] {
+            assert_eq!(theme.theme(), expected);
+        }
+    }
+
+    #[test]
+    fn file_level_command_helpers_execute_and_report_errors() {
+        let root = unique_temp_dir("file-command-helpers");
+        fs::create_dir_all(&root).unwrap();
+        let diagram = root.join("diagram.mmd");
+        fs::write(&diagram, "graph TD\nA --> B\n").unwrap();
+
+        render_file(
+            &diagram,
+            RenderFormat::Text,
+            &RenderOptions::default(),
+            DEFAULT_INPUT_LIMIT_BYTES,
+        )
+        .unwrap();
+        render_file(
+            &diagram,
+            RenderFormat::Svg,
+            &RenderOptions::default(),
+            DEFAULT_INPUT_LIMIT_BYTES,
+        )
+        .unwrap();
+        assert!(
+            render_file(
+                &diagram,
+                RenderFormat::Text,
+                &RenderOptions {
+                    dark_theme: Some(RenderTheme::Dracula),
+                    ..RenderOptions::default()
+                },
+                DEFAULT_INPUT_LIMIT_BYTES,
+            )
+            .unwrap_err()
+            .contains("--dark-theme")
+        );
+
+        export_file(
+            &diagram,
+            ExportFormat::Kumecast,
+            &RenderOptions::default(),
+            DEFAULT_INPUT_LIMIT_BYTES,
+        )
+        .unwrap();
+        let cast = root.join("diagram.kumecast");
+        fs::write(
+            &cast,
+            export_source(
+                "graph TD\nA --> B\n",
+                ExportFormat::Kumecast,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        convert_file(&cast, ConvertFormat::Text, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+        convert_file(&cast, ConvertFormat::Svg, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+
+        lint_file(&diagram, false, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+        lint_file(&diagram, true, DEFAULT_INPUT_LIMIT_BYTES).unwrap();
+        assert!(layout_file(&diagram, false, DEFAULT_INPUT_LIMIT_BYTES).is_err());
+        assert!(
+            layout_file(&root.join("missing.mmd"), true, DEFAULT_INPUT_LIMIT_BYTES)
+                .unwrap_err()
+                .contains("missing.mmd")
+        );
+        print_compat_report(None).unwrap();
+        print_lint_report(
+            &lint_source("diagram.mmd", "graph TD\nA --> B\n").unwrap(),
+            true,
+        )
+        .unwrap();
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn renders_vtt_captions_synced_to_animation() {
         let mut first = Frame::new(3, 1);
         first.write_text(0, 0, "A&B", Default::default()).unwrap();
@@ -3923,6 +4045,107 @@ muted = "#7d8590"
     }
 
     #[test]
+    fn theme_publish_replaces_existing_index_entries_and_reports_shape_errors() {
+        let root = unique_temp_dir("theme-publish-replace");
+        let source = root.join("demo.kumetheme.toml");
+        let index_dir = root.join("site");
+        fs::create_dir_all(&index_dir).unwrap();
+        fs::write(
+            index_dir.join("index.json"),
+            r##"{
+  "version": 1,
+  "base_url": "https://old.example.test",
+  "themes": [
+    {
+      "name": "zeta-theme",
+      "charset": "ascii",
+      "url": "https://old.example.test/themes/zeta-theme.kumetheme.toml",
+      "colors": {
+        "background": "#000000",
+        "foreground": "#ffffff",
+        "accent": "#111111",
+        "edge": "#222222",
+        "edge_alt": "#333333",
+        "highlight": "#444444",
+        "muted": "#555555"
+      }
+    },
+    {
+      "name": "demo-theme",
+      "charset": "ascii",
+      "url": "https://old.example.test/themes/demo-theme.kumetheme.toml",
+      "colors": {
+        "background": "#000000",
+        "foreground": "#ffffff",
+        "accent": "#111111",
+        "edge": "#222222",
+        "edge_alt": "#333333",
+        "highlight": "#444444",
+        "muted": "#555555"
+      }
+    }
+  ]
+}"##,
+        )
+        .unwrap();
+        fs::write(
+            &source,
+            r##"
+name = "demo-theme"
+charset = "ascii"
+
+[colors]
+background = "#101418"
+foreground = "#e6edf3"
+accent = "#58a6ff"
+edge = "#8b949e"
+edge_alt = "#d2a8ff"
+highlight = "#f2cc60"
+muted = "#7d8590"
+"##,
+        )
+        .unwrap();
+
+        publish_theme_file(&source, &index_dir, "https://themes.example.test/", 1024).unwrap();
+        let index = read_theme_index(&index_dir.join("index.json")).unwrap();
+
+        assert_eq!(index.themes.len(), 2);
+        assert_eq!(index.themes[0].name, "demo-theme");
+        assert_eq!(index.themes[0].charset, "ascii");
+        assert_eq!(index.themes[1].name, "zeta-theme");
+
+        fs::write(index_dir.join("index.json"), "{").unwrap();
+        assert!(
+            read_theme_index(&index_dir.join("index.json"))
+                .unwrap_err()
+                .contains("invalid theme index")
+        );
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn theme_formatting_helpers_cover_error_and_charset_edges() {
+        assert_eq!(
+            theme_charset_name(kumeyuri_core::theme::KumethemeCharset::Ascii),
+            "ascii"
+        );
+        assert_eq!(
+            format_theme_error(&kumeyuri_core::theme::KumethemeError::InvalidName(
+                "Bad Name".to_owned()
+            )),
+            "invalid name `Bad Name`: expected kebab-case ASCII identifier"
+        );
+        assert_eq!(
+            format_theme_error(&kumeyuri_core::theme::KumethemeError::InvalidHexColor {
+                field: "accent",
+                value: "blue".to_owned(),
+            }),
+            "invalid color `accent` = `blue`: expected #RRGGBB"
+        );
+    }
+
+    #[test]
     fn plugin_install_parser_accepts_package_name() {
         let cli =
             Cli::try_parse_from(["kumeyuri", "plugin", "install", "kumeyuri-render-pdf"]).unwrap();
@@ -4159,6 +4382,50 @@ muted = "#7d8590"
     }
 
     #[test]
+    fn plugin_metadata_falls_back_to_package_keywords_and_rejects_yanked_versions() {
+        let package = resolve_npm_plugin_metadata(
+            "kumeyuri-render-pdf",
+            r#"{
+  "dist-tags": { "latest": "0.1.0" },
+  "keywords": ["kumeyuri-plugin"],
+  "versions": {
+    "0.1.0": {
+      "dist": {
+        "tarball": "https://registry.npmjs.org/kumeyuri-render-pdf/-/pkg.tgz",
+        "shasum": "abcdef"
+      }
+    }
+  }
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(package.name, "kumeyuri-render-pdf");
+        assert_eq!(package.content_hash, "abcdef");
+        assert!(
+            resolve_crates_plugin_metadata(
+                "kumeyuri-render-pdf",
+                r#"{
+  "crate": {
+    "max_version": "0.1.0",
+    "keywords": ["kumeyuri-plugin"]
+  },
+  "versions": [
+    {
+      "num": "0.1.0",
+      "checksum": "0123456789abcdef",
+      "yanked": true,
+      "dl_path": "/api/v1/crates/kumeyuri-render-pdf/0.1.0/download"
+    }
+  ]
+}"#,
+            )
+            .unwrap_err()
+            .contains("0.1.0")
+        );
+    }
+
+    #[test]
     fn plugin_metadata_reports_registry_shape_errors() {
         assert!(
             resolve_npm_plugin_metadata("missing-latest", r#"{"dist-tags": {}, "versions": {}}"#)
@@ -4296,6 +4563,54 @@ muted = "#7d8590"
             1
         );
         assert!(read_installed_plugin_records(&root).unwrap().is_empty());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn plugin_records_sort_nested_records_and_report_invalid_metadata() {
+        let root = unique_temp_dir("plugin-record-sort");
+        let alpha = root.join("alpha").join("0.2.0").join("abi-1").join("aaaa");
+        let zeta = root.join("zeta").join("0.1.0").join("abi-1").join("zzzz");
+        fs::create_dir_all(&alpha).unwrap();
+        fs::create_dir_all(&zeta).unwrap();
+        write_plugin_install_record(
+            &zeta,
+            &ResolvedPluginPackage {
+                registry: PluginRegistry::CratesIo,
+                name: "zeta".to_owned(),
+                version: "0.1.0".to_owned(),
+                archive_url: "https://crates.io/api/v1/crates/zeta/0.1.0/download".to_owned(),
+                content_hash: "zzzz".to_owned(),
+                archive_file: "package.crate",
+            },
+        )
+        .unwrap();
+        write_plugin_install_record(
+            &alpha,
+            &ResolvedPluginPackage {
+                registry: PluginRegistry::Npm,
+                name: "alpha".to_owned(),
+                version: "0.2.0".to_owned(),
+                archive_url: "https://registry.npmjs.org/alpha/-/alpha-0.2.0.tgz".to_owned(),
+                content_hash: "aaaa".to_owned(),
+                archive_file: "package.tgz",
+            },
+        )
+        .unwrap();
+        fs::write(alpha.join(".disabled"), b"").unwrap();
+
+        let records = read_installed_plugin_records(&root).unwrap();
+        assert_eq!(records[0].record.name, "alpha");
+        assert!(records[0].disabled);
+        assert_eq!(records[1].record.name, "zeta");
+
+        fs::write(alpha.join("install.json"), "{").unwrap();
+        assert!(
+            read_installed_plugin_records(&root)
+                .unwrap_err()
+                .contains("invalid plugin install metadata")
+        );
 
         fs::remove_dir_all(root).ok();
     }
@@ -4552,6 +4867,60 @@ muted = "#7d8590"
         .unwrap_err();
 
         assert!(error.contains("--dark-theme only supports --format svg"));
+    }
+
+    #[test]
+    fn render_config_and_export_error_edges_are_covered() {
+        assert!(
+            export_source(
+                "graph TD\nA --> B",
+                ExportFormat::Kumecast,
+                &RenderOptions {
+                    narrate: true,
+                    ..RenderOptions::default()
+                },
+            )
+            .unwrap_err()
+            .contains("cannot be used with export")
+        );
+        assert!(
+            export_source(
+                "graph TD\nA --> B",
+                ExportFormat::Kumecast,
+                &RenderOptions {
+                    dark_theme: Some(RenderTheme::Dracula),
+                    ..RenderOptions::default()
+                },
+            )
+            .unwrap_err()
+            .contains("--dark-theme")
+        );
+
+        let custom = Theme {
+            name: "custom",
+            charset: Charset::Unicode,
+            colors: kumeyuri_core::theme::BuiltInTheme::HighContrast
+                .theme()
+                .colors,
+        };
+        let options = RenderOptions {
+            custom_theme: Some(custom),
+            charset: Some(RenderCharset::Ascii),
+            padding: Some(u32::MAX),
+            font: Some("Test Mono".to_owned()),
+            ..RenderOptions::default()
+        };
+        let theme = render_theme(&options);
+        assert_eq!(theme.name, "custom");
+        assert_eq!(theme.charset, Charset::Unicode);
+
+        let svg = svg_config(&options);
+        assert_eq!(svg.padding, u16::MAX);
+        assert_eq!(svg.font_family, "Test Mono");
+
+        let parse_error =
+            render_source("notARoot\nA", RenderFormat::Vtt, &RenderOptions::default()).unwrap_err();
+        assert!(parse_error.contains("parse error"));
     }
 
     #[test]

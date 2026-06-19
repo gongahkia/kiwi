@@ -467,7 +467,7 @@
 - [x] `cargo test --workspace` green
 - [x] `cargo audit` clean
 - [x] `cargo deny check` clean
-- [ ] `cargo llvm-cov --workspace` ≥ 80% per crate
+- [x] `cargo llvm-cov --workspace` ≥ 80% per crate
 - [x] Snapshot tests green (text + SVG + raster + cast)
 - [x] Performance benchmarks within budget (§18 of NORTHSTAR.md)
 - [x] WASM bundle size within gzip budget

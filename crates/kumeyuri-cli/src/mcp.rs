@@ -585,15 +585,18 @@ fn append_diagram_types(
 #[cfg(test)]
 mod tests {
     use super::{
-        LINT_DIAGRAM_TOOL_NAME, LIST_DIAGRAM_TYPES_TOOL_NAME, LIST_THEMES_TOOL_NAME,
-        LintDiagramRequest, MCP_BEARER_TOKEN_ENV, McpContentEncoding, McpDiagramSupport,
-        McpRenderCharset, McpRenderFormat, McpRenderTheme, PLAY_DIAGRAM_TOOL_NAME,
-        PlayDiagramRequest, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest, lint_diagram,
-        list_diagram_types, list_themes, play_diagram_args, play_diagram_with_spawner,
-        render_diagram, request_bearer_token, resolve_http_bearer_token_with_env,
+        KumeyuriMcpServer, LINT_DIAGRAM_TOOL_NAME, LIST_DIAGRAM_TYPES_TOOL_NAME,
+        LIST_THEMES_TOOL_NAME, LintDiagramRequest, MCP_BEARER_TOKEN_ENV, McpContentEncoding,
+        McpDiagramSupport, McpRenderCharset, McpRenderFormat, McpRenderTheme, McpServerConfig,
+        PLAY_DIAGRAM_TOOL_NAME, PlayDiagramRequest, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest,
+        json_tool_result, lint_diagram, list_diagram_types, list_themes, play_diagram_args,
+        play_diagram_with_spawner, render_diagram, request_bearer_token,
+        resolve_http_bearer_token_with_env, run_server, theme_path,
     };
+    use crate::{McpTransport, RenderCharset, RenderFormat, RenderTheme, ThemeSource};
     use axum::http::{HeaderMap, HeaderValue, header};
-    use std::path::PathBuf;
+    use rmcp::{ServerHandler, handler::server::wrapper::Parameters};
+    use std::{net::SocketAddr, path::PathBuf};
 
     #[test]
     fn render_diagram_tool_surface_renders_text() {
@@ -839,6 +842,153 @@ mod tests {
                 && diagram.support == McpDiagramSupport::Unsupported
                 && diagram.roots == ["cynefin-beta"]
         }));
+    }
+
+    #[test]
+    fn mcp_enum_mappings_cover_all_variants() {
+        for (format, render_format, is_binary, mime_type) in [
+            (
+                McpRenderFormat::Text,
+                RenderFormat::Text,
+                false,
+                "text/plain; charset=utf-8",
+            ),
+            (
+                McpRenderFormat::Svg,
+                RenderFormat::Svg,
+                false,
+                "image/svg+xml",
+            ),
+            (McpRenderFormat::Gif, RenderFormat::Gif, true, "image/gif"),
+            (
+                McpRenderFormat::Apng,
+                RenderFormat::Apng,
+                true,
+                "image/apng",
+            ),
+            (
+                McpRenderFormat::Webp,
+                RenderFormat::Webp,
+                true,
+                "image/webp",
+            ),
+            (
+                McpRenderFormat::Vtt,
+                RenderFormat::Vtt,
+                false,
+                "text/vtt; charset=utf-8",
+            ),
+        ] {
+            assert_eq!(format.render_format(), render_format);
+            assert_eq!(format.is_binary(), is_binary);
+            assert_eq!(format.mime_type(), mime_type);
+        }
+
+        for (theme, render_theme) in [
+            (McpRenderTheme::Default, RenderTheme::Default),
+            (McpRenderTheme::Mono, RenderTheme::Mono),
+            (McpRenderTheme::TokyoNight, RenderTheme::TokyoNight),
+            (McpRenderTheme::Github, RenderTheme::Github),
+            (McpRenderTheme::Dracula, RenderTheme::Dracula),
+            (McpRenderTheme::SolarizedLight, RenderTheme::SolarizedLight),
+            (McpRenderTheme::SolarizedDark, RenderTheme::SolarizedDark),
+            (McpRenderTheme::Nord, RenderTheme::Nord),
+            (
+                McpRenderTheme::CatppuccinMocha,
+                RenderTheme::CatppuccinMocha,
+            ),
+            (McpRenderTheme::HighContrast, RenderTheme::HighContrast),
+            (McpRenderTheme::PrintMono, RenderTheme::PrintMono),
+        ] {
+            assert_eq!(theme.render_theme(), render_theme);
+        }
+
+        assert_eq!(
+            McpRenderCharset::Ascii.render_charset(),
+            RenderCharset::Ascii
+        );
+        assert_eq!(
+            McpRenderCharset::Unicode.render_charset(),
+            RenderCharset::Unicode
+        );
+    }
+
+    #[test]
+    fn mcp_theme_paths_and_json_tool_results_are_shaped() {
+        let project = PathBuf::from("/tmp/theme.kumetheme.toml");
+        assert_eq!(
+            theme_path(&ThemeSource::Project(project.clone())),
+            Some(project.display().to_string())
+        );
+        assert_eq!(
+            theme_path(&ThemeSource::XdgDataHome(project.clone())),
+            Some(project.display().to_string())
+        );
+        assert_eq!(
+            theme_path(&ThemeSource::XdgDataDir(project)),
+            Some("/tmp/theme.kumetheme.toml".to_owned())
+        );
+        assert_eq!(
+            theme_path(&ThemeSource::Bundled(crate::RenderTheme::Github.theme())),
+            None
+        );
+
+        assert!(json_tool_result::<i32>(Ok(7)).is_ok());
+        assert!(json_tool_result::<i32>(Err("boom".to_owned())).is_err());
+    }
+
+    #[test]
+    fn mcp_server_info_and_http_transport_fail_fast_without_token() {
+        let info = KumeyuriMcpServer::new().get_info();
+
+        assert!(info.instructions.unwrap().contains("diagram render"));
+
+        let error = run_server(McpServerConfig {
+            transport: McpTransport::HttpSse,
+            bind: SocketAddr::from(([127, 0, 0, 1], 0)),
+            bearer_token: None,
+        })
+        .unwrap_err();
+        assert!(error.contains(MCP_BEARER_TOKEN_ENV));
+    }
+
+    #[test]
+    fn mcp_server_tool_adapters_return_json_or_errors() {
+        let server = KumeyuriMcpServer::new();
+
+        assert!(
+            server
+                .render_diagram(Parameters(RenderDiagramRequest {
+                    source: "graph TD\nA --> B\n".to_owned(),
+                    format: McpRenderFormat::Text,
+                    theme: None,
+                    dark_theme: None,
+                    charset: None,
+                    width: None,
+                    max_label_width: None,
+                }))
+                .is_ok()
+        );
+        assert!(
+            server
+                .lint_diagram(Parameters(LintDiagramRequest {
+                    source: "graph TD\nA\n".to_owned(),
+                    file: None,
+                }))
+                .is_ok()
+        );
+        assert!(server.list_themes().is_ok());
+        assert!(server.list_diagram_types().is_ok());
+        assert!(
+            server
+                .play_diagram(Parameters(PlayDiagramRequest {
+                    file: PathBuf::new(),
+                    speed: None,
+                    repeat: false,
+                    debug: false,
+                }))
+                .is_err()
+        );
     }
 
     #[test]
