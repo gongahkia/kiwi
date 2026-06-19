@@ -44,7 +44,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add search analytics events (no PII) — done when each search logs query_hash, latency, layer_hit, confidence_distribution.
 
 ## P1 — Public corpus ingestion framework
-- [ ] Implement confidence-tier auto-assignment based on source quality — done when entries are correctly tiered on a 50-entry test set.
 - [ ] Implement license capture per source — done when ingestion fails if source has unknown/incompatible license.
 - [ ] Build ingestion CLI `pnpm ingest run <source>` — done when command runs a single scraper end-to-end and writes deltas to `data/deltas/<date>/<source>.json`.
 - [ ] Build delta-to-PR workflow via GitHub Actions — done when scheduled run opens a PR titled `corpus: refresh <source> <date>` with the JSON delta diff.

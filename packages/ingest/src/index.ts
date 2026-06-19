@@ -1,3 +1,4 @@
+export * from "./confidence.js";
 export * from "./dedup.js";
 export * from "./merge-equivalent.js";
 export * from "./provenance.js";
