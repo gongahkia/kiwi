@@ -36,9 +36,12 @@
     "bench:compare:pgavlin-mermaid-ascii": "node benches/compare/tools/pgavlin-mermaid-ascii.mjs --allow-failures",
     "test:bench:pgavlin-mermaid-ascii": "node benches/compare/tools/pgavlin-mermaid-ascii.mjs --input benches/compare/corpus/sequence-control.mmd --stdout",
     "bench:compare:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --allow-failures",
-    "test:bench:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout"
+    "test:bench:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
+    "bench:compare:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --allow-failures",
+    "test:bench:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --input benches/compare/corpus/flowchart-dense.mmd"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "11.15.0",
     "axe-core": "^4.12.1",
     "beautiful-mermaid": "1.1.3",
     "dompurify": "3.4.10",

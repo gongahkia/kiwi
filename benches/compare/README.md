@@ -39,3 +39,7 @@ Adapters:
   `mermaid2term@0.1.0` via `benches/compare/tools/mermaid2term.mjs`. The
   adapter invokes the local npm binary as `mermaid2term --ascii <input>` and
   records nonzero exits as per-input errors.
+* `npm run bench:compare:mermaid-cli` renders ground-truth SVGs through
+  `@mermaid-js/mermaid-cli@11.15.0` via `benches/compare/tools/mermaid-cli.mjs`.
+  The adapter invokes the local `mmdc` binary with headless Puppeteer and writes
+  SVG outputs under `benches/compare/results/mermaid-cli/`.
