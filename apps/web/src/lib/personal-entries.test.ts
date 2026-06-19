@@ -4,6 +4,7 @@ import {
   createPersonalEntry,
   deletePersonalEntry,
   getPersonalEntries,
+  personalEntriesCsv,
   resetPersonalEntriesForTest,
   updatePersonalEntry,
   type PersonalEntry
@@ -32,6 +33,8 @@ describe("personal entries", () => {
 
     expect(createPersonalEntry("user_a", entry)).toEqual(entry);
     expect(getPersonalEntries("user_b")).toEqual([]);
+    expect(personalEntriesCsv("user_a")).toContain("personal-cap");
+    expect(personalEntriesCsv("user_b")).not.toContain("personal-cap");
     expect(
       updatePersonalEntry("user_a", entry.id, { meaning: "Updated private note." })
     ).toMatchObject({ meaning: "Updated private note." });

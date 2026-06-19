@@ -69,3 +69,25 @@ export function deletePersonalEntry(userId: string, entryId: string): PersonalEn
 
   return structuredClone(removed);
 }
+
+function csvCell(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+export function personalEntriesCsv(userId: string, entries = getPersonalEntries(userId)): string {
+  const header = ["id", "term", "expansion", "meaning", "domains", "sources"];
+  const rows = entries.map((entry) =>
+    [
+      entry.id,
+      entry.term,
+      entry.expansion,
+      entry.meaning,
+      entry.domains.join(";"),
+      entry.sources.map((source) => source.url).join(";")
+    ]
+      .map(csvCell)
+      .join(",")
+  );
+
+  return `${header.join(",")}\n${rows.join("\n")}\n`;
+}

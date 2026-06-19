@@ -14,10 +14,18 @@ export default async function PersonalPage() {
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <div className="mx-auto grid max-w-6xl gap-6">
         <header className="grid gap-2">
-          <Link className="text-sm text-foreground/65 underline-offset-4 hover:underline" href="/">
-            Search
-          </Link>
           <h1 className="text-4xl font-semibold">Personal glossary</h1>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link className="rounded-md border border-input px-3 py-2" href="/">
+              Search
+            </Link>
+            <Link className="rounded-md border border-input px-3 py-2" href="/personal/export/json">
+              Export JSON
+            </Link>
+            <Link className="rounded-md border border-input px-3 py-2" href="/personal/export/csv">
+              Export CSV
+            </Link>
+          </div>
         </header>
         <TeamEntryCrud
           apiPath="/personal/api"
