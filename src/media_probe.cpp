@@ -5,6 +5,7 @@
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
@@ -418,7 +419,9 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   const AVCodecParameters* codec_parameters = video_stream->codecpar;
   const auto decoder_context = openVideoDecoder(codec_parameters);
   const auto average_fps = rationalToDouble(video_stream->avg_frame_rate);
+  const auto decode_started = std::chrono::steady_clock::now();
   const DecodeStats decode_stats = decodeFrames(format_context.get(), decoder_context.get(), video_stream_index, video_stream->time_base, average_fps, options);
+  const std::chrono::duration<double> decode_elapsed = std::chrono::steady_clock::now() - decode_started;
 
   MediaProbeInfo info;
   info.input = input;
@@ -437,6 +440,10 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   info.first_pts_us = decode_stats.first_pts_us;
   info.last_pts_us = decode_stats.last_pts_us;
   info.pts_monotonic = decode_stats.pts_monotonic;
+  info.decode_seconds = decode_elapsed.count();
+  if (info.decode_seconds > 0.0) {
+    info.decode_fps = static_cast<double>(info.decoded_frames) / info.decode_seconds;
+  }
   info.working_width = decode_stats.working_size.w;
   info.working_height = decode_stats.working_size.h;
   info.dumped_png = decode_stats.dumped_png;
@@ -472,6 +479,8 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
       << "first_pts_us: " << (info.first_pts_us.has_value() ? std::to_string(*info.first_pts_us) : "unknown") << '\n'
       << "last_pts_us: " << (info.last_pts_us.has_value() ? std::to_string(*info.last_pts_us) : "unknown") << '\n'
       << "pts_monotonic: " << (info.pts_monotonic ? "yes" : "no") << '\n'
+      << "decode_seconds: " << std::fixed << std::setprecision(6) << info.decode_seconds << '\n'
+      << "decode_fps: " << std::fixed << std::setprecision(3) << info.decode_fps << '\n'
       << "working_resolution: " << info.working_width << 'x' << info.working_height << '\n';
   if (info.dumped_png.has_value()) {
     out << "dumped_png: " << info.dumped_png->string() << '\n';
