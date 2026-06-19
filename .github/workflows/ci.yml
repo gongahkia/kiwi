@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake pkg-config \
-            libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev zlib1g-dev
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev zlib1g-dev
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -38,6 +38,9 @@ jobs:
 
       - name: Build
         run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure
 
       - name: Smoke test
         run: |
