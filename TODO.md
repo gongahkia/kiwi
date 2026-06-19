@@ -12,7 +12,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
-- [ ] Configure ESLint + Prettier w/ shared config — done when `pnpm lint` returns 0 on empty packages.
 - [ ] Add commitlint + conventional commits — done when a non-conforming commit is rejected by husky hook.
 - [ ] Add changesets for versioning — done when `pnpm changeset` produces a valid changeset file.
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.

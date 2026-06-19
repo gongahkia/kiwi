@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.next/
+coverage/
+IDEA.md
+TODO.md
+pnpm-lock.yaml
