@@ -488,7 +488,7 @@
 - [x] Phase 5: pacing of long-tail diagram types — bundled monthly release vs one-per-release
 - [x] Phase 6: MCP SDK choice — `rmcp` maturity vs hand-rolled stdio transport
 - [x] Phase 7: WASM host — wasmtime vs wasmer; resolve via prototyping
-- [ ] Phase 8: AI provider abstraction — single trait vs per-provider crate features
+- [x] Phase 8: AI provider abstraction — single trait vs per-provider crate features
 
 ---
 
