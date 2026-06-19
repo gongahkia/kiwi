@@ -1,44 +1,35 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { randomInt } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
-const execFile = promisify(execFileCallback);
-const containerName = `wat-db-test-${Date.now()}-${randomInt(1000, 9999)}`;
-const port = randomInt(20000, 40000);
-const connectionString = `postgres://wat:wat@localhost:${port}/wat`;
 const drizzleDir = new URL("../drizzle/", import.meta.url);
 
 let client: Client;
+let container: StartedTestContainer;
 
 describe("db schema integration", () => {
   beforeAll(async () => {
-    await execFile("docker", [
-      "run",
-      "--rm",
-      "--name",
-      containerName,
-      "-e",
-      "POSTGRES_USER=wat",
-      "-e",
-      "POSTGRES_PASSWORD=wat",
-      "-e",
-      "POSTGRES_DB=wat",
-      "-p",
-      `${port}:5432`,
-      "-d",
-      "pgvector/pgvector:pg16"
-    ]);
+    container = await new GenericContainer("pgvector/pgvector:pg16")
+      .withEnvironment({
+        POSTGRES_DB: "wat",
+        POSTGRES_PASSWORD: "wat",
+        POSTGRES_USER: "wat"
+      })
+      .withExposedPorts(5432)
+      .withWaitStrategy(Wait.forListeningPorts())
+      .start();
 
-    client = await connectWithRetry();
+    client = new Client({
+      connectionString: `postgres://wat:wat@${container.getHost()}:${container.getMappedPort(5432)}/wat`
+    });
+    await client.connect();
     await applyMigrations(client);
   }, 120_000);
 
   afterAll(async () => {
     await client?.end();
-    await execFile("docker", ["rm", "-f", containerName]).catch(() => undefined);
+    await container?.stop();
   }, 30_000);
 
   it("applies required extensions", async () => {
@@ -184,22 +175,6 @@ describe("db schema integration", () => {
     expect(rows[0]).toEqual({ reason: "update", status: "pending" });
   });
 });
-
-async function connectWithRetry(): Promise<Client> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const pgClient = new Client({ connectionString });
-    try {
-      await pgClient.connect();
-      return pgClient;
-    } catch (error) {
-      lastError = error;
-      await pgClient.end().catch(() => undefined);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw lastError;
-}
 
 async function applyMigrations(pgClient: Client): Promise<void> {
   const files = (await readdir(drizzleDir))
