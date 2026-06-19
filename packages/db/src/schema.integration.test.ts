@@ -157,6 +157,32 @@ describe("db schema integration", () => {
     );
     expect(rows[0]?.count).toBe(2);
   });
+
+  it("enqueues embedding jobs on entry insert", async () => {
+    await insertEntry("entry_embedding_insert", "SCIM", "scim", [
+      "System for Cross-domain Identity Management"
+    ]);
+
+    const { rows } = await client.query<{ reason: string; status: string }>(
+      "select reason, status from entry_embedding_jobs where entry_id = 'entry_embedding_insert'"
+    );
+    expect(rows[0]).toEqual({ reason: "insert", status: "pending" });
+  });
+
+  it("requeues embedding jobs on searchable entry update", async () => {
+    await insertEntry("entry_embedding_update", "OIDC", "oidc", ["OpenID Connect"]);
+    await client.query(
+      "update entry_embedding_jobs set status = 'done' where entry_id = 'entry_embedding_update'"
+    );
+    await client.query(
+      "update entries set meaning_short = 'changed' where id = 'entry_embedding_update'"
+    );
+
+    const { rows } = await client.query<{ reason: string; status: string }>(
+      "select reason, status from entry_embedding_jobs where entry_id = 'entry_embedding_update'"
+    );
+    expect(rows[0]).toEqual({ reason: "update", status: "pending" });
+  });
 });
 
 async function connectWithRetry(): Promise<Client> {

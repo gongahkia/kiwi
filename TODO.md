@@ -19,7 +19,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P0 — Core package
 
 ## P1 — Search engine
-- [ ] Backfill embeddings for all entries on insert/update — done when DB trigger or app-level enqueue ensures coverage; spot-check 100 entries.
 - [ ] Build benchmark corpus of 500 dev-tooling acronyms — done when JSON file committed w/ query + expected answer.
 - [ ] Run benchmark on hybrid search — done when hit-rate ≥90% on top-1 and ≥98% on top-5.
 - [ ] Measure search latency on hosted (Vercel + Neon) — done when p95 < 150ms for 1k-warmup queries.

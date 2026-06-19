@@ -64,6 +64,14 @@ erDiagram
     text body
   }
 
+  entry_embedding_jobs {
+    text entry_id PK
+    text reason
+    text status
+    timestamptz requested_at
+    timestamptz updated_at
+  }
+
   team_entries {
     text id PK
     text term
@@ -144,6 +152,7 @@ erDiagram
   users ||--o{ suggested_edits : reviews
   entries ||--o{ sources : cites
   entries ||--o{ examples : demonstrates
+  entries ||--o| entry_embedding_jobs : queues
 ```
 
 ## Enums
@@ -157,6 +166,7 @@ erDiagram
 - `entries.embedding`, `team_entries.embedding`, and `personal_entries.embedding` are `vector(384)` columns for semantic search.
 - `sources.entry_id` cascades on entry delete.
 - `examples.entry_id` cascades on entry delete.
+- `entry_embedding_jobs.entry_id` cascades on entry delete and is maintained by `entries_embedding_enqueue_trigger`.
 
 ## Indexes
 
@@ -173,4 +183,5 @@ erDiagram
 - `personal_entries.user_id` cascades on user delete.
 - Entry confidence tiers are constrained to `T1`, `T2`, `T3`, `T4`.
 - Source quality is constrained to `canonical`, `secondary`, `community`.
+- Embedding job reason is constrained to `insert`, `update`; status is constrained to `pending`, `processing`, `done`, `failed`.
 - Overlay layers are constrained to `team` and `personal` for their respective tables.

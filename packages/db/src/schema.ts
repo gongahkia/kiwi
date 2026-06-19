@@ -134,6 +134,26 @@ export const examples = pgTable("examples", {
   body: text("body").notNull()
 });
 
+export const entryEmbeddingJobs = pgTable(
+  "entry_embedding_jobs",
+  {
+    entryId: text("entry_id")
+      .primaryKey()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("pending"),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    check("entry_embedding_jobs_reason_check", sql`${table.reason} in ('insert', 'update')`),
+    check(
+      "entry_embedding_jobs_status_check",
+      sql`${table.status} in ('pending', 'processing', 'done', 'failed')`
+    )
+  ]
+);
+
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
