@@ -110,7 +110,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: public-facing pages
 - [ ] Status page or uptime widget for hosted — done when widget displays current status from health check.
-- [ ] Privacy policy — done when page describes data handling (no query logging by default in self-host).
 - [ ] Terms of service — done when page committed.
 
 ## P3 — Browser extension
