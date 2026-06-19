@@ -34,7 +34,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Backfill embeddings for all entries on insert/update — done when DB trigger or app-level enqueue ensures coverage; spot-check 100 entries.
 - [ ] Implement vector similarity query w/ cosine distance — done when query returns ranked entries by cosine for 20 fixtures.
 - [ ] Implement trigram fuzzy fallback for typos — done when "kuberntes" → "Kubernetes" ranks top-3.
-- [ ] Implement Reciprocal Rank Fusion combiner — done when weighted combo of BM25 + vector + trigram outperforms any single signal on benchmark.
 - [ ] Implement domain/context boost — done when passing `context: "distributed systems"` raises CAP-theorem above CAP-agricultural-policy.
 - [ ] Implement disambiguation grouping (1 query → N expansions w/ scores) — done when API returns array sorted by score w/ score breakdown.
 - [ ] Build benchmark corpus of 500 dev-tooling acronyms — done when JSON file committed w/ query + expected answer.
