@@ -3,6 +3,7 @@ export interface RawSourceCitation {
   publisher: string;
   retrieved_at: string;
   snippet?: string;
+  source_quality?: "canonical" | "secondary" | "community";
   title?: string;
   url: string;
 }
