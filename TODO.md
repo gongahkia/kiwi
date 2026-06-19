@@ -27,7 +27,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Document DB schema in `docs/db-schema.md` w/ ER diagram — done when diagram is checked in (mermaid).
 
 ## P0 — Core package
-- [ ] Implement acronym detector regex (caps runs, mixed initialism patterns) — done when detector recovers ≥95% of acronyms in a 200-sentence labeled corpus.
 - [ ] Implement license enum + validation — done when only SPDX-known licenses are accepted; unknown rejected.
 - [ ] Implement entry validator (Zod + business rules) — done when all 50 seed entries validate.
 - [ ] Implement merge function for layered lookup (public ⊕ team ⊕ personal) — done when 10 unit tests cover override priority + provenance preservation.
