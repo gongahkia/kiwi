@@ -1,3 +1,9 @@
+use std::{
+    collections::BTreeSet,
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 use crate::frame::{CellStyle, Charset, Color};
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +24,20 @@ pub enum BuiltInTheme {
 }
 
 impl BuiltInTheme {
+    pub const ALL: [Self; 11] = [
+        Self::Default,
+        Self::Mono,
+        Self::TokyoNight,
+        Self::Github,
+        Self::Dracula,
+        Self::SolarizedLight,
+        Self::SolarizedDark,
+        Self::Nord,
+        Self::CatppuccinMocha,
+        Self::HighContrast,
+        Self::PrintMono,
+    ];
+
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
@@ -56,6 +76,145 @@ impl BuiltInTheme {
     #[must_use]
     pub const fn theme(self) -> Theme {
         Theme::built_in(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ThemeSource {
+    Project(PathBuf),
+    XdgDataHome(PathBuf),
+    XdgDataDir(PathBuf),
+    Bundled(BuiltInTheme),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ThemeSearchEntry {
+    pub name: String,
+    pub source: ThemeSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ThemeSearchPaths {
+    pub project_dirs: Vec<PathBuf>,
+    pub xdg_data_home: Option<PathBuf>,
+    pub xdg_data_dirs: Vec<PathBuf>,
+}
+
+impl ThemeSearchPaths {
+    #[must_use]
+    pub fn from_env(
+        project_dir: impl Into<PathBuf>,
+        lookup_env: impl FnMut(&str) -> Option<String>,
+    ) -> Self {
+        Self::from_env_with_home(
+            project_dir,
+            env::var_os("HOME").map(PathBuf::from),
+            lookup_env,
+        )
+    }
+
+    #[must_use]
+    pub fn from_env_with_home(
+        project_dir: impl Into<PathBuf>,
+        home_dir: Option<PathBuf>,
+        mut lookup_env: impl FnMut(&str) -> Option<String>,
+    ) -> Self {
+        let project_dir = project_dir.into();
+        let xdg_data_home = lookup_env("XDG_DATA_HOME")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .or_else(|| home_dir.map(|home| home.join(".local/share")));
+        let xdg_data_dirs = lookup_env("XDG_DATA_DIRS")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "/usr/local/share:/usr/share".to_owned())
+            .split(':')
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .collect();
+        Self {
+            project_dirs: vec![project_dir.join(".kumeyuri/themes"), project_dir],
+            xdg_data_home,
+            xdg_data_dirs,
+        }
+    }
+
+    #[must_use]
+    pub fn search_dirs(&self) -> Vec<(ThemeDirSource, PathBuf)> {
+        let mut dirs = Vec::new();
+        for path in &self.project_dirs {
+            dirs.push((ThemeDirSource::Project, path.clone()));
+        }
+        if let Some(path) = &self.xdg_data_home {
+            dirs.push((ThemeDirSource::XdgDataHome, path.join("kumeyuri/themes")));
+        }
+        for path in &self.xdg_data_dirs {
+            dirs.push((ThemeDirSource::XdgDataDir, path.join("kumeyuri/themes")));
+        }
+        dirs
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeDirSource {
+    Project,
+    XdgDataHome,
+    XdgDataDir,
+}
+
+#[must_use]
+pub fn discover_themes(paths: &ThemeSearchPaths) -> Vec<ThemeSearchEntry> {
+    let mut entries = Vec::new();
+    let mut seen = BTreeSet::new();
+    for (source, dir) in paths.search_dirs() {
+        discover_theme_dir(source, &dir, &mut seen, &mut entries);
+    }
+    for theme in BuiltInTheme::ALL {
+        if seen.insert(theme.name().to_owned()) {
+            entries.push(ThemeSearchEntry {
+                name: theme.name().to_owned(),
+                source: ThemeSource::Bundled(theme),
+            });
+        }
+    }
+    entries
+}
+
+fn discover_theme_dir(
+    source: ThemeDirSource,
+    dir: &Path,
+    seen: &mut BTreeSet<String>,
+    entries: &mut Vec<ThemeSearchEntry>,
+) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut files = read_dir
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter_map(kumetheme_file_name)
+        .collect::<Vec<_>>();
+    files.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+    for (name, path) in files {
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        let source = match source {
+            ThemeDirSource::Project => ThemeSource::Project(path),
+            ThemeDirSource::XdgDataHome => ThemeSource::XdgDataHome(path),
+            ThemeDirSource::XdgDataDir => ThemeSource::XdgDataDir(path),
+        };
+        entries.push(ThemeSearchEntry { name, source });
+    }
+}
+
+fn kumetheme_file_name(path: PathBuf) -> Option<(String, PathBuf)> {
+    let file_name = path.file_name()?.to_str()?;
+    let name = file_name.strip_suffix(".kumetheme.toml")?;
+    if is_kebab_case_identifier(name) {
+        Some((name.to_owned(), path))
+    } else {
+        None
     }
 }
 
@@ -489,9 +648,10 @@ impl Default for Theme {
 mod tests {
     use super::{
         BuiltInTheme, KumethemeCharset, KumethemeColors, KumethemeError, KumethemeToml, RgbColor,
-        Theme, ThemeRole,
+        Theme, ThemeRole, ThemeSearchEntry, ThemeSearchPaths, ThemeSource, discover_themes,
     };
     use crate::frame::{Charset, Color};
+    use std::{env, fs, process, time::SystemTime};
 
     #[test]
     fn exposes_built_in_themes() {
@@ -562,6 +722,107 @@ mod tests {
         assert_eq!(print.colors.background, RgbColor::new(0xff, 0xff, 0xff));
         assert_eq!(print.colors.foreground, RgbColor::new(0x00, 0x00, 0x00));
         assert_eq!(print.colors.accent, print.colors.foreground);
+    }
+
+    #[test]
+    fn discovers_project_xdg_and_bundled_themes_in_precedence_order() {
+        let root = unique_temp_dir("theme-search");
+        let project = root.join("project");
+        let data_home = root.join("data-home");
+        let data_dir = root.join("data-dir");
+        fs::create_dir_all(project.join(".kumeyuri/themes")).unwrap();
+        fs::create_dir_all(data_home.join("kumeyuri/themes")).unwrap();
+        fs::create_dir_all(data_dir.join("kumeyuri/themes")).unwrap();
+        fs::write(
+            project.join(".kumeyuri/themes/project-theme.kumetheme.toml"),
+            "",
+        )
+        .unwrap();
+        fs::write(project.join("local-theme.kumetheme.toml"), "").unwrap();
+        fs::write(
+            data_home.join("kumeyuri/themes/user-theme.kumetheme.toml"),
+            "",
+        )
+        .unwrap();
+        fs::write(data_home.join("kumeyuri/themes/github.kumetheme.toml"), "").unwrap();
+        fs::write(
+            data_dir.join("kumeyuri/themes/system-theme.kumetheme.toml"),
+            "",
+        )
+        .unwrap();
+        fs::write(data_dir.join("kumeyuri/themes/BadName.kumetheme.toml"), "").unwrap();
+
+        let paths = ThemeSearchPaths::from_env_with_home(&project, None, |name| match name {
+            "XDG_DATA_HOME" => Some(data_home.display().to_string()),
+            "XDG_DATA_DIRS" => Some(data_dir.display().to_string()),
+            _ => None,
+        });
+        let entries = discover_themes(&paths);
+        let names = entries
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            &names[..5],
+            [
+                "project-theme",
+                "local-theme",
+                "github",
+                "user-theme",
+                "system-theme",
+            ]
+        );
+        assert!(names.contains(&"default"));
+        assert!(!names.contains(&"BadName"));
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|entry| entry.name == "github")
+                .count(),
+            1
+        );
+        assert!(matches!(
+            entries.iter().find(|entry| entry.name == "github"),
+            Some(ThemeSearchEntry {
+                source: ThemeSource::XdgDataHome(_),
+                ..
+            })
+        ));
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn theme_search_paths_follow_xdg_defaults_and_ignore_relative_dirs() {
+        let root = unique_temp_dir("theme-search-defaults");
+        let paths =
+            ThemeSearchPaths::from_env_with_home(
+                &root,
+                Some(root.join("home")),
+                |name| match name {
+                    "XDG_DATA_HOME" => Some("relative-home".to_owned()),
+                    "XDG_DATA_DIRS" => Some(format!("relative:{}", root.join("share").display())),
+                    _ => None,
+                },
+            );
+        let search_dirs = paths.search_dirs();
+
+        assert_eq!(paths.xdg_data_home, Some(root.join("home/.local/share")));
+        assert_eq!(paths.xdg_data_dirs, vec![root.join("share")]);
+        assert!(search_dirs.contains(&(
+            super::ThemeDirSource::Project,
+            root.join(".kumeyuri/themes")
+        )));
+        assert!(search_dirs.contains(&(super::ThemeDirSource::Project, root.clone())));
+        assert!(search_dirs.contains(&(
+            super::ThemeDirSource::XdgDataHome,
+            root.join("home/.local/share/kumeyuri/themes")
+        )));
+        assert!(search_dirs.contains(&(
+            super::ThemeDirSource::XdgDataDir,
+            root.join("share/kumeyuri/themes")
+        )));
     }
 
     #[test]
@@ -691,5 +952,13 @@ mod tests {
         } else {
             ((value + 0.055) / 1.055).powf(2.4)
         }
+    }
+
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!("kumeyuri-core-{label}-{}-{nanos}", process::id()))
     }
 }

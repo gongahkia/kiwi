@@ -38,6 +38,20 @@ highlight = "#b58900"
 muted = "#657b83"
 ```
 
+## Search order
+
+Theme discovery checks these locations in order:
+
+1. `<project>/.kumeyuri/themes/*.kumetheme.toml`
+2. `<project>/*.kumetheme.toml`
+3. `$XDG_DATA_HOME/kumeyuri/themes/*.kumetheme.toml`
+4. each `$XDG_DATA_DIRS` entry under `kumeyuri/themes/*.kumetheme.toml`
+5. bundled built-in themes
+
+Relative XDG paths are ignored. If `XDG_DATA_HOME` is unset, discovery falls
+back to `$HOME/.local/share`; if `XDG_DATA_DIRS` is unset, discovery falls back
+to `/usr/local/share:/usr/share`.
+
 Required fields:
 
 | Field | Values |

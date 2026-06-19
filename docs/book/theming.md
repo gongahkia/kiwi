@@ -66,6 +66,17 @@ kumeyuri render diagram.mmd --format text --theme github --charset unicode
 Use ASCII for logs, plain terminals, and CI comments. Use Unicode when the
 target supports box-drawing glyphs.
 
+## Search order
+
+Custom theme discovery checks project themes first, then XDG data locations,
+then bundled built-ins:
+
+1. `<project>/.kumeyuri/themes/*.kumetheme.toml`
+2. `<project>/*.kumetheme.toml`
+3. `$XDG_DATA_HOME/kumeyuri/themes/*.kumetheme.toml`
+4. `$XDG_DATA_DIRS` entries under `kumeyuri/themes/*.kumetheme.toml`
+5. bundled built-ins
+
 ## Output-specific options
 
 | Option | Applies to | Notes |
