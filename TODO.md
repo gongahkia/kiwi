@@ -76,7 +76,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: search UX
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 - [ ] Implement confidence-tier toggle — done when T3/T4 entries hidden by default, revealed by toggle.
-- [ ] Implement Open Graph image generation per entry — done when entry page meta has og:image w/ acronym + expansion.
 
 ## P2 — Web app: contribution flows
 - [ ] Build "suggest edit" UI on entry pages — done when logged-in user can submit edit; queued in `suggested_edits`.
