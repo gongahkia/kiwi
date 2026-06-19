@@ -20,7 +20,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P1 — Search engine
 - [ ] Measure search latency on hosted (Vercel + Neon) — done when p95 < 150ms for 1k-warmup queries.
-- [ ] Measure search latency on self-host (single docker compose, 2-core) — done when p95 < 300ms.
 
 ## P1 — Public corpus ingestion framework
 - [ ] Build delta-to-PR workflow via GitHub Actions — done when scheduled run opens a PR titled `corpus: refresh <source> <date>` with the JSON delta diff.

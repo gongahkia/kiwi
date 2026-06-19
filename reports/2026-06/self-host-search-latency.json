@@ -1,0 +1,10 @@
+{
+  "base_url": "http://localhost:3000",
+  "concurrency": 1,
+  "measured_requests": 1000,
+  "p50_ms": 1.28,
+  "p95_ms": 1.96,
+  "p99_ms": 2.52,
+  "target": "docker compose web cpus=2",
+  "warmup_requests": 1000
+}
