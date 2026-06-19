@@ -76,7 +76,6 @@
 *Doc: `PHASE_F.md`. Goal: make it work on the inputs people actually want, and across terminal capability tiers.*
 
 - [ ] **F1. Webcam input.** DoD: `--input cam` (or device path) shows live structure-ASCII of the webcam with acceptable latency; documented per-OS capture path. Reference: PHASE_F §Webcam.
-- [ ] **F2. Image + GIF input.** DoD: a still image renders once and holds; an animated GIF loops at correct timing. Reference: PHASE_F §Images.
 - [ ] **F3. Streaming URLs.** DoD: an HLS/RTSP URL plays; a YouTube URL plays via yt-dlp handoff; failures degrade with a clear message. Reference: PHASE_F §Streams.
 - [ ] **F4. Terminal capability detection.** DoD: detects truecolor via `COLORTERM`=truecolor/24bit, 256 via `TERM` containing 256; respects `NO_COLOR`; falls back gracefully; `--color-mode {auto|truecolor|256|16|mono}` overrides. Reference: PHASE_F §Detect.
 - [ ] **F5. 256-color + 16-color quantization.** DoD: truecolor is quantized to the 6×6×6 + grayscale 256 cube and to the 16-color palette, with dithering, for limited terminals; output is recognizable. Reference: PHASE_F §Quantize.

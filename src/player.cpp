@@ -401,6 +401,32 @@ bool writeAll(int fd, const std::string& bytes) {
   return true;
 }
 
+bool renderStillResize(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats) {
+  *terminal = queryTerminalSize();
+  emitter->reset();
+  std::string clear = "\x1b[2J";
+  if (!writeAll(STDOUT_FILENO, clear)) {
+    return false;
+  }
+  renderFrame(frame, ramp, options, *terminal, shape_table, cells, render_stats);
+  const EmissionResult emission = emitter->emit(*cells, emission_options);
+  return emission.bytes.empty() || writeAll(STDOUT_FILENO, emission.bytes);
+}
+
+bool holdStillFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats) {
+  while (!shouldQuit()) {
+    const PlaybackCommand command = pollKeyboardCommand();
+    if (command == PlaybackCommand::Quit) {
+      return true;
+    }
+    if (consumeResizeFlag() && !renderStillResize(frame, ramp, options, terminal, shape_table, cells, emitter, emission_options, render_stats)) {
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return true;
+}
+
 }  // namespace
 
 int playMedia(const CliOptions& options, Logger& logger) {
@@ -458,6 +484,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   bool paused_without_audio = false;
   bool audio_started = false;
   int64_t current_video_us = 0;
+  std::optional<Frame> still_frame;
 
   std::string clear = "\x1b[2J";
   writeAll(STDOUT_FILENO, clear);
@@ -523,6 +550,18 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
     auto frame = video_decoder.nextFrame();
     if (!frame.has_value()) {
+      if (video_decoder.isAnimatedImage()) {
+        video_decoder.restart();
+        pacer.reset();
+        emitter.reset();
+        std::string clear_loop = "\x1b[2J";
+        writeAll(STDOUT_FILENO, clear_loop);
+        CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
+        continue;
+      }
+      if (video_decoder.isStillImage() && still_frame.has_value()) {
+        quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr);
+      }
       break;
     }
     if (audio_player != nullptr && !audio_started) {
@@ -566,6 +605,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
       current_video_us = frame->pts_us;
     }
     renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr);
+    if (video_decoder.isStillImage()) {
+      still_frame = *frame;
+    }
     const EmissionResult emission = emitter.emit(cells, emission_options);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;

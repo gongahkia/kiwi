@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 extern "C" {
@@ -78,6 +79,24 @@ std::string ffmpegError(int error_code) {
 
 bool looksRemote(std::string_view input) {
   return input.find("://") != std::string_view::npos;
+}
+
+bool isStillImageFormat(std::string_view format_name) {
+  constexpr std::array<std::string_view, 8> formats {
+    "png_pipe",
+    "jpeg_pipe",
+    "webp_pipe",
+    "bmp_pipe",
+    "tiff_pipe",
+    "image2",
+    "mjpeg",
+    "singlejpeg",
+  };
+  return std::find(formats.begin(), formats.end(), format_name) != formats.end();
+}
+
+bool isAnimatedImageFormat(std::string_view format_name) {
+  return format_name == "gif";
 }
 
 std::optional<double> rationalToDouble(AVRational rational) {
@@ -167,18 +186,18 @@ Frame makeOwnedFrame(const AVFrame* frame, SwsContext** context, std::vector<uin
 }  // namespace
 
 struct VideoDecoder::Impl {
-  explicit Impl(const std::filesystem::path& media) {
+  explicit Impl(std::filesystem::path media) : input(std::move(media)) {
     av_log_set_level(AV_LOG_QUIET);
-    const std::string input_string = media.string();
+    const std::string input_string = input.string();
     if (!looksRemote(input_string)) {
       std::error_code stat_error;
-      if (!std::filesystem::exists(media, stat_error)) {
+      if (!std::filesystem::exists(input, stat_error)) {
         throw std::runtime_error("missing file: " + input_string);
       }
-      if (!std::filesystem::is_regular_file(media, stat_error)) {
+      if (!std::filesystem::is_regular_file(input, stat_error)) {
         throw std::runtime_error("not a regular file: " + input_string);
       }
-      if (std::filesystem::file_size(media, stat_error) == 0 && !stat_error) {
+      if (std::filesystem::file_size(input, stat_error) == 0 && !stat_error) {
         throw std::runtime_error("empty file: " + input_string);
       }
     }
@@ -189,6 +208,11 @@ struct VideoDecoder::Impl {
       throw std::runtime_error("could not open media: " + input_string + ": " + ffmpegError(result));
     }
     format_context.reset(raw_context);
+    if (format_context->iformat != nullptr && format_context->iformat->name != nullptr) {
+      const std::string_view format_name = format_context->iformat->name;
+      still_image = isStillImageFormat(format_name);
+      animated_image = isAnimatedImageFormat(format_name);
+    }
 
     result = avformat_find_stream_info(format_context.get(), nullptr);
     if (result < 0) {
@@ -298,11 +322,14 @@ struct VideoDecoder::Impl {
   CodecContextPtr codec_context;
   PacketPtr packet;
   AvFramePtr frame;
+  std::filesystem::path input;
   const AVStream* stream = nullptr;
   int video_stream_index = -1;
   std::optional<double> average_fps;
   int64_t frame_index = 0;
   bool eof = false;
+  bool still_image = false;
+  bool animated_image = false;
   SwsContext* sws_context = nullptr;
   std::vector<uint8_t> rgb_scratch;
 };
@@ -321,6 +348,18 @@ std::optional<Frame> VideoDecoder::nextFrame() {
 
 void VideoDecoder::seekToUs(int64_t position_us) {
   impl_->seekToUs(position_us);
+}
+
+void VideoDecoder::restart() {
+  impl_->seekToUs(0);
+}
+
+bool VideoDecoder::isStillImage() const noexcept {
+  return impl_->still_image;
+}
+
+bool VideoDecoder::isAnimatedImage() const noexcept {
+  return impl_->animated_image;
 }
 
 }  // namespace contourtty

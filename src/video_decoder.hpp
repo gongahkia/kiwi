@@ -20,6 +20,9 @@ class VideoDecoder {
 
   std::optional<Frame> nextFrame();
   void seekToUs(int64_t position_us);
+  void restart();
+  bool isStillImage() const noexcept;
+  bool isAnimatedImage() const noexcept;
 
  private:
   struct Impl;

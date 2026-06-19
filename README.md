@@ -29,6 +29,8 @@ Structure mode overlays shape-matched edge glyphs over the luminance fill. `--ed
 
 Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset TEXT` replaces the luminance ramp.
 
+Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
+
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
 ## Name
