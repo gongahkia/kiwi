@@ -1,0 +1,32 @@
+{
+  "entries": [
+    {
+      "dedup_key": "cap:consistency availability partition tolerance",
+      "domains": [
+        "distributed systems"
+      ],
+      "examples": [],
+      "expansion_normalized": "consistency availability partition tolerance",
+      "expansions": [
+        "Consistency Availability Partition tolerance"
+      ],
+      "meaning_short": "A distributed-systems tradeoff among consistency, availability, and partition tolerance.",
+      "sources": [
+        {
+          "license": "MIT",
+          "publisher": "wat fixture",
+          "retrieved_at": "2026-01-01T00:00:00.000Z",
+          "snippet": "Fixture entry for local ingestion CLI verification.",
+          "source_quality": "secondary",
+          "title": "Example CAP entry",
+          "url": "https://example.com/wat/cap"
+        }
+      ],
+      "term": "CAP",
+      "term_normalized": "cap",
+      "confidence_tier": "T3"
+    }
+  ],
+  "generated_at": "2026-06-19T07:20:04.213Z",
+  "source": "example"
+}

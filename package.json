@@ -9,6 +9,7 @@
     "db:generate": "pnpm --filter @wat/db db:generate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "ingest": "pnpm --filter @wat/ingest ingest",
     "lint": "eslint . && prettier --check .",
     "prepare": "husky",
     "typecheck": "tsc -b --noEmit",
