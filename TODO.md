@@ -311,7 +311,7 @@
 - [ ] Apply for OpenSSF Best Practices Badge silver/gold
 - [ ] Migrate to multi-maintainer release signing via threshold sigstore
 - [x] Decide policy on AI-generated contributions; document in `CONTRIBUTING.md`
-- [ ] Annual archive of `metrics/dashboard.svg` snapshots for historical trends
+- [x] Annual archive of `metrics/dashboard.svg` snapshots for historical trends
 
 ---
 

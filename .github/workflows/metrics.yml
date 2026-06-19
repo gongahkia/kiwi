@@ -31,13 +31,15 @@ jobs:
         run: npm run metrics:weekly
       - name: Generate dashboard
         run: npm run metrics:dashboard
+      - name: Archive annual dashboard
+        run: npm run metrics:archive
       - name: Commit metrics
         run: |
-          if git diff --quiet -- metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg; then
+          if git diff --quiet -- metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg metrics/archive; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg
+          git add metrics/daily.csv metrics/weekly.csv metrics/dashboard.svg metrics/archive
           git commit -m "metrics: update daily snapshot"
           git push

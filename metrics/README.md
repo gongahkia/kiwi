@@ -8,6 +8,8 @@ Planned generated files:
 * `daily.csv` - raw daily snapshots from GitHub, crates.io, and npm.
 * `weekly.csv` - weekly rollups derived from `daily.csv`.
 * `dashboard.svg` - rendered weekly summary for README/docs embedding.
+* `archive/YYYY/dashboard.svg` - annual dashboard snapshot for historical
+  comparison.
 
 CSV schema:
 
@@ -31,4 +33,10 @@ Regenerate the dogfooded dashboard SVG with:
 
 ```sh
 node scripts/generate-metrics-dashboard.mjs
+```
+
+Archive the current dashboard for the current year with:
+
+```sh
+node scripts/archive-metrics-dashboard.mjs
 ```

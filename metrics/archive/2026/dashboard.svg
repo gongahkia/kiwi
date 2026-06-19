@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="504" height="112" viewBox="0 0 504 112" role="img" aria-labelledby="kumeyuri-title kumeyuri-desc">
+<title id="kumeyuri-title">kumeyuri diagram</title>
+<desc id="kumeyuri-desc">text-rendered Mermaid diagram</desc>
+<metadata id="kumeyuri-text-fallback" data-format="text/plain">frame 0
+┌──────────────────┐     ┌───────────────────────────────────┐ 
+│                  │     │                                   │ 
+│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ 
+│                  │     │                                   │ 
+└──────────────────┘     └───────────────────────────────────┘ 
+                                                               
+
+frame 1
+┌──────────────────┐     ┌───────────────────────────────────┐ 
+│                  │     │                                   │ 
+│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ 
+│                  │     │                                   │ 
+└──────────────────┘     └───────────────────────────────────┘ 
+                                                               
+
+frame 2
+┌──────────────────┐     ┌───────────────────────────────────┐ 
+│                  │     │                                   │ 
+│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ 
+│                  │     │                                   │ 
+└──────────────────┘     └───────────────────────────────────┘ 
+                                                               </metadata>
+<style>
+@media (prefers-reduced-motion: reduce) {
+  g[id^="frame-"] { animation: none !important; opacity: 0 !important; }
+  #frame-0 { opacity: 1 !important; }
+  #kumeyuri-progress-dots { opacity: 1 !important; }
+}
+</style>
+<rect width="504" height="112" fill="#ffffff"/>
+<g id="frame-0" opacity="1">
+<animate attributeName="opacity" values="1;0;0;0" keyTimes="0;0.333333;0.666667;1" dur="1650ms" repeatCount="1" fill="freeze" calcMode="discrete"/>
+<text x="0" y="16" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────────┐     ┌───────────────────────────────────┐ </text>
+<text x="0" y="32" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="48" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ </text>
+<text x="0" y="64" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="80" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────────┘     └───────────────────────────────────┘ </text>
+<text x="0" y="96" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                                               </text>
+</g>
+<g id="frame-1" opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0;0.333333;0.666667;1" dur="1650ms" repeatCount="1" fill="freeze" calcMode="discrete"/>
+<text x="0" y="16" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────────┐     ┌───────────────────────────────────┐ </text>
+<text x="0" y="32" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="48" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ </text>
+<text x="0" y="64" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="80" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────────┘     └───────────────────────────────────┘ </text>
+<text x="0" y="96" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                                               </text>
+</g>
+<g id="frame-2" opacity="0">
+<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.333333;0.666667;1" dur="1650ms" repeatCount="1" fill="freeze" calcMode="discrete"/>
+<text x="0" y="16" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">┌──────────────────┐     ┌───────────────────────────────────┐ </text>
+<text x="0" y="32" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="48" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│ kumeyuri metrics │────▶│ waiting for first weekly snapshot │ </text>
+<text x="0" y="64" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">│                  │     │                                   │ </text>
+<text x="0" y="80" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">└──────────────────┘     └───────────────────────────────────┘ </text>
+<text x="0" y="96" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">                                                               </text>
+</g>
+<text id="kumeyuri-progress-dots" opacity="0" x="480" y="112" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#24292f">...</text>
+</svg>

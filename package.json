@@ -59,7 +59,8 @@
     "bench:compare:fidelity": "node benches/compare/tools/score-fidelity.mjs",
     "metrics:poll": "node scripts/poll-daily-metrics.mjs",
     "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs",
-    "metrics:weekly": "node scripts/aggregate-weekly-metrics.mjs"
+    "metrics:weekly": "node scripts/aggregate-weekly-metrics.mjs",
+    "metrics:archive": "node scripts/archive-metrics-dashboard.mjs"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "11.15.0",
