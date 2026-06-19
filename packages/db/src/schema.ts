@@ -65,12 +65,12 @@ export const entries = pgTable(
       .notNull()
       .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
-      sql`setweight(to_tsvector('english', coalesce("term", '')), 'A') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("expansions", ' '), '')), 'A') ||
-          setweight(to_tsvector('english', coalesce("meaning_short", '')), 'B') ||
-          setweight(to_tsvector('english', coalesce("meaning_long", '')), 'C') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("aliases", ' '), '')), 'B') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("related_terms", ' '), '')), 'D')`
+      sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },
@@ -92,6 +92,30 @@ export const teams = pgTable("teams", {
     .notNull()
     .default(sql`'{}'::jsonb`)
 });
+
+export const sources = pgTable(
+  "sources",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    publisher: text("publisher").notNull(),
+    license: text("license").notNull(),
+    retrievedAt: timestamp("retrieved_at", { withTimezone: true }).notNull(),
+    snippet: text("snippet").notNull(),
+    sourceQuality: text("source_quality").notNull()
+  },
+  (table) => [
+    check(
+      "sources_source_quality_check",
+      sql`${table.sourceQuality} in ('canonical', 'secondary', 'community')`
+    )
+  ]
+);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -138,12 +162,12 @@ export const teamEntries = pgTable(
       .notNull()
       .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
-      sql`setweight(to_tsvector('english', coalesce("term", '')), 'A') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("expansions", ' '), '')), 'A') ||
-          setweight(to_tsvector('english', coalesce("meaning_short", '')), 'B') ||
-          setweight(to_tsvector('english', coalesce("meaning_long", '')), 'C') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("aliases", ' '), '')), 'B') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("related_terms", ' '), '')), 'D')`
+      sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },
@@ -193,12 +217,12 @@ export const personalEntries = pgTable(
       .notNull()
       .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
-      sql`setweight(to_tsvector('english', coalesce("term", '')), 'A') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("expansions", ' '), '')), 'A') ||
-          setweight(to_tsvector('english', coalesce("meaning_short", '')), 'B') ||
-          setweight(to_tsvector('english', coalesce("meaning_long", '')), 'C') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("aliases", ' '), '')), 'B') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("related_terms", ' '), '')), 'D')`
+      sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },

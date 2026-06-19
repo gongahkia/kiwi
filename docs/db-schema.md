@@ -44,6 +44,19 @@ erDiagram
     vector_384 embedding
   }
 
+  sources {
+    text id PK
+    text entry_id FK
+    integer position
+    text url
+    text title
+    text publisher
+    text license
+    timestamptz retrieved_at
+    text snippet
+    text source_quality
+  }
+
   team_entries {
     text id PK
     text term
@@ -122,6 +135,7 @@ erDiagram
   users ||--o{ audit_log : acts
   users ||--o{ suggested_edits : submits
   users ||--o{ suggested_edits : reviews
+  entries ||--o{ sources : cites
 ```
 
 ## Enums
@@ -133,6 +147,7 @@ erDiagram
 
 - `entries.tsvector`, `team_entries.tsvector`, and `personal_entries.tsvector` are generated from term, expansions, meanings, aliases, and related terms.
 - `entries.embedding`, `team_entries.embedding`, and `personal_entries.embedding` are `vector(384)` columns for semantic search.
+- `sources.entry_id` cascades on entry delete.
 
 ## Constraints
 
@@ -141,4 +156,5 @@ erDiagram
 - `team_entries.team_id` cascades on team delete.
 - `personal_entries.user_id` cascades on user delete.
 - Entry confidence tiers are constrained to `T1`, `T2`, `T3`, `T4`.
+- Source quality is constrained to `canonical`, `secondary`, `community`.
 - Overlay layers are constrained to `team` and `personal` for their respective tables.

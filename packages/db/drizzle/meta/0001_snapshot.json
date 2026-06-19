@@ -136,7 +136,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "setweight(to_tsvector('english', coalesce(\"term\", '')), 'A') ||\n          setweight(to_tsvector('english', coalesce(array_to_string(\"expansions\", ' '), '')), 'A') ||\n          setweight(to_tsvector('english', coalesce(\"meaning_short\", '')), 'B') ||\n          setweight(to_tsvector('english', coalesce(\"meaning_long\", '')), 'C') ||\n          setweight(to_tsvector('english', coalesce(array_to_string(\"aliases\", ' '), '')), 'B') ||\n          setweight(to_tsvector('english', coalesce(array_to_string(\"related_terms\", ' '), '')), 'D')",
+            "as": "setweight(to_tsvector('english'::regconfig, coalesce(\"term\", '')), 'A') ||\n          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string(\"expansions\"), '')), 'A') ||\n          setweight(to_tsvector('english'::regconfig, coalesce(\"meaning_short\", '')), 'B') ||\n          setweight(to_tsvector('english'::regconfig, coalesce(\"meaning_long\", '')), 'C') ||\n          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string(\"aliases\"), '')), 'B') ||\n          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string(\"related_terms\"), '')), 'D')",
             "type": "stored"
           }
         },

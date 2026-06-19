@@ -1,2 +1,9 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE OR REPLACE FUNCTION wat_text_array_to_string(input_values text[])
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+RETURNS NULL ON NULL INPUT
+AS $$ SELECT array_to_string(input_values, ' ') $$;

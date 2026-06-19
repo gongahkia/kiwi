@@ -18,12 +18,12 @@ CREATE TABLE "entries" (
 	"deprecated_reason" text,
 	"aliases" text[] DEFAULT ARRAY[]::text[] NOT NULL,
 	"related_terms" text[] DEFAULT ARRAY[]::text[] NOT NULL,
-	"tsvector" "tsvector" GENERATED ALWAYS AS (setweight(to_tsvector('english', coalesce("term", '')), 'A') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("expansions", ' '), '')), 'A') ||
-          setweight(to_tsvector('english', coalesce("meaning_short", '')), 'B') ||
-          setweight(to_tsvector('english', coalesce("meaning_long", '')), 'C') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("aliases", ' '), '')), 'B') ||
-          setweight(to_tsvector('english', coalesce(array_to_string("related_terms", ' '), '')), 'D')) STORED,
+	"tsvector" "tsvector" GENERATED ALWAYS AS (setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')) STORED,
 	"embedding" vector(384),
 	CONSTRAINT "entries_confidence_tier_check" CHECK ("entries"."confidence_tier" in ('T1', 'T2', 'T3', 'T4')),
 	CONSTRAINT "entries_layer_check" CHECK ("entries"."layer" in ('public', 'team', 'personal'))

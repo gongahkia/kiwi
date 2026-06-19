@@ -57,6 +57,13 @@
       "when": 1781851399768,
       "tag": "0007_suggested_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781885942138,
+      "tag": "0008_violet_firelord",
+      "breakpoints": true
     }
   ]
 }
