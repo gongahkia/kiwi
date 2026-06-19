@@ -34,6 +34,7 @@ struct RenderSize {
 };
 
 constexpr double kDefaultDogThreshold = 0.02;
+constexpr double kDefaultEdgeThreshold = 0.35;
 
 class FramePacer {
  public:
@@ -306,36 +307,34 @@ DogOptions dogOptionsFromCli(const CliOptions& options) {
   };
 }
 
-double averageCellLuminance(const LuminanceField& field, int cols, int rows, int col, int row) {
-  const CellLuminanceRegion region = sampleCellRegion(field, cols, rows, col, row);
-  if (region.values.empty()) {
-    return 0.0;
-  }
-  double sum = 0.0;
-  for (const double value : region.values) {
-    sum += value;
-  }
-  return sum / static_cast<double>(region.values.size());
+double edgeThresholdFromCli(const CliOptions& options) {
+  return options.edge_threshold.value_or(kDefaultEdgeThreshold);
 }
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, CellBuffer* cells) {
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
-  std::optional<LuminanceField> structure_luminance;
+  std::optional<GradientField> structure_gradients;
   if (options.mode == "structure") {
+    LuminanceField analysis_luminance = makeLuminanceField(frame);
     const DogOptions dog_options = dogOptionsFromCli(options);
     if (dog_options.enabled()) {
-      structure_luminance = differenceOfGaussians(makeLuminanceField(frame), dog_options);
+      analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
     }
+    structure_gradients = computeSobelGradients(analysis_luminance);
   }
   for (int row = 0; row < size.rows; ++row) {
     for (int col = 0; col < size.cols; ++col) {
       const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
       Cell& cell = cells->at(col, row);
-      const double glyph_luminance = structure_luminance.has_value()
-                                       ? averageCellLuminance(*structure_luminance, size.cols, size.rows, col, row)
-                                       : relativeLuminance(avg);
-      cell.glyph = glyphForLuminance(glyph_luminance, ramp);
+      cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
+      if (structure_gradients.has_value()) {
+        const CellGradient gradient = cellGradient(*structure_gradients, size.cols, size.rows, col, row);
+        const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edgeThresholdFromCli(options));
+        if (edge_glyph.has_value()) {
+          cell.glyph = *edge_glyph;
+        }
+      }
       cell.fg = avg;
       cell.bg = Rgb{};
     }

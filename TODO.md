@@ -70,7 +70,6 @@
 ## PHASE E — Structure mode (the differentiator)  → **v0.5**
 *Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
 
-- [ ] **E4. Directional glyph mapping (v1 of structure mode).** DoD: cells with `m > threshold` map orientation→glyph (`- _ | / \ +`); below threshold fall back to luminance ramp; produces visibly contour-following edges on a rotating-cube/test clip. Reference: PHASE_E §Directional.
 - [ ] **E5. Glyph shape vectors (the high-fidelity path).** DoD: each candidate glyph is rendered (via a bundled monospace font + FreeType, or precomputed bitmaps) and quantified by region-overlap "shape vectors" (per Alex Harri's sampling-circle method); stored as feature vectors at startup. Reference: PHASE_E §ShapeVectors.
 - [ ] **E6. Shape-based glyph matching.** DoD: per cell, build the cell's shape vector from its sub-region and pick the glyph with the best match (normalized cross-correlation / nearest vector); edges look sharp, not blurry, on the cube test (compare against E4 visually). Reference: PHASE_E §Matching.
 - [ ] **E7. Cel-shading contrast pre-pass.** DoD: an optional contrast/posterize enhancement increases separation between regions before matching (per the reference technique), with a `--contrast` knob; improves 3D-scene legibility. Reference: PHASE_E §Contrast.

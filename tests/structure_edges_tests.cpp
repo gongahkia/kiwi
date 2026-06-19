@@ -48,6 +48,8 @@ int main() {
     expect(std::abs(cell.gy) < 1e-12, "vertical edge gy near zero");
     expectNear(cell.orientation, 0.0, 1e-12, "vertical edge orientation");
     expect(cell.magnitude > 0.0, "vertical edge magnitude");
+    const auto glyph = contourtty::directionalGlyphForGradient(cell, 0.01);
+    expect(glyph.has_value() && *glyph == U'|', "vertical edge maps to vertical glyph");
   }
 
   {
@@ -63,6 +65,8 @@ int main() {
     expect(cell.gy > 0.0, "horizontal edge has positive vertical gradient");
     expectNear(cell.orientation, kPi / 2.0, 1e-12, "horizontal edge orientation");
     expect(cell.magnitude > 0.0, "horizontal edge magnitude");
+    const auto glyph = contourtty::directionalGlyphForGradient(cell, 0.01);
+    expect(glyph.has_value() && *glyph == U'_', "positive horizontal edge maps to low horizontal glyph");
   }
 
   {
@@ -76,6 +80,50 @@ int main() {
     const auto cell = contourtty::cellGradient(gradients, 1, 1, 0, 0);
     expect(cell.gx > 0.0 && cell.gy > 0.0, "diagonal edge gradient points down-right");
     expectNear(cell.orientation, kPi / 4.0, 0.15, "diagonal edge orientation");
+    const auto glyph = contourtty::directionalGlyphForGradient(cell, 0.01);
+    expect(glyph.has_value() && *glyph == U'/', "positive diagonal edge maps to slash glyph");
+  }
+
+  {
+    const auto glyph = contourtty::directionalGlyphForGradient(
+      contourtty::CellGradient{
+        .gx = 1.0,
+        .gy = -1.0,
+        .magnitude = std::sqrt(2.0),
+        .orientation = -kPi / 4.0,
+        .horizontal_energy = 1.0,
+        .vertical_energy = 1.0,
+      },
+      0.01);
+    expect(glyph.has_value() && *glyph == U'\\', "negative diagonal edge maps to backslash glyph");
+  }
+
+  {
+    const auto glyph = contourtty::directionalGlyphForGradient(
+      contourtty::CellGradient{
+        .gx = 0.55,
+        .gy = 0.55,
+        .magnitude = std::hypot(0.55, 0.55),
+        .orientation = kPi / 4.0,
+        .horizontal_energy = 1.0,
+        .vertical_energy = 1.0,
+      },
+      0.2);
+    expect(glyph.has_value() && *glyph == U'+', "mixed strong axes map to plus glyph");
+  }
+
+  {
+    const auto glyph = contourtty::directionalGlyphForGradient(
+      contourtty::CellGradient{
+        .gx = 0.01,
+        .gy = 0.0,
+        .magnitude = 0.01,
+        .orientation = 0.0,
+        .horizontal_energy = 0.01,
+        .vertical_energy = 0.0,
+      },
+      0.2);
+    expect(!glyph.has_value(), "weak edge falls back to luminance glyph");
   }
 
   {

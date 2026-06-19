@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
 namespace contourtty {
 namespace {
+
+constexpr double kPi = 3.14159265358979323846;
 
 double sampleClamped(const LuminanceField& field, int x, int y) {
   const int clamped_x = std::min(std::max(x, 0), field.width - 1);
@@ -32,6 +35,23 @@ std::vector<double> gaussianKernel(double sigma) {
     value /= sum;
   }
   return kernel;
+}
+
+double angularDistance(double a, double b) {
+  double delta = std::fmod(std::abs(a - b), 2.0 * kPi);
+  if (delta > kPi) {
+    delta = 2.0 * kPi - delta;
+  }
+  return delta;
+}
+
+bool isCornerLike(const CellGradient& gradient, double threshold) {
+  const double min_energy = std::min(gradient.horizontal_energy, gradient.vertical_energy);
+  const double max_energy = std::max(gradient.horizontal_energy, gradient.vertical_energy);
+  if (min_energy <= threshold || max_energy <= 0.0) {
+    return false;
+  }
+  return min_energy / max_energy >= 0.55 && gradient.magnitude < max_energy * 1.15;
 }
 
 }  // namespace
@@ -135,25 +155,73 @@ CellGradient cellGradient(const GradientField& gradients, int cols, int rows, in
   const SourceRegion region = cellSourceRegion(gradients.width, gradients.height, cols, rows, col, row);
   double gx = 0.0;
   double gy = 0.0;
+  double horizontal_energy = 0.0;
+  double vertical_energy = 0.0;
   int count = 0;
   for (int y = region.y0; y < region.y1; ++y) {
     for (int x = region.x0; x < region.x1; ++x) {
       const Gradient gradient = gradients.at(x, y);
       gx += gradient.gx;
       gy += gradient.gy;
+      horizontal_energy += std::abs(gradient.gx);
+      vertical_energy += std::abs(gradient.gy);
       ++count;
     }
   }
   if (count > 0) {
-    gx /= static_cast<double>(count);
-    gy /= static_cast<double>(count);
+    const double scale = 1.0 / static_cast<double>(count);
+    gx *= scale;
+    gy *= scale;
+    horizontal_energy *= scale;
+    vertical_energy *= scale;
   }
   return CellGradient{
     .gx = gx,
     .gy = gy,
     .magnitude = std::hypot(gx, gy),
     .orientation = std::atan2(gy, gx),
+    .horizontal_energy = horizontal_energy,
+    .vertical_energy = vertical_energy,
   };
+}
+
+std::optional<char32_t> directionalGlyphForGradient(const CellGradient& gradient, double threshold) {
+  if (threshold < 0.0) {
+    throw std::invalid_argument("edge threshold must be non-negative");
+  }
+  if (gradient.magnitude <= threshold) {
+    return std::nullopt;
+  }
+  if (isCornerLike(gradient, threshold)) {
+    return U'+';
+  }
+
+  struct Candidate {
+    double angle;
+    char32_t glyph;
+  };
+  const Candidate candidates[] = {
+    Candidate{.angle = 0.0, .glyph = U'|'},
+    Candidate{.angle = kPi, .glyph = U'|'},
+    Candidate{.angle = -kPi, .glyph = U'|'},
+    Candidate{.angle = kPi / 2.0, .glyph = gradient.gy >= 0.0 ? U'_' : U'-'},
+    Candidate{.angle = -kPi / 2.0, .glyph = U'-'},
+    Candidate{.angle = kPi / 4.0, .glyph = U'/'},
+    Candidate{.angle = -3.0 * kPi / 4.0, .glyph = U'/'},
+    Candidate{.angle = -kPi / 4.0, .glyph = U'\\'},
+    Candidate{.angle = 3.0 * kPi / 4.0, .glyph = U'\\'},
+  };
+
+  const Candidate* best = &candidates[0];
+  double best_distance = angularDistance(gradient.orientation, best->angle);
+  for (const Candidate& candidate : candidates) {
+    const double distance = angularDistance(gradient.orientation, candidate.angle);
+    if (distance < best_distance) {
+      best = &candidate;
+      best_distance = distance;
+    }
+  }
+  return best->glyph;
 }
 
 }  // namespace contourtty
