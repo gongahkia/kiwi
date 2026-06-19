@@ -120,6 +120,10 @@ CliParseResult parseArgs(int argc, char** argv) {
       result.options.gpu = true;
       continue;
     }
+    if (flag == "--mono") {
+      result.options.color_mode = "mono";
+      continue;
+    }
 
     if (!isOneOf(flag, {
           "--width",
@@ -264,6 +268,7 @@ std::string helpText(std::string_view program_name) {
       << "  --mode {luminance|structure|halfblock}\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
+      << "  --mono                         disable color output\n"
       << "  --charset NAME|string          glyph preset or custom glyph string\n"
       << "  --edge-threshold N             structure edge threshold\n"
       << "  --dog-sigma N                  difference-of-gaussians sigma\n"

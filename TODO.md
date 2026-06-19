@@ -58,7 +58,6 @@
 ## PHASE C — Luminance renderer + emission  → **v0.1**
 *Doc: `PHASE_C.md`. Goal: the full live pipeline with the baseline brightness→glyph renderer, truecolor, and the differential emitter that makes high framerates possible.*
 
-- [ ] **C6. Mono mode.** DoD: `--mono` ignores color, emits glyphs only; works on 8-color terminals. Reference: PHASE_C §Mono.
 - [ ] **C7. Live playback loop (no audio yet).** DoD: a video plays start-to-finish in the terminal as luminance ASCII, auto-fit to terminal size, responding to resize; quit on `q`/Ctrl-C with clean restore. Reference: PHASE_C §Loop.
 - [ ] **C8. Frame pacing (wall clock).** DoD: without audio, frames are paced to the source fps via a sleep-to-deadline scheme (not busy-wait); measured playback duration ≈ source duration ±2%. Reference: PHASE_C §Pacing.
 - [ ] **C9. Perf pass + numbers.** DoD: sustained cols×rows×fps recorded for 720p and 1080p sources in truecolor and mono; bytes/frame recorded; documented in `BENCHMARKS.md`. Reference: PHASE_C §Bench.

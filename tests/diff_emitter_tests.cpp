@@ -51,4 +51,21 @@ int main() {
   const auto resize_emit = emitter.emit(resized);
   expect(resize_emit.changed_cells == 1, "resized full repaint");
   expect(resize_emit.bytes.find("\x1b[2J") != std::string::npos, "resize clears");
+
+  contourtty::DiffEmitter mono_emitter;
+  contourtty::CellBuffer mono(1, 1);
+  mono.at(0, 0) = cell(U'M', 255, 0, 0);
+  const auto mono_first = mono_emitter.emit(mono, contourtty::EmissionOptions{.mono = true});
+  expect(mono_first.changed_cells == 1, "mono first emits glyph");
+  expect(mono_first.bytes.find("\x1b[38;2;") == std::string::npos, "mono has no fg sgr");
+  expect(mono_first.bytes.find('M') != std::string::npos, "mono glyph");
+
+  mono.at(0, 0).fg = contourtty::Rgb{.r = 0, .g = 255, .b = 0};
+  const auto mono_color_only = mono_emitter.emit(mono, contourtty::EmissionOptions{.mono = true});
+  expect(mono_color_only.changed_cells == 0, "mono ignores color-only changes");
+
+  mono.at(0, 0).glyph = U'N';
+  const auto mono_glyph = mono_emitter.emit(mono, contourtty::EmissionOptions{.mono = true});
+  expect(mono_glyph.changed_cells == 1, "mono emits glyph changes");
+  expect(mono_glyph.bytes.find('N') != std::string::npos, "mono changed glyph");
 }
