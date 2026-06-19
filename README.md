@@ -2,6 +2,27 @@
 
 Personal pi customisations live here.
 
+## Diff reviewer
+
+Extension: `extensions/diff-reviewer.ts`
+
+Shows an in-terminal side-by-side review overlay for recent `edit` and `write` tool changes.
+
+Keys:
+
+```txt
+h/l  previous/next file
+j/k  scroll
+J/K  fast scroll
+q    close
+```
+
+Reopen the latest captured review overlay:
+
+```txt
+/diff-review
+```
+
 ## Terminal line
 
 Extension: `extensions/terminal-line.ts`
