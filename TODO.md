@@ -77,10 +77,6 @@
 ## PHASE F — Inputs & modes
 *Doc: `PHASE_F.md`. Goal: make it work on the inputs people actually want, and across terminal capability tiers.*
 
-- [ ] **Phase F exit criteria.** DoD: webcam, image, GIF, file, and at least one stream type all render; truecolor/256/16/mono/halfblock all produce correct output on appropriate terminals.
-
----
-
 ## PHASE G — Performance, polish, release  → **v1.0**
 *Doc: `PHASE_G.md`. Goal: make it fast, packaged, documented, and launched.*
 
