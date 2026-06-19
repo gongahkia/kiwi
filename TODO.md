@@ -58,7 +58,6 @@
 ## PHASE C — Luminance renderer + emission  → **v0.1**
 *Doc: `PHASE_C.md`. Goal: the full live pipeline with the baseline brightness→glyph renderer, truecolor, and the differential emitter that makes high framerates possible.*
 
-- [ ] **Phase C exit criteria → tag `v0.1`.** DoD: a stranger can `build && run <file>` and watch a video play as truecolor ASCII, correctly scaled, at a documented framerate, quitting cleanly. If this isn't true, do not proceed.
 
 ---
 
