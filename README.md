@@ -5,7 +5,9 @@
 
 contourtty is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
 
-![v0.1 luminance playback demo](docs/v0.1-luminance.gif)
+![v0.5 side-by-side demo: luminance left, structure right](docs/v0.5-structure-demo.gif)
+
+Demo source: public-domain Wikimedia Commons footage; luminance is left, structure mode is right. See [docs/demo-source.md](docs/demo-source.md).
 
 ## Status
 
