@@ -14,7 +14,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
 - [ ] Hand-curate 50 high-quality seed entries in `packages/ingest/seeds/manual.json` — done when JSON validates against schema and includes ≥3 disambiguation cases (eg. CAP, SLA, REST).
-- [ ] Write ADR `docs/adr/0002-search.md` for hybrid BM25 + vector + trigram via Postgres only — done when ADR committed.
 - [ ] Write ADR `docs/adr/0003-tenancy.md` for email-domain teams — done when ADR committed including trust-model caveats.
 
 ## P0 — Database & migrations
