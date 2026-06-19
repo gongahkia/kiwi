@@ -34,6 +34,7 @@ use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
 use serde::{Deserialize, Serialize};
 
 mod i18n;
+mod mcp;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;

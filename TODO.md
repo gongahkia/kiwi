@@ -365,7 +365,7 @@
 ### MCP server build (Phase 6, drill-down)
 
 - [x] Choose MCP SDK: `rmcp` (Rust) or thin handwritten transport
-- [ ] Implement `render_diagram` tool surface
+- [x] Implement `render_diagram` tool surface
 - [ ] Implement `play_diagram` tool surface (opens TUI subprocess)
 - [ ] Implement `lint_diagram` tool surface
 - [ ] Implement `list_themes`, `list_diagram_types` discovery tools
