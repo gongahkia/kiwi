@@ -1,4 +1,5 @@
 import type { RawEntry, RawSourceCitation } from "./scraper.js";
+import { assertCompatibleSourceLicense } from "./license.js";
 
 export interface CanonicalSourceCitation {
   license: string;
@@ -33,6 +34,8 @@ function normalizeText(input: string): string {
 }
 
 function toCanonicalSource(source: RawSourceCitation): CanonicalSourceCitation {
+  assertCompatibleSourceLicense(source.license);
+
   return {
     license: source.license,
     publisher: source.publisher,

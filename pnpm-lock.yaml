@@ -77,7 +77,14 @@ importers:
         version: 0.31.10
 
   packages/ingest:
+    dependencies:
+      spdx-license-ids:
+        specifier: ^3.0.23
+        version: 3.0.23
     devDependencies:
+      '@types/spdx-license-ids':
+        specifier: ^3.0.0
+        version: 3.0.0
       vitest:
         specifier: ^4.1.9
         version: 4.1.9(@types/node@25.9.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.4))
