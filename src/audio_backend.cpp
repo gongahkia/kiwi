@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -30,6 +31,8 @@ struct PcmState {
   std::span<const float> samples;
   std::atomic<uint64_t> frames_played = 0;
   std::atomic<uint64_t> trailing_silence_frames = 0;
+  std::atomic<uint64_t> seek_frame = std::numeric_limits<uint64_t>::max();
+  std::atomic<bool> paused = false;
   uint64_t total_frames = 0;
   uint32_t channels = 0;
 };
@@ -65,12 +68,20 @@ void sineCallback(ma_device* device, void* output, const void*, ma_uint32 frame_
 void pcmCallback(ma_device* device, void* output, const void*, ma_uint32 frame_count) {
   auto* state = static_cast<PcmState*>(device->pUserData);
   auto* out = static_cast<float*>(output);
+  const uint64_t requested_seek = state->seek_frame.exchange(std::numeric_limits<uint64_t>::max(), std::memory_order_acq_rel);
   uint64_t frame_cursor = state->frames_played.load(std::memory_order_relaxed);
+  if (requested_seek != std::numeric_limits<uint64_t>::max()) {
+    frame_cursor = std::min(requested_seek, state->total_frames);
+  }
   uint64_t trailing_silence = state->trailing_silence_frames.load(std::memory_order_relaxed);
   const ma_uint32 output_channels = device->playback.channels;
 
   for (ma_uint32 frame = 0; frame < frame_count; ++frame) {
-    if (frame_cursor < state->total_frames) {
+    if (state->paused.load(std::memory_order_acquire)) {
+      for (ma_uint32 channel = 0; channel < output_channels; ++channel) {
+        out[static_cast<std::size_t>(frame) * output_channels + channel] = 0.0F;
+      }
+    } else if (frame_cursor < state->total_frames) {
       const std::size_t input_offset = static_cast<std::size_t>(frame_cursor) * state->channels;
       for (ma_uint32 channel = 0; channel < output_channels; ++channel) {
         out[static_cast<std::size_t>(frame) * output_channels + channel] = state->samples[input_offset + channel];
@@ -153,11 +164,31 @@ void PcmPlayer::start() {
   impl_->started = true;
 }
 
+void PcmPlayer::setPaused(bool paused) noexcept {
+  impl_->state.paused.store(paused, std::memory_order_release);
+}
+
+bool PcmPlayer::paused() const noexcept {
+  return impl_->state.paused.load(std::memory_order_acquire);
+}
+
+void PcmPlayer::seekToUs(int64_t position_us) noexcept {
+  const int64_t clamped_us = std::clamp<int64_t>(position_us, 0, durationUs());
+  const auto frame = static_cast<uint64_t>(static_cast<double>(clamped_us) * static_cast<double>(impl_->options.sample_rate) / 1000000.0);
+  const uint64_t clamped_frame = std::min(frame, impl_->state.total_frames);
+  impl_->state.frames_played.store(clamped_frame, std::memory_order_release);
+  impl_->state.seek_frame.store(clamped_frame, std::memory_order_release);
+}
+
 int64_t PcmPlayer::masterClockUs() const noexcept {
   const uint64_t frames = std::min(
     impl_->state.frames_played.load(std::memory_order_acquire),
     impl_->state.total_frames);
   return static_cast<int64_t>(static_cast<double>(frames) * 1000000.0 / static_cast<double>(impl_->options.sample_rate));
+}
+
+int64_t PcmPlayer::durationUs() const noexcept {
+  return static_cast<int64_t>(static_cast<double>(impl_->state.total_frames) * 1000000.0 / static_cast<double>(impl_->options.sample_rate));
 }
 
 bool PcmPlayer::complete() const noexcept {

@@ -39,7 +39,11 @@ class PcmPlayer {
   ~PcmPlayer();
 
   void start();
+  void setPaused(bool paused) noexcept;
+  bool paused() const noexcept;
+  void seekToUs(int64_t position_us) noexcept;
   int64_t masterClockUs() const noexcept;
+  int64_t durationUs() const noexcept;
   bool complete() const noexcept;
   PcmPlaybackResult waitUntilComplete();
 

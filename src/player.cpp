@@ -6,8 +6,8 @@
 #include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
 #include "luminance.hpp"
-#include "media_probe.hpp"
 #include "terminal.hpp"
+#include "video_decoder.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -73,6 +74,14 @@ class FramePacer {
     }
   }
 
+  void reset() {
+    start_.reset();
+    last_deadline_.reset();
+    first_pts_us_ = 0;
+    last_media_us_ = 0;
+    frame_index_ = 0;
+  }
+
  private:
   int64_t mediaTimeUs(const Frame& frame) const {
     if (override_frame_us_.has_value()) {
@@ -98,13 +107,22 @@ struct DriftStats {
   int64_t dropped_frames = 0;
 };
 
-bool keyboardQuitRequested();
-
 enum class FrameAction {
   Render,
   Drop,
   Quit,
+  Control,
 };
+
+enum class PlaybackCommand {
+  None,
+  Quit,
+  TogglePause,
+  SeekBackward,
+  SeekForward,
+};
+
+std::deque<PlaybackCommand> g_pending_commands;
 
 struct AudioSyncState {
   int64_t first_video_pts_us = -1;
@@ -113,8 +131,64 @@ struct AudioSyncState {
   int64_t last_rendered_video_us = -1;
 };
 
+void resetSyncForSeek(AudioSyncState* sync) {
+  sync->previous_video_us = -1;
+  sync->last_rendered_video_us = -1;
+}
+
 int64_t frameMediaUs(const Frame& frame, int64_t first_pts_us) {
   return std::max<int64_t>(0, frame.pts_us - first_pts_us);
+}
+
+PlaybackCommand pollKeyboardCommand() {
+  if (!g_pending_commands.empty()) {
+    const PlaybackCommand command = g_pending_commands.front();
+    g_pending_commands.pop_front();
+    return command;
+  }
+
+  fd_set read_set;
+  FD_ZERO(&read_set);
+  FD_SET(STDIN_FILENO, &read_set);
+  timeval timeout {};
+  const int ready = select(STDIN_FILENO + 1, &read_set, nullptr, nullptr, &timeout);
+  if (ready <= 0 || !FD_ISSET(STDIN_FILENO, &read_set)) {
+    return PlaybackCommand::None;
+  }
+
+  char buffer[32] {};
+  const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof(buffer));
+  if (n <= 0) {
+    return PlaybackCommand::None;
+  }
+  for (ssize_t i = 0; i < n; ++i) {
+    if (buffer[i] == 'q' || buffer[i] == 'Q') {
+      g_pending_commands.push_back(PlaybackCommand::Quit);
+      continue;
+    }
+    if (buffer[i] == ' ') {
+      g_pending_commands.push_back(PlaybackCommand::TogglePause);
+      continue;
+    }
+    if (buffer[i] == '\x1b' && i + 2 < n && buffer[i + 1] == '[') {
+      if (buffer[i + 2] == 'D') {
+        g_pending_commands.push_back(PlaybackCommand::SeekBackward);
+        i += 2;
+        continue;
+      }
+      if (buffer[i + 2] == 'C') {
+        g_pending_commands.push_back(PlaybackCommand::SeekForward);
+        i += 2;
+        continue;
+      }
+    }
+  }
+  if (g_pending_commands.empty()) {
+    return PlaybackCommand::None;
+  }
+  const PlaybackCommand command = g_pending_commands.front();
+  g_pending_commands.pop_front();
+  return command;
 }
 
 bool shouldDropForMaxFps(int64_t video_us, const CliOptions& options, AudioSyncState* sync) {
@@ -125,7 +199,7 @@ bool shouldDropForMaxFps(int64_t video_us, const CliOptions& options, AudioSyncS
   return video_us - sync->last_rendered_video_us < min_interval_us;
 }
 
-FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, PcmPlayer& player, AudioSyncState* sync, DriftStats* stats) {
+FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, PcmPlayer& player, AudioSyncState* sync, DriftStats* stats, PlaybackCommand* command) {
   if (sync->first_video_pts_us < 0) {
     sync->first_video_pts_us = frame.pts_us;
   }
@@ -141,11 +215,20 @@ FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, Pcm
   }
 
   while (!shouldQuit()) {
-    if (keyboardQuitRequested()) {
+    *command = pollKeyboardCommand();
+    if (*command == PlaybackCommand::Quit) {
       return FrameAction::Quit;
     }
+    if (*command != PlaybackCommand::None) {
+      return FrameAction::Control;
+    }
+    if (player.paused()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
     const int64_t audio_us = player.masterClockUs();
-    if (audio_us - video_us > sync->frame_interval_us) {
+    const int64_t late_drop_us = std::min<int64_t>(sync->frame_interval_us, 50000);
+    if (audio_us - video_us > late_drop_us) {
       ++stats->dropped_frames;
       return FrameAction::Drop;
     }
@@ -239,29 +322,6 @@ bool writeAll(int fd, const std::string& bytes) {
   return true;
 }
 
-bool keyboardQuitRequested() {
-  fd_set read_set;
-  FD_ZERO(&read_set);
-  FD_SET(STDIN_FILENO, &read_set);
-  timeval timeout {};
-  const int ready = select(STDIN_FILENO + 1, &read_set, nullptr, nullptr, &timeout);
-  if (ready <= 0 || !FD_ISSET(STDIN_FILENO, &read_set)) {
-    return false;
-  }
-
-  char buffer[16] {};
-  const ssize_t n = ::read(STDIN_FILENO, buffer, sizeof(buffer));
-  if (n <= 0) {
-    return false;
-  }
-  for (ssize_t i = 0; i < n; ++i) {
-    if (buffer[i] == 'q' || buffer[i] == 'Q') {
-      return true;
-    }
-  }
-  return false;
-}
-
 }  // namespace
 
 int playMedia(const CliOptions& options, Logger& logger) {
@@ -279,6 +339,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
 
   resetQuitFlag();
+  g_pending_commands.clear();
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
@@ -290,6 +351,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
 
   TerminalSize terminal = queryTerminalSize();
+  VideoDecoder video_decoder(*options.input);
   CellBuffer cells;
   DiffEmitter emitter;
   FramePacer pacer(options);
@@ -307,33 +369,98 @@ int playMedia(const CliOptions& options, Logger& logger) {
   DriftStats drift_stats;
   AudioSyncState audio_sync;
   bool quit = false;
+  bool paused_without_audio = false;
+  int64_t current_video_us = 0;
 
   std::string clear = "\x1b[2J";
   writeAll(STDOUT_FILENO, clear);
   consumeResizeFlag();
 
-  MediaProbeOptions decode_options;
-  decode_options.cell_aspect = options.cell_aspect;
-  decode_options.on_frame = [&](const Frame& frame, int64_t) {
-    if (shouldQuit() || keyboardQuitRequested()) {
-      quit = true;
-      return false;
-    }
+  const auto seek_to = [&](int64_t target_us) {
+    const int64_t clamped_us = audio_player != nullptr
+                                 ? std::clamp<int64_t>(target_us, 0, audio_player->durationUs())
+                                 : std::max<int64_t>(0, target_us);
     if (audio_player != nullptr) {
-      const FrameAction action = waitForAudioClock(frame, options, *audio_player, &audio_sync, &drift_stats);
-      if (action == FrameAction::Quit) {
+      audio_player->seekToUs(clamped_us);
+    } else {
+      pacer.reset();
+    }
+    video_decoder.seekToUs(clamped_us);
+    resetSyncForSeek(&audio_sync);
+    current_video_us = clamped_us;
+    emitter.reset();
+    std::string clear_seek = "\x1b[2J";
+    writeAll(STDOUT_FILENO, clear_seek);
+    CONTOURTTY_LOG_INFO(logger, "seek target_us=" + std::to_string(clamped_us));
+  };
+
+  const auto apply_command = [&](PlaybackCommand command) {
+    switch (command) {
+      case PlaybackCommand::None:
+        return true;
+      case PlaybackCommand::Quit:
         quit = true;
         return false;
+      case PlaybackCommand::TogglePause:
+        if (audio_player != nullptr) {
+          audio_player->setPaused(!audio_player->paused());
+          CONTOURTTY_LOG_INFO(logger, audio_player->paused() ? "playback paused" : "playback resumed");
+        } else {
+          paused_without_audio = !paused_without_audio;
+          CONTOURTTY_LOG_INFO(logger, paused_without_audio ? "playback paused" : "playback resumed");
+        }
+        return true;
+      case PlaybackCommand::SeekBackward:
+        seek_to((audio_player != nullptr ? audio_player->masterClockUs() : current_video_us) - 5000000);
+        return true;
+      case PlaybackCommand::SeekForward:
+        seek_to((audio_player != nullptr ? audio_player->masterClockUs() : current_video_us) + 5000000);
+        return true;
+    }
+    return true;
+  };
+
+  while (!shouldQuit()) {
+    if (!apply_command(pollKeyboardCommand())) {
+      quit = true;
+      break;
+    }
+    if (audio_player != nullptr && audio_player->paused()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+    if (audio_player == nullptr && paused_without_audio) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+
+    auto frame = video_decoder.nextFrame();
+    if (!frame.has_value()) {
+      break;
+    }
+    if (audio_player != nullptr) {
+      PlaybackCommand command = PlaybackCommand::None;
+      const FrameAction action = waitForAudioClock(*frame, options, *audio_player, &audio_sync, &drift_stats, &command);
+      if (action == FrameAction::Quit) {
+        quit = true;
+        break;
+      }
+      if (action == FrameAction::Control) {
+        if (!apply_command(command)) {
+          quit = true;
+          break;
+        }
+        continue;
       }
       if (action == FrameAction::Drop) {
-        return true;
+        continue;
       }
     } else {
-      pacer.waitForFrame(frame);
+      pacer.waitForFrame(*frame);
     }
-    if (shouldQuit() || keyboardQuitRequested()) {
+    if (shouldQuit()) {
       quit = true;
-      return false;
+      break;
     }
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
@@ -342,16 +469,18 @@ int playMedia(const CliOptions& options, Logger& logger) {
       writeAll(STDOUT_FILENO, clear_resize);
     }
 
-    renderFrame(frame, ramp, options, terminal, &cells);
+    if (audio_sync.first_video_pts_us >= 0) {
+      current_video_us = frameMediaUs(*frame, audio_sync.first_video_pts_us);
+    } else {
+      current_video_us = frame->pts_us;
+    }
+    renderFrame(*frame, ramp, options, terminal, &cells);
     const EmissionResult emission = emitter.emit(cells, emission_options);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;
-      return false;
+      break;
     }
-    return !shouldQuit();
-  };
-
-  (void)probeMedia(*options.input, decode_options);
+  }
   if (!quit && !shouldQuit()) {
     if (audio_player != nullptr) {
       (void)audio_player->waitUntilComplete();

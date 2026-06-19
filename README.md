@@ -21,7 +21,9 @@ cmake --build --preset ci
 
 ## Runtime notes
 
-With audio present, video is paced from the audio playback clock. Late video frames are dropped once they fall more than one frame behind the clock, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
+With audio present, video is paced from the audio playback clock. Late video frames are dropped once they fall too far behind the clock, capped at 50ms, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
+
+Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
 ## Name
 

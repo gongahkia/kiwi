@@ -65,6 +65,7 @@ add_executable(contourtty
   src/png_writer.cpp
   src/player.cpp
   src/terminal.cpp
+  src/video_decoder.cpp
 )
 target_compile_features(contourtty PRIVATE cxx_std_20)
 set_target_properties(contourtty PROPERTIES
