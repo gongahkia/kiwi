@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Search } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import type { SearchResponse, SearchResult } from "@wat/search";
 
 import { SearchResultCard } from "@/components/search-result-card";
@@ -17,7 +17,18 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery.trim());
   const [matches, setMatches] = useState<SearchResult[]>([]);
+  const [domain, setDomain] = useState("");
   const [status, setStatus] = useState<SearchStatus>(initialQuery.trim() ? "loading" : "idle");
+
+  const domainOptions = useMemo(
+    () => Array.from(new Set(matches.flatMap((match) => match.entry.domains))).sort(),
+    [matches]
+  );
+  const visibleMatches = useMemo(
+    () =>
+      domain ? matches.filter((match) => match.entry.domains.includes(domain)) : matches,
+    [domain, matches]
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 180);
@@ -27,6 +38,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
   useEffect(() => {
     if (!debouncedQuery) {
       setMatches([]);
+      setDomain("");
       setStatus("idle");
       return;
     }
@@ -58,6 +70,12 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
     return () => controller.abort();
   }, [debouncedQuery]);
 
+  useEffect(() => {
+    if (domain && !domainOptions.includes(domain)) {
+      setDomain("");
+    }
+  }, [domain, domainOptions]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setDebouncedQuery(query.trim());
@@ -85,13 +103,28 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
       </form>
 
       <div aria-live="polite" className="grid gap-3">
+        {domainOptions.length > 1 ? (
+          <select
+            aria-label="Domain filter"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-fit"
+            onChange={(event) => setDomain(event.target.value)}
+            value={domain}
+          >
+            <option value="">All domains</option>
+            {domainOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        ) : null}
         {status === "error" ? (
           <p className="text-sm text-foreground/60">Search failed.</p>
         ) : null}
-        {status === "ready" && matches.length === 0 ? (
+        {status === "ready" && visibleMatches.length === 0 ? (
           <p className="text-sm text-foreground/60">No results.</p>
         ) : null}
-        {matches.map((result) => (
+        {visibleMatches.map((result) => (
           <SearchResultCard entry={result.entry} key={result.entry.id} />
         ))}
       </div>
