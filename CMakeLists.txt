@@ -323,3 +323,29 @@ else()
   endif()
 endif()
 add_test(NAME structure_sampling COMMAND structure_sampling_tests)
+
+add_executable(structure_edges_tests
+  tests/structure_edges_tests.cpp
+  src/luminance.cpp
+  src/structure_edges.cpp
+  src/structure_sampling.cpp
+)
+target_include_directories(structure_edges_tests PRIVATE src)
+target_compile_features(structure_edges_tests PRIVATE cxx_std_20)
+set_target_properties(structure_edges_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(structure_edges_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(structure_edges_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(structure_edges_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(structure_edges_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME structure_edges COMMAND structure_edges_tests)

@@ -70,7 +70,6 @@
 ## PHASE E — Structure mode (the differentiator)  → **v0.5**
 *Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
 
-- [ ] **E2. Sobel gradient pass.** DoD: per cell, compute Gx, Gy, magnitude `m=hypot(Gx,Gy)`, orientation `θ=atan2(Gy,Gx)`; unit-tested on synthetic edges (vertical edge → horizontal gradient, etc.). Reference: PHASE_E §Sobel.
 - [ ] **E3. Difference-of-Gaussians line isolation.** DoD: an optional DoG pre-pass (tunable σ1, σ2, threshold) isolates clean line structure and suppresses noise; toggle + params exposed. Reference: PHASE_E §DoG.
 - [ ] **E4. Directional glyph mapping (v1 of structure mode).** DoD: cells with `m > threshold` map orientation→glyph (`- _ | / \ +`); below threshold fall back to luminance ramp; produces visibly contour-following edges on a rotating-cube/test clip. Reference: PHASE_E §Directional.
 - [ ] **E5. Glyph shape vectors (the high-fidelity path).** DoD: each candidate glyph is rendered (via a bundled monospace font + FreeType, or precomputed bitmaps) and quantified by region-overlap "shape vectors" (per Alex Harri's sampling-circle method); stored as feature vectors at startup. Reference: PHASE_E §ShapeVectors.
