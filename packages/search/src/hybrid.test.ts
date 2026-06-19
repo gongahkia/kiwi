@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import benchmarkReport from "../fixtures/dev-tooling-acronyms-benchmark.json" with { type: "json" };
 import corpus from "../fixtures/dev-tooling-acronyms.json" with { type: "json" };
+import { evaluateBenchmarkGate } from "./benchmark-gate.js";
 import { searchHybrid, type HybridSearchCandidate } from "./hybrid.js";
 
 const candidates: HybridSearchCandidate[] = corpus.map((entry, index) => ({
@@ -53,8 +54,10 @@ describe("searchHybrid", () => {
 
   it("meets the dev-tooling acronym benchmark gate", () => {
     const result = runBenchmark();
+    const gate = evaluateBenchmarkGate(result, benchmarkReport);
 
-    expect(result).toEqual(benchmarkReport);
+    expect(gate).toEqual({ failures: [], ok: true });
+    expect(result.total_cases).toBe(benchmarkReport.total_cases);
     expect(result.top_1_hit_rate).toBeGreaterThanOrEqual(0.9);
     expect(result.top_5_hit_rate).toBeGreaterThanOrEqual(0.98);
   });

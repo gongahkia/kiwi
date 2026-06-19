@@ -1,4 +1,5 @@
 export * from "./api.js";
+export * from "./benchmark-gate.js";
 export * from "./boost.js";
 export * from "./disambiguation.js";
 export * from "./embedding.js";
