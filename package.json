@@ -30,6 +30,7 @@
     "test:web-component:touch-targets": "npm --workspace kumeyuri run build && node scripts/test-web-component-touch-targets.mjs",
     "test:web-component:perf": "npm --workspace kumeyuri run build && node scripts/test-web-component-perf.mjs",
     "test:docs:a11y": "npm run docs:build && node scripts/test-docs-pa11y.mjs",
+    "test:perf-regression": "node scripts/check-metric-regressions.mjs",
     "bench:compare:beautiful-mermaid": "node benches/compare/tools/beautiful-mermaid.mjs --allow-failures",
     "test:bench:beautiful-mermaid": "node benches/compare/tools/beautiful-mermaid.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
     "bench:compare:alexander-mermaid-ascii": "node benches/compare/tools/alexander-mermaid-ascii.mjs --allow-failures",

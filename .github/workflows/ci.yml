@@ -195,6 +195,29 @@ jobs:
           COVERAGE_GATE_HEAD: ${{ github.sha }}
         run: npm run test:coverage-gate
 
+  metric-regression:
+    name: Metric Regression
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check metric regressions
+        env:
+          PERF_GATE_BASE: ${{ github.event.pull_request.base.sha }}
+          PERF_GATE_HEAD: ${{ github.sha }}
+          PERF_GATE_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: npm run test:perf-regression
+
   svg-sanitizer:
     name: SVG Sanitizer
     runs-on: ubuntu-latest

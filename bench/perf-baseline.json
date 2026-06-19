@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "metrics": {
+    "wasm.gzip_bytes": {
+      "value": 461250,
+      "direction": "lower-is-better"
+    },
+    "web_player.fcr_p95_ms": {
+      "value": 1000,
+      "direction": "lower-is-better"
+    }
+  }
+}

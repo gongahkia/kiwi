@@ -408,7 +408,7 @@
 - [x] Set up `size-limit` (or equivalent) for WASM bundle gzip budget
 - [x] Set up `playwright` perf test for first-contentful-render of web player
 - [x] Add runtime FPS counter to TUI under `--debug`
-- [ ] Add CI gate: fail PR if any metric regresses > 10% without `perf:` label
+- [x] Add CI gate: fail PR if any metric regresses > 10% without `perf:` label
 
 ### Documentation expansion (Phase 4+ continuous)
 
