@@ -75,7 +75,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: search UX
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
-- [ ] Implement disambiguation expansion (multiple expansions) UI — done when CAP shows 2+ cards w/ domain labels.
 - [ ] Implement confidence-tier toggle — done when T3/T4 entries hidden by default, revealed by toggle.
 - [ ] Implement domain filter dropdown — done when filter narrows results live.
 - [ ] Implement keyboard nav (arrows + enter) — done when nav works without mouse.
