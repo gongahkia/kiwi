@@ -18,7 +18,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P0 — Database & migrations
 - [ ] Create `sources` table FK to entries — done when migration applies and FK enforces cascade.
 - [ ] Create `examples` table FK to entries — done when migration applies.
-- [ ] Create `teams` table — done when migration creates `(id, name, email_domain UNIQUE, created_at, settings_jsonb)`.
 - [ ] Create `users` table — done when migration creates `(id, email UNIQUE, team_id FK, role enum, created_at)`.
 - [ ] Create `team_entries` table (team overlay) — done when migration creates entries scoped by `team_id` w/ same columns.
 - [ ] Create `personal_entries` table — done when migration creates entries scoped by `user_id`.

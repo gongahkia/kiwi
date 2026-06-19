@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, customType, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  customType,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp
+} from "drizzle-orm/pg-core";
 
 const tsvector = customType<{ data: string }>({
   dataType() {
@@ -65,3 +74,13 @@ export const entries = pgTable(
     check("entries_layer_check", sql`${table.layer} in ('public', 'team', 'personal')`)
   ]
 );
+
+export const teams = pgTable("teams", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  emailDomain: text("email_domain").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  settingsJsonb: jsonb("settings_jsonb")
+    .notNull()
+    .default(sql`'{}'::jsonb`)
+});
