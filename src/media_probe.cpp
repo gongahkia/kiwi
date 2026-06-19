@@ -365,6 +365,7 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
 }  // namespace
 
 MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options) {
+  av_log_set_level(AV_LOG_QUIET);
   if (options.dump_png.has_value() != options.dump_frame_index.has_value()) {
     throw std::runtime_error("--dump-frame and --dump-png must be used together");
   }
@@ -392,6 +393,9 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   AVFormatContext* raw_context = nullptr;
   int result = avformat_open_input(&raw_context, input_string.c_str(), nullptr, nullptr);
   if (result < 0) {
+    if (result == AVERROR_INVALIDDATA) {
+      throw std::runtime_error("corrupt or unsupported media: " + input_string + ": " + ffmpegError(result));
+    }
     throw std::runtime_error("could not open media: " + input_string + ": " + ffmpegError(result));
   }
   FormatContextPtr format_context(raw_context);
