@@ -4,6 +4,7 @@
 #include "audio_decode.hpp"
 #include "braille_renderer.hpp"
 #include "cell_buffer.hpp"
+#include "color_dither.hpp"
 #include "color_mode.hpp"
 #include "diff_emitter.hpp"
 #include "frame_sampling.hpp"
@@ -19,6 +20,7 @@
 #include "video_decoder.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
@@ -32,11 +34,23 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <sys/select.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+#include <libavutil/error.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
+}
 
 namespace contourtty {
 namespace {
@@ -447,9 +461,372 @@ bool holdStillFrame(const Frame& frame, std::u32string_view ramp, const CliOptio
   return true;
 }
 
+struct OutputFormatContextDeleter {
+  void operator()(AVFormatContext* context) const noexcept {
+    if (context == nullptr) {
+      return;
+    }
+    if ((context->oformat->flags & AVFMT_NOFILE) == 0 && context->pb != nullptr) {
+      avio_closep(&context->pb);
+    }
+    avformat_free_context(context);
+  }
+};
+
+using OutputFormatContextPtr = std::unique_ptr<AVFormatContext, OutputFormatContextDeleter>;
+
+struct EncoderContextDeleter {
+  void operator()(AVCodecContext* context) const noexcept {
+    avcodec_free_context(&context);
+  }
+};
+
+using EncoderContextPtr = std::unique_ptr<AVCodecContext, EncoderContextDeleter>;
+
+struct EncodeFrameDeleter {
+  void operator()(AVFrame* frame) const noexcept {
+    av_frame_free(&frame);
+  }
+};
+
+using EncodeFramePtr = std::unique_ptr<AVFrame, EncodeFrameDeleter>;
+
+struct EncodePacketDeleter {
+  void operator()(AVPacket* packet) const noexcept {
+    av_packet_free(&packet);
+  }
+};
+
+using EncodePacketPtr = std::unique_ptr<AVPacket, EncodePacketDeleter>;
+
+struct ExportSwsContextDeleter {
+  void operator()(SwsContext* context) const noexcept {
+    sws_freeContext(context);
+  }
+};
+
+using ExportSwsContextPtr = std::unique_ptr<SwsContext, ExportSwsContextDeleter>;
+
+std::string ffmpegError(int error_code) {
+  std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer {};
+  if (av_strerror(error_code, buffer.data(), buffer.size()) < 0) {
+    return "unknown ffmpeg error";
+  }
+  return buffer.data();
+}
+
+void throwFfmpegError(const std::string& action, int result) {
+  if (result < 0) {
+    throw std::runtime_error(action + ": " + ffmpegError(result));
+  }
+}
+
+AVPixelFormat chooseEncoderPixelFormat(const AVCodec* codec) {
+#if LIBAVCODEC_VERSION_MAJOR >= 61
+  const void* configs = nullptr;
+  int config_count = 0;
+  const int result = avcodec_get_supported_config(nullptr, codec, AV_CODEC_CONFIG_PIX_FORMAT, 0, &configs, &config_count);
+  if (result >= 0 && configs != nullptr && config_count > 0) {
+    const auto* formats = static_cast<const AVPixelFormat*>(configs);
+    for (int i = 0; i < config_count; ++i) {
+      if (formats[i] == AV_PIX_FMT_YUV420P) {
+        return AV_PIX_FMT_YUV420P;
+      }
+    }
+    return formats[0];
+  }
+  return AV_PIX_FMT_YUV420P;
+#else
+  if (codec->pix_fmts == nullptr) {
+    return AV_PIX_FMT_YUV420P;
+  }
+  for (const AVPixelFormat* format = codec->pix_fmts; *format != AV_PIX_FMT_NONE; ++format) {
+    if (*format == AV_PIX_FMT_YUV420P) {
+      return AV_PIX_FMT_YUV420P;
+    }
+  }
+  return codec->pix_fmts[0];
+#endif
+}
+
+const AVCodec* chooseMp4Encoder() {
+  if (const AVCodec* encoder = avcodec_find_encoder(AV_CODEC_ID_H264)) {
+    return encoder;
+  }
+  if (const AVCodec* encoder = avcodec_find_encoder(AV_CODEC_ID_MPEG4)) {
+    return encoder;
+  }
+  throw std::runtime_error("no MP4-compatible video encoder found");
+}
+
+class Mp4VideoWriter {
+ public:
+  Mp4VideoWriter(const std::filesystem::path& path, int width, int height, double fps) {
+    AVFormatContext* raw_format_context = nullptr;
+    throwFfmpegError("could not allocate MP4 output", avformat_alloc_output_context2(&raw_format_context, nullptr, "mp4", path.string().c_str()));
+    if (raw_format_context == nullptr) {
+      throw std::runtime_error("could not allocate MP4 output");
+    }
+    format_context_.reset(raw_format_context);
+    encoder_ = chooseMp4Encoder();
+    stream_ = avformat_new_stream(format_context_.get(), nullptr);
+    if (stream_ == nullptr) {
+      throw std::runtime_error("could not create MP4 video stream");
+    }
+
+    codec_context_.reset(avcodec_alloc_context3(encoder_));
+    if (codec_context_ == nullptr) {
+      throw std::runtime_error("could not allocate MP4 encoder context");
+    }
+
+    const double bounded_fps = std::clamp(fps, 1.0, 240.0);
+    const AVRational framerate = av_d2q(bounded_fps, 100000);
+    codec_context_->codec_id = encoder_->id;
+    codec_context_->codec_type = AVMEDIA_TYPE_VIDEO;
+    codec_context_->width = width;
+    codec_context_->height = height;
+    codec_context_->pix_fmt = chooseEncoderPixelFormat(encoder_);
+    codec_context_->time_base = AVRational{framerate.den, framerate.num};
+    codec_context_->framerate = framerate;
+    codec_context_->bit_rate = std::max<int64_t>(400000, static_cast<int64_t>(std::llround(static_cast<double>(width) * static_cast<double>(height) * bounded_fps * 2.0)));
+    codec_context_->gop_size = std::max(1, static_cast<int>(std::llround(bounded_fps * 2.0)));
+    codec_context_->max_b_frames = 0;
+    if ((format_context_->oformat->flags & AVFMT_GLOBALHEADER) != 0) {
+      codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+    if (encoder_->id == AV_CODEC_ID_H264) {
+      av_opt_set(codec_context_->priv_data, "preset", "veryfast", 0);
+      av_opt_set(codec_context_->priv_data, "crf", "20", 0);
+    }
+    throwFfmpegError("could not open MP4 encoder", avcodec_open2(codec_context_.get(), encoder_, nullptr));
+    throwFfmpegError("could not copy MP4 encoder parameters", avcodec_parameters_from_context(stream_->codecpar, codec_context_.get()));
+    stream_->time_base = codec_context_->time_base;
+
+    if ((format_context_->oformat->flags & AVFMT_NOFILE) == 0) {
+      throwFfmpegError("could not open MP4 output file", avio_open(&format_context_->pb, path.string().c_str(), AVIO_FLAG_WRITE));
+    }
+    throwFfmpegError("could not write MP4 header", avformat_write_header(format_context_.get(), nullptr));
+
+    frame_.reset(av_frame_alloc());
+    if (frame_ == nullptr) {
+      throw std::runtime_error("could not allocate MP4 frame");
+    }
+    frame_->format = codec_context_->pix_fmt;
+    frame_->width = codec_context_->width;
+    frame_->height = codec_context_->height;
+    throwFfmpegError("could not allocate MP4 frame buffer", av_frame_get_buffer(frame_.get(), 32));
+
+    packet_.reset(av_packet_alloc());
+    if (packet_ == nullptr) {
+      throw std::runtime_error("could not allocate MP4 packet");
+    }
+    sws_context_.reset(sws_getContext(width, height, AV_PIX_FMT_RGB24, width, height, codec_context_->pix_fmt, SWS_BILINEAR, nullptr, nullptr, nullptr));
+    if (sws_context_ == nullptr) {
+      throw std::runtime_error("could not create MP4 RGB converter");
+    }
+  }
+
+  void writeFrame(const std::vector<uint8_t>& rgb) {
+    if (rgb.size() != static_cast<std::size_t>(codec_context_->width) * static_cast<std::size_t>(codec_context_->height) * 3U) {
+      throw std::runtime_error("MP4 raster frame size mismatch");
+    }
+    throwFfmpegError("could not make MP4 frame writable", av_frame_make_writable(frame_.get()));
+    const uint8_t* src_data[4] = {rgb.data(), nullptr, nullptr, nullptr};
+    const int src_linesize[4] = {codec_context_->width * 3, 0, 0, 0};
+    const int scaled = sws_scale(sws_context_.get(), src_data, src_linesize, 0, codec_context_->height, frame_->data, frame_->linesize);
+    if (scaled != codec_context_->height) {
+      throw std::runtime_error("could not convert MP4 RGB frame");
+    }
+    frame_->pts = next_pts_++;
+    encode(frame_.get());
+  }
+
+  void finish() {
+    encode(nullptr);
+    throwFfmpegError("could not write MP4 trailer", av_write_trailer(format_context_.get()));
+  }
+
+ private:
+  void encode(AVFrame* frame) {
+    throwFfmpegError("could not send MP4 frame to encoder", avcodec_send_frame(codec_context_.get(), frame));
+    while (true) {
+      const int result = avcodec_receive_packet(codec_context_.get(), packet_.get());
+      if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
+        return;
+      }
+      throwFfmpegError("could not receive MP4 packet", result);
+      av_packet_rescale_ts(packet_.get(), codec_context_->time_base, stream_->time_base);
+      packet_->stream_index = stream_->index;
+      throwFfmpegError("could not write MP4 packet", av_interleaved_write_frame(format_context_.get(), packet_.get()));
+      av_packet_unref(packet_.get());
+    }
+  }
+
+  const AVCodec* encoder_ = nullptr;
+  AVStream* stream_ = nullptr;
+  OutputFormatContextPtr format_context_;
+  EncoderContextPtr codec_context_;
+  EncodeFramePtr frame_;
+  EncodePacketPtr packet_;
+  ExportSwsContextPtr sws_context_;
+  int64_t next_pts_ = 0;
+};
+
+constexpr int kExportCellPixelWidth = 8;
+constexpr int kExportCellPixelHeight = 12;
+
+std::array<uint8_t, 7> asciiGlyphPattern(char32_t glyph) {
+  switch (glyph) {
+    case U' ':
+      return {0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000};
+    case U'.':
+      return {0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00100, 0b00100};
+    case U':':
+      return {0b00000, 0b00100, 0b00100, 0b00000, 0b00100, 0b00100, 0b00000};
+    case U'-':
+      return {0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000};
+    case U'=':
+      return {0b00000, 0b00000, 0b11111, 0b00000, 0b11111, 0b00000, 0b00000};
+    case U'+':
+      return {0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000};
+    case U'*':
+      return {0b00000, 0b10101, 0b01110, 0b11111, 0b01110, 0b10101, 0b00000};
+    case U'#':
+      return {0b01010, 0b11111, 0b01010, 0b01010, 0b11111, 0b01010, 0b00000};
+    case U'%':
+      return {0b11001, 0b11010, 0b00100, 0b01000, 0b10110, 0b00110, 0b00000};
+    case U'@':
+      return {0b01110, 0b10001, 0b10111, 0b10101, 0b10111, 0b10000, 0b01110};
+    case U'|':
+      return {0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100};
+    case U'/':
+      return {0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b00000, 0b00000};
+    case U'\\':
+      return {0b10000, 0b01000, 0b00100, 0b00010, 0b00001, 0b00000, 0b00000};
+    case U'_':
+      return {0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b11111};
+    case U'?':
+      return {0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100};
+    default:
+      return asciiGlyphPattern(U'?');
+  }
+}
+
+bool asciiGlyphPixel(const std::array<uint8_t, 7>& pattern, int x, int y) {
+  if (x < 1 || x > 6 || y < 2 || y > 9) {
+    return false;
+  }
+  const int source_x = (x - 1) * 5 / 6;
+  const int source_y = (y - 2) * 7 / 8;
+  return ((pattern[static_cast<std::size_t>(source_y)] >> (4 - source_x)) & 1U) != 0;
+}
+
+void writeRasterPixel(std::vector<uint8_t>* raster, int width, int x, int y, Rgb color) {
+  const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)) * 3U;
+  raster->at(index) = color.r;
+  raster->at(index + 1U) = color.g;
+  raster->at(index + 2U) = color.b;
+}
+
+bool brailleDotSet(char32_t glyph, int dot_col, int dot_row) {
+  if (glyph < 0x2800U || glyph > 0x28ffU) {
+    return false;
+  }
+  static constexpr uint8_t kBrailleBits[4][2] {
+    {0x01, 0x08},
+    {0x02, 0x10},
+    {0x04, 0x20},
+    {0x40, 0x80},
+  };
+  const uint8_t mask = static_cast<uint8_t>(glyph - 0x2800U);
+  return (mask & kBrailleBits[dot_row][dot_col]) != 0;
+}
+
+bool brailleGlyphPixel(char32_t glyph, int x, int y) {
+  static constexpr int kDotCentersX[2] {2, 5};
+  static constexpr int kDotCentersY[4] {1, 4, 7, 10};
+  for (int dot_row = 0; dot_row < 4; ++dot_row) {
+    for (int dot_col = 0; dot_col < 2; ++dot_col) {
+      if (!brailleDotSet(glyph, dot_col, dot_row)) {
+        continue;
+      }
+      if (std::abs(x - kDotCentersX[dot_col]) <= 1 && std::abs(y - kDotCentersY[dot_row]) <= 1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+Rgb exportForegroundColor(const Cell& cell, ColorMode color_mode) {
+  if (color_mode == ColorMode::Mono) {
+    return Rgb{.r = 255, .g = 255, .b = 255};
+  }
+  return cell.fg;
+}
+
+Rgb exportBackgroundColor(const Cell& cell, ColorMode color_mode) {
+  if (color_mode == ColorMode::Mono) {
+    return Rgb{};
+  }
+  return cell.bg;
+}
+
+std::vector<uint8_t> rasterizeCells(const CellBuffer& cells, ColorMode color_mode, DitherMode dither_mode) {
+  CellBuffer quantized;
+  const CellBuffer* source = &cells;
+  if (supportsPaletteDither(color_mode)) {
+    quantized = applyPaletteDither(cells, color_mode, dither_mode);
+    source = &quantized;
+  }
+  const int width = source->cols() * kExportCellPixelWidth;
+  const int height = source->rows() * kExportCellPixelHeight;
+  std::vector<uint8_t> raster(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 3U, 0);
+  for (int cell_row = 0; cell_row < source->rows(); ++cell_row) {
+    for (int cell_col = 0; cell_col < source->cols(); ++cell_col) {
+      const Cell& cell = source->at(cell_col, cell_row);
+      const Rgb fg = exportForegroundColor(cell, color_mode);
+      const Rgb bg = exportBackgroundColor(cell, color_mode);
+      const auto pattern = asciiGlyphPattern(cell.glyph);
+      for (int y = 0; y < kExportCellPixelHeight; ++y) {
+        for (int x = 0; x < kExportCellPixelWidth; ++x) {
+          Rgb color = bg;
+          if (cell.glyph == U'▀') {
+            color = y < kExportCellPixelHeight / 2 ? fg : bg;
+          } else if (cell.glyph == U'▄') {
+            color = y < kExportCellPixelHeight / 2 ? bg : fg;
+          } else if (cell.glyph == U'█') {
+            color = fg;
+          } else if (cell.glyph >= 0x2800U && cell.glyph <= 0x28ffU) {
+            color = brailleGlyphPixel(cell.glyph, x, y) ? fg : bg;
+          } else if (asciiGlyphPixel(pattern, x, y)) {
+            color = fg;
+          }
+          writeRasterPixel(&raster, width, cell_col * kExportCellPixelWidth + x, cell_row * kExportCellPixelHeight + y, color);
+        }
+      }
+    }
+  }
+  return raster;
+}
+
+double mp4ExportFps(const CliOptions& options, const Frame& first_frame, const std::optional<Frame>& second_frame) {
+  if (options.fps.has_value() && *options.fps > 0.0) {
+    return *options.fps;
+  }
+  if (second_frame.has_value()) {
+    const int64_t delta_us = second_frame->pts_us - first_frame.pts_us;
+    if (delta_us > 0) {
+      return 1000000.0 / static_cast<double>(delta_us);
+    }
+  }
+  return 30.0;
+}
+
 enum class ExportKind {
   Ansi,
   Cast,
+  Mp4,
 };
 
 ExportKind exportKindForPath(const std::filesystem::path& path) {
@@ -460,7 +837,10 @@ ExportKind exportKindForPath(const std::filesystem::path& path) {
   if (extension == ".cast") {
     return ExportKind::Cast;
   }
-  throw std::runtime_error("unsupported export extension: expected .ansi or .cast");
+  if (extension == ".mp4") {
+    return ExportKind::Mp4;
+  }
+  throw std::runtime_error("unsupported export extension: expected .ansi, .cast, or .mp4");
 }
 
 TerminalSize exportTerminalSize(const CliOptions& options) {
@@ -547,11 +927,6 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   const std::filesystem::path output_path = *options.export_file;
   const ExportKind kind = exportKindForPath(output_path);
-  std::ofstream output(output_path, std::ios::binary);
-  if (!output) {
-    throw std::runtime_error("could not open export file: " + output_path.string());
-  }
-
   VideoDecoder video_decoder(*options.input);
   auto frame = video_decoder.nextFrame();
   if (!frame.has_value()) {
@@ -570,6 +945,47 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   int64_t frame_index = 0;
   int64_t exported_frames = 0;
   double last_timestamp = 0.0;
+  const auto log_export = [&] {
+    CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+    if (logger.enabled()) {
+      CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                    " cells=" + std::to_string(render_stats.cells) +
+                                    " render_us=" + std::to_string(render_stats.render_ns / 1000) +
+                                    " shape_match_cells=" + std::to_string(render_stats.shape_match_cells));
+    }
+  };
+
+  if (kind == ExportKind::Mp4) {
+    std::optional<Frame> second_frame = video_decoder.nextFrame();
+    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+    Mp4VideoWriter writer(output_path,
+                          cells.cols() * kExportCellPixelWidth,
+                          cells.rows() * kExportCellPixelHeight,
+                          mp4ExportFps(options, *frame, second_frame));
+    writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode));
+    ++exported_frames;
+
+    const auto write_mp4_frame = [&](const Frame& current_frame) {
+      renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+      writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode));
+    };
+    if (second_frame.has_value()) {
+      write_mp4_frame(*second_frame);
+      ++exported_frames;
+    }
+    while ((frame = video_decoder.nextFrame()).has_value()) {
+      write_mp4_frame(*frame);
+      ++exported_frames;
+    }
+    writer.finish();
+    log_export();
+    return 0;
+  }
+
+  std::ofstream output(output_path, std::ios::binary);
+  if (!output) {
+    throw std::runtime_error("could not open export file: " + output_path.string());
+  }
 
   const auto write_emission = [&](double timestamp, std::string_view bytes) {
     if (bytes.empty()) {
@@ -617,13 +1033,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   if (!output) {
     throw std::runtime_error("failed to write export file: " + output_path.string());
   }
-  CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
-  if (logger.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
-                                  " cells=" + std::to_string(render_stats.cells) +
-                                  " render_us=" + std::to_string(render_stats.render_ns / 1000) +
-                                  " shape_match_cells=" + std::to_string(render_stats.shape_match_cells));
-  }
+  log_export();
   return 0;
 }
 
