@@ -1,12 +1,14 @@
 import { z } from "zod";
 
+import { LicenseIdSchema } from "./license.js";
+
 export const SourceQualitySchema = z.enum(["canonical", "secondary", "community"]);
 
 export const SourceCitationSchema = z.object({
   url: z.string().url(),
   title: z.string().min(1),
   publisher: z.string().min(1),
-  license: z.string().min(1),
+  license: LicenseIdSchema,
   retrieved_at: z.string().datetime({ offset: true }),
   snippet: z.string().min(1),
   source_quality: SourceQualitySchema
@@ -28,7 +30,7 @@ export const GlossaryEntrySchema = z.object({
   coiner: z.string().min(1).nullable(),
   year_coined: z.number().int().nonnegative().nullable(),
   confidence_tier: ConfidenceTierSchema,
-  license: z.string().min(1),
+  license: LicenseIdSchema,
   layer: EntryLayerSchema,
   team_id: z.string().min(1).nullable().optional(),
   created_at: z.string().datetime({ offset: true }),
