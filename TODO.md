@@ -64,7 +64,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Build corpus stats dashboard page in web app — done when `/stats` shows entry counts by source, tier, domain.
 
 ## P2 — Web app foundation
-- [ ] Configure Tailwind + shadcn/ui — done when a sample button page renders.
 - [ ] Configure dark mode via `next-themes` — done when toggle works persistently.
 - [ ] Configure middleware for auth-protected routes — done when `/team/admin` redirects to login when unauth.
 - [ ] Set up NextAuth w/ email magic-link provider — done when end-to-end magic-link login works locally w/ Mailpit.

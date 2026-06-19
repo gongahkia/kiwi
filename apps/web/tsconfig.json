@@ -5,6 +5,10 @@
     "jsx": "preserve",
     "rootDir": ".",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "types": ["node", "react", "react-dom"],
     "plugins": [
       {
