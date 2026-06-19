@@ -44,6 +44,7 @@
 *Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
 
 - [ ] **A10. CI: build matrix.** DoD: GitHub Actions builds on Linux + macOS (Windows optional flag), fails on warnings; badge in README.
+  - 2026-06-19: blocked by GitHub Actions billing/spending-limit state before any job steps start. Owner override: continue Phase B while A10/Phase A exit remain pending.
 - [ ] **Phase A exit criteria.** DoD: clean build on ≥2 OSes in CI; raw-mode guard provably restores on normal exit, Ctrl-C, and exception; size query + SIGWINCH working.
 
 ---
