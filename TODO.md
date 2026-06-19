@@ -61,7 +61,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P1 — Corpus quality controls
 - [ ] Build benchmark gate: corpus refresh PR is blocked if hit-rate drops >1pp — done when PR check fails in test scenario.
-- [ ] Build corpus stats dashboard page in web app — done when `/stats` shows entry counts by source, tier, domain.
 
 ## P2 — Web app foundation
 - [ ] Set up NextAuth w/ email magic-link provider — done when end-to-end magic-link login works locally w/ Mailpit.
