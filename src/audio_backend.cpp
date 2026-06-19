@@ -3,11 +3,13 @@
 
 #include "audio_backend.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -88,7 +90,24 @@ void pcmCallback(ma_device* device, void* output, const void*, ma_uint32 frame_c
 
 }  // namespace
 
-PcmPlaybackResult playPcm(std::span<const float> samples, const PcmPlaybackOptions& options) {
+struct PcmPlayer::Impl {
+  explicit Impl(const PcmPlaybackOptions& playback_options) : options(playback_options) {}
+
+  ~Impl() {
+    if (initialized) {
+      ma_device_uninit(&device);
+    }
+  }
+
+  PcmPlaybackOptions options;
+  PcmState state;
+  ma_device device {};
+  bool initialized = false;
+  bool started = false;
+};
+
+PcmPlayer::PcmPlayer(std::span<const float> samples, const PcmPlaybackOptions& options)
+    : impl_(std::make_unique<Impl>(options)) {
   if (options.sample_rate == 0) {
     throw std::runtime_error("PCM playback sample rate must be positive");
   }
@@ -102,45 +121,69 @@ PcmPlaybackResult playPcm(std::span<const float> samples, const PcmPlaybackOptio
     throw std::runtime_error("PCM sample count is not divisible by channel count");
   }
 
-  PcmState state;
-  state.samples = samples;
-  state.channels = options.channels;
-  state.total_frames = static_cast<uint64_t>(samples.size() / options.channels);
+  impl_->state.samples = samples;
+  impl_->state.channels = options.channels;
+  impl_->state.total_frames = static_cast<uint64_t>(samples.size() / options.channels);
 
   ma_device_config config = ma_device_config_init(ma_device_type_playback);
   config.playback.format = ma_format_f32;
   config.playback.channels = options.channels;
   config.sampleRate = options.sample_rate;
   config.dataCallback = pcmCallback;
-  config.pUserData = &state;
+  config.pUserData = &impl_->state;
 
-  ma_device device {};
-  ma_result result = ma_device_init(nullptr, &config, &device);
+  ma_result result = ma_device_init(nullptr, &config, &impl_->device);
   if (result != MA_SUCCESS) {
     throw std::runtime_error("failed to initialize audio playback device: " + miniaudioError(result));
   }
+  impl_->initialized = true;
+}
 
-  result = ma_device_start(&device);
+PcmPlayer::PcmPlayer(PcmPlayer&&) noexcept = default;
+
+PcmPlayer& PcmPlayer::operator=(PcmPlayer&&) noexcept = default;
+
+PcmPlayer::~PcmPlayer() = default;
+
+void PcmPlayer::start() {
+  ma_result result = ma_device_start(&impl_->device);
   if (result != MA_SUCCESS) {
-    ma_device_uninit(&device);
     throw std::runtime_error("failed to start audio playback device: " + miniaudioError(result));
   }
+  impl_->started = true;
+}
 
+int64_t PcmPlayer::masterClockUs() const noexcept {
+  const uint64_t frames = std::min(
+    impl_->state.frames_played.load(std::memory_order_acquire),
+    impl_->state.total_frames);
+  return static_cast<int64_t>(static_cast<double>(frames) * 1000000.0 / static_cast<double>(impl_->options.sample_rate));
+}
+
+bool PcmPlayer::complete() const noexcept {
+  return impl_->state.frames_played.load(std::memory_order_acquire) >= impl_->state.total_frames;
+}
+
+PcmPlaybackResult PcmPlayer::waitUntilComplete() {
   const auto timeout = std::chrono::steady_clock::now() +
                        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                         std::chrono::duration<double>(static_cast<double>(state.total_frames) / static_cast<double>(options.sample_rate))) +
+                         std::chrono::duration<double>(static_cast<double>(impl_->state.total_frames) / static_cast<double>(impl_->options.sample_rate))) +
                        std::chrono::seconds(5);
-  while (state.frames_played.load(std::memory_order_acquire) < state.total_frames &&
-         std::chrono::steady_clock::now() < timeout) {
+  while (!complete() && std::chrono::steady_clock::now() < timeout) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  ma_device_uninit(&device);
   return PcmPlaybackResult{
-    .frames_played = state.frames_played.load(std::memory_order_acquire),
-    .trailing_silence_frames = state.trailing_silence_frames.load(std::memory_order_acquire),
+    .frames_played = impl_->state.frames_played.load(std::memory_order_acquire),
+    .trailing_silence_frames = impl_->state.trailing_silence_frames.load(std::memory_order_acquire),
   };
+}
+
+PcmPlaybackResult playPcm(std::span<const float> samples, const PcmPlaybackOptions& options) {
+  PcmPlayer player(samples, options);
+  player.start();
+  return player.waitUntilComplete();
 }
 
 SineSmokeResult playSineSmoke(const SineSmokeOptions& options) {

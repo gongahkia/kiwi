@@ -154,6 +154,28 @@ else()
   endif()
 endif()
 
+add_executable(audio_clock_smoke
+  tools/audio_clock_smoke.cpp
+)
+target_compile_features(audio_clock_smoke PRIVATE cxx_std_20)
+set_target_properties(audio_clock_smoke PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(audio_clock_smoke PRIVATE contourtty_audio contourtty_audio_decode)
+if(MSVC)
+  target_compile_options(audio_clock_smoke PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_clock_smoke PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(audio_clock_smoke PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_clock_smoke PRIVATE -Werror)
+  endif()
+endif()
+
 enable_testing()
 
 add_executable(luminance_tests

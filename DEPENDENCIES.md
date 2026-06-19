@@ -55,6 +55,12 @@ Audio decode/resample smoke uses FFmpeg plus `libswresample` to decode the first
 ./build/ci/audio_file_smoke <media-file>
 ```
 
+Audio clock smoke samples the miniaudio callback-backed playback clock while the decoded PCM is playing:
+
+```sh
+./build/ci/audio_clock_smoke <media-file>
+```
+
 ## CLI
 
 | Library | Minimum | Strategy | Used for |

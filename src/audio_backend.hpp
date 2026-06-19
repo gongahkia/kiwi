@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <span>
 
 namespace contourtty {
@@ -26,6 +27,25 @@ struct PcmPlaybackOptions {
 struct PcmPlaybackResult {
   uint64_t frames_played = 0;
   uint64_t trailing_silence_frames = 0;
+};
+
+class PcmPlayer {
+ public:
+  PcmPlayer(std::span<const float> samples, const PcmPlaybackOptions& options);
+  PcmPlayer(const PcmPlayer&) = delete;
+  PcmPlayer& operator=(const PcmPlayer&) = delete;
+  PcmPlayer(PcmPlayer&&) noexcept;
+  PcmPlayer& operator=(PcmPlayer&&) noexcept;
+  ~PcmPlayer();
+
+  void start();
+  int64_t masterClockUs() const noexcept;
+  bool complete() const noexcept;
+  PcmPlaybackResult waitUntilComplete();
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 PcmPlaybackResult playPcm(std::span<const float> samples, const PcmPlaybackOptions& options);
