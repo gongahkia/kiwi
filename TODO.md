@@ -160,7 +160,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] E2E tests for web search UX (Playwright) — done when 10 scenarios pass headless in CI.
 - [ ] E2E tests for browser extension (Playwright + WXT testing helpers) — done when hover + sidebar scenarios pass.
 - [ ] Slack app integration tests w/ Bolt's test helpers — done when slash + shortcut + mention scenarios pass.
-- [ ] MCP server contract tests — done when MCP-CLI test passes against `lookup` + `list_team_acronyms`.
 - [ ] Load test search endpoint (k6) — done when 100 RPS sustained w/ p95 <200ms hosted.
 - [ ] Chaos test for DB failover (self-host) — done when killing primary recovers within 30s via compose-level retry.
 - [ ] Security tests for SQLi/XSS — done when fuzz inputs over all forms produce no SQL errors and outputs are sanitized.
