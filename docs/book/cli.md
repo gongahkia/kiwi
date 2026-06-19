@@ -10,6 +10,7 @@ kumeyuri <COMMAND>
 | --- | --- |
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
 | `export` | Export a file to portable `.kumecast` JSON |
+| `convert` | Convert a `.kumecast` file back to SVG, GIF, or text frames |
 | `lint` | Print layout warnings as text or JSON |
 | `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
@@ -86,6 +87,27 @@ Example:
 
 ```bash
 kumeyuri export diagram.mmd --format kumecast > diagram.kumecast
+```
+
+## Convert
+
+```text
+kumeyuri convert [OPTIONS] <CAST>
+```
+
+| Option | Values |
+| --- | --- |
+| `--format` | `svg`, `gif`, `text` |
+
+`--format` defaults to `svg`. Text conversion prints every cast frame with a
+duration header.
+
+Examples:
+
+```bash
+kumeyuri convert diagram.kumecast --format svg > diagram.svg
+kumeyuri convert diagram.kumecast --format gif > diagram.gif
+kumeyuri convert diagram.kumecast --format text
 ```
 
 ## Theme

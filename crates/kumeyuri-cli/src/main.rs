@@ -95,6 +95,12 @@ enum Command {
         #[command(flatten)]
         options: RenderOptions,
     },
+    Convert {
+        #[arg(value_name = "CAST")]
+        cast: PathBuf,
+        #[arg(long, value_enum, default_value_t = ConvertFormat::Svg)]
+        format: ConvertFormat,
+    },
     Lint {
         #[arg(value_name = "FILE")]
         file: PathBuf,
@@ -200,6 +206,13 @@ enum RenderFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum ExportFormat {
     Kumecast,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ConvertFormat {
+    Text,
+    Svg,
+    Gif,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Args)]
@@ -310,6 +323,7 @@ fn run() -> Result<(), String> {
             format,
             options,
         } => export_file(&file, format, &options, max_input_bytes),
+        Command::Convert { cast, format } => convert_file(&cast, format, max_input_bytes),
         Command::Lint { file, json } => lint_file(&file, json, max_input_bytes),
         Command::Layout { file, ai } => layout_file(&file, ai, max_input_bytes),
         Command::Watch { file, theme_file } => {
@@ -630,6 +644,14 @@ fn export_file(
 ) -> Result<(), String> {
     let source = read_source_file(path, max_input_bytes)?;
     let output = export_source(&source, format, options)?;
+    io::stdout()
+        .write_all(&output)
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
+}
+
+fn convert_file(path: &Path, format: ConvertFormat, max_input_bytes: usize) -> Result<(), String> {
+    let source = read_source_file(path, max_input_bytes)?;
+    let output = convert_cast_source(&source, format)?;
     io::stdout()
         .write_all(&output)
         .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
@@ -1729,6 +1751,25 @@ fn export_source(
     }
 }
 
+fn convert_cast_source(source: &str, format: ConvertFormat) -> Result<Vec<u8>, String> {
+    let cast = Kumecast::from_json_str(source).map_err(|error| error.to_string())?;
+    let timeline = cast.to_timeline().map_err(|error| error.to_string())?;
+    match format {
+        ConvertFormat::Text => Ok(render_cast_text(&timeline).into_bytes()),
+        ConvertFormat::Svg => Ok(SvgRenderer::default()
+            .render_timeline(&timeline)
+            .into_bytes()),
+        ConvertFormat::Gif => RasterRenderer::default()
+            .render_gif(&timeline)
+            .map_err(|error| {
+                msg_args(
+                    "render-raster-error",
+                    &[msg_arg("error", format!("{error:?}"))],
+                )
+            }),
+    }
+}
+
 fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
     if options.narrate && options.alt_text {
         return Err("--narrate and --alt-text cannot be used together".to_owned());
@@ -1794,6 +1835,23 @@ fn render_vtt_source(source: &str, options: &RenderOptions) -> Result<String, St
     let timeline =
         timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
     Ok(render_timeline_vtt(&timeline))
+}
+
+fn render_cast_text(timeline: &Timeline) -> String {
+    let text = TextOutputBackend::new(TextOutputConfig {
+        trim_trailing_whitespace: true,
+        final_newline: false,
+    });
+    let mut output = String::new();
+    for (index, keyframe) in timeline.keyframes().iter().enumerate() {
+        output.push_str(&format!(
+            "frame:{index}:duration_ms:{}\n",
+            keyframe.duration().as_millis()
+        ));
+        output.push_str(&text.render_frame(keyframe.frame()));
+        output.push('\n');
+    }
+    output
 }
 
 fn render_kumecast_source(source: &str, options: &RenderOptions) -> Result<String, String> {
@@ -3049,12 +3107,12 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        ANIMATED_PARTIAL_ROOTS, Cli, Command, DEFAULT_INPUT_LIMIT_BYTES, ExportFormat,
-        PluginCommand, PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
-        ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS, compat_report,
-        disable_plugin_records, export_source, format_lint_text, format_theme_list,
-        layout_warnings, lint_source, load_render_theme_file, parse_diagram,
-        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
+        ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
+        ExportFormat, PluginCommand, PluginRegistry, RenderCharset, RenderFormat, RenderOptions,
+        RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS,
+        compat_report, convert_cast_source, disable_plugin_records, export_source,
+        format_lint_text, format_theme_list, layout_warnings, lint_source, load_render_theme_file,
+        parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
         parse_speed_override, playback_options, plugin_runtime_policy, publish_theme_file,
         read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
         render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
@@ -3271,6 +3329,48 @@ mod tests {
         assert_eq!(cast.theme.name, "default");
         assert!(!cast.timeline.frames.is_empty());
         assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn convert_parser_accepts_cast_formats() {
+        for (value, expected) in [
+            ("text", ConvertFormat::Text),
+            ("svg", ConvertFormat::Svg),
+            ("gif", ConvertFormat::Gif),
+        ] {
+            let cli =
+                Cli::try_parse_from(["kumeyuri", "convert", "diagram.kumecast", "--format", value])
+                    .unwrap();
+            let Some(Command::Convert { cast, format }) = cli.command else {
+                panic!("expected convert command");
+            };
+
+            assert_eq!(cast, PathBuf::from("diagram.kumecast"));
+            assert_eq!(format, expected);
+        }
+    }
+
+    #[test]
+    fn converts_kumecast_to_text_and_svg() {
+        let cast = String::from_utf8(
+            export_source(
+                "graph TD\nA --> B",
+                ExportFormat::Kumecast,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let text =
+            String::from_utf8(convert_cast_source(&cast, ConvertFormat::Text).unwrap()).unwrap();
+        let svg =
+            String::from_utf8(convert_cast_source(&cast, ConvertFormat::Svg).unwrap()).unwrap();
+
+        assert!(text.contains("frame:0:duration_ms:"));
+        assert!(text.contains('A'));
+        assert!(text.contains('B'));
+        assert!(svg.starts_with("<svg "));
+        assert!(svg.contains("kumeyuri diagram"));
     }
 
     #[test]

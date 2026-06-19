@@ -394,7 +394,7 @@
 - [x] Implement encoder in `kumeyuri-core::cast`
 - [x] Implement decoder + validator
 - [x] Implement `kumeyuri export --format kumecast`
-- [ ] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
+- [x] Implement `kumeyuri convert <cast> --format svg|gif|text` for re-rendering
 - [ ] Implement `kumeyuri play <cast>` in TUI
 - [ ] Add gzip variant `.kumecast.gz`
 - [ ] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
