@@ -1,0 +1,37 @@
+name: Metrics
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Poll daily metrics
+        run: npm run metrics:poll
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          METRICS_GITHUB_REPO: ${{ github.repository }}
+          METRICS_CRATE: kumeyuri
+          METRICS_NPM_PACKAGE: kumeyuri
+      - name: Aggregate weekly metrics
+        run: npm run metrics:weekly
+      - name: Commit metrics
+        run: |
+          if git diff --quiet -- metrics/daily.csv metrics/weekly.csv; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add metrics/daily.csv metrics/weekly.csv
+          git commit -m "metrics: update daily snapshot"
+          git push

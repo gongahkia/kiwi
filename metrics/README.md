@@ -23,3 +23,9 @@ Regenerate weekly rollups with:
 ```sh
 node scripts/aggregate-weekly-metrics.mjs
 ```
+
+Append or update today's row with:
+
+```sh
+METRICS_GITHUB_REPO=kumeyuri/kumeyuri node scripts/poll-daily-metrics.mjs
+```
