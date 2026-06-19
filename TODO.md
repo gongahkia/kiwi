@@ -172,7 +172,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Optimize Postgres queries via EXPLAIN ANALYZE — done when no seq scans on hot paths.
 - [ ] Tune ivfflat/HNSW index params — done when recall@10 ≥95% on benchmark.
 - [ ] Add Redis cache layer for top 1000 queries (optional) — done when Redis-enabled mode reduces DB load by ≥40%.
-- [ ] Implement structured rate-limiting per-user, per-IP, per-team — done when limits are configurable and tested.
 
 ## P5 — Docs & demos
 - [ ] Record 60-sec product hero video — done when MP4 committed and embedded in README.
@@ -209,7 +208,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] MCP: write tool (suggest definition) gated by team policy — done when agents can propose entries.
 - [ ] LSP server for Neovim/VSCode hovers (optional) — done when LSP returns hover content for selected token.
 - [ ] Mobile-friendly PWA polish — done when Lighthouse PWA score ≥90.
-- [ ] Public API w/ token + rate limits — done when third-parties can use the lookup endpoint w/ a quota.
 - [ ] Webhook subscriptions (new entry, edited entry) for team integrations — done when test webhook receives signed payload.
 
 ## P7 — Community & moat

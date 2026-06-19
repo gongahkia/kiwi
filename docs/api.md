@@ -22,6 +22,35 @@ Example:
 curl 'http://localhost:3000/api/v1/search?q=CAP&limit=2'
 ```
 
+API clients can pass a configured token with either `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`. Token requests can also send `X-Wat-User-Id` and `X-Wat-Team-Id` so quotas apply per user and team.
+
+Rate-limit settings:
+
+| Env                        | Default | Scope                          |
+| -------------------------- | ------- | ------------------------------ |
+| `WAT_RATE_LIMIT_WINDOW_MS` | `60000` | fixed window                   |
+| `WAT_RATE_LIMIT_IP`        | `60`    | anonymous and token requests   |
+| `WAT_RATE_LIMIT_USER`      | `120`   | token requests with user scope |
+| `WAT_RATE_LIMIT_TEAM`      | `300`   | token requests with team scope |
+
+Rate-limit response headers:
+
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
+- `X-RateLimit-Scope`
+- `Retry-After`
+
+Token example:
+
+```sh
+curl \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "X-Wat-User-Id: user_123" \
+  -H "X-Wat-Team-Id: team_123" \
+  'http://localhost:3000/api/v1/search?q=CAP&limit=2'
+```
+
 Response:
 
 ```json

@@ -5,6 +5,11 @@ import { join } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import type { SearchEntry, SearchResponse, SearchResult } from "@wat/search";
 
+import { resolveApiIdentity } from "@/lib/api-identity";
+import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
+
+export const runtime = "nodejs";
+
 const confidenceRank = {
   T1: 1,
   T2: 2,
@@ -90,8 +95,49 @@ function logSearchEvent(query: string, startedAt: number, matches: SearchResult[
   );
 }
 
+function clientIp(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "127.0.0.1"
+  );
+}
+
+function withRateLimitHeaders(response: NextResponse, decision: ReturnType<typeof checkRateLimit>) {
+  response.headers.set("retry-after", String(decision.retryAfter));
+  response.headers.set("x-ratelimit-limit", String(decision.limit));
+  response.headers.set("x-ratelimit-remaining", String(decision.remaining));
+  response.headers.set("x-ratelimit-reset", String(Math.ceil(decision.resetAt / 1000)));
+  response.headers.set("x-ratelimit-scope", decision.scope);
+
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const startedAt = performance.now();
+  const identity = resolveApiIdentity(request.headers);
+  if (!identity.ok) {
+    return NextResponse.json({ error: identity.error }, { status: identity.status });
+  }
+
+  const rateLimit = checkRateLimit(
+    { identity: identity.identity, ip: clientIp(request) },
+    rateLimitConfigFromEnv()
+  );
+  if (!rateLimit.allowed) {
+    return withRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: "rate_limited",
+          retry_after: rateLimit.retryAfter,
+          scope: rateLimit.scope
+        },
+        { status: 429 }
+      ),
+      rateLimit
+    );
+  }
+
   const query =
     request.nextUrl.searchParams.get("q") ?? request.nextUrl.searchParams.get("query") ?? "";
   const limit = Number(request.nextUrl.searchParams.get("limit") ?? "10");
@@ -116,8 +162,11 @@ export async function GET(request: NextRequest) {
 
   logSearchEvent(query, startedAt, matches);
 
-  return NextResponse.json<SearchResponse>({
-    matches,
-    suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined
-  });
+  return withRateLimitHeaders(
+    NextResponse.json<SearchResponse>({
+      matches,
+      suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined
+    }),
+    rateLimit
+  );
 }
