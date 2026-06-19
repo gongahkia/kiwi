@@ -75,7 +75,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: search UX
 - [ ] Build landing page w/ search box as hero — done when search box autofocuses, debounces, and renders results.
-- [ ] Build search API route `/api/v1/search` — done when GET returns merged-layer typed JSON.
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 - [ ] Implement result card component — done when card shows acronym, top expansion, domain, confidence chip, source count.
 - [ ] Implement disambiguation expansion (multiple expansions) UI — done when CAP shows 2+ cards w/ domain labels.
