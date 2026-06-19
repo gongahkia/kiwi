@@ -237,7 +237,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Submit talk proposal to a small conf (eg. local meetup, MCP Summit) — done when proposal submitted.
 
 ## P8 — Maintenance & long-haul
-- [ ] Rotate API keys + tokens quarterly — done when calendar reminder + rotation script exist.
 - [ ] Track corpus quality KPI — done when monthly report committed (hit-rate, drift, source coverage).
 - [ ] Track surface adoption KPI — done when monthly report committed (web MAU, ext installs, Slack installs, MCP installs).
 
