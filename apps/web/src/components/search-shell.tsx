@@ -5,6 +5,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useState } from
 import { useRouter } from "next/navigation";
 import type { SearchResponse, SearchResult } from "@wat/search";
 
+import { DomainTeaser } from "@/components/domain-teaser";
 import { SearchResultCard } from "@/components/search-result-card";
 import { Button } from "@/components/ui/button";
 
@@ -166,6 +167,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
           />
         ))}
       </div>
+      <DomainTeaser />
     </section>
   );
 }
