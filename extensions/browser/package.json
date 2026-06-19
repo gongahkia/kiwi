@@ -9,10 +9,12 @@
     "dev": "wxt -b chrome",
     "dev:firefox": "wxt -b firefox",
     "postinstall": "wxt prepare",
+    "test": "vitest run src",
     "typecheck": "tsc -b --noEmit",
     "zip": "wxt zip -b chrome"
   },
   "devDependencies": {
+    "vitest": "^4.1.9",
     "wxt": "^0.20.26"
   }
 }
