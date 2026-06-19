@@ -101,7 +101,6 @@
 ## Cross-cutting / always-on tasks
 - [ ] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.
 - [ ] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
-- [ ] **X3. Terminal always restored.** DoD: there is no code path (panic, signal, error) that leaves the terminal in raw mode or alt screen.
 - [ ] **X4. Bench after every perf-relevant change.** DoD: `BENCHMARKS.md` updated whenever the render/decode path changes materially.
 
 ---

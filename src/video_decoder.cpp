@@ -1,6 +1,7 @@
 #include "video_decoder.hpp"
 
 #include "media_input.hpp"
+#include "terminal.hpp"
 
 #include <algorithm>
 #include <array>
@@ -71,6 +72,10 @@ struct SwsContextDeleter {
 };
 
 using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
+
+int interruptIfQuit(void*) {
+  return shouldQuit() ? 1 : 0;
+}
 
 std::string ffmpegError(int error_code) {
   std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer {};
@@ -224,10 +229,16 @@ struct VideoDecoder::Impl {
       av_dict_set(&options, "flags", "low_delay", 0);
     }
 
-    AVFormatContext* raw_context = nullptr;
+    AVFormatContext* raw_context = avformat_alloc_context();
+    if (raw_context == nullptr) {
+      throw std::runtime_error("failed to allocate media context");
+    }
+    raw_context->interrupt_callback.callback = interruptIfQuit;
     int result = avformat_open_input(&raw_context, open_input.c_str(), input_format, &options);
     av_dict_free(&options);
     if (result < 0) {
+      AVFormatContext* owned = raw_context;
+      avformat_close_input(&owned);
       throw std::runtime_error("could not open media: " + input_string + ": " + ffmpegError(result));
     }
     format_context.reset(raw_context);
