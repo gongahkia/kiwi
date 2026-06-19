@@ -9,6 +9,7 @@
 #include <string>
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
@@ -28,6 +29,14 @@ struct FormatContextDeleter {
 };
 
 using FormatContextPtr = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
+
+struct CodecContextDeleter {
+  void operator()(AVCodecContext* context) const noexcept {
+    avcodec_free_context(&context);
+  }
+};
+
+using CodecContextPtr = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
 
 std::string ffmpegError(int error_code) {
   std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer {};
@@ -54,6 +63,31 @@ std::optional<double> rationalToDouble(AVRational rational) {
     return std::nullopt;
   }
   return av_q2d(rational);
+}
+
+CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
+  const AVCodec* decoder = avcodec_find_decoder(codec_parameters->codec_id);
+  if (decoder == nullptr) {
+    throw std::runtime_error("unsupported codec: " + std::string(avcodec_get_name(codec_parameters->codec_id)));
+  }
+
+  CodecContextPtr codec_context(avcodec_alloc_context3(decoder));
+  if (codec_context == nullptr) {
+    throw std::runtime_error("failed to allocate decoder context");
+  }
+
+  int result = avcodec_parameters_to_context(codec_context.get(), codec_parameters);
+  if (result < 0) {
+    throw std::runtime_error("failed to copy decoder parameters: " + ffmpegError(result));
+  }
+
+  codec_context->thread_count = 0;
+  result = avcodec_open2(codec_context.get(), decoder, nullptr);
+  if (result < 0) {
+    throw std::runtime_error("failed to open decoder: " + std::string(decoder->name) + ": " + ffmpegError(result));
+  }
+
+  return codec_context;
 }
 
 }  // namespace
@@ -101,6 +135,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input) {
 
   const AVStream* video_stream = format_context->streams[video_stream_index];
   const AVCodecParameters* codec_parameters = video_stream->codecpar;
+  const auto decoder_context = openVideoDecoder(codec_parameters);
 
   MediaProbeInfo info;
   info.input = input;
