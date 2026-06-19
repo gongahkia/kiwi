@@ -47,7 +47,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Build delta-to-PR workflow via GitHub Actions — done when scheduled run opens a PR titled `corpus: refresh <source> <date>` with the JSON delta diff.
 - [ ] Implement reviewer-friendly PR summary (counts added/changed/removed, sample diffs) — done when PR body shows summary table.
 - [ ] Set up weekly cron (Sun 03:00 UTC) — done when `.github/workflows/corpus-refresh.yml` runs on schedule.
-- [ ] Document scraper authoring guide `docs/scrapers.md` — done when guide includes a working example.
 
 ## P1 — Public corpus scrapers (one task per source)
 - [ ] Wikipedia acronym/disambiguation scraper — done when ≥3K entries imported w/ Wikipedia citations, license CC-BY-SA tagged.
