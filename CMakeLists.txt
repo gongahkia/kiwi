@@ -74,6 +74,7 @@ add_executable(contourtty
   src/png_writer.cpp
   src/player.cpp
   src/render_layout.cpp
+  src/renderer.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
   src/stream_resolver.cpp
@@ -436,6 +437,40 @@ else()
   endif()
 endif()
 add_test(NAME render_layout COMMAND render_layout_tests)
+
+add_executable(golden_frame_tests
+  tests/golden_frame_tests.cpp
+  src/braille_renderer.cpp
+  src/frame_sampling.cpp
+  src/glyph_ramp.cpp
+  src/glyph_shape.cpp
+  src/halfblock_renderer.cpp
+  src/luminance.cpp
+  src/render_layout.cpp
+  src/renderer.cpp
+  src/structure_edges.cpp
+  src/structure_sampling.cpp
+)
+target_include_directories(golden_frame_tests PRIVATE src)
+target_compile_features(golden_frame_tests PRIVATE cxx_std_20)
+set_target_properties(golden_frame_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(golden_frame_tests PRIVATE Threads::Threads)
+if(MSVC)
+  target_compile_options(golden_frame_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(golden_frame_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(golden_frame_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(golden_frame_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME golden_frame COMMAND golden_frame_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

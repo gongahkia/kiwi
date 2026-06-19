@@ -85,7 +85,6 @@
 *Doc: `PHASE_G.md`. Goal: make it fast, packaged, documented, and launched.*
 
 - [ ] **G2. Optional GPU compute path.** DoD: a compute-shader (Vulkan/OpenGL/compute via a chosen API) implementation of the analysis pass behind `--gpu`; falls back to CPU if unavailable; significant fps gain at high cell counts recorded. Reference: PHASE_G §GPU.
-- [ ] **G6. Golden-frame regression tests.** DoD: known inputs produce byte-identical (or perceptually-identical within tolerance) CellBuffers; CI runs them. Reference: PHASE_G §Tests.
 - [ ] **G7. Packaging.** DoD: single static-ish binary releases for Linux/macOS (+ Windows if feasible); a Homebrew formula and/or `.deb`; documented `ffmpeg` runtime requirement. Reference: PHASE_G §Packaging.
 - [ ] **G8. Documentation.** DoD: README with hero GIF, install, usage, all flags, the "how structure mode works" section, and a CONTRIBUTING guide; man page generated. Reference: PHASE_G §Docs.
 - [ ] **G9. Technique writeup / launch.** DoD: a blog post or video explaining the structure-mode technique (the shareable artifact); links from README. Reference: PHASE_G §Launch.
