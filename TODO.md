@@ -28,7 +28,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P1 — Search engine
 - [ ] Implement BM25-ish query via Postgres `ts_rank_cd` — done when query returns ranked entries for 20 fixture queries.
-- [ ] Set up embedding pipeline using `bge-small-en-v1.5` via Transformers.js — done when `embed("CAP theorem")` returns a 384-dim float32 vector in <100ms warm.
 - [ ] Backfill embeddings for all entries on insert/update — done when DB trigger or app-level enqueue ensures coverage; spot-check 100 entries.
 - [ ] Build benchmark corpus of 500 dev-tooling acronyms — done when JSON file committed w/ query + expected answer.
 - [ ] Run benchmark on hybrid search — done when hit-rate ≥90% on top-1 and ≥98% on top-5.

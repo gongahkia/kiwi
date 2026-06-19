@@ -12,10 +12,17 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run src",
-    "test:coverage": "vitest run src --coverage"
+    "test:coverage": "vitest run src --coverage",
+    "verify:embedding": "pnpm build && node dist/embedding-verify.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.9",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
   }
 }
