@@ -9,7 +9,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - No CLI surface, no satire/shame tone, no Pi constraint.
 
 ## P0 — Repo & schema foundation
-- [ ] Pick license — done when LICENSE file committed (MIT or Apache-2.0).
 - [ ] Pick public name (keep `wat` per decision) — done when README title + package.json name = `wat`.
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
