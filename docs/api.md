@@ -1,635 +1,132 @@
-# API
+# Rust API
 
-Machine-readable REST spec: [`docs/openapi.yml`](openapi.yml).
-
-## REST
-
-Base path: `/api/v1`
-
-### `GET /search`
-
-Lookup public glossary entries. Token requests can include scoped team entries.
-
-Query params:
-
-| Name | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `q` | string | yes | Search query. `query` is accepted as an alias. |
-| `limit` | number | no | Defaults to `10`. Non-positive or invalid values fall back to `10`. |
-| `min_confidence` | `T1` \| `T2` \| `T3` \| `T4` | no | Returns entries at or above the requested confidence threshold. |
-
-Example:
+This page is the curated Rust API map. For exact type signatures, generate
+rustdoc from the current checkout:
 
 ```sh
-curl 'http://localhost:3000/api/v1/search?q=CAP&limit=2'
+cargo doc --workspace --no-deps
 ```
 
-API clients can pass a DB-backed team API key with either `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`. Create keys in `/team/admin/api-keys`. Token requests can also send `X-Wat-User-Id`; `X-Wat-Team-Id` is optional and must match the key's team when supplied.
+## Crate map
 
-Browser/API CORS is deny-by-default. Set comma-separated `WAT_ALLOWED_ORIGINS` for web clients and `WAT_EXTENSION_ORIGINS` for installed extension origins such as `chrome-extension://<id>` or `moz-extension://<id>`.
+| Crate | Purpose |
+| --- | --- |
+| `kumeyuri-core` | AST, parser, layout, animation timeline, frame model, text output, themes, plugin ABI |
+| `kumeyuri-render-svg` | SVG rendering from `Frame` or `Timeline` |
+| `kumeyuri-render-raster` | PNG/GIF/APNG/WebP rendering from `Frame` or `Timeline` |
+| `kumeyuri-render-tui` | Ratatui widget renderer for frames |
+| `kumeyuri-render-wasm` | wasm-bindgen browser API |
+| `kumeyuri-cli` | Binary crate; use it as a process boundary, not a library API |
 
-Every API response includes `X-Request-Id`. Clients may send `X-Request-Id`; otherwise the server generates one and includes the same value in request, search, and error logs.
+## Parse Mermaid
 
-Error responses use this JSON shape:
+```rust
+use kumeyuri_core::parser::Parser;
 
-```json
-{
-  "error": "invalid_api_key",
-  "code": "invalid_api_key",
-  "message": "invalid_api_key",
-  "request_id": "req_123"
-}
+let diagram = Parser::parse_diagram("graph TD\nA --> B")?;
 ```
 
-Rate-limit settings:
+`Parser::parse_diagram` returns `kumeyuri_core::ast::Diagram`. The root is
+`DiagramKind`, with one variant per supported Mermaid family.
 
-| Env                        | Default | Scope                          |
-| -------------------------- | ------- | ------------------------------ |
-| `WAT_RATE_LIMIT_WINDOW_MS` | `60000` | fixed window                   |
-| `WAT_RATE_LIMIT_IP`        | `60`    | anonymous and token requests   |
-| `WAT_RATE_LIMIT_USER`      | `120`   | token requests with user scope |
-| `WAT_RATE_LIMIT_TEAM`      | `300`   | token requests with team scope |
+Parse errors include a `ParseErrorKind` and source byte span. Treat the span as
+byte offsets into the original source.
 
-Rate-limit response headers:
+## Render static text
 
-- `X-RateLimit-Limit`
-- `X-RateLimit-Remaining`
-- `X-RateLimit-Reset`
-- `X-RateLimit-Scope`
-- `Retry-After`
+```rust
+use kumeyuri_core::{
+    frame::StaticFrameRenderer,
+    parser::Parser,
+    text::TextOutputBackend,
+    theme::BuiltInTheme,
+};
 
-Token example:
-
-```sh
-curl \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "X-Wat-User-Id: user_123" \
-  -H "X-Wat-Team-Id: team_123" \
-  'http://localhost:3000/api/v1/search?q=CAP&limit=2'
+let diagram = Parser::parse_diagram("graph TD\nA --> B")?;
+let frame = StaticFrameRenderer::default()
+    .with_theme(BuiltInTheme::Github.theme())
+    .render_diagram(&diagram);
+let text = TextOutputBackend::default().render_frame(&frame);
 ```
 
-Response:
+Use `TextOutputBackend::exact()` when trailing spaces and fixed frame width are
+part of the artifact contract.
 
-```json
-{
-  "matches": [
-    {
-      "entry": {
-        "id": "seed-cap-common-alerting-protocol",
-        "term": "CAP",
-        "term_normalized": "cap",
-        "expansions": ["Common Alerting Protocol"],
-        "contemporaries": [],
-        "domains": ["ops", "alerts"],
-        "meaning_short": "A standardized format for exchanging emergency alerts.",
-        "sources": [
-          {
-            "url": "https://en.wikipedia.org/wiki/Common_Alerting_Protocol",
-            "title": "Common Alerting Protocol",
-            "publisher": "Wikipedia",
-            "license": "CC-BY-SA-4.0",
-            "retrieved_at": "2026-06-19T00:00:00.000Z",
-            "snippet": "Wikipedia describes CAP as an XML-based data format for warnings.",
-            "source_quality": "secondary"
-          }
-        ],
-        "confidence_tier": "T2",
-        "layer": "public",
-        "aliases": []
-      },
-      "score": 1,
-      "score_breakdown": {
-        "bm25": 1,
-        "contemporary": 0,
-        "domain": 0
-      }
-    }
-  ]
-}
+## Animate a diagram
+
+```rust
+use kumeyuri_core::{
+    animator::{AnimationOptions, Animator},
+    frame::StaticFrameRenderer,
+    parser::Parser,
+};
+
+let diagram = Parser::parse_diagram("sequenceDiagram\nAlice->>Bob: hello")?;
+let timeline = Animator::animate_diagram_with_options_and_renderer(
+    &diagram,
+    AnimationOptions::default(),
+    StaticFrameRenderer::default(),
+)?;
 ```
 
-No-match response:
+`Timeline` contains ordered keyframes. Each keyframe owns a `Frame` and a frame
+duration.
 
-```json
-{
-  "matches": [],
-  "suggest_url": "/suggest?term=unknown"
-}
+## Render SVG
+
+```rust
+use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
+
+let svg = SvgRenderer::new(SvgRenderConfig::default()).render_timeline(&timeline);
 ```
 
-### `GET /entries/:id/contemporaries`
+`SvgRenderConfig` controls cell metrics, padding, font family, foreground and
+background colors, optional dark-mode colors, accessibility title/description,
+and animation mode (`Smil` or `CssKeyframes`).
 
-Resolve an entry's `contemporaries` names against entries visible to the caller. Missing alternative names are returned as unresolved stubs instead of 404s.
+## Render raster output
 
-Example:
+```rust
+use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer};
 
-```sh
-curl 'http://localhost:3000/api/v1/entries/seed-csr-client-side-rendering/contemporaries'
+let renderer = RasterRenderer::new(RasterRenderConfig::default())?;
+let png = renderer.render_frame(timeline.keyframes()[0].frame())?;
+let gif = renderer.render_gif(&timeline)?;
+let apng = renderer.render_apng(&timeline)?;
+let webp = renderer.render_webp(&timeline)?;
 ```
 
-Response:
+`RasterRenderer::new` fails fast on invalid config such as zero scale.
 
-```json
-[
-  {
-    "term": "SSR",
-    "meaning_short": "Rendering UI markup on the server before sending it to the client.",
-    "id": "seed-ssr-server-side-rendering"
-  },
-  {
-    "term": "MPA",
-    "meaning_short": null,
-    "id": null
-  }
-]
+## Theme selection
+
+```rust
+use kumeyuri_core::theme::BuiltInTheme;
+
+let theme = BuiltInTheme::Github.theme();
 ```
 
-### `POST /custom-entries`
+Built-in theme names are `default`, `mono`, `tokyo-night`, `github`, `dracula`,
+and `print-mono`.
 
-Create a browser/API-saved glossary entry in a personal or team layer. Anonymous requests are rejected.
+## Plugin ABI
 
-Auth:
+`kumeyuri_core::abi` exposes the plugin contract:
 
-- `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
-- `X-Wat-User-Id` is required for writes.
-- `X-Wat-Team-Id` is optional for team writes and must match the authenticated key's team when supplied.
+| API | Purpose |
+| --- | --- |
+| `KUMEYURI_ABI_VERSION` | Host ABI version |
+| `Capability` / `CapabilitySet` | Runtime capability gating |
+| `RenderBackend` | External renderer backend trait |
+| `DiagramType` | External diagram parser/layout trait |
+| `ThemeTransform` | Theme transformation trait |
 
-Request body:
+Plugin loading and cache helpers live in `kumeyuri_core::plugins`.
 
-| Name | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `term` | string | yes | Acronym or term to save. Trimmed; empty values are rejected. |
-| `expansion` | string | yes | Expansion to save. Trimmed; empty values are rejected. |
-| `meaning` | string | no | Defaults to `Custom definition for <term>.` |
-| `mode` | `create` \| `upsert` | no | Defaults to `create`. `upsert` updates an existing entry with the same `scope`, `term`, and `expansion`; otherwise it creates one. |
-| `scope` | `personal` \| `team` | no | Defaults to `personal`. Team scope writes to the caller's team layer. |
-| `domains` | string[] | no | Trimmed, lowercased, deduplicated, capped at 12. |
-| `sourceUrl` | string | no | Valid URLs are preserved. Missing or invalid values become `https://wat.local/custom/<id>`. |
-| `sourceTitle` | string | no | Defaults to the source hostname or `Browser custom entry`. |
+## Stability notes
 
-Stored source behavior:
-
-- Personal entries use `proprietary-personal`.
-- Team entries use `proprietary-team`.
-- `publisher` is `wat browser extension`.
-- `retrieved_at` is generated at write time.
-
-Personal example:
-
-```sh
-curl \
-  -X POST 'http://localhost:3000/api/v1/custom-entries' \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "X-Wat-User-Id: user_123" \
-  --data '{
-    "mode": "upsert",
-    "scope": "personal",
-    "term": "CAP",
-    "expansion": "Change Approval Process",
-    "meaning": "Private release-review shorthand.",
-    "domains": ["deploys", "ops"],
-    "sourceUrl": "https://docs.example.test/releases/cap",
-    "sourceTitle": "Release process"
-  }'
-```
-
-Team example:
-
-```sh
-curl \
-  -X POST 'http://localhost:3000/api/v1/custom-entries' \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "X-Wat-User-Id: user_123" \
-  -H "X-Wat-Team-Id: team_123" \
-  --data '{
-    "scope": "team",
-    "term": "RTO",
-    "expansion": "Recovery Time Objective",
-    "domains": ["incident", "sre"],
-    "sourceUrl": "https://runbook.example.test/rto"
-  }'
-```
-
-Response:
-
-`create` and first-time `upsert` requests return `201`. `upsert` updates return `200` and preserve the existing entry ID.
-
-```json
-{
-  "scope": "team",
-  "mode": "created",
-  "entry": {
-    "id": "custom-team-550e8400-e29b-41d4-a716-446655440000",
-    "term": "RTO",
-    "expansion": "Recovery Time Objective",
-    "meaning": "Custom definition for RTO.",
-    "domains": ["incident", "sre", "runbook.example.test"],
-    "sources": [
-      {
-        "license": "proprietary-team",
-        "publisher": "wat browser extension",
-        "retrieved_at": "2026-06-23T00:00:00.000Z",
-        "snippet": "RTO was saved as Recovery Time Objective from the browser extension.",
-        "title": "runbook.example.test",
-        "url": "https://runbook.example.test/rto"
-      }
-    ]
-  }
-}
-```
-
-CORS:
-
-- `OPTIONS /custom-entries` returns `204`.
-- Allowed methods are `POST, OPTIONS`.
-- Allowed request headers are `authorization, content-type, x-api-key, x-wat-team-id, x-wat-user-id`.
-- Origins are deny-by-default. Configure `WAT_ALLOWED_ORIGINS` and `WAT_EXTENSION_ORIGINS` as described under `GET /search`.
-
-Errors:
-
-| Status | Error | Cause |
-| --- | --- | --- |
-| `400` | `invalid_custom_entry` | Missing or empty `term`/`expansion`, or `mode` is not `create`/`upsert`. |
-| `401` | `invalid_api_key` | Supplied token does not match an active DB-backed API key. |
-| `403` | `insufficient_api_scope` | API key lacks the required `write` scope. |
-| `401` | `missing_user_scope` | Anonymous write or missing user scope. |
-| `403` | `missing_team_scope` | Team-scope write without team scope. |
-| `409` | `custom_entry_conflict` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
-
-### `POST /suggestions`
-
-Queue a team-scoped, DB-backed glossary suggestion. This is the Slack and Discord `/wat-suggest` write path.
-
-Auth:
-
-- `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
-- `X-Wat-Team-Id` is optional and must match the authenticated key's team when supplied.
-- `X-Wat-User-Id` is used for quota scope and is stored inside `after_jsonb`.
-- API key must include `suggest` or `admin` scope.
-
-Request body:
-
-| Name         | Type     | Required | Notes                                                |
-| ------------ | -------- | -------- | ---------------------------------------------------- |
-| `term`       | string   | yes      | Acronym or term to suggest.                          |
-| `expansion`  | string   | yes      | Suggested expansion.                                 |
-| `meaning`    | string   | yes      | Suggested meaning.                                   |
-| `domains`    | string[] | yes      | Team/domain context.                                 |
-| `source_url` | string   | yes      | Valid URL for provenance, e.g. a Slack redirect URL. |
-
-Example:
-
-```sh
-curl \
-  -X POST 'http://localhost:3000/api/v1/suggestions' \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "X-Wat-User-Id: slack:U123" \
-  -H "X-Wat-Team-Id: team_123" \
-  --data '{
-    "term": "RTO",
-    "expansion": "Recovery Time Objective",
-    "meaning": "Maximum acceptable restore time.",
-    "domains": ["example", "ops"],
-    "source_url": "https://slack.com/app_redirect?channel=C123"
-  }'
-```
-
-Response:
-
-```json
-{
-  "suggestion": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "actor_id": null,
-    "team_id": "team_123",
-    "target_type": "entry",
-    "target_id": null,
-    "status": "pending",
-    "before_jsonb": null,
-    "after_jsonb": {
-      "term": "RTO",
-      "expansion": "Recovery Time Objective",
-      "meaning": "Maximum acceptable restore time.",
-      "domains": ["example", "ops"],
-      "source_url": "https://slack.com/app_redirect?channel=C123",
-      "actor_id": "slack:U123",
-      "team_id": "team_123"
-    },
-    "created_at": "2026-06-25T00:00:00.000Z"
-  }
-}
-```
-
-## Admin List And Export Pagination
-
-Team admin list/export endpoints accept `limit` and `cursor` query params:
-
-- `/team/admin/entries/api`
-- `/team/admin/audit/api`
-- `/team/admin/review/api`
-- `/team/admin/export/json`
-- `/team/admin/export/csv`
-
-JSON responses include `page.limit`, `page.total`, `page.cursor`, and `page.next_cursor`. CSV exports set `X-Page-Limit`, `X-Page-Total`, and `X-Next-Cursor` headers.
-
-## Team Import Templates
-
-Team admins can download import templates:
-
-- `GET /team/admin/import/template/json`
-- `GET /team/admin/import/template/csv`
-
-`POST /team/admin/import/api` accepts either JSON shaped as `{ "entries": [...] }` or CSV using the template headers. CSV `domains` are semicolon-separated, and each CSV row imports one source.
-
-Import authorization:
-
-- Browser imports require a signed-in team admin session.
-- API imports require `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`.
-- Import API keys must include `admin` scope.
-- `X-Wat-Team-Id` is optional for API imports and must match the key's team when supplied.
-- Import responses are `{ "inserted": number, "skipped": number }`; invalid shapes return `invalid_team_import`.
-
-## Authenticated Surface Examples
-
-These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key` created from `/team/admin/api-keys`, and `WAT_TEAM_ID=team_123` as a client-side label.
-
-### curl
-
-```sh
-curl \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "X-Wat-User-Id: user_123" \
-  -H "X-Wat-Team-Id: $WAT_TEAM_ID" \
-  "$WAT_API_BASE_URL/api/v1/search?q=CAP&limit=5"
-```
-
-### Browser Extension
-
-The extension lookup path sends the stored account email and team ID with the stored API token:
-
-```js
-const url = new URL("/api/v1/search", WAT_API_BASE_URL);
-url.searchParams.set("q", "CAP");
-url.searchParams.set("limit", "5");
-url.searchParams.set("context", "docs.example.com");
-
-await fetch(url, {
-  headers: {
-    authorization: `Bearer ${WAT_API_KEY}`,
-    "x-wat-user-id": "user@example.com",
-    "x-wat-team-id": WAT_TEAM_ID
-  }
-});
-```
-
-### Slack
-
-Slack lookups use the configured wat API key and team ID, with the Slack user ID namespaced for user-level quotas:
-
-```sh
-curl \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "X-Wat-User-Id: slack:U_ALICE" \
-  -H "X-Wat-Team-Id: $WAT_TEAM_ID" \
-  "$WAT_API_BASE_URL/api/v1/search?q=TLS&limit=5&context=docs"
-```
-
-### Microsoft Teams
-
-Teams API-based message-extension search uses the packaged OpenAPI operation `searchGlossary` and passes one query parameter, `q`, to `/api/v1/teams/search`.
-
-Configure the Teams API secret to send `Authorization: Bearer $WAT_API_KEY`. The web API derives `team_id` from the DB-backed key; if a trusted gateway supplies `X-Wat-Teams-Tenant-Id`, the mapped team must match that key.
-
-Source package files live in `apps/teams/appPackage`; rendered upload output lives in `apps/teams/dist`.
-
-#### `GET /teams/search`
-
-Teams-ready search response for Adaptive Card rendering.
-
-```sh
-curl \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  "$WAT_API_BASE_URL/api/v1/teams/search?q=API"
-```
-
-Optional integration-gateway header:
-
-- `X-Wat-Teams-Tenant-Id`: resolves `team_id` through `teams_installs`. Unknown tenants and mappings that do not match the authenticated key fail closed with `403`.
-
-#### `POST /teams/installations`
-
-Create or update a Microsoft tenant to wat team mapping.
-
-```sh
-curl \
-  -X POST "$WAT_API_BASE_URL/api/v1/teams/installations" \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "X-Wat-Team-Id: team_123" \
-  --data '{
-    "microsoft_tenant_id": "tenant_123",
-    "tenant_name": "Example Tenant",
-    "app_id": "teams-app-id",
-    "auth_type": "apiSecretServiceAuth",
-    "api_secret_registration_id": "secret-registration-id"
-  }'
-```
-
-#### `DELETE /teams/installations`
-
-Delete a Microsoft tenant mapping for the authenticated wat team.
-
-```sh
-curl \
-  -X DELETE "$WAT_API_BASE_URL/api/v1/teams/installations?tenant_id=tenant_123" \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "X-Wat-Team-Id: team_123"
-```
-
-### Discord
-
-Discord uses a separate signed interactions runtime at `/discord/interactions`. Runtime install redirect is `/discord/install`; the web API owns guild lifecycle mapping.
-
-#### `POST /discord/installations`
-
-Create or update a Discord guild to wat team mapping.
-
-```sh
-curl \
-  -X POST "$WAT_API_BASE_URL/api/v1/discord/installations" \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "X-Wat-Team-Id: team_123" \
-  --data '{
-    "discord_guild_id": "guild_123",
-    "guild_name": "Example Guild",
-    "application_id": "discord-app-id",
-    "bot_user_id": "bot-user-id",
-    "admin_role_ids": ["role_admin"]
-  }'
-```
-
-#### `DELETE /discord/installations`
-
-Delete a Discord guild mapping for the authenticated wat team.
-
-```sh
-curl \
-  -X DELETE "$WAT_API_BASE_URL/api/v1/discord/installations?guild_id=guild_123" \
-  -H "Authorization: Bearer $WAT_API_KEY" \
-  -H "X-Wat-Team-Id: team_123"
-```
-
-#### `GET /discord/metrics`
-
-Protected web-side Discord lifecycle metrics.
-
-```sh
-curl -H "Authorization: Bearer $DISCORD_METRICS_TOKEN" \
-  "$WAT_API_BASE_URL/api/v1/discord/metrics"
-```
-
-### MCP
-
-MCP local stdio reads `WAT_API_BASE_URL` and `WAT_API_KEY` from its environment. Tool calls do not include credentials. See [MCP Configuration](mcp.md).
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "lookup",
-    "arguments": {
-      "term": "CAP",
-      "context": "Kubernetes incident notes",
-      "limit": 5
-    }
-  }
-}
-```
-
-## Shared Types
-
-Confidence tiers:
-
-- `T1`: high confidence, canonical or multi-source
-- `T2`: medium confidence, single strong source
-- `T3`: low confidence or scrape-only
-- `T4`: user-contributed or pending stronger review
-
-Entry layers:
-
-- `public`
-- `team`
-- `personal`
-
-Source quality:
-
-- `canonical`
-- `secondary`
-- `community`
-
-## MCP
-
-The MCP server exposes glossary lookup tools for agents and editors. Tool responses should return cited entries and should not fabricate definitions for unknown terms.
-
-### `lookup(term, context?)`
-
-Input:
-
-```json
-{
-  "term": "CAP",
-  "context": "Kubernetes autoscaling incident notes mention CAP and HPA",
-  "limit": 5
-}
-```
-
-Output:
-
-```json
-{
-  "matches": [
-    {
-      "id": "seed-cap-consistency-availability-partition-tolerance",
-      "term": "CAP",
-      "expansion": "Consistency, Availability, Partition tolerance",
-      "domains": ["distributed-systems"],
-      "confidence_tier": "T2",
-      "layer": "public",
-      "sources": [
-        {
-          "title": "CAP theorem",
-          "url": "https://en.wikipedia.org/wiki/CAP_theorem",
-          "publisher": "Wikipedia",
-          "license": "CC-BY-SA-4.0"
-        }
-      ]
-    }
-  ]
-}
-```
-
-No-match output:
-
-```json
-{
-  "matches": [],
-  "suggest_url": "/suggest?term=CAPX"
-}
-```
-
-### `list_team_acronyms(domain?)`
-
-Input:
-
-```json
-{
-  "domain": "infra",
-  "cursor": null,
-  "limit": 50
-}
-```
-
-Output:
-
-```json
-{
-  "entries": [
-    {
-      "id": "team-slo-service-level-objective",
-      "term": "SLO",
-      "expansions": ["Service Level Objective"],
-      "domains": ["reliability", "infra"],
-      "confidence_tier": "T4",
-      "layer": "team"
-    }
-  ],
-  "next_cursor": null
-}
-```
-
-## Errors
-
-REST endpoints use HTTP status codes and return `{ error, code, message, request_id }` on failures. Validation failures should return `400`, unauthorized requests `401`, forbidden requests `403`, rate limits `429`, and unexpected failures `500`.
-
-## Webhooks
-
-Set `WAT_WEBHOOK_URL` and `WAT_WEBHOOK_SECRET` to receive signed team-entry events:
-
-- `team_entry.created`
-- `team_entry.updated`
-
-Each delivery is a JSON POST with:
-
-- `X-Wat-Event`: event type
-- `X-Wat-Timestamp`: Unix timestamp seconds
-- `X-Wat-Signature`: `sha256=` plus HMAC-SHA256 of `<timestamp>.<raw body>` using `WAT_WEBHOOK_SECRET`
-
-Webhook delivery is non-blocking for entry writes. Receivers should reject stale timestamps and verify the signature before processing.
-
-MCP tools should return structured tool errors with the same categories: validation, unauthorized, forbidden, rate_limited, and internal.
+- AST structs are public so parsers, renderers, tests, and plugins can share
+  typed data. They are still expected to change before a stable 1.0 API.
+- Prefer `Parser`, `Animator`, `StaticFrameRenderer`, `TextOutputBackend`,
+  `SvgRenderer`, and `RasterRenderer` for application code.
+- Use the CLI when you need a stable process boundary across language runtimes.
