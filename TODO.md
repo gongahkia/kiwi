@@ -95,8 +95,9 @@
 
 ## Cross-cutting / always-on tasks
 - [ ] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.
+  - 2026-06-19: local `asan-ubsan` build, CTest, and structure export smoke are clean; CI proof remains blocked by GitHub Actions billing/spending-limit state.
 - [ ] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
-- [ ] **X4. Bench after every perf-relevant change.** DoD: `BENCHMARKS.md` updated whenever the render/decode path changes materially.
+  - 2026-06-19: macOS `leaks --atExit` reports `0 leaks for 0 total leaked bytes` on normal structure export shutdown; Valgrind is unavailable locally, and Ctrl-C/seek leak paths remain unverified.
 
 ---
 
