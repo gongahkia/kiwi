@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kumeyuri cast player</title>
+    <meta name="description" content="Hosted kumeyuri .kumecast timeline player.">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="kumeyuri home">kumeyuri</a>
+      <nav aria-label="Primary">
+        <a href="../index.html#formats">Formats</a>
+        <a href="../index.html#embed">Embed</a>
+        <a href="../index.html#playground">Playground</a>
+        <a href="../vs/">Compare</a>
+        <a href="./">Player</a>
+        <a href="https://github.com/gongahkia/kumeyuri">GitHub</a>
+      </nav>
+    </header>
+    <main class="player-page">
+      <section class="player-shell" aria-labelledby="player-title">
+        <div class="player-head">
+          <div>
+            <p class="section-kicker">Cast player</p>
+            <h1 id="player-title">play.kumeyuri.dev</h1>
+          </div>
+          <form id="cast-form" class="cast-form">
+            <label for="cast-url">Cast URL</label>
+            <div>
+              <input id="cast-url" name="cast" type="url" placeholder="https://example.com/diagram.kumecast">
+              <button class="button primary" type="submit">Load</button>
+            </div>
+          </form>
+        </div>
+        <div class="player-meta" aria-live="polite">
+          <span id="player-status">No cast loaded</span>
+          <span id="player-count"></span>
+        </div>
+        <pre id="player-frame" class="player-frame" aria-live="polite"></pre>
+        <div class="player-controls">
+          <button id="play-toggle" class="button" type="button">Play</button>
+          <button id="restart" class="button" type="button">Restart</button>
+          <input id="scrub" type="range" min="0" max="0" step="1" value="0" aria-label="Frame">
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./player.js"></script>
+  </body>
+</html>

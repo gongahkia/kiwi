@@ -398,7 +398,7 @@
 - [x] Implement `kumeyuri play <cast>` in TUI
 - [x] Add gzip variant `.kumecast.gz`
 - [x] Implement web component support: `<kumeyuri-diagram src="file.kumecast">`
-- [ ] Build hosted player `play.kumeyuri.dev?cast=<url>`
+- [x] Build hosted player `play.kumeyuri.dev?cast=<url>`
 - [ ] Add cast-diffing CI test ensuring format determinism across kumeyuri patch versions
 
 ### Performance budget enforcement (continuous)

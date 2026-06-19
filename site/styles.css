@@ -166,6 +166,78 @@ h2 {
   padding: 118px 32px 76px;
 }
 
+.player-page {
+  min-height: 100vh;
+  padding: 118px 32px 72px;
+}
+
+.player-shell {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.player-head {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 32px;
+  align-items: end;
+}
+
+.cast-form label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.cast-form div {
+  display: flex;
+  gap: 10px;
+}
+
+.cast-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+
+.player-meta,
+.player-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 22px;
+  color: var(--muted);
+}
+
+.player-frame {
+  min-height: 54vh;
+  margin: 24px 0 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--panel);
+  color: var(--ink);
+  font: 14px/1.25 "SFMono-Regular", Consolas, monospace;
+  white-space: pre;
+}
+
+.player-frame[data-error="true"] {
+  border-color: var(--rose);
+}
+
+.player-controls input[type="range"] {
+  flex: 1 1 260px;
+  min-height: 44px;
+}
+
 .post {
   width: min(920px, 100%);
   margin: 0 auto;
@@ -515,6 +587,20 @@ textarea {
 
   .blog-page {
     padding: 96px 18px 56px;
+  }
+
+  .player-page {
+    padding: 96px 18px 56px;
+  }
+
+  .player-head,
+  .cast-form div {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .player-frame {
+    font-size: 12px;
   }
 
   .post h1 {
