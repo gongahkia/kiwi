@@ -50,6 +50,7 @@ kumeyuri render [OPTIONS] <FILE>
 | `--max-label-width` | Positive cell count for flowchart label wrapping |
 | `--padding` | Pixel count |
 | `--font` | Font family |
+| `--allow-external` | Opt in to plugin network fetches (`net.fetch`) |
 | `--plugin-allow` | Comma-separated plugin capabilities: `fs.read`, `fs.write`, `net.fetch`, `env.read`, `cache.read`, `cache.write`, `clock.now`, `random.bytes` |
 
 `--format` defaults to `text`.

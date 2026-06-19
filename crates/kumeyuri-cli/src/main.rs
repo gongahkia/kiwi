@@ -165,6 +165,8 @@ struct RenderOptions {
     padding: Option<u32>,
     #[arg(long, value_name = "FAMILY", value_parser = parse_non_empty_string)]
     font: Option<String>,
+    #[arg(long = "allow-external")]
+    allow_external: bool,
     #[arg(long = "plugin-allow", value_name = "CSV", value_parser = parse_plugin_allow)]
     plugin_allow: Option<CapabilitySet>,
 }
@@ -1297,7 +1299,11 @@ fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Res
 }
 
 fn plugin_runtime_policy(options: &RenderOptions) -> PluginRuntimePolicy {
-    PluginRuntimePolicy::with_grants(options.plugin_allow.unwrap_or_default())
+    let mut grants = options.plugin_allow.unwrap_or_default();
+    if options.allow_external {
+        grants.insert(Capability::NetFetch);
+    }
+    PluginRuntimePolicy::with_grants(grants)
 }
 
 fn render_text_source(source: &str, options: &RenderOptions) -> Result<String, String> {
@@ -2768,6 +2774,7 @@ mod tests {
             "12",
             "--font",
             "Fira Code",
+            "--allow-external",
             "--plugin-allow",
             "fs.write,cache.read",
         ])
@@ -2783,11 +2790,31 @@ mod tests {
         assert_eq!(options.max_label_width, Some(12));
         assert_eq!(options.padding, Some(12));
         assert_eq!(options.font.as_deref(), Some("Fira Code"));
+        assert!(options.allow_external);
         let plugin_allow = options.plugin_allow.unwrap();
         assert!(plugin_allow.contains(Capability::FsWrite));
         assert!(plugin_allow.contains(Capability::CacheRead));
         assert!(!plugin_allow.contains(Capability::NetFetch));
         assert!(plugin_runtime_policy(&options).allows(Capability::FsWrite));
+        assert!(plugin_runtime_policy(&options).allows(Capability::NetFetch));
+    }
+
+    #[test]
+    fn external_fetch_is_denied_unless_explicitly_allowed() {
+        let default = Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd"]).unwrap();
+        let Command::Render { options, .. } = default.command else {
+            panic!("expected render command");
+        };
+        assert!(!options.allow_external);
+        assert!(!plugin_runtime_policy(&options).allows(Capability::NetFetch));
+
+        let allowed =
+            Cli::try_parse_from(["kumeyuri", "render", "diagram.mmd", "--allow-external"]).unwrap();
+        let Command::Render { options, .. } = allowed.command else {
+            panic!("expected render command");
+        };
+        assert!(options.allow_external);
+        assert!(plugin_runtime_policy(&options).allows(Capability::NetFetch));
     }
 
     #[test]
