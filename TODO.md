@@ -79,7 +79,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: public-facing pages
 
 ## P3 — Browser extension
-- [ ] Implement telemetry-off-by-default — done when fresh install has zero outbound calls until user interacts.
 - [ ] Cross-browser test on Chrome, Firefox, Edge, Brave — done when feature parity verified manually.
 - [ ] Submit Chrome Web Store listing — done when listing is live (or in-review w/ assets ready: 1280x800 promo, icons, description).
 - [ ] Submit Firefox add-ons listing — done when AMO listing is live or in review.
