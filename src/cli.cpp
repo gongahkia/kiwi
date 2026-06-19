@@ -1,5 +1,7 @@
 #include "cli.hpp"
 
+#include "glyph_ramp.hpp"
+
 #include <charconv>
 #include <cstdlib>
 #include <sstream>
@@ -195,8 +197,8 @@ CliParseResult parseArgs(int argc, char** argv) {
       }
       result.options.color_mode = std::string(*value);
     } else if (flag == "--charset") {
-      if (value->empty()) {
-        result.error = "invalid value for --charset: empty";
+      if (!isValidCharset(*value)) {
+        result.error = "invalid value for --charset: expected non-empty UTF-8";
         return result;
       }
       result.options.charset = std::string(*value);

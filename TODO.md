@@ -58,7 +58,6 @@
 ## PHASE C — Luminance renderer + emission  → **v0.1**
 *Doc: `PHASE_C.md`. Goal: the full live pipeline with the baseline brightness→glyph renderer, truecolor, and the differential emitter that makes high framerates possible.*
 
-- [ ] **C2. Ramp glyph mapping.** DoD: configurable density ramp (default ` .:-=+*#%@`), luminance→index mapping; `--charset` swaps it; empty/invalid charset rejected. Reference: PHASE_C §Ramp.
 - [ ] **C3. `CellBuffer` model.** DoD: a grid of `Cell { char32_t glyph; RGB fg; RGB bg; }`; sized to terminal; reused across frames (no per-frame alloc). Reference: PHASE_C §CellBuffer.
 - [ ] **C4. Truecolor SGR emission.** DoD: emits `\e[38;2;r;g;bm` (fg) and `\e[48;2;r;g;bm` (bg) per the ANSI spec; a static image renders with correct colors in a truecolor terminal. Reference: PHASE_C §SGR.
 - [ ] **C5. Differential frame emitter.** DoD: only changed cells are re-emitted; uses cursor positioning (`\e[row;colH`) to jump over unchanged runs; SGR color state tracked so color codes emit only on change; full frame built into one buffer and written with a single `write()`/flush per frame. Verified: a near-static scene emits far fewer bytes than a full repaint (measured). Reference: PHASE_C §Diff.
