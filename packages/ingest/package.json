@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "ingest": "tsx src/cli.ts",
+    "lint:sources": "tsx src/source-coverage.ts seeds/manual.json",
     "test": "vitest run"
   },
   "devDependencies": {

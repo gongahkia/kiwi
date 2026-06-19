@@ -254,7 +254,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] `docker compose up` on a clean machine boots in <5 min — verified on 2 OSes.
 - [ ] Zero fabricated definitions in benchmark — verified by source-coverage check.
 - [ ] Browser ext + Slack app + MCP server all functional against same hosted instance — verified by E2E suite.
-- [ ] All public-corpus entries have source URLs + license tags — verified by linter.
 - [ ] CI green on `main` for 7 consecutive days — verified by GH Actions history.
 
 ## Folder/root note
