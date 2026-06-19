@@ -28,7 +28,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P1 — Corpus quality controls
 
 ## P2 — Web app foundation
-- [ ] Set up NextAuth w/ email magic-link provider — done when end-to-end magic-link login works locally w/ Mailpit.
 - [ ] Add Google OAuth provider — done when Google login produces a session.
 - [ ] Add Slack OAuth provider — done when Slack login produces a session.
 - [ ] Implement email-domain → auto-team join on signup — done when two users w/ same domain land in same team automatically.

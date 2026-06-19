@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -b",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "tsx src/migrate.ts",
     "seed:dev": "pnpm build && node dist/src/seed-dev.js",
     "test": "vitest run src --exclude 'dist/**'"
   },
@@ -17,6 +18,7 @@
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "testcontainers": "^10.28.0",
+    "tsx": "^4.21.0",
     "vitest": "^4.1.9"
   }
 }

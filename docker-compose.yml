@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: wat
       POSTGRES_PASSWORD: wat
@@ -14,6 +14,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_HTTP_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/api/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
   web:
     build:
       context: .
@@ -24,6 +34,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      EMAIL_FROM: wat@localhost
+      EMAIL_SERVER: smtp://mailpit:1025
+      AUTH_SECRET: ${AUTH_SECRET:-local-compose-auth-secret}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-compose-auth-secret}
+      NEXTAUTH_URL: http://localhost:3000
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       WAT_RATE_LIMIT_IP: 100000
       WAT_RATE_LIMIT_TEAM: 100000

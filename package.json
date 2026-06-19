@@ -7,6 +7,7 @@
     "build": "tsc -b",
     "changeset": "changeset",
     "db:generate": "pnpm --filter @wat/db db:generate",
+    "db:migrate": "pnpm --filter @wat/db db:migrate",
     "db:seed:dev": "pnpm --filter @wat/db seed:dev",
     "dev": "sh -c 'pnpm --filter @wat/web dev'",
     "format": "prettier --write .",
@@ -14,6 +15,7 @@
     "ingest": "pnpm --filter @wat/ingest ingest",
     "lint": "eslint . && prettier --check .",
     "prepare": "husky",
+    "test:e2e:auth": "sh scripts/e2e-auth-mailpit.sh",
     "test:e2e:web": "playwright test e2e/web-search.spec.ts",
     "typecheck": "tsc -b --noEmit",
     "version-packages": "changeset version"

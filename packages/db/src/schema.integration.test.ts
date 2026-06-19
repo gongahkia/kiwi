@@ -1,9 +1,8 @@
-import { readdir, readFile } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
-const drizzleDir = new URL("../drizzle/", import.meta.url);
+import { applyMigrations } from "./migrate.js";
 
 let client: Client;
 let container: StartedTestContainer;
@@ -175,16 +174,6 @@ describe("db schema integration", () => {
     expect(rows[0]).toEqual({ reason: "update", status: "pending" });
   });
 });
-
-async function applyMigrations(pgClient: Client): Promise<void> {
-  const files = (await readdir(drizzleDir))
-    .filter((file) => file.endsWith(".sql"))
-    .sort((left, right) => left.localeCompare(right));
-
-  for (const file of files) {
-    await pgClient.query(await readFile(new URL(file, drizzleDir), "utf8"));
-  }
-}
 
 async function insertEntry(
   id: string,
