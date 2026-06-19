@@ -1,0 +1,10 @@
+.kumeyuri-obsidian-frame {
+  font-family: var(--font-monospace), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.15;
+  overflow: auto;
+  white-space: pre;
+}
+
+.kumeyuri-obsidian-error {
+  color: var(--text-error);
+}

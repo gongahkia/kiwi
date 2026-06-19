@@ -28,6 +28,7 @@
     "test:reveal-plugin": "npm --workspace @kumeyuri/reveal-plugin run test",
     "test:marp-plugin": "npm --workspace @kumeyuri/marp-plugin run test",
     "test:slidev-addon": "npm --workspace slidev-addon-kumeyuri run test",
+    "test:obsidian-plugin": "node editors/obsidian/test/plugin.test.mjs",
     "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",

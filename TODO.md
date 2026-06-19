@@ -292,7 +292,7 @@
 - [x] Implement reveal.js plugin loading kumecast files inline in slides
 - [x] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
 - [x] Implement Slidev component `<KumeyuriDiagram>`
-- [ ] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
+- [x] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
 - [ ] Implement Logseq plugin equivalent
 - [ ] Implement Quartz plugin for digital gardens
 - [ ] Implement Zola shortcode for kumeyuri embeds
