@@ -64,7 +64,6 @@
 ## PHASE D — Audio & sync
 *Doc: `PHASE_D.md`. Goal: audio playback with the audio track as the master clock, and adaptive frame-skip so video tracks audio rather than drifting.*
 
-- [ ] **Phase D exit criteria.** DoD: video + audio play in sync to completion, survive pause/seek, hold sync under load via frame-skip.
 
 ---
 
