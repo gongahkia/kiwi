@@ -203,7 +203,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Browser ext: in-page acronym density heatmap — done when toggling shows visual density indicator per paragraph.
 - [ ] Slack: huddle support / channel digest of unknown acronyms — done when a weekly digest posts.
 - [ ] Slack: workspace admin dashboard — done when admins can see top-queried acronyms + gaps.
-- [ ] MCP: write tool (suggest definition) gated by team policy — done when agents can propose entries.
 - [ ] LSP server for Neovim/VSCode hovers (optional) — done when LSP returns hover content for selected token.
 - [ ] Mobile-friendly PWA polish — done when Lighthouse PWA score ≥90.
 - [ ] Webhook subscriptions (new entry, edited entry) for team integrations — done when test webhook receives signed payload.

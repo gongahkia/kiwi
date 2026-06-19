@@ -1,5 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const root = new URL("../../..", import.meta.url);
@@ -11,12 +14,12 @@ const clientEnv = {
   WAT_TEAM_ID: "team_example"
 } as Record<string, string>;
 
-async function connectClient(): Promise<Client> {
+async function connectClient(env: Record<string, string> = {}): Promise<Client> {
   const transport = new StdioClientTransport({
     args: ["apps/mcp/dist/index.js"],
     command: process.execPath,
     cwd: root.pathname,
-    env: clientEnv,
+    env: { ...clientEnv, ...env },
     stderr: "pipe"
   });
   transports.push(transport);
@@ -36,7 +39,11 @@ describe("wat mcp server", () => {
     const client = await connectClient();
     const tools = await client.listTools();
 
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(["list_team_acronyms", "lookup"]);
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+      "list_team_acronyms",
+      "lookup",
+      "suggest_definition"
+    ]);
   });
 
   it("returns typed lookup results with citations", async () => {
@@ -103,5 +110,65 @@ describe("wat mcp server", () => {
       text: expect.stringContaining("api_key"),
       type: "text"
     });
+  });
+
+  it("gates write suggestions by team policy", async () => {
+    const client = await connectClient();
+    const result = await client.callTool({
+      arguments: {
+        api_key: "test-key",
+        expansion: "Customer Availability Promise",
+        meaning: "Team-specific availability target.",
+        source_title: "Team glossary",
+        source_url: "https://example.com/glossary/cap",
+        term: "CAP"
+      },
+      name: "suggest_definition"
+    });
+    const content = result.content as Array<{ text: string; type: string }>;
+
+    expect(result.isError).toBe(true);
+    expect(content[0]).toMatchObject({
+      text: expect.stringContaining("team policy"),
+      type: "text"
+    });
+  });
+
+  it("queues write suggestions when team policy allows it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wat-mcp-"));
+    const suggestionsPath = join(dir, "suggestions.jsonl");
+    const client = await connectClient({
+      WAT_MCP_ALLOW_WRITE: "true",
+      WAT_MCP_SUGGESTIONS_PATH: suggestionsPath
+    });
+    const result = await client.callTool({
+      arguments: {
+        api_key: "test-key",
+        domains: ["customer-success"],
+        expansion: "Customer Availability Promise",
+        meaning: "Team-specific availability target.",
+        source_title: "Team glossary",
+        source_url: "https://example.com/glossary/cap",
+        term: "CAP"
+      },
+      name: "suggest_definition"
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      status: "pending",
+      suggestion_id: expect.any(String),
+      team_id: "team_example"
+    });
+
+    const [line] = (await readFile(suggestionsPath, "utf8")).trim().split("\n");
+    expect(JSON.parse(line ?? "{}")).toMatchObject({
+      domains: ["customer-success"],
+      expansion: "Customer Availability Promise",
+      status: "pending",
+      team_id: "team_example",
+      term: "CAP"
+    });
+    await rm(dir, { force: true, recursive: true });
   });
 });

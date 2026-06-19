@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 
 import { requireApiKey } from "./auth.js";
 import { listTeamEntries, lookupEntries, resultText } from "./search.js";
+import { writeSuggestion } from "./suggestions.js";
 
 const confidenceSchema = z.enum(["T1", "T2", "T3", "T4"]);
 
@@ -26,6 +27,13 @@ const resultSchema = z.object({
   meaning: z.string(),
   score: z.number(),
   term: z.string()
+});
+
+const suggestionSchema = z.object({
+  created_at: z.string(),
+  status: z.literal("pending"),
+  suggestion_id: z.string(),
+  team_id: z.string()
 });
 
 export function createWatMcpServer(): McpServer {
@@ -95,6 +103,55 @@ export function createWatMcpServer(): McpServer {
         structuredContent: {
           ...page,
           team_id: auth.team_id
+        }
+      };
+    }
+  );
+
+  server.registerTool(
+    "suggest_definition",
+    {
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: false,
+        readOnlyHint: false
+      },
+      description: "Propose a team-scoped wat definition when team policy allows writes.",
+      inputSchema: z.object({
+        api_key: z.string().min(1),
+        domains: z.array(z.string().min(1)).optional(),
+        expansion: z.string().min(1),
+        meaning: z.string().min(1),
+        source_title: z.string().min(1),
+        source_url: z.string().url(),
+        term: z.string().min(1)
+      }),
+      outputSchema: suggestionSchema
+    },
+    async ({ api_key, domains, expansion, meaning, source_title, source_url, term }) => {
+      const auth = requireApiKey(api_key, undefined);
+      const suggestion = await writeSuggestion({
+        auth,
+        domains,
+        expansion,
+        meaning,
+        source_title,
+        source_url,
+        term
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Suggestion ${suggestion.suggestion_id} queued for ${suggestion.team_id}.`
+          }
+        ],
+        structuredContent: {
+          created_at: suggestion.created_at,
+          status: suggestion.status,
+          suggestion_id: suggestion.suggestion_id,
+          team_id: suggestion.team_id
         }
       };
     }
