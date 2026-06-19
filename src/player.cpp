@@ -115,6 +115,14 @@ struct DriftStats {
   int64_t dropped_frames = 0;
 };
 
+struct RenderStats {
+  int64_t frames = 0;
+  int64_t cells = 0;
+  int64_t render_ns = 0;
+  int64_t shape_match_cells = 0;
+  int64_t shape_match_ns = 0;
+};
+
 enum class FrameAction {
   Render,
   Drop,
@@ -326,9 +334,14 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
   return edgeThresholdFromCli(options) / strength;
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats) {
+  const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
+  if (stats != nullptr) {
+    ++stats->frames;
+    stats->cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
+  }
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
@@ -352,8 +365,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edge_threshold);
         if (edge_glyph.has_value()) {
           if (shape_table != nullptr && structure_ink.has_value()) {
+            const auto match_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
             const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
             cell.glyph = matchGlyphShape(shapeVectorForCell(region), *shape_table);
+            if (stats != nullptr) {
+              ++stats->shape_match_cells;
+              stats->shape_match_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
+            }
           } else {
             cell.glyph = *edge_glyph;
           }
@@ -362,6 +380,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       cell.fg = avg;
       cell.bg = Rgb{};
     }
+  }
+  if (stats != nullptr) {
+    stats->render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
   }
 }
 
@@ -430,6 +451,8 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
   DriftStats drift_stats;
+  RenderStats render_stats;
+  RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
   AudioSyncState audio_sync;
   bool quit = false;
   bool paused_without_audio = false;
@@ -542,7 +565,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
-    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells);
+    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr);
     const EmissionResult emission = emitter.emit(cells, emission_options);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;
@@ -563,6 +586,19 @@ int playMedia(const CliOptions& options, Logger& logger) {
                                   " avg_abs_us=" + std::to_string(avg_abs_us) +
                                   " rendered_frames=" + std::to_string(drift_stats.rendered_frames) +
                                   " dropped_frames=" + std::to_string(drift_stats.dropped_frames));
+  }
+  if (render_stats.frames > 0) {
+    const int64_t render_us = render_stats.render_ns / 1000;
+    const int64_t shape_match_us = render_stats.shape_match_ns / 1000;
+    const double avg_shape_match_ns = render_stats.shape_match_cells > 0
+                                        ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
+                                        : 0.0;
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_us) +
+                                  " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
+                                  " shape_match_us=" + std::to_string(shape_match_us) +
+                                  " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns));
   }
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
