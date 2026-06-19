@@ -140,6 +140,15 @@ enum Command {
         #[command(subcommand)]
         command: ThemeCommand,
     },
+    Mcp {
+        #[arg(long, value_enum, default_value_t = McpTransport::Stdio)]
+        transport: McpTransport,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum McpTransport {
+    Stdio,
 }
 
 #[derive(Debug, Subcommand)]
@@ -346,6 +355,7 @@ fn run() -> Result<(), String> {
         ),
         Command::Plugin { command } => run_plugin_command(command),
         Command::Theme { command } => run_theme_command(command, max_input_bytes),
+        Command::Mcp { transport } => mcp::run_server(transport),
     }
 }
 
@@ -3223,19 +3233,19 @@ enum PlaybackAction {
 mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
-        ExportFormat, PluginCommand, PluginRegistry, RenderCharset, RenderFormat, RenderOptions,
-        RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS,
-        compat_report, convert_cast_source, decode_gzip_bytes, disable_plugin_records,
-        export_source, format_lint_text, format_theme_list, layout_warnings, lint_source,
-        load_render_theme_file, parse_diagram, parse_non_empty_string, parse_positive_input_bytes,
-        parse_positive_usize, parse_speed_override, playback_options,
-        playback_timeline_from_source, plugin_runtime_policy, publish_theme_file,
-        read_cast_source_file, read_installed_plugin_records, read_source_file,
-        remove_plugin_records, render_source, render_timeline_vtt, resolve_ai_library_path,
-        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
-        timeline_from_source, timeline_from_source_with_options,
-        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
-        write_theme_template,
+        ExportFormat, McpTransport, PluginCommand, PluginRegistry, RenderCharset, RenderFormat,
+        RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand,
+        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, decode_gzip_bytes,
+        disable_plugin_records, export_source, format_lint_text, format_theme_list,
+        layout_warnings, lint_source, load_render_theme_file, parse_diagram,
+        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
+        parse_speed_override, playback_options, playback_timeline_from_source,
+        plugin_runtime_policy, publish_theme_file, read_cast_source_file,
+        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
+        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
+        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
+        timeline_from_source_with_options, timeline_from_source_with_render_options,
+        validate_theme_file, write_plugin_install_record, write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{
@@ -3349,6 +3359,16 @@ mod tests {
 
         assert_eq!(file, std::path::PathBuf::from("diagram.mmd"));
         assert!(ai);
+    }
+
+    #[test]
+    fn mcp_parser_accepts_stdio_transport() {
+        let cli = Cli::try_parse_from(["kumeyuri", "mcp", "--transport", "stdio"]).unwrap();
+        let Some(Command::Mcp { transport }) = cli.command else {
+            panic!("expected mcp command");
+        };
+
+        assert_eq!(transport, McpTransport::Stdio);
     }
 
     #[test]

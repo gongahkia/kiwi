@@ -1,13 +1,23 @@
 #![allow(dead_code)]
 
 use base64::{Engine, engine::general_purpose::STANDARD};
+use rmcp::{
+    ErrorData as McpError, ServerHandler, ServiceExt,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    model::{
+        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
+    },
+    tool, tool_handler, tool_router,
+    transport::stdio,
+};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{env, path::PathBuf, process::Command};
 
 use crate::{
-    ANIMATED_PARTIAL_ROOTS, CompatRoot, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
-    STATIC_ONLY_ROOTS, ThemeSource, UNSUPPORTED_ROOTS, layout_warnings, lint_source, msg,
-    parse_diagram, render_source, theme_entries_for_current_dir, theme_source_label,
+    ANIMATED_PARTIAL_ROOTS, CompatRoot, McpTransport, RenderCharset, RenderFormat, RenderOptions,
+    RenderTheme, STATIC_ONLY_ROOTS, ThemeSource, UNSUPPORTED_ROOTS, layout_warnings, lint_source,
+    msg, parse_diagram, render_source, theme_entries_for_current_dir, theme_source_label,
 };
 
 pub(crate) const RENDER_DIAGRAM_TOOL_NAME: &str = "render_diagram";
@@ -16,7 +26,7 @@ pub(crate) const LINT_DIAGRAM_TOOL_NAME: &str = "lint_diagram";
 pub(crate) const LIST_THEMES_TOOL_NAME: &str = "list_themes";
 pub(crate) const LIST_DIAGRAM_TYPES_TOOL_NAME: &str = "list_diagram_types";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub(crate) struct RenderDiagramRequest {
     pub source: String,
     #[serde(default)]
@@ -49,7 +59,7 @@ pub(crate) struct McpLayoutWarning {
     pub suggestion: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub(crate) struct LintDiagramRequest {
     pub source: String,
     #[serde(default)]
@@ -63,7 +73,7 @@ pub(crate) struct LintDiagramResponse {
     pub warnings: Vec<McpLayoutWarning>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub(crate) struct PlayDiagramRequest {
     pub file: PathBuf,
     #[serde(default)]
@@ -114,7 +124,7 @@ pub(crate) enum McpDiagramSupport {
     Unsupported,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum McpRenderFormat {
     #[default]
@@ -126,7 +136,7 @@ pub(crate) enum McpRenderFormat {
     Vtt,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum McpRenderTheme {
     Default,
@@ -142,7 +152,7 @@ pub(crate) enum McpRenderTheme {
     PrintMono,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum McpRenderCharset {
     Ascii,
@@ -260,6 +270,102 @@ pub(crate) fn list_diagram_types() -> ListDiagramTypesResponse {
         McpDiagramSupport::Unsupported,
     );
     ListDiagramTypesResponse { diagram_types }
+}
+
+#[derive(Clone)]
+struct KumeyuriMcpServer {
+    tool_router: ToolRouter<Self>,
+}
+
+#[tool_router]
+impl KumeyuriMcpServer {
+    fn new() -> Self {
+        Self {
+            tool_router: Self::tool_router(),
+        }
+    }
+
+    #[tool(description = "Render Mermaid source with kumeyuri as text, SVG, raster, or VTT output")]
+    fn render_diagram(
+        &self,
+        Parameters(request): Parameters<RenderDiagramRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        json_tool_result(render_diagram(&request))
+    }
+
+    #[tool(description = "Open a kumeyuri TUI playback subprocess for a diagram or kumecast file")]
+    fn play_diagram(
+        &self,
+        Parameters(request): Parameters<PlayDiagramRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        json_tool_result(play_diagram(&request))
+    }
+
+    #[tool(description = "Lint Mermaid source with kumeyuri layout diagnostics")]
+    fn lint_diagram(
+        &self,
+        Parameters(request): Parameters<LintDiagramRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        json_tool_result(lint_diagram(&request))
+    }
+
+    #[tool(description = "List kumeyuri themes discovered from project, XDG, and bundled sources")]
+    fn list_themes(&self) -> Result<CallToolResult, McpError> {
+        json_tool_result(list_themes())
+    }
+
+    #[tool(description = "List Mermaid diagram roots and kumeyuri support levels")]
+    fn list_diagram_types(&self) -> Result<CallToolResult, McpError> {
+        json_tool_result(Ok(list_diagram_types()))
+    }
+}
+
+#[tool_handler]
+impl ServerHandler for KumeyuriMcpServer {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(Implementation::from_build_env())
+            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_instructions("kumeyuri MCP server exposes diagram render, play, lint, theme, and diagram-type discovery tools.".to_owned())
+    }
+}
+
+pub(crate) fn run_server(transport: McpTransport) -> Result<(), String> {
+    match transport {
+        McpTransport::Stdio => run_stdio_server(),
+    }
+}
+
+fn run_stdio_server() -> Result<(), String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| error.to_string())?;
+    runtime.block_on(async {
+        let service = KumeyuriMcpServer::new()
+            .serve(stdio())
+            .await
+            .map_err(|error| format!("{error:?}"))?;
+        service
+            .waiting()
+            .await
+            .map(|_| ())
+            .map_err(|error| format!("{error:?}"))
+    })
+}
+
+fn json_tool_result<T: Serialize>(result: Result<T, String>) -> Result<CallToolResult, McpError> {
+    match result {
+        Ok(value) => {
+            let json = serde_json::to_string(&value).map_err(internal_error)?;
+            Ok(CallToolResult::success(vec![Content::text(json)]))
+        }
+        Err(error) => Err(internal_error(error)),
+    }
+}
+
+fn internal_error(error: impl ToString) -> McpError {
+    McpError::internal_error(error.to_string(), None)
 }
 
 fn play_diagram_args(request: &PlayDiagramRequest) -> Result<Vec<String>, String> {

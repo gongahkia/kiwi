@@ -369,9 +369,9 @@
 - [x] Implement `play_diagram` tool surface (opens TUI subprocess)
 - [x] Implement `lint_diagram` tool surface
 - [x] Implement `list_themes`, `list_diagram_types` discovery tools
-- [ ] Implement stdio transport
+- [x] Implement stdio transport
 - [ ] Implement HTTP+SSE transport with bearer-token auth
-- [ ] Add `kumeyuri mcp` CLI subcommand wiring
+- [x] Add `kumeyuri mcp` CLI subcommand wiring
 - [ ] Register on `mcp.directory`, `lobehub.com/mcp`, `mcpservers.org`, `glama.ai/mcp`
 - [ ] Author `docs/mcp.md` with Claude Code, Cursor, Continue, opencode, Goose setup snippets
 - [ ] Add MCP integration smoke test (spawn server, call each tool, assert response)
