@@ -94,36 +94,75 @@ struct DriftStats {
   int64_t samples = 0;
   int64_t max_abs_us = 0;
   int64_t sum_abs_us = 0;
+  int64_t rendered_frames = 0;
+  int64_t dropped_frames = 0;
 };
 
 bool keyboardQuitRequested();
+
+enum class FrameAction {
+  Render,
+  Drop,
+  Quit,
+};
+
+struct AudioSyncState {
+  int64_t first_video_pts_us = -1;
+  int64_t previous_video_us = -1;
+  int64_t frame_interval_us = 33333;
+  int64_t last_rendered_video_us = -1;
+};
 
 int64_t frameMediaUs(const Frame& frame, int64_t first_pts_us) {
   return std::max<int64_t>(0, frame.pts_us - first_pts_us);
 }
 
-bool waitForAudioClock(const Frame& frame, PcmPlayer& player, int64_t* first_pts_us, DriftStats* stats) {
-  if (*first_pts_us < 0) {
-    *first_pts_us = frame.pts_us;
+bool shouldDropForMaxFps(int64_t video_us, const CliOptions& options, AudioSyncState* sync) {
+  if (!options.max_fps.has_value() || *options.max_fps <= 0.0 || sync->last_rendered_video_us < 0) {
+    return false;
   }
-  const int64_t video_us = frameMediaUs(frame, *first_pts_us);
+  const int64_t min_interval_us = static_cast<int64_t>(std::llround(1000000.0 / *options.max_fps));
+  return video_us - sync->last_rendered_video_us < min_interval_us;
+}
+
+FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, PcmPlayer& player, AudioSyncState* sync, DriftStats* stats) {
+  if (sync->first_video_pts_us < 0) {
+    sync->first_video_pts_us = frame.pts_us;
+  }
+  const int64_t video_us = frameMediaUs(frame, sync->first_video_pts_us);
+  if (sync->previous_video_us >= 0 && video_us > sync->previous_video_us) {
+    sync->frame_interval_us = video_us - sync->previous_video_us;
+  }
+  sync->previous_video_us = video_us;
+
+  if (shouldDropForMaxFps(video_us, options, sync)) {
+    ++stats->dropped_frames;
+    return FrameAction::Drop;
+  }
+
   while (!shouldQuit()) {
     if (keyboardQuitRequested()) {
-      return false;
+      return FrameAction::Quit;
     }
     const int64_t audio_us = player.masterClockUs();
+    if (audio_us - video_us > sync->frame_interval_us) {
+      ++stats->dropped_frames;
+      return FrameAction::Drop;
+    }
     if (audio_us >= video_us) {
       const int64_t drift_abs = std::llabs(video_us - audio_us);
       ++stats->samples;
       stats->max_abs_us = std::max(stats->max_abs_us, drift_abs);
       stats->sum_abs_us += drift_abs;
-      return true;
+      ++stats->rendered_frames;
+      sync->last_rendered_video_us = video_us;
+      return FrameAction::Render;
     }
     const int64_t remaining_us = video_us - audio_us;
     const auto sleep_us = std::clamp<int64_t>(remaining_us / 2, 1000, 5000);
     std::this_thread::sleep_for(std::chrono::microseconds(sleep_us));
   }
-  return false;
+  return FrameAction::Quit;
 }
 
 RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal) {
@@ -266,7 +305,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
   DriftStats drift_stats;
-  int64_t first_video_pts_us = -1;
+  AudioSyncState audio_sync;
   bool quit = false;
 
   std::string clear = "\x1b[2J";
@@ -281,9 +320,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
       return false;
     }
     if (audio_player != nullptr) {
-      if (!waitForAudioClock(frame, *audio_player, &first_video_pts_us, &drift_stats)) {
+      const FrameAction action = waitForAudioClock(frame, options, *audio_player, &audio_sync, &drift_stats);
+      if (action == FrameAction::Quit) {
         quit = true;
         return false;
+      }
+      if (action == FrameAction::Drop) {
+        return true;
       }
     } else {
       pacer.waitForFrame(frame);
@@ -319,7 +362,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   if (drift_stats.samples > 0) {
     CONTOURTTY_LOG_INFO(logger, "audio sync drift samples=" + std::to_string(drift_stats.samples) +
                                   " max_abs_us=" + std::to_string(drift_stats.max_abs_us) +
-                                  " avg_abs_us=" + std::to_string(drift_stats.sum_abs_us / drift_stats.samples));
+                                  " avg_abs_us=" + std::to_string(drift_stats.sum_abs_us / drift_stats.samples) +
+                                  " rendered_frames=" + std::to_string(drift_stats.rendered_frames) +
+                                  " dropped_frames=" + std::to_string(drift_stats.dropped_frames));
   }
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");

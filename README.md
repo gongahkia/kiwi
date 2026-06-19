@@ -19,6 +19,10 @@ cmake --build --preset ci
 ./build/ci/contourtty <video-file>
 ```
 
+## Runtime notes
+
+With audio present, video is paced from the audio playback clock. Late video frames are dropped once they fall more than one frame behind the clock, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
+
 ## Name
 
 Chosen name: `contourtty`.
