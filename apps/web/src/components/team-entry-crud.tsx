@@ -7,19 +7,27 @@ import { Button } from "@/components/ui/button";
 import type { TeamEntry } from "@/lib/team-entries";
 
 interface TeamEntryCrudProps {
+  apiPath?: string;
+  defaultDomains?: string;
   initialEntries: TeamEntry[];
+  layerLabel?: string;
+  sourceLabel?: string;
 }
 
-const emptyForm = {
-  domains: "example.com",
-  expansion: "",
-  id: "",
-  meaning: "",
-  source_url: "",
-  term: ""
-};
+function emptyFormFor(defaultDomains: string) {
+  return {
+    domains: defaultDomains,
+    expansion: "",
+    id: "",
+    meaning: "",
+    source_url: "",
+    term: ""
+  };
+}
 
-function entryFromForm(form: typeof emptyForm): TeamEntry {
+type EntryForm = ReturnType<typeof emptyFormFor>;
+
+function entryFromForm(form: EntryForm, sourceLabel: string): TeamEntry {
   return {
     domains: form.domains
       .split(",")
@@ -31,10 +39,10 @@ function entryFromForm(form: typeof emptyForm): TeamEntry {
     sources: [
       {
         license: "MIT",
-        publisher: "team import",
+        publisher: `${sourceLabel} import`,
         retrieved_at: new Date().toISOString(),
         snippet: form.meaning,
-        title: `${form.term} team source`,
+        title: `${form.term} ${sourceLabel} source`,
         url: form.source_url
       }
     ],
@@ -42,11 +50,18 @@ function entryFromForm(form: typeof emptyForm): TeamEntry {
   };
 }
 
-export function TeamEntryCrud({ initialEntries }: TeamEntryCrudProps) {
+export function TeamEntryCrud({
+  apiPath = "/team/admin/entries/api",
+  defaultDomains = "example.com",
+  initialEntries,
+  layerLabel = "team",
+  sourceLabel = "team"
+}: TeamEntryCrudProps) {
+  const emptyForm = useMemo(() => emptyFormFor(defaultDomains), [defaultDomains]);
   const [entries, setEntries] = useState(initialEntries);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(emptyForm);
-  const preview = useMemo(() => entryFromForm(form), [form]);
+  const preview = useMemo(() => entryFromForm(form, sourceLabel), [form, sourceLabel]);
   const hasDraft = Boolean(preview.id.trim());
   const mergedEntries = useMemo(() => {
     if (!hasDraft) return entries;
@@ -65,7 +80,7 @@ export function TeamEntryCrud({ initialEntries }: TeamEntryCrudProps) {
       ? "Update"
       : "Create";
 
-  function setField(field: keyof typeof emptyForm, value: string) {
+  function setField(field: keyof EntryForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -82,8 +97,8 @@ export function TeamEntryCrud({ initialEntries }: TeamEntryCrudProps) {
   }
 
   async function save() {
-    const entry = entryFromForm(form);
-    const response = await fetch("/team/admin/entries/api", {
+    const entry = entryFromForm(form, sourceLabel);
+    const response = await fetch(apiPath, {
       body: JSON.stringify(editingId ? { id: editingId, patch: entry } : entry),
       headers: { "content-type": "application/json" },
       method: editingId ? "PATCH" : "POST"
@@ -100,7 +115,7 @@ export function TeamEntryCrud({ initialEntries }: TeamEntryCrudProps) {
   }
 
   async function remove(id: string) {
-    const response = await fetch(`/team/admin/entries/api?id=${encodeURIComponent(id)}`, {
+    const response = await fetch(`${apiPath}?id=${encodeURIComponent(id)}`, {
       method: "DELETE"
     });
     if (response.ok) {
@@ -163,7 +178,7 @@ export function TeamEntryCrud({ initialEntries }: TeamEntryCrudProps) {
       <aside className="grid content-start gap-2 rounded-md border border-input p-4">
         <p className="text-sm font-medium text-foreground/65">Live merge preview</p>
         <p className="text-xs text-foreground/55">
-          {previewAction} / {mergedEntries.length} team entries
+          {previewAction} / {mergedEntries.length} {layerLabel} entries
         </p>
         <p className="text-xl font-semibold">
           {preview.term || "TERM"} - {preview.expansion || "Expansion"}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
 const sessionCookie = "wat_session";
+const protectedPrefixes = ["/team/admin", "/personal"];
 const logger = pino({ name: "wat-web" });
 
 export function middleware(request: NextRequest) {
@@ -9,7 +10,10 @@ export function middleware(request: NextRequest) {
   const startedAt = Date.now();
   let response: NextResponse;
 
-  if (request.nextUrl.pathname.startsWith("/team/admin") && !request.cookies.has(sessionCookie)) {
+  if (
+    protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix)) &&
+    !request.cookies.has(sessionCookie)
+  ) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     response = NextResponse.redirect(loginUrl);
