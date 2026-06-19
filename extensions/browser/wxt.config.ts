@@ -7,6 +7,6 @@ export default defineConfig({
     },
     description: "Look up tech acronyms and team jargon from the browser.",
     name: "wat",
-    permissions: ["activeTab", "storage", "contextMenus", "scripting"]
+    permissions: ["activeTab", "storage", "contextMenus", "scripting", "sidePanel"]
   }
 });

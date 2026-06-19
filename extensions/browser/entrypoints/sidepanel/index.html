@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>wat side panel</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>wat</h1>
+        <p id="page-context"></p>
+      </header>
+      <form id="search-form">
+        <input id="query" name="query" placeholder="API, CAP, TLS" type="search" />
+        <button type="submit">Search</button>
+      </form>
+      <section id="results" aria-live="polite"></section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

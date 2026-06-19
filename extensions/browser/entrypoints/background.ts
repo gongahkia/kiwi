@@ -14,6 +14,8 @@ import {
   type WatOptions
 } from "../src/options.js";
 
+type BrowserTab = Awaited<ReturnType<typeof browser.tabs.query>>[number];
+
 function boundedLimit(limit: number | undefined): string {
   if (!limit || !Number.isInteger(limit)) return "5";
   return Math.min(Math.max(limit, 1), 10).toString();
@@ -35,6 +37,9 @@ async function fetchLookup(message: LookupMessage, options: WatOptions): Promise
   const url = new URL("/api/v1/search", options.apiBaseUrl);
   url.searchParams.set("q", message.term.trim());
   url.searchParams.set("limit", boundedLimit(message.limit));
+  if (message.context?.trim()) {
+    url.searchParams.set("context", message.context.trim());
+  }
 
   const response = await fetch(url, { headers: authHeaders(options) });
   if (!response.ok) {
@@ -88,5 +93,10 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: unknown) => {
     if (!isLookupMessage(message)) return undefined;
     return handleLookup(message);
+  });
+
+  browser.action.onClicked.addListener((tab: BrowserTab) => {
+    if (tab.id == null || !browser.sidePanel) return;
+    void browser.sidePanel.open({ tabId: tab.id });
   });
 });

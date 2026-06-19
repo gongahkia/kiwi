@@ -18,7 +18,7 @@ pnpm --filter @wat/ext build
 pnpm --filter @wat/ext zip
 ```
 
-The options page stores API base URL, account email/token, hover mode, auto-highlight mode, and domain filters in extension storage. When hover or auto-highlight mode is enabled, the content script asks the background worker for uppercase-token lookups and renders a sourced tooltip.
+The options page stores API base URL, account email/token, hover mode, auto-highlight mode, and domain filters in extension storage. When hover or auto-highlight mode is enabled, the content script asks the background worker for uppercase-token lookups and renders a sourced tooltip. The action button opens a Chrome side panel that searches through the same background lookup path using the active tab hostname as context.
 
 ## Target Permissions
 
