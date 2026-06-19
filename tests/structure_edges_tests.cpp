@@ -144,6 +144,17 @@ int main() {
   }
 
   {
+    auto field = fieldFromValues(2, 1, {0.45, 0.55});
+    const auto off = contourtty::applyStructureContrast(field, 0.0);
+    expectNear(off.at(0, 0), 0.45, 1e-12, "zero contrast preserves low value");
+    expectNear(off.at(1, 0), 0.55, 1e-12, "zero contrast preserves high value");
+    const auto boosted = contourtty::applyStructureContrast(field, 2.0);
+    expect(boosted.at(0, 0) < 0.45, "contrast pushes low value lower");
+    expect(boosted.at(1, 0) > 0.55, "contrast pushes high value higher");
+    expect(boosted.at(1, 0) - boosted.at(0, 0) > 0.10, "contrast increases separation");
+  }
+
+  {
     contourtty::GradientField gradients;
     gradients.width = 2;
     gradients.height = 1;

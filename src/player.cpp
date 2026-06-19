@@ -308,6 +308,10 @@ DogOptions dogOptionsFromCli(const CliOptions& options) {
   };
 }
 
+double contrastFromCli(const CliOptions& options) {
+  return options.contrast.value_or(0.0);
+}
+
 double edgeThresholdFromCli(const CliOptions& options) {
   return options.edge_threshold.value_or(kDefaultEdgeThreshold);
 }
@@ -320,6 +324,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const double edge_threshold = edgeThresholdFromCli(options);
   if (options.mode == "structure") {
     LuminanceField analysis_luminance = makeLuminanceField(frame);
+    analysis_luminance = applyStructureContrast(analysis_luminance, contrastFromCli(options));
     const DogOptions dog_options = dogOptionsFromCli(options);
     if (dog_options.enabled()) {
       analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);

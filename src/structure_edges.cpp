@@ -166,6 +166,32 @@ LuminanceField differenceOfGaussians(const LuminanceField& field, DogOptions opt
   return output;
 }
 
+LuminanceField applyStructureContrast(const LuminanceField& field, double amount) {
+  if (field.width <= 0 || field.height <= 0 ||
+      field.values.size() != static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height)) {
+    throw std::invalid_argument("invalid luminance field");
+  }
+  if (amount < 0.0) {
+    throw std::invalid_argument("structure contrast must be non-negative");
+  }
+  if (amount == 0.0) {
+    return field;
+  }
+
+  const double gain = 1.0 + amount;
+  const int levels = std::clamp(static_cast<int>(std::lround(2.0 + amount * 6.0)), 2, 16);
+  const double scale = static_cast<double>(levels - 1);
+  LuminanceField output;
+  output.width = field.width;
+  output.height = field.height;
+  output.values.reserve(field.values.size());
+  for (const double value : field.values) {
+    const double contrasted = std::clamp((value - 0.5) * gain + 0.5, 0.0, 1.0);
+    output.values.push_back(std::round(contrasted * scale) / scale);
+  }
+  return output;
+}
+
 CellGradient cellGradient(const GradientField& gradients, int cols, int rows, int col, int row) {
   if (gradients.width <= 0 || gradients.height <= 0 ||
       gradients.values.size() != static_cast<std::size_t>(gradients.width) * static_cast<std::size_t>(gradients.height)) {
