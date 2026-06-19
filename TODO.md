@@ -42,7 +42,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Measure search latency on hosted (Vercel + Neon) — done when p95 < 150ms for 1k-warmup queries.
 - [ ] Measure search latency on self-host (single docker compose, 2-core) — done when p95 < 300ms.
 - [ ] Add search analytics events (no PII) — done when each search logs query_hash, latency, layer_hit, confidence_distribution.
-- [ ] Implement no-match handler — done when zero-hit query returns explicit `{matches: [], suggest_url}`.
 
 ## P1 — Public corpus ingestion framework
 - [ ] Design scraper plugin interface in `packages/ingest/src/scraper.ts` — done when interface specifies `{name, license, refresh_interval, fetch(): AsyncIterable<RawEntry>}`.
