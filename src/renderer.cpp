@@ -99,7 +99,15 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     analysis_luminance = applyStructureContrast(analysis_luminance, contrastFromCli(options));
     const DogOptions dog_options = dogOptionsFromCli(options);
     if (dog_options.enabled()) {
-      analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
+      if (options.gpu) {
+        if (auto gpu_dog = differenceOfGaussiansGpu(analysis_luminance, dog_options)) {
+          analysis_luminance = std::move(*gpu_dog);
+        } else {
+          analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
+        }
+      } else {
+        analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
+      }
     }
     if (options.gpu) {
       gpu_structure_glyphs = computeStructureGlyphsGpu(frame, analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);

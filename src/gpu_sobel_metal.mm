@@ -4,6 +4,7 @@
 #import <Metal/Metal.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -28,6 +29,14 @@ struct StructureParams {
   uint32_t has_rgb = 0;
 };
 
+struct DogParams {
+  uint32_t width = 0;
+  uint32_t height = 0;
+  uint32_t radius1 = 0;
+  uint32_t radius2 = 0;
+  float threshold = 0.0F;
+};
+
 constexpr char kSobelMetalSource[] = R"METAL(
 #include <metal_stdlib>
 using namespace metal;
@@ -40,6 +49,14 @@ struct StructureParams {
   float threshold;
   uint table_count;
   uint has_rgb;
+};
+
+struct DogParams {
+  uint width;
+  uint height;
+  uint radius1;
+  uint radius2;
+  float threshold;
 };
 
 constant uint kShapeRegionCount = 9;
@@ -70,6 +87,42 @@ kernel void sobel_kernel(device const float* luminance [[buffer(0)]],
     -sample(x - 1, y - 1) - 2.0F * sample(x, y - 1) - sample(x + 1, y - 1) +
     sample(x - 1, y + 1) + 2.0F * sample(x, y + 1) + sample(x + 1, y + 1);
   gradients[gid.y * width + gid.x] = float2(gx, gy);
+}
+
+kernel void dog_kernel(device const float* luminance [[buffer(0)]],
+                       device const float* kernel1 [[buffer(1)]],
+                       device const float* kernel2 [[buffer(2)]],
+                       device float* output [[buffer(3)]],
+                       constant DogParams& params [[buffer(4)]],
+                       uint2 gid [[thread_position_in_grid]]) {
+  if (gid.x >= params.width || gid.y >= params.height) {
+    return;
+  }
+  const auto sample = [&](int x, int y) {
+    const int cx = clamp(x, 0, int(params.width) - 1);
+    const int cy = clamp(y, 0, int(params.height) - 1);
+    return luminance[uint(cy) * params.width + uint(cx)];
+  };
+  const int x = int(gid.x);
+  const int y = int(gid.y);
+  float narrow = 0.0F;
+  float wide = 0.0F;
+  for (int ky = -int(params.radius1); ky <= int(params.radius1); ++ky) {
+    const float wy = kernel1[uint(ky + int(params.radius1))];
+    for (int kx = -int(params.radius1); kx <= int(params.radius1); ++kx) {
+      const float wx = kernel1[uint(kx + int(params.radius1))];
+      narrow += sample(x + kx, y + ky) * wx * wy;
+    }
+  }
+  for (int ky = -int(params.radius2); ky <= int(params.radius2); ++ky) {
+    const float wy = kernel2[uint(ky + int(params.radius2))];
+    for (int kx = -int(params.radius2); kx <= int(params.radius2); ++kx) {
+      const float wx = kernel2[uint(kx + int(params.radius2))];
+      wide += sample(x + kx, y + ky) * wx * wy;
+    }
+  }
+  const float value = abs(narrow - wide);
+  output[gid.y * params.width + gid.x] = value >= params.threshold ? value : 0.0F;
 }
 
 static float angular_distance(float a, float b) {
@@ -274,12 +327,16 @@ class MetalSobelContext {
       if (structure_function != nil) {
         structure_pipeline_ = [device_ newComputePipelineStateWithFunction:structure_function error:&error];
       }
+      id<MTLFunction> dog_function = [library_ newFunctionWithName:@"dog_kernel"];
+      if (dog_function != nil) {
+        dog_pipeline_ = [device_ newComputePipelineStateWithFunction:dog_function error:&error];
+      }
       queue_ = [device_ newCommandQueue];
     }
   }
 
   bool ready() const {
-    return device_ != nil && pipeline_ != nil && structure_pipeline_ != nil && queue_ != nil;
+    return device_ != nil && pipeline_ != nil && structure_pipeline_ != nil && dog_pipeline_ != nil && queue_ != nil;
   }
 
   id<MTLDevice> device() const {
@@ -294,6 +351,10 @@ class MetalSobelContext {
     return structure_pipeline_;
   }
 
+  id<MTLComputePipelineState> dogPipeline() const {
+    return dog_pipeline_;
+  }
+
   id<MTLCommandQueue> queue() const {
     return queue_;
   }
@@ -303,6 +364,7 @@ class MetalSobelContext {
   id<MTLLibrary> library_ = nil;
   id<MTLComputePipelineState> pipeline_ = nil;
   id<MTLComputePipelineState> structure_pipeline_ = nil;
+  id<MTLComputePipelineState> dog_pipeline_ = nil;
   id<MTLCommandQueue> queue_ = nil;
 };
 
@@ -311,10 +373,112 @@ MetalSobelContext& metalSobelContext() {
   return context;
 }
 
+std::vector<float> gaussianKernel(float sigma) {
+  const int radius = std::max(1, static_cast<int>(std::ceil(sigma * 3.0F)));
+  std::vector<float> kernel;
+  kernel.reserve(static_cast<std::size_t>(radius * 2 + 1));
+  float sum = 0.0F;
+  for (int i = -radius; i <= radius; ++i) {
+    const float value = std::exp(-(static_cast<float>(i * i)) / (2.0F * sigma * sigma));
+    kernel.push_back(value);
+    sum += value;
+  }
+  for (float& value : kernel) {
+    value /= sum;
+  }
+  return kernel;
+}
+
 }  // namespace
 
 bool gpuSobelAvailable() {
   return metalSobelContext().ready();
+}
+
+std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField& field, DogOptions options) {
+  if (!options.enabled()) {
+    return field;
+  }
+  if (field.width <= 0 || field.height <= 0 ||
+      field.values.size() != static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height)) {
+    throw std::invalid_argument("invalid luminance field");
+  }
+  if (options.threshold < 0.0) {
+    throw std::invalid_argument("DoG threshold must be non-negative");
+  }
+
+  MetalSobelContext& context = metalSobelContext();
+  if (!context.ready() || context.dogPipeline() == nil) {
+    return std::nullopt;
+  }
+
+  @autoreleasepool {
+    std::vector<float> luminance(field.values.size());
+    for (std::size_t index = 0; index < field.values.size(); ++index) {
+      luminance[index] = static_cast<float>(field.values[index]);
+    }
+    std::vector<float> output(field.values.size(), 0.0F);
+    const std::vector<float> kernel1 = gaussianKernel(static_cast<float>(options.sigma1));
+    const std::vector<float> kernel2 = gaussianKernel(static_cast<float>(options.sigma2));
+    const DogParams params{
+      .width = static_cast<uint32_t>(field.width),
+      .height = static_cast<uint32_t>(field.height),
+      .radius1 = static_cast<uint32_t>(kernel1.size() / 2U),
+      .radius2 = static_cast<uint32_t>(kernel2.size() / 2U),
+      .threshold = static_cast<float>(options.threshold),
+    };
+
+    id<MTLBuffer> luminance_buffer = [context.device() newBufferWithBytes:luminance.data()
+                                                                   length:luminance.size() * sizeof(float)
+                                                                  options:MTLResourceStorageModeShared];
+    id<MTLBuffer> kernel1_buffer = [context.device() newBufferWithBytes:kernel1.data()
+                                                                 length:kernel1.size() * sizeof(float)
+                                                                options:MTLResourceStorageModeShared];
+    id<MTLBuffer> kernel2_buffer = [context.device() newBufferWithBytes:kernel2.data()
+                                                                 length:kernel2.size() * sizeof(float)
+                                                                options:MTLResourceStorageModeShared];
+    id<MTLBuffer> output_buffer = [context.device() newBufferWithLength:output.size() * sizeof(float)
+                                                                 options:MTLResourceStorageModeShared];
+    id<MTLBuffer> params_buffer = [context.device() newBufferWithBytes:&params
+                                                                length:sizeof(params)
+                                                               options:MTLResourceStorageModeShared];
+    if (luminance_buffer == nil || kernel1_buffer == nil || kernel2_buffer == nil || output_buffer == nil || params_buffer == nil) {
+      return std::nullopt;
+    }
+
+    id<MTLCommandBuffer> command_buffer = [context.queue() commandBuffer];
+    id<MTLComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
+    if (command_buffer == nil || encoder == nil) {
+      return std::nullopt;
+    }
+    [encoder setComputePipelineState:context.dogPipeline()];
+    [encoder setBuffer:luminance_buffer offset:0 atIndex:0];
+    [encoder setBuffer:kernel1_buffer offset:0 atIndex:1];
+    [encoder setBuffer:kernel2_buffer offset:0 atIndex:2];
+    [encoder setBuffer:output_buffer offset:0 atIndex:3];
+    [encoder setBuffer:params_buffer offset:0 atIndex:4];
+
+    const NSUInteger thread_width = std::min<NSUInteger>(16, context.dogPipeline().threadExecutionWidth);
+    const NSUInteger thread_height = std::max<NSUInteger>(1, std::min<NSUInteger>(16, context.dogPipeline().maxTotalThreadsPerThreadgroup / thread_width));
+    [encoder dispatchThreads:MTLSizeMake(static_cast<NSUInteger>(field.width), static_cast<NSUInteger>(field.height), 1)
+       threadsPerThreadgroup:MTLSizeMake(thread_width, thread_height, 1)];
+    [encoder endEncoding];
+    [command_buffer commit];
+    [command_buffer waitUntilCompleted];
+    if (command_buffer.status == MTLCommandBufferStatusError) {
+      return std::nullopt;
+    }
+
+    std::memcpy(output.data(), output_buffer.contents, output.size() * sizeof(float));
+    LuminanceField result;
+    result.width = field.width;
+    result.height = field.height;
+    result.values.reserve(output.size());
+    for (const float value : output) {
+      result.values.push_back(static_cast<double>(value));
+    }
+    return result;
+  }
 }
 
 std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& field) {

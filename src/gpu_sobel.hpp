@@ -17,6 +17,7 @@ struct GpuStructureGlyphs {
 };
 
 bool gpuSobelAvailable();
+std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField& field, DogOptions options);
 std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& field);
 std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table);
 std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame& frame, const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table);

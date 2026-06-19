@@ -204,6 +204,27 @@ int main() {
   }
 
   {
+    std::vector<double> values;
+    for (int y = 0; y < 9; ++y) {
+      for (int x = 0; x < 9; ++x) {
+        values.push_back((x == 4 || y == 4) ? 1.0 : 0.0);
+      }
+    }
+    auto field = fieldFromValues(9, 9, values);
+    const contourtty::DogOptions options{.sigma1 = 0.5, .sigma2 = 1.4, .threshold = 0.02};
+    const auto cpu = contourtty::differenceOfGaussians(field, options);
+    const auto gpu = contourtty::differenceOfGaussiansGpu(field, options);
+    expect(gpu.has_value() == contourtty::gpuSobelAvailable(), "gpu DoG availability matches result");
+    if (gpu.has_value()) {
+      expect(gpu->width == cpu.width && gpu->height == cpu.height, "gpu DoG dimensions");
+      expect(gpu->values.size() == cpu.values.size(), "gpu DoG value count");
+      for (std::size_t index = 0; index < cpu.values.size(); ++index) {
+        expectNear(gpu->values[index], cpu.values[index], 1e-5, "gpu DoG matches cpu");
+      }
+    }
+  }
+
+  {
     auto field = fieldFromValues(2, 1, {0.45, 0.55});
     const auto off = contourtty::applyStructureContrast(field, 0.0);
     expectNear(off.at(0, 0), 0.45, 1e-12, "zero contrast preserves low value");
