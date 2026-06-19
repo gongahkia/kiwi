@@ -482,7 +482,7 @@
 
 - [ ] Phase 1: Sugiyama port vs `layout-rs` wrap — measure both on benchmark corpus
 - [ ] Phase 2: tachyonfx integration depth — wrap or fork
-- [ ] Phase 3: SMIL vs CSS-keyframe-only SVG (GitHub sanitiser behaviour decisive)
+- [x] Phase 3: SMIL vs CSS-keyframe-only SVG (GitHub sanitiser behaviour decisive)
 - [ ] Phase 3: GIF encoder choice — `gif` crate vs `gifski` bindings (quality vs deps)
 - [ ] Phase 4: kumeyuri.dev hosting — Cloudflare Pages vs GitHub Pages vs Vercel
 - [ ] Phase 5: pacing of long-tail diagram types — bundled monthly release vs one-per-release

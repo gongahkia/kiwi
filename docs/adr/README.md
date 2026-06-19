@@ -11,6 +11,7 @@ security posture.
 | [0001](0001-ast-shape.md) | Accepted | Use a typed semantic AST shared by layout, animation, and renderers |
 | [0002](0002-parser-choice.md) | Accepted | Use a Rust-native parser instead of porting Mermaid's Jison grammars |
 | [0010](0010-wasm-host.md) | Accepted | Use Wasmtime as the ABI 1.x WASM plugin host runtime |
+| [0011](0011-svg-animation-mode.md) | Accepted | Default animated SVGs to SMIL while keeping CSS keyframes as fallback |
 
 ## Maintenance
 
