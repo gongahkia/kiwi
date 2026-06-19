@@ -133,7 +133,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Token storage encryption — done when tokens encrypted w/ AES-GCM via env-provided KMS key.
 - [ ] Slack app icon + description assets — done when assets committed in `apps/slack/assets/`.
 - [ ] Submit Slack App Directory listing — done when listing is in review w/ security questionnaire complete.
-- [ ] Write Slack install README — done when README explains scopes + permissions.
 - [ ] Record 30-sec demo GIF of `/wat` + message shortcut — done when GIF in `/docs/assets/slack-demo.gif`.
 
 ## P3 — MCP server
