@@ -2,10 +2,46 @@
 
 #include "luminance.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
+#include <thread>
+#include <vector>
 
 namespace contourtty {
+namespace {
+
+int workerCount(int rows, int items) {
+  if (rows < 2 || items < 8192) {
+    return 1;
+  }
+  const unsigned hardware = std::thread::hardware_concurrency();
+  const int max_workers = static_cast<int>(hardware == 0 ? 2 : hardware);
+  return std::min(rows, max_workers);
+}
+
+template <typename Function>
+void parallelRows(int rows, int items, Function function) {
+  const int workers = workerCount(rows, items);
+  if (workers == 1) {
+    function(0, rows);
+    return;
+  }
+
+  std::vector<std::thread> threads;
+  threads.reserve(static_cast<std::size_t>(workers - 1));
+  for (int worker = 1; worker < workers; ++worker) {
+    const int row_begin = (rows * worker) / workers;
+    const int row_end = (rows * (worker + 1)) / workers;
+    threads.emplace_back(function, row_begin, row_end);
+  }
+  function(0, rows / workers);
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
+}
+
+}  // namespace
 
 double LuminanceField::at(int x, int y) const {
   if (x < 0 || y < 0 || x >= width || y >= height) {
@@ -33,17 +69,19 @@ LuminanceField makeLuminanceField(const Frame& frame) {
   LuminanceField field;
   field.width = frame.w;
   field.height = frame.h;
-  field.values.reserve(static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h));
-  for (int y = 0; y < frame.h; ++y) {
-    for (int x = 0; x < frame.w; ++x) {
-      const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3;
-      field.values.push_back(relativeLuminance(Rgb{
-        .r = frame.rgb[index],
-        .g = frame.rgb[index + 1],
-        .b = frame.rgb[index + 2],
-      }));
+  field.values.assign(static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h), 0.0);
+  parallelRows(frame.h, frame.w * frame.h, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < frame.w; ++x) {
+        const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3;
+        field.values[index / 3] = relativeLuminance(Rgb{
+          .r = frame.rgb[index],
+          .g = frame.rgb[index + 1],
+          .b = frame.rgb[index + 2],
+        });
+      }
     }
-  }
+  });
   return field;
 }
 
@@ -71,7 +109,7 @@ CellLuminanceRegion sampleCellRegion(const LuminanceField& field, int cols, int 
   region.values.reserve(static_cast<std::size_t>(region.width()) * static_cast<std::size_t>(region.height()));
   for (int y = region.source.y0; y < region.source.y1; ++y) {
     for (int x = region.source.x0; x < region.source.x1; ++x) {
-      region.values.push_back(field.at(x, y));
+      region.values.push_back(field.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)]);
     }
   }
   return region;

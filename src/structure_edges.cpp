@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 namespace contourtty {
@@ -15,7 +16,37 @@ constexpr double kPi = 3.14159265358979323846;
 double sampleClamped(const LuminanceField& field, int x, int y) {
   const int clamped_x = std::min(std::max(x, 0), field.width - 1);
   const int clamped_y = std::min(std::max(y, 0), field.height - 1);
-  return field.at(clamped_x, clamped_y);
+  return field.values[static_cast<std::size_t>(clamped_y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(clamped_x)];
+}
+
+int workerCount(int rows, int items) {
+  if (rows < 2 || items < 8192) {
+    return 1;
+  }
+  const unsigned hardware = std::thread::hardware_concurrency();
+  const int max_workers = static_cast<int>(hardware == 0 ? 2 : hardware);
+  return std::min(rows, max_workers);
+}
+
+template <typename Function>
+void parallelRows(int rows, int items, Function function) {
+  const int workers = workerCount(rows, items);
+  if (workers == 1) {
+    function(0, rows);
+    return;
+  }
+
+  std::vector<std::thread> threads;
+  threads.reserve(static_cast<std::size_t>(workers - 1));
+  for (int worker = 1; worker < workers; ++worker) {
+    const int row_begin = (rows * worker) / workers;
+    const int row_end = (rows * (worker + 1)) / workers;
+    threads.emplace_back(function, row_begin, row_end);
+  }
+  function(0, rows / workers);
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
 }
 
 std::vector<double> gaussianKernel(double sigma) {
@@ -72,19 +103,21 @@ GradientField computeSobelGradients(const LuminanceField& field) {
   GradientField gradients;
   gradients.width = field.width;
   gradients.height = field.height;
-  gradients.values.reserve(static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height));
-  for (int y = 0; y < field.height; ++y) {
-    for (int x = 0; x < field.width; ++x) {
-      const double gx =
-        -sampleClamped(field, x - 1, y - 1) + sampleClamped(field, x + 1, y - 1) -
-        2.0 * sampleClamped(field, x - 1, y) + 2.0 * sampleClamped(field, x + 1, y) -
-        sampleClamped(field, x - 1, y + 1) + sampleClamped(field, x + 1, y + 1);
-      const double gy =
-        -sampleClamped(field, x - 1, y - 1) - 2.0 * sampleClamped(field, x, y - 1) - sampleClamped(field, x + 1, y - 1) +
-        sampleClamped(field, x - 1, y + 1) + 2.0 * sampleClamped(field, x, y + 1) + sampleClamped(field, x + 1, y + 1);
-      gradients.values.push_back(Gradient{.gx = gx, .gy = gy});
+  gradients.values.assign(static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height), Gradient{});
+  parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < field.width; ++x) {
+        const double gx =
+          -sampleClamped(field, x - 1, y - 1) + sampleClamped(field, x + 1, y - 1) -
+          2.0 * sampleClamped(field, x - 1, y) + 2.0 * sampleClamped(field, x + 1, y) -
+          sampleClamped(field, x - 1, y + 1) + sampleClamped(field, x + 1, y + 1);
+        const double gy =
+          -sampleClamped(field, x - 1, y - 1) - 2.0 * sampleClamped(field, x, y - 1) - sampleClamped(field, x + 1, y - 1) +
+          sampleClamped(field, x - 1, y + 1) + 2.0 * sampleClamped(field, x, y + 1) + sampleClamped(field, x + 1, y + 1);
+        gradients.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = Gradient{.gx = gx, .gy = gy};
+      }
     }
-  }
+  });
   return gradients;
 }
 
@@ -99,11 +132,17 @@ LuminanceField gradientMagnitudeField(const GradientField& gradients, double thr
   LuminanceField field;
   field.width = gradients.width;
   field.height = gradients.height;
-  field.values.reserve(gradients.values.size());
-  for (const Gradient gradient : gradients.values) {
-    const double magnitude = std::hypot(gradient.gx, gradient.gy);
-    field.values.push_back(magnitude > threshold ? magnitude : 0.0);
-  }
+  field.values.assign(gradients.values.size(), 0.0);
+  parallelRows(gradients.height, gradients.width * gradients.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < gradients.width; ++x) {
+        const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(gradients.width) + static_cast<std::size_t>(x);
+        const Gradient gradient = gradients.values[index];
+        const double magnitude = std::hypot(gradient.gx, gradient.gy);
+        field.values[index] = magnitude > threshold ? magnitude : 0.0;
+      }
+    }
+  });
   return field;
 }
 
@@ -119,29 +158,33 @@ LuminanceField gaussianBlur(const LuminanceField& field, double sigma) {
   horizontal.width = field.width;
   horizontal.height = field.height;
   horizontal.values.assign(field.values.size(), 0.0);
-  for (int y = 0; y < field.height; ++y) {
-    for (int x = 0; x < field.width; ++x) {
-      double sum = 0.0;
-      for (int k = -radius; k <= radius; ++k) {
-        sum += sampleClamped(field, x + k, y) * kernel[static_cast<std::size_t>(k + radius)];
+  parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < field.width; ++x) {
+        double sum = 0.0;
+        for (int k = -radius; k <= radius; ++k) {
+          sum += sampleClamped(field, x + k, y) * kernel[static_cast<std::size_t>(k + radius)];
+        }
+        horizontal.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
       }
-      horizontal.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
     }
-  }
+  });
 
   LuminanceField output;
   output.width = field.width;
   output.height = field.height;
   output.values.assign(field.values.size(), 0.0);
-  for (int y = 0; y < field.height; ++y) {
-    for (int x = 0; x < field.width; ++x) {
-      double sum = 0.0;
-      for (int k = -radius; k <= radius; ++k) {
-        sum += sampleClamped(horizontal, x, y + k) * kernel[static_cast<std::size_t>(k + radius)];
+  parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < field.width; ++x) {
+        double sum = 0.0;
+        for (int k = -radius; k <= radius; ++k) {
+          sum += sampleClamped(horizontal, x, y + k) * kernel[static_cast<std::size_t>(k + radius)];
+        }
+        output.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
       }
-      output.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = sum;
     }
-  }
+  });
   return output;
 }
 
@@ -158,11 +201,16 @@ LuminanceField differenceOfGaussians(const LuminanceField& field, DogOptions opt
   LuminanceField output;
   output.width = field.width;
   output.height = field.height;
-  output.values.reserve(field.values.size());
-  for (std::size_t i = 0; i < field.values.size(); ++i) {
-    const double value = std::abs(narrow.values[i] - wide.values[i]);
-    output.values.push_back(value >= options.threshold ? value : 0.0);
-  }
+  output.values.assign(field.values.size(), 0.0);
+  parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < field.width; ++x) {
+        const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x);
+        const double value = std::abs(narrow.values[index] - wide.values[index]);
+        output.values[index] = value >= options.threshold ? value : 0.0;
+      }
+    }
+  });
   return output;
 }
 
@@ -184,11 +232,16 @@ LuminanceField applyStructureContrast(const LuminanceField& field, double amount
   LuminanceField output;
   output.width = field.width;
   output.height = field.height;
-  output.values.reserve(field.values.size());
-  for (const double value : field.values) {
-    const double contrasted = std::clamp((value - 0.5) * gain + 0.5, 0.0, 1.0);
-    output.values.push_back(std::round(contrasted * scale) / scale);
-  }
+  output.values.assign(field.values.size(), 0.0);
+  parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
+    for (int y = row_begin; y < row_end; ++y) {
+      for (int x = 0; x < field.width; ++x) {
+        const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x);
+        const double contrasted = std::clamp((field.values[index] - 0.5) * gain + 0.5, 0.0, 1.0);
+        output.values[index] = std::round(contrasted * scale) / scale;
+      }
+    }
+  });
   return output;
 }
 
@@ -205,7 +258,7 @@ CellGradient cellGradient(const GradientField& gradients, int cols, int rows, in
   int count = 0;
   for (int y = region.y0; y < region.y1; ++y) {
     for (int x = region.x0; x < region.x1; ++x) {
-      const Gradient gradient = gradients.at(x, y);
+      const Gradient gradient = gradients.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(gradients.width) + static_cast<std::size_t>(x)];
       gx += gradient.gx;
       gy += gradient.gy;
       horizontal_energy += std::abs(gradient.gx);

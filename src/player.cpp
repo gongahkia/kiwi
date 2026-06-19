@@ -32,6 +32,7 @@
 #include <sys/select.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 namespace contourtty {
 namespace {
@@ -122,6 +123,11 @@ struct RenderStats {
   int64_t render_ns = 0;
   int64_t shape_match_cells = 0;
   int64_t shape_match_ns = 0;
+};
+
+struct ShapeMatchStats {
+  int64_t cells = 0;
+  int64_t ns = 0;
 };
 
 enum class FrameAction {
@@ -290,6 +296,15 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
   return edgeThresholdFromCli(options) / strength;
 }
 
+int renderWorkerCount(int cols, int rows) {
+  if (rows < 2 || cols * rows < 1024) {
+    return 1;
+  }
+  const unsigned hardware = std::thread::hardware_concurrency();
+  const int max_workers = static_cast<int>(hardware == 0 ? 2 : hardware);
+  return std::min(rows, max_workers);
+}
+
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   const RenderSize size = fitRenderSize(frame, options, terminal);
@@ -325,33 +340,57 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     structure_gradients = computeSobelGradients(analysis_luminance);
     structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
   }
-  for (int row = 0; row < size.rows; ++row) {
-    for (int col = 0; col < size.cols; ++col) {
-      const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
-      Cell& cell = cells->at(col, row);
-      cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
-      if (structure_gradients.has_value()) {
-        const CellGradient gradient = cellGradient(*structure_gradients, size.cols, size.rows, col, row);
-        const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edge_threshold);
-        if (edge_glyph.has_value()) {
-          if (shape_table != nullptr && structure_ink.has_value()) {
-            const auto match_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-            const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
-            cell.glyph = matchGlyphShape(shapeVectorForCell(region), *shape_table);
-            if (stats != nullptr) {
-              ++stats->shape_match_cells;
-              stats->shape_match_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
+  std::vector<Cell>& cell_values = cells->cells();
+  const int workers = renderWorkerCount(size.cols, size.rows);
+  std::vector<ShapeMatchStats> worker_stats(static_cast<std::size_t>(workers));
+  const auto render_rows = [&](int row_begin, int row_end, ShapeMatchStats* local_stats) {
+    for (int row = row_begin; row < row_end; ++row) {
+      for (int col = 0; col < size.cols; ++col) {
+        const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
+        Cell& cell = cell_values[static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col)];
+        cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
+        if (structure_gradients.has_value()) {
+          const CellGradient gradient = cellGradient(*structure_gradients, size.cols, size.rows, col, row);
+          const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edge_threshold);
+          if (edge_glyph.has_value()) {
+            if (shape_table != nullptr && structure_ink.has_value()) {
+              const auto match_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+              const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
+              cell.glyph = matchGlyphShape(shapeVectorForCell(region), *shape_table);
+              if (stats != nullptr) {
+                ++local_stats->cells;
+                local_stats->ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
+              }
+            } else {
+              cell.glyph = *edge_glyph;
             }
-          } else {
-            cell.glyph = *edge_glyph;
           }
         }
+        cell.fg = avg;
+        cell.bg = Rgb{};
       }
-      cell.fg = avg;
-      cell.bg = Rgb{};
+    }
+  };
+  if (workers == 1) {
+    render_rows(0, size.rows, &worker_stats[0]);
+  } else {
+    std::vector<std::thread> threads;
+    threads.reserve(static_cast<std::size_t>(workers - 1));
+    for (int worker = 1; worker < workers; ++worker) {
+      const int row_begin = (size.rows * worker) / workers;
+      const int row_end = (size.rows * (worker + 1)) / workers;
+      threads.emplace_back(render_rows, row_begin, row_end, &worker_stats[static_cast<std::size_t>(worker)]);
+    }
+    render_rows(0, size.rows / workers, &worker_stats[0]);
+    for (std::thread& thread : threads) {
+      thread.join();
     }
   }
   if (stats != nullptr) {
+    for (const ShapeMatchStats& local_stats : worker_stats) {
+      stats->shape_match_cells += local_stats.cells;
+      stats->shape_match_ns += local_stats.ns;
+    }
     stats->render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
   }
 }

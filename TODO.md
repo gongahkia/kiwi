@@ -84,7 +84,6 @@
 ## PHASE G — Performance, polish, release  → **v1.0**
 *Doc: `PHASE_G.md`. Goal: make it fast, packaged, documented, and launched.*
 
-- [ ] **G1. SIMD / multithread the analysis pass.** DoD: Sobel/DoG/matching parallelized across cores (and/or SIMD); measured speedup recorded; correctness unchanged (golden-frame test). Reference: PHASE_G §CPU.
 - [ ] **G2. Optional GPU compute path.** DoD: a compute-shader (Vulkan/OpenGL/compute via a chosen API) implementation of the analysis pass behind `--gpu`; falls back to CPU if unavailable; significant fps gain at high cell counts recorded. Reference: PHASE_G §GPU.
 - [ ] **G3. Export: rendered MP4.** DoD: `--export out.mp4` writes a video of the ASCII output (offline render path) that plays in a normal player. Reference: PHASE_G §ExportMP4.
 - [ ] **G4. Export: asciinema cast + raw ANSI.** DoD: `--export out.cast` produces a valid asciinema recording; `--export out.ansi` writes the raw escape stream replayable with `cat`. Reference: PHASE_G §ExportCast.
