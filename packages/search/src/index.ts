@@ -4,3 +4,4 @@ export * from "./disambiguation.js";
 export * from "./no-match.js";
 export * from "./rrf.js";
 export * from "./trigram.js";
+export * from "./vector.js";
