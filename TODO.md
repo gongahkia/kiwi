@@ -74,7 +74,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add structured logging (pino) — done when each request emits a JSON log w/ request_id.
 
 ## P2 — Web app: search UX
-- [ ] Build landing page w/ search box as hero — done when search box autofocuses, debounces, and renders results.
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 - [ ] Implement disambiguation expansion (multiple expansions) UI — done when CAP shows 2+ cards w/ domain labels.
 - [ ] Implement confidence-tier toggle — done when T3/T4 entries hidden by default, revealed by toggle.
