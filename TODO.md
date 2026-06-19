@@ -358,7 +358,7 @@
 - [ ] Implement fidelity scorer comparing each tool's output against ground-truth SVG
 - [ ] Implement timing harness via `hyperfine`
 - [x] Implement output-size measurement
-- [ ] Emit results as `bench/results.json`
+- [x] Emit results as `bench/results.json`
 - [ ] Generate static comparison page `kumeyuri.dev/vs/`
 - [ ] Add weekly cron via GitHub Actions to refresh results
 - [ ] If kumeyuri loses on a metric, mark loss with explanation; never hide it

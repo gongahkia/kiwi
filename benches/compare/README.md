@@ -46,3 +46,5 @@ Adapters:
 * `npm run bench:compare:output-size` measures generated output size for each
   adapter result under `benches/compare/results/`, reporting bytes, characters,
   and line counts for successful outputs while preserving missing/error states.
+* `npm run bench:compare:results` writes the same aggregate payload to
+  `bench/results.json` for downstream publishing jobs.

@@ -1,19 +1,27 @@
 #!/usr/bin/env node
-import { readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const defaultManifest = join(repoRoot, "benches/compare/corpus/manifest.json");
 const defaultResultsDir = join(repoRoot, "benches/compare/results");
+const defaultTools = [
+  "alexander-mermaid-ascii",
+  "beautiful-mermaid",
+  "mermaid-cli",
+  "mermaid2term",
+  "pgavlin-mermaid-ascii",
+];
 
 function usage() {
   return `Usage:
-  node benches/compare/tools/measure-output-sizes.mjs [--manifest FILE] [--results-dir DIR]
+  node benches/compare/tools/measure-output-sizes.mjs [--manifest FILE] [--results-dir DIR] [--out FILE]
 
 Options:
   --manifest FILE     Corpus manifest. Defaults to benches/compare/corpus/manifest.json.
   --results-dir DIR   Adapter results directory. Defaults to benches/compare/results.
+  --out FILE          Write JSON to a file instead of stdout.
 `;
 }
 
@@ -29,6 +37,7 @@ function parseArgs(args) {
   const options = {
     manifest: defaultManifest,
     resultsDir: defaultResultsDir,
+    out: "",
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -44,6 +53,10 @@ function parseArgs(args) {
         break;
       case "--results-dir":
         options.resultsDir = takeValue(args, index, arg);
+        index += 1;
+        break;
+      case "--out":
+        options.out = takeValue(args, index, arg);
         index += 1;
         break;
       default:
@@ -107,10 +120,9 @@ async function main() {
 
   const inputIds = await readManifest(options.manifest);
   const resultsDir = resolve(options.resultsDir);
-  const toolNames = (await readdir(resultsDir, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
+  const resultEntries = await readdir(resultsDir, { withFileTypes: true });
+  const availableTools = new Set(resultEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  const toolNames = defaultTools.filter((tool) => availableTools.has(tool));
 
   const tools = {};
   for (const tool of toolNames) {
@@ -121,11 +133,19 @@ async function main() {
     }
   }
 
-  process.stdout.write(`${JSON.stringify({
+  const payload = `${JSON.stringify({
     manifest: resolve(options.manifest),
     resultsDir,
     tools,
-  }, null, 2)}\n`);
+  }, null, 2)}\n`;
+
+  if (options.out) {
+    const outputPath = resolve(options.out);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, payload);
+  } else {
+    process.stdout.write(payload);
+  }
 }
 
 try {

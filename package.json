@@ -39,7 +39,8 @@
     "test:bench:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
     "bench:compare:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --allow-failures",
     "test:bench:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --input benches/compare/corpus/flowchart-dense.mmd",
-    "bench:compare:output-size": "node benches/compare/tools/measure-output-sizes.mjs"
+    "bench:compare:output-size": "node benches/compare/tools/measure-output-sizes.mjs",
+    "bench:compare:results": "node benches/compare/tools/measure-output-sizes.mjs --out bench/results.json"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "11.15.0",

@@ -11,6 +11,7 @@ node_modules/
 dist/
 
 # Generated benchmark outputs
+bench/results.json
 benches/compare/results/
 
 # OS
