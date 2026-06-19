@@ -52,7 +52,6 @@
 ## PHASE B — Decode & frame pipeline
 *Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
 
-- [ ] **B3. Packet→frame loop (send/receive).** DoD: `av_read_frame` → `avcodec_send_packet` → `avcodec_receive_frame` loop decodes all frames of a test clip; handles `EAGAIN`/`EOF` correctly; drains at end with a NULL packet. Reference: PHASE_B §DecodeLoop.
 - [ ] **B4. Pixel convert to RGB24.** DoD: `sws_getContext` + `sws_scale` converts each frame to RGB24 (or RGBA) into a reusable buffer; no per-frame context recreation; verified by dumping frame 100 to a PNG that visually matches the source. Reference: PHASE_B §Convert.
 - [ ] **B5. `Frame` type + ownership.** DoD: a `Frame { int w, h; std::vector<uint8_t> rgb; int64_t pts_us; }` with clear ownership; no leaks under ASan over a full-clip decode. Reference: PHASE_B §Frame.
 - [ ] **B6. Correct-aspect downscale to grid.** DoD: given target `cols` and a `cell_aspect` (default 0.5 w/h), compute `rows` and downscale so output is not stretched; **circle test passes** (a circle source renders circular, not egg-shaped). Reference: PHASE_B §Aspect.

@@ -16,6 +16,7 @@ struct MediaProbeInfo {
   std::string pixel_format;
   std::optional<int64_t> duration_us;
   std::optional<double> average_fps;
+  int64_t decoded_frames = 0;
 };
 
 MediaProbeInfo probeMedia(const std::filesystem::path& input);

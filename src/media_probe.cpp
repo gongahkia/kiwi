@@ -38,6 +38,22 @@ struct CodecContextDeleter {
 
 using CodecContextPtr = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
 
+struct PacketDeleter {
+  void operator()(AVPacket* packet) const noexcept {
+    av_packet_free(&packet);
+  }
+};
+
+using PacketPtr = std::unique_ptr<AVPacket, PacketDeleter>;
+
+struct FrameDeleter {
+  void operator()(AVFrame* frame) const noexcept {
+    av_frame_free(&frame);
+  }
+};
+
+using FramePtr = std::unique_ptr<AVFrame, FrameDeleter>;
+
 std::string ffmpegError(int error_code) {
   std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer {};
   if (av_strerror(error_code, buffer.data(), buffer.size()) < 0) {
@@ -90,6 +106,66 @@ CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
   return codec_context;
 }
 
+int64_t receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame) {
+  int64_t decoded = 0;
+  while (true) {
+    const int result = avcodec_receive_frame(codec_context, frame);
+    if (result == 0) {
+      ++decoded;
+      av_frame_unref(frame);
+      continue;
+    }
+    if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
+      return decoded;
+    }
+    throw std::runtime_error("failed to receive decoded frame: " + ffmpegError(result));
+  }
+}
+
+int64_t countDecodedFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index) {
+  PacketPtr packet(av_packet_alloc());
+  if (packet == nullptr) {
+    throw std::runtime_error("failed to allocate packet");
+  }
+  FramePtr frame(av_frame_alloc());
+  if (frame == nullptr) {
+    throw std::runtime_error("failed to allocate frame");
+  }
+
+  int64_t decoded_frames = 0;
+  while (true) {
+    const int read_result = av_read_frame(format_context, packet.get());
+    if (read_result == AVERROR_EOF) {
+      break;
+    }
+    if (read_result < 0) {
+      throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));
+    }
+
+    if (packet->stream_index == video_stream_index) {
+      int send_result = avcodec_send_packet(codec_context, packet.get());
+      if (send_result == AVERROR(EAGAIN)) {
+        decoded_frames += receiveDecodedFrames(codec_context, frame.get());
+        send_result = avcodec_send_packet(codec_context, packet.get());
+      }
+      if (send_result < 0) {
+        av_packet_unref(packet.get());
+        throw std::runtime_error("failed to send packet to decoder: " + ffmpegError(send_result));
+      }
+      decoded_frames += receiveDecodedFrames(codec_context, frame.get());
+    }
+
+    av_packet_unref(packet.get());
+  }
+
+  const int drain_result = avcodec_send_packet(codec_context, nullptr);
+  if (drain_result < 0 && drain_result != AVERROR_EOF) {
+    throw std::runtime_error("failed to drain decoder: " + ffmpegError(drain_result));
+  }
+  decoded_frames += receiveDecodedFrames(codec_context, frame.get());
+  return decoded_frames;
+}
+
 }  // namespace
 
 MediaProbeInfo probeMedia(const std::filesystem::path& input) {
@@ -136,6 +212,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input) {
   const AVStream* video_stream = format_context->streams[video_stream_index];
   const AVCodecParameters* codec_parameters = video_stream->codecpar;
   const auto decoder_context = openVideoDecoder(codec_parameters);
+  const int64_t decoded_frames = countDecodedFrames(format_context.get(), decoder_context.get(), video_stream_index);
 
   MediaProbeInfo info;
   info.input = input;
@@ -148,6 +225,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input) {
     info.duration_us = format_context->duration;
   }
   info.average_fps = rationalToDouble(video_stream->avg_frame_rate);
+  info.decoded_frames = decoded_frames;
   return info;
 }
 
@@ -173,7 +251,8 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
   } else {
     out << "unknown";
   }
-  out << '\n';
+  out << '\n'
+      << "decoded_frames: " << info.decoded_frames << '\n';
   return out.str();
 }
 
