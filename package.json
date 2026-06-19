@@ -7,6 +7,7 @@
     "build": "tsc -b",
     "changeset": "changeset",
     "db:generate": "pnpm --filter @wat/db db:generate",
+    "dev": "sh -c 'pnpm --filter @wat/web dev'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ingest": "pnpm --filter @wat/ingest ingest",

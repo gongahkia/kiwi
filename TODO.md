@@ -64,7 +64,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Build corpus stats dashboard page in web app — done when `/stats` shows entry counts by source, tier, domain.
 
 ## P2 — Web app foundation
-- [ ] Scaffold Next.js 15 App Router project in `apps/web` — done when `pnpm dev --filter @wat/web` serves at :3000.
 - [ ] Configure Tailwind + shadcn/ui — done when a sample button page renders.
 - [ ] Configure dark mode via `next-themes` — done when toggle works persistently.
 - [ ] Configure middleware for auth-protected routes — done when `/team/admin` redirects to login when unauth.
