@@ -30,7 +30,6 @@
 - [ ] Reserve `kumeyuri` crate name on crates.io (publish a placeholder 0.0.0)
 - [ ] Reserve `kumeyuri` npm name (publish a placeholder 0.0.0)
 - [ ] Reserve `kumeyuri.dev` domain (Cloudflare or Namecheap)
-- [ ] Reserve `@kumeyuri` handle on X / Bluesky / Mastodon
 - [x] Spike: read `mermaid-js/mermaid` parser grammar; document AST shape decision in `docs/adr/0001-ast-shape.md`
 - [x] Decide token strategy: hand-rolled `chumsky`/`logos` vs port of mermaid's Jison grammar; record in `docs/adr/0002-parser-choice.md`
 - [x] Vendor or pin reference output corpora from `beautiful-mermaid` and `AlexanderGrooff/mermaid-ascii` into `tests/golden/` for visual parity benchmarking (respect their licenses)
@@ -108,7 +107,7 @@
 - [x] Performance budget: WASM bundle < 500 KB gzipped; document in CI
 - [ ] Publish `v0.3.0-embed` to crates.io and `kumeyuri` to npm
 
-## Phase 4 — Public launch (weeks 10–11)
+## Phase 4 — Public site and release infrastructure (weeks 10–11)
 
 - [x] Build landing page at `kumeyuri.dev` (Vite + Astro or plain HTML) with hero animation
 - [x] Add interactive playground (textarea ↔ live diagram via WASM)
@@ -116,19 +115,11 @@
 - [x] Curate `examples/` gallery with 15 polished `.mmd` files + rendered SVG/GIFs
 - [x] Write five "wow" demo diagrams: HTTP request lifecycle, OAuth flow, OS scheduler state machine, microservice fan-out, sorting algorithm trace
 - [x] Record a 60-second screencast showing CLI + watch mode + web embed
-- [x] Author launch blog post explaining the wedge, with embedded animations
-- [x] Write Hacker News submission title + first comment (technical depth, no marketing fluff)
-- [x] Draft X launch thread (3 posts max) with one GIF per post
-- [ ] Schedule X launch thread for Tue/Wed 9–11am PT
-- [x] Update launch comms drafts to match current supported-root matrix before posting
-- [ ] Submit to `awesome-rust`, `awesome-ratatui`, `awesome-mermaid` lists via PR
-- [ ] Post to r/rust, r/programming, r/commandline with the same blog post
 - [ ] Tag `v1.0.0` and publish to crates.io, npm, Homebrew tap
 - [x] Set up `cargo-dist` release pipeline producing prebuilt binaries for macOS (aarch64+x86_64), Linux (x86_64+aarch64+musl), Windows (x86_64)
 - [ ] Create Homebrew tap repo `kumeyuri/homebrew-kumeyuri` with auto-updated formula
-- [ ] Monitor GitHub Issues + HN comments for 72h post-launch; triage P0 bugs same-day
 
-## Phase 5 — Long-tail diagram types (post-launch)
+## Phase 5 — Long-tail diagram types (future)
 
 - [x] Implement class-diagram parser, layout, static + animated rendering
 - [x] Implement ER-diagram parser, layout, static + animated rendering
@@ -198,7 +189,7 @@
 - [x] Add `kumeyuri compat --mermaid-version` command that prints supported roots, unsupported roots, and partial/static-only caveats
 - [x] Add a coverage gate requiring snapshot-count deltas when `DiagramKind`, parser root dispatch, or render dispatch changes
 
-## Phase 6 — Ecosystem (ongoing, post-launch)
+## Phase 6 — Ecosystem (ongoing)
 
 - [x] Build Neovim plugin (lua) — `:KumeyuriPreview` opens floating TUI
 - [x] Build VSCode extension — webview embedding the WASM player; auto-render `.mmd` files on save
@@ -217,8 +208,6 @@
 - [x] Maintain comparison page on `kumeyuri.dev/vs` benchmarking against beautiful-mermaid and mermaid-ascii on identical inputs
 - [x] Track upstream Mermaid grammar changes; bump compat matrix per release in `docs/compat.md`
 - [x] Add CI/docs check to verify `docs/compat.md` and `COVERAGE.md` Mermaid versions match
-- [ ] Quarterly: post X thread with one new animation demo and download/stars chart
-- [x] Open a `good-first-issue` queue and respond to first-time contributors within 48h
 
 ## Cross-cutting / continuous
 
@@ -232,7 +221,7 @@
 
 ---
 
-## Phase 7 — WASM plugin runtime (post-launch, ~months 4–6)
+## Phase 7 — WASM plugin runtime (future, ~months 4–6)
 
 - [x] Author RFC `docs/rfcs/0001-plugin-abi.md` proposing plugin ABI semantics
 - [x] Define `kumeyuri_abi` semver scheme and capability flags in core
@@ -253,7 +242,7 @@
 - [x] Document ABI deprecation policy (2-year guarantee per ABI major)
 - [ ] Publish `v1.1.0-plugins` minor release
 
-## Phase 8 — Smart-layout assistant (post-launch, ~month 5)
+## Phase 8 — Smart-layout assistant (future, ~month 5)
 
 - [x] Implement crossing-minimisation pass (Sugiyama phase 3) in `kumeyuri-core::layout::optimise`
 - [x] Implement long-label auto-wrap with `--max-label-width`
@@ -279,7 +268,6 @@
 - [x] Integrate `fluent-rs` for user-facing strings
 - [x] Extract every user-facing string into `locales/en-US.ftl`
 - [x] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
-- [x] Open community translation issue template + crowdsource via Crowdin or Fluent file PRs
 - [x] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
 - [x] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)
 - [x] Document i18n behaviour in `docs/i18n.md` including known limitations
@@ -292,7 +280,7 @@
 - [x] Implement reveal.js plugin loading kumecast files inline in slides
 - [x] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
 - [x] Implement Slidev component `<KumeyuriDiagram>`
-- [x] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
+- [x] Implement Obsidian plugin replacing built-in mermaid with kumeyuri
 - [x] Implement Logseq plugin equivalent
 - [x] Implement Quartz plugin for digital gardens
 - [x] Implement Zola shortcode for kumeyuri embeds
@@ -302,10 +290,8 @@
 ## Phase 11 — Long-term maintenance & governance (ongoing, year 2+)
 
 - [x] Write `GOVERNANCE.md` formalising maintainer ladder (triager → committer → maintainer)
-- [ ] Identify and invite first three triagers from contributor history
 - [x] Move from solo-author MIT to multi-maintainer MIT with DCO sign-off enforcement
 - [x] Establish monthly transparency post template for sponsorship income/spend
-- [x] Establish quarterly roadmap review + community office hours (async GitHub Discussions thread)
 - [ ] Submit to OSS-Fuzz for continuous fuzzing once parser is stable
 - [ ] Apply for SLSA Level 3 build provenance attestation
 - [ ] Apply for OpenSSF Best Practices Badge silver/gold
@@ -421,7 +407,6 @@
 - [x] Write `docs/book/themes.md`
 - [x] Write `docs/book/theming.md`
 - [x] Write `docs/embedding.md` and `docs/book/embedding.md` (README, Hugo, Docusaurus, mdBook, plain HTML)
-- [x] Add X card embedding docs
 - [x] Write `docs/book/cli.md` reference for every flag and subcommand
 - [x] Write `docs/api.md` Rust API reference (rustdoc + curated narrative)
 - [x] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
@@ -432,31 +417,13 @@
 - [x] Add "Edit this page" GitHub links across every doc page
 - [x] Add "Try in playground" CTA to every code block
 
-### Launch comms execution (Phase 4)
-
-- [ ] T-7: draft soft-tease X post + 5-second GIF; review with 2 trusted devs
-- [ ] T-7: post tease on X
-- [ ] T-2: DM five friendly devs requesting reviewer slot for launch day
-- [ ] T-1: dry-run install on clean macOS arm64, macOS x86_64, Ubuntu, Fedora, Windows
-- [ ] T-1: validate GitHub renders example SVG correctly (regression for SMIL stripping)
-- [ ] T-1: schedule HN post + X thread for Tue 9:00 AM PT
-- [ ] T-0: post HN "Show HN: kumeyuri — Animated ASCII diagrams from Mermaid"
-- [ ] T-0: 30 min later, post X thread with 3 demo GIFs
-- [ ] T-0: crosspost lobste.rs, /r/rust, /r/programming, /r/commandline, dev.to
-- [ ] T-0: respond to every HN comment within first 12 hours
-- [ ] T+1: write post-launch retro thread
-- [ ] T+7: submit to awesome-rust, awesome-ratatui, awesome-mermaid, terminaltrove.com
-- [ ] T+30: publish 30-day metrics + roadmap update blog post
-- [ ] T+90: review goal "1k stars within 90 days" — if missed, diagnose honestly
-
-### Metrics tracking pipeline (post-launch, ongoing)
+### Metrics tracking pipeline (ongoing)
 
 - [x] Set up a `metrics/` directory in the repo (no external service)
 - [x] Daily cron via GitHub Actions polling stars, forks, crates.io downloads, npm downloads
 - [x] Aggregate weekly into `metrics/weekly.csv`
 - [x] Generate `metrics/dashboard.svg` weekly using kumeyuri itself (dogfooding)
 - [x] Publish dashboard as a README badge + dedicated `kumeyuri.dev/metrics` page
-- [ ] Quarterly review: post X update with metrics screenshot + reflections
 
 ---
 
