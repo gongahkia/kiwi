@@ -95,12 +95,17 @@ target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty
 install(TARGETS contourtty
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-install(FILES README.md LICENSE
+install(FILES README.md LICENSE CONTRIBUTING.md
   DESTINATION ${CMAKE_INSTALL_DOCDIR}
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/demo-source.md")
   install(FILES docs/demo-source.md
     DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs
+  )
+endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/contourtty.1")
+  install(FILES docs/contourtty.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
   )
 endif()
 

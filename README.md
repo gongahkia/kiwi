@@ -65,6 +65,50 @@ Export: `--export out.mp4` writes a silent rasterized video of the ASCII output;
 
 Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `mode=structure` or `charset=" .#"`; CLI flags override config defaults.
 
+## Flag reference
+
+| Flag | Meaning |
+|---|---|
+| `--help` | Show CLI help. |
+| `--version` | Show version. |
+| `--width N` | Target terminal columns or export columns. |
+| `--height N` | Target terminal rows or export rows. |
+| `--input PATH\|URL\|cam` | Input path, stream URL, or camera alias. |
+| `--cell-aspect N` | Terminal cell width/height ratio; default is `0.5`. |
+| `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
+| `--fps N` | Override source fps for playback/export pacing. |
+| `--max-fps N` | Cap rendered fps while preserving audio timing. |
+| `--mode luminance\|structure\|halfblock` | Select renderer. |
+| `--color-mode auto\|truecolor\|256\|16\|mono` | Select color tier. |
+| `--color auto\|truecolor\|256\|16\|mono` | Alias for `--color-mode`. |
+| `--mono`, `--no-mono` | Force mono, or restore automatic color detection. |
+| `--charset NAME\|string` | Glyph preset or custom UTF-8 glyph ramp. |
+| `--edge-threshold N` | Minimum structure edge magnitude. |
+| `--edge-strength N` | Structure overlay multiplier; `0` disables edges. |
+| `--dog-sigma N[,M]` | Difference-of-Gaussians sigma pair; `0` disables DoG. |
+| `--dog-threshold N` | DoG response threshold. |
+| `--contrast N` | Structure analysis contrast boost. |
+| `--dither none\|ordered\|fs` | Palette dithering mode. |
+| `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
+| `--log FILE` | Write diagnostics. |
+| `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
+| `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
+| `--dump-frame N` | Decode frame `N` for diagnostics. |
+| `--dump-png FILE` | Write dumped frame as RGB PNG. |
+
+## How structure mode works
+
+Structure mode still starts from the same decoded RGB frame and terminal layout as luminance mode, but it adds an analysis pass before glyph selection:
+
+```text
+RGB frame -> luminance field -> optional contrast/DoG -> Sobel gradients
+          -> per-cell edge orientation + magnitude -> glyph choice -> CellBuffer
+```
+
+The luminance renderer picks a glyph from the brightness ramp for every cell. Structure mode keeps that brightness glyph as a fallback, then detects directional edges in the cell. Strong vertical, horizontal, and diagonal gradients map to structure glyphs such as `|`, `_`, `/`, `\`, and `+`.
+
+When shape matching is enabled, the edge magnitude field inside the cell is sampled into a compact shape vector and compared against precomputed vectors for the structure glyph set. This lets the renderer choose by local stroke shape rather than by brightness alone. DoG (`--dog-sigma`) can isolate line-like detail before Sobel, and `--contrast` can widen separation in low-contrast footage.
+
 ## Name
 
 Chosen name: `contourtty`.

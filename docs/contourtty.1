@@ -1,0 +1,62 @@
+.TH CONTOURTTY 1 "2026-06-19" "contourtty 0.0.0" "User Commands"
+.SH NAME
+contourtty \- structure-aware ASCII terminal media renderer
+.SH SYNOPSIS
+.B contourtty
+[options] [input]
+.SH DESCRIPTION
+contourtty renders local files, images, GIFs, streams, and camera inputs
+as terminal ASCII.
+Structure mode chooses glyphs from edge orientation and shape instead of
+brightness alone.
+When audio is present, audio playback provides the master clock.
+.SH OPTIONS
+.nf
+
+options:
+  --help                         show this help
+  --version                      show version
+  --width N                      target terminal columns
+  --height N                     target terminal rows
+  --input PATH|URL|cam           input path, stream URL, or camera alias
+  --cell-aspect N                terminal cell width/height ratio
+  --fit                          fit output to terminal
+  --no-fit                       disable config-default fit
+  --fps N                        override source fps
+  --max-fps N                    cap render fps
+  --mode {luminance|structure|halfblock}
+  --color-mode {auto|truecolor|256|16|mono}
+  --color {auto|truecolor|256|16|mono}
+  --mono                         disable color output
+  --no-mono                      restore automatic color detection
+  --charset NAME|string          glyph preset or custom glyph string
+  --edge-threshold N             structure edge threshold
+  --edge-strength N              structure edge overlay strength
+  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables
+  --dog-threshold N              difference-of-gaussians threshold
+  --contrast N                   structure contrast adjustment
+  --dither {none|ordered|fs}     color dithering mode
+  --loop                         loop input
+  --no-loop                      disable config-default looping
+  --log FILE                     write diagnostics to file
+  --gpu                          request gpu analysis path
+  --no-gpu                       disable config-default gpu request
+  --export FILE                  render to output file
+  --dump-frame N                 dump decoded frame N for diagnostics
+  --dump-png FILE                write dumped frame as RGB PNG
+.fi
+.SH CONFIGURATION
+Defaults are read from $XDG_CONFIG_HOME/contourtty/config, or
+~/.config/contourtty/config when XDG_CONFIG_HOME is unset.
+The file uses key=value entries matching long flag names without leading dashes.
+Command-line flags override config values.
+.SH EXAMPLES
+.nf
+contourtty --mode structure movie.mp4
+contourtty --width 120 --height 40 --color-mode 256 stream.m3u8
+contourtty --export out.cast --mode structure movie.mp4
+.fi
+.SH FILES
+.I ~/.config/contourtty/config
+.SH SEE ALSO
+ffmpeg(1), asciinema(1)
