@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "db:generate": "drizzle-kit generate --config drizzle.config.ts --custom --name init"
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

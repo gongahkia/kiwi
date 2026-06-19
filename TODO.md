@@ -16,7 +16,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Hand-curate 50 high-quality seed entries in `packages/ingest/seeds/manual.json` — done when JSON validates against schema and includes ≥3 disambiguation cases (eg. CAP, SLA, REST).
 
 ## P0 — Database & migrations
-- [ ] Create `entries` table — done when columns match core schema and includes `tsvector` generated column + `vector(384)` column.
 - [ ] Create `sources` table FK to entries — done when migration applies and FK enforces cascade.
 - [ ] Create `examples` table FK to entries — done when migration applies.
 - [ ] Create `teams` table — done when migration creates `(id, name, email_domain UNIQUE, created_at, settings_jsonb)`.
