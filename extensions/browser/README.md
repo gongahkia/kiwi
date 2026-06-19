@@ -18,6 +18,8 @@ pnpm --filter @wat/ext build
 pnpm --filter @wat/ext zip
 ```
 
+The options page stores API base URL, account email/token, hover mode, and domain filters in extension storage.
+
 ## Target Permissions
 
 - `activeTab`: read the current tab only after user interaction

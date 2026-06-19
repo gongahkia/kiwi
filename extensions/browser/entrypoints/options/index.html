@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="manifest.open_in_tab" content="true" />
+    <title>wat options</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>wat options</h1>
+      <form id="options-form">
+        <label>
+          API base URL
+          <input id="api-base-url" name="api-base-url" type="url" />
+        </label>
+        <label>
+          Account email
+          <input id="account-email" autocomplete="email" name="account-email" type="email" />
+        </label>
+        <label>
+          API token
+          <input id="api-token" autocomplete="off" name="api-token" type="password" />
+        </label>
+        <label class="inline">
+          <input id="hover-mode" name="hover-mode" type="checkbox" />
+          Hover mode
+        </label>
+        <label>
+          Domain filters
+          <input id="domain-filters" name="domain-filters" type="text" />
+        </label>
+        <div class="actions">
+          <button type="submit">Save</button>
+          <span id="status" role="status"></span>
+        </div>
+      </form>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
