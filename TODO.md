@@ -117,7 +117,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Submit Chrome Web Store listing — done when listing is live (or in-review w/ assets ready: 1280x800 promo, icons, description).
 - [ ] Submit Firefox add-ons listing — done when AMO listing is live or in review.
 - [ ] Submit Edge add-ons listing — done when listing submitted.
-- [ ] Write extension README w/ install + privacy notes — done when README committed.
 - [ ] Record 30-sec demo GIF of hover-explain on a k8s docs page — done when GIF in `/docs/assets/ext-hover.gif`.
 
 ## P3 — Slack app
