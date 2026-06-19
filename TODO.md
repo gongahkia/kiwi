@@ -90,7 +90,7 @@
 - [x] Add CSS-keyframe fallback path for SVG (GitHub sanitizer test required)
 - [x] CI test: pipe generated SVG through `DOMPurify` with GitHub's allowlist; fail if animation strips
 - [x] Embed accessible `<title>` + `<desc>` + plain-text fallback inside every SVG
-- [x] Emit paired light/dark SVG variants (`*.svg` + `*.dark.svg`) and/or single `prefers-color-scheme`-aware SVG; document `<img class="mermaid-light/dark">` swap pattern in `docs/embedding.md` (convention popularised by `@tldraw/mermaid` Astro plugin)
+- [x] Emit paired light/dark SVG variants (`*.svg` + `*.dark.svg`) and/or single `prefers-color-scheme`-aware SVG; document `<img class="mermaid-light/dark">` swap pattern in `docs/embedding.md`
 - [x] Implement `kumeyuri-render-raster`: composite frames to PNG via `tiny-skia` or `cosmic-text` + glyph atlas
 - [x] Implement GIF encoder path (`gif` crate or `gifski` bindings)
 - [x] Implement APNG encoder path (`png` crate with animation chunks)
@@ -354,7 +354,6 @@
 - [x] Wire `pgavlin/mermaid-ascii` invocation (Go binary subprocess)
 - [x] Wire `mermaid2term` invocation (Crystal/npm)
 - [x] Wire `mermaid-cli` invocation (headless Chrome, ground-truth SVG)
-- [ ] Wire `@tldraw/mermaid` invocation (Node + headless Chromium, sketchy SVG baseline) — added after threepointone/sunilpai-dev@f4bd28a published the pattern
 - [x] Implement fidelity scorer comparing each tool's output against ground-truth SVG
 - [x] Implement timing harness via `hyperfine`
 - [x] Implement output-size measurement
@@ -382,7 +381,6 @@
 - [ ] Define `.kumetheme.toml` schema in `crates/kumeyuri-core/src/theme.rs`
 - [ ] Validate theme files with `--validate-theme <file>` CLI flag
 - [ ] Ship 10 built-in themes (default, mono, tokyo-night, github, dracula, solarized-light, solarized-dark, nord, catppuccin-mocha, high-contrast)
-- [ ] Optional `sketch` theme: wobbly-stroke / hand-drawn ASCII aesthetic homage to tldraw-mermaid (cosmetic, Phase 5+)
 - [ ] Implement theme search across XDG paths + project dir + bundled
 - [ ] Implement `kumeyuri theme list / show / new / validate`
 - [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
@@ -496,4 +494,4 @@
 
 ## Competitive landscape notes (2026-06-16)
 
-- **`@tldraw/mermaid` + threepointone's Astro plugin** (commit `threepointone/sunilpai-dev@f4bd28a`, 2026-06-15): build-time Node + headless Chromium pipeline that renders mermaid fences to paired light/dark static SVGs with a hand-drawn tldraw aesthetic. Replaces fences with `<img class="mermaid-light/dark">`. **Not a threat:** static-only, browser runtime, blog-author audience. **Does not change kumeyuri's wedge** (animation-first + terminal-native + single Rust binary). Absorbed as: (1) light/dark SVG pairing convention in Phase 3, (2) tldraw row in comparison harness, (3) optional `sketch` theme later.
+- Static light/dark SVG replacement pipelines are lower priority than kumeyuri's animation-first, terminal-native, single-binary wedge; keep the documented light/dark SVG pairing convention but do not track editor-specific baselines.
