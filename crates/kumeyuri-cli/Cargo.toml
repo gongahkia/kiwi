@@ -11,6 +11,7 @@ name = "kumeyuri"
 path = "src/main.rs"
 
 [dependencies]
+axum = { version = "0.8.7", default-features = false, features = ["http1", "tokio"] }
 base64 = "0.22.1"
 clap = { version = "4.6.1", features = ["derive"] }
 flate2 = "1.1.9"
@@ -20,11 +21,11 @@ kumeyuri-render-raster = { version = "0.0.0", path = "../kumeyuri-render-raster"
 kumeyuri-render-svg = { version = "0.0.0", path = "../kumeyuri-render-svg" }
 kumeyuri-render-tui = { version = "0.0.0", path = "../kumeyuri-render-tui" }
 libloading = "0.8"
-rmcp = { version = "1.7.0", features = ["server", "transport-io", "schemars"] }
+rmcp = { version = "1.7.0", features = ["server", "transport-io", "transport-streamable-http-server", "schemars"] }
 schemars = { version = "1.2.1", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.52.3", features = ["rt", "macros"] }
+tokio = { version = "1.52.3", features = ["rt", "macros", "net"] }
 toml = "1.1.2"
 unic-langid = "0.9.6"
 ureq = "3.3.0"

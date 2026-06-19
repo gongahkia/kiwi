@@ -36,6 +36,7 @@ use serde::{Deserialize, Serialize};
 mod i18n;
 mod mcp;
 
+use std::net::SocketAddr;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -143,12 +144,17 @@ enum Command {
     Mcp {
         #[arg(long, value_enum, default_value_t = McpTransport::Stdio)]
         transport: McpTransport,
+        #[arg(long, value_name = "ADDR", default_value = "127.0.0.1:8000", value_parser = parse_socket_addr)]
+        bind: SocketAddr,
+        #[arg(long, value_name = "TOKEN", value_parser = parse_non_empty_string)]
+        bearer_token: Option<String>,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum McpTransport {
     Stdio,
+    HttpSse,
 }
 
 #[derive(Debug, Subcommand)]
@@ -355,7 +361,15 @@ fn run() -> Result<(), String> {
         ),
         Command::Plugin { command } => run_plugin_command(command),
         Command::Theme { command } => run_theme_command(command, max_input_bytes),
-        Command::Mcp { transport } => mcp::run_server(transport),
+        Command::Mcp {
+            transport,
+            bind,
+            bearer_token,
+        } => mcp::run_server(mcp::McpServerConfig {
+            transport,
+            bind,
+            bearer_token,
+        }),
     }
 }
 
@@ -2364,6 +2378,12 @@ fn parse_locale_override(value: &str) -> Result<String, String> {
     i18n::canonical_locale(value)
 }
 
+fn parse_socket_addr(value: &str) -> Result<SocketAddr, String> {
+    value
+        .parse()
+        .map_err(|error| format!("invalid socket address {value:?}: {error}"))
+}
+
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
     MermaidParser::parse_diagram(source).map_err(|error| {
         msg_args(
@@ -3364,11 +3384,38 @@ mod tests {
     #[test]
     fn mcp_parser_accepts_stdio_transport() {
         let cli = Cli::try_parse_from(["kumeyuri", "mcp", "--transport", "stdio"]).unwrap();
-        let Some(Command::Mcp { transport }) = cli.command else {
+        let Some(Command::Mcp { transport, .. }) = cli.command else {
             panic!("expected mcp command");
         };
 
         assert_eq!(transport, McpTransport::Stdio);
+    }
+
+    #[test]
+    fn mcp_parser_accepts_http_sse_transport() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "mcp",
+            "--transport",
+            "http-sse",
+            "--bind",
+            "127.0.0.1:9000",
+            "--bearer-token",
+            "test-token",
+        ])
+        .unwrap();
+        let Some(Command::Mcp {
+            transport,
+            bind,
+            bearer_token,
+        }) = cli.command
+        else {
+            panic!("expected mcp command");
+        };
+
+        assert_eq!(transport, McpTransport::HttpSse);
+        assert_eq!(bind, "127.0.0.1:9000".parse().unwrap());
+        assert_eq!(bearer_token.as_deref(), Some("test-token"));
     }
 
     #[test]

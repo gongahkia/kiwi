@@ -1,5 +1,13 @@
 #![allow(dead_code)]
 
+use axum::{
+    Router,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode, header},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt,
@@ -8,11 +16,16 @@ use rmcp::{
         CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
     },
     tool, tool_handler, tool_router,
-    transport::stdio,
+    transport::{
+        stdio,
+        streamable_http_server::{
+            StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+        },
+    },
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{env, path::PathBuf, process::Command};
+use std::{env, net::SocketAddr, path::PathBuf, process::Command};
 
 use crate::{
     ANIMATED_PARTIAL_ROOTS, CompatRoot, McpTransport, RenderCharset, RenderFormat, RenderOptions,
@@ -25,6 +38,15 @@ pub(crate) const PLAY_DIAGRAM_TOOL_NAME: &str = "play_diagram";
 pub(crate) const LINT_DIAGRAM_TOOL_NAME: &str = "lint_diagram";
 pub(crate) const LIST_THEMES_TOOL_NAME: &str = "list_themes";
 pub(crate) const LIST_DIAGRAM_TYPES_TOOL_NAME: &str = "list_diagram_types";
+const MCP_HTTP_PATH: &str = "/mcp";
+const MCP_BEARER_TOKEN_ENV: &str = "KUMEYURI_MCP_BEARER_TOKEN";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct McpServerConfig {
+    pub(crate) transport: McpTransport,
+    pub(crate) bind: SocketAddr,
+    pub(crate) bearer_token: Option<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub(crate) struct RenderDiagramRequest {
@@ -330,9 +352,10 @@ impl ServerHandler for KumeyuriMcpServer {
     }
 }
 
-pub(crate) fn run_server(transport: McpTransport) -> Result<(), String> {
-    match transport {
+pub(crate) fn run_server(config: McpServerConfig) -> Result<(), String> {
+    match config.transport {
         McpTransport::Stdio => run_stdio_server(),
+        McpTransport::HttpSse => run_http_sse_server(config),
     }
 }
 
@@ -352,6 +375,76 @@ fn run_stdio_server() -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| format!("{error:?}"))
     })
+}
+
+fn run_http_sse_server(config: McpServerConfig) -> Result<(), String> {
+    let bearer_token = resolve_http_bearer_token(config.bearer_token)?;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| error.to_string())?;
+    runtime.block_on(async move {
+        let service: StreamableHttpService<KumeyuriMcpServer, LocalSessionManager> =
+            StreamableHttpService::new(
+                || Ok(KumeyuriMcpServer::new()),
+                Default::default(),
+                StreamableHttpServerConfig::default(),
+            );
+        let router = Router::new()
+            .nest_service(MCP_HTTP_PATH, service)
+            .layer(middleware::from_fn_with_state(bearer_token, bearer_auth));
+        let listener = tokio::net::TcpListener::bind(config.bind)
+            .await
+            .map_err(|error| format!("failed to bind MCP HTTP+SSE listener: {error}"))?;
+        let addr = listener
+            .local_addr()
+            .map_err(|error| format!("failed to read MCP HTTP+SSE listener address: {error}"))?;
+        eprintln!("kumeyuri MCP HTTP+SSE listening on http://{addr}{MCP_HTTP_PATH}");
+        axum::serve(listener, router)
+            .await
+            .map_err(|error| format!("MCP HTTP+SSE server failed: {error}"))
+    })
+}
+
+fn resolve_http_bearer_token(cli_token: Option<String>) -> Result<String, String> {
+    resolve_http_bearer_token_with_env(cli_token, |name| env::var(name).ok())
+}
+
+fn resolve_http_bearer_token_with_env(
+    cli_token: Option<String>,
+    lookup_env: impl FnOnce(&str) -> Option<String>,
+) -> Result<String, String> {
+    cli_token
+        .or_else(|| lookup_env(MCP_BEARER_TOKEN_ENV))
+        .filter(|token| !token.trim().is_empty())
+        .ok_or_else(|| {
+            format!("--bearer-token or {MCP_BEARER_TOKEN_ENV} is required for HTTP+SSE MCP")
+        })
+}
+
+async fn bearer_auth(
+    State(expected_token): State<String>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    if request_bearer_token(request.headers()) == Some(expected_token.as_str()) {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            [(header::WWW_AUTHENTICATE, "Bearer")],
+            "missing or invalid bearer token",
+        )
+            .into_response()
+    }
+}
+
+fn request_bearer_token(headers: &header::HeaderMap) -> Option<&str> {
+    headers
+        .get(header::AUTHORIZATION)?
+        .to_str()
+        .ok()?
+        .strip_prefix("Bearer ")
 }
 
 fn json_tool_result<T: Serialize>(result: Result<T, String>) -> Result<CallToolResult, McpError> {
@@ -493,11 +586,13 @@ fn append_diagram_types(
 mod tests {
     use super::{
         LINT_DIAGRAM_TOOL_NAME, LIST_DIAGRAM_TYPES_TOOL_NAME, LIST_THEMES_TOOL_NAME,
-        LintDiagramRequest, McpContentEncoding, McpDiagramSupport, McpRenderCharset,
-        McpRenderFormat, McpRenderTheme, PLAY_DIAGRAM_TOOL_NAME, PlayDiagramRequest,
-        RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest, lint_diagram, list_diagram_types,
-        list_themes, play_diagram_args, play_diagram_with_spawner, render_diagram,
+        LintDiagramRequest, MCP_BEARER_TOKEN_ENV, McpContentEncoding, McpDiagramSupport,
+        McpRenderCharset, McpRenderFormat, McpRenderTheme, PLAY_DIAGRAM_TOOL_NAME,
+        PlayDiagramRequest, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest, lint_diagram,
+        list_diagram_types, list_themes, play_diagram_args, play_diagram_with_spawner,
+        render_diagram, request_bearer_token, resolve_http_bearer_token_with_env,
     };
+    use axum::http::{HeaderMap, HeaderValue, header};
     use std::path::PathBuf;
 
     #[test]
@@ -659,5 +754,43 @@ mod tests {
                 && diagram.support == McpDiagramSupport::Unsupported
                 && diagram.roots == ["cynefin-beta"]
         }));
+    }
+
+    #[test]
+    fn http_bearer_token_prefers_cli_value() {
+        let token = resolve_http_bearer_token_with_env(Some("cli-token".to_owned()), |_| {
+            Some("env-token".to_owned())
+        })
+        .unwrap();
+
+        assert_eq!(token, "cli-token");
+    }
+
+    #[test]
+    fn http_bearer_token_falls_back_to_env() {
+        let token = resolve_http_bearer_token_with_env(None, |name| {
+            (name == MCP_BEARER_TOKEN_ENV).then(|| "env-token".to_owned())
+        })
+        .unwrap();
+
+        assert_eq!(token, "env-token");
+    }
+
+    #[test]
+    fn http_bearer_token_is_required() {
+        let error = resolve_http_bearer_token_with_env(None, |_| None).unwrap_err();
+
+        assert!(error.contains("--bearer-token"));
+    }
+
+    #[test]
+    fn authorization_header_parses_bearer_token() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer test-token"),
+        );
+
+        assert_eq!(request_bearer_token(&headers), Some("test-token"));
     }
 }

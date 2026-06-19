@@ -9,6 +9,17 @@ kumeyuri mcp --transport stdio
 Do not write logs to stdout when wrapping this command. MCP stdio uses stdout
 for JSON-RPC frames.
 
+HTTP+SSE transport is also available for clients that speak MCP Streamable HTTP:
+
+```sh
+kumeyuri mcp --transport http-sse --bind 127.0.0.1:8000 --bearer-token "$KUMEYURI_MCP_BEARER_TOKEN"
+```
+
+The endpoint is `http://127.0.0.1:8000/mcp`. The bearer token can be supplied
+with `--bearer-token` or `KUMEYURI_MCP_BEARER_TOKEN`; HTTP+SSE refuses to start
+without one. Streamable HTTP clients must send
+`Accept: application/json, text/event-stream`.
+
 ## Tools
 
 | Tool | Purpose |
@@ -97,5 +108,6 @@ extensions:
   kumeyuri still enforces parser and renderer limits.
 - `play_diagram` starts a local process. Only pass file paths the user intended
   to open in the TUI.
-- HTTP/SSE bearer-token transport is not implemented yet; use stdio for local
-  clients until that TODO is complete.
+- Bind HTTP+SSE to loopback unless you have a reverse proxy, TLS, and an
+  operational token rotation process.
+- HTTP+SSE requires `Authorization: Bearer <token>` on every request.
