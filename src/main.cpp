@@ -1,5 +1,6 @@
 #include "cli.hpp"
 #include "log.hpp"
+#include "media_probe.hpp"
 #include "terminal.hpp"
 
 #include <cstdlib>
@@ -37,6 +38,12 @@ int runApp(int argc, char** argv) {
   if (parsed.options.log_file.has_value()) {
     logger = contourtty::Logger(*parsed.options.log_file);
     CONTOURTTY_LOG_INFO(logger, "logger initialized");
+  }
+
+  if (parsed.options.input.has_value()) {
+    const auto info = contourtty::probeMedia(*parsed.options.input);
+    std::cout << contourtty::formatMediaProbeInfo(info);
+    return 0;
   }
 
   if (!contourtty::terminalSessionAvailable()) {

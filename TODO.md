@@ -52,7 +52,6 @@
 ## PHASE B — Decode & frame pipeline
 *Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
 
-- [ ] **B1. Open container + find video stream.** DoD: given a valid file, program prints codec, resolution, pixel format, duration, and average fps; rejects non-media files with a clear error. Reference: PHASE_B §Open.
 - [ ] **B2. Decoder init (modern API).** DoD: uses `avcodec_alloc_context3` + `avcodec_parameters_to_context` + `avcodec_open2`; **no deprecated** `avcodec_decode_video2`. Reference: PHASE_B §Decoder.
 - [ ] **B3. Packet→frame loop (send/receive).** DoD: `av_read_frame` → `avcodec_send_packet` → `avcodec_receive_frame` loop decodes all frames of a test clip; handles `EAGAIN`/`EOF` correctly; drains at end with a NULL packet. Reference: PHASE_B §DecodeLoop.
 - [ ] **B4. Pixel convert to RGB24.** DoD: `sws_getContext` + `sws_scale` converts each frame to RGB24 (or RGBA) into a reusable buffer; no per-frame context recreation; verified by dumping frame 100 to a PNG that visually matches the source. Reference: PHASE_B §Convert.
