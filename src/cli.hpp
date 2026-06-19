@@ -24,6 +24,7 @@ struct CliOptions {
   std::string color_mode = "auto";
   std::optional<std::string> charset;
   std::optional<double> edge_threshold;
+  std::optional<double> edge_strength;
   std::optional<double> dog_sigma;
   std::optional<double> dog_sigma2;
   std::optional<double> dog_threshold;

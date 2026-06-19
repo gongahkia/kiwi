@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,6 +37,7 @@ struct RenderSize {
 
 constexpr double kDefaultDogThreshold = 0.02;
 constexpr double kDefaultEdgeThreshold = 0.35;
+constexpr double kDefaultEdgeStrength = 1.0;
 
 class FramePacer {
  public:
@@ -316,12 +318,20 @@ double edgeThresholdFromCli(const CliOptions& options) {
   return options.edge_threshold.value_or(kDefaultEdgeThreshold);
 }
 
+double effectiveEdgeThresholdFromCli(const CliOptions& options) {
+  const double strength = options.edge_strength.value_or(kDefaultEdgeStrength);
+  if (strength <= 0.0) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return edgeThresholdFromCli(options) / strength;
+}
+
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells) {
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;
-  const double edge_threshold = edgeThresholdFromCli(options);
+  const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   if (options.mode == "structure") {
     LuminanceField analysis_luminance = makeLuminanceField(frame);
     analysis_luminance = applyStructureContrast(analysis_luminance, contrastFromCli(options));

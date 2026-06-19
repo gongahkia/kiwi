@@ -158,6 +158,7 @@ CliParseResult parseArgs(int argc, char** argv) {
           "--color",
           "--charset",
           "--edge-threshold",
+          "--edge-strength",
           "--dog-sigma",
           "--dog-threshold",
           "--contrast",
@@ -236,6 +237,13 @@ CliParseResult parseArgs(int argc, char** argv) {
         return result;
       }
       result.options.edge_threshold = *parsed;
+    } else if (flag == "--edge-strength") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --edge-strength: " + std::string(*value);
+        return result;
+      }
+      result.options.edge_strength = *parsed;
     } else if (flag == "--dog-sigma") {
       if (!parseDogSigma(*value, &result.options)) {
         result.error = "invalid value for --dog-sigma: " + std::string(*value);
@@ -299,6 +307,7 @@ std::string helpText(std::string_view program_name) {
       << "  --mono                         disable color output\n"
       << "  --charset NAME|string          glyph preset or custom glyph string\n"
       << "  --edge-threshold N             structure edge threshold\n"
+      << "  --edge-strength N              structure edge overlay strength\n"
       << "  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables\n"
       << "  --dog-threshold N              difference-of-gaussians threshold\n"
       << "  --contrast N                   structure contrast adjustment\n"

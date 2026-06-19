@@ -70,7 +70,6 @@
 ## PHASE E — Structure mode (the differentiator)  → **v0.5**
 *Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
 
-- [ ] **E8. Blend fill + edges.** DoD: luminance fill and structure edges are combined into a single coherent output (edges drawn over fill) with a tunable edge strength; documented. Reference: PHASE_E §Blend.
 - [ ] **E9. Tunable knobs exposed.** DoD: `--edge-threshold`, `--dog-sigma`, `--contrast`, `--charset`, `--mode {luminance|structure}` all work and are documented in `--help` and README. Reference: PHASE_E §Knobs.
 - [ ] **E10. Structure-mode perf bench.** DoD: structure vs luminance fps and per-cell matching cost recorded; identifies the hotspot for Phase G GPU work. Reference: PHASE_E §Bench.
 - [ ] **E11. v0.5 demo asset.** DoD: a side-by-side GIF (luminance vs structure) on real footage committed; README leads with it. Reference: PHASE_E §Demo.

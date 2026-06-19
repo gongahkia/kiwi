@@ -9,7 +9,7 @@ contourtty is a C++20 terminal media renderer for live video, webcam, and stream
 
 ## Status
 
-Pre-alpha. Local video now plays as paced luminance ASCII in truecolor or mono terminals. Structure mode, audio sync, webcam/stream inputs, exports, and packaging are still pending.
+Pre-alpha. Local video now plays as paced luminance or structure ASCII in truecolor or mono terminals with audio sync. Webcam/stream inputs, exports, and packaging are still pending.
 
 ## Build and run
 
@@ -22,6 +22,8 @@ cmake --build --preset ci
 ## Runtime notes
 
 With audio present, video is paced from the audio playback clock. Late video frames are dropped once they fall too far behind the clock, capped at 50ms, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
+
+Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 

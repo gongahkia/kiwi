@@ -37,4 +37,17 @@ int main() {
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "dog sigma rejects reversed pair");
   }
+
+  {
+    const char* argv[] = {"contourtty", "--edge-strength", "1.5"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "edge strength parses");
+    expect(parsed.options.edge_strength.has_value() && *parsed.options.edge_strength == 1.5, "edge strength stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--edge-strength", "-1"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "edge strength rejects negative");
+  }
 }
