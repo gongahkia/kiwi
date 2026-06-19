@@ -48,6 +48,9 @@ int runApp(int argc, char** argv) {
     if (*options.input != *parsed.options.input) {
       CONTOURTTY_LOG_INFO(logger, "resolved input via yt-dlp");
     }
+    if (options.export_file.has_value()) {
+      return contourtty::exportMedia(options, logger);
+    }
     const bool diagnostic_probe = options.dump_frame.has_value() || options.dump_png.has_value();
     if (contourtty::terminalSessionAvailable() && !diagnostic_probe) {
       return contourtty::playMedia(options, logger);

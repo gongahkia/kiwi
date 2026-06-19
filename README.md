@@ -11,7 +11,7 @@ Demo source: public-domain Wikimedia Commons footage; luminance is left, structu
 
 ## Status
 
-Pre-alpha. Local video, images, GIFs, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. Webcam capture, exports, and packaging are still pending.
+Pre-alpha. Local video, images, GIFs, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. ANSI/asciinema export works; webcam capture, MP4 export, and packaging are still pending.
 
 ## Build and run
 
@@ -42,6 +42,8 @@ Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color whe
 `--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals.
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
+
+Export: `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
 ## Name
 

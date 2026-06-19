@@ -5,6 +5,7 @@
 
 namespace contourtty {
 
+int exportMedia(const CliOptions& options, Logger& logger);
 int playMedia(const CliOptions& options, Logger& logger);
 
 }  // namespace contourtty

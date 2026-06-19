@@ -86,7 +86,6 @@
 
 - [ ] **G2. Optional GPU compute path.** DoD: a compute-shader (Vulkan/OpenGL/compute via a chosen API) implementation of the analysis pass behind `--gpu`; falls back to CPU if unavailable; significant fps gain at high cell counts recorded. Reference: PHASE_G §GPU.
 - [ ] **G3. Export: rendered MP4.** DoD: `--export out.mp4` writes a video of the ASCII output (offline render path) that plays in a normal player. Reference: PHASE_G §ExportMP4.
-- [ ] **G4. Export: asciinema cast + raw ANSI.** DoD: `--export out.cast` produces a valid asciinema recording; `--export out.ansi` writes the raw escape stream replayable with `cat`. Reference: PHASE_G §ExportCast.
 - [ ] **G5. Config file + sane defaults.** DoD: a config file (e.g. `~/.config/<name>/config`) sets defaults; CLI overrides it; no recompile needed for tuning. Reference: PHASE_G §Config.
 - [ ] **G6. Golden-frame regression tests.** DoD: known inputs produce byte-identical (or perceptually-identical within tolerance) CellBuffers; CI runs them. Reference: PHASE_G §Tests.
 - [ ] **G7. Packaging.** DoD: single static-ish binary releases for Linux/macOS (+ Windows if feasible); a Homebrew formula and/or `.deb`; documented `ffmpeg` runtime requirement. Reference: PHASE_G §Packaging.

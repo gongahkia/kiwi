@@ -25,9 +25,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <sys/select.h>
 #include <thread>
@@ -443,7 +447,185 @@ bool holdStillFrame(const Frame& frame, std::u32string_view ramp, const CliOptio
   return true;
 }
 
+enum class ExportKind {
+  Ansi,
+  Cast,
+};
+
+ExportKind exportKindForPath(const std::filesystem::path& path) {
+  const std::string extension = path.extension().string();
+  if (extension == ".ansi") {
+    return ExportKind::Ansi;
+  }
+  if (extension == ".cast") {
+    return ExportKind::Cast;
+  }
+  throw std::runtime_error("unsupported export extension: expected .ansi or .cast");
+}
+
+TerminalSize exportTerminalSize(const CliOptions& options) {
+  return TerminalSize{
+    .cols = options.width.value_or(80),
+    .rows = options.height.value_or(24),
+    .xpixel = 0,
+    .ypixel = 0,
+  };
+}
+
+std::u32string exportRampFromOptions(const CliOptions& options) {
+  if (options.charset.has_value() && !isBrailleCharset(*options.charset)) {
+    return resolveCharsetRamp(*options.charset);
+  }
+  return kDefaultGlyphRamp.data();
+}
+
+std::optional<GlyphShapeTable> exportShapeTableFromOptions(const CliOptions& options) {
+  if (options.mode == "structure" && !(options.charset.has_value() && isBrailleCharset(*options.charset))) {
+    return buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+  }
+  return std::nullopt;
+}
+
+std::string jsonEscape(std::string_view value) {
+  std::ostringstream out;
+  out << std::hex << std::setfill('0');
+  for (const unsigned char ch : value) {
+    switch (ch) {
+      case '"':
+        out << "\\\"";
+        break;
+      case '\\':
+        out << "\\\\";
+        break;
+      case '\b':
+        out << "\\b";
+        break;
+      case '\f':
+        out << "\\f";
+        break;
+      case '\n':
+        out << "\\n";
+        break;
+      case '\r':
+        out << "\\r";
+        break;
+      case '\t':
+        out << "\\t";
+        break;
+      default:
+        if (ch < 0x20) {
+          out << "\\u00" << std::setw(2) << static_cast<int>(ch);
+        } else {
+          out << static_cast<char>(ch);
+        }
+        break;
+    }
+  }
+  return out.str();
+}
+
+double exportFrameTimeSeconds(const Frame& frame, int64_t first_pts_us, int64_t frame_index, const CliOptions& options) {
+  if (options.fps.has_value() && *options.fps > 0.0) {
+    return static_cast<double>(frame_index) / *options.fps;
+  }
+  return static_cast<double>(std::max<int64_t>(0, frame.pts_us - first_pts_us)) / 1000000.0;
+}
+
+void writeCastEvent(std::ofstream& out, double timestamp, std::string_view bytes) {
+  out << '[' << std::fixed << std::setprecision(6) << timestamp << ",\"o\",\"" << jsonEscape(bytes) << "\"]\n";
+}
+
 }  // namespace
+
+int exportMedia(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  if (!options.export_file.has_value()) {
+    throw std::runtime_error("missing export file");
+  }
+
+  const std::filesystem::path output_path = *options.export_file;
+  const ExportKind kind = exportKindForPath(output_path);
+  std::ofstream output(output_path, std::ios::binary);
+  if (!output) {
+    throw std::runtime_error("could not open export file: " + output_path.string());
+  }
+
+  VideoDecoder video_decoder(*options.input);
+  auto frame = video_decoder.nextFrame();
+  if (!frame.has_value()) {
+    throw std::runtime_error("input contains no video frames");
+  }
+
+  const std::u32string ramp = exportRampFromOptions(options);
+  std::optional<GlyphShapeTable> shape_vectors = exportShapeTableFromOptions(options);
+  TerminalSize terminal = exportTerminalSize(options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .origin_row = 1, .origin_col = 1};
+  CellBuffer cells;
+  DiffEmitter emitter;
+  RenderStats render_stats;
+  const int64_t first_pts_us = frame->pts_us;
+  int64_t frame_index = 0;
+  int64_t exported_frames = 0;
+  double last_timestamp = 0.0;
+
+  const auto write_emission = [&](double timestamp, std::string_view bytes) {
+    if (bytes.empty()) {
+      return;
+    }
+    last_timestamp = timestamp;
+    if (kind == ExportKind::Ansi) {
+      output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    } else {
+      writeCastEvent(output, timestamp, bytes);
+    }
+  };
+
+  const auto write_frame = [&](const Frame& current_frame) {
+    renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+    const EmissionResult emission = emitter.emit(cells, emission_options);
+    write_emission(exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), emission.bytes);
+  };
+
+  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+  const int export_cols = cells.cols();
+  const int export_rows = cells.rows();
+  emitter.reset();
+  if (kind == ExportKind::Ansi) {
+    const std::string clear = "\x1b[2J\x1b[H\x1b[?25l";
+    output.write(clear.data(), static_cast<std::streamsize>(clear.size()));
+  } else {
+    output << "{\"version\":2,\"width\":" << export_cols << ",\"height\":" << export_rows << "}\n";
+    writeCastEvent(output, 0.0, "\x1b[2J\x1b[H\x1b[?25l");
+  }
+
+  write_emission(0.0, emitter.emit(cells, emission_options).bytes);
+  ++exported_frames;
+  while ((frame = video_decoder.nextFrame()).has_value()) {
+    ++frame_index;
+    write_frame(*frame);
+    ++exported_frames;
+  }
+  const std::string reset = "\x1b[0m\x1b[?25h\n";
+  if (kind == ExportKind::Ansi) {
+    output.write(reset.data(), static_cast<std::streamsize>(reset.size()));
+  } else {
+    writeCastEvent(output, last_timestamp, reset);
+  }
+  if (!output) {
+    throw std::runtime_error("failed to write export file: " + output_path.string());
+  }
+  CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+  if (logger.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000) +
+                                  " shape_match_cells=" + std::to_string(render_stats.shape_match_cells));
+  }
+  return 0;
+}
 
 int playMedia(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
