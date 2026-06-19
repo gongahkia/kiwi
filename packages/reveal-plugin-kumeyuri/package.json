@@ -1,0 +1,38 @@
+{
+  "name": "@kumeyuri/reveal-plugin",
+  "version": "0.0.0",
+  "description": "reveal.js plugin that loads kumeyuri .kumecast timelines inline in slides.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/reveal-plugin-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "reveal.js": "^4.0.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "reveal.js": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/reveal-plugin.test.mjs",
+    "prepack": "npm test"
+  }
+}
