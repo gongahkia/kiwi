@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SearchEntry } from "@wat/search";
 
+import { CopyCitationButton } from "@/components/copy-citation-button";
 import { cn } from "@/lib/utils";
 
 interface SearchResultCardProps {
@@ -11,14 +12,17 @@ interface SearchResultCardProps {
 export function SearchResultCard({ className, entry }: SearchResultCardProps) {
   return (
     <article className={cn("grid gap-3 rounded-md border border-input p-4", className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          className="text-2xl font-semibold underline-offset-4 hover:underline"
-          href={`/term/${entry.id}`}
-        >
-          {entry.term}
-        </Link>
-        <span className="rounded-md bg-secondary px-2 py-1 text-xs">{entry.confidence_tier}</span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            className="text-2xl font-semibold underline-offset-4 hover:underline"
+            href={`/term/${entry.id}`}
+          >
+            {entry.term}
+          </Link>
+          <span className="rounded-md bg-secondary px-2 py-1 text-xs">{entry.confidence_tier}</span>
+        </div>
+        <CopyCitationButton entry={entry} />
       </div>
       <p className="text-lg text-foreground/80">{entry.expansions[0]}</p>
       <div className="flex flex-wrap gap-2">

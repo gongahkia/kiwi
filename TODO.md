@@ -76,7 +76,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: search UX
 - [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 - [ ] Implement confidence-tier toggle — done when T3/T4 entries hidden by default, revealed by toggle.
-- [ ] Implement copy-citation button — done when click copies Markdown citation to clipboard.
 - [ ] Implement permalink + share-link UI — done when share URL resolves back to entry.
 - [ ] Implement Open Graph image generation per entry — done when entry page meta has og:image w/ acronym + expansion.
 
