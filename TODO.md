@@ -146,7 +146,7 @@
 
 - [x] Update `COVERAGE.md` whenever parser/render behavior changes; keep Mermaid docs sidebar version and unsupported-root list current
 - [x] Add root-dispatch rejection tests for every unsupported Mermaid root listed in `COVERAGE.md`
-- [ ] Add one parser fixture, one static golden, and one animation/static-collapse assertion for every newly supported Mermaid root before marking it Partial or Static-only
+- [x] Add one parser fixture, one static golden, and one animation/static-collapse assertion for every newly supported Mermaid root before marking it Partial or Static-only
 - [x] Split `COVERAGE.md` syntax claims into parser, layout, static-render, animation, config, accessibility, and snapshot-count columns
 - [x] Build a Mermaid official-example fixture importer that stores source URL, Mermaid version, root type, and expected parser/render status
 - [x] Add official-example parser corpus for every currently supported root, not just flowchart/sequence/state
