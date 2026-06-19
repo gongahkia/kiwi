@@ -10,3 +10,6 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [workspace]
+
+[dependencies]
+pdf-writer = "0.15.0"
