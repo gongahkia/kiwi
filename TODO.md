@@ -76,8 +76,6 @@
 *Doc: `PHASE_F.md`. Goal: make it work on the inputs people actually want, and across terminal capability tiers.*
 
 - [ ] **F1. Webcam input.** DoD: `--input cam` (or device path) shows live structure-ASCII of the webcam with acceptable latency; documented per-OS capture path. Reference: PHASE_F §Webcam.
-- [ ] **F3. Streaming URLs.** DoD: an HLS/RTSP URL plays; a YouTube URL plays via yt-dlp handoff; failures degrade with a clear message. Reference: PHASE_F §Streams.
-  - 2026-06-19: direct HLS URL playback works against a local HTTP HLS fixture; YouTube URL handoff is implemented and verified with a controlled fake `yt-dlp`, but real YouTube verification remains blocked because `yt-dlp` is not installed.
 - [ ] **Phase F exit criteria.** DoD: webcam, image, GIF, file, and at least one stream type all render; truecolor/256/16/mono/halfblock all produce correct output on appropriate terminals.
 
 ---
