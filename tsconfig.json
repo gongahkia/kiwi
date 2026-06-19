@@ -4,6 +4,7 @@
     { "path": "./apps/web" },
     { "path": "./apps/slack" },
     { "path": "./apps/mcp" },
+    { "path": "./apps/lsp" },
     { "path": "./packages/core" },
     { "path": "./packages/db" },
     { "path": "./packages/search" },

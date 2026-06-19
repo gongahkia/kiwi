@@ -28,6 +28,7 @@ Open `http://localhost:3000`.
 - `apps/web`: Next.js App Router web app and REST API routes
 - `apps/slack`: Slack app scaffold
 - `apps/mcp`: MCP server scaffold
+- `apps/lsp`: LSP hover server for editor integrations
 - `extensions/browser`: browser extension scaffold
 - `packages/core`: shared schema, normalization, validation, merge logic
 - `packages/db`: Drizzle schema and migrations
