@@ -222,7 +222,7 @@
 
 ## Cross-cutting / continuous
 
-- [ ] Keep visual-diff golden snapshots up to date on every renderer change
+- [x] Keep visual-diff golden snapshots up to date on every renderer change
 - [x] Maintain `CHANGELOG.md` via release-please
 - [x] Maintain `docs/adr/` decision log for any non-obvious architectural choice
 - [x] Run `cargo audit` weekly via Dependabot/Renovate
