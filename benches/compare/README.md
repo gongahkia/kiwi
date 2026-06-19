@@ -52,3 +52,6 @@ Adapters:
   one corpus input and writes the JSON export under
   `benches/compare/results/timing.json`. Set `MERMAID_ASCII_BIN` and
   `PGAVLIN_MERMAID_ASCII_BIN` to include external Go adapters.
+* `npm run bench:compare:fidelity` scores text adapters against `mermaid-cli`
+  SVG ground truth by extracting visible SVG labels and measuring label recall.
+  This is a conservative semantic smoke score, not a pixel/image diff.

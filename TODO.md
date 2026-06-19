@@ -355,7 +355,7 @@
 - [x] Wire `mermaid2term` invocation (Crystal/npm)
 - [x] Wire `mermaid-cli` invocation (headless Chrome, ground-truth SVG)
 - [ ] Wire `@tldraw/mermaid` invocation (Node + headless Chromium, sketchy SVG baseline) — added after threepointone/sunilpai-dev@f4bd28a published the pattern
-- [ ] Implement fidelity scorer comparing each tool's output against ground-truth SVG
+- [x] Implement fidelity scorer comparing each tool's output against ground-truth SVG
 - [x] Implement timing harness via `hyperfine`
 - [x] Implement output-size measurement
 - [x] Emit results as `bench/results.json`
