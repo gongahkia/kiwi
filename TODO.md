@@ -296,7 +296,7 @@
 - [ ] Implement Logseq plugin equivalent
 - [ ] Implement Quartz plugin for digital gardens
 - [ ] Implement Zola shortcode for kumeyuri embeds
-- [ ] Add `docs/integrations/` directory with one page per integration
+- [x] Add `docs/integrations/` directory with one page per integration
 - [ ] Publish `v1.4.0-deck` minor release
 
 ## Phase 11 — Long-term maintenance & governance (ongoing, year 2+)
