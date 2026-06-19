@@ -1,6 +1,7 @@
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "frame_sampling.hpp"
+#include "gpu_sobel.hpp"
 #include "renderer.hpp"
 
 #include <cstdlib>
@@ -174,5 +175,33 @@ int main() {
                 "43:0,0,0:0,0,0|43:255,255,255:0,0,0|\n"
                 "43:0,0,0:0,0,0|43:255,255,255:0,0,0|\n",
                 "structure shape-match golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(8, 8, {
+      gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255), gray(255),
+      gray(0), gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255),
+      gray(0), gray(0), gray(0), gray(0), gray(0), gray(255), gray(255), gray(255),
+      gray(255), gray(0), gray(0), gray(0), gray(0), gray(0), gray(255), gray(255),
+      gray(255), gray(255), gray(0), gray(0), gray(0), gray(0), gray(0), gray(255),
+      gray(255), gray(255), gray(255), gray(0), gray(0), gray(0), gray(0), gray(0),
+      gray(255), gray(255), gray(255), gray(255), gray(0), gray(0), gray(0), gray(0),
+      gray(255), gray(255), gray(255), gray(255), gray(255), gray(0), gray(0), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.mode = "structure";
+    options.width = 4;
+    options.height = 4;
+    options.cell_aspect = 1.0;
+    options.edge_threshold = 0.01;
+    const contourtty::GlyphShapeTable shape_table = contourtty::buildGlyphShapeTable(contourtty::kDefaultStructureShapeGlyphs, 10, 14);
+    contourtty::CellBuffer cpu_cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(4, 4), &shape_table, &cpu_cells);
+    options.gpu = true;
+    contourtty::CellBuffer gpu_cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(4, 4), &shape_table, &gpu_cells);
+    if (contourtty::gpuSobelAvailable()) {
+      expectEqual(serializeCells(gpu_cells), serializeCells(cpu_cells), "gpu structure render parity");
+    }
   }
 }

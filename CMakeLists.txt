@@ -655,6 +655,7 @@ add_test(NAME structure_sampling COMMAND structure_sampling_tests)
 add_executable(structure_edges_tests
   tests/structure_edges_tests.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
+  src/glyph_shape.cpp
   src/luminance.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp

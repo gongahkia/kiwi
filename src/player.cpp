@@ -779,7 +779,7 @@ void writeCastEvent(std::ofstream& out, double timestamp, std::string_view bytes
 void logGpuRequest(const CliOptions& options, Logger& logger) {
   if (options.gpu) {
     if (gpuSobelAvailable()) {
-      CONTOURTTY_LOG_INFO(logger, "gpu analysis requested; using Metal sobel backend");
+      CONTOURTTY_LOG_INFO(logger, "gpu analysis requested; using Metal structure backend");
     } else {
       CONTOURTTY_LOG_WARN(logger, "gpu analysis requested but unavailable; using cpu renderer");
     }

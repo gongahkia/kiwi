@@ -92,6 +92,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   }
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;
+  std::optional<GpuStructureGlyphs> gpu_structure_glyphs;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   if (options.mode == "structure") {
     LuminanceField analysis_luminance = makeLuminanceField(frame);
@@ -101,12 +102,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
     }
     if (options.gpu) {
+      gpu_structure_glyphs = computeStructureGlyphsGpu(analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
+      if (gpu_structure_glyphs.has_value() && stats != nullptr) {
+        stats->shape_match_cells += gpu_structure_glyphs->shape_match_cells;
+      }
+    }
+    if (!gpu_structure_glyphs.has_value() && options.gpu) {
       structure_gradients = computeSobelGradientsGpu(analysis_luminance);
     }
     if (!structure_gradients.has_value()) {
       structure_gradients = computeSobelGradients(analysis_luminance);
     }
-    structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
+    if (!gpu_structure_glyphs.has_value()) {
+      structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
+    }
   }
   std::vector<Cell>& cell_values = cells->cells();
   const int workers = renderWorkerCount(size.cols, size.rows);
@@ -117,7 +126,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
         Cell& cell = cell_values[static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col)];
         cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
-        if (structure_gradients.has_value()) {
+        if (gpu_structure_glyphs.has_value()) {
+          const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col)];
+          if (gpu_glyph != U'\0') {
+            cell.glyph = gpu_glyph;
+          }
+        } else if (structure_gradients.has_value()) {
           const CellGradient gradient = cellGradient(*structure_gradients, size.cols, size.rows, col, row);
           const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edge_threshold);
           if (edge_glyph.has_value()) {

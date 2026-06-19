@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <utility>
@@ -72,6 +73,42 @@ int main() {
         expectNear(gpu->values[index].gx, cpu.values[index].gx, 1e-5, "gpu sobel gx");
         expectNear(gpu->values[index].gy, cpu.values[index].gy, 1e-5, "gpu sobel gy");
       }
+    }
+  }
+
+  {
+    std::vector<double> values;
+    for (int y = 0; y < 12; ++y) {
+      for (int x = 0; x < 12; ++x) {
+        values.push_back((x > y || (x > 5 && y < 8)) ? 1.0 : 0.0);
+      }
+    }
+    const auto field = fieldFromValues(12, 12, values);
+    constexpr int cols = 3;
+    constexpr int rows = 3;
+    constexpr double threshold = 0.01;
+    const auto gradients = contourtty::computeSobelGradients(field);
+    const auto ink = contourtty::gradientMagnitudeField(gradients, threshold);
+    const contourtty::GlyphShapeTable table = contourtty::buildGlyphShapeTable(contourtty::kDefaultStructureShapeGlyphs, 10, 14);
+    std::vector<char32_t> cpu_glyphs;
+    int64_t cpu_shape_cells = 0;
+    for (int row = 0; row < rows; ++row) {
+      for (int col = 0; col < cols; ++col) {
+        char32_t glyph = U'\0';
+        const contourtty::CellGradient gradient = contourtty::cellGradient(gradients, cols, rows, col, row);
+        if (contourtty::directionalGlyphForGradient(gradient, threshold).has_value()) {
+          const contourtty::CellLuminanceRegion region = contourtty::sampleCellRegion(ink, cols, rows, col, row);
+          glyph = contourtty::matchGlyphShape(contourtty::shapeVectorForCell(region), table);
+          ++cpu_shape_cells;
+        }
+        cpu_glyphs.push_back(glyph);
+      }
+    }
+    const auto gpu_glyphs = contourtty::computeStructureGlyphsGpu(field, cols, rows, threshold, &table);
+    expect(gpu_glyphs.has_value() == contourtty::gpuSobelAvailable(), "gpu structure glyph availability matches result");
+    if (gpu_glyphs.has_value()) {
+      expect(gpu_glyphs->glyphs == cpu_glyphs, "gpu structure glyphs match cpu");
+      expect(gpu_glyphs->shape_match_cells == cpu_shape_cells, "gpu structure shape count matches cpu");
     }
   }
 
