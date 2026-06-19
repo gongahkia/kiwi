@@ -473,7 +473,7 @@
 - [x] WASM bundle size within gzip budget
 - [x] `axe-core` + `pa11y` audits clean
 - [x] CHANGELOG.md updated via release-please
-- [ ] `docs/compat.md` matrix updated for any Mermaid grammar version change
+- [x] `docs/compat.md` matrix updated for any Mermaid grammar version change
 - [ ] All public Rust APIs documented with compiling doctests
 
 ---
