@@ -109,7 +109,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Personal export — done when user can export their entries.
 
 ## P2 — Web app: public-facing pages
-- [ ] Sources page — done when lists all public sources w/ license + last refresh timestamp.
 - [ ] Pricing/hosting page (free OSS self-host + optional managed) — done when page renders w/ install CTAs.
 - [ ] Install hub: links to ext, Slack, MCP, docker — done when each surface has install card.
 - [ ] Status page or uptime widget for hosted — done when widget displays current status from health check.
