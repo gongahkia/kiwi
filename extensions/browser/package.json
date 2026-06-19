@@ -1,8 +1,18 @@
 {
   "name": "@wat/ext",
   "version": "0.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
-    "build": "tsc -b"
+    "build": "wxt build -b chrome",
+    "build:firefox": "wxt build -b firefox",
+    "dev": "wxt -b chrome",
+    "dev:firefox": "wxt -b firefox",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc -b --noEmit",
+    "zip": "wxt zip -b chrome"
+  },
+  "devDependencies": {
+    "wxt": "^0.20.26"
   }
 }

@@ -8,16 +8,15 @@ The extension package is scaffolded in `extensions/browser`.
 
 ```sh
 pnpm install
-pnpm --filter @wat/ext build
-```
-
-Target development flow:
-
-```sh
 pnpm --filter @wat/ext dev
 ```
 
-Load the generated extension directory through the browser's extension developer mode until store builds are available.
+WXT opens a browser profile with the unpacked extension installed. Production builds write to `.output/`.
+
+```sh
+pnpm --filter @wat/ext build
+pnpm --filter @wat/ext zip
+```
 
 ## Target Permissions
 

@@ -86,7 +86,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P2 — Web app: public-facing pages
 
 ## P3 — Browser extension
-- [ ] Scaffold WXT project in `extensions/browser` — done when `pnpm dev --filter @wat/ext` opens an extension-loaded Chrome.
 - [ ] Implement options page — done when user can configure API base URL, account login, hover-mode toggle, domain filters.
 - [ ] Implement background service worker — done when worker handles auth + API calls + caches results in `chrome.storage.local`.
 - [ ] Implement content script for hover-explain — done when hovering an all-caps token shows tooltip w/ top expansion + sources.

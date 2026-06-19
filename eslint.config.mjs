@@ -7,6 +7,8 @@ export default [
       "**/node_modules/**",
       "**/dist/**",
       "**/.next/**",
+      "**/.output/**",
+      "**/.wxt/**",
       "**/coverage/**",
       "**/next-env.d.ts"
     ]

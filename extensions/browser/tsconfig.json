@@ -2,8 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "files": []
+  "include": [".wxt/wxt.d.ts", "entrypoints/**/*.ts", "wxt.config.ts"]
 }
