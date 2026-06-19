@@ -1,6 +1,4 @@
-# fried-apple-pie
-
-Personal pi customisations live here.
+# `Fried Apple Pie`
 
 ## Diff reviewer
 
@@ -44,3 +42,7 @@ Or reinstall this footer line:
 ```txt
 /terminal-line
 ```
+
+<div align="center">
+  <img width=35% alt="image" src="https://github.com/user-attachments/assets/321a3fcb-f115-476b-8dd6-2db37cf448a8" />
+</div>
