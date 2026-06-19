@@ -28,7 +28,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] IETF RFC index scraper (RFCs that define acronyms) — done when ≥500 RFC-anchored acronyms imported (eg. TCP, BGP, SMTP) w/ RFC number + section.
 - [ ] W3C glossary scraper — done when standards terms ingested w/ W3C URLs.
 - [ ] CNCF Cloud Native Glossary scraper (CC-BY 4.0) — done when ≥120 cloud-native terms ingested.
-- [ ] Google SRE book glossary scraper (CC-BY-NC-ND check) — done when terms ingested only if license permits; else excluded w/ note.
 - [ ] AWS service-name expansion scraper (EC2 → Elastic Compute Cloud) — done when ≥200 AWS services covered.
 - [ ] GCP service-name expansion scraper — done when ≥150 GCP services covered.
 - [ ] Azure service-name expansion scraper — done when ≥150 Azure services covered.
