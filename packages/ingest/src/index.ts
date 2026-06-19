@@ -1,3 +1,4 @@
+export * from "./collisions.js";
 export * from "./confidence.js";
 export * from "./dedup.js";
 export * from "./license.js";
