@@ -5,3 +5,4 @@ coverage/
 IDEA.md
 TODO.md
 pnpm-lock.yaml
+**/drizzle/meta/*.json

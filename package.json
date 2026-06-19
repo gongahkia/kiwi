@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -b",
     "changeset": "changeset",
+    "db:generate": "pnpm --filter @wat/db db:generate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . && prettier --check .",
