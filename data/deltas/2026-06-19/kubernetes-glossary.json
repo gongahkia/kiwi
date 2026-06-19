@@ -1,0 +1,2725 @@
+{
+  "entries": [
+    {
+      "dedup_key": "add ons:add ons",
+      "domains": [
+        "kubernetes",
+        "tool"
+      ],
+      "examples": [],
+      "expansion_normalized": "add ons",
+      "expansions": [
+        "Add-ons"
+      ],
+      "meaning_short": "Resources that extend the functionality of Kubernetes.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Resources that extend the functionality of Kubernetes.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Add-ons",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-addons"
+        }
+      ],
+      "term": "Add-ons",
+      "term_normalized": "add ons",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "admission controller:admission controller",
+      "domains": [
+        "kubernetes",
+        "extension",
+        "security"
+      ],
+      "examples": [],
+      "expansion_normalized": "admission controller",
+      "expansions": [
+        "Admission Controller"
+      ],
+      "meaning_short": "A piece of code that intercepts requests to the Kubernetes API server prior to persistence of the object.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A piece of code that intercepts requests to the Kubernetes API server prior to persistence of the object.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Admission Controller",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-admission-controller"
+        }
+      ],
+      "term": "Admission Controller",
+      "term_normalized": "admission controller",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "affinity:affinity",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "affinity",
+      "expansions": [
+        "Affinity"
+      ],
+      "meaning_short": "Rules used by the scheduler to determine where to place pods",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Rules used by the scheduler to determine where to place pods",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Affinity",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-affinity"
+        }
+      ],
+      "term": "Affinity",
+      "term_normalized": "affinity",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "aggregation layer:aggregation layer",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "extension",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "aggregation layer",
+      "expansions": [
+        "Aggregation Layer"
+      ],
+      "meaning_short": "The aggregation layer lets you install additional Kubernetes-style APIs in your cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The aggregation layer lets you install additional Kubernetes-style APIs in your cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Aggregation Layer",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-aggregation-layer"
+        }
+      ],
+      "term": "Aggregation Layer",
+      "term_normalized": "aggregation layer",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "annotation:annotation",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "annotation",
+      "expansions": [
+        "Annotation"
+      ],
+      "meaning_short": "A key-value pair that is used to attach arbitrary non-identifying metadata to objects.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A key-value pair that is used to attach arbitrary non-identifying metadata to objects.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Annotation",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-annotation"
+        }
+      ],
+      "term": "Annotation",
+      "term_normalized": "annotation",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "api initiated eviction:api initiated eviction",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "api initiated eviction",
+      "expansions": [
+        "API-initiated eviction"
+      ],
+      "meaning_short": "API-initiated eviction is the process by which you use the Eviction API to create an Eviction object that triggers graceful pod termination.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "API-initiated eviction is the process by which you use the Eviction API to create an Eviction object that triggers graceful pod termination.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: API-initiated eviction",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-api-eviction"
+        }
+      ],
+      "term": "API-initiated eviction",
+      "term_normalized": "api initiated eviction",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "api group:api group",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "api group",
+      "expansions": [
+        "API Group"
+      ],
+      "meaning_short": "A set of related paths in the Kubernetes API.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A set of related paths in the Kubernetes API.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: API Group",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-api-group"
+        }
+      ],
+      "term": "API Group",
+      "term_normalized": "api group",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "api resource:api resource",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "api resource",
+      "expansions": [
+        "API resource"
+      ],
+      "meaning_short": "A Kubernetes entity, representing an endpoint on the Kubernetes API server.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A Kubernetes entity, representing an endpoint on the Kubernetes API server.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: API resource",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-api-resource"
+        }
+      ],
+      "term": "API resource",
+      "term_normalized": "api resource",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "app container:app container",
+      "domains": [
+        "kubernetes",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "app container",
+      "expansions": [
+        "App Container"
+      ],
+      "meaning_short": "A container used to run part of a workload. Compare with init container.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A container used to run part of a workload. Compare with init container.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: App Container",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-app-container"
+        }
+      ],
+      "term": "App Container",
+      "term_normalized": "app container",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "application architect:application architect",
+      "domains": [
+        "kubernetes",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "application architect",
+      "expansions": [
+        "Application Architect"
+      ],
+      "meaning_short": "A person responsible for the high-level design of an application.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person responsible for the high-level design of an application.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Application Architect",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-application-architect"
+        }
+      ],
+      "term": "Application Architect",
+      "term_normalized": "application architect",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "application developer:application developer",
+      "domains": [
+        "kubernetes",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "application developer",
+      "expansions": [
+        "Application Developer"
+      ],
+      "meaning_short": "A person who writes an application that runs in a Kubernetes cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person who writes an application that runs in a Kubernetes cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Application Developer",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-application-developer"
+        }
+      ],
+      "term": "Application Developer",
+      "term_normalized": "application developer",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "applications:applications",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "applications",
+      "expansions": [
+        "Applications"
+      ],
+      "meaning_short": "The layer where various containerized applications run.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The layer where various containerized applications run.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Applications",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-applications"
+        }
+      ],
+      "term": "Applications",
+      "term_normalized": "applications",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "approver:approver",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "approver",
+      "expansions": [
+        "Approver"
+      ],
+      "meaning_short": "A person who can review and approve Kubernetes code contributions.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person who can review and approve Kubernetes code contributions.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Approver",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-approver"
+        }
+      ],
+      "term": "Approver",
+      "term_normalized": "approver",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cadvisor:container advisor",
+      "domains": [
+        "kubernetes",
+        "tool"
+      ],
+      "examples": [],
+      "expansion_normalized": "container advisor",
+      "expansions": [
+        "Container Advisor"
+      ],
+      "meaning_short": "Tool that provides understanding of the resource usage and performance characteristics for containers",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Tool that provides understanding of the resource usage and performance characteristics for containers",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: cAdvisor",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cadvisor"
+        }
+      ],
+      "term": "cAdvisor",
+      "term_normalized": "cadvisor",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container device interface cdi:container device interface cdi",
+      "domains": [
+        "kubernetes",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "container device interface cdi",
+      "expansions": [
+        "Container Device Interface (CDI)"
+      ],
+      "meaning_short": "A CNCF specification for describing device configuration that container runtimes apply when creating containers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A CNCF specification for describing device configuration that container runtimes apply when creating containers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Device Interface (CDI)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cdi"
+        }
+      ],
+      "term": "Container Device Interface (CDI)",
+      "term_normalized": "container device interface cdi",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "common expression language:common expression language",
+      "domains": [
+        "kubernetes",
+        "extension",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "common expression language",
+      "expansions": [
+        "Common Expression Language"
+      ],
+      "meaning_short": "An expression language that's designed to be safe for executing user code.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An expression language that's designed to be safe for executing user code.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Common Expression Language",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cel"
+        }
+      ],
+      "term": "Common Expression Language",
+      "term_normalized": "common expression language",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "certificate:certificate",
+      "domains": [
+        "kubernetes",
+        "security"
+      ],
+      "examples": [],
+      "expansion_normalized": "certificate",
+      "expansions": [
+        "Certificate"
+      ],
+      "meaning_short": "A cryptographically secure file used to validate access to the Kubernetes cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A cryptographically secure file used to validate access to the Kubernetes cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Certificate",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-certificate"
+        }
+      ],
+      "term": "Certificate",
+      "term_normalized": "certificate",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cgroup control group:cgroup control group",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "cgroup control group",
+      "expansions": [
+        "cgroup (control group)"
+      ],
+      "meaning_short": "A group of Linux processes with optional resource isolation, accounting and limits.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A group of Linux processes with optional resource isolation, accounting and limits.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: cgroup (control group)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cgroup"
+        }
+      ],
+      "term": "cgroup (control group)",
+      "term_normalized": "cgroup control group",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cidr:classless inter domain routing",
+      "domains": [
+        "kubernetes",
+        "networking"
+      ],
+      "examples": [],
+      "expansion_normalized": "classless inter domain routing",
+      "expansions": [
+        "Classless Inter-Domain Routing"
+      ],
+      "meaning_short": "CIDR is a notation for describing blocks of IP addresses and is used heavily in various networking configurations.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "CIDR is a notation for describing blocks of IP addresses and is used heavily in various networking configurations.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: CIDR",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cidr"
+        }
+      ],
+      "term": "CIDR",
+      "term_normalized": "cidr",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cla contributor license agreement:cla contributor license agreement",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "cla contributor license agreement",
+      "expansions": [
+        "CLA (Contributor License Agreement)"
+      ],
+      "meaning_short": "Terms under which a contributor grants a license to an open source project for their contributions.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Terms under which a contributor grants a license to an open source project for their contributions.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: CLA (Contributor License Agreement)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cla"
+        }
+      ],
+      "term": "CLA (Contributor License Agreement)",
+      "term_normalized": "cla contributor license agreement",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cloud controller manager:cloud controller manager",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "cloud controller manager",
+      "expansions": [
+        "Cloud Controller Manager"
+      ],
+      "meaning_short": "Control plane component that integrates Kubernetes with third-party cloud providers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Control plane component that integrates Kubernetes with third-party cloud providers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cloud Controller Manager",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cloud-controller-manager"
+        }
+      ],
+      "term": "Cloud Controller Manager",
+      "term_normalized": "cloud controller manager",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cloud provider:cloud provider",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "cloud provider",
+      "expansions": [
+        "Cloud Provider"
+      ],
+      "meaning_short": "An organization that offers a cloud computing platform.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An organization that offers a cloud computing platform.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cloud Provider",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cloud-provider"
+        }
+      ],
+      "term": "Cloud Provider",
+      "term_normalized": "cloud provider",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cluster architect:cluster architect",
+      "domains": [
+        "kubernetes",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "cluster architect",
+      "expansions": [
+        "Cluster Architect"
+      ],
+      "meaning_short": "A person who designs infrastructure that involves one or more Kubernetes clusters.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person who designs infrastructure that involves one or more Kubernetes clusters.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cluster Architect",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster-architect"
+        }
+      ],
+      "term": "Cluster Architect",
+      "term_normalized": "cluster architect",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cluster infrastructure:cluster infrastructure",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "cluster infrastructure",
+      "expansions": [
+        "Cluster Infrastructure"
+      ],
+      "meaning_short": "The infrastructure layer provides and maintains VMs, networking, security groups and others.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The infrastructure layer provides and maintains VMs, networking, security groups and others.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cluster Infrastructure",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster-infrastructure"
+        }
+      ],
+      "term": "Cluster Infrastructure",
+      "term_normalized": "cluster infrastructure",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cluster operations:cluster operations",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "cluster operations",
+      "expansions": [
+        "Cluster Operations"
+      ],
+      "meaning_short": "The work involved in managing a Kubernetes cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The work involved in managing a Kubernetes cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cluster Operations",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster-operations"
+        }
+      ],
+      "term": "Cluster Operations",
+      "term_normalized": "cluster operations",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cluster operator:cluster operator",
+      "domains": [
+        "kubernetes",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "cluster operator",
+      "expansions": [
+        "Cluster Operator"
+      ],
+      "meaning_short": "A person who configures, controls, and monitors clusters.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person who configures, controls, and monitors clusters.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cluster Operator",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster-operator"
+        }
+      ],
+      "term": "Cluster Operator",
+      "term_normalized": "cluster operator",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cluster:cluster",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "cluster",
+      "expansions": [
+        "Cluster"
+      ],
+      "meaning_short": "A set of worker machines, called nodes, that run containerized applications. Every cluster has at least one worker node.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A set of worker machines, called nodes, that run containerized applications. Every cluster has at least one worker node.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cluster",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster"
+        }
+      ],
+      "term": "Cluster",
+      "term_normalized": "cluster",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cloud native computing foundation cncf:cloud native computing foundation cncf",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "cloud native computing foundation cncf",
+      "expansions": [
+        "Cloud Native Computing Foundation (CNCF)"
+      ],
+      "meaning_short": "Cloud Native Computing Foundation",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Cloud Native Computing Foundation",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Cloud Native Computing Foundation (CNCF)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cncf"
+        }
+      ],
+      "term": "Cloud Native Computing Foundation (CNCF)",
+      "term_normalized": "cloud native computing foundation cncf",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container network interface cni:container network interface cni",
+      "domains": [
+        "kubernetes",
+        "networking"
+      ],
+      "examples": [],
+      "expansion_normalized": "container network interface cni",
+      "expansions": [
+        "Container network interface (CNI)"
+      ],
+      "meaning_short": "Container network interface (CNI) plugins are a type of Network plugin that adheres to the appc/CNI specification.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Container network interface (CNI) plugins are a type of Network plugin that adheres to the appc/CNI specification.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container network interface (CNI)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cni"
+        }
+      ],
+      "term": "Container network interface (CNI)",
+      "term_normalized": "container network interface cni",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "code contributor:code contributor",
+      "domains": [
+        "kubernetes",
+        "community",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "code contributor",
+      "expansions": [
+        "Code Contributor"
+      ],
+      "meaning_short": "A person who develops and contributes code to the Kubernetes open source codebase.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A person who develops and contributes code to the Kubernetes open source codebase.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Code Contributor",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-code-contributor"
+        }
+      ],
+      "term": "Code Contributor",
+      "term_normalized": "code contributor",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "condition:condition",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "condition",
+      "expansions": [
+        "Condition"
+      ],
+      "meaning_short": "A condition represents the current state of a Kubernetes resource, providing information about whether certain aspects of the resource are true.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A condition represents the current state of a Kubernetes resource, providing information about whether certain aspects of the resource are true.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Condition",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-condition"
+        }
+      ],
+      "term": "Condition",
+      "term_normalized": "condition",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "configmap:configmap",
+      "domains": [
+        "kubernetes",
+        "core-object"
+      ],
+      "examples": [],
+      "expansion_normalized": "configmap",
+      "expansions": [
+        "ConfigMap"
+      ],
+      "meaning_short": "An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: ConfigMap",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-configmap"
+        }
+      ],
+      "term": "ConfigMap",
+      "term_normalized": "configmap",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container environment variables:container environment variables",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "container environment variables",
+      "expansions": [
+        "Container Environment Variables"
+      ],
+      "meaning_short": "Container environment variables are name=value pairs that provide useful information into containers running in a Pod.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Container environment variables are name=value pairs that provide useful information into containers running in a Pod.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Environment Variables",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-container-env-variables"
+        }
+      ],
+      "term": "Container Environment Variables",
+      "term_normalized": "container environment variables",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container lifecycle hooks:container lifecycle hooks",
+      "domains": [
+        "kubernetes",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "container lifecycle hooks",
+      "expansions": [
+        "Container Lifecycle Hooks"
+      ],
+      "meaning_short": "The lifecycle hooks expose events in the container management lifecycle and let the user run code when the events occur.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The lifecycle hooks expose events in the container management lifecycle and let the user run code when the events occur.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Lifecycle Hooks",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-container-lifecycle-hooks"
+        }
+      ],
+      "term": "Container Lifecycle Hooks",
+      "term_normalized": "container lifecycle hooks",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container runtime:container runtime",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "container runtime",
+      "expansions": [
+        "Container Runtime"
+      ],
+      "meaning_short": "The container runtime is the software that is responsible for running containers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The container runtime is the software that is responsible for running containers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Runtime",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-container-runtime"
+        }
+      ],
+      "term": "Container Runtime",
+      "term_normalized": "container runtime",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container:container",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "container",
+      "expansions": [
+        "Container"
+      ],
+      "meaning_short": "A lightweight and portable executable image that contains software and all of its dependencies.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A lightweight and portable executable image that contains software and all of its dependencies.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-container"
+        }
+      ],
+      "term": "Container",
+      "term_normalized": "container",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "containerd:containerd",
+      "domains": [
+        "kubernetes",
+        "tool"
+      ],
+      "examples": [],
+      "expansion_normalized": "containerd",
+      "expansions": [
+        "containerd"
+      ],
+      "meaning_short": "A container runtime with an emphasis on simplicity, robustness and portability",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A container runtime with an emphasis on simplicity, robustness and portability",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: containerd",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-containerd"
+        }
+      ],
+      "term": "containerd",
+      "term_normalized": "containerd",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "contributor:contributor",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "contributor",
+      "expansions": [
+        "Contributor"
+      ],
+      "meaning_short": "Someone who donates code, documentation, or their time to help the Kubernetes project or community.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Someone who donates code, documentation, or their time to help the Kubernetes project or community.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Contributor",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-contributor"
+        }
+      ],
+      "term": "Contributor",
+      "term_normalized": "contributor",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "control plane:control plane",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "control plane",
+      "expansions": [
+        "Control Plane"
+      ],
+      "meaning_short": "The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Control Plane",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-control-plane"
+        }
+      ],
+      "term": "Control Plane",
+      "term_normalized": "control plane",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "controller:controller",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "controller",
+      "expansions": [
+        "Controller"
+      ],
+      "meaning_short": "A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Controller",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-controller"
+        }
+      ],
+      "term": "Controller",
+      "term_normalized": "controller",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cri o:cri o",
+      "domains": [
+        "kubernetes",
+        "tool"
+      ],
+      "examples": [],
+      "expansion_normalized": "cri o",
+      "expansions": [
+        "CRI-O"
+      ],
+      "meaning_short": "A lightweight container runtime specifically for Kubernetes",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A lightweight container runtime specifically for Kubernetes",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: CRI-O",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cri-o"
+        }
+      ],
+      "term": "CRI-O",
+      "term_normalized": "cri o",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container runtime interface cri:container runtime interface cri",
+      "domains": [
+        "kubernetes"
+      ],
+      "examples": [],
+      "expansion_normalized": "container runtime interface cri",
+      "expansions": [
+        "Container Runtime Interface (CRI)"
+      ],
+      "meaning_short": "Protocol for communication between the kubelet and the local container runtime.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Protocol for communication between the kubelet and the local container runtime.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Runtime Interface (CRI)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cri"
+        }
+      ],
+      "term": "Container Runtime Interface (CRI)",
+      "term_normalized": "container runtime interface cri",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "cronjob:cronjob",
+      "domains": [
+        "kubernetes",
+        "core-object",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "cronjob",
+      "expansions": [
+        "CronJob"
+      ],
+      "meaning_short": "A repeating task (a Job) that runs on a regular schedule.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A repeating task (a Job) that runs on a regular schedule.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: CronJob",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-cronjob"
+        }
+      ],
+      "term": "CronJob",
+      "term_normalized": "cronjob",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "container storage interface csi:container storage interface csi",
+      "domains": [
+        "kubernetes",
+        "storage"
+      ],
+      "examples": [],
+      "expansion_normalized": "container storage interface csi",
+      "expansions": [
+        "Container Storage Interface (CSI)"
+      ],
+      "meaning_short": "The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Container Storage Interface (CSI)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-csi"
+        }
+      ],
+      "term": "Container Storage Interface (CSI)",
+      "term_normalized": "container storage interface csi",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "customresourcedefinition:customresourcedefinition",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "customresourcedefinition",
+      "expansions": [
+        "CustomResourceDefinition"
+      ],
+      "meaning_short": "Custom code that defines a resource to add to your Kubernetes API server without building a complete custom server.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Custom code that defines a resource to add to your Kubernetes API server without building a complete custom server.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: CustomResourceDefinition",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-CustomResourceDefinition"
+        }
+      ],
+      "term": "CustomResourceDefinition",
+      "term_normalized": "customresourcedefinition",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "daemonset:daemonset",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "core-object",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "daemonset",
+      "expansions": [
+        "DaemonSet"
+      ],
+      "meaning_short": "Ensures a copy of a Pod is running across a set of nodes in a cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Ensures a copy of a Pod is running across a set of nodes in a cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: DaemonSet",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-daemonset"
+        }
+      ],
+      "term": "DaemonSet",
+      "term_normalized": "daemonset",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "data plane:data plane",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "data plane",
+      "expansions": [
+        "Data Plane"
+      ],
+      "meaning_short": "The layer that provides capacity such as CPU, memory, network, and storage so that the containers can run and connect to a network.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The layer that provides capacity such as CPU, memory, network, and storage so that the containers can run and connect to a network.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Data Plane",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-data-plane"
+        }
+      ],
+      "term": "Data Plane",
+      "term_normalized": "data plane",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "deployment:deployment",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "core-object",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "deployment",
+      "expansions": [
+        "Deployment"
+      ],
+      "meaning_short": "Manages a replicated application on your cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Manages a replicated application on your cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Deployment",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-deployment"
+        }
+      ],
+      "term": "Deployment",
+      "term_normalized": "deployment",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "developer disambiguation:developer disambiguation",
+      "domains": [
+        "kubernetes",
+        "community",
+        "user-type"
+      ],
+      "examples": [],
+      "expansion_normalized": "developer disambiguation",
+      "expansions": [
+        "Developer (disambiguation)"
+      ],
+      "meaning_short": "May refer to&#58; Application Developer, Code Contributor, or Platform Developer.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "May refer to&#58; Application Developer, Code Contributor, or Platform Developer.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Developer (disambiguation)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-developer"
+        }
+      ],
+      "term": "Developer (disambiguation)",
+      "term_normalized": "developer disambiguation",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "device plugin:device plugin",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "device plugin",
+      "expansions": [
+        "Device Plugin"
+      ],
+      "meaning_short": "Software extensions to let Pods access devices that need vendor-specific initialization or setup",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Software extensions to let Pods access devices that need vendor-specific initialization or setup",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Device Plugin",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-device-plugin"
+        }
+      ],
+      "term": "Device Plugin",
+      "term_normalized": "device plugin",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "device:device",
+      "domains": [
+        "kubernetes",
+        "extension",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "device",
+      "expansions": [
+        "Device"
+      ],
+      "meaning_short": "Any resource that's directly or indirectly attached your cluster's nodes, like GPUs or circuit boards.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Any resource that's directly or indirectly attached your cluster's nodes, like GPUs or circuit boards.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Device",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-device"
+        }
+      ],
+      "term": "Device",
+      "term_normalized": "device",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "deviceclass:deviceclass",
+      "domains": [
+        "kubernetes",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "deviceclass",
+      "expansions": [
+        "DeviceClass"
+      ],
+      "meaning_short": "A category of devices in the cluster. Users can claim specific devices in a DeviceClass.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A category of devices in the cluster. Users can claim specific devices in a DeviceClass.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: DeviceClass",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-deviceclass"
+        }
+      ],
+      "term": "DeviceClass",
+      "term_normalized": "deviceclass",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "disruption:disruption",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "disruption",
+      "expansions": [
+        "Disruption"
+      ],
+      "meaning_short": "An event that leads to Pod(s) going out of service",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An event that leads to Pod(s) going out of service",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Disruption",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-disruption"
+        }
+      ],
+      "term": "Disruption",
+      "term_normalized": "disruption",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "docker:specifically docker engine",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "specifically docker engine",
+      "expansions": [
+        "specifically, Docker Engine"
+      ],
+      "meaning_short": "Docker is a software technology providing operating-system-level virtualization also known as containers.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Docker is a software technology providing operating-system-level virtualization also known as containers.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Docker",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-docker"
+        }
+      ],
+      "term": "Docker",
+      "term_normalized": "docker",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "dockershim:dockershim",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "dockershim",
+      "expansions": [
+        "Dockershim"
+      ],
+      "meaning_short": "A component of Kubernetes v1.23 and earlier, which allows Kubernetes system components to communicate with Docker Engine.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A component of Kubernetes v1.23 and earlier, which allows Kubernetes system components to communicate with Docker Engine.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Dockershim",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-dockershim"
+        }
+      ],
+      "term": "Dockershim",
+      "term_normalized": "dockershim",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "downstream disambiguation:downstream disambiguation",
+      "domains": [
+        "kubernetes",
+        "community"
+      ],
+      "examples": [],
+      "expansion_normalized": "downstream disambiguation",
+      "expansions": [
+        "Downstream (disambiguation)"
+      ],
+      "meaning_short": "May refer to: code in the Kubernetes ecosystem that depends upon the core Kubernetes codebase or a forked repo.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "May refer to: code in the Kubernetes ecosystem that depends upon the core Kubernetes codebase or a forked repo.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Downstream (disambiguation)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-downstream"
+        }
+      ],
+      "term": "Downstream (disambiguation)",
+      "term_normalized": "downstream disambiguation",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "downward api:downward api",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "downward api",
+      "expansions": [
+        "Downward API"
+      ],
+      "meaning_short": "A mechanism to expose Pod and container field values to code running in a container.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A mechanism to expose Pod and container field values to code running in a container.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Downward API",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-downward-api"
+        }
+      ],
+      "term": "Downward API",
+      "term_normalized": "downward api",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "dynamic resource allocation:dynamic resource allocation",
+      "domains": [
+        "kubernetes",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "dynamic resource allocation",
+      "expansions": [
+        "Dynamic Resource Allocation"
+      ],
+      "meaning_short": "A Kubernetes feature for requesting and sharing resources, like hardware accelerators, among Pods.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A Kubernetes feature for requesting and sharing resources, like hardware accelerators, among Pods.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Dynamic Resource Allocation",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-dra"
+        }
+      ],
+      "term": "Dynamic Resource Allocation",
+      "term_normalized": "dynamic resource allocation",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "drain:drain",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "drain",
+      "expansions": [
+        "Drain"
+      ],
+      "meaning_short": "Safely evicts Pods from a Node to prepare for maintenance or removal.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Safely evicts Pods from a Node to prepare for maintenance or removal.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Drain",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-drain"
+        }
+      ],
+      "term": "Drain",
+      "term_normalized": "drain",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "duration:duration",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "duration",
+      "expansions": [
+        "Duration"
+      ],
+      "meaning_short": "A string value representing an amount of time.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A string value representing an amount of time.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Duration",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-duration"
+        }
+      ],
+      "term": "Duration",
+      "term_normalized": "duration",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "dynamic volume provisioning:dynamic volume provisioning",
+      "domains": [
+        "kubernetes",
+        "storage"
+      ],
+      "examples": [],
+      "expansion_normalized": "dynamic volume provisioning",
+      "expansions": [
+        "Dynamic Volume Provisioning"
+      ],
+      "meaning_short": "Allows users to request automatic creation of storage Volumes.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Allows users to request automatic creation of storage Volumes.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Dynamic Volume Provisioning",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-dynamicvolumeprovisioning"
+        }
+      ],
+      "term": "Dynamic Volume Provisioning",
+      "term_normalized": "dynamic volume provisioning",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "endpointslice:endpointslice",
+      "domains": [
+        "kubernetes",
+        "networking"
+      ],
+      "examples": [],
+      "expansion_normalized": "endpointslice",
+      "expansions": [
+        "EndpointSlice"
+      ],
+      "meaning_short": "EndpointSlices track the IP addresses of Pods for Services.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "EndpointSlices track the IP addresses of Pods for Services.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: EndpointSlice",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-endpoint-slice"
+        }
+      ],
+      "term": "EndpointSlice",
+      "term_normalized": "endpointslice",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "endpoints:endpoints",
+      "domains": [
+        "kubernetes",
+        "networking"
+      ],
+      "examples": [],
+      "expansion_normalized": "endpoints",
+      "expansions": [
+        "Endpoints"
+      ],
+      "meaning_short": "(Deprecated) API representing endpoints of a Service",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "(Deprecated) API representing endpoints of a Service",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Endpoints",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-endpoints"
+        }
+      ],
+      "term": "Endpoints",
+      "term_normalized": "endpoints",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "ephemeral container:ephemeral container",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "ephemeral container",
+      "expansions": [
+        "Ephemeral Container"
+      ],
+      "meaning_short": "A type of container type that you can temporarily run inside a Pod",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A type of container type that you can temporarily run inside a Pod",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Ephemeral Container",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-ephemeral-container"
+        }
+      ],
+      "term": "Ephemeral Container",
+      "term_normalized": "ephemeral container",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "etcd:etcd",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "storage"
+      ],
+      "examples": [],
+      "expansion_normalized": "etcd",
+      "expansions": [
+        "etcd"
+      ],
+      "meaning_short": "Consistent and highly-available key value store used as backing store of Kubernetes for all cluster data.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Consistent and highly-available key value store used as backing store of Kubernetes for all cluster data.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: etcd",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-etcd"
+        }
+      ],
+      "term": "etcd",
+      "term_normalized": "etcd",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "event:event",
+      "domains": [
+        "kubernetes",
+        "core-object",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "event",
+      "expansions": [
+        "Event"
+      ],
+      "meaning_short": "Kubernetes objects that describe some state change in the cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Kubernetes objects that describe some state change in the cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Event",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-event"
+        }
+      ],
+      "term": "Event",
+      "term_normalized": "event",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "eviction:eviction",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "eviction",
+      "expansions": [
+        "Eviction"
+      ],
+      "meaning_short": "Process of terminating one or more Pods on Nodes",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Process of terminating one or more Pods on Nodes",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Eviction",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-eviction"
+        }
+      ],
+      "term": "Eviction",
+      "term_normalized": "eviction",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "extensions:extensions",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "extensions",
+      "expansions": [
+        "Extensions"
+      ],
+      "meaning_short": "Extensions are software components that extend and deeply integrate with Kubernetes to support new types of hardware.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Extensions are software components that extend and deeply integrate with Kubernetes to support new types of hardware.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Extensions",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-Extensions"
+        }
+      ],
+      "term": "Extensions",
+      "term_normalized": "extensions",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "feature gate:feature gate",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "feature gate",
+      "expansions": [
+        "Feature gate"
+      ],
+      "meaning_short": "A way to control whether or not a particular Kubernetes feature is enabled.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A way to control whether or not a particular Kubernetes feature is enabled.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Feature gate",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-feature-gate"
+        }
+      ],
+      "term": "Feature gate",
+      "term_normalized": "feature gate",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "finalizer:finalizer",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "finalizer",
+      "expansions": [
+        "Finalizer"
+      ],
+      "meaning_short": "A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Finalizer",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-finalizer"
+        }
+      ],
+      "term": "Finalizer",
+      "term_normalized": "finalizer",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "flexvolume:flexvolume",
+      "domains": [
+        "kubernetes",
+        "storage"
+      ],
+      "examples": [],
+      "expansion_normalized": "flexvolume",
+      "expansions": [
+        "FlexVolume"
+      ],
+      "meaning_short": "FlexVolume is a deprecated interface for creating out-of-tree volume plugins. The is a newer interface that addresses several problems with FlexVolume.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "FlexVolume is a deprecated interface for creating out-of-tree volume plugins. The is a newer interface that addresses several problems with FlexVolume.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: FlexVolume",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-flexvolume"
+        }
+      ],
+      "term": "FlexVolume",
+      "term_normalized": "flexvolume",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "garbage collection:garbage collection",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "garbage collection",
+      "expansions": [
+        "Garbage Collection"
+      ],
+      "meaning_short": "A collective term for the various mechanisms Kubernetes uses to clean up cluster resources.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A collective term for the various mechanisms Kubernetes uses to clean up cluster resources.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Garbage Collection",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-garbage-collection"
+        }
+      ],
+      "term": "Garbage Collection",
+      "term_normalized": "garbage collection",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "gateway api:gateway api",
+      "domains": [
+        "kubernetes",
+        "networking",
+        "architecture",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "gateway api",
+      "expansions": [
+        "Gateway API"
+      ],
+      "meaning_short": "An API for modeling service networking in Kubernetes.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An API for modeling service networking in Kubernetes.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Gateway API",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-gateway-api"
+        }
+      ],
+      "term": "Gateway API",
+      "term_normalized": "gateway api",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "group version resource:group version resource",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "group version resource",
+      "expansions": [
+        "Group Version Resource"
+      ],
+      "meaning_short": "The API group, API version and name of a Kubernetes API.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The API group, API version and name of a Kubernetes API.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Group Version Resource",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-gvr"
+        }
+      ],
+      "term": "Group Version Resource",
+      "term_normalized": "group version resource",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "helm chart:helm chart",
+      "domains": [
+        "kubernetes",
+        "tool"
+      ],
+      "examples": [],
+      "expansion_normalized": "helm chart",
+      "expansions": [
+        "Helm Chart"
+      ],
+      "meaning_short": "A package of pre-configured Kubernetes configurations that can be managed with the Helm tool.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A package of pre-configured Kubernetes configurations that can be managed with the Helm tool.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Helm Chart",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-helm-chart"
+        }
+      ],
+      "term": "Helm Chart",
+      "term_normalized": "helm chart",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "horizontal pod autoscaler:horizontal pod autoscaler",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "horizontal pod autoscaler",
+      "expansions": [
+        "Horizontal Pod Autoscaler"
+      ],
+      "meaning_short": "Object that automatically scales the number of pod replicas based on targeted resource utilization or custom metric targets.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Object that automatically scales the number of pod replicas based on targeted resource utilization or custom metric targets.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Horizontal Pod Autoscaler",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-horizontal-pod-autoscaler"
+        }
+      ],
+      "term": "Horizontal Pod Autoscaler",
+      "term_normalized": "horizontal pod autoscaler",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "hostaliases:hostaliases",
+      "domains": [
+        "kubernetes",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "hostaliases",
+      "expansions": [
+        "HostAliases"
+      ],
+      "meaning_short": "A HostAliases is a mapping between the IP address and hostname to be injected into a Pod's hosts file.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A HostAliases is a mapping between the IP address and hostname to be injected into a Pod's hosts file.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: HostAliases",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-HostAliases"
+        }
+      ],
+      "term": "HostAliases",
+      "term_normalized": "hostaliases",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "image:image",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "image",
+      "expansions": [
+        "Image"
+      ],
+      "meaning_short": "Stored instance of a container that holds a set of software needed to run an application.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Stored instance of a container that holds a set of software needed to run an application.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Image",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-image"
+        }
+      ],
+      "term": "Image",
+      "term_normalized": "image",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "immutable infrastructure:immutable infrastructure",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "immutable infrastructure",
+      "expansions": [
+        "Immutable Infrastructure"
+      ],
+      "meaning_short": "Immutable Infrastructure refers to computer infrastructure (virtual machines, containers, network appliances) that cannot be changed once deployed",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Immutable Infrastructure refers to computer infrastructure (virtual machines, containers, network appliances) that cannot be changed once deployed",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Immutable Infrastructure",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-immutable-infrastructure"
+        }
+      ],
+      "term": "Immutable Infrastructure",
+      "term_normalized": "immutable infrastructure",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "resource infrastructure:resource infrastructure",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "resource infrastructure",
+      "expansions": [
+        "Resource (infrastructure)"
+      ],
+      "meaning_short": "A defined amount of infrastructure available for consumption (CPU, memory, etc).",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A defined amount of infrastructure available for consumption (CPU, memory, etc).",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Resource (infrastructure)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-infrastructure-resource"
+        }
+      ],
+      "term": "Resource (infrastructure)",
+      "term_normalized": "resource infrastructure",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "ingress:ingress",
+      "domains": [
+        "kubernetes",
+        "networking",
+        "architecture",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "ingress",
+      "expansions": [
+        "Ingress"
+      ],
+      "meaning_short": "An API object that manages external access to the services in a cluster, typically HTTP.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An API object that manages external access to the services in a cluster, typically HTTP.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Ingress",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-ingress"
+        }
+      ],
+      "term": "Ingress",
+      "term_normalized": "ingress",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "init container:init container",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "init container",
+      "expansions": [
+        "Init Container"
+      ],
+      "meaning_short": "One or more initialization containers that must run to completion before any app containers run.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "One or more initialization containers that must run to completion before any app containers run.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Init Container",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-init-container"
+        }
+      ],
+      "term": "Init Container",
+      "term_normalized": "init container",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "istio:istio",
+      "domains": [
+        "kubernetes",
+        "networking",
+        "architecture",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "istio",
+      "expansions": [
+        "Istio"
+      ],
+      "meaning_short": "An open platform (not Kubernetes-specific) that provides a uniform way to integrate microservices, manage traffic flow, enforce policies, and aggregate telemetry data.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An open platform (not Kubernetes-specific) that provides a uniform way to integrate microservices, manage traffic flow, enforce policies, and aggregate telemetry data.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Istio",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-istio"
+        }
+      ],
+      "term": "Istio",
+      "term_normalized": "istio",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "job:job",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "core-object",
+        "workload"
+      ],
+      "examples": [],
+      "expansion_normalized": "job",
+      "expansions": [
+        "Job"
+      ],
+      "meaning_short": "A finite or batch task that runs to completion.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A finite or batch task that runs to completion.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Job",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-job"
+        }
+      ],
+      "term": "Job",
+      "term_normalized": "job",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "json web token jwt:json web token jwt",
+      "domains": [
+        "kubernetes",
+        "security",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "json web token jwt",
+      "expansions": [
+        "JSON Web Token (JWT)"
+      ],
+      "meaning_short": "A means of representing claims to be transferred between two parties.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A means of representing claims to be transferred between two parties.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: JSON Web Token (JWT)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-jwt"
+        }
+      ],
+      "term": "JSON Web Token (JWT)",
+      "term_normalized": "json web token jwt",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kops kubernetes operations:kops kubernetes operations",
+      "domains": [
+        "kubernetes",
+        "tool",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "kops kubernetes operations",
+      "expansions": [
+        "kOps (Kubernetes Operations)"
+      ],
+      "meaning_short": "kOps will not only help you create, destroy, upgrade and maintain production-grade, highly available, Kubernetes cluster, but it will also provision the necessary cloud infrastructure.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "kOps will not only help you create, destroy, upgrade and maintain production-grade, highly available, Kubernetes cluster, but it will also provision the necessary cloud infrastructure.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: kOps (Kubernetes Operations)",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kops"
+        }
+      ],
+      "term": "kOps (Kubernetes Operations)",
+      "term_normalized": "kops kubernetes operations",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "api server:api server",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "api server",
+      "expansions": [
+        "API server"
+      ],
+      "meaning_short": "Control plane component that serves the Kubernetes API.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Control plane component that serves the Kubernetes API.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: API server",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kube-apiserver"
+        }
+      ],
+      "term": "API server",
+      "term_normalized": "api server",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kube controller manager:kube controller manager",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "kube controller manager",
+      "expansions": [
+        "kube-controller-manager"
+      ],
+      "meaning_short": "Control Plane component that runs controller processes.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Control Plane component that runs controller processes.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: kube-controller-manager",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kube-controller-manager"
+        }
+      ],
+      "term": "kube-controller-manager",
+      "term_normalized": "kube controller manager",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kube proxy:kube proxy",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "networking"
+      ],
+      "examples": [],
+      "expansion_normalized": "kube proxy",
+      "expansions": [
+        "kube-proxy"
+      ],
+      "meaning_short": "`kube-proxy` is a network proxy that runs on each node in the cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "`kube-proxy` is a network proxy that runs on each node in the cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: kube-proxy",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kube-proxy"
+        }
+      ],
+      "term": "kube-proxy",
+      "term_normalized": "kube proxy",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kube scheduler:kube scheduler",
+      "domains": [
+        "kubernetes",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "kube scheduler",
+      "expansions": [
+        "kube-scheduler"
+      ],
+      "meaning_short": "Control plane component that watches for newly created pods with no assigned node, and selects a node for them to run on.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Control plane component that watches for newly created pods with no assigned node, and selects a node for them to run on.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: kube-scheduler",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kube-scheduler"
+        }
+      ],
+      "term": "kube-scheduler",
+      "term_normalized": "kube scheduler",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kubeadm:kubeadm",
+      "domains": [
+        "kubernetes",
+        "tool",
+        "operation"
+      ],
+      "examples": [],
+      "expansion_normalized": "kubeadm",
+      "expansions": [
+        "Kubeadm"
+      ],
+      "meaning_short": "A tool for quickly installing Kubernetes and setting up a secure cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A tool for quickly installing Kubernetes and setting up a secure cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Kubeadm",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kubeadm"
+        }
+      ],
+      "term": "Kubeadm",
+      "term_normalized": "kubeadm",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kubectl:kubectl",
+      "domains": [
+        "kubernetes",
+        "tool",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "kubectl",
+      "expansions": [
+        "Kubectl"
+      ],
+      "meaning_short": "A command line tool for communicating with a Kubernetes cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A command line tool for communicating with a Kubernetes cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Kubectl",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kubectl"
+        }
+      ],
+      "term": "Kubectl",
+      "term_normalized": "kubectl",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kubelet:kubelet",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "kubelet",
+      "expansions": [
+        "Kubelet"
+      ],
+      "meaning_short": "An agent that runs on each node in the cluster. It makes sure that containers are running in a pod.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "An agent that runs on each node in the cluster. It makes sure that containers are running in a pod.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Kubelet",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kubelet"
+        }
+      ],
+      "term": "Kubelet",
+      "term_normalized": "kubelet",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "kubernetes api:kubernetes api",
+      "domains": [
+        "kubernetes",
+        "fundamental",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "kubernetes api",
+      "expansions": [
+        "Kubernetes API"
+      ],
+      "meaning_short": "The application that serves Kubernetes functionality through a RESTful interface and stores the state of the cluster.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "The application that serves Kubernetes functionality through a RESTful interface and stores the state of the cluster.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Kubernetes API",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-kubernetes-api"
+        }
+      ],
+      "term": "Kubernetes API",
+      "term_normalized": "kubernetes api",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "label:label",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "label",
+      "expansions": [
+        "Label"
+      ],
+      "meaning_short": "Tags objects with identifying attributes that are meaningful and relevant to users.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Tags objects with identifying attributes that are meaningful and relevant to users.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Label",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-label"
+        }
+      ],
+      "term": "Label",
+      "term_normalized": "label",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "limitrange:limitrange",
+      "domains": [
+        "kubernetes",
+        "core-object",
+        "fundamental",
+        "architecture"
+      ],
+      "examples": [],
+      "expansion_normalized": "limitrange",
+      "expansions": [
+        "LimitRange"
+      ],
+      "meaning_short": "Provides constraints to limit resource consumption per Containers or Pods in a namespace.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Provides constraints to limit resource consumption per Containers or Pods in a namespace.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: LimitRange",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-limitrange"
+        }
+      ],
+      "term": "LimitRange",
+      "term_normalized": "limitrange",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "logging:logging",
+      "domains": [
+        "kubernetes",
+        "architecture",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "logging",
+      "expansions": [
+        "Logging"
+      ],
+      "meaning_short": "Logs are the list of events that are logged by cluster or application.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "Logs are the list of events that are logged by cluster or application.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Logging",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-logging"
+        }
+      ],
+      "term": "Logging",
+      "term_normalized": "logging",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "managed service:managed service",
+      "domains": [
+        "kubernetes",
+        "extension"
+      ],
+      "examples": [],
+      "expansion_normalized": "managed service",
+      "expansions": [
+        "Managed Service"
+      ],
+      "meaning_short": "A software offering maintained by a third-party provider.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A software offering maintained by a third-party provider.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Managed Service",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-managed-service"
+        }
+      ],
+      "term": "Managed Service",
+      "term_normalized": "managed service",
+      "confidence_tier": "T2"
+    },
+    {
+      "dedup_key": "manifest:manifest",
+      "domains": [
+        "kubernetes",
+        "fundamental"
+      ],
+      "examples": [],
+      "expansion_normalized": "manifest",
+      "expansions": [
+        "Manifest"
+      ],
+      "meaning_short": "A serialized specification of one or more Kubernetes API objects.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes Documentation",
+          "retrieved_at": "2026-06-19T17:24:51.217Z",
+          "snippet": "A serialized specification of one or more Kubernetes API objects.",
+          "source_quality": "canonical",
+          "title": "Kubernetes glossary: Manifest",
+          "url": "https://kubernetes.io/docs/reference/glossary/?all=true#term-manifest"
+        }
+      ],
+      "term": "Manifest",
+      "term_normalized": "manifest",
+      "confidence_tier": "T2"
+    }
+  ],
+  "generated_at": "2026-06-19T17:24:52.762Z",
+  "source": "kubernetes-glossary"
+}

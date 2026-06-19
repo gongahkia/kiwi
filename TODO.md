@@ -37,7 +37,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] NIST CSRC glossary scraper (public domain) — done when ≥1K security terms ingested.
 - [ ] Linux Foundation glossary scraper — done when LF-published terms ingested where licensed.
 - [ ] PostgreSQL glossary scraper — done when Postgres-doc terms ingested.
-- [ ] Kubernetes glossary scraper — done when k8s-doc terms ingested w/ CC-BY 4.0.
 
 ## P1 — Corpus quality controls
 - [ ] Build benchmark gate: corpus refresh PR is blocked if hit-rate drops >1pp — done when PR check fails in test scenario.
