@@ -36,7 +36,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Azure service-name expansion scraper — done when ≥150 Azure services covered.
 - [ ] NIST CSRC glossary scraper (public domain) — done when ≥1K security terms ingested.
 - [ ] Linux Foundation glossary scraper — done when LF-published terms ingested where licensed.
-- [ ] PostgreSQL glossary scraper — done when Postgres-doc terms ingested.
 
 ## P1 — Corpus quality controls
 - [ ] Build benchmark gate: corpus refresh PR is blocked if hit-rate drops >1pp — done when PR check fails in test scenario.
