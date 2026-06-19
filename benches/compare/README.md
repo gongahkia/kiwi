@@ -30,3 +30,8 @@ Adapters:
   expose it on `PATH`, or set `MERMAID_ASCII_BIN=/path/to/mermaid-ascii`.
   The adapter invokes `mermaid-ascii --file <input> --ascii` and records
   nonzero exits as per-input errors.
+* `npm run bench:compare:pgavlin-mermaid-ascii` renders the manifest through
+  the `pgavlin/mermaid-ascii` Go CLI. Install that fork separately and expose
+  it on `PATH`, or set `PGAVLIN_MERMAID_ASCII_BIN=/path/to/mermaid-ascii`.
+  The adapter invokes `mermaid-ascii --file <input> --ascii` and records
+  nonzero exits as per-input errors.

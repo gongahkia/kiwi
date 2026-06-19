@@ -351,7 +351,7 @@
 - [x] Create `benches/compare/` directory with shared input corpus
 - [x] Wire `beautiful-mermaid` invocation (Node.js subprocess)
 - [x] Wire `AlexanderGrooff/mermaid-ascii` invocation (Go binary subprocess)
-- [ ] Wire `pgavlin/mermaid-ascii` invocation (Go binary subprocess)
+- [x] Wire `pgavlin/mermaid-ascii` invocation (Go binary subprocess)
 - [ ] Wire `mermaid2term` invocation (Crystal/npm)
 - [ ] Wire `mermaid-cli` invocation (headless Chrome, ground-truth SVG)
 - [ ] Wire `@tldraw/mermaid` invocation (Node + headless Chromium, sketchy SVG baseline) — added after threepointone/sunilpai-dev@f4bd28a published the pattern
