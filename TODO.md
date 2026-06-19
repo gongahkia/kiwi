@@ -83,7 +83,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Record demo of Claude Desktop calling wat MCP — done when GIF in `/docs/assets/mcp-demo.gif`.
 
 ## P4 — Self-host packaging
-- [ ] Write `Dockerfile` for web app — done when image builds <500MB and starts on `:3000`.
 - [ ] Write `Dockerfile` for Slack app — done when image builds and runs in socket-mode + HTTP-mode.
 - [ ] Write `docker-compose.yml` bundling web + slack + postgres — done when `docker compose up` boots full stack from clean machine in <5 min.
 - [ ] Health-check endpoints `/healthz`, `/readyz` — done when compose health-checks pass.
