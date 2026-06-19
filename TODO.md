@@ -228,7 +228,7 @@
 - [x] Run `cargo audit` weekly via Dependabot/Renovate
 - [x] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
 - [ ] Triage incoming GitHub Issues within 7 days
-- [ ] Publish a public roadmap pinned issue and update monthly
+- [x] Publish a public roadmap pinned issue and update monthly
 
 ---
 
