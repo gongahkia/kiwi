@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
+import { isAdminSession } from "./lib/session";
+
 const sessionCookie = "wat_session";
 const protectedPrefixes = ["/team/admin", "/personal"];
+const adminPrefix = "/team/admin";
 const logger = pino({ name: "wat-web" });
 
 export function middleware(request: NextRequest) {
@@ -10,13 +13,18 @@ export function middleware(request: NextRequest) {
   const startedAt = Date.now();
   let response: NextResponse;
 
-  if (
-    protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix)) &&
-    !request.cookies.has(sessionCookie)
-  ) {
+  const session = request.cookies.get(sessionCookie)?.value;
+  const needsSession = protectedPrefixes.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  );
+  const needsAdmin = request.nextUrl.pathname.startsWith(adminPrefix);
+
+  if (needsSession && !session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     response = NextResponse.redirect(loginUrl);
+  } else if (needsAdmin && session && !isAdminSession(session)) {
+    response = new NextResponse("Forbidden", { status: 403 });
   } else {
     response = NextResponse.next();
   }

@@ -65,7 +65,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add Slack OAuth provider — done when Slack login produces a session.
 - [ ] Implement email-domain → auto-team join on signup — done when two users w/ same domain land in same team automatically.
 - [ ] Implement team creation on first signup of a new domain — done when team row created and user is admin.
-- [ ] Implement role guards (admin / member) — done when non-admin gets 403 on admin endpoints.
 - [ ] Add Sentry or self-host error tracking — done when a thrown error in prod surfaces in dashboard.
 
 ## P2 — Web app: search UX

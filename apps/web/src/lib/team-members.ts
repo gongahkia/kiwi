@@ -18,6 +18,13 @@ export function getTeamMembers(): TeamMember[] {
   return structuredClone(members);
 }
 
+export function getTeamMember(memberIdOrEmail: string): TeamMember | null {
+  const member = members.find(
+    (item) => item.id === memberIdOrEmail || item.email === memberIdOrEmail
+  );
+  return member ? structuredClone(member) : null;
+}
+
 export function resetTeamMembersForTest() {
   members = structuredClone(initialTeamMembers);
 }
