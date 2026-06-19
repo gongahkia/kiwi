@@ -424,7 +424,7 @@
 - [x] Add X card embedding docs
 - [x] Write `docs/book/cli.md` reference for every flag and subcommand
 - [ ] Write `docs/api.md` Rust API reference (rustdoc + curated narrative)
-- [ ] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
+- [x] Write `docs/wasm-api.md` JS/TS API reference for the web bundle
 - [ ] Expand `docs/book/recipes.md` from current short cookbook to 30+ tasks
 - [ ] Write `docs/migrating-from-beautiful-mermaid.md`
 - [ ] Write `docs/migrating-from-mermaid-ascii.md`
