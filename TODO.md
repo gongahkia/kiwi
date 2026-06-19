@@ -385,7 +385,7 @@
 - [ ] Implement `kumeyuri theme list / show / new / validate`
 - [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
 - [ ] Implement theme hot-reload in `kumeyuri watch`
-- [ ] Document theme authoring in `docs/theming.md`
+- [x] Document theme authoring in `docs/theming.md`
 - [x] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
 
 ### `.kumecast` format build (Phase 3)
