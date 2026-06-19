@@ -81,7 +81,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: team admin
 - [ ] Team entry CRUD UI — done when admin can create/edit/delete team entries w/ live preview of merge result.
-- [ ] Team member list + role management — done when admin can promote/demote/remove members.
 
 ## P2 — Web app: personal layer
 - [ ] Personal glossary CRUD — done when user can add private entries visible only to them.

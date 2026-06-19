@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { getTeamMembers } from "@/lib/team-members";
 import { getTeamEntries } from "@/lib/team-entries";
 
 interface PublicEntry {
@@ -43,6 +44,7 @@ export async function getTeamDashboardSnapshot(): Promise<TeamDashboardSnapshot>
   const parsed = JSON.parse(await readSeedJson()) as { entries: PublicEntry[] };
   const publicCount = parsed.entries.filter((entry) => entry.layer === "public").length;
   const teamEntries = getTeamEntries();
+  const members = getTeamMembers();
 
   return {
     counts: {
@@ -50,7 +52,7 @@ export async function getTeamDashboardSnapshot(): Promise<TeamDashboardSnapshot>
       public: publicCount,
       team: teamEntries.length
     },
-    memberCount: 3,
+    memberCount: members.length,
     recentActivity: [
       {
         actor: "Admin",

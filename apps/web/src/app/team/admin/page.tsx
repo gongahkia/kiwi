@@ -53,6 +53,9 @@ export default async function TeamAdminPage() {
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/settings">
               Settings
             </Link>
+            <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/members">
+              Members
+            </Link>
           </div>
         </header>
         <div className="grid gap-4 md:grid-cols-4">
