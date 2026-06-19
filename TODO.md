@@ -303,7 +303,7 @@
 
 - [x] Write `GOVERNANCE.md` formalising maintainer ladder (triager → committer → maintainer)
 - [ ] Identify and invite first three triagers from contributor history
-- [ ] Move from solo-author MIT to multi-maintainer MIT with DCO sign-off enforcement
+- [x] Move from solo-author MIT to multi-maintainer MIT with DCO sign-off enforcement
 - [x] Establish monthly transparency post template for sponsorship income/spend
 - [x] Establish quarterly roadmap review + community office hours (async GitHub Discussions thread)
 - [ ] Submit to OSS-Fuzz for continuous fuzzing once parser is stable

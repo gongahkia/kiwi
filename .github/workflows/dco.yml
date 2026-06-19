@@ -1,0 +1,30 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  signoff:
+    name: Commit Sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check commit sign-offs
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git cat-file -e "$BASE_SHA^{commit}" && git cat-file -e "$HEAD_SHA^{commit}"; then
+            scripts/check-dco.sh "$BASE_SHA..$HEAD_SHA"
+          else
+            scripts/check-dco.sh "$(git rev-parse HEAD^1)..$(git rev-parse HEAD^2)"
+          fi

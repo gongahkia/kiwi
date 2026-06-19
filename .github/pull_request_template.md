@@ -10,6 +10,10 @@ Closes #
 
 -
 
+## Checklist
+
+- [ ] Commits include DCO `Signed-off-by:` trailers.
+
 ## Renderer Changes
 
 If this touches parser, layout, animation, frame, theme, SVG, raster, WASM, TUI,

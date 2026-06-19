@@ -34,6 +34,14 @@ docs: add embedding guide
 
 Use `BREAKING CHANGE:` in the commit body for incompatible API or CLI changes.
 
+## Developer Certificate of Origin
+
+All pull request commits must include a DCO `Signed-off-by:` trailer.
+
+Use `git commit -s` for new commits or `git commit --amend -s` for the latest
+commit. The sign-off certifies the Developer Certificate of Origin 1.1:
+<https://developercertificate.org/>.
+
 ## Review Expectations
 
 Pull requests should include:
