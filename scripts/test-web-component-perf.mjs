@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 
 const root = process.cwd();
 const runs = positiveInteger(process.env.KUMEYURI_WEB_PLAYER_PERF_RUNS ?? "7");
-const fcrBudgetMs = positiveNumber(process.env.KUMEYURI_WEB_PLAYER_FCR_BUDGET_MS ?? "1000");
+const fcrBudgetMs = positiveNumber(process.env.KUMEYURI_WEB_PLAYER_FCR_BUDGET_MS ?? "250");
 const componentModule = await readFile(join(root, "packages/kumeyuri/dist/index.js"), "utf8");
 
 const { server, url } = await serve();
