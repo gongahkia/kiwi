@@ -70,7 +70,6 @@
 ## PHASE E — Structure mode (the differentiator)  → **v0.5**
 *Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
 
-- [ ] **E6. Shape-based glyph matching.** DoD: per cell, build the cell's shape vector from its sub-region and pick the glyph with the best match (normalized cross-correlation / nearest vector); edges look sharp, not blurry, on the cube test (compare against E4 visually). Reference: PHASE_E §Matching.
 - [ ] **E7. Cel-shading contrast pre-pass.** DoD: an optional contrast/posterize enhancement increases separation between regions before matching (per the reference technique), with a `--contrast` knob; improves 3D-scene legibility. Reference: PHASE_E §Contrast.
 - [ ] **E8. Blend fill + edges.** DoD: luminance fill and structure edges are combined into a single coherent output (edges drawn over fill) with a tunable edge strength; documented. Reference: PHASE_E §Blend.
 - [ ] **E9. Tunable knobs exposed.** DoD: `--edge-threshold`, `--dog-sigma`, `--contrast`, `--charset`, `--mode {luminance|structure}` all work and are documented in `--help` and README. Reference: PHASE_E §Knobs.

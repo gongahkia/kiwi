@@ -312,10 +312,12 @@ double edgeThresholdFromCli(const CliOptions& options) {
   return options.edge_threshold.value_or(kDefaultEdgeThreshold);
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, CellBuffer* cells) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells) {
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
   std::optional<GradientField> structure_gradients;
+  std::optional<LuminanceField> structure_ink;
+  const double edge_threshold = edgeThresholdFromCli(options);
   if (options.mode == "structure") {
     LuminanceField analysis_luminance = makeLuminanceField(frame);
     const DogOptions dog_options = dogOptionsFromCli(options);
@@ -323,6 +325,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
     }
     structure_gradients = computeSobelGradients(analysis_luminance);
+    structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
   }
   for (int row = 0; row < size.rows; ++row) {
     for (int col = 0; col < size.cols; ++col) {
@@ -331,9 +334,14 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
       if (structure_gradients.has_value()) {
         const CellGradient gradient = cellGradient(*structure_gradients, size.cols, size.rows, col, row);
-        const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edgeThresholdFromCli(options));
+        const std::optional<char32_t> edge_glyph = directionalGlyphForGradient(gradient, edge_threshold);
         if (edge_glyph.has_value()) {
-          cell.glyph = *edge_glyph;
+          if (shape_table != nullptr && structure_ink.has_value()) {
+            const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
+            cell.glyph = matchGlyphShape(shapeVectorForCell(region), *shape_table);
+          } else {
+            cell.glyph = *edge_glyph;
+          }
         }
       }
       cell.fg = avg;
@@ -386,7 +394,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   std::optional<GlyphShapeTable> shape_vectors;
   if (options.mode == "structure") {
-    shape_vectors = buildGlyphShapeTable(kDefaultShapeGlyphs, 10, 14);
+    shape_vectors = buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
     CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }
@@ -519,7 +527,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
-    renderFrame(*frame, ramp, options, terminal, &cells);
+    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells);
     const EmissionResult emission = emitter.emit(cells, emission_options);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;

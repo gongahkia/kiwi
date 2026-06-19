@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
+#include <span>
 #include <stdexcept>
 #include <string>
 
@@ -79,7 +81,7 @@ std::u32string uniqueGlyphs(std::u32string_view glyphs) {
   return unique;
 }
 
-std::vector<double> shapeFeatures(const std::vector<double>& bitmap, int width, int height) {
+std::vector<double> shapeFeatures(std::span<const double> bitmap, int width, int height) {
   const double radius = 0.29;
   std::vector<double> features(kShapeRegionCount, 0.0);
   std::vector<int> samples(kShapeRegionCount, 0);
@@ -141,6 +143,20 @@ std::vector<double> renderPrecomputedGlyphBitmap(char32_t glyph, int cell_width,
   return bitmap;
 }
 
+std::vector<double> shapeVectorForValues(std::span<const double> values, int width, int height) {
+  if (width <= 0 || height <= 0) {
+    throw std::invalid_argument("shape vector dimensions must be positive");
+  }
+  if (values.size() != static_cast<std::size_t>(width) * static_cast<std::size_t>(height)) {
+    throw std::invalid_argument("shape vector values size does not match dimensions");
+  }
+  return shapeFeatures(values, width, height);
+}
+
+std::vector<double> shapeVectorForCell(const CellLuminanceRegion& region) {
+  return shapeVectorForValues(region.values, region.width(), region.height());
+}
+
 GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width, int cell_height) {
   if (cell_width <= 0 || cell_height <= 0) {
     throw std::invalid_argument("shape table dimensions must be positive");
@@ -157,6 +173,51 @@ GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width,
   }
   normalizeFeatures(&table);
   return table;
+}
+
+char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table) {
+  if (features.size() != kShapeRegionCount) {
+    throw std::invalid_argument("shape feature length mismatch");
+  }
+  if (table.entries.empty()) {
+    throw std::invalid_argument("empty glyph shape table");
+  }
+
+  double feature_norm = 0.0;
+  for (const double value : features) {
+    feature_norm += value * value;
+  }
+  if (feature_norm == 0.0) {
+    for (const GlyphShapeVector& entry : table.entries) {
+      if (entry.glyph == U' ') {
+        return entry.glyph;
+      }
+    }
+    return table.entries.front().glyph;
+  }
+
+  char32_t best_glyph = table.entries.front().glyph;
+  double best_score = -std::numeric_limits<double>::infinity();
+  for (const GlyphShapeVector& entry : table.entries) {
+    if (entry.features.size() != kShapeRegionCount) {
+      throw std::invalid_argument("glyph shape table feature length mismatch");
+    }
+    double dot = 0.0;
+    double entry_norm = 0.0;
+    for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
+      dot += features[i] * entry.features[i];
+      entry_norm += entry.features[i] * entry.features[i];
+    }
+    if (entry_norm == 0.0) {
+      continue;
+    }
+    const double score = dot / std::sqrt(feature_norm * entry_norm);
+    if (score > best_score) {
+      best_score = score;
+      best_glyph = entry.glyph;
+    }
+  }
+  return best_glyph;
 }
 
 }  // namespace contourtty

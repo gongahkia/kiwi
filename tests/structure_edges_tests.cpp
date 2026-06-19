@@ -142,4 +142,17 @@ int main() {
     expect(dog.at(2, 2) > 0.0, "DoG keeps isolated line/point response above threshold");
     expectNear(dog.at(0, 0), 0.0, 1e-12, "DoG thresholds weak far response");
   }
+
+  {
+    contourtty::GradientField gradients;
+    gradients.width = 2;
+    gradients.height = 1;
+    gradients.values = {
+      contourtty::Gradient{.gx = 3.0, .gy = 4.0},
+      contourtty::Gradient{.gx = 0.1, .gy = 0.0},
+    };
+    const auto magnitudes = contourtty::gradientMagnitudeField(gradients, 1.0);
+    expectNear(magnitudes.at(0, 0), 5.0, 1e-12, "gradient magnitude retained above threshold");
+    expectNear(magnitudes.at(1, 0), 0.0, 1e-12, "gradient magnitude suppressed below threshold");
+  }
 }

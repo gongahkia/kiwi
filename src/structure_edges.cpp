@@ -88,6 +88,25 @@ GradientField computeSobelGradients(const LuminanceField& field) {
   return gradients;
 }
 
+LuminanceField gradientMagnitudeField(const GradientField& gradients, double threshold) {
+  if (gradients.width <= 0 || gradients.height <= 0 ||
+      gradients.values.size() != static_cast<std::size_t>(gradients.width) * static_cast<std::size_t>(gradients.height)) {
+    throw std::invalid_argument("invalid gradient field");
+  }
+  if (threshold < 0.0) {
+    throw std::invalid_argument("gradient magnitude threshold must be non-negative");
+  }
+  LuminanceField field;
+  field.width = gradients.width;
+  field.height = gradients.height;
+  field.values.reserve(gradients.values.size());
+  for (const Gradient gradient : gradients.values) {
+    const double magnitude = std::hypot(gradient.gx, gradient.gy);
+    field.values.push_back(magnitude > threshold ? magnitude : 0.0);
+  }
+  return field;
+}
+
 LuminanceField gaussianBlur(const LuminanceField& field, double sigma) {
   if (field.width <= 0 || field.height <= 0 ||
       field.values.size() != static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height)) {

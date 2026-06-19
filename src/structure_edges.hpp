@@ -42,6 +42,7 @@ struct DogOptions {
 LuminanceField gaussianBlur(const LuminanceField& field, double sigma);
 LuminanceField differenceOfGaussians(const LuminanceField& field, DogOptions options);
 GradientField computeSobelGradients(const LuminanceField& field);
+LuminanceField gradientMagnitudeField(const GradientField& gradients, double threshold);
 CellGradient cellGradient(const GradientField& gradients, int cols, int rows, int col, int row);
 std::optional<char32_t> directionalGlyphForGradient(const CellGradient& gradient, double threshold);
 

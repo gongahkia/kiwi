@@ -61,6 +61,11 @@ int main() {
     expect(value == 0.0, "space shape vector is empty");
   }
 
+  expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'|', 10, 14), 10, 14), table) == U'|', "vertical bitmap matches vertical glyph");
+  expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14), table) == U'/', "slash bitmap matches slash glyph");
+  expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'\\', 10, 14), 10, 14), table) == U'\\', "backslash bitmap matches backslash glyph");
+  expect(contourtty::matchGlyphShape(std::vector<double>(contourtty::kShapeRegionCount, 0.0), table) == U' ', "empty cell matches space");
+
   bool unsupported_threw = false;
   try {
     (void)contourtty::buildGlyphShapeTable(U"~", 10, 14);
