@@ -373,7 +373,7 @@
 - [ ] Implement HTTP+SSE transport with bearer-token auth
 - [x] Add `kumeyuri mcp` CLI subcommand wiring
 - [ ] Register on `mcp.directory`, `lobehub.com/mcp`, `mcpservers.org`, `glama.ai/mcp`
-- [ ] Author `docs/mcp.md` with Claude Code, Cursor, Continue, opencode, Goose setup snippets
+- [x] Author `docs/mcp.md` with Claude Code, Cursor, Continue, opencode, Goose setup snippets
 - [ ] Add MCP integration smoke test (spawn server, call each tool, assert response)
 
 ### Theming system build (Phase 1 base, expanded Phase 3+)

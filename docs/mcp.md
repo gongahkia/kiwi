@@ -1,120 +1,101 @@
-# MCP Configuration
+# kumeyuri MCP
 
-wat MCP proxies to the wat web API over stdio or Streamable HTTP. It no longer reads seed fixtures or accepts an `api_key` tool argument.
-
-## Modes
-
-| Mode | URL | Transport | Status |
-| --- | --- | --- | --- |
-| Local stdio | `WAT_API_BASE_URL` | stdio | Works after `pnpm --filter @wat/mcp build`; requires a DB-backed team API key. |
-| Hosted remote MCP | `https://wat.example.com/mcp` | Streamable HTTP | Runtime exists; hosted deployment and user/OAuth auth are not complete. |
-| Self-host remote MCP | operator URL | Streamable HTTP | Works with `node dist/index.js --http` behind TLS/proxy auth. |
-
-## Local Stdio
-
-Create a team API key from `/team/admin/api-keys`, then build the MCP package:
+kumeyuri exposes a local MCP server over stdio:
 
 ```sh
-pnpm --filter @wat/mcp build
+kumeyuri mcp --transport stdio
 ```
 
-Claude Desktop:
-
-```json
-{
-  "mcpServers": {
-    "wat": {
-      "command": "node",
-      "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],
-      "env": {
-        "WAT_API_BASE_URL": "https://wat.example.com",
-        "WAT_API_KEY": "wat_team_key"
-      }
-    }
-  }
-}
-```
-
-Cursor `.cursor/mcp.json` or `~/.cursor/mcp.json` uses the same shape:
-
-```json
-{
-  "mcpServers": {
-    "wat": {
-      "command": "node",
-      "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],
-      "env": {
-        "WAT_API_BASE_URL": "https://wat.example.com",
-        "WAT_API_KEY": "wat_team_key"
-      }
-    }
-  }
-}
-```
-
-Tool calls do not include credentials:
-
-```json
-{
-  "term": "CAP",
-  "context": "Kubernetes incident notes",
-  "limit": 5
-}
-```
+Do not write logs to stdout when wrapping this command. MCP stdio uses stdout
+for JSON-RPC frames.
 
 ## Tools
 
-| Tool | Purpose | Web API path |
-| --- | --- | --- |
-| `lookup(term, context?, limit?, min_confidence?)` | Search public plus the authorized team layer. | `GET /api/v1/search` |
-| `list_team_acronyms(domain?, cursor?, limit?)` | Page team entries visible to the key. | `GET /api/v1/team/entries` |
-| `list_alternatives(term)` | Resolve peer terms/contemporaries. | `GET /api/v1/alternatives` |
-| `suggest_definition(term, expansion, meaning, source_url, source_title, domains?)` | Queue a DB-backed suggestion for admin review. | `POST /api/v1/suggestions` |
+| Tool | Purpose |
+| --- | --- |
+| `render_diagram` | Render Mermaid source as text, SVG, GIF, APNG, WebP, or VTT. Binary formats return base64 content. |
+| `play_diagram` | Spawn `kumeyuri play <file>` as a TUI subprocess and return the process id plus command. |
+| `lint_diagram` | Return kumeyuri layout diagnostics for Mermaid source. |
+| `list_themes` | Return project, XDG, and bundled kumeyuri themes. |
+| `list_diagram_types` | Return Mermaid roots plus kumeyuri support level and caveat text. |
 
-## Remote Streamable HTTP
-
-Run the MCP package as an HTTP process:
+## Claude Code
 
 ```sh
-WAT_API_BASE_URL=https://wat.example.com \
-WAT_API_KEY=wat_team_key \
-WAT_MCP_HTTP_TOKEN=remote_mcp_token \
-WAT_MCP_HOST=0.0.0.0 \
-WAT_MCP_PORT=8787 \
-node apps/mcp/dist/index.js --http
+claude mcp add --transport stdio kumeyuri -- kumeyuri mcp --transport stdio
 ```
 
-`WAT_MCP_HOST` defaults to `127.0.0.1`. Binding to `0.0.0.0` or another non-loopback host fails unless `WAT_MCP_HTTP_TOKEN` is set. The endpoint validates browser `Origin` headers; set `WAT_MCP_ALLOWED_ORIGINS=https://client.example` when a browser-based client needs CORS.
+Use `--scope user` if the server should be available outside the current
+project.
 
-For clients that support Streamable HTTP MCP with static headers:
+## Cursor
+
+Project scope: `.cursor/mcp.json`
 
 ```json
 {
   "mcpServers": {
-    "wat": {
-      "type": "http",
-      "url": "https://wat.example.com/mcp",
-      "headers": {
-        "Authorization": "Bearer remote_mcp_token"
-      }
+    "kumeyuri": {
+      "command": "kumeyuri",
+      "args": ["mcp", "--transport", "stdio"]
     }
   }
 }
 ```
 
-## Key Scopes
+## Continue
 
-Team API keys are DB-backed, hashed at rest, revocable, and scoped to one team.
+Add the server to the Continue config used by agent mode:
 
-| Scope     | MCP use                                                     |
-| --------- | ----------------------------------------------------------- |
-| `search`  | `lookup`, `list_team_acronyms`, `list_alternatives`         |
-| `suggest` | `suggest_definition`                                        |
-| `write`   | Reserved for future mutation tools.                         |
-| `admin`   | Reserved for future admin tools and lifecycle mapping APIs. |
+```yaml
+mcpServers:
+  - name: kumeyuri
+    command: kumeyuri
+    args:
+      - mcp
+      - --transport
+      - stdio
+```
 
-The web API derives `team_id` from the key and rejects a mismatched `X-Wat-Team-Id` when that header is supplied.
+## opencode
 
-## Privacy
+`opencode mcp add` can register a local server interactively. Manual config:
 
-The MCP process forwards lookup and suggestion fields to `WAT_API_BASE_URL` with `Authorization: Bearer <WAT_API_KEY>`. It does not persist lookup text, suggestions, API responses, or local fixture files.
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "kumeyuri": {
+      "type": "local",
+      "command": ["kumeyuri", "mcp", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+## Goose
+
+Goose stores MCP extensions in YAML config:
+
+```yaml
+extensions:
+  kumeyuri:
+    type: stdio
+    name: kumeyuri
+    cmd: kumeyuri
+    args:
+      - mcp
+      - --transport
+      - stdio
+    enabled: true
+    timeout: 300
+```
+
+## Security
+
+- Treat `render_diagram` and `lint_diagram` input as untrusted Mermaid text;
+  kumeyuri still enforces parser and renderer limits.
+- `play_diagram` starts a local process. Only pass file paths the user intended
+  to open in the TUI.
+- HTTP/SSE bearer-token transport is not implemented yet; use stdio for local
+  clients until that TODO is complete.
