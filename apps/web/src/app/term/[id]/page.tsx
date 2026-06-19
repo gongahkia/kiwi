@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { notFound } from "next/navigation";
 
+import { ShareLinkButton } from "@/components/share-link-button";
+
 interface TermPageProps {
   params: Promise<{ id: string }>;
 }
@@ -65,12 +67,15 @@ export default async function TermPage({ params }: TermPageProps) {
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <article className="mx-auto grid max-w-3xl gap-8">
         <header className="grid gap-3">
-          <div className="flex flex-wrap gap-2">
-            {entry.domains.map((domain) => (
-              <span className="rounded-md bg-secondary px-2 py-1 text-xs" key={domain}>
-                {domain}
-              </span>
-            ))}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              {entry.domains.map((domain) => (
+                <span className="rounded-md bg-secondary px-2 py-1 text-xs" key={domain}>
+                  {domain}
+                </span>
+              ))}
+            </div>
+            <ShareLinkButton path={`/term/${entry.id}`} />
           </div>
           <h1 className="text-4xl font-semibold">{entry.term}</h1>
           <p className="text-xl text-foreground/75">{entry.expansions.join(" / ")}</p>
