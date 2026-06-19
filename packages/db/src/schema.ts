@@ -205,3 +205,14 @@ export const personalEntries = pgTable(
     check("personal_entries_layer_check", sql`${table.layer} = 'personal'`)
   ]
 );
+
+export const auditLog = pgTable("audit_log", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id").references(() => users.id),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  beforeJsonb: jsonb("before_jsonb"),
+  afterJsonb: jsonb("after_jsonb"),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow()
+});
