@@ -1,9 +1,6 @@
 # wat
 
-![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178c6)
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![pnpm](https://img.shields.io/badge/pnpm-10-f69220)
-![License](https://img.shields.io/badge/license-MIT-green)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178c6) ![Next.js](https://img.shields.io/badge/Next.js-15-black) ![pnpm](https://img.shields.io/badge/pnpm-10-f69220) ![License](https://img.shields.io/badge/license-MIT-green)
 
 Layered glossary lookup for tech acronyms and team jargon. Public corpus, team overlay, personal overlay, citations, and multi-surface delivery.
 
