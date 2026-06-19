@@ -2,6 +2,7 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
+use std::{env, path::PathBuf, process::Command};
 
 use crate::{
     ANIMATED_PARTIAL_ROOTS, CompatRoot, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
@@ -10,6 +11,7 @@ use crate::{
 };
 
 pub(crate) const RENDER_DIAGRAM_TOOL_NAME: &str = "render_diagram";
+pub(crate) const PLAY_DIAGRAM_TOOL_NAME: &str = "play_diagram";
 pub(crate) const LINT_DIAGRAM_TOOL_NAME: &str = "lint_diagram";
 pub(crate) const LIST_THEMES_TOOL_NAME: &str = "list_themes";
 pub(crate) const LIST_DIAGRAM_TYPES_TOOL_NAME: &str = "list_diagram_types";
@@ -59,6 +61,23 @@ pub(crate) struct LintDiagramResponse {
     pub file: String,
     pub ok: bool,
     pub warnings: Vec<McpLayoutWarning>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct PlayDiagramRequest {
+    pub file: PathBuf,
+    #[serde(default)]
+    pub speed: Option<f32>,
+    #[serde(default)]
+    pub repeat: bool,
+    #[serde(default)]
+    pub debug: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PlayDiagramResponse {
+    pub pid: u32,
+    pub command: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +206,29 @@ pub(crate) fn lint_diagram(request: &LintDiagramRequest) -> Result<LintDiagramRe
     })
 }
 
+pub(crate) fn play_diagram(request: &PlayDiagramRequest) -> Result<PlayDiagramResponse, String> {
+    let executable = env::current_exe().map_err(|error| error.to_string())?;
+    play_diagram_with_spawner(request, executable, |program, args| {
+        Command::new(program)
+            .args(args)
+            .spawn()
+            .map(|child| child.id())
+            .map_err(|error| error.to_string())
+    })
+}
+
+fn play_diagram_with_spawner(
+    request: &PlayDiagramRequest,
+    executable: PathBuf,
+    spawn: impl FnOnce(&PathBuf, &[String]) -> Result<u32, String>,
+) -> Result<PlayDiagramResponse, String> {
+    let args = play_diagram_args(request)?;
+    let pid = spawn(&executable, &args)?;
+    let mut command = vec![executable.display().to_string()];
+    command.extend(args);
+    Ok(PlayDiagramResponse { pid, command })
+}
+
 pub(crate) fn list_themes() -> Result<ListThemesResponse, String> {
     Ok(ListThemesResponse {
         themes: theme_entries_for_current_dir()?
@@ -218,6 +260,30 @@ pub(crate) fn list_diagram_types() -> ListDiagramTypesResponse {
         McpDiagramSupport::Unsupported,
     );
     ListDiagramTypesResponse { diagram_types }
+}
+
+fn play_diagram_args(request: &PlayDiagramRequest) -> Result<Vec<String>, String> {
+    if request.file.as_os_str().is_empty() {
+        return Err("play_diagram requires a file path".to_owned());
+    }
+    if request
+        .speed
+        .is_some_and(|speed| !speed.is_finite() || speed <= 0.0)
+    {
+        return Err("play_diagram speed must be a positive finite number".to_owned());
+    }
+    let mut args = vec!["play".to_owned(), request.file.display().to_string()];
+    if let Some(speed) = request.speed {
+        args.push("--speed".to_owned());
+        args.push(speed.to_string());
+    }
+    if request.repeat {
+        args.push("--loop".to_owned());
+    }
+    if request.debug {
+        args.push("--debug".to_owned());
+    }
+    Ok(args)
 }
 
 impl RenderDiagramRequest {
@@ -322,9 +388,11 @@ mod tests {
     use super::{
         LINT_DIAGRAM_TOOL_NAME, LIST_DIAGRAM_TYPES_TOOL_NAME, LIST_THEMES_TOOL_NAME,
         LintDiagramRequest, McpContentEncoding, McpDiagramSupport, McpRenderCharset,
-        McpRenderFormat, McpRenderTheme, RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest,
-        lint_diagram, list_diagram_types, list_themes, render_diagram,
+        McpRenderFormat, McpRenderTheme, PLAY_DIAGRAM_TOOL_NAME, PlayDiagramRequest,
+        RENDER_DIAGRAM_TOOL_NAME, RenderDiagramRequest, lint_diagram, list_diagram_types,
+        list_themes, play_diagram_args, play_diagram_with_spawner, render_diagram,
     };
+    use std::path::PathBuf;
 
     #[test]
     fn render_diagram_tool_surface_renders_text() {
@@ -409,6 +477,50 @@ mod tests {
         assert_eq!(response.file, "<inline>");
         assert!(response.ok);
         assert!(response.warnings.is_empty());
+    }
+
+    #[test]
+    fn play_diagram_tool_surface_spawns_tui_subprocess_command() {
+        let request = PlayDiagramRequest {
+            file: PathBuf::from("diagram.kumecast"),
+            speed: Some(2.0),
+            repeat: true,
+            debug: true,
+        };
+        let response =
+            play_diagram_with_spawner(&request, PathBuf::from("/bin/kumeyuri"), |program, args| {
+                assert_eq!(program, &PathBuf::from("/bin/kumeyuri"));
+                assert_eq!(
+                    args,
+                    &[
+                        "play",
+                        "diagram.kumecast",
+                        "--speed",
+                        "2",
+                        "--loop",
+                        "--debug",
+                    ]
+                );
+                Ok(42)
+            })
+            .unwrap();
+
+        assert_eq!(PLAY_DIAGRAM_TOOL_NAME, "play_diagram");
+        assert_eq!(response.pid, 42);
+        assert_eq!(response.command[0], "/bin/kumeyuri");
+    }
+
+    #[test]
+    fn play_diagram_tool_surface_rejects_invalid_speed() {
+        let error = play_diagram_args(&PlayDiagramRequest {
+            file: PathBuf::from("diagram.kumecast"),
+            speed: Some(0.0),
+            repeat: false,
+            debug: false,
+        })
+        .unwrap_err();
+
+        assert!(error.contains("positive finite"));
     }
 
     #[test]
