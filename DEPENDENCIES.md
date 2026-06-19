@@ -49,6 +49,12 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 
 The smoke target initializes the default playback device at f32/stereo/48 kHz and emits a generated sine wave. It is not added to CTest because hardware audio availability is environment-dependent.
 
+Audio decode/resample smoke uses FFmpeg plus `libswresample` to decode the first audio stream into f32/stereo/48 kHz PCM, then plays it through miniaudio:
+
+```sh
+./build/ci/audio_file_smoke <media-file>
+```
+
 ## CLI
 
 | Library | Minimum | Strategy | Used for |

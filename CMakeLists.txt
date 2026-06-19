@@ -12,6 +12,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libavcodec
   libavutil
   libswscale
+  libswresample
 )
 
 add_library(contourtty_audio STATIC
@@ -86,6 +87,29 @@ else()
   endif()
 endif()
 
+add_library(contourtty_audio_decode STATIC
+  src/audio_decode.cpp
+)
+target_include_directories(contourtty_audio_decode PUBLIC src)
+target_compile_features(contourtty_audio_decode PRIVATE cxx_std_20)
+set_target_properties(contourtty_audio_decode PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(contourtty_audio_decode PUBLIC PkgConfig::FFMPEG)
+if(MSVC)
+  target_compile_options(contourtty_audio_decode PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(contourtty_audio_decode PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(contourtty_audio_decode PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(contourtty_audio_decode PRIVATE -Werror)
+  endif()
+endif()
+
 add_executable(audio_sine_smoke
   tools/audio_sine_smoke.cpp
 )
@@ -105,6 +129,28 @@ else()
   target_compile_options(audio_sine_smoke PRIVATE -Wall -Wextra -Wpedantic)
   if(CONTOURTTY_WARNINGS_AS_ERRORS)
     target_compile_options(audio_sine_smoke PRIVATE -Werror)
+  endif()
+endif()
+
+add_executable(audio_file_smoke
+  tools/audio_file_smoke.cpp
+)
+target_compile_features(audio_file_smoke PRIVATE cxx_std_20)
+set_target_properties(audio_file_smoke PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(audio_file_smoke PRIVATE contourtty_audio contourtty_audio_decode)
+if(MSVC)
+  target_compile_options(audio_file_smoke PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_file_smoke PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(audio_file_smoke PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(audio_file_smoke PRIVATE -Werror)
   endif()
 endif()
 
