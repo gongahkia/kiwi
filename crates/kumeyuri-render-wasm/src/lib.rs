@@ -258,7 +258,7 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use super::{WasmRenderOptions, render_cast_output, render_output};
+    use super::{WasmRenderOptions, duration_ms, render_cast_output, render_output, svg_config};
     use kumeyuri_core::{
         animator::{KeyFrame, Timeline},
         cast::Kumecast,
@@ -399,6 +399,109 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn rejects_invalid_animation_and_svg_options() {
+        let speed_error = render_output(
+            "graph TD\nA --> B",
+            &WasmRenderOptions {
+                speed: Some(0.0),
+                ..WasmRenderOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(speed_error.contains("invalid animation options"));
+
+        let animation_error = render_output(
+            "graph TD\nA --> B",
+            &WasmRenderOptions {
+                svg_animation: Some("blink".to_owned()),
+                ..WasmRenderOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(animation_error.contains("unknown svgAnimation"));
+
+        let parse_error =
+            render_output("notARealRoot\nA", &WasmRenderOptions::default()).unwrap_err();
+        assert!(parse_error.contains("parse error"));
+    }
+
+    #[test]
+    fn supports_css_keyframe_svg_mode() {
+        let config = svg_config(&WasmRenderOptions {
+            svg_animation: Some("css-keyframes".to_owned()),
+            padding: Some(6),
+            font: Some("IBM Plex Mono".to_owned()),
+            ..WasmRenderOptions::default()
+        })
+        .unwrap();
+
+        assert_eq!(config.padding, 6);
+        assert_eq!(config.font_family, "IBM Plex Mono");
+        assert_eq!(
+            config.animation,
+            kumeyuri_render_svg::SvgAnimationMode::CssKeyframes
+        );
+    }
+
+    #[test]
+    fn render_cast_rejects_invalid_json_and_invalid_speed() {
+        let json_error = render_cast_output("{", &WasmRenderOptions::default()).unwrap_err();
+        assert!(!json_error.is_empty());
+
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![KeyFrame::new(
+            frame,
+            std::time::Duration::from_millis(100),
+        )]);
+        let cast = Kumecast::from_timeline("flowchart", "graph TD\nA", Theme::github(), &timeline)
+            .to_json_string()
+            .unwrap();
+        let speed_error = render_cast_output(
+            &cast,
+            &WasmRenderOptions {
+                speed: Some(f32::NAN),
+                ..WasmRenderOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(speed_error.contains("invalid animation options"));
+    }
+
+    #[test]
+    fn render_cast_can_override_repeat_without_scaling_speed() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![KeyFrame::new(
+            frame,
+            std::time::Duration::from_millis(125),
+        )])
+        .with_repeat(true);
+        let cast = Kumecast::from_timeline("flowchart", "graph TD\nA", Theme::github(), &timeline)
+            .to_json_string()
+            .unwrap();
+        let output = render_cast_output(
+            &cast,
+            &WasmRenderOptions {
+                repeat: Some(false),
+                ..WasmRenderOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.frames[0].duration_ms, 125);
+        assert!(!output.svg.contains("animation-iteration-count: infinite"));
+    }
+
+    #[test]
+    fn duration_milliseconds_saturate_to_u64_max() {
+        let frame = Frame::new(1, 1);
+        let keyframe = KeyFrame::new(frame, std::time::Duration::from_secs(u64::MAX));
+
+        assert_eq!(duration_ms(&keyframe), u64::MAX);
     }
 
     #[test]
