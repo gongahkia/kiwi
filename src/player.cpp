@@ -11,6 +11,7 @@
 #include "glyph_shape.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
+#include "render_layout.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
 #include "terminal.hpp"
@@ -33,11 +34,6 @@
 
 namespace contourtty {
 namespace {
-
-struct RenderSize {
-  int cols = 0;
-  int rows = 0;
-};
 
 constexpr double kDefaultDogThreshold = 0.02;
 constexpr double kDefaultEdgeThreshold = 0.35;
@@ -268,24 +264,6 @@ FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, Pcm
   return FrameAction::Quit;
 }
 
-RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal) {
-  const int max_cols = std::max(1, options.width.value_or(terminal.cols));
-  const int max_rows = std::max(1, options.height.value_or(terminal.rows));
-  const double img_aspect = static_cast<double>(frame.w) / static_cast<double>(frame.h);
-  const auto rows_for_cols = [&](int cols) {
-    return std::max(1, static_cast<int>(std::llround(static_cast<double>(cols) * (1.0 / img_aspect) * options.cell_aspect)));
-  };
-  const auto cols_for_rows = [&](int rows) {
-    return std::max(1, static_cast<int>(std::llround(static_cast<double>(rows) * img_aspect / options.cell_aspect)));
-  };
-
-  const int rows = rows_for_cols(max_cols);
-  if (rows <= max_rows) {
-    return RenderSize{.cols = max_cols, .rows = rows};
-  }
-  return RenderSize{.cols = cols_for_rows(max_rows), .rows = max_rows};
-}
-
 DogOptions dogOptionsFromCli(const CliOptions& options) {
   const double sigma1 = options.dog_sigma.value_or(0.0);
   return DogOptions{
@@ -392,6 +370,13 @@ bool writeAll(int fd, const std::string& bytes) {
   return true;
 }
 
+EmissionOptions centeredEmissionOptions(EmissionOptions options, TerminalSize terminal, const CellBuffer& cells) {
+  const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, terminal);
+  options.origin_row = origin.row;
+  options.origin_col = origin.col;
+  return options;
+}
+
 bool renderStillResize(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize* terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, DiffEmitter* emitter, const EmissionOptions& emission_options, RenderStats* render_stats) {
   *terminal = queryTerminalSize();
   emitter->reset();
@@ -400,7 +385,7 @@ bool renderStillResize(const Frame& frame, std::u32string_view ramp, const CliOp
     return false;
   }
   renderFrame(frame, ramp, options, *terminal, shape_table, cells, render_stats);
-  const EmissionResult emission = emitter->emit(*cells, emission_options);
+  const EmissionResult emission = emitter->emit(*cells, centeredEmissionOptions(emission_options, *terminal, *cells));
   return emission.bytes.empty() || writeAll(STDOUT_FILENO, emission.bytes);
 }
 
@@ -554,6 +539,20 @@ int playMedia(const CliOptions& options, Logger& logger) {
         CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
         continue;
       }
+      if (options.loop && !video_decoder.isStillImage()) {
+        video_decoder.restart();
+        if (audio_player != nullptr) {
+          audio_player->seekToUs(0);
+        }
+        pacer.reset();
+        resetSyncForSeek(&audio_sync);
+        current_video_us = 0;
+        emitter.reset();
+        std::string clear_loop = "\x1b[2J";
+        writeAll(STDOUT_FILENO, clear_loop);
+        CONTOURTTY_LOG_INFO(logger, "input loop restarted");
+        continue;
+      }
       if (video_decoder.isStillImage() && still_frame.has_value()) {
         quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr);
       }
@@ -603,7 +602,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }
-    const EmissionResult emission = emitter.emit(cells, emission_options);
+    const EmissionResult emission = emitter.emit(cells, centeredEmissionOptions(emission_options, terminal, cells));
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;
       break;

@@ -52,6 +52,10 @@ int main() {
   expect(resize_emit.changed_cells == 1, "resized full repaint");
   expect(resize_emit.bytes.find("\x1b[2J") != std::string::npos, "resize clears");
 
+  contourtty::DiffEmitter positioned_emitter;
+  const auto positioned = positioned_emitter.emit(resized, contourtty::EmissionOptions{.origin_row = 3, .origin_col = 4});
+  expect(positioned.bytes.find("\x1b[3;4H") != std::string::npos, "positioned cursor");
+
   contourtty::DiffEmitter mono_emitter;
   contourtty::CellBuffer mono(1, 1);
   mono.at(0, 0) = cell(U'M', 255, 0, 0);

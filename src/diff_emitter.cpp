@@ -20,7 +20,8 @@ bool sameCell(const Cell& lhs, const Cell& rhs, bool mono) noexcept {
 }
 
 bool sameOptions(EmissionOptions lhs, EmissionOptions rhs) noexcept {
-  return lhs.color_mode == rhs.color_mode && lhs.dither_mode == rhs.dither_mode;
+  return lhs.color_mode == rhs.color_mode && lhs.dither_mode == rhs.dither_mode &&
+         lhs.origin_row == rhs.origin_row && lhs.origin_col == rhs.origin_col;
 }
 
 Rgb ditherColor(Rgb color, int row, int col, EmissionOptions options) {
@@ -95,7 +96,7 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
         continue;
       }
 
-      appendCursorMove(result.bytes, row + 1, col + 1);
+      appendCursorMove(result.bytes, options.origin_row + row, options.origin_col + col);
       if (color) {
         if (!active_fg.has_value() || !sameColor(*active_fg, cell.fg)) {
           appendFg(result.bytes, cell.fg, row, col, emit_options);

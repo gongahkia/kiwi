@@ -77,7 +77,6 @@
 
 - [ ] **F1. Webcam input.** DoD: `--input cam` (or device path) shows live structure-ASCII of the webcam with acceptable latency; documented per-OS capture path. Reference: PHASE_F §Webcam.
 - [ ] **F3. Streaming URLs.** DoD: an HLS/RTSP URL plays; a YouTube URL plays via yt-dlp handoff; failures degrade with a clear message. Reference: PHASE_F §Streams.
-- [ ] **F9. Loop / fit / position flags.** DoD: `--loop`, `--width`, `--height`, `--fit`, centering all behave; live re-fit on resize OR a clean documented guard if live re-fit is deferred. Reference: PHASE_F §Layout.
 - [ ] **Phase F exit criteria.** DoD: webcam, image, GIF, file, and at least one stream type all render; truecolor/256/16/mono/halfblock all produce correct output on appropriate terminals.
 
 ---

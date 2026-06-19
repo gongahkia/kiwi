@@ -18,6 +18,8 @@ struct EmissionResult {
 struct EmissionOptions {
   ColorMode color_mode = ColorMode::Truecolor;
   DitherMode dither_mode = DitherMode::None;
+  int origin_row = 1;
+  int origin_col = 1;
 };
 
 class DiffEmitter {
