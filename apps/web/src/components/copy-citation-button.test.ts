@@ -52,21 +52,30 @@ describe("copy citation button helpers", () => {
       remove: vi.fn(),
       select: vi.fn(),
       setAttribute: vi.fn(),
+      setSelectionRange: vi.fn(),
       style: {} as Record<string, string>,
       value: ""
     };
-    const append = vi.fn();
+    const appendChild = vi.fn();
     const execCommand = vi.fn().mockReturnValue(true);
     vi.stubGlobal("navigator", {});
     vi.stubGlobal("document", {
-      body: { append },
+      activeElement: { focus: vi.fn() },
+      body: { appendChild },
       createElement: vi.fn().mockReturnValue(textarea),
-      execCommand
+      execCommand,
+      getSelection: vi.fn().mockReturnValue({
+        addRange: vi.fn(),
+        getRangeAt: vi.fn(),
+        rangeCount: 0,
+        removeAllRanges: vi.fn()
+      })
     });
 
     await expect(copyTextToClipboard("citation")).resolves.toBe(true);
-    expect(append).toHaveBeenCalledWith(textarea);
+    expect(appendChild).toHaveBeenCalledWith(textarea);
     expect(textarea.focus).toHaveBeenCalled();
+    expect(textarea.setSelectionRange).toHaveBeenCalledWith(0, "citation".length);
     expect(execCommand).toHaveBeenCalledWith("copy");
     expect(textarea.remove).toHaveBeenCalled();
   });
@@ -79,13 +88,15 @@ describe("copy citation button helpers", () => {
       remove: vi.fn(),
       select: vi.fn(),
       setAttribute: vi.fn(),
+      setSelectionRange: vi.fn(),
       style: {} as Record<string, string>,
       value: ""
     };
     const execCommand = vi.fn().mockReturnValue(true);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     vi.stubGlobal("document", {
-      body: { append: vi.fn() },
+      activeElement: { focus: vi.fn() },
+      body: { appendChild: vi.fn() },
       createElement: vi.fn().mockReturnValue(textarea),
       execCommand
     });

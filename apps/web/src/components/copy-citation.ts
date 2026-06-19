@@ -28,21 +28,39 @@ function copyTextWithTextarea(text: string): boolean {
   if (typeof document === "undefined" || !document.body) return false;
 
   let textarea: HTMLTextAreaElement | null = null;
+  const activeElement =
+    typeof HTMLElement !== "undefined" && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  const selection = document.getSelection?.();
+  const ranges =
+    selection == null
+      ? []
+      : Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index));
+
   try {
     textarea = document.createElement("textarea");
     textarea.value = text;
     textarea.dataset.copyFallback = "true";
     textarea.setAttribute("readonly", "");
-    textarea.style.left = "-9999px";
+    textarea.style.left = "0";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
     textarea.style.position = "fixed";
     textarea.style.top = "0";
-    document.body.append(textarea);
-    textarea.focus();
+    document.body.appendChild(textarea);
+    textarea.focus({ preventScroll: true });
     textarea.select();
-    return document.execCommand("copy");
+    textarea.setSelectionRange(0, text.length);
+    return document.execCommand?.("copy") ?? false;
   } catch {
     return false;
   } finally {
     textarea?.remove();
+    if (selection) {
+      selection.removeAllRanges();
+      for (const range of ranges) selection.addRange(range);
+    }
+    activeElement?.focus({ preventScroll: true });
   }
 }
