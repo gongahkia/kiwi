@@ -1,7 +1,9 @@
 # Syntax
 
 kumeyuri accepts a focused Mermaid subset for animated rendering. This page
-documents the accepted forms in the current parser.
+documents the accepted forms in the current parser. Parser support means the
+source is accepted and represented in the AST; rendering is still schematic for
+many roots and does not imply full Mermaid visual or config parity.
 
 ## Common
 
@@ -501,3 +503,378 @@ stateDiagram-v2
   }
   Composite --> Done
 ```
+
+## Class diagrams
+
+Header:
+
+```mermaid
+classDiagram
+```
+
+Classes can be declared inline or with member blocks:
+
+```mermaid
+classDiagram
+direction LR
+class Order {
+  +String id
+  +total() float
+}
+class Repository <<interface>>
+Order --> Repository : saves
+```
+
+Relationships accept Mermaid inheritance, composition, aggregation, association,
+dotted forms, labels, and quoted cardinalities:
+
+```mermaid
+classDiagram
+Customer "1" o-- "*" Order : places
+Order *-- LineItem
+Repository <|.. SqlRepository
+```
+
+Visibility markers, fields, methods, annotations, comments, and directives are
+parsed. Mermaid class CSS styling, callbacks, click handlers, and config are not
+interpreted yet.
+
+## Entity Relationship diagrams
+
+Header:
+
+```mermaid
+erDiagram
+```
+
+Entities, attributes, keys, relationship labels, and identifying or
+non-identifying relationship operators are accepted:
+
+```mermaid
+erDiagram
+CUSTOMER ||--o{ ORDER : places
+ORDER ||--|{ LINE_ITEM : contains
+CUSTOMER {
+  string id PK
+  string name
+}
+LINE_ITEM {
+  string sku FK
+  int quantity
+}
+```
+
+Quoted labels, comments, aliases, attribute comments, and cardinality variants
+are parsed. Mermaid ER styling and config are not interpreted yet.
+
+## User Journey
+
+Header:
+
+```mermaid
+journey
+```
+
+Journey diagrams use ordered sections and scored tasks:
+
+```mermaid
+journey
+title Checkout
+section Browse
+  Find item: 5: Alice, Bob
+section Pay
+  Enter card: 3: Alice
+  Confirm order: 4: Alice, Bob
+```
+
+Scores must be in `1..=5`. Actor order is retained and rendered with
+deterministic text swatches; Mermaid actor colors, fills, and theme config are
+not mapped to terminal colors yet.
+
+## Gantt charts
+
+Header:
+
+```mermaid
+gantt
+```
+
+Supported header/config-like statements and task forms:
+
+```mermaid
+gantt
+title Release Plan
+dateFormat YYYY-MM-DD
+axisFormat %m/%d
+tickInterval 1week
+excludes weekends
+todayMarker stroke-width:2px
+section Build
+Parser work :crit, parser, 2026-01-01, 5d
+Renderer work :active, render, after parser, 10d
+Docs :done, docs, 2026-01-20, 3d
+```
+
+Task tags, ids, dependencies, `after`, durations, date starts, weekends,
+excludes, `axisFormat`, `tickInterval`, `weekday`, `todayMarker`, and `click`
+are parsed. Rendering is day-level; time-of-day scales and click behavior are
+not implemented.
+
+## Pie charts
+
+Header:
+
+```mermaid
+pie
+```
+
+Slices require positive numeric values:
+
+```mermaid
+pie showData
+title Browser share
+"Chrome" : 64.1
+"Safari" : 18.7
+"Firefox" : 6.3
+```
+
+`showData`, inline or header titles, comments, directives, `textPosition`, and
+`legendPosition` are parsed. Values render in the legend when `showData` is set.
+Mermaid `donutHole`, `highlightSlice`, hover behavior, theme colors, and
+`themeVariables` are not rendered.
+
+## Quadrant charts
+
+Header:
+
+```mermaid
+quadrantChart
+```
+
+Axes, quadrant labels, and points use Mermaid's coordinate syntax:
+
+```mermaid
+quadrantChart
+title Work priority
+x-axis Low Effort --> High Effort
+y-axis Low Impact --> High Impact
+quadrant-1 Plan
+quadrant-2 Do now
+quadrant-3 Ignore
+quadrant-4 Delegate
+Docs: [0.2, 0.8]
+Migration: [0.7, 0.9]
+```
+
+Point coordinates must be in `0..=1`. Classes are parsed but are semantic-only.
+
+## Requirement diagrams
+
+Header:
+
+```mermaid
+requirementDiagram
+```
+
+Requirements, elements, fields, and relationships are accepted:
+
+```mermaid
+requirementDiagram
+requirement perf {
+  id: REQ-1
+  text: Render under budget
+  risk: medium
+  verifyMethod: test
+}
+element renderer {
+  type: software
+}
+renderer - satisfies -> perf
+```
+
+Requirement kinds, risk values, verify methods, element types, relationship
+kinds, `direction`, `style`, `class`, comments, and directives are parsed.
+Invalid fields fail fast. Styles and classes are semantic-only.
+
+## GitGraph diagrams
+
+Header:
+
+```mermaid
+gitGraph
+gitGraph LR
+```
+
+Commits, branches, checkout aliases, merges, and cherry-picks:
+
+```mermaid
+gitGraph LR
+commit id: "root"
+branch feature order: 2
+checkout feature
+commit id: "work" tag: "v1" type: HIGHLIGHT
+checkout main
+merge feature id: "merge"
+cherry-pick id: "work"
+```
+
+`checkout` and `switch` are aliases. Commit ids, tags, types, branch order, and
+orientation are parsed. Mermaid gitGraph config fields such as branch display
+and label rotation are semantic-only.
+
+## C4 diagrams
+
+Headers:
+
+```mermaid
+C4Context
+C4Container
+C4Component
+C4Dynamic
+C4Deployment
+```
+
+Elements, boundaries, deployment nodes, relationships, layout calls, and style
+updates are accepted:
+
+```mermaid
+C4Container
+title Payments
+Person(user, "User")
+System_Boundary(system, "Store") {
+  Container(api, "API", "Rust", "Handles checkout")
+  ContainerDb(db, "DB", "Postgres", "Stores orders")
+}
+Rel(user, api, "Pays with card")
+Rel_R(api, db, "writes")
+LAYOUT_LEFT_RIGHT()
+UpdateElementStyle(api, $bgColor="#1168bd")
+```
+
+Tag/sprite/link extra args are retained where accepted, selected layout calls
+are rendered as row changes, and unsupported macro families are rejected.
+Mermaid browser geometry and CSS colors are approximated in text frames.
+
+## Mindmaps
+
+Header:
+
+```mermaid
+mindmap
+```
+
+Mindmaps are indentation trees with documented shape wrappers, icons, and
+classes:
+
+```mermaid
+mindmap
+  root((kumeyuri))
+    Parser
+      ::icon(fa fa-code)
+      Flowchart:::done
+    Renderer
+      SVG
+      TUI
+```
+
+Single-line Markdown labels are accepted. Shape glyphs and icons render as text
+fallbacks. Classes, icon registration, Mermaid CSS styling, and multi-line
+Markdown rendering are not implemented.
+
+## Timeline
+
+Header:
+
+```mermaid
+timeline
+```
+
+Timelines support titles, sections, periods, and continuation events:
+
+```mermaid
+timeline
+title Project
+section Phase 1
+  Parser : Flowchart : Sequence
+  Renderer : Text
+section Phase 2
+  Animation : TUI : SVG
+```
+
+Empty sections are parsed but do not render visible bands. Mermaid `timeline TD`
+direction and color/theme variables are not rendered.
+
+## ZenUML
+
+Header:
+
+```mermaid
+zenuml
+```
+
+Participants, aliases, messages, creates, returns, and fragments are accepted:
+
+```mermaid
+zenuml
+title Login
+@Actor User
+Controller as C
+User->C: submit
+new Session
+if(valid) {
+  C->Session: create
+  return token
+} else {
+  C-->User: reject
+}
+```
+
+Supported fragments include `if`/`else`, `while`, `for`, `opt`, `par`, `try`,
+`catch`, and `finally`. Rendering is static and sequence-like; ZenUML activation
+stack styling and rich return positioning are not implemented.
+
+## Sankey diagrams
+
+Headers:
+
+```mermaid
+sankey
+sankey-beta
+```
+
+Rows are CSV triples:
+
+```mermaid
+sankey-beta
+Source,Target,Value
+"Raw Input","Parser",10
+Parser,Renderer,8
+Parser,Errors,2
+```
+
+Quoted source and target fields are accepted. Values must be positive numbers.
+Link labels show raw values; Mermaid proportional widths and color mapping are
+not implemented.
+
+## XY charts
+
+Headers:
+
+```mermaid
+xychart
+xychart-beta
+```
+
+Axes and series:
+
+```mermaid
+xychart-beta
+title "Build time"
+x-axis [cold, warm, hot]
+y-axis "Seconds" 0 --> 100
+bar [90, 40, 20]
+line [88, 35, 18]
+```
+
+Optional orientation tokens, category or range axes, `bar`, and `line` series
+are parsed. `horizontal` currently renders with the same vertical text plot.
