@@ -9,7 +9,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - No CLI surface, no satire/shame tone, no Pi constraint.
 
 ## P0 — Repo & schema foundation
-- [ ] Pick public name (keep `wat` per decision) — done when README title + package.json name = `wat`.
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
