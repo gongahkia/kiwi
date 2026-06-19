@@ -15,6 +15,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 
 add_executable(contourtty
   src/cli.cpp
+  src/luminance.cpp
   src/log.cpp
   src/main.cpp
   src/media_probe.cpp
@@ -41,3 +42,29 @@ else()
     target_compile_options(contourtty PRIVATE -Werror)
   endif()
 endif()
+
+enable_testing()
+
+add_executable(luminance_tests
+  tests/luminance_tests.cpp
+  src/luminance.cpp
+)
+target_include_directories(luminance_tests PRIVATE src)
+target_compile_features(luminance_tests PRIVATE cxx_std_20)
+set_target_properties(luminance_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(luminance_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(luminance_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(luminance_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(luminance_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME luminance COMMAND luminance_tests)
