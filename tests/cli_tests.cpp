@@ -39,6 +39,34 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--mode", "structure", "--charset", ".#"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "mode and charset parse");
+    expect(parsed.options.mode == "structure", "mode stored");
+    expect(parsed.options.charset.has_value() && *parsed.options.charset == ".#", "charset stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--mode", "invalid"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "mode rejects invalid value");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--charset", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "charset rejects empty value");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--edge-threshold", "0.25", "--contrast", "2"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "edge threshold and contrast parse");
+    expect(parsed.options.edge_threshold.has_value() && *parsed.options.edge_threshold == 0.25, "edge threshold stored");
+    expect(parsed.options.contrast.has_value() && *parsed.options.contrast == 2.0, "contrast stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--edge-strength", "1.5"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "edge strength parses");
