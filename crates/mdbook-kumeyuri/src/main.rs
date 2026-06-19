@@ -461,4 +461,149 @@ mod tests {
         assert!(first.contains("| A |"));
         assert!(nested.contains("| C |"));
     }
+
+    #[test]
+    fn parses_full_preprocessor_config() {
+        let options = PreprocessorOptions::from_context(&json!({
+            "config": {
+                "preprocessor": {
+                    "kumeyuri": {
+                        "format": "text",
+                        "replace": true,
+                        "theme": "github",
+                        "dark-theme": "tokyo-night",
+                        "charset": "ascii",
+                        "width": 40,
+                        "padding": 12,
+                        "font": "JetBrains Mono"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            options,
+            PreprocessorOptions {
+                format: RenderFormat::Text,
+                replace: true,
+                theme: Some(BuiltInTheme::Github),
+                dark_theme: Some(BuiltInTheme::TokyoNight),
+                charset: Some(Charset::Ascii),
+                width: Some(40),
+                padding: Some(12),
+                font: Some("JetBrains Mono".to_owned()),
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_preprocessor_config_types() {
+        let context = json!({
+            "config": {
+                "preprocessor": {
+                    "kumeyuri": {
+                        "format": 7,
+                        "replace": "yes",
+                        "width": -1
+                    }
+                }
+            }
+        });
+
+        let error = PreprocessorOptions::from_context(&context).unwrap_err();
+        assert!(error.to_string().contains("format"));
+    }
+
+    #[test]
+    fn rejects_unknown_format_theme_and_charset() {
+        assert!(
+            RenderFormat::parse("png")
+                .unwrap_err()
+                .to_string()
+                .contains("format")
+        );
+        assert!(
+            parse_theme("sepia")
+                .unwrap_err()
+                .to_string()
+                .contains("theme")
+        );
+        assert!(
+            parse_charset("latin1")
+                .unwrap_err()
+                .to_string()
+                .contains("charset")
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_mdbook_payloads() {
+        assert!(
+            preprocess_input(json!({}))
+                .unwrap_err()
+                .to_string()
+                .contains("[context, book]")
+        );
+        assert!(
+            preprocess_input(json!([]))
+                .unwrap_err()
+                .to_string()
+                .contains("context and book")
+        );
+        assert!(
+            process_book(json!({"sections": []}), &PreprocessorOptions::default())
+                .unwrap_err()
+                .to_string()
+                .contains("Book.items")
+        );
+    }
+
+    #[test]
+    fn skips_non_chapter_items_and_names_unnamed_chapter_errors() {
+        let mut items = vec![
+            json!({"Separator": null}),
+            json!({"Chapter": {"content": 42, "sub_items": []}}),
+        ];
+
+        let error = process_items(&mut items, &PreprocessorOptions::default()).unwrap_err();
+        assert!(error.to_string().contains("chapter <unnamed> content"));
+    }
+
+    #[test]
+    fn renders_svg_with_dark_theme_padding_and_font_config() {
+        let svg = render_source(
+            "graph TD\nA --> B\n",
+            &PreprocessorOptions {
+                theme: Some(BuiltInTheme::Github),
+                dark_theme: Some(BuiltInTheme::Dracula),
+                padding: Some(3),
+                font: Some("Fira Code".to_owned()),
+                ..PreprocessorOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert!(svg.contains("<svg "));
+        assert!(svg.contains("Fira Code"));
+        assert!(svg.contains("@media (prefers-color-scheme: dark)"));
+    }
+
+    #[test]
+    fn applies_text_width_and_trims_fence_info() {
+        let markdown = "  ```mermaid extra info\ngraph TD\nA --> B\n```\n";
+        let output = render_mermaid_fences(
+            markdown,
+            &PreprocessorOptions {
+                format: RenderFormat::Text,
+                replace: true,
+                width: Some(40),
+                ..PreprocessorOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert!(output.starts_with("```text\n"));
+        assert!(output.lines().any(|line| line.len() >= 40));
+    }
 }
