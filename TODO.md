@@ -80,7 +80,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Rate-limit suggestions per user (10/day) — done when 11th submission 429s.
 
 ## P2 — Web app: team admin
-- [ ] Team dashboard page — done when admin sees entry counts, member count, recent activity.
 - [ ] Team entry CRUD UI — done when admin can create/edit/delete team entries w/ live preview of merge result.
 - [ ] Team member list + role management — done when admin can promote/demote/remove members.
 - [ ] Domain tag management — done when admin can define team-specific domain tags.
