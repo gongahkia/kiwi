@@ -12,6 +12,7 @@ security posture.
 | [0002](0002-parser-choice.md) | Accepted | Use a Rust-native parser instead of porting Mermaid's Jison grammars |
 | [0010](0010-wasm-host.md) | Accepted | Use Wasmtime as the ABI 1.x WASM plugin host runtime |
 | [0011](0011-svg-animation-mode.md) | Accepted | Default animated SVGs to SMIL while keeping CSS keyframes as fallback |
+| [0012](0012-gif-encoder.md) | Accepted | Use the `gif` crate for built-in animated GIF output |
 
 ## Maintenance
 
