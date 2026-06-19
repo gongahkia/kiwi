@@ -11,6 +11,22 @@ bool isContinuation(unsigned char byte) noexcept {
   return (byte & 0xc0U) == 0x80U;
 }
 
+std::optional<std::u32string_view> presetRamp(std::string_view charset) {
+  if (charset == "standard") {
+    return kDefaultGlyphRamp;
+  }
+  if (charset == "blocks") {
+    return U" ░▒▓█";
+  }
+  if (charset == "detailed") {
+    return U" .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+  }
+  if (charset == "binary") {
+    return U" 01";
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 std::u32string decodeCharset(std::string_view charset) {
@@ -68,11 +84,28 @@ std::u32string decodeCharset(std::string_view charset) {
 
 bool isValidCharset(std::string_view charset) noexcept {
   try {
+    if (isBrailleCharset(charset) || presetRamp(charset).has_value()) {
+      return true;
+    }
     (void)decodeCharset(charset);
     return true;
   } catch (...) {
     return false;
   }
+}
+
+std::u32string resolveCharsetRamp(std::string_view charset) {
+  if (const auto preset = presetRamp(charset); preset.has_value()) {
+    return std::u32string(*preset);
+  }
+  if (isBrailleCharset(charset)) {
+    throw std::invalid_argument("braille charset is a packed renderer");
+  }
+  return decodeCharset(charset);
+}
+
+bool isBrailleCharset(std::string_view charset) noexcept {
+  return charset == "braille";
 }
 
 char32_t glyphForLuminance(double luminance, std::u32string_view ramp) {

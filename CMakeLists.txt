@@ -55,6 +55,7 @@ endif()
 
 add_executable(contourtty
   src/ansi.cpp
+  src/braille_renderer.cpp
   src/cli.cpp
   src/color_dither.cpp
   src/color_mode.cpp
@@ -356,6 +357,32 @@ else()
   endif()
 endif()
 add_test(NAME color_dither COMMAND color_dither_tests)
+
+add_executable(braille_renderer_tests
+  tests/braille_renderer_tests.cpp
+  src/braille_renderer.cpp
+  src/frame_sampling.cpp
+  src/luminance.cpp
+)
+target_include_directories(braille_renderer_tests PRIVATE src)
+target_compile_features(braille_renderer_tests PRIVATE cxx_std_20)
+set_target_properties(braille_renderer_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(braille_renderer_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(braille_renderer_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(braille_renderer_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(braille_renderer_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME braille_renderer COMMAND braille_renderer_tests)
 
 add_executable(halfblock_renderer_tests
   tests/halfblock_renderer_tests.cpp

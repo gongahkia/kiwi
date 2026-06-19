@@ -2,6 +2,7 @@
 
 #include "audio_backend.hpp"
 #include "audio_decode.hpp"
+#include "braille_renderer.hpp"
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
 #include "diff_emitter.hpp"
@@ -325,6 +326,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     }
     return;
   }
+  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+    renderBrailleFrame(frame, size.cols, size.rows, cells);
+    if (stats != nullptr) {
+      stats->render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
+    }
+    return;
+  }
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
@@ -435,10 +443,12 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   std::u32string ramp = kDefaultGlyphRamp.data();
   if (options.charset.has_value()) {
-    ramp = decodeCharset(*options.charset);
+    if (!isBrailleCharset(*options.charset)) {
+      ramp = resolveCharsetRamp(*options.charset);
+    }
   }
   std::optional<GlyphShapeTable> shape_vectors;
-  if (options.mode == "structure") {
+  if (options.mode == "structure" && !(options.charset.has_value() && isBrailleCharset(*options.charset))) {
     shape_vectors = buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
     CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));

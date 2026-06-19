@@ -29,7 +29,12 @@ int main() {
 
   const auto unicode = contourtty::decodeCharset(" ░█");
   expect(unicode.size() == 3 && unicode[1] == U'░' && unicode[2] == U'█', "unicode charset decodes");
+  expect(contourtty::resolveCharsetRamp("blocks") == U" ░▒▓█", "blocks preset resolves");
+  expect(contourtty::resolveCharsetRamp("binary") == U" 01", "binary preset resolves");
+  expect(contourtty::resolveCharsetRamp("detailed").size() > contourtty::kDefaultGlyphRamp.size(), "detailed preset resolves");
+  expect(contourtty::isBrailleCharset("braille"), "braille preset detected");
   expect(contourtty::isValidCharset("abc"), "valid charset accepted");
+  expect(contourtty::isValidCharset("braille"), "braille charset accepted");
   expect(!contourtty::isValidCharset(""), "empty charset rejected");
 
   std::string invalid;
