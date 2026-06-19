@@ -12,7 +12,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
-- [ ] Init monorepo w/ pnpm workspaces — done when `pnpm -r build` runs across empty packages.
 - [ ] Define monorepo layout: `apps/web`, `apps/slack`, `apps/mcp`, `packages/core`, `packages/db`, `packages/search`, `packages/ingest`, `extensions/browser` — done when each dir has `package.json` + `tsconfig.json`.
 - [ ] Add root `tsconfig.base.json` w/ strict mode + path aliases — done when `tsc -b --noEmit` passes empty.
 - [ ] Configure ESLint + Prettier w/ shared config — done when `pnpm lint` returns 0 on empty packages.
