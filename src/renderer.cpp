@@ -102,7 +102,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       analysis_luminance = differenceOfGaussians(analysis_luminance, dog_options);
     }
     if (options.gpu) {
-      gpu_structure_glyphs = computeStructureGlyphsGpu(analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
+      gpu_structure_glyphs = computeStructureGlyphsGpu(frame, analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
       if (gpu_structure_glyphs.has_value() && stats != nullptr) {
         stats->shape_match_cells += gpu_structure_glyphs->shape_match_cells;
       }
@@ -123,11 +123,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const auto render_rows = [&](int row_begin, int row_end, ShapeMatchStats* local_stats) {
     for (int row = row_begin; row < row_end; ++row) {
       for (int col = 0; col < size.cols; ++col) {
-        const Rgb avg = averageRegion(frame, size.cols, size.rows, col, row);
-        Cell& cell = cell_values[static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col)];
+        const std::size_t cell_index = static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col);
+        const bool has_gpu_average = gpu_structure_glyphs.has_value() && gpu_structure_glyphs->average_colors.size() == cell_values.size();
+        const Rgb avg = has_gpu_average ? gpu_structure_glyphs->average_colors[cell_index] : averageRegion(frame, size.cols, size.rows, col, row);
+        Cell& cell = cell_values[cell_index];
         cell.glyph = glyphForLuminance(relativeLuminance(avg), ramp);
         if (gpu_structure_glyphs.has_value()) {
-          const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col)];
+          const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[cell_index];
           if (gpu_glyph != U'\0') {
             cell.glyph = gpu_glyph;
           }

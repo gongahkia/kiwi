@@ -25,6 +25,7 @@ struct StructureParams {
   uint32_t rows = 0;
   float threshold = 0.0F;
   uint32_t table_count = 0;
+  uint32_t has_rgb = 0;
 };
 
 constexpr char kSobelMetalSource[] = R"METAL(
@@ -38,6 +39,7 @@ struct StructureParams {
   uint rows;
   float threshold;
   uint table_count;
+  uint has_rgb;
 };
 
 constant uint kShapeRegionCount = 9;
@@ -106,7 +108,9 @@ kernel void structure_glyphs_kernel(device const float* luminance [[buffer(0)]],
                                     device const float* glyph_features [[buffer(1)]],
                                     device const uint* glyph_codes [[buffer(2)]],
                                     device uint* output_glyphs [[buffer(3)]],
-                                    constant StructureParams& params [[buffer(4)]],
+                                    device uint* output_colors [[buffer(4)]],
+                                    device const uchar* rgb [[buffer(5)]],
+                                    constant StructureParams& params [[buffer(6)]],
                                     uint2 gid [[thread_position_in_grid]]) {
   if (gid.x >= params.cols || gid.y >= params.rows) {
     return;
@@ -139,6 +143,9 @@ kernel void structure_glyphs_kernel(device const float* luminance [[buffer(0)]],
   uint samples[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   const float region_cx[9] = {0.50F, 0.50F, 0.50F, 0.20F, 0.80F, 0.25F, 0.75F, 0.25F, 0.75F};
   const float region_cy[9] = {0.50F, 0.20F, 0.80F, 0.50F, 0.50F, 0.25F, 0.25F, 0.75F, 0.75F};
+  uint r_sum = 0;
+  uint g_sum = 0;
+  uint b_sum = 0;
   uint count = 0;
 
   for (uint y = y0; y < y1; ++y) {
@@ -156,6 +163,12 @@ kernel void structure_glyphs_kernel(device const float* luminance [[buffer(0)]],
       gy_sum += gy;
       horizontal_energy += abs(gx);
       vertical_energy += abs(gy);
+      if (params.has_rgb != 0) {
+        const uint rgb_index = (y * params.width + x) * 3;
+        r_sum += uint(rgb[rgb_index]);
+        g_sum += uint(rgb[rgb_index + 1]);
+        b_sum += uint(rgb[rgb_index + 2]);
+      }
       ++count;
 
       const float ink_magnitude = length(float2(gx, gy));
@@ -175,7 +188,16 @@ kernel void structure_glyphs_kernel(device const float* luminance [[buffer(0)]],
 
   if (count == 0) {
     output_glyphs[out_index] = 0;
+    output_colors[out_index] = 0;
     return;
+  }
+  if (params.has_rgb != 0) {
+    const uint r = r_sum / count;
+    const uint g = g_sum / count;
+    const uint b = b_sum / count;
+    output_colors[out_index] = r | (g << 8) | (b << 16);
+  } else {
+    output_colors[out_index] = 0;
   }
   const float scale = 1.0F / float(count);
   const float avg_gx = gx_sum * scale;
@@ -364,10 +386,16 @@ std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& fiel
   }
 }
 
-std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) {
+std::optional<GpuStructureGlyphs> computeStructureGlyphsGpuImpl(const Frame* frame, const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) {
   if (field.width <= 0 || field.height <= 0 ||
       field.values.size() != static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height)) {
     throw std::invalid_argument("invalid luminance field");
+  }
+  if (frame != nullptr) {
+    const std::size_t expected_rgb = static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height) * 3U;
+    if (frame->w != field.width || frame->h != field.height || frame->rgb.size() != expected_rgb) {
+      throw std::invalid_argument("frame RGB data does not match luminance field");
+    }
   }
   if (cols <= 0 || rows <= 0) {
     throw std::invalid_argument("cell grid dimensions must be positive");
@@ -407,6 +435,7 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
     }
 
     std::vector<uint32_t> output(static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows), 0);
+    std::vector<uint32_t> output_colors(output.size(), 0);
     const StructureParams params{
       .width = static_cast<uint32_t>(field.width),
       .height = static_cast<uint32_t>(field.height),
@@ -414,14 +443,17 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
       .rows = static_cast<uint32_t>(rows),
       .threshold = static_cast<float>(edge_threshold),
       .table_count = static_cast<uint32_t>(glyph_codes.size()),
+      .has_rgb = frame != nullptr ? 1U : 0U,
     };
     const std::size_t luminance_bytes = luminance.size() * sizeof(float);
     const std::size_t glyph_feature_bytes = std::max<std::size_t>(glyph_features.size() * sizeof(float), sizeof(float));
     const std::size_t glyph_code_bytes = std::max<std::size_t>(glyph_codes.size() * sizeof(uint32_t), sizeof(uint32_t));
     const std::size_t output_bytes = output.size() * sizeof(uint32_t);
+    const std::size_t rgb_bytes = frame != nullptr ? frame->rgb.size() * sizeof(uint8_t) : sizeof(uint8_t);
 
     float dummy_feature = 0.0F;
     uint32_t dummy_glyph = 0;
+    uint8_t dummy_rgb = 0;
     id<MTLBuffer> luminance_buffer = [context.device() newBufferWithBytes:luminance.data()
                                                                    length:luminance_bytes
                                                                   options:MTLResourceStorageModeShared];
@@ -433,10 +465,16 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
                                                                    options:MTLResourceStorageModeShared];
     id<MTLBuffer> output_buffer = [context.device() newBufferWithLength:output_bytes
                                                                  options:MTLResourceStorageModeShared];
+    id<MTLBuffer> output_color_buffer = [context.device() newBufferWithLength:output_bytes
+                                                                       options:MTLResourceStorageModeShared];
+    id<MTLBuffer> rgb_buffer = [context.device() newBufferWithBytes:frame != nullptr ? frame->rgb.data() : &dummy_rgb
+                                                            length:rgb_bytes
+                                                           options:MTLResourceStorageModeShared];
     id<MTLBuffer> params_buffer = [context.device() newBufferWithBytes:&params
                                                                 length:sizeof(params)
                                                                options:MTLResourceStorageModeShared];
-    if (luminance_buffer == nil || glyph_feature_buffer == nil || glyph_code_buffer == nil || output_buffer == nil || params_buffer == nil) {
+    if (luminance_buffer == nil || glyph_feature_buffer == nil || glyph_code_buffer == nil ||
+        output_buffer == nil || output_color_buffer == nil || rgb_buffer == nil || params_buffer == nil) {
       return std::nullopt;
     }
 
@@ -450,7 +488,9 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
     [encoder setBuffer:glyph_feature_buffer offset:0 atIndex:1];
     [encoder setBuffer:glyph_code_buffer offset:0 atIndex:2];
     [encoder setBuffer:output_buffer offset:0 atIndex:3];
-    [encoder setBuffer:params_buffer offset:0 atIndex:4];
+    [encoder setBuffer:output_color_buffer offset:0 atIndex:4];
+    [encoder setBuffer:rgb_buffer offset:0 atIndex:5];
+    [encoder setBuffer:params_buffer offset:0 atIndex:6];
 
     const NSUInteger thread_width = std::min<NSUInteger>(16, context.structurePipeline().threadExecutionWidth);
     const NSUInteger thread_height = std::max<NSUInteger>(1, std::min<NSUInteger>(16, context.structurePipeline().maxTotalThreadsPerThreadgroup / thread_width));
@@ -464,16 +504,37 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
     }
 
     std::memcpy(output.data(), output_buffer.contents, output_bytes);
+    std::memcpy(output_colors.data(), output_color_buffer.contents, output_bytes);
     GpuStructureGlyphs result;
     result.glyphs.reserve(output.size());
-    for (const uint32_t glyph : output) {
+    if (frame != nullptr) {
+      result.average_colors.reserve(output_colors.size());
+    }
+    for (std::size_t index = 0; index < output.size(); ++index) {
+      const uint32_t glyph = output[index];
       result.glyphs.push_back(static_cast<char32_t>(glyph));
+      if (frame != nullptr) {
+        const uint32_t color = output_colors[index];
+        result.average_colors.push_back(Rgb{
+          .r = static_cast<uint8_t>(color & 0xffU),
+          .g = static_cast<uint8_t>((color >> 8U) & 0xffU),
+          .b = static_cast<uint8_t>((color >> 16U) & 0xffU),
+        });
+      }
       if (shape_table != nullptr && glyph != 0) {
         ++result.shape_match_cells;
       }
     }
     return result;
   }
+}
+
+std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) {
+  return computeStructureGlyphsGpuImpl(nullptr, field, cols, rows, edge_threshold, shape_table);
+}
+
+std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame& frame, const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) {
+  return computeStructureGlyphsGpuImpl(&frame, field, cols, rows, edge_threshold, shape_table);
 }
 
 }  // namespace contourtty

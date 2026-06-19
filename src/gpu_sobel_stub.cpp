@@ -14,4 +14,8 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField
   return std::nullopt;
 }
 
+std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame&, const LuminanceField&, int, int, double, const GlyphShapeTable*) {
+  return std::nullopt;
+}
+
 }  // namespace contourtty
