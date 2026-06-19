@@ -1,0 +1,42 @@
+{
+  "name": "@kumeyuri/marp-plugin",
+  "version": "0.0.0",
+  "description": "Marp CLI engine hook that embeds kumeyuri .kumecast timelines.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "directory": "packages/marp-plugin-kumeyuri"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@marp-team/marp-cli": "^4.0.0",
+    "@marp-team/marp-core": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marp-team/marp-cli": {
+      "optional": true
+    },
+    "@marp-team/marp-core": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/marp-plugin.test.mjs",
+    "prepack": "npm test"
+  }
+}

@@ -7,6 +7,7 @@
     "packages/kumeyuri",
     "packages/docusaurus-plugin-kumeyuri",
     "packages/reveal-plugin-kumeyuri",
+    "packages/marp-plugin-kumeyuri",
     "packages/rehype-kumeyuri",
     "packages/remark-kumeyuri"
   ],
@@ -24,6 +25,7 @@
     "test:ts-package": "npm --workspace kumeyuri run test",
     "test:docusaurus-plugin": "npm --workspace @docusaurus/plugin-kumeyuri run test",
     "test:reveal-plugin": "npm --workspace @kumeyuri/reveal-plugin run test",
+    "test:marp-plugin": "npm --workspace @kumeyuri/marp-plugin run test",
     "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
     "test:wasm-budget": "scripts/check-wasm-budget.sh",
     "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",

@@ -290,7 +290,7 @@
 - [x] Implement PDF renderer in `kumeyuri-render-pdf` (plugin via Phase 7 ABI) using `printpdf` or `pdf-writer`
 - [x] Implement print-friendly theme `print-mono` (no colour, high contrast, monospace ASCII fallback)
 - [x] Implement reveal.js plugin loading kumecast files inline in slides
-- [ ] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
+- [x] Implement Marp plugin embedding kumeyuri diagrams via `marp-cli` hook
 - [ ] Implement Slidev component `<KumeyuriDiagram>`
 - [ ] Implement Obsidian community plugin replacing built-in mermaid with kumeyuri
 - [ ] Implement Logseq plugin equivalent
