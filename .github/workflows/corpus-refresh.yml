@@ -1,0 +1,50 @@
+name: Corpus Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Scraper source name
+        required: false
+        default: example
+  schedule:
+    - cron: "0 3 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: vars
+        run: |
+          source="${{ github.event.inputs.source }}"
+          if [ -z "$source" ]; then
+            source="example"
+          fi
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+      - id: ingest
+        run: |
+          delta_path=$(pnpm --filter @wat/ingest ingest run "${{ steps.vars.outputs.source }}" | tail -n 1)
+          echo "delta_path=$delta_path" >> "$GITHUB_OUTPUT"
+      - run: pnpm --filter @wat/ingest ingest lint
+      - run: pnpm --filter @wat/ingest summarize:delta "${{ steps.ingest.outputs.delta_path }}" reports/corpus-refresh-pr.md
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: data/deltas/**
+          branch: corpus/refresh-${{ steps.vars.outputs.source }}-${{ steps.vars.outputs.date }}
+          body-path: reports/corpus-refresh-pr.md
+          commit-message: "corpus: refresh ${{ steps.vars.outputs.source }} ${{ steps.vars.outputs.date }}"
+          delete-branch: true
+          labels: corpus, automated
+          title: "corpus: refresh ${{ steps.vars.outputs.source }} ${{ steps.vars.outputs.date }}"

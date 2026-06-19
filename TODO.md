@@ -22,9 +22,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Measure search latency on hosted (Vercel + Neon) — done when p95 < 150ms for 1k-warmup queries.
 
 ## P1 — Public corpus ingestion framework
-- [ ] Build delta-to-PR workflow via GitHub Actions — done when scheduled run opens a PR titled `corpus: refresh <source> <date>` with the JSON delta diff.
-- [ ] Implement reviewer-friendly PR summary (counts added/changed/removed, sample diffs) — done when PR body shows summary table.
-- [ ] Set up weekly cron (Sun 03:00 UTC) — done when `.github/workflows/corpus-refresh.yml` runs on schedule.
 
 ## P1 — Public corpus scrapers (one task per source)
 - [ ] Wikipedia acronym/disambiguation scraper — done when ≥3K entries imported w/ Wikipedia citations, license CC-BY-SA tagged.

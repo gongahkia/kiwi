@@ -13,6 +13,7 @@
     "build": "tsc -b",
     "ingest": "tsx src/cli.ts",
     "lint:sources": "tsx src/source-coverage.ts seeds/manual.json",
+    "summarize:delta": "tsx src/delta-summary.ts",
     "test": "vitest run src"
   },
   "devDependencies": {

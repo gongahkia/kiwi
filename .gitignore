@@ -7,3 +7,4 @@ dist/
 coverage/
 .wxt/
 .output/
+reports/corpus-refresh-pr.md
