@@ -37,6 +37,7 @@ export interface KumeyuriRenderOutput {
 
 export interface KumeyuriWasmBindings {
   render(source: string, options: KumeyuriRenderOptions): unknown;
+  renderCast?: (source: string, options: KumeyuriRenderOptions) => unknown;
 }
 
 export type KumeyuriWasmModule = KumeyuriWasmBindings & {
@@ -45,6 +46,7 @@ export type KumeyuriWasmModule = KumeyuriWasmBindings & {
 
 export interface KumeyuriClient {
   render(source: string, options?: KumeyuriRenderOptions): KumeyuriRenderOutput;
+  renderCast(source: string, options?: KumeyuriRenderOptions): KumeyuriRenderOutput;
 }
 
 export interface KumeyuriElementOptions {
@@ -58,6 +60,12 @@ export function createKumeyuri(wasm: KumeyuriWasmBindings): KumeyuriClient {
   return {
     render(source: string, options: KumeyuriRenderOptions = {}): KumeyuriRenderOutput {
       return normalizeRenderOutput(wasm.render(source, options));
+    },
+    renderCast(source: string, options: KumeyuriRenderOptions = {}): KumeyuriRenderOutput {
+      if (typeof wasm.renderCast !== "function") {
+        throw new Error("kumeyuri WASM module does not expose renderCast");
+      }
+      return normalizeRenderOutput(wasm.renderCast(source, options));
     },
   };
 }
@@ -79,6 +87,13 @@ export function render(source: string, options: KumeyuriRenderOptions = {}): Kum
     throw new Error("kumeyuri WASM module is not initialized; call initKumeyuri() first");
   }
   return activeClient.render(source, options);
+}
+
+export function renderCast(source: string, options: KumeyuriRenderOptions = {}): KumeyuriRenderOutput {
+  if (!activeClient) {
+    throw new Error("kumeyuri WASM module is not initialized; call initKumeyuri() first");
+  }
+  return activeClient.renderCast(source, options);
 }
 
 export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): CustomElementConstructor {
@@ -130,10 +145,12 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       try {
         this.#stopPlayback();
         const source = await this.#source();
-        if (source.trim().length === 0) {
+        if (source.text.trim().length === 0) {
           return;
         }
-        const output = render(withAnimationDirective(source, this.getAttribute("animate")), this.#renderOptions());
+        const output = source.cast
+          ? renderCast(source.text, this.#renderOptions())
+          : render(withAnimationDirective(source.text, this.getAttribute("animate")), this.#renderOptions());
         this.dataset.autoplay = String(this.hasAttribute("autoplay"));
         this.dataset.controls = String(this.hasAttribute("controls"));
         this.removeAttribute("data-error");
@@ -146,20 +163,20 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       }
     }
 
-    async #source(): Promise<string> {
+    async #source(): Promise<{ text: string; cast: boolean }> {
       const src = this.getAttribute("src");
       if (src) {
         const response = await fetch(src);
         if (!response.ok) {
           throw new Error(`failed to fetch ${src}: ${response.status}`);
         }
-        return response.text();
+        return { text: await response.text(), cast: isKumecastSrc(src) };
       }
       const inline = this.getAttribute("inline");
       if (inline !== null && inline.length > 0) {
-        return inline;
+        return { text: inline, cast: false };
       }
-      return this.#inlineSource ?? "";
+      return { text: this.#inlineSource ?? "", cast: false };
     }
 
     #renderOptions(): KumeyuriRenderOptions {
@@ -323,6 +340,14 @@ function withAnimationDirective(source: string, animate: string | null): string 
     throw new Error(`invalid animate ${JSON.stringify(animate)}`);
   }
   return `%%{ animate: '${animate}' }%%\n${source}`;
+}
+
+function isKumecastSrc(src: string): boolean {
+  try {
+    return new URL(src, globalThis.document?.baseURI).pathname.endsWith(".kumecast");
+  } catch {
+    return src.split(/[?#]/, 1)[0]?.endsWith(".kumecast") ?? false;
+  }
 }
 
 function controlButtonStyle(): string {

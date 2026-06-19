@@ -1,6 +1,9 @@
+use std::time::Duration;
+
 use kumeyuri_core::{
     animator::{AnimationOptions, Animator, KeyFrame, Timeline},
     ast::Diagram,
+    cast::Kumecast,
     frame::{Charset, StaticFrameRenderer},
     parser::Parser as MermaidParser,
     text::{TextOutputBackend, TextOutputConfig},
@@ -24,12 +27,25 @@ impl WasmRenderer {
     pub fn render(&self, source: &str, options: JsValue) -> Result<JsValue, JsValue> {
         render(source, options)
     }
+
+    #[wasm_bindgen(js_name = renderCast)]
+    pub fn render_cast(&self, source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+        render_cast(source, options)
+    }
 }
 
 #[wasm_bindgen]
 pub fn render(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
     let options = decode_options(options)?;
     render_output(source, &options)
+        .and_then(|output| serde_wasm_bindgen::to_value(&output).map_err(|error| error.to_string()))
+        .map_err(|error| JsValue::from_str(&error))
+}
+
+#[wasm_bindgen(js_name = renderCast)]
+pub fn render_cast(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    let options = decode_options(options)?;
+    render_cast_output(source, &options)
         .and_then(|output| serde_wasm_bindgen::to_value(&output).map_err(|error| error.to_string()))
         .map_err(|error| JsValue::from_str(&error))
 }
@@ -77,6 +93,17 @@ fn render_output(source: &str, options: &WasmRenderOptions) -> Result<WasmRender
     })
 }
 
+fn render_cast_output(
+    source: &str,
+    options: &WasmRenderOptions,
+) -> Result<WasmRenderOutput, String> {
+    let timeline = timeline_from_cast_source(source, options)?;
+    Ok(WasmRenderOutput {
+        svg: SvgRenderer::new(svg_config(options)?).render_timeline(&timeline),
+        frames: timeline_frames(&timeline, options),
+    })
+}
+
 fn timeline_from_source(source: &str, options: &WasmRenderOptions) -> Result<Timeline, String> {
     let diagram = parse_diagram(source)?;
     let animation_options = AnimationOptions::new(options.speed, options.repeat)
@@ -88,6 +115,38 @@ fn timeline_from_source(source: &str, options: &WasmRenderOptions) -> Result<Tim
     )
     .map_err(|error| format!("animation config error: {error:?}"))?;
     Ok(apply_timeline_width(timeline, options))
+}
+
+fn timeline_from_cast_source(
+    source: &str,
+    options: &WasmRenderOptions,
+) -> Result<Timeline, String> {
+    let cast = Kumecast::from_json_str(source).map_err(|error| error.to_string())?;
+    let timeline = cast.to_timeline().map_err(|error| error.to_string())?;
+    Ok(apply_timeline_width(
+        apply_cast_playback_options(timeline, options)?,
+        options,
+    ))
+}
+
+fn apply_cast_playback_options(
+    timeline: Timeline,
+    options: &WasmRenderOptions,
+) -> Result<Timeline, String> {
+    let animation_options = AnimationOptions::new(options.speed, options.repeat)
+        .map_err(|error| format!("invalid animation options: {error:?}"))?;
+    let repeat = animation_options.repeat().unwrap_or(timeline.repeat());
+    let Some(speed) = animation_options.speed() else {
+        return Ok(timeline.with_repeat(repeat));
+    };
+    let mut scaled = Timeline::new().with_repeat(repeat);
+    for keyframe in timeline.keyframes() {
+        scaled.push(KeyFrame::new(
+            keyframe.frame().clone(),
+            Duration::from_secs_f64(keyframe.duration().as_secs_f64() / f64::from(speed)),
+        ));
+    }
+    Ok(scaled)
 }
 
 fn frame_renderer(options: &WasmRenderOptions) -> Result<StaticFrameRenderer, String> {
@@ -199,7 +258,13 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use super::{WasmRenderOptions, render_output};
+    use super::{WasmRenderOptions, render_cast_output, render_output};
+    use kumeyuri_core::{
+        animator::{KeyFrame, Timeline},
+        cast::Kumecast,
+        frame::Frame,
+        theme::Theme,
+    };
 
     const FIXTURES: [Fixture; 28] = [
         Fixture::new("flowchart", "01_single_node"),
@@ -274,6 +339,32 @@ mod tests {
                 .lines()
                 .all(|line| line.chars().count() == 40)
         );
+    }
+
+    #[test]
+    fn renders_kumecast_svg_and_text_frames() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let timeline = Timeline::from_keyframes(vec![KeyFrame::new(
+            frame,
+            std::time::Duration::from_millis(100),
+        )]);
+        let cast = Kumecast::from_timeline("flowchart", "graph TD\nA", Theme::github(), &timeline)
+            .to_json_string()
+            .unwrap();
+        let output = render_cast_output(
+            &cast,
+            &WasmRenderOptions {
+                speed: Some(2.0),
+                repeat: Some(true),
+                ..WasmRenderOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert!(output.svg.starts_with("<svg "));
+        assert_eq!(output.frames[0].text, "A");
+        assert_eq!(output.frames[0].duration_ms, 50);
     }
 
     #[test]

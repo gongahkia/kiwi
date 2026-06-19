@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { createKumeyuri, defineKumeyuriElement, initKumeyuri, render } from "../dist/index.js";
+import { createKumeyuri, defineKumeyuriElement, initKumeyuri, render, renderCast } from "../dist/index.js";
 
 const calls = [];
 const wasm = {
@@ -9,12 +9,22 @@ const wasm = {
     this.initialized = true;
   },
   render(source, options) {
-    calls.push({ source, options });
+    calls.push({ kind: "mermaid", source, options });
     return {
-      svg: `<svg data-theme="${options.theme ?? "default"}" data-dark-theme="${options.darkTheme ?? ""}"></svg>`,
+      svg: `<svg data-kind="mermaid" data-theme="${options.theme ?? "default"}" data-dark-theme="${options.darkTheme ?? ""}"></svg>`,
       frames: [
         { text: "A", durationMs: 550 },
         { text: "B", durationMs: 650 },
+      ],
+    };
+  },
+  renderCast(source, options) {
+    calls.push({ kind: "cast", source, options });
+    return {
+      svg: `<svg data-kind="cast" data-theme="${options.theme ?? "default"}"></svg>`,
+      frames: [
+        { text: "C", durationMs: 750 },
+        { text: "D", durationMs: 850 },
       ],
     };
   },
@@ -22,15 +32,17 @@ const wasm = {
 
 const client = createKumeyuri(wasm);
 const output = client.render("graph TD\\nA --> B", { theme: "github", darkTheme: "dracula" });
-assert.equal(output.svg, '<svg data-theme="github" data-dark-theme="dracula"></svg>');
+assert.equal(output.svg, '<svg data-kind="mermaid" data-theme="github" data-dark-theme="dracula"></svg>');
 assert.deepEqual(output.frames, [
   { text: "A", durationMs: 550 },
   { text: "B", durationMs: 650 },
 ]);
+assert.equal(client.renderCast('{"version":1}', { theme: "github" }).frames[0].text, "C");
 
 await initKumeyuri(async () => wasm);
 assert.equal(wasm.initialized, true);
 assert.equal(render("graph TD\\nA --> B").frames[0].durationMs, 550);
+assert.equal(renderCast('{"version":1}').frames[0].durationMs, 750);
 
 assert.throws(
   () => createKumeyuri({ render: () => ({ svg: 1, frames: [] }) }).render("x"),
@@ -44,7 +56,7 @@ globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.fetch = async (url) => ({
   ok: true,
   status: 200,
-  text: async () => `graph TD\\n${url} --> B`,
+  text: async () => url.endsWith(".kumecast") ? `{"version":1,"source":"${url}"}` : `graph TD\\n${url} --> B`,
 });
 
 defineKumeyuriElement();
@@ -78,6 +90,17 @@ document.body.append(srcElement);
 await tick();
 
 assert.match(calls.at(-1).source, /remote\.mmd --> B/);
+assert.equal(calls.at(-1).kind, "mermaid");
+
+const castElement = document.createElement("kumeyuri-diagram");
+castElement.setAttribute("src", "remote.kumecast");
+castElement.setAttribute("animate", "trace");
+document.body.append(castElement);
+await tick();
+
+assert.equal(calls.at(-1).kind, "cast");
+assert.match(calls.at(-1).source, /remote\.kumecast/);
+assert.equal(castElement.querySelector("svg")?.getAttribute("data-kind"), "cast");
 
 function tick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
