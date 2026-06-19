@@ -22,6 +22,8 @@ bool sameCell(const Cell& lhs, const Cell& rhs, bool mono) noexcept {
 
 EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions options) {
   const bool full_repaint = !has_previous_ || previous_.cols() != current.cols() || previous_.rows() != current.rows();
+  const bool truecolor = emitsTruecolor(options.color_mode);
+  const bool mono = !truecolor;
   EmissionResult result;
   result.bytes.reserve(current.size() * 32);
   if (full_repaint && has_previous_) {
@@ -33,12 +35,12 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
   for (int row = 0; row < current.rows(); ++row) {
     for (int col = 0; col < current.cols(); ++col) {
       const Cell& cell = current.at(col, row);
-      if (!full_repaint && sameCell(cell, previous_.at(col, row), options.mono)) {
+      if (!full_repaint && sameCell(cell, previous_.at(col, row), mono)) {
         continue;
       }
 
       appendCursorMove(result.bytes, row + 1, col + 1);
-      if (!options.mono) {
+      if (truecolor) {
         if (!active_fg.has_value() || !sameColor(*active_fg, cell.fg)) {
           appendSgrFg(result.bytes, cell.fg);
           active_fg = cell.fg;

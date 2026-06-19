@@ -3,6 +3,7 @@
 #include "audio_backend.hpp"
 #include "audio_decode.hpp"
 #include "cell_buffer.hpp"
+#include "color_mode.hpp"
 #include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
@@ -475,7 +476,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
         .channels = static_cast<uint32_t>(decoded_audio->channels),
       });
   }
-  const EmissionOptions emission_options{.mono = options.color_mode == "mono"};
+  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  const EmissionOptions emission_options{.color_mode = color_mode};
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cell_buffer.hpp"
+#include "color_mode.hpp"
 
 #include <cstddef>
 #include <string>
@@ -13,7 +14,7 @@ struct EmissionResult {
 };
 
 struct EmissionOptions {
-  bool mono = false;
+  ColorMode color_mode = ColorMode::Truecolor;
 };
 
 class DiffEmitter {

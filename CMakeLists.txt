@@ -56,6 +56,7 @@ endif()
 add_executable(contourtty
   src/ansi.cpp
   src/cli.cpp
+  src/color_mode.cpp
   src/diff_emitter.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
@@ -279,6 +280,30 @@ else()
 endif()
 add_test(NAME cli COMMAND cli_tests)
 
+add_executable(color_mode_tests
+  tests/color_mode_tests.cpp
+  src/color_mode.cpp
+)
+target_include_directories(color_mode_tests PRIVATE src)
+target_compile_features(color_mode_tests PRIVATE cxx_std_20)
+set_target_properties(color_mode_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(color_mode_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_mode_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(color_mode_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(color_mode_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME color_mode COMMAND color_mode_tests)
+
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp
 )
@@ -329,6 +354,7 @@ add_test(NAME ansi COMMAND ansi_tests)
 add_executable(diff_emitter_tests
   tests/diff_emitter_tests.cpp
   src/ansi.cpp
+  src/color_mode.cpp
   src/diff_emitter.cpp
 )
 target_include_directories(diff_emitter_tests PRIVATE src)
