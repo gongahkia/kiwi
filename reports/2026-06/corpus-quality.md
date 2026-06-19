@@ -8,20 +8,20 @@ Scope: `packages/ingest/seeds/manual.json`
 
 | Metric                             | Value |
 | ---------------------------------- | ----: |
-| Public entries                     |    50 |
-| Exact-term top-1 hit-rate          |   90% |
+| Public entries                     |    52 |
+| Exact-term top-1 hit-rate          |   77% |
 | Exact-term top-5 hit-rate          |  100% |
 | Source coverage                    |  100% |
 | Entries missing source URL/license |     0 |
 
 ## Hit-Rate
 
-Measured against all 50 committed manual seed entries by querying `GET /api/v1/search?q=<term>&limit=5` on a production Next server.
+Measured against all 52 committed manual seed entries by querying `GET /api/v1/search?q=<term>&limit=5` on a production Next server.
 
 Result:
 
-- top-1: 45 / 50
-- top-5: 50 / 50
+- top-1: 40 / 52
+- top-5: 52 / 52
 - top-5 misses: 0
 
 ## Drift
@@ -49,5 +49,5 @@ pnpm --filter @wat/ingest lint:sources
 Result:
 
 ```text
-source coverage ok: 50 entries checked
+source coverage ok: 52 entries checked
 ```

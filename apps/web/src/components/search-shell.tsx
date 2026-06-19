@@ -19,6 +19,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery.trim());
+  const [includeLowConfidence, setIncludeLowConfidence] = useState(false);
   const [matches, setMatches] = useState<SearchResult[]>([]);
   const [domain, setDomain] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -49,7 +50,8 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
     const controller = new AbortController();
     setStatus("loading");
 
-    void fetch(`/api/v1/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`, {
+    const confidenceParam = includeLowConfidence ? "" : "&min_confidence=T2";
+    void fetch(`/api/v1/search?q=${encodeURIComponent(debouncedQuery)}&limit=8${confidenceParam}`, {
       signal: controller.signal
     })
       .then((response) => {
@@ -71,7 +73,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
       });
 
     return () => controller.abort();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, includeLowConfidence]);
 
   useEffect(() => {
     if (domain && !domainOptions.includes(domain)) {
@@ -138,6 +140,17 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
       </form>
 
       <div aria-live="polite" className="grid gap-3">
+        {status !== "idle" ? (
+          <label className="flex w-fit items-center gap-2 text-sm text-foreground/70">
+            <input
+              checked={includeLowConfidence}
+              className="size-4"
+              onChange={(event) => setIncludeLowConfidence(event.target.checked)}
+              type="checkbox"
+            />
+            Show T3/T4
+          </label>
+        ) : null}
         {domainOptions.length > 1 ? (
           <select
             aria-label="Domain filter"

@@ -13,7 +13,7 @@
     "build": "tsc -b",
     "ingest": "tsx src/cli.ts",
     "lint:sources": "tsx src/source-coverage.ts seeds/manual.json",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

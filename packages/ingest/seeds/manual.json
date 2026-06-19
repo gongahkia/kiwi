@@ -1655,6 +1655,74 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["SRE", "SLA", "CAP"]
+    },
+    {
+      "id": "seed-cap-change-advisory-process",
+      "term": "CAP",
+      "term_normalized": "cap",
+      "expansions": ["Change Advisory Process"],
+      "domains": ["ops", "change-management"],
+      "meaning_short": "A community fixture for a change-review process acronym.",
+      "meaning_long": "Change Advisory Process is included as a low-confidence fixture so the UI can verify that T3 entries stay hidden until the confidence toggle is enabled.",
+      "examples": ["Route the release through CAP before production deployment."],
+      "sources": [
+        {
+          "url": "https://example.com/wat/community/cap-change-advisory-process",
+          "title": "Change Advisory Process fixture",
+          "publisher": "wat fixture",
+          "license": "MIT",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "Fixture source for a low-confidence community CAP expansion.",
+          "source_quality": "community"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T3",
+      "license": "MIT",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["SRE", "CI", "CD"]
+    },
+    {
+      "id": "seed-cap-cloud-access-proxy",
+      "term": "CAP",
+      "term_normalized": "cap",
+      "expansions": ["Cloud Access Proxy"],
+      "domains": ["security", "infra"],
+      "meaning_short": "A user-contributed fixture for a proxy acronym expansion.",
+      "meaning_long": "Cloud Access Proxy is included as a T4 fixture so the UI can verify that user-contributed entries stay hidden until explicitly revealed.",
+      "examples": [
+        "The team routed admin traffic through a CAP before reaching internal services."
+      ],
+      "sources": [
+        {
+          "url": "https://example.com/wat/community/cap-cloud-access-proxy",
+          "title": "Cloud Access Proxy fixture",
+          "publisher": "wat fixture",
+          "license": "MIT",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "Fixture source for a user-contributed CAP expansion.",
+          "source_quality": "community"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T4",
+      "license": "MIT",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["TLS", "RBAC", "API"]
     }
   ]
 }

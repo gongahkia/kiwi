@@ -15,6 +15,7 @@ Source registry for implemented scrapers and committed seed data.
 | MDN Web Docs | CC-BY-SA-2.5 | https://developer.mozilla.org/ | Seeded web platform terms. |
 | Wikipedia | CC-BY-SA-4.0 | https://en.wikipedia.org/ | Seeded acronym and disambiguation entries. |
 | Kubernetes | CC-BY-4.0 | https://kubernetes.io/docs/reference/glossary/ | Seeded Kubernetes glossary terms. |
+| wat fixture | MIT | https://example.com/wat/community/ | Low-confidence UI verification fixtures. |
 
 ## Review Rules
 
