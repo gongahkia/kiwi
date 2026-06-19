@@ -406,7 +406,7 @@
 - [x] Set up `criterion` benchmarks for parse, layout, render
 - [x] Set up `dhat-rs` heap profiling in dedicated CI job
 - [x] Set up `size-limit` (or equivalent) for WASM bundle gzip budget
-- [ ] Set up `playwright` perf test for first-contentful-render of web player
+- [x] Set up `playwright` perf test for first-contentful-render of web player
 - [ ] Add runtime FPS counter to TUI under `--debug`
 - [ ] Add CI gate: fail PR if any metric regresses > 10% without `perf:` label
 
