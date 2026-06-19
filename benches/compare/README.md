@@ -25,3 +25,8 @@ Adapters:
   Current upstream support is limited to flowchart, state, sequence, class, ER,
   and XY chart inputs, so unsupported corpus roots are recorded as adapter
   errors rather than committed fixtures.
+* `npm run bench:compare:alexander-mermaid-ascii` renders the manifest through
+  the `AlexanderGrooff/mermaid-ascii` Go CLI. Install the binary separately and
+  expose it on `PATH`, or set `MERMAID_ASCII_BIN=/path/to/mermaid-ascii`.
+  The adapter invokes `mermaid-ascii --file <input> --ascii` and records
+  nonzero exits as per-input errors.
