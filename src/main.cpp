@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "media_probe.hpp"
 #include "player.hpp"
+#include "stream_resolver.hpp"
 #include "terminal.hpp"
 
 #include <cstdlib>
@@ -42,26 +43,31 @@ int runApp(int argc, char** argv) {
   }
 
   if (parsed.options.input.has_value()) {
-    const bool diagnostic_probe = parsed.options.dump_frame.has_value() || parsed.options.dump_png.has_value();
+    contourtty::CliOptions options = parsed.options;
+    options.input = contourtty::resolveMediaInput(*parsed.options.input);
+    if (*options.input != *parsed.options.input) {
+      CONTOURTTY_LOG_INFO(logger, "resolved input via yt-dlp");
+    }
+    const bool diagnostic_probe = options.dump_frame.has_value() || options.dump_png.has_value();
     if (contourtty::terminalSessionAvailable() && !diagnostic_probe) {
-      return contourtty::playMedia(parsed.options, logger);
+      return contourtty::playMedia(options, logger);
     }
 
     contourtty::MediaProbeOptions probe_options;
-    if (parsed.options.dump_frame.has_value()) {
-      probe_options.dump_frame_index = *parsed.options.dump_frame;
+    if (options.dump_frame.has_value()) {
+      probe_options.dump_frame_index = *options.dump_frame;
     }
-    if (parsed.options.dump_png.has_value()) {
-      probe_options.dump_png = *parsed.options.dump_png;
+    if (options.dump_png.has_value()) {
+      probe_options.dump_png = *options.dump_png;
     }
-    if (parsed.options.width.has_value()) {
-      probe_options.target_cols = *parsed.options.width;
+    if (options.width.has_value()) {
+      probe_options.target_cols = *options.width;
     }
-    if (parsed.options.height.has_value()) {
-      probe_options.target_rows = *parsed.options.height;
+    if (options.height.has_value()) {
+      probe_options.target_rows = *options.height;
     }
-    probe_options.cell_aspect = parsed.options.cell_aspect;
-    const auto info = contourtty::probeMedia(*parsed.options.input, probe_options);
+    probe_options.cell_aspect = options.cell_aspect;
+    const auto info = contourtty::probeMedia(*options.input, probe_options);
     std::cout << contourtty::formatMediaProbeInfo(info);
     return 0;
   }

@@ -74,6 +74,7 @@ add_executable(contourtty
   src/render_layout.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
+  src/stream_resolver.cpp
   src/terminal.cpp
   src/video_decoder.cpp
 )
@@ -433,6 +434,30 @@ else()
   endif()
 endif()
 add_test(NAME render_layout COMMAND render_layout_tests)
+
+add_executable(stream_resolver_tests
+  tests/stream_resolver_tests.cpp
+  src/stream_resolver.cpp
+)
+target_include_directories(stream_resolver_tests PRIVATE src)
+target_compile_features(stream_resolver_tests PRIVATE cxx_std_20)
+set_target_properties(stream_resolver_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(stream_resolver_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(stream_resolver_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(stream_resolver_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(stream_resolver_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME stream_resolver COMMAND stream_resolver_tests)
 
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp

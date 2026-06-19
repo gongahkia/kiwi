@@ -11,7 +11,7 @@ Demo source: public-domain Wikimedia Commons footage; luminance is left, structu
 
 ## Status
 
-Pre-alpha. Local video now plays as paced luminance or structure ASCII in truecolor or mono terminals with audio sync. Webcam/stream inputs, exports, and packaging are still pending.
+Pre-alpha. Local video, images, GIFs, and direct FFmpeg stream URLs now play as paced luminance or structure ASCII with audio sync where audio is present. Webcam capture, real YouTube verification, exports, and packaging are still pending.
 
 ## Build and run
 
@@ -32,6 +32,8 @@ Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure`
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
 
 Layout: `--width` and `--height` set render bounds, `--fit` clamps those bounds to the current terminal, output is centered, resize recomputes the fit and repaints, and `--loop` restarts video input at EOF.
+
+Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to libav. YouTube URLs require `yt-dlp`; contourtty resolves them with `yt-dlp -g` and fails with a clear install/direct-URL message when it is missing.
 
 Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized.
 
