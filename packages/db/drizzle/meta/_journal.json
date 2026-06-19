@@ -78,6 +78,13 @@
       "when": 1781886355048,
       "tag": "0010_sticky_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781886447849,
+      "tag": "0011_kind_sentry",
+      "breakpoints": true
     }
   ]
 }

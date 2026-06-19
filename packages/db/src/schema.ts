@@ -76,6 +76,10 @@ export const entries = pgTable(
     embedding: vector384("embedding")
   },
   (table) => [
+    index("entries_embedding_hnsw_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops")
+    ),
     index("entries_tsvector_gin_idx").using("gin", table.tsvector),
     check(
       "entries_confidence_tier_check",

@@ -161,6 +161,7 @@ erDiagram
 ## Indexes
 
 - `entries_tsvector_gin_idx`: GIN index on `entries.tsvector`.
+- `entries_embedding_hnsw_idx`: HNSW index on `entries.embedding` with `vector_cosine_ops`.
 
 ## Constraints
 
