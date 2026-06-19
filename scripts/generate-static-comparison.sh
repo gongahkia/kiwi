@@ -38,8 +38,26 @@ html_status() {
   if cmp -s "$1" "$2"; then
     printf '<span class="status-pass">match</span>'
   else
-    printf '<span class="status-warn">diff</span>'
+    printf '<span class="status-warn">parity loss</span>'
   fi
+}
+
+loss_note_text() {
+  local targets=""
+  if ! cmp -s "$1" "$2"; then
+    targets="beautiful-mermaid"
+  fi
+  if ! cmp -s "$1" "$3"; then
+    if [[ -n "$targets" ]]; then
+      targets="$targets and mermaid-ascii"
+    else
+      targets="mermaid-ascii"
+    fi
+  fi
+  if [[ -z "$targets" ]]; then
+    return 1
+  fi
+  printf 'Parity loss: Kumeyuri output differs from %s for this fixture; the differing output is kept visible instead of being filtered from the comparison.' "$targets"
 }
 
 mkdir -p "$(dirname "$SITE_OUT")"
@@ -121,6 +139,9 @@ for fixture in "${FIXTURES[@]}"; do
     html_escape < "$mermaid_ascii_output"
     printf '</code></pre></td>\n'
     printf '</tr></tbody>\n</table>\n\n'
+    if note="$(loss_note_text "$kumeyuri_output" "$beautiful_output" "$mermaid_ascii_output")"; then
+      printf '**%s**\n\n' "$note"
+    fi
   } >> "$OUT"
 
   {
@@ -132,6 +153,9 @@ for fixture in "${FIXTURES[@]}"; do
     printf ' · Kumeyuri vs mermaid-ascii: '
     html_status "$kumeyuri_output" "$mermaid_ascii_output"
     printf '</p>\n'
+    if note="$(loss_note_text "$kumeyuri_output" "$beautiful_output" "$mermaid_ascii_output")"; then
+      printf '          <p class="compare-loss-note">%s</p>\n' "$note"
+    fi
     printf '        </div>\n'
     printf '        <details>\n'
     printf '          <summary>Mermaid input</summary>\n'

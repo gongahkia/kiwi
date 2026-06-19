@@ -253,6 +253,8 @@ A --> C
 </tr></tbody>
 </table>
 
+**Parity loss: Kumeyuri output differs from beautiful-mermaid and mermaid-ascii for this fixture; the differing output is kept visible instead of being filtered from the comparison.**
+
 ## `graph_tb_direction`
 
 ```mermaid
@@ -426,6 +428,8 @@ flowchart TB
 </tr></tbody>
 </table>
 
+**Parity loss: Kumeyuri output differs from beautiful-mermaid and mermaid-ascii for this fixture; the differing output is kept visible instead of being filtered from the comparison.**
+
 ## `comments`
 
 ```mermaid
@@ -492,6 +496,8 @@ A --> C
 </tr></tbody>
 </table>
 
+**Parity loss: Kumeyuri output differs from beautiful-mermaid and mermaid-ascii for this fixture; the differing output is kept visible instead of being filtered from the comparison.**
+
 ## `back_reference_from_child`
 
 ```mermaid
@@ -528,6 +534,8 @@ A --> B --> C --> A
 </code></pre></td>
 </tr></tbody>
 </table>
+
+**Parity loss: Kumeyuri output differs from beautiful-mermaid and mermaid-ascii for this fixture; the differing output is kept visible instead of being filtered from the comparison.**
 
 ## `preserve_order_of_definition`
 
@@ -594,4 +602,6 @@ C --> A
 </code></pre></td>
 </tr></tbody>
 </table>
+
+**Parity loss: Kumeyuri output differs from beautiful-mermaid and mermaid-ascii for this fixture; the differing output is kept visible instead of being filtered from the comparison.**
 
