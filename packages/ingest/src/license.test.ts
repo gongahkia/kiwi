@@ -13,6 +13,10 @@ describe("source license validation", () => {
     expect(() => assertCompatibleSourceLicense("CC-BY-4.0")).not.toThrow();
   });
 
+  it("allows the local public-domain source marker", () => {
+    expect(() => assertCompatibleSourceLicense("LicenseRef-Public-Domain")).not.toThrow();
+  });
+
   it("rejects unknown licenses", () => {
     expect(() => assertCompatibleSourceLicense("unknown")).toThrow(UnknownSourceLicenseError);
   });
