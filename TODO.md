@@ -13,7 +13,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
-- [ ] Define glossary entry schema in `packages/core/src/schema.ts` — done when Zod schema covers: id, term, term_normalized, expansions[], domains[], meaning_short, meaning_long, examples[], sources[], coiner, year_coined, confidence_tier (T1-T4), license, layer (public/team/personal), team_id?, created_at, updated_at, deprecated, deprecated_reason, aliases[], related_terms[].
 - [ ] Define disambiguation rules document `docs/disambiguation.md` — done when doc specifies ranking inputs, tie-break order, and worked examples.
 - [ ] Hand-curate 50 high-quality seed entries in `packages/ingest/seeds/manual.json` — done when JSON validates against schema and includes ≥3 disambiguation cases (eg. CAP, SLA, REST).
 - [ ] Decide JSON-on-disk vs DB-on-day-one — done when ADR `docs/adr/0001-storage.md` documents choice (DB chosen) w/ rationale.
