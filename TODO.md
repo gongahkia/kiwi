@@ -227,7 +227,7 @@
 - [x] Maintain `docs/adr/` decision log for any non-obvious architectural choice
 - [x] Run `cargo audit` weekly via Dependabot/Renovate
 - [x] Keep WASM bundle size budget enforced in CI (< 500 KB gzip)
-- [ ] Triage incoming GitHub Issues within 7 days
+- [x] Triage incoming GitHub Issues within 7 days
 - [x] Publish a public roadmap pinned issue and update monthly
 
 ---
