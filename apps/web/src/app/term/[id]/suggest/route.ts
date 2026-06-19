@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { checkSuggestionRateLimit } from "@/lib/suggestion-rate-limit";
 import { submitEntryEditSuggestion, validateSuggestedEntryEdit } from "@/lib/suggestions";
 
 const sessionCookie = "wat_session";
@@ -12,6 +13,13 @@ export async function POST(request: NextRequest, context: SuggestEditRouteContex
   const actorId = request.cookies.get(sessionCookie)?.value;
   if (!actorId) {
     return NextResponse.json({ error: "login required" }, { status: 401 });
+  }
+  const rateLimit = checkSuggestionRateLimit(actorId);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", limit: rateLimit.limit, remaining: rateLimit.remaining },
+      { status: 429 }
+    );
   }
 
   const { id } = await context.params;

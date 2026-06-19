@@ -72,7 +72,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P2 — Web app: contribution flows
 - [ ] Email notification on suggestion outcome — done when email sent on approve/reject (configurable).
-- [ ] Rate-limit suggestions per user (10/day) — done when 11th submission 429s.
 
 ## P2 — Web app: team admin
 
