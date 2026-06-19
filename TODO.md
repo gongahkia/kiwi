@@ -430,7 +430,7 @@
 - [x] Write `docs/migrating-from-mermaid-ascii.md`
 - [x] Write `docs/migrating-from-mermaid-cli.md`
 - [x] Add "Edit this page" GitHub links across every doc page
-- [ ] Add "Try in playground" CTA to every code block
+- [x] Add "Try in playground" CTA to every code block
 
 ### Launch comms execution (Phase 4)
 

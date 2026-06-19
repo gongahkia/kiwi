@@ -11,4 +11,5 @@ build-dir = "target/mdbook"
 git-repository-url = "https://github.com/gongahkia/kumeyuri"
 edit-url-template = "https://github.com/gongahkia/kumeyuri/edit/main/{path}"
 site-url = "/"
-additional-js = ["docs/book/a11y.js", "docs/book/pagefind.js"]
+additional-js = ["docs/book/a11y.js", "docs/book/pagefind.js", "docs/book/playground-cta.js"]
+additional-css = ["docs/book/playground-cta.css"]

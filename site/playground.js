@@ -9,6 +9,12 @@ const speed = document.querySelector("#playground-speed");
 
 let renderToken = 0;
 
+const params = new URLSearchParams(window.location.search);
+const initialSource = params.get("source");
+if (initialSource) {
+  source.value = initialSource;
+}
+
 await initWasm();
 renderNow();
 
