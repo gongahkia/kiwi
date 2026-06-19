@@ -8,6 +8,7 @@ import { mdnGlossaryScraper } from "./mdn-glossary.js";
 import { nistCsrcGlossaryScraper } from "./nist-csrc-glossary.js";
 import { postgresqlGlossaryScraper } from "./postgresql-glossary.js";
 import { w3cGlossaryScraper } from "./w3c-glossary.js";
+import { wikipediaAcronymsScraper } from "./wikipedia-acronyms.js";
 
 export const scrapers = new Map<string, ScraperPlugin>([
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
@@ -18,5 +19,6 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [mdnGlossaryScraper.name, mdnGlossaryScraper],
   [nistCsrcGlossaryScraper.name, nistCsrcGlossaryScraper],
   [postgresqlGlossaryScraper.name, postgresqlGlossaryScraper],
-  [w3cGlossaryScraper.name, w3cGlossaryScraper]
+  [w3cGlossaryScraper.name, w3cGlossaryScraper],
+  [wikipediaAcronymsScraper.name, wikipediaAcronymsScraper]
 ]);
