@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   getSuggestedEdits,
   resetSuggestedEditsForTest,
+  submitEntryEditSuggestion,
   submitNewEntrySuggestion,
-  validateSuggestedEntry
+  validateSuggestedEntry,
+  validateSuggestedEntryEdit
 } from "./suggestions";
 
 describe("suggestions", () => {
@@ -35,5 +37,25 @@ describe("suggestions", () => {
         term: "DOM"
       })
     ).toBeNull();
+  });
+
+  it("queues edit suggestions against an existing entry", () => {
+    resetSuggestedEditsForTest();
+    const input = validateSuggestedEntryEdit({
+      expansion: "Updated expansion",
+      meaning: "Updated meaning.",
+      source_url: "https://example.com/edit"
+    });
+
+    expect(input).not.toBeNull();
+    const suggestion = submitEntryEditSuggestion("user_admin", "seed-dom", input!, {
+      expansion: "Old expansion"
+    });
+    expect(suggestion).toMatchObject({
+      status: "pending",
+      target_id: "seed-dom"
+    });
+    expect(getSuggestedEdits()).toHaveLength(1);
+    resetSuggestedEditsForTest();
   });
 });

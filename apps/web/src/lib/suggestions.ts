@@ -11,14 +11,22 @@ export interface SuggestedEntryInput {
   term: string;
 }
 
+export interface SuggestedEntryEditInput {
+  expansion: string;
+  meaning: string;
+  source_url: string;
+}
+
+type SuggestedAfter = SuggestedEntryEditInput | SuggestedEntryInput;
+
 export interface SuggestedEdit {
   actor_id: string;
-  after_jsonb: SuggestedEntryInput;
-  before_jsonb: null;
+  after_jsonb: SuggestedAfter;
+  before_jsonb: unknown | null;
   created_at: string;
   id: string;
   status: SuggestedEditStatus;
-  target_id: null;
+  target_id: string | null;
   target_type: SuggestedTargetType;
 }
 
@@ -61,6 +69,25 @@ export function validateSuggestedEntry(value: unknown): SuggestedEntryInput | nu
   };
 }
 
+export function validateSuggestedEntryEdit(value: unknown): SuggestedEntryEditInput | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Partial<SuggestedEntryEditInput>;
+  if (
+    !nonEmptyString(input.expansion) ||
+    !nonEmptyString(input.meaning) ||
+    !nonEmptyString(input.source_url) ||
+    !validUrl(input.source_url)
+  ) {
+    return null;
+  }
+
+  return {
+    expansion: input.expansion.trim(),
+    meaning: input.meaning.trim(),
+    source_url: input.source_url.trim()
+  };
+}
+
 export function submitNewEntrySuggestion(
   actorId: string,
   input: SuggestedEntryInput
@@ -73,6 +100,26 @@ export function submitNewEntrySuggestion(
     id: randomUUID(),
     status: "pending",
     target_id: null,
+    target_type: "entry"
+  };
+  suggestedEdits.push(structuredClone(suggestion));
+  return structuredClone(suggestion);
+}
+
+export function submitEntryEditSuggestion(
+  actorId: string,
+  targetId: string,
+  input: SuggestedEntryEditInput,
+  before: unknown = null
+): SuggestedEdit {
+  const suggestion: SuggestedEdit = {
+    actor_id: actorId,
+    after_jsonb: input,
+    before_jsonb: before,
+    created_at: new Date().toISOString(),
+    id: randomUUID(),
+    status: "pending",
+    target_id: targetId,
     target_type: "entry"
   };
   suggestedEdits.push(structuredClone(suggestion));

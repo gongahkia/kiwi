@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { notFound } from "next/navigation";
 
 import { ShareLinkButton } from "@/components/share-link-button";
+import { SuggestEditForm } from "@/components/suggest-edit-form";
 
 interface TermPageProps {
   params: Promise<{ id: string }>;
@@ -114,6 +115,13 @@ export default async function TermPage({ params }: TermPageProps) {
           <p className="text-sm text-foreground/70">Created {entry.created_at}</p>
           <p className="text-sm text-foreground/70">Updated {entry.updated_at}</p>
         </section>
+
+        <SuggestEditForm
+          entryId={entry.id}
+          initialExpansion={entry.expansions[0] ?? ""}
+          initialMeaning={entry.meaning_long}
+          initialSourceUrl={entry.sources[0]?.url ?? ""}
+        />
       </article>
     </main>
   );
