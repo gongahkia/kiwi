@@ -1,0 +1,3800 @@
+{
+  "entries": [
+    {
+      "dedup_key": "ack:acknowledgement",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Humanizer , Bitcoin"
+      ],
+      "expansion_normalized": "acknowledgement",
+      "expansions": [
+        "ACKnowledgement"
+      ],
+      "meaning_short": "Agreed/accepted change. A loose ACK can be confusing. It's best to avoid them unless it's a documentation/comment only change in which case there is nothing to test/verify; therefore the tested/untested distinction is not there",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Agreed/accepted change. A loose ACK can be confusing. It's best to avoid them unless it's a documentation/comment only change in which case there is nothing to test/verify; therefore the tested/untested distinction is not there",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ACK",
+      "term_normalized": "ack",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ad:architectural decision",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "https://en.wikipedia.org/wiki/Architectural_decision"
+      ],
+      "expansion_normalized": "architectural decision",
+      "expansions": [
+        "Architectural Decision"
+      ],
+      "meaning_short": "Architectural Decision",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Architectural Decision",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "AD",
+      "term_normalized": "ad",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "adr:architectural decision record",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "https://adr.github.io/"
+      ],
+      "expansion_normalized": "architectural decision record",
+      "expansions": [
+        "Architectural Decision Record"
+      ],
+      "meaning_short": "Architectural Decision Record",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Architectural Decision Record",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ADR",
+      "term_normalized": "adr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "afaict:as far as i can tell",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "aiohttp"
+      ],
+      "expansion_normalized": "as far as i can tell",
+      "expansions": [
+        "As Far As I Can Tell"
+      ],
+      "meaning_short": "As Far As I Can Tell",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "As Far As I Can Tell",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "AFAICT",
+      "term_normalized": "afaict",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "afaik:as far as i know",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Diffract"
+      ],
+      "expansion_normalized": "as far as i know",
+      "expansions": [
+        "As Far As I Know"
+      ],
+      "meaning_short": "AFAIK, he will be away for three months.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "AFAIK, he will be away for three months.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "AFAIK",
+      "term_normalized": "afaik",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "afk:away from keyboard",
+      "domains": [
+        "foss",
+        "chat"
+      ],
+      "examples": [
+        "Cambridge Dictionary"
+      ],
+      "expansion_normalized": "away from keyboard",
+      "expansions": [
+        "Away From Keyboard"
+      ],
+      "meaning_short": "I'm going afk, dinner's ready.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "I'm going afk, dinner's ready.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        },
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Away From Keyboard",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "AFK",
+      "term_normalized": "afk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "akm:architectural knowledge management",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "architectural knowledge management",
+      "expansions": [
+        "Architectural Knowledge Management"
+      ],
+      "meaning_short": "Architectural Decisions, Architectural Decision Records, and Architecturally Significant Requirements all fall under the umbrella of Architectural Knowledge Management",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Architectural Decisions, Architectural Decision Records, and Architecturally Significant Requirements all fall under the umbrella of Architectural Knowledge Management",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "AKM",
+      "term_normalized": "akm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "aoa:analysis of alternatives",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/programming"
+      ],
+      "expansion_normalized": "analysis of alternatives",
+      "expansions": [
+        "Analysis of Alternatives"
+      ],
+      "meaning_short": "Analysis of Alternatives",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Analysis of Alternatives",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "AOA",
+      "term_normalized": "aoa",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "asap:as soon as possible",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Britannica"
+      ],
+      "expansion_normalized": "as soon as possible",
+      "expansions": [
+        "As Soon As Possible"
+      ],
+      "meaning_short": "It is an informal way to say that who wrote it is busy at the moment and will reply as soon as he can.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It is an informal way to say that who wrote it is busy at the moment and will reply as soon as he can.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ASAP",
+      "term_normalized": "asap",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "asr:architecturally significant requirements",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "https://en.wikipedia.org/wiki/Architecturally_significant_requirements"
+      ],
+      "expansion_normalized": "architecturally significant requirements",
+      "expansions": [
+        "Architecturally Significant Requirements"
+      ],
+      "meaning_short": "Architecturally Significant Requirements",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Architecturally Significant Requirements",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ASR",
+      "term_normalized": "asr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "bbl:brown bag lunch",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "brownbaglunch on Github (French)"
+      ],
+      "expansion_normalized": "brown bag lunch",
+      "expansions": [
+        "Brown Bag Lunch"
+      ],
+      "meaning_short": "It is an informal training meeting usually performed during lunch. It is a nice way to share knowledge, train on technical, business or any kind of skills. The speaker does not have to be an expert of the topic.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It is an informal training meeting usually performed during lunch. It is a nice way to share knowledge, train on technical, business or any kind of skills. The speaker does not have to be an expert of the topic.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "BBL",
+      "term_normalized": "bbl",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ccw:comment and criticism welcome",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "comment and criticism welcome",
+      "expansions": [
+        "Comment and Criticism Welcome"
+      ],
+      "meaning_short": "Comment and Criticism Welcome",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Comment and Criticism Welcome",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CCW",
+      "term_normalized": "ccw",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cfp:a call for papers cfp is an announcement conference organizers to speakers and scientists to submit their manuscript for review and publication in the conference journal",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wiki for Calls For Papers"
+      ],
+      "expansion_normalized": "a call for papers cfp is an announcement conference organizers to speakers and scientists to submit their manuscript for review and publication in the conference journal",
+      "expansions": [
+        "A Call For Papers (CFP) is an announcement conference organizers to speakers and scientists to submit their manuscript for review and publication in the conference journal."
+      ],
+      "meaning_short": "Conferences set a deadlines for their CFP so authors know when to have their publication ready for review.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Conferences set a deadlines for their CFP so authors know when to have their publication ready for review.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CFP",
+      "term_normalized": "cfp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cjk:chinese japanese korean",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia page for CJK characters , a remark plugin to remove extra space between CJK Characters"
+      ],
+      "expansion_normalized": "chinese japanese korean",
+      "expansions": [
+        "Chinese-Japanese-Korean"
+      ],
+      "meaning_short": "Usually used in the context of localization or internationalization, because all of them include Chinese characters and derivatives in their writing systems. Often included are Hànzì in Chinese, Kanji and Kana in Japanese and Hanja and Hangul in Korean.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Usually used in the context of localization or internationalization, because all of them include Chinese characters and derivatives in their writing systems. Often included are Hànzì in Chinese, Kanji and Kana in Japanese and Hanja and Hangul in Korean.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CJK",
+      "term_normalized": "cjk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cla:contributor license agreement",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Play Framework , Microsoft"
+      ],
+      "expansion_normalized": "contributor license agreement",
+      "expansions": [
+        "Contributor License Agreement"
+      ],
+      "meaning_short": "Contributor License Agreement",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Contributor License Agreement",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CLA",
+      "term_normalized": "cla",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cli:command line interface",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia page for CLI"
+      ],
+      "expansion_normalized": "command line interface",
+      "expansions": [
+        "Command Line Interface"
+      ],
+      "meaning_short": "I prefer using the CLI because it is faster.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "I prefer using the CLI because it is faster.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CLI",
+      "term_normalized": "cli",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cmv:change my view",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "change my view",
+      "expansions": [
+        "Change My View"
+      ],
+      "meaning_short": "Change My View",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Change My View",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CMV",
+      "term_normalized": "cmv",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "coc:code of conduct",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Our Code of Conduct"
+      ],
+      "expansion_normalized": "code of conduct",
+      "expansions": [
+        "Code of Conduct"
+      ],
+      "meaning_short": "Code of Conduct",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Code of Conduct",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "CoC",
+      "term_normalized": "coc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "concept ack:concept acknowledgement",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Bitcoin"
+      ],
+      "expansion_normalized": "concept acknowledgement",
+      "expansions": [
+        "Concept ACKnowledgement"
+      ],
+      "meaning_short": "Agree with the idea and overall direction, but haven't reviewed the code changes or tested them",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Agree with the idea and overall direction, but haven't reviewed the code changes or tested them",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "Concept ACK",
+      "term_normalized": "concept ack",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dae:does anyone else",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "https://www.reddit.com/r/ProgrammerHumor/comments/y6959z/comment/issuua9/?context=3"
+      ],
+      "expansion_normalized": "does anyone else",
+      "expansions": [
+        "Does Anyone Else"
+      ],
+      "meaning_short": "DAE think this language is confusing?",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "DAE think this language is confusing?",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DAE",
+      "term_normalized": "dae",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dag:in graph theory and computer science a directed acyclic graph consists of vertices and directed edges between vertices such as following the direction of the edges will never form a closed loop",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia page for DAG"
+      ],
+      "expansion_normalized": "in graph theory and computer science a directed acyclic graph consists of vertices and directed edges between vertices such as following the direction of the edges will never form a closed loop",
+      "expansions": [
+        "In graph theory and computer science a Directed Acyclic Graph consists of vertices and directed edges between vertices such as following the direction of the edges will never form a closed loop."
+      ],
+      "meaning_short": "Data flow diagrams and many many tree data structures are directed acyclic graphs. In DAGs topological sort algorithms work in linear time.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Data flow diagrams and many many tree data structures are directed acyclic graphs. In DAGs topological sort algorithms work in linear time.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DAG",
+      "term_normalized": "dag",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "devops:devlopment operations",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "devlopment operations",
+      "expansions": [
+        "Devlopment Operations"
+      ],
+      "meaning_short": "Devlopment Operations",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Devlopment Operations",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DevOps",
+      "term_normalized": "devops",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "di dip:dependency inversion principle",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Hacker Laws"
+      ],
+      "expansion_normalized": "dependency inversion principle",
+      "expansions": [
+        "Dependency Inversion Principle"
+      ],
+      "meaning_short": "The higher-level orchestrating components should not have to know the details of their dependencies",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "The higher-level orchestrating components should not have to know the details of their dependencies",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DI/DIP",
+      "term_normalized": "di dip",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dod:definition of done",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "DEFINITION OF DONE"
+      ],
+      "expansion_normalized": "definition of done",
+      "expansions": [
+        "Definition of Done"
+      ],
+      "meaning_short": "When all conditions, or acceptance criteria, that a software product must satisfy are met and ready to be accepted by a user, customer, team, or consuming system.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "When all conditions, or acceptance criteria, that a software product must satisfy are met and ready to be accepted by a user, customer, team, or consuming system.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DoD",
+      "term_normalized": "dod",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dry:don t repeat yourself",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "don t repeat yourself",
+      "expansions": [
+        "Don't Repeat Yourself"
+      ],
+      "meaning_short": "This is used in couple with modular programming, and emphasize on code reusability",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "This is used in couple with modular programming, and emphasize on code reusability",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DRY",
+      "term_normalized": "dry",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dto:data transfer object",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "DTO Wikipedia"
+      ],
+      "expansion_normalized": "data transfer object",
+      "expansions": [
+        "Data Transfer Object"
+      ],
+      "meaning_short": "Data Transfer Object",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Data Transfer Object",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DTO",
+      "term_normalized": "dto",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "dx:developer experience",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Near (Github)"
+      ],
+      "expansion_normalized": "developer experience",
+      "expansions": [
+        "Developer Experience"
+      ],
+      "meaning_short": "Guidelines to make onboarding and development of a project easy to get into and maintain",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Guidelines to make onboarding and development of a project easy to get into and maintain",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "DX",
+      "term_normalized": "dx",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ebkac:error between keyboard and chair",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "User error"
+      ],
+      "expansion_normalized": "error between keyboard and chair",
+      "expansions": [
+        "Error Between Keyboard And Chair"
+      ],
+      "meaning_short": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "EBKAC",
+      "term_normalized": "ebkac",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "eta:estimated time of arrival",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/fsharp"
+      ],
+      "expansion_normalized": "estimated time of arrival",
+      "expansions": [
+        "Estimated Time of Arrival"
+      ],
+      "meaning_short": "To ask when something will be ready",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "To ask when something will be ready",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ETA",
+      "term_normalized": "eta",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fomo:fear of missing out",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Hacker News"
+      ],
+      "expansion_normalized": "fear of missing out",
+      "expansions": [
+        "Fear Of Missing Out"
+      ],
+      "meaning_short": "The feeling of apprehension that one is either not in the know or missing out on information, events, experiences, or life decisions that could make one's life better",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "The feeling of apprehension that one is either not in the know or missing out on information, events, experiences, or life decisions that could make one's life better",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FOMO",
+      "term_normalized": "fomo",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "foss floss:free open source software",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "FOSS/FLOSS"
+      ],
+      "expansion_normalized": "free open source software",
+      "expansions": [
+        "Free & Open Source Software"
+      ],
+      "meaning_short": "That is both free software and open-source software where anyone is freely licensed to use, copy, study, and change the software in any way, and the source code is openly shared so that people are encouraged to voluntarily improve the design of the software",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "That is both free software and open-source software where anyone is freely licensed to use, copy, study, and change the software in any way, and the source code is openly shared so that people are encouraged to voluntarily improve the design of the software",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FOSS/FLOSS",
+      "term_normalized": "foss floss",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fouc:flash of unstyled content",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "md-block , Wikipedia"
+      ],
+      "expansion_normalized": "flash of unstyled content",
+      "expansions": [
+        "Flash Of Unstyled Content"
+      ],
+      "meaning_short": "When a web page appears briefly with the browser's default styles prior to loading an external CSS stylesheet",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "When a web page appears briefly with the browser's default styles prior to loading an external CSS stylesheet",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FOUC",
+      "term_normalized": "fouc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fp:functional programming",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "functional programming",
+      "expansions": [
+        "Functional Programming"
+      ],
+      "meaning_short": "Functional Programming",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Functional Programming",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FP",
+      "term_normalized": "fp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fya:for your action",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "for your action",
+      "expansions": [
+        "For Your Action"
+      ],
+      "meaning_short": "When you ask someone to do something usually on an email or correspondence",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "When you ask someone to do something usually on an email or correspondence",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FYA",
+      "term_normalized": "fya",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fyi:for your information",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "ArduPilot , F#'s slack"
+      ],
+      "expansion_normalized": "for your information",
+      "expansions": [
+        "For Your Information"
+      ],
+      "meaning_short": "For Your Information",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "For Your Information",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "FYI",
+      "term_normalized": "fyi",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "gats:generic associated types",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Reddit , rust-lang"
+      ],
+      "expansion_normalized": "generic associated types",
+      "expansions": [
+        "Generic Associated Types"
+      ],
+      "meaning_short": "they allow you to define type, lifetime, or const generics on associated types",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "they allow you to define type, lifetime, or const generics on associated types",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "GATs",
+      "term_normalized": "gats",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "gui:graphical user interface",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia page for GUI"
+      ],
+      "expansion_normalized": "graphical user interface",
+      "expansions": [
+        "Graphical User Interface"
+      ],
+      "meaning_short": "The GUI makes it very simple for beginners to use",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "The GUI makes it very simple for beginners to use",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "GUI",
+      "term_normalized": "gui",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ianal:i am not a lawyer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "HackerNews , CUPS"
+      ],
+      "expansion_normalized": "i am not a lawyer",
+      "expansions": [
+        "I Am Not A Lawyer"
+      ],
+      "meaning_short": "Used often before talking about licensing issues",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Used often before talking about licensing issues",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "IANAL",
+      "term_normalized": "ianal",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "icymi:in case you missed it",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "in case you missed it",
+      "expansions": [
+        "In Case You Missed It"
+      ],
+      "meaning_short": "In Case You Missed It",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In Case You Missed It",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ICYMI",
+      "term_normalized": "icymi",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "iirc:if i recall correctly",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "if i recall correctly",
+      "expansions": [
+        "If I Recall Correctly"
+      ],
+      "meaning_short": "If I Recall Correctly",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "If I Recall Correctly",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "IIRC",
+      "term_normalized": "iirc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "imo:in my opinion",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "in my opinion",
+      "expansions": [
+        "In My Opinion"
+      ],
+      "meaning_short": "In My Opinion",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In My Opinion",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "IMO",
+      "term_normalized": "imo",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "itt:in this thread",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "in this thread",
+      "expansions": [
+        "In This Thread"
+      ],
+      "meaning_short": "In This Thread",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In This Thread",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ITT",
+      "term_normalized": "itt",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kbd:keyboard",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "https://github.com/zestedesavoir/zmarkdown/tree/HEAD/packages/remark-kbd#readme"
+      ],
+      "expansion_normalized": "keyboard",
+      "expansions": [
+        "Keyboard"
+      ],
+      "meaning_short": "Keyboard",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Keyboard",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "KBD",
+      "term_normalized": "kbd",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kiss:keep it simple stupid",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "keep it simple stupid",
+      "expansions": [
+        "Keep It Simple, Stupid"
+      ],
+      "meaning_short": "KISS is a design principle stating that most systems work fine if it is built/kept simple than making the system complex.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "KISS is a design principle stating that most systems work fine if it is built/kept simple than making the system complex.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "KISS",
+      "term_normalized": "kiss",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kpi:key performance indicator",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "key performance indicator",
+      "expansions": [
+        "Key Performance Indicator"
+      ],
+      "meaning_short": "KPI is a type of performance indicator, which measures the success of an organisation or an activity.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "KPI is a type of performance indicator, which measures the success of an organisation or an activity.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "KPI",
+      "term_normalized": "kpi",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kyb:know your business",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Identify blog"
+      ],
+      "expansion_normalized": "know your business",
+      "expansions": [
+        "Know Your Business"
+      ],
+      "meaning_short": "Abbreviation is mostly used in these categories : customer, banking, business, technology",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Abbreviation is mostly used in these categories : customer, banking, business, technology",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "KYB",
+      "term_normalized": "kyb",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kyc:know your customer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Identify blog"
+      ],
+      "expansion_normalized": "know your customer",
+      "expansions": [
+        "Know Your Customer"
+      ],
+      "meaning_short": "Abbreviation is mostly used in these categories : customer, banking, business, technology",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Abbreviation is mostly used in these categories : customer, banking, business, technology",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "KYC",
+      "term_normalized": "kyc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lgtm:looks good to me",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Cardidy , Simple Icons , proposal-array-grouping , /r/webdev"
+      ],
+      "expansion_normalized": "looks good to me",
+      "expansions": [
+        "Looks Good To Me"
+      ],
+      "meaning_short": "See ACK",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "See ACK",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "LGTM",
+      "term_normalized": "lgtm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "loc sloc:source lines of code",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "GitHub"
+      ],
+      "expansion_normalized": "source lines of code",
+      "expansions": [
+        "(Source) Lines Of Code"
+      ],
+      "meaning_short": "Above each file on GitHub you can find something like `50 lines (43 sloc)`. The difference is the empty lines.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Above each file on GitHub you can find something like `50 lines (43 sloc)`. The difference is the empty lines.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "LOC/SLOC",
+      "term_normalized": "loc sloc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mcve:minimal complete valid verfiable example",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Stack Exchange"
+      ],
+      "expansion_normalized": "minimal complete valid verfiable example",
+      "expansions": [
+        "Minimal Complete Valid/Verfiable Example"
+      ],
+      "meaning_short": "When asking a question, people will be better able to provide help if you provide code that they can easily understand and use to reproduce the problem. Such a question will be to the point, include just the information that what is necessary, be valid, and be accompanied by a clear example of your problem which leaves no room for guesswork. This is referred to by community members as MCVE",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "When asking a question, people will be better able to provide help if you provide code that they can easily understand and use to reproduce the problem. Such a question will be to the point, include just the information that what is necessary, be valid, and be accompanied by a clear example of your problem which leaves no room for guesswork. This is referred to by community members as MCVE",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "MCVE",
+      "term_normalized": "mcve",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mpa:multi page application",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/web_design"
+      ],
+      "expansion_normalized": "multi page application",
+      "expansions": [
+        "Multi-Page Application"
+      ],
+      "meaning_short": "Multi-Page Application",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Multi-Page Application",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "MPA",
+      "term_normalized": "mpa",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mr:merge request",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "merge request",
+      "expansions": [
+        "Merge Request"
+      ],
+      "meaning_short": "See PR",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "See PR",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "MR",
+      "term_normalized": "mr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mre:minimal reproducible example",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Stack Overflow"
+      ],
+      "expansion_normalized": "minimal reproducible example",
+      "expansions": [
+        "Minimal Reproducible Example"
+      ],
+      "meaning_short": "In computing, a minimal reproducible example (abbreviated MRE) is a collection of source code and other data files which allow a bug or problem to be demonstrated and reproduced.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In computing, a minimal reproducible example (abbreviated MRE) is a collection of source code and other data files which allow a bug or problem to be demonstrated and reproduced.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "MRE",
+      "term_normalized": "mre",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mvp:minimum viable product",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "minimum viable product",
+      "expansions": [
+        "Minimum Viable Product"
+      ],
+      "meaning_short": "A prototype version of a product with the minimum required feature set",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A prototype version of a product with the minimum required feature set",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "MVP",
+      "term_normalized": "mvp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "nack nak:negative acknowledgement",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Bitcoin"
+      ],
+      "expansion_normalized": "negative acknowledgement",
+      "expansions": [
+        "Negative ACKnowledgement"
+      ],
+      "meaning_short": "Disagree with the code changes/concept. Should be accompanied by an explanation",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Disagree with the code changes/concept. Should be accompanied by an explanation",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "NACK/NAK",
+      "term_normalized": "nack nak",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "nih:not invented here",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "learnosity"
+      ],
+      "expansion_normalized": "not invented here",
+      "expansions": [
+        "Not Invented Here"
+      ],
+      "meaning_short": "NIH Syndrome is a decision-making error where we tend to value our own ideas above those conceived by people outside of our group",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "NIH Syndrome is a decision-making error where we tend to value our own ideas above those conceived by people outside of our group",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "NIH",
+      "term_normalized": "nih",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "np:no problem",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "no problem",
+      "expansions": [
+        "No Problem"
+      ],
+      "meaning_short": "No stress, it is fine",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "No stress, it is fine",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "NP",
+      "term_normalized": "np",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "oop:object oriented programming",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "object oriented programming",
+      "expansions": [
+        "Object Oriented Programming"
+      ],
+      "meaning_short": "Object Oriented Programming",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Object Oriented Programming",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "OOP",
+      "term_normalized": "oop",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "op:original post original poster",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/ProgrammerHumor , StackExchange"
+      ],
+      "expansion_normalized": "original post original poster",
+      "expansions": [
+        "Original Post/Original Poster"
+      ],
+      "meaning_short": "Original Poster (who started a thread) or Original Post (the message that started it)",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Original Poster (who started a thread) or Original Post (the message that started it)",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "OP",
+      "term_normalized": "op",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pebcak:problem exists between chair and keyboard",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Humanizer , Community"
+      ],
+      "expansion_normalized": "problem exists between chair and keyboard",
+      "expansions": [
+        "Problem Exists Between Chair And Keyboard"
+      ],
+      "meaning_short": "It is a user error, not a problem / bug in the program",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It is a user error, not a problem / bug in the program",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PEBCAK",
+      "term_normalized": "pebcak",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pebkac:problem exists between keyboard and chair",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Humanizer , Community"
+      ],
+      "expansion_normalized": "problem exists between keyboard and chair",
+      "expansions": [
+        "Problem Exists Between Keyboard And Chair"
+      ],
+      "meaning_short": "It is a user error, not a problem / bug in the program",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It is a user error, not a problem / bug in the program",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PEBKAC",
+      "term_normalized": "pebkac",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pebmac:problem exists between monitor and chair",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "User error"
+      ],
+      "expansion_normalized": "problem exists between monitor and chair",
+      "expansions": [
+        "Problem Exists Between Monitor And Chair"
+      ],
+      "meaning_short": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PEBMAC",
+      "term_normalized": "pebmac",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pebuak:problem exists between user and keyboard",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "User error"
+      ],
+      "expansion_normalized": "problem exists between user and keyboard",
+      "expansions": [
+        "Problem Exists Between User and Keyboard"
+      ],
+      "meaning_short": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PEBUAK",
+      "term_normalized": "pebuak",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "picnic:problem in chair not in computer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "User error"
+      ],
+      "expansion_normalized": "problem in chair not in computer",
+      "expansions": [
+        "Problem In Chair Not In Computer"
+      ],
+      "meaning_short": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PICNIC",
+      "term_normalized": "picnic",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pobcak:a us government military acronym for problem occurs between chair and keyboard",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "User error , List of U.S. government and military acronyms"
+      ],
+      "expansion_normalized": "a us government military acronym for problem occurs between chair and keyboard",
+      "expansions": [
+        "a US government/military acronym for Problem Occurs Between Chair And Keyboard"
+      ],
+      "meaning_short": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It's an error made by the human user of a complex system, usually a computer system, in interacting with it.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "POBCAK",
+      "term_normalized": "pobcak",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "poco:in software engineering a plain old clr object or plain old class object is a simple object created in the net common language runtime clr that is not using inheritance nor attributes",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "POCO Definition"
+      ],
+      "expansion_normalized": "in software engineering a plain old clr object or plain old class object is a simple object created in the net common language runtime clr that is not using inheritance nor attributes",
+      "expansions": [
+        "In software engineering, a Plain Old CLR Object, or plain old class object is a simple object created in the .NET Common Language Runtime (CLR) that is not using inheritance nor attributes."
+      ],
+      "meaning_short": "This abbreviation is often used when discussing library APIs or interfaces in which data is exchanged to denote that the object is simple to use.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "This abbreviation is often used when discussing library APIs or interfaces in which data is exchanged to denote that the object is simple to use.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "POCO",
+      "term_normalized": "poco",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pojo:in software engineering a plain old java object is an ordinary java object not bound by any special restrictions extends implements prespecified annocations",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "POJO Definition"
+      ],
+      "expansion_normalized": "in software engineering a plain old java object is an ordinary java object not bound by any special restrictions extends implements prespecified annocations",
+      "expansions": [
+        "In software engineering, a Plain Old Java Object is an ordinary Java object, not bound by any special restrictions (extends, implements, prespecified annocations)."
+      ],
+      "meaning_short": "This abbreviation is often used when discussing library APIs or interfaces in which data is exchanged to denote that the object is simple to interact with.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "This abbreviation is often used when discussing library APIs or interfaces in which data is exchanged to denote that the object is simple to interact with.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "POJO",
+      "term_normalized": "pojo",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "pr:pull request",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/vuejs"
+      ],
+      "expansion_normalized": "pull request",
+      "expansions": [
+        "Pull Request"
+      ],
+      "meaning_short": "Tell others about changes you've pushed to a branch in a repository",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Tell others about changes you've pushed to a branch in a repository",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "PR",
+      "term_normalized": "pr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "raci:responsible accountable consulted and informed",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "IBM"
+      ],
+      "expansion_normalized": "responsible accountable consulted and informed",
+      "expansions": [
+        "Responsible, Accountable, Consulted, and Informed"
+      ],
+      "meaning_short": "A responsibility assignment matrix, also known as RACI matrix or linear responsibility chart, describes the participation by various roles in completing tasks or deliverables for a project or business process.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A responsibility assignment matrix, also known as RACI matrix or linear responsibility chart, describes the participation by various roles in completing tasks or deliverables for a project or business process.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RACI",
+      "term_normalized": "raci",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rce:remote code execution",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "RCE"
+      ],
+      "expansion_normalized": "remote code execution",
+      "expansions": [
+        "Remote Code Execution"
+      ],
+      "meaning_short": "Remote code execution is a cyber-attack whereby an attacker can remotely execute commands on someone else’s computing device. Remote code executions (RCEs) usually occur due to malicious malware downloaded by the host and can happen regardless of the device’s geographic location. Remote Code Execution (RCE) is also referred to as Remote Code Evaluation.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Remote code execution is a cyber-attack whereby an attacker can remotely execute commands on someone else’s computing device. Remote code executions (RCEs) usually occur due to malicious malware downloaded by the host and can happen regardless of the device’s geographic location. Remote Code Execution (RCE) is also referred to as Remote Code Evaluation.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RCE",
+      "term_normalized": "rce",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "reprex:reproducible example",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Tidyverse , University of Virginia Library"
+      ],
+      "expansion_normalized": "reproducible example",
+      "expansions": [
+        "Reproducible Example"
+      ],
+      "meaning_short": "A reprex facilitates easier conversations about your code by presenting it in a concise and repeatable way. A simple copy-paste should be all that’s needed to run the reprex, and running it shouldn’t generate errors except for those that the reprex is intended to exemplify",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A reprex facilitates easier conversations about your code by presenting it in a concise and repeatable way. A simple copy-paste should be all that’s needed to run the reprex, and running it shouldn’t generate errors except for those that the reprex is intended to exemplify",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "ReprEx",
+      "term_normalized": "reprex",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rfc:request for comments",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "request for comments",
+      "expansions": [
+        "Request For Comments"
+      ],
+      "meaning_short": "Request For Comments",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Request For Comments",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RFC",
+      "term_normalized": "rfc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rfi:request for information",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "RFI"
+      ],
+      "expansion_normalized": "request for information",
+      "expansions": [
+        "Request for Information"
+      ],
+      "meaning_short": "An RFI (request for information) is a formal process for gathering information from potential suppliers of a good or service. RFIs are intended to be written by customers and sent to potential suppliers. An RFI is typically the first and most broad series of requests intended to narrow down a list of potential vendor candidates.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "An RFI (request for information) is a formal process for gathering information from potential suppliers of a good or service. RFIs are intended to be written by customers and sent to potential suppliers. An RFI is typically the first and most broad series of requests intended to narrow down a list of potential vendor candidates.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RFI",
+      "term_normalized": "rfi",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rfp:request for proposal",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "RFP"
+      ],
+      "expansion_normalized": "request for proposal",
+      "expansions": [
+        "Request for Proposal"
+      ],
+      "meaning_short": "A request for proposal (RFP) is a document that an organization, often a government agency or large enterprise, posts to elicit a response -- a formal bid -- from potential vendors for a desired IT solution. The RFP specifies what the customer is looking for and describes each evaluation criterion on which a vendor's proposal will be assessed.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A request for proposal (RFP) is a document that an organization, often a government agency or large enterprise, posts to elicit a response -- a formal bid -- from potential vendors for a desired IT solution. The RFP specifies what the customer is looking for and describes each evaluation criterion on which a vendor's proposal will be assessed.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RFP",
+      "term_normalized": "rfp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rice:race inspired cosmetic enhancements",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Reddit comment , Urban Dictionary , r/Unixporn"
+      ],
+      "expansion_normalized": "race inspired cosmetic enhancements",
+      "expansions": [
+        "Race Inspired Cosmetic Enhancements"
+      ],
+      "meaning_short": "In the context of FOSS it is usually a customised Desktop Environment in Linux, such as Arch users who will config every component of their OS to look and behave how they wish and to suit their particular workflow",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In the context of FOSS it is usually a customised Desktop Environment in Linux, such as Arch users who will config every component of their OS to look and behave how they wish and to suit their particular workflow",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RICE",
+      "term_normalized": "rice",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rtfa:read the fine article aka read the f g article",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Similar Abbreviations"
+      ],
+      "expansion_normalized": "read the fine article aka read the f g article",
+      "expansions": [
+        "Read The 'Fine' Article aka Read The 'F*****g' Article"
+      ],
+      "meaning_short": "A sarcastic way to indicate that it would help to read the full article before asking questions. Many synonyms with different adverbs and different document types exists. See also RTFM.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A sarcastic way to indicate that it would help to read the full article before asking questions. Many synonyms with different adverbs and different document types exists. See also RTFM.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RTFA",
+      "term_normalized": "rtfa",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rtfm:read the fine manual aka read the f g manual",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "XKCD comic , Github commits"
+      ],
+      "expansion_normalized": "read the fine manual aka read the f g manual",
+      "expansions": [
+        "Read The 'Fine' Manual aka Read The 'F*****g' Manual"
+      ],
+      "meaning_short": "Originally a way for the _gurus_ to get rid of trivial questions from newbies, now a humble way to state that a mistake or a waste of time can be avoided by reading the freaking manual first (assuming it exists).",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Originally a way for the _gurus_ to get rid of trivial questions from newbies, now a humble way to state that a mistake or a waste of time can be avoided by reading the freaking manual first (assuming it exists).",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "RTFM",
+      "term_normalized": "rtfm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "scm:source code management",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "source code management",
+      "expansions": [
+        "Source Code Management"
+      ],
+      "meaning_short": "See VCS",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "See VCS",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SCM",
+      "term_normalized": "scm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "se:software engineer or system engineer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "software engineer or system engineer",
+      "expansions": [
+        "Software Engineer or System Engineer"
+      ],
+      "meaning_short": "Software Engineer or System Engineer",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Software Engineer or System Engineer",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SE",
+      "term_normalized": "se",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "solid:single responsibility open closed liskov substitution interface segregation and dependency inversion",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "single responsibility open closed liskov substitution interface segregation and dependency inversion",
+      "expansions": [
+        "Single responsibility, Open-closed, Liskov substitution, Interface segregation and Dependency inversion"
+      ],
+      "meaning_short": "5 (of many) software design principles, promoted by Robert \"Uncle Bob\" Martin",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "5 (of many) software design principles, promoted by Robert \"Uncle Bob\" Martin",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SOLID",
+      "term_normalized": "solid",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "spa:single page application",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/web_design"
+      ],
+      "expansion_normalized": "single page application",
+      "expansions": [
+        "Single-Page Application"
+      ],
+      "meaning_short": "Single-Page Application",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Single-Page Application",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SPA",
+      "term_normalized": "spa",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "sre:site reliability engineer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "How They SRE"
+      ],
+      "expansion_normalized": "site reliability engineer",
+      "expansions": [
+        "Site Reliability Engineer"
+      ],
+      "meaning_short": "Site Reliability Engineer",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Site Reliability Engineer",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SRE",
+      "term_normalized": "sre",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "srp:single responsibility principle",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/csharp/"
+      ],
+      "expansion_normalized": "single responsibility principle",
+      "expansions": [
+        "Single-Responsibility Principle"
+      ],
+      "meaning_short": "The single-responsibility principle is a computer-programming principle that states that every module, class or function in a computer program should have responsibility over a single part of that program's functionality, and it should encapsulate that part. wikipedia",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "The single-responsibility principle is a computer-programming principle that states that every module, class or function in a computer program should have responsibility over a single part of that program's functionality, and it should encapsulate that part. wikipedia",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SRP",
+      "term_normalized": "srp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ssoc:social summer of code",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Social Summer of Code"
+      ],
+      "expansion_normalized": "social summer of code",
+      "expansions": [
+        "Social Summer of Code"
+      ],
+      "meaning_short": "Social foundation offers this two-month long summer program for students to learn about the open-source culture and get involved in the community. Participants contribute to real-life projects under the guidance of experienced mentors.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Social foundation offers this two-month long summer program for students to learn about the open-source culture and get involved in the community. Participants contribute to real-life projects under the guidance of experienced mentors.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SSOC",
+      "term_normalized": "ssoc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "swe:software engineer",
+      "domains": [
+        "foss"
+      ],
+      "examples": [],
+      "expansion_normalized": "software engineer",
+      "expansions": [
+        "SoftWare Engineer"
+      ],
+      "meaning_short": "SoftWare Engineer",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "SoftWare Engineer",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "SWE",
+      "term_normalized": "swe",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "tbd:to be defined done",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Software Craft Website"
+      ],
+      "expansion_normalized": "to be defined done",
+      "expansions": [
+        "To Be Defined/Done"
+      ],
+      "meaning_short": "To Be Defined/Done",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "To Be Defined/Done",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "TBD",
+      "term_normalized": "tbd",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "tested ack:tested acknowledgment",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Bitcoin"
+      ],
+      "expansion_normalized": "tested acknowledgment",
+      "expansions": [
+        "Tested ACKnowledgment"
+      ],
+      "meaning_short": "Reviewed the code changes and have verified the functionality or bug fix",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Reviewed the code changes and have verified the functionality or bug fix",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "tested ACK",
+      "term_normalized": "tested ack",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "tfa:the fine article aka the f g article in chat lingo or in signal processing time frequency analysis indicating the simultaneous analysis of a signal in time and frequency domains",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia RTFM - Similar Abbreviations , Wikipedia on Time-Frequency Analysis"
+      ],
+      "expansion_normalized": "the fine article aka the f g article in chat lingo or in signal processing time frequency analysis indicating the simultaneous analysis of a signal in time and frequency domains",
+      "expansions": [
+        "The 'Fine' Article aka The 'F*****g' Article (in chat lingo), or in signal processing Time Frequency Analysis indicating the simultaneous analysis of a signal in time and frequency domains."
+      ],
+      "meaning_short": "A sarcastic way to refer to an article. Or a way to refer to the analysis of repeating patterns in data over time.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A sarcastic way to refer to an article. Or a way to refer to the analysis of repeating patterns in data over time.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "TFA",
+      "term_normalized": "tfa",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "til:today i learned",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/ProgrammerTIL/"
+      ],
+      "expansion_normalized": "today i learned",
+      "expansions": [
+        "Today I Learned"
+      ],
+      "meaning_short": "TIL that TIL is Today I Learned",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "TIL that TIL is Today I Learned",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "TIL",
+      "term_normalized": "til",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "uml:unified modeling language",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Geeks for Geeks UML"
+      ],
+      "expansion_normalized": "unified modeling language",
+      "expansions": [
+        "Unified Modeling Language"
+      ],
+      "meaning_short": "A language for visualizing system design with all its classes, objects, and components, etc.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A language for visualizing system design with all its classes, objects, and components, etc.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "UML",
+      "term_normalized": "uml",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "utack:untested acknowledgment",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Bitcoin"
+      ],
+      "expansion_normalized": "untested acknowledgment",
+      "expansions": [
+        "UnTested ACKnowledgment"
+      ],
+      "meaning_short": "Reviewed and agree with the code changes but haven't actually tested them",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Reviewed and agree with the code changes but haven't actually tested them",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "utACK",
+      "term_normalized": "utack",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "vcs:version control software",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "/r/ProgrammerHumor , softwaretestinghelp.com"
+      ],
+      "expansion_normalized": "version control software",
+      "expansions": [
+        "Version Control Software"
+      ],
+      "meaning_short": "A way to keep a track of the changes in the code so that if something goes wrong, we can make comparisons in different code versions and revert to any previous version that we want. Git, SVN or Mercurial are VCS",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A way to keep a track of the changes in the code so that if something goes wrong, we can make comparisons in different code versions and revert to any previous version that we want. Git, SVN or Mercurial are VCS",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "VCS",
+      "term_normalized": "vcs",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "wdyt:what do you think",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Bitrise Workflow Editor"
+      ],
+      "expansion_normalized": "what do you think",
+      "expansions": [
+        "What Do You Think"
+      ],
+      "meaning_short": "What Do You Think",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "What Do You Think",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "WDYT",
+      "term_normalized": "wdyt",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "wip:work in progress",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "GitLab's blog"
+      ],
+      "expansion_normalized": "work in progress",
+      "expansions": [
+        "Work In Progress"
+      ],
+      "meaning_short": "Do not merge yet",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Do not merge yet",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "WIP",
+      "term_normalized": "wip",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "wrt:with respect to",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Tailwind Blog , Hacker News"
+      ],
+      "expansion_normalized": "with respect to",
+      "expansions": [
+        "With Respect to"
+      ],
+      "meaning_short": "In reference to a particular thing or situation",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In reference to a particular thing or situation",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "WRT",
+      "term_normalized": "wrt",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "wysiwyg:what you see is what you get",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "WYSIWYG"
+      ],
+      "expansion_normalized": "what you see is what you get",
+      "expansions": [
+        "What You See Is What You Get"
+      ],
+      "meaning_short": "It is a system in which editing software allows content to be edited in a form that resembles its appearance when printed or displayed as a finished product. It is typically used an arbitrary markup language to define the codes/tags",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "It is a system in which editing software allows content to be edited in a form that resembles its appearance when printed or displayed as a finished product. It is typically used an arbitrary markup language to define the codes/tags",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "WYSIWYG",
+      "term_normalized": "wysiwyg",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "xp:extreme programming",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Wikipedia"
+      ],
+      "expansion_normalized": "extreme programming",
+      "expansions": [
+        "Extreme Programming"
+      ],
+      "meaning_short": "Extreme Programming",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Extreme Programming",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "XP",
+      "term_normalized": "xp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "yagni:you ain t gonna need it",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Tech Excellence"
+      ],
+      "expansion_normalized": "you ain t gonna need it",
+      "expansions": [
+        "You Ain't Gonna Need It"
+      ],
+      "meaning_short": "You Ain't Gonna Need It",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "You Ain't Gonna Need It",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "YAGNI",
+      "term_normalized": "yagni",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ymmv:your mileage may vary",
+      "domains": [
+        "foss"
+      ],
+      "examples": [
+        "Whisper"
+      ],
+      "expansion_normalized": "your mileage may vary",
+      "expansions": [
+        "Your Mileage May Vary"
+      ],
+      "meaning_short": "Your Mileage May Vary",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Your Mileage May Vary",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/acronyms.json"
+        }
+      ],
+      "term": "YMMV",
+      "term_normalized": "ymmv",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "brb:be right back",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "be right back",
+      "expansions": [
+        "Be Right Back"
+      ],
+      "meaning_short": "Be Right Back",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Be Right Back",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "BRB",
+      "term_normalized": "brb",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "cmiiw:correct me if i m wrong",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "correct me if i m wrong",
+      "expansions": [
+        "Correct me if i'm wrong"
+      ],
+      "meaning_short": "Correct me if i'm wrong",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Correct me if i'm wrong",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "CMIIW",
+      "term_normalized": "cmiiw",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ikr:i know right",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "i know right",
+      "expansions": [
+        "I know, right"
+      ],
+      "meaning_short": "I know, right",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "I know, right",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "IKR",
+      "term_normalized": "ikr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ily:i love you",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "i love you",
+      "expansions": [
+        "I love you"
+      ],
+      "meaning_short": "I love you",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "I love you",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "ILY",
+      "term_normalized": "ily",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "irl:in real life",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "in real life",
+      "expansions": [
+        "In Real Life"
+      ],
+      "meaning_short": "In Real Life",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "In Real Life",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "IRL",
+      "term_normalized": "irl",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "iykyk:if you know you know",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "if you know you know",
+      "expansions": [
+        "If You Know You Know"
+      ],
+      "meaning_short": "If You Know You Know",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "If You Know You Know",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "IYKYK",
+      "term_normalized": "iykyk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lfg:let s freaking go",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "let s freaking go",
+      "expansions": [
+        "let's freaking go"
+      ],
+      "meaning_short": "let's freaking go",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "let's freaking go",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "LFG",
+      "term_normalized": "lfg",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lmfao:laughing my freaking a off",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "laughing my freaking a off",
+      "expansions": [
+        "Laughing my freaking *a* off"
+      ],
+      "meaning_short": "Laughing my freaking *a* off",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Laughing my freaking *a* off",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "LMFAO",
+      "term_normalized": "lmfao",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lmk:let me know",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "let me know",
+      "expansions": [
+        "Let me know"
+      ],
+      "meaning_short": "Let me know",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Let me know",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "LMK",
+      "term_normalized": "lmk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lol:laugh out loud",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "laugh out loud",
+      "expansions": [
+        "Laugh out loud"
+      ],
+      "meaning_short": "Laugh out loud",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Laugh out loud",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "LOL",
+      "term_normalized": "lol",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ltr:left to right",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "left to right",
+      "expansions": [
+        "Left To Right"
+      ],
+      "meaning_short": "Left To Right",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Left To Right",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "LTR",
+      "term_normalized": "ltr",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "nvm:never mind",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "never mind",
+      "expansions": [
+        "Never mind"
+      ],
+      "meaning_short": "Never mind",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Never mind",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "NVM",
+      "term_normalized": "nvm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ofc:of course",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "of course",
+      "expansions": [
+        "Of course"
+      ],
+      "meaning_short": "Of course",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Of course",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "OFC",
+      "term_normalized": "ofc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rofl:rolling on floor laughing",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "rolling on floor laughing",
+      "expansions": [
+        "Rolling on floor laughing"
+      ],
+      "meaning_short": "Rolling on floor laughing",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Rolling on floor laughing",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "ROFL",
+      "term_normalized": "rofl",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "rtl:right to left",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "right to left",
+      "expansions": [
+        "Right To Left"
+      ],
+      "meaning_short": "Right To Left",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Right To Left",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "RTL",
+      "term_normalized": "rtl",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "smh:shaking my head",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "shaking my head",
+      "expansions": [
+        "Shaking my head"
+      ],
+      "meaning_short": "Shaking my head",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Shaking my head",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "SMH",
+      "term_normalized": "smh",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "stfu:shut the freak up",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "shut the freak up",
+      "expansions": [
+        "Shut the *freak* up"
+      ],
+      "meaning_short": "Shut the *freak* up",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Shut the *freak* up",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "STFU",
+      "term_normalized": "stfu",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ttyl:talk to you later",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "talk to you later",
+      "expansions": [
+        "Talk to you later"
+      ],
+      "meaning_short": "Talk to you later",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Talk to you later",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "TTYL",
+      "term_normalized": "ttyl",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "tysm:thank you so much",
+      "domains": [
+        "chat"
+      ],
+      "examples": [
+        "Cyber Definitions"
+      ],
+      "expansion_normalized": "thank you so much",
+      "expansions": [
+        "Thank You So Much"
+      ],
+      "meaning_short": "Thank You So Much",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Thank You So Much",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "TYSM",
+      "term_normalized": "tysm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "tyvm:thank you very much",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "thank you very much",
+      "expansions": [
+        "Thank you very much"
+      ],
+      "meaning_short": "Thank you very much",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Thank you very much",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "TYVM",
+      "term_normalized": "tyvm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "yolo:you only live once",
+      "domains": [
+        "chat"
+      ],
+      "examples": [],
+      "expansion_normalized": "you only live once",
+      "expansions": [
+        "You only live once"
+      ],
+      "meaning_short": "You only live once",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "You only live once",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms chat-acronyms.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/chat-acronyms.json"
+        }
+      ],
+      "term": "YOLO",
+      "term_normalized": "yolo",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mvc:model view controller",
+      "domains": [
+        "software architecture"
+      ],
+      "examples": [
+        "Medium"
+      ],
+      "expansion_normalized": "model view controller",
+      "expansions": [
+        "Model View Controller"
+      ],
+      "meaning_short": "A commonly used software design architecture based around the Model (data), the View (user interface), and the Controller (logic to handle requests).",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A commonly used software design architecture based around the Model (data), the View (user interface), and the Controller (logic to handle requests).",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms design-patterns.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/design-patterns.json"
+        }
+      ],
+      "term": "MVC",
+      "term_normalized": "mvc",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mvvm:model view viewmodel",
+      "domains": [
+        "software architecture"
+      ],
+      "examples": [
+        "Knockout MVVM Explanation"
+      ],
+      "expansion_normalized": "model view viewmodel",
+      "expansions": [
+        "Model View ViewModel"
+      ],
+      "meaning_short": "A front-end software design architecture based around the Model (data), the View (user interface), and the ViewModel (logic that handles view data and interactions).",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "A front-end software design architecture based around the Model (data), the View (user interface), and the ViewModel (logic that handles view data and interactions).",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms design-patterns.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/design-patterns.json"
+        }
+      ],
+      "term": "MVVM",
+      "term_normalized": "mvvm",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "aws:amazon web services",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://aws.amazon.com/"
+      ],
+      "expansion_normalized": "amazon web services",
+      "expansions": [
+        "Amazon web Services"
+      ],
+      "meaning_short": "Amazon Web Services offers reliable, scalable, and inexpensive cloud computing services.",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Amazon Web Services offers reliable, scalable, and inexpensive cloud computing services.",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "AWS",
+      "term_normalized": "aws",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "fsf:free software foundation",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://www.fsf.org"
+      ],
+      "expansion_normalized": "free software foundation",
+      "expansions": [
+        "Free Software Foundation"
+      ],
+      "meaning_short": "Oversee a number of open source organizations",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Oversee a number of open source organizations",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "FSF",
+      "term_normalized": "fsf",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "gh:github",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://github.com"
+      ],
+      "expansion_normalized": "github",
+      "expansions": [
+        "GitHub"
+      ],
+      "meaning_short": "Source code host, owned by Microsoft",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Source code host, owned by Microsoft",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "GH",
+      "term_normalized": "gh",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "gnu:collection of free software a license",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://gnu.org"
+      ],
+      "expansion_normalized": "collection of free software a license",
+      "expansions": [
+        "Collection of free software, a license"
+      ],
+      "meaning_short": "program of FSF, develops many linux tools and a commonly used license",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "program of FSF, develops many linux tools and a commonly used license",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "GNU",
+      "term_normalized": "gnu",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "ms:microsoft",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://microsoft.com"
+      ],
+      "expansion_normalized": "microsoft",
+      "expansions": [
+        "Microsoft"
+      ],
+      "meaning_short": "Makers of windows, azure, vscode, and other tools that might be relevent to developers",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Makers of windows, azure, vscode, and other tools that might be relevent to developers",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "MS",
+      "term_normalized": "ms",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "osi:open source initiative",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://opensource.org"
+      ],
+      "expansion_normalized": "open source initiative",
+      "expansions": [
+        "Open Source Initiative"
+      ],
+      "meaning_short": "Defining 'Open Source'",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Defining 'Open Source'",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "OSI",
+      "term_normalized": "osi",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "so:stackoverflow",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://stackoverflow.com"
+      ],
+      "expansion_normalized": "stackoverflow",
+      "expansions": [
+        "StackOverflow"
+      ],
+      "meaning_short": "Popular question and answer website",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Popular question and answer website",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "SO",
+      "term_normalized": "so",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "yt:youtube",
+      "domains": [
+        "organizations"
+      ],
+      "examples": [
+        "https://www.youtube.com/"
+      ],
+      "expansion_normalized": "youtube",
+      "expansions": [
+        "YouTube"
+      ],
+      "meaning_short": "YouTube is online video sharing and social media platform",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "YouTube is online video sharing and social media platform",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms organizations.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/organizations.json"
+        }
+      ],
+      "term": "YT",
+      "term_normalized": "yt",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "efk:elasticsearch fluentd and kibana",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [
+        "How To Set Up an Elasticsearch, Fluentd and Kibana (EFK) Logging Stack on Kubernetes"
+      ],
+      "expansion_normalized": "elasticsearch fluentd and kibana",
+      "expansions": [
+        "Elasticsearch, Fluentd, and Kibana"
+      ],
+      "meaning_short": "Elasticsearch, Fluentd, and Kibana",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Elasticsearch, Fluentd, and Kibana",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "EFK",
+      "term_normalized": "efk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "elk:elasticsearch logstash and kibana",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [
+        "What is the ELK Stack?"
+      ],
+      "expansion_normalized": "elasticsearch logstash and kibana",
+      "expansions": [
+        "Elasticsearch, Logstash, and Kibana"
+      ],
+      "meaning_short": "Elasticsearch, Logstash, and Kibana",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Elasticsearch, Logstash, and Kibana",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "ELK",
+      "term_normalized": "elk",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lamp:linux apache mysql php perl or python",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [
+        "IBM Cloud , Wikipedia"
+      ],
+      "expansion_normalized": "linux apache mysql php perl or python",
+      "expansions": [
+        "Linux, Apache, MySQL, PHP (Perl or Python)"
+      ],
+      "meaning_short": "Linux, Apache, MySQL, PHP (Perl or Python)",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Linux, Apache, MySQL, PHP (Perl or Python)",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "LAMP",
+      "term_normalized": "lamp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "lemp:linux nginx server mysql php perl or python",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [],
+      "expansion_normalized": "linux nginx server mysql php perl or python",
+      "expansions": [
+        "Linux, Nginx Server, MySQL, PHP (Perl or Python)"
+      ],
+      "meaning_short": "Linux, Nginx Server, MySQL, PHP (Perl or Python)",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Linux, Nginx Server, MySQL, PHP (Perl or Python)",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "LEMP",
+      "term_normalized": "lemp",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mean:mongodb express js angular js node js",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [],
+      "expansion_normalized": "mongodb express js angular js node js",
+      "expansions": [
+        "MongoDB, Express.js, Angular.js, Node.js"
+      ],
+      "meaning_short": "MongoDB, Express.js, Angular.js, Node.js",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "MongoDB, Express.js, Angular.js, Node.js",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "MEAN",
+      "term_normalized": "mean",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mern:mongodb express js react js node js",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [],
+      "expansion_normalized": "mongodb express js react js node js",
+      "expansions": [
+        "MongoDB, Express.js, React.js, Node.js"
+      ],
+      "meaning_short": "MongoDB, Express.js, React.js, Node.js",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "MongoDB, Express.js, React.js, Node.js",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "MERN",
+      "term_normalized": "mern",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "mevn:mongodb express js vue js node js",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [
+        "What is MEVN stack?"
+      ],
+      "expansion_normalized": "mongodb express js vue js node js",
+      "expansions": [
+        "MongoDB, Express.js, Vue.js, Node.js"
+      ],
+      "meaning_short": "MongoDB, Express.js, Vue.js, Node.js",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "MongoDB, Express.js, Vue.js, Node.js",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "MEVN",
+      "term_normalized": "mevn",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "safe:suave or saturn azure fable elmish",
+      "domains": [
+        "tech stacks"
+      ],
+      "examples": [
+        "/r/fsharp"
+      ],
+      "expansion_normalized": "suave or saturn azure fable elmish",
+      "expansions": [
+        "Suave (or Saturn), Azure, Fable, Elmish"
+      ],
+      "meaning_short": "Suave (or Saturn), Azure, Fable, Elmish",
+      "sources": [
+        {
+          "license": "CC0-1.0",
+          "publisher": "d-edge/foss-acronyms",
+          "retrieved_at": "2026-06-19T17:22:03.721Z",
+          "snippet": "Suave (or Saturn), Azure, Fable, Elmish",
+          "source_quality": "community",
+          "title": "d-edge/foss-acronyms stacks.json",
+          "url": "https://raw.githubusercontent.com/d-edge/foss-acronyms/main/data/stacks.json"
+        }
+      ],
+      "term": "SAFE",
+      "term_normalized": "safe",
+      "confidence_tier": "T3"
+    }
+  ],
+  "generated_at": "2026-06-19T17:22:03.923Z",
+  "source": "d-edge-foss-acronyms"
+}
