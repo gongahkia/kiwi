@@ -7,6 +7,9 @@ out/
 dist/
 bin/
 lib/
+_CPack_Packages/
+*.tar.gz
+*.deb
 
 # CMake
 CMakeFiles/

@@ -4,6 +4,8 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
+include(GNUInstallDirs)
+
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -89,6 +91,18 @@ set_target_properties(contourtty PROPERTIES
 )
 target_compile_definitions(contourtty PRIVATE CONTOURTTY_VERSION="${PROJECT_VERSION}")
 target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty_audio contourtty_audio_decode)
+
+install(TARGETS contourtty
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(FILES README.md LICENSE
+  DESTINATION ${CMAKE_INSTALL_DOCDIR}
+)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/demo-source.md")
+  install(FILES docs/demo-source.md
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs
+  )
+endif()
 
 if(MSVC)
   target_compile_options(contourtty PRIVATE /W4)
@@ -645,3 +659,19 @@ else()
   endif()
 endif()
 add_test(NAME structure_edges COMMAND structure_edges_tests)
+
+set(CPACK_PACKAGE_NAME "contourtty")
+set(CPACK_PACKAGE_VENDOR "contourtty")
+set(CPACK_PACKAGE_CONTACT "https://github.com/gongahkia/strok")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Structure-aware ASCII terminal media renderer")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gongahkia/strok")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_GENERATOR "TGZ")
+if(UNIX AND NOT APPLE)
+  list(APPEND CPACK_GENERATOR "DEB")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "contourtty maintainers")
+  set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+endif()
+include(CPack)

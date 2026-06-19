@@ -11,7 +11,7 @@ Demo source: public-domain Wikimedia Commons footage; luminance is left, structu
 
 ## Status
 
-Pre-alpha. Local video, images, GIFs, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. Silent MP4, ANSI, and asciinema export work; webcam capture and packaging are still pending.
+Pre-alpha. Local video, images, GIFs, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. Silent MP4, ANSI, and asciinema export work; webcam capture and published release artifacts are still pending.
 
 ## Build and run
 
@@ -20,6 +20,24 @@ cmake --preset ci
 cmake --build --preset ci
 ./build/ci/contourtty <video-file>
 ```
+
+Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`) plus zlib. On macOS, install them with `brew install ffmpeg zlib`; on Debian/Ubuntu, install the matching `libav*-dev` packages for builds and the corresponding shared runtime packages for packaged binaries.
+
+Install from source:
+
+```sh
+cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release
+cmake --build build/release
+cmake --install build/release --prefix /usr/local
+```
+
+Package locally:
+
+```sh
+scripts/package_release.sh
+```
+
+The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. A head-only Homebrew formula is available at `packaging/homebrew/contourtty.rb`; install it with `brew install --HEAD ./packaging/homebrew/contourtty.rb`.
 
 ## Runtime notes
 
