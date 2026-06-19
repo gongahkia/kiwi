@@ -72,11 +72,14 @@ kumeyuri theme list
 kumeyuri theme show <NAME>
 kumeyuri theme new <FILE> [--name <NAME>]
 kumeyuri theme validate <FILE>
+kumeyuri theme publish <FILE> [--index-dir <DIR>] [--base-url <URL>]
 ```
 
 `theme list` uses the project/XDG/bundled discovery order documented in the
 theming chapter. `theme show` prints canonical `.kumetheme.toml` for a bundled
-or discovered theme.
+or discovered theme. `theme publish` validates a theme, writes canonical TOML
+under `<DIR>/themes/`, and updates a static `index.json` suitable for GitHub
+Pages at `themes.kumeyuri.dev`.
 
 ## Lint
 

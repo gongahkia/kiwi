@@ -160,6 +160,19 @@ enum ThemeCommand {
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
+    Publish {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_name = "DIR", default_value = "themes.kumeyuri.dev")]
+        index_dir: PathBuf,
+        #[arg(
+            long,
+            value_name = "URL",
+            default_value = DEFAULT_THEME_INDEX_BASE_URL,
+            value_parser = parse_non_empty_string
+        )]
+        base_url: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -301,6 +314,8 @@ const EXTREME_ASPECT_RATIO: usize = 4;
 const KUMEYURI_AI_DYLIB_ENV: &str = "KUMEYURI_AI_DYLIB";
 const KUMEYURI_AI_ABI_VERSION: u32 = 1;
 const DEFAULT_INPUT_LIMIT_BYTES: usize = 1024 * 1024;
+const DEFAULT_THEME_INDEX_BASE_URL: &str = "https://themes.kumeyuri.dev";
+const THEME_INDEX_VERSION: u32 = 1;
 
 fn msg(id: &str) -> String {
     i18n::message(id)
@@ -1310,6 +1325,22 @@ fn format_theme_error(error: &KumethemeError) -> String {
     }
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ThemeIndex {
+    version: u32,
+    base_url: String,
+    #[serde(default)]
+    themes: Vec<ThemeIndexEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ThemeIndexEntry {
+    name: String,
+    charset: String,
+    url: String,
+    colors: KumethemeColors,
+}
+
 fn run_theme_command(command: ThemeCommand, max_input_bytes: usize) -> Result<(), String> {
     match command {
         ThemeCommand::List => {
@@ -1325,6 +1356,11 @@ fn run_theme_command(command: ThemeCommand, max_input_bytes: usize) -> Result<()
         }
         ThemeCommand::New { file, name } => write_theme_template(&file, name.as_deref()),
         ThemeCommand::Validate { file } => validate_theme_file(&file, max_input_bytes),
+        ThemeCommand::Publish {
+            file,
+            index_dir,
+            base_url,
+        } => publish_theme_file(&file, &index_dir, &base_url, max_input_bytes),
     }
 }
 
@@ -1424,6 +1460,100 @@ fn write_theme_template(path: &Path, name: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
+fn publish_theme_file(
+    path: &Path,
+    index_dir: &Path,
+    base_url: &str,
+    max_input_bytes: usize,
+) -> Result<(), String> {
+    let theme = load_valid_theme_file(path, max_input_bytes)?;
+    let theme_dir = index_dir.join("themes");
+    fs::create_dir_all(&theme_dir).map_err(|error| {
+        msg_args(
+            "error-create-dir",
+            &[
+                msg_arg("path", theme_dir.display()),
+                msg_arg("error", error),
+            ],
+        )
+    })?;
+    let theme_file = theme_dir.join(format!("{}.kumetheme.toml", theme.name));
+    fs::write(&theme_file, format_kumetheme_toml(&theme)).map_err(|error| {
+        msg_args(
+            "theme-publish-write-theme",
+            &[
+                msg_arg("path", theme_file.display()),
+                msg_arg("error", error),
+            ],
+        )
+    })?;
+
+    let index_path = index_dir.join("index.json");
+    let mut index = read_theme_index(&index_path)?;
+    index.version = THEME_INDEX_VERSION;
+    index.base_url = base_url.trim_end_matches('/').to_owned();
+    let entry = ThemeIndexEntry {
+        name: theme.name.clone(),
+        charset: theme_charset_name(theme.charset).to_owned(),
+        url: format!(
+            "{}/themes/{}.kumetheme.toml",
+            index.base_url,
+            encode_url_path_component(&theme.name)
+        ),
+        colors: theme.colors.clone(),
+    };
+    index.themes.retain(|existing| existing.name != entry.name);
+    index.themes.push(entry);
+    index
+        .themes
+        .sort_by(|left, right| left.name.cmp(&right.name));
+    let mut json = serde_json::to_string_pretty(&index)
+        .map_err(|error| msg_args("theme-publish-encode-index", &[msg_arg("error", error)]))?;
+    json.push('\n');
+    fs::write(&index_path, json).map_err(|error| {
+        msg_args(
+            "theme-publish-write-index",
+            &[
+                msg_arg("path", index_path.display()),
+                msg_arg("error", error),
+            ],
+        )
+    })?;
+    println!(
+        "{}",
+        msg_args(
+            "theme-published",
+            &[
+                msg_arg("name", theme.name),
+                msg_arg("path", index_path.display()),
+            ],
+        )
+    );
+    Ok(())
+}
+
+fn read_theme_index(path: &Path) -> Result<ThemeIndex, String> {
+    if !path.exists() {
+        return Ok(ThemeIndex {
+            version: THEME_INDEX_VERSION,
+            base_url: DEFAULT_THEME_INDEX_BASE_URL.to_owned(),
+            themes: Vec::new(),
+        });
+    }
+    let source = fs::read_to_string(path).map_err(|error| {
+        msg_args(
+            "error-read-path",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })?;
+    serde_json::from_str(&source).map_err(|error| {
+        msg_args(
+            "theme-publish-invalid-index",
+            &[msg_arg("path", path.display()), msg_arg("error", error)],
+        )
+    })
+}
+
 fn theme_source_label(source: &ThemeSource) -> &'static str {
     match source {
         ThemeSource::Project(_) => "project",
@@ -1454,14 +1584,10 @@ fn kumetheme_from_built_in(theme: BuiltInTheme) -> KumethemeToml {
 }
 
 fn format_kumetheme_toml(theme: &KumethemeToml) -> String {
-    let charset = match theme.charset {
-        KumethemeCharset::Ascii => "ascii",
-        KumethemeCharset::Unicode => "unicode",
-    };
     format!(
         "name = \"{}\"\ncharset = \"{}\"\n\n[colors]\nbackground = \"{}\"\nforeground = \"{}\"\naccent = \"{}\"\nedge = \"{}\"\nedge_alt = \"{}\"\nhighlight = \"{}\"\nmuted = \"{}\"\n",
         theme.name,
-        charset,
+        theme_charset_name(theme.charset),
         theme.colors.background,
         theme.colors.foreground,
         theme.colors.accent,
@@ -1470,6 +1596,13 @@ fn format_kumetheme_toml(theme: &KumethemeToml) -> String {
         theme.colors.highlight,
         theme.colors.muted,
     )
+}
+
+fn theme_charset_name(charset: KumethemeCharset) -> &'static str {
+    match charset {
+        KumethemeCharset::Ascii => "ascii",
+        KumethemeCharset::Unicode => "unicode",
+    }
 }
 
 fn rgb_hex(color: RgbColor) -> String {
@@ -2751,7 +2884,7 @@ mod tests {
         ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS, compat_report,
         disable_plugin_records, format_lint_text, format_theme_list, layout_warnings, lint_source,
         parse_diagram, parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_speed_override, playback_options, plugin_runtime_policy,
+        parse_speed_override, playback_options, plugin_runtime_policy, publish_theme_file,
         read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
         render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
         resolve_npm_plugin_metadata, show_theme, timeline_from_source,
@@ -3076,6 +3209,24 @@ muted = "#657b83"
                 command: ThemeCommand::Validate { .. }
             })
         ));
+
+        let publish = Cli::try_parse_from([
+            "kumeyuri",
+            "theme",
+            "publish",
+            "custom.kumetheme.toml",
+            "--index-dir",
+            "site",
+            "--base-url",
+            "https://themes.kumeyuri.dev",
+        ])
+        .unwrap();
+        assert!(matches!(
+            publish.command,
+            Some(Command::Theme {
+                command: ThemeCommand::Publish { .. }
+            })
+        ));
     }
 
     #[test]
@@ -3117,6 +3268,47 @@ muted = "#657b83"
             show_theme("missing", &entries, 1024)
                 .unwrap_err()
                 .contains("not found")
+        );
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn theme_publish_writes_static_index_and_canonical_theme() {
+        let root = unique_temp_dir("theme-publish");
+        let source = root.join("demo.kumetheme.toml");
+        let index_dir = root.join("site");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            &source,
+            r##"
+name = "demo-theme"
+charset = "unicode"
+
+[colors]
+background = "#101418"
+foreground = "#e6edf3"
+accent = "#58a6ff"
+edge = "#8b949e"
+edge_alt = "#d2a8ff"
+highlight = "#f2cc60"
+muted = "#7d8590"
+"##,
+        )
+        .unwrap();
+
+        publish_theme_file(&source, &index_dir, "https://themes.example.test/", 1024).unwrap();
+
+        let theme = fs::read_to_string(index_dir.join("themes/demo-theme.kumetheme.toml")).unwrap();
+        assert!(theme.starts_with("name = \"demo-theme\"\ncharset = \"unicode\""));
+        let index = fs::read_to_string(index_dir.join("index.json")).unwrap();
+        assert!(index.contains(r#""version": 1"#));
+        assert!(index.contains(r#""base_url": "https://themes.example.test""#));
+        assert!(index.contains(r#""name": "demo-theme""#));
+        assert!(
+            index.contains(
+                r#""url": "https://themes.example.test/themes/demo-theme.kumetheme.toml""#
+            )
         );
 
         fs::remove_dir_all(root).ok();

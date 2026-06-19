@@ -95,6 +95,16 @@ For custom theme files, review should require:
 - Snapshot coverage for text and SVG output.
 - A clear fallback when the theme cannot be found.
 
+Publish a validated theme to the static sharing index:
+
+```sh
+kumeyuri theme publish my-theme.kumetheme.toml \
+  --index-dir themes.kumeyuri.dev \
+  --base-url https://themes.kumeyuri.dev
+```
+
+The command writes canonical TOML under `themes/` and updates `index.json`.
+
 ## Non-goals
 
 - Theme files should not contain executable hooks.

@@ -383,7 +383,7 @@
 - [x] Ship 10 built-in themes (default, mono, tokyo-night, github, dracula, solarized-light, solarized-dark, nord, catppuccin-mocha, high-contrast)
 - [x] Implement theme search across XDG paths + project dir + bundled
 - [x] Implement `kumeyuri theme list / show / new / validate`
-- [ ] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
+- [x] Implement `kumeyuri theme publish` to GitHub-Pages-hosted index at themes.kumeyuri.dev
 - [ ] Implement theme hot-reload in `kumeyuri watch`
 - [x] Document theme authoring in `docs/theming.md`
 - [x] Add theme contrast-ratio CI test (4.5:1 minimum across all themes)
