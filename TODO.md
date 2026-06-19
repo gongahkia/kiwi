@@ -12,6 +12,7 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
+- [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
 
 ## P0 — Database & migrations
 - [ ] Create `sources` table FK to entries — done when migration applies and FK enforces cascade.
