@@ -150,7 +150,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Write `Dockerfile` for web app — done when image builds <500MB and starts on `:3000`.
 - [ ] Write `Dockerfile` for Slack app — done when image builds and runs in socket-mode + HTTP-mode.
 - [ ] Write `docker-compose.yml` bundling web + slack + postgres — done when `docker compose up` boots full stack from clean machine in <5 min.
-- [ ] Provide `.env.example` w/ all required vars + defaults — done when copy + edit gets a working local instance.
 - [ ] Health-check endpoints `/healthz`, `/readyz` — done when compose health-checks pass.
 - [ ] Backup script for Postgres + uploads — done when `scripts/backup.sh` produces a restorable tarball.
 - [ ] Restore script — done when restore from tarball yields working DB on a fresh machine.
