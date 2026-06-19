@@ -16,6 +16,7 @@ use kumeyuri_core::{
         Diagram, DiagramKind, Direction, FlowStatement, FlowchartAst, IshikawaNode, MindmapNode,
         SequenceStatement, TimelinePeriod, TreeViewNode, TreemapNode,
     },
+    cast::Kumecast,
     frame::{Charset, Frame, StaticFrameRenderer},
     layout::FlowLayoutConfig,
     parser::Parser as MermaidParser,
@@ -83,6 +84,14 @@ enum Command {
         file: PathBuf,
         #[arg(long, value_enum, default_value_t = RenderFormat::Text)]
         format: RenderFormat,
+        #[command(flatten)]
+        options: RenderOptions,
+    },
+    Export {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_enum, default_value_t = ExportFormat::Kumecast)]
+        format: ExportFormat,
         #[command(flatten)]
         options: RenderOptions,
     },
@@ -188,6 +197,11 @@ enum RenderFormat {
     Tui,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ExportFormat {
+    Kumecast,
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Args)]
 struct RenderOptions {
     #[arg(long)]
@@ -291,6 +305,11 @@ fn run() -> Result<(), String> {
             format,
             options,
         } => render_file(&file, format, &options, max_input_bytes),
+        Command::Export {
+            file,
+            format,
+            options,
+        } => export_file(&file, format, &options, max_input_bytes),
         Command::Lint { file, json } => lint_file(&file, json, max_input_bytes),
         Command::Layout { file, ai } => layout_file(&file, ai, max_input_bytes),
         Command::Watch { file, theme_file } => {
@@ -598,6 +617,19 @@ fn render_file(
         return play_timeline(&timeline, false);
     }
     let output = render_source(&source, format, options)?;
+    io::stdout()
+        .write_all(&output)
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
+}
+
+fn export_file(
+    path: &Path,
+    format: ExportFormat,
+    options: &RenderOptions,
+    max_input_bytes: usize,
+) -> Result<(), String> {
+    let source = read_source_file(path, max_input_bytes)?;
+    let output = export_source(&source, format, options)?;
     io::stdout()
         .write_all(&output)
         .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
@@ -1687,6 +1719,16 @@ fn render_source(
     }
 }
 
+fn export_source(
+    source: &str,
+    format: ExportFormat,
+    options: &RenderOptions,
+) -> Result<Vec<u8>, String> {
+    match format {
+        ExportFormat::Kumecast => Ok(render_kumecast_source(source, options)?.into_bytes()),
+    }
+}
+
 fn validate_render_options(format: RenderFormat, options: &RenderOptions) -> Result<(), String> {
     if options.narrate && options.alt_text {
         return Err("--narrate and --alt-text cannot be used together".to_owned());
@@ -1752,6 +1794,26 @@ fn render_vtt_source(source: &str, options: &RenderOptions) -> Result<String, St
     let timeline =
         timeline_from_source_with_render_options(source, AnimationOptions::default(), options)?;
     Ok(render_timeline_vtt(&timeline))
+}
+
+fn render_kumecast_source(source: &str, options: &RenderOptions) -> Result<String, String> {
+    if options.narrate || options.alt_text {
+        return Err("--narrate and --alt-text cannot be used with export".to_owned());
+    }
+    if options.dark_theme.is_some() {
+        return Err(msg("render-dark-theme-svg-only"));
+    }
+    let diagram = parse_diagram(source)?;
+    let timeline =
+        timeline_from_diagram_with_render_options(&diagram, AnimationOptions::default(), options)?;
+    let cast = Kumecast::from_timeline(
+        diagram_kind_id(&diagram.kind),
+        source,
+        render_theme(options),
+        &timeline,
+    );
+    cast.to_json_string()
+        .map_err(|error| format!("failed to encode kumecast: {error}"))
 }
 
 fn render_narration_source(source: &str) -> Result<String, String> {
@@ -2229,6 +2291,39 @@ fn diagram_kind_title(kind: &DiagramKind) -> Option<String> {
         | DiagramKind::Requirement(_) => None,
     }
     .map(|label| normalize_inline_text(&label.text))
+}
+
+fn diagram_kind_id(kind: &DiagramKind) -> &'static str {
+    match kind {
+        DiagramKind::Flowchart(_) => "flowchart",
+        DiagramKind::Sequence(_) => "sequence",
+        DiagramKind::State(_) => "state",
+        DiagramKind::Class(_) => "class",
+        DiagramKind::Er(_) => "er",
+        DiagramKind::Gantt(_) => "gantt",
+        DiagramKind::Pie(_) => "pie",
+        DiagramKind::Quadrant(_) => "quadrant",
+        DiagramKind::ZenUml(_) => "zenuml",
+        DiagramKind::Sankey(_) => "sankey",
+        DiagramKind::XyChart(_) => "xychart",
+        DiagramKind::Block(_) => "block",
+        DiagramKind::Packet(_) => "packet",
+        DiagramKind::Kanban(_) => "kanban",
+        DiagramKind::Architecture(_) => "architecture",
+        DiagramKind::Radar(_) => "radar",
+        DiagramKind::EventModeling(_) => "event-modeling",
+        DiagramKind::Treemap(_) => "treemap",
+        DiagramKind::Venn(_) => "venn",
+        DiagramKind::Ishikawa(_) => "ishikawa",
+        DiagramKind::Wardley(_) => "wardley",
+        DiagramKind::TreeView(_) => "treeview",
+        DiagramKind::Mindmap(_) => "mindmap",
+        DiagramKind::Journey(_) => "journey",
+        DiagramKind::GitGraph(_) => "gitgraph",
+        DiagramKind::Timeline(_) => "timeline",
+        DiagramKind::Requirement(_) => "requirement",
+        DiagramKind::C4(_) => "c4",
+    }
 }
 
 fn diagram_kind_summary(kind: &DiagramKind) -> String {
@@ -2954,18 +3049,18 @@ enum PlaybackAction {
 #[cfg(test)]
 mod tests {
     use super::{
-        ANIMATED_PARTIAL_ROOTS, Cli, Command, DEFAULT_INPUT_LIMIT_BYTES, PluginCommand,
-        PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
+        ANIMATED_PARTIAL_ROOTS, Cli, Command, DEFAULT_INPUT_LIMIT_BYTES, ExportFormat,
+        PluginCommand, PluginRegistry, RenderCharset, RenderFormat, RenderOptions, RenderTheme,
         ResolvedPluginPackage, STATIC_ONLY_ROOTS, ThemeCommand, UNSUPPORTED_ROOTS, compat_report,
-        disable_plugin_records, format_lint_text, format_theme_list, layout_warnings, lint_source,
-        load_render_theme_file, parse_diagram, parse_non_empty_string, parse_positive_input_bytes,
-        parse_positive_usize, parse_speed_override, playback_options, plugin_runtime_policy,
-        publish_theme_file, read_installed_plugin_records, read_source_file, remove_plugin_records,
-        render_source, render_timeline_vtt, resolve_ai_library_path,
-        resolve_crates_plugin_metadata, resolve_npm_plugin_metadata, show_theme,
-        timeline_from_source, timeline_from_source_with_options,
-        timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
-        write_theme_template,
+        disable_plugin_records, export_source, format_lint_text, format_theme_list,
+        layout_warnings, lint_source, load_render_theme_file, parse_diagram,
+        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
+        parse_speed_override, playback_options, plugin_runtime_policy, publish_theme_file,
+        read_installed_plugin_records, read_source_file, remove_plugin_records, render_source,
+        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
+        resolve_npm_plugin_metadata, show_theme, timeline_from_source,
+        timeline_from_source_with_options, timeline_from_source_with_render_options,
+        validate_theme_file, write_plugin_install_record, write_theme_template,
     };
     #[cfg(not(target_arch = "wasm32"))]
     use super::{
@@ -2978,6 +3073,7 @@ mod tests {
     use kumeyuri_core::{
         abi::Capability,
         animator::{AnimationOptions, KeyFrame, Timeline},
+        cast::Kumecast,
         frame::{Charset, Frame},
     };
     #[cfg(not(target_arch = "wasm32"))]
@@ -3141,6 +3237,40 @@ mod tests {
                 .unwrap();
             assert!(matches!(cli.command, Some(Command::Render { .. })));
         }
+    }
+
+    #[test]
+    fn export_parser_accepts_kumecast_format() {
+        let cli =
+            Cli::try_parse_from(["kumeyuri", "export", "diagram.mmd", "--format", "kumecast"])
+                .unwrap();
+        let Some(Command::Export { file, format, .. }) = cli.command else {
+            panic!("expected export command");
+        };
+
+        assert_eq!(file, PathBuf::from("diagram.mmd"));
+        assert_eq!(format, ExportFormat::Kumecast);
+    }
+
+    #[test]
+    fn exports_mermaid_source_to_kumecast() {
+        let output = String::from_utf8(
+            export_source(
+                "graph TD\nA --> B",
+                ExportFormat::Kumecast,
+                &RenderOptions::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let cast = Kumecast::from_json_str(&output).unwrap();
+
+        assert_eq!(cast.version, 1);
+        assert_eq!(cast.source.diagram_type, "flowchart");
+        assert_eq!(cast.source.mermaid, "graph TD\nA --> B");
+        assert_eq!(cast.theme.name, "default");
+        assert!(!cast.timeline.frames.is_empty());
+        assert!(output.ends_with('\n'));
     }
 
     #[test]

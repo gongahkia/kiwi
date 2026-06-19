@@ -9,6 +9,7 @@ kumeyuri <COMMAND>
 | Command | Purpose |
 | --- | --- |
 | `render` | Render a file to text, SVG, GIF, APNG, WebP, or TUI playback |
+| `export` | Export a file to portable `.kumecast` JSON |
 | `lint` | Print layout warnings as text or JSON |
 | `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
@@ -63,6 +64,28 @@ kumeyuri render diagram.mmd
 kumeyuri render diagram.mmd --format svg --theme github --dark-theme tokyo-night > diagram.svg
 kumeyuri render diagram.mmd --format webp --padding 12 > diagram.webp
 kumeyuri render diagram.mmd --format tui
+```
+
+## Export
+
+```text
+kumeyuri export [OPTIONS] <FILE>
+```
+
+| Option | Values |
+| --- | --- |
+| `--format` | `kumecast` |
+| `--theme` | `default`, `mono`, `tokyo-night`, `github`, `dracula`, `solarized-light`, `solarized-dark`, `nord`, `catppuccin-mocha`, `high-contrast`, `print-mono` |
+| `--charset` | `ascii`, `unicode` |
+| `--width` | Positive cell count |
+| `--max-label-width` | Positive cell count for flowchart label wrapping |
+
+`--format` defaults to `kumecast`. Export writes JSON to stdout.
+
+Example:
+
+```bash
+kumeyuri export diagram.mmd --format kumecast > diagram.kumecast
 ```
 
 ## Theme
