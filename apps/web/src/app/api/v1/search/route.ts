@@ -1,118 +1,15 @@
-import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
-import type { SearchEntry, SearchResponse, SearchResult } from "@wat/search";
+import type { SearchResponse, SearchResult } from "@wat/search";
 import { applyDomainContextBoost } from "@wat/search/boost";
 
-import { resolveApiIdentity, type ApiIdentity } from "@/lib/api-identity";
+import { resolveApiIdentity } from "@/lib/api-identity";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
-import { getTeamEntries, type TeamEntry } from "@/lib/team-entries";
-import { getTeamMember } from "@/lib/team-members";
+import { getPublicEntries, getScopedTeamEntries } from "@/lib/search-data";
+import { confidenceRank, scoreEntry, sortMatches } from "@/lib/search-core";
 
 export const runtime = "nodejs";
-
-const confidenceRank = {
-  T1: 1,
-  T2: 2,
-  T3: 3,
-  T4: 4
-} as const;
-const layerRank = {
-  personal: 3,
-  public: 1,
-  team: 2
-} as const;
-
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
-}
-
-async function getPublicEntries(): Promise<SearchEntry[]> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: SearchEntry[] };
-  return parsed.entries.filter((entry) => entry.layer === "public");
-}
-
-function teamEntryToSearchEntry(entry: TeamEntry): SearchEntry {
-  return {
-    aliases: [],
-    confidence_tier: "T4",
-    domains: entry.domains,
-    expansions: [entry.expansion],
-    id: entry.id,
-    layer: "team",
-    meaning_short: entry.meaning,
-    sources: entry.sources.map((source) => ({ ...source, source_quality: "community" })),
-    term: entry.term,
-    term_normalized: entry.term.trim().toLowerCase()
-  };
-}
-
-function getScopedTeamEntries(identity: ApiIdentity): SearchEntry[] {
-  if (identity.type !== "api") return [];
-  const member = identity.userId ? getTeamMember(identity.userId) : null;
-  if (!member && !identity.teamId) return [];
-
-  return getTeamEntries().map(teamEntryToSearchEntry);
-}
-
-function scoreEntry(query: string, entry: SearchEntry): SearchResult | null {
-  const normalized = query.toLowerCase().trim();
-  const searchable = [
-    entry.term,
-    entry.term_normalized,
-    ...entry.expansions,
-    ...entry.domains,
-    ...entry.aliases,
-    entry.meaning_short
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  if (!searchable.includes(normalized)) {
-    return null;
-  }
-
-  const exact = entry.term_normalized === normalized ? 1 : 0;
-  const expansion = entry.expansions.some((value) => value.toLowerCase().includes(normalized))
-    ? 0.8
-    : 0;
-  const domain = entry.domains.some((value) => value.toLowerCase().includes(normalized)) ? 0.4 : 0;
-  const body = entry.meaning_short.toLowerCase().includes(normalized) ? 0.25 : 0;
-  const layer = entry.layer === "personal" ? 0.75 : entry.layer === "team" ? 0.5 : 0;
-  const score = exact + expansion + domain + body + layer;
-
-  return {
-    entry,
-    score,
-    score_breakdown: {
-      bm25: exact + expansion + body,
-      domain,
-      layer
-    }
-  };
-}
-
-function sortMatches(results: SearchResult[]): SearchResult[] {
-  return [...results].sort(
-    (left, right) =>
-      right.score - left.score ||
-      layerRank[right.entry.layer] - layerRank[left.entry.layer] ||
-      left.entry.id.localeCompare(right.entry.id)
-  );
-}
 
 function hashQuery(query: string): string {
   return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");

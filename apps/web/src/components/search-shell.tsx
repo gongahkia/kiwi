@@ -1,29 +1,60 @@
 "use client";
 
 import { Loader2, Search } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition
+} from "react";
 import { useRouter } from "next/navigation";
-import type { SearchResponse, SearchResult } from "@wat/search";
+import type { SearchEntry } from "@wat/search";
 
 import { DomainTeaser } from "@/components/domain-teaser";
 import { SearchResultCard } from "@/components/search-result-card";
 import { Button } from "@/components/ui/button";
+import { searchEntries } from "@/lib/search-core";
 
-type SearchStatus = "idle" | "loading" | "ready" | "error";
+type SearchStatus = "idle" | "loading" | "ready";
 
 interface SearchShellProps {
+  entries: SearchEntry[];
+  initialIncludeLowConfidence?: boolean;
   initialQuery?: string;
+  isLoading?: boolean;
 }
 
-export function SearchShell({ initialQuery = "" }: SearchShellProps) {
+export function SearchShell({
+  entries,
+  initialIncludeLowConfidence = false,
+  initialQuery = "",
+  isLoading = false
+}: SearchShellProps) {
   const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery.trim());
-  const [includeLowConfidence, setIncludeLowConfidence] = useState(false);
-  const [matches, setMatches] = useState<SearchResult[]>([]);
+  const [includeLowConfidence, setIncludeLowConfidence] = useState(initialIncludeLowConfidence);
   const [domain, setDomain] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [status, setStatus] = useState<SearchStatus>(initialQuery.trim() ? "loading" : "idle");
+  const [isPending, startTransition] = useTransition();
+  const matches = useMemo(
+    () =>
+      searchEntries({
+        entries,
+        limit: 8,
+        minConfidence: includeLowConfidence ? "T4" : "T2",
+        query
+      }),
+    [entries, includeLowConfidence, query]
+  );
+  const status: SearchStatus = !query.trim()
+    ? "idle"
+    : isLoading || isPending
+      ? "loading"
+      : "ready";
 
   const domainOptions = useMemo(
     () => Array.from(new Set(matches.flatMap((match) => match.entry.domains))).sort(),
@@ -35,45 +66,18 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
   );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 180);
-    return () => window.clearTimeout(timer);
-  }, [query]);
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   useEffect(() => {
-    if (!debouncedQuery) {
-      setMatches([]);
-      setDomain("");
-      setStatus("idle");
-      return;
+    setIncludeLowConfidence(initialIncludeLowConfidence);
+  }, [initialIncludeLowConfidence]);
+
+  useEffect(() => {
+    if (!query.trim() && !isLoading) {
+      searchInputRef.current?.focus();
     }
-
-    const controller = new AbortController();
-    setStatus("loading");
-
-    const confidenceParam = includeLowConfidence ? "" : "&min_confidence=T2";
-    void fetch(`/api/v1/search?q=${encodeURIComponent(debouncedQuery)}&limit=8${confidenceParam}`, {
-      signal: controller.signal
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("search failed");
-        }
-        return response.json() as Promise<SearchResponse>;
-      })
-      .then((body) => {
-        setMatches(body.matches);
-        setStatus("ready");
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        setMatches([]);
-        setStatus("error");
-      });
-
-    return () => controller.abort();
-  }, [debouncedQuery, includeLowConfidence]);
+  }, [isLoading, query]);
 
   useEffect(() => {
     if (domain && !domainOptions.includes(domain)) {
@@ -83,7 +87,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
 
   useEffect(() => {
     setSelectedIndex(-1);
-  }, [debouncedQuery, domain]);
+  }, [domain, query]);
 
   useEffect(() => {
     if (selectedIndex >= visibleMatches.length) {
@@ -93,7 +97,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDebouncedQuery(query.trim());
+    replaceSearchParams(query, includeLowConfidence);
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -111,10 +115,31 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
       setSelectedIndex((current) => (current <= 0 ? visibleMatches.length - 1 : current - 1));
     }
 
-    if (event.key === "Enter" && selectedIndex >= 0) {
+    if (event.key === "Enter" && visibleMatches.length > 0) {
       event.preventDefault();
-      router.push(`/term/${visibleMatches[selectedIndex]!.entry.id}`);
+      const nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      router.push(`/term/${visibleMatches[nextIndex]!.entry.id}`);
     }
+  }
+
+  function replaceSearchParams(nextQuery: string, nextIncludeLowConfidence: boolean) {
+    const params = new URLSearchParams(window.location.search);
+    const trimmedQuery = nextQuery.trim();
+    if (trimmedQuery) {
+      params.set("q", trimmedQuery);
+    } else {
+      params.delete("q");
+    }
+    if (nextIncludeLowConfidence) {
+      params.set("min_confidence", "T4");
+    } else {
+      params.delete("min_confidence");
+    }
+
+    const search = params.toString();
+    const nextPath = search ? `/?${search}` : "/";
+    if (`${window.location.pathname}${window.location.search}` === nextPath) return;
+    startTransition(() => router.replace(nextPath));
   }
 
   return (
@@ -130,6 +155,7 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleSearchKeyDown}
             placeholder="API, CAP, TLS"
+            ref={searchInputRef}
             type="search"
             value={query}
           />
@@ -166,7 +192,6 @@ export function SearchShell({ initialQuery = "" }: SearchShellProps) {
             ))}
           </select>
         ) : null}
-        {status === "error" ? <p className="text-sm text-foreground/60">Search failed.</p> : null}
         {status === "ready" && visibleMatches.length === 0 ? (
           <p className="text-sm text-foreground/60">No results.</p>
         ) : null}

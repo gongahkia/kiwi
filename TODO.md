@@ -33,7 +33,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add Sentry or self-host error tracking — done when a thrown error in prod surfaces in dashboard.
 
 ## P2 — Web app: search UX
-- [ ] Implement instant-search w/ React Server Components + Suspense — done when typing shows results in <200ms perceived.
 
 ## P2 — Web app: contribution flows
 

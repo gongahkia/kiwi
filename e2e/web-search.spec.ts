@@ -52,6 +52,26 @@ test("preloads search results from the q query parameter", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("renders search UI from RSC data without the client search API", async ({ page }) => {
+  await page.route("**/api/v1/search**", (route) => route.abort());
+  await gotoHome(page, "API");
+
+  await expect(resultFor(page, "API")).toBeVisible();
+});
+
+test("shows typed search results within 200ms after RSC data loads", async ({ page }) => {
+  await gotoHome(page, "API");
+  await expect(resultFor(page, "API")).toBeVisible();
+
+  const search = page.getByRole("searchbox", { name: "Search" });
+  const startedAt = await page.evaluate(() => performance.now());
+  await search.fill("TLS");
+  await page.waitForFunction(() => document.body.textContent?.includes("Transport Layer Security"));
+  const elapsedMs = await page.evaluate((start) => performance.now() - start, startedAt);
+
+  expect(elapsedMs).toBeLessThan(200);
+});
+
 test("shows an empty state for unmatched queries", async ({ page }) => {
   await gotoHome(page);
   await fillSearch(page, "zzzz-no-match");
