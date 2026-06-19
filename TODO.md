@@ -242,7 +242,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Submit talk proposal to a small conf (eg. local meetup, MCP Summit) — done when proposal submitted.
 
 ## P8 — Maintenance & long-haul
-- [ ] Define SLO: 99.5% uptime hosted, <500ms p95 — done when SLO doc committed.
 - [ ] Document on-call playbook — done when runbook covers DB failover, scraper failure, abuse mitigation.
 - [ ] Rotate API keys + tokens quarterly — done when calendar reminder + rotation script exist.
 - [ ] Quarterly license audit on corpus — done when audit log committed.
