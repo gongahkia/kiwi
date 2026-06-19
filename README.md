@@ -53,7 +53,7 @@ Layout: `--width` and `--height` set render bounds, `--fit` clamps those bounds 
 
 Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to libav. YouTube URLs require `yt-dlp`; contourtty resolves them with `yt-dlp -g` and fails with a clear install/direct-URL message when it is missing. Set `CONTOURTTY_YTDLP` to override the resolver binary path.
 
-Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`.
+Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`. Camera playback mirrors horizontally by default; pass `--no-mirror` for sensor-native orientation.
 
 Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized.
 
@@ -90,6 +90,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--contrast N` | Structure analysis contrast boost. |
 | `--dither none\|ordered\|fs` | Palette dithering mode. |
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
+| `--mirror`, `--no-mirror` | Enable or disable horizontal mirroring for camera playback. |
 | `--log FILE` | Write diagnostics. |
 | `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path; current builds log a CPU fallback. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |

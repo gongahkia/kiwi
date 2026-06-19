@@ -76,6 +76,14 @@ int main() {
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "input flag parses");
     expect(parsed.options.input.has_value() && *parsed.options.input == "cam", "input flag stored");
+    expect(parsed.options.mirror, "camera mirror defaults on");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--input", "cam", "--no-mirror"};
+    const auto parsed = contourtty::parseArgs(4, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "no mirror parses");
+    expect(!parsed.options.mirror, "no mirror stored");
   }
 
   {
@@ -112,7 +120,7 @@ int main() {
   }
 
   {
-    writeConfig(test_root / "defaults", "mode=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmono=true\n");
+    writeConfig(test_root / "defaults", "mode=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
     expect(parsed.error.empty(), "config defaults parse");
@@ -120,18 +128,20 @@ int main() {
     expect(parsed.options.charset.has_value() && *parsed.options.charset == " .#", "config charset stored");
     expect(parsed.options.width.has_value() && *parsed.options.width == 33, "config width stored");
     expect(parsed.options.fit, "config fit stored");
+    expect(!parsed.options.mirror, "config mirror stored");
     expect(parsed.options.color_mode == "mono", "config mono stored");
     expect(parsed.options.input.has_value() && *parsed.options.input == "movie.mp4", "config keeps cli input");
   }
 
   {
-    const char* argv[] = {"contourtty", "--charset", "@%", "--width", "44", "--no-fit", "--color-mode", "truecolor", "movie.mp4"};
-    const auto parsed = contourtty::parseArgs(9, const_cast<char**>(argv));
+    const char* argv[] = {"contourtty", "--charset", "@%", "--width", "44", "--no-fit", "--mirror", "--color-mode", "truecolor", "movie.mp4"};
+    const auto parsed = contourtty::parseArgs(10, const_cast<char**>(argv));
     expect(parsed.error.empty(), "cli overrides config parse");
     expect(parsed.options.mode == "structure", "config mode remains default");
     expect(parsed.options.charset.has_value() && *parsed.options.charset == "@%", "cli charset overrides config");
     expect(parsed.options.width.has_value() && *parsed.options.width == 44, "cli width overrides config");
     expect(!parsed.options.fit, "cli no-fit overrides config");
+    expect(parsed.options.mirror, "cli mirror overrides config");
     expect(parsed.options.color_mode == "truecolor", "cli color overrides config mono");
   }
 

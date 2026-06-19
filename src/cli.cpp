@@ -135,7 +135,7 @@ std::optional<std::filesystem::path> defaultConfigPath() {
 }
 
 bool isConfigBooleanKey(std::string_view key) {
-  return isOneOf(key, {"fit", "loop", "gpu", "mono"});
+  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono"});
 }
 
 std::optional<bool> parseConfigBool(std::string_view value) {
@@ -239,6 +239,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
     }
     if (flag == "--no-loop") {
       result.options.loop = false;
+      continue;
+    }
+    if (flag == "--mirror") {
+      result.options.mirror = true;
+      continue;
+    }
+    if (flag == "--no-mirror") {
+      result.options.mirror = false;
       continue;
     }
     if (flag == "--gpu") {
@@ -495,6 +503,8 @@ std::string helpText(std::string_view program_name) {
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"
       << "  --no-loop                      disable config-default looping\n"
+      << "  --mirror                       mirror camera input horizontally\n"
+      << "  --no-mirror                    disable camera mirroring\n"
       << "  --log FILE                     write diagnostics to file\n"
       << "  --gpu                          request gpu analysis path\n"
       << "  --no-gpu                       disable config-default gpu request\n"

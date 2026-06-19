@@ -32,6 +32,7 @@ struct CliOptions {
   std::string dither = "none";
   bool fit = false;
   bool loop = false;
+  bool mirror = true;
   bool gpu = false;
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;

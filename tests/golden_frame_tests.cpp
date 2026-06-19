@@ -1,5 +1,6 @@
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
+#include "frame_sampling.hpp"
 #include "renderer.hpp"
 
 #include <cstdlib>
@@ -56,6 +57,26 @@ contourtty::TerminalSize terminal(int cols, int rows) {
 }  // namespace
 
 int main() {
+  {
+    contourtty::Frame frame = frameFromPixels(3, 2, {
+      contourtty::Rgb{.r = 1, .g = 2, .b = 3},
+      contourtty::Rgb{.r = 4, .g = 5, .b = 6},
+      contourtty::Rgb{.r = 7, .g = 8, .b = 9},
+      contourtty::Rgb{.r = 10, .g = 11, .b = 12},
+      contourtty::Rgb{.r = 13, .g = 14, .b = 15},
+      contourtty::Rgb{.r = 16, .g = 17, .b = 18},
+    });
+    contourtty::mirrorFrameHorizontally(frame);
+    const std::vector<uint8_t> expected {
+      7, 8, 9, 4, 5, 6, 1, 2, 3,
+      16, 17, 18, 13, 14, 15, 10, 11, 12,
+    };
+    if (frame.rgb != expected) {
+      std::cerr << "mirror frame failed\n";
+      return 1;
+    }
+  }
+
   {
     const contourtty::Frame frame = frameFromPixels(2, 2, {
       gray(0), gray(255),

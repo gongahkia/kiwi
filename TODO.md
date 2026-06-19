@@ -79,6 +79,7 @@
 
 - [ ] **F1. Webcam input.** DoD: `--input cam` (or device path) shows live structure-ASCII of the webcam with acceptable latency; documented per-OS capture path. Reference: PHASE_F §Webcam.
   - 2026-06-19: `--input cam` and explicit `avfoundation:`/`v4l2:`/`dshow:` aliases are wired through libavdevice for live playback and diagnostic frame dumps; local macOS avfoundation enters the device but returns no packets/frames, so live webcam DoD remains unverified.
+  - 2026-06-19: added default horizontal camera mirroring, `--mirror`/`--no-mirror`, config support, help/manpage/README docs, and unit coverage for CLI + RGB frame flipping. Live camera DoD remains unverified.
 - [ ] **Phase F exit criteria.** DoD: webcam, image, GIF, file, and at least one stream type all render; truecolor/256/16/mono/halfblock all produce correct output on appropriate terminals.
 
 ---

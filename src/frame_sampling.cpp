@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 namespace contourtty {
 
@@ -31,6 +32,22 @@ Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
     .g = static_cast<uint8_t>(g / count),
     .b = static_cast<uint8_t>(b / count),
   };
+}
+
+void mirrorFrameHorizontally(Frame& frame) {
+  const std::size_t expected = static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h) * 3U;
+  if (frame.rgb.size() != expected) {
+    throw std::runtime_error("frame rgb buffer size mismatch");
+  }
+  for (int y = 0; y < frame.h; ++y) {
+    for (int x = 0; x < frame.w / 2; ++x) {
+      const std::size_t left = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3U;
+      const std::size_t right = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(frame.w - 1 - x)) * 3U;
+      std::swap(frame.rgb[left], frame.rgb[right]);
+      std::swap(frame.rgb[left + 1], frame.rgb[right + 1]);
+      std::swap(frame.rgb[left + 2], frame.rgb[right + 2]);
+    }
+  }
 }
 
 }  // namespace contourtty

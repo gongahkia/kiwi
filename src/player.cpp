@@ -911,8 +911,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
   logGpuFallback(options, logger);
 
   std::optional<DecodedAudio> decoded_audio;
-  if (isCameraInput(*options.input)) {
+  const bool camera_input = isCameraInput(*options.input);
+  const bool mirror_camera = camera_input && options.mirror;
+  if (camera_input) {
     CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+    CONTOURTTY_LOG_INFO(logger, mirror_camera ? "camera mirror enabled" : "camera mirror disabled");
   } else {
     try {
       decoded_audio = decodeAudioFile(*options.input);
@@ -1061,6 +1064,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
         quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr);
       }
       break;
+    }
+    if (mirror_camera) {
+      mirrorFrameHorizontally(*frame);
     }
     if (audio_player != nullptr && !audio_started) {
       audio_player->start();
