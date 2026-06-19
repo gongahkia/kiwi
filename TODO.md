@@ -52,7 +52,6 @@
 ## PHASE B — Decode & frame pipeline
 *Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
 
-- [ ] **B10. Decode runs on its own thread.** DoD: decoder fills a bounded frame queue (e.g. capacity 4–8) on a worker thread; main thread consumes; no unbounded memory growth; clean shutdown joins the thread. Reference: PHASE_B §Threading.
 - [ ] **Phase B exit criteria.** DoD: any common file (mp4/mkv/webm) decodes to correctly-scaled RGB frames at known fps, threaded, leak-free under ASan, circle test passing.
 
 ---

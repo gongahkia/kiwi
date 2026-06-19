@@ -7,12 +7,17 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
+#include <deque>
+#include <exception>
 #include <filesystem>
 #include <iomanip>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -217,6 +222,8 @@ struct DecodeStats {
   std::optional<int64_t> first_pts_us;
   std::optional<int64_t> last_pts_us;
   bool pts_monotonic = true;
+  int frame_queue_capacity = 0;
+  bool threaded_decode = false;
   std::optional<std::filesystem::path> dumped_png;
   WorkingSize working_size;
 };
@@ -229,6 +236,59 @@ Frame makeOwnedFrame(int width, int height, std::span<const uint8_t> rgb, int64_
   frame.pts_us = pts_us;
   return frame;
 }
+
+class FrameQueue {
+ public:
+  explicit FrameQueue(std::size_t capacity) : capacity_(capacity) {
+    if (capacity_ == 0) {
+      throw std::runtime_error("frame queue capacity must be positive");
+    }
+  }
+
+  bool push(Frame frame) {
+    std::unique_lock lock(mutex_);
+    not_full_.wait(lock, [&] { return closed_ || queue_.size() < capacity_; });
+    if (closed_) {
+      return false;
+    }
+    queue_.push_back(std::move(frame));
+    not_empty_.notify_one();
+    return true;
+  }
+
+  bool pop(Frame* frame) {
+    std::unique_lock lock(mutex_);
+    not_empty_.wait(lock, [&] { return closed_ || !queue_.empty(); });
+    if (queue_.empty()) {
+      return false;
+    }
+    *frame = std::move(queue_.front());
+    queue_.pop_front();
+    not_full_.notify_one();
+    return true;
+  }
+
+  void close() {
+    {
+      std::lock_guard lock(mutex_);
+      closed_ = true;
+    }
+    not_empty_.notify_all();
+    not_full_.notify_all();
+  }
+
+  std::size_t capacity() const noexcept {
+    return capacity_;
+  }
+
+ private:
+  std::size_t capacity_;
+  std::mutex mutex_;
+  std::condition_variable not_empty_;
+  std::condition_variable not_full_;
+  std::deque<Frame> queue_;
+  bool closed_ = false;
+};
 
 int64_t framePtsUs(const AVFrame* frame, AVRational time_base, int64_t frame_index, std::optional<double> average_fps) {
   int64_t pts = frame->best_effort_timestamp;
@@ -254,29 +314,22 @@ void recordPts(DecodeStats* stats, int64_t pts_us) {
   stats->last_pts_us = pts_us;
 }
 
-DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
-  DecodeStats stats;
+void receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options, FrameQueue* queue) {
   while (true) {
     const int result = avcodec_receive_frame(codec_context, frame);
     if (result == 0) {
-      ++stats.decoded_frames;
       if (converter != nullptr) {
         const WorkingSize working_size = computeWorkingSize(frame->width, frame->height, options);
         const auto rgb = converter->convert(frame, working_size.w, working_size.h);
         const int64_t pts_us = framePtsUs(frame, time_base, *frame_index, average_fps);
-        ++stats.converted_rgb_frames;
-        const Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb, pts_us);
-        if (owned_frame.w != converter->width() || owned_frame.h != converter->height() ||
+        Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb, pts_us);
+        if (owned_frame.w != working_size.w || owned_frame.h != working_size.h ||
             owned_frame.rgb.size() != rgb.size() || owned_frame.pts_us != pts_us) {
           throw std::runtime_error("owned frame RGB24 copy failed");
         }
-        ++stats.owned_frames;
-        recordPts(&stats, owned_frame.pts_us);
-        stats.working_size = working_size;
-        if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
-            *frame_index == *options.dump_frame_index) {
-          writePngRgb24(*options.dump_png, owned_frame.w, owned_frame.h, owned_frame.rgb);
-          stats.dumped_png = *options.dump_png;
+        if (!queue->push(std::move(owned_frame))) {
+          av_frame_unref(frame);
+          return;
         }
       }
       ++(*frame_index);
@@ -284,36 +337,13 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
       continue;
     }
     if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
-      return stats;
+      return;
     }
     throw std::runtime_error("failed to receive decoded frame: " + ffmpegError(result));
   }
 }
 
-void mergeStats(DecodeStats* target, const DecodeStats& update) {
-  target->decoded_frames += update.decoded_frames;
-  target->converted_rgb_frames += update.converted_rgb_frames;
-  target->owned_frames += update.owned_frames;
-  if (!target->first_pts_us.has_value() && update.first_pts_us.has_value()) {
-    target->first_pts_us = update.first_pts_us;
-  }
-  if (target->last_pts_us.has_value() && update.first_pts_us.has_value() &&
-      *update.first_pts_us <= *target->last_pts_us) {
-    target->pts_monotonic = false;
-  }
-  if (update.last_pts_us.has_value()) {
-    target->last_pts_us = update.last_pts_us;
-  }
-  target->pts_monotonic = target->pts_monotonic && update.pts_monotonic;
-  if (update.working_size.w > 0 && update.working_size.h > 0) {
-    target->working_size = update.working_size;
-  }
-  if (update.dumped_png.has_value()) {
-    target->dumped_png = update.dumped_png;
-  }
-}
-
-DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
+void decodeWorker(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options, FrameQueue* queue) {
   PacketPtr packet(av_packet_alloc());
   if (packet == nullptr) {
     throw std::runtime_error("failed to allocate packet");
@@ -323,7 +353,6 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
     throw std::runtime_error("failed to allocate frame");
   }
 
-  DecodeStats stats;
   RgbConverter converter;
   int64_t frame_index = 0;
   while (true) {
@@ -338,14 +367,14 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
     if (packet->stream_index == video_stream_index) {
       int send_result = avcodec_send_packet(codec_context, packet.get());
       if (send_result == AVERROR(EAGAIN)) {
-        mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
+        receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options, queue);
         send_result = avcodec_send_packet(codec_context, packet.get());
       }
       if (send_result < 0) {
         av_packet_unref(packet.get());
         throw std::runtime_error("failed to send packet to decoder: " + ffmpegError(send_result));
       }
-      mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
+      receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options, queue);
     }
 
     av_packet_unref(packet.get());
@@ -355,7 +384,46 @@ DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_
   if (drain_result < 0 && drain_result != AVERROR_EOF) {
     throw std::runtime_error("failed to drain decoder: " + ffmpegError(drain_result));
   }
-  mergeStats(&stats, receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options));
+  receiveDecodedFrames(codec_context, frame.get(), &converter, &frame_index, time_base, average_fps, options, queue);
+}
+
+DecodeStats decodeFrames(AVFormatContext* format_context, AVCodecContext* codec_context, int video_stream_index, AVRational time_base, std::optional<double> average_fps, const MediaProbeOptions& options) {
+  constexpr std::size_t queue_capacity = 6;
+  FrameQueue queue(queue_capacity);
+  DecodeStats stats;
+  stats.frame_queue_capacity = static_cast<int>(queue.capacity());
+  stats.threaded_decode = true;
+
+  std::exception_ptr worker_error;
+  std::thread worker([&] {
+    try {
+      decodeWorker(format_context, codec_context, video_stream_index, time_base, average_fps, options, &queue);
+    } catch (...) {
+      worker_error = std::current_exception();
+    }
+    queue.close();
+  });
+
+  Frame frame;
+  int64_t consume_index = 0;
+  while (queue.pop(&frame)) {
+    ++stats.decoded_frames;
+    ++stats.converted_rgb_frames;
+    ++stats.owned_frames;
+    recordPts(&stats, frame.pts_us);
+    stats.working_size = WorkingSize{.w = frame.w, .h = frame.h};
+    if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
+        consume_index == *options.dump_frame_index) {
+      writePngRgb24(*options.dump_png, frame.w, frame.h, frame.rgb);
+      stats.dumped_png = *options.dump_png;
+    }
+    ++consume_index;
+  }
+
+  worker.join();
+  if (worker_error != nullptr) {
+    std::rethrow_exception(worker_error);
+  }
   if (options.dump_png.has_value() && !stats.dumped_png.has_value()) {
     throw std::runtime_error("requested frame was not decoded: " + std::to_string(*options.dump_frame_index));
   }
@@ -448,6 +516,8 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   if (info.decode_seconds > 0.0) {
     info.decode_fps = static_cast<double>(info.decoded_frames) / info.decode_seconds;
   }
+  info.frame_queue_capacity = decode_stats.frame_queue_capacity;
+  info.threaded_decode = decode_stats.threaded_decode;
   info.working_width = decode_stats.working_size.w;
   info.working_height = decode_stats.working_size.h;
   info.dumped_png = decode_stats.dumped_png;
@@ -485,6 +555,8 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
       << "pts_monotonic: " << (info.pts_monotonic ? "yes" : "no") << '\n'
       << "decode_seconds: " << std::fixed << std::setprecision(6) << info.decode_seconds << '\n'
       << "decode_fps: " << std::fixed << std::setprecision(3) << info.decode_fps << '\n'
+      << "threaded_decode: " << (info.threaded_decode ? "yes" : "no") << '\n'
+      << "frame_queue_capacity: " << info.frame_queue_capacity << '\n'
       << "working_resolution: " << info.working_width << 'x' << info.working_height << '\n';
   if (info.dumped_png.has_value()) {
     out << "dumped_png: " << info.dumped_png->string() << '\n';

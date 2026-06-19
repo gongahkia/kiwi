@@ -24,6 +24,8 @@ struct MediaProbeInfo {
   bool pts_monotonic = true;
   double decode_seconds = 0.0;
   double decode_fps = 0.0;
+  int frame_queue_capacity = 0;
+  bool threaded_decode = false;
   int working_width = 0;
   int working_height = 0;
   std::optional<std::filesystem::path> dumped_png;
