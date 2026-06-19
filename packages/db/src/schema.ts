@@ -80,6 +80,10 @@ export const entries = pgTable(
       "hnsw",
       table.embedding.op("vector_cosine_ops")
     ),
+    index("entries_term_normalized_trgm_idx").using(
+      "gin",
+      table.termNormalized.op("gin_trgm_ops")
+    ),
     index("entries_tsvector_gin_idx").using("gin", table.tsvector),
     check(
       "entries_confidence_tier_check",
