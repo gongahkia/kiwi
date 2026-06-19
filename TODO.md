@@ -15,7 +15,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
 
 ## P0 — Database & migrations
-- [ ] Create `examples` table FK to entries — done when migration applies.
 - [ ] Add GIN index on `entries.tsvector` — done when `\d entries` shows index of type gin.
 - [ ] Add ivfflat or HNSW index on `entries.embedding` — done when index exists and EXPLAIN uses it on cosine query.
 - [ ] Add trigram index on `entries.term_normalized` — done when GIN trgm index exists.

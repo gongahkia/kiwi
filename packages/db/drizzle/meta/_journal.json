@@ -64,6 +64,13 @@
       "when": 1781885942138,
       "tag": "0008_violet_firelord",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781886272830,
+      "tag": "0009_gigantic_silver_fox",
+      "breakpoints": true
     }
   ]
 }

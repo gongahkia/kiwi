@@ -57,6 +57,13 @@ erDiagram
     text source_quality
   }
 
+  examples {
+    text id PK
+    text entry_id FK
+    integer position
+    text body
+  }
+
   team_entries {
     text id PK
     text term
@@ -136,6 +143,7 @@ erDiagram
   users ||--o{ suggested_edits : submits
   users ||--o{ suggested_edits : reviews
   entries ||--o{ sources : cites
+  entries ||--o{ examples : demonstrates
 ```
 
 ## Enums
@@ -148,6 +156,7 @@ erDiagram
 - `entries.tsvector`, `team_entries.tsvector`, and `personal_entries.tsvector` are generated from term, expansions, meanings, aliases, and related terms.
 - `entries.embedding`, `team_entries.embedding`, and `personal_entries.embedding` are `vector(384)` columns for semantic search.
 - `sources.entry_id` cascades on entry delete.
+- `examples.entry_id` cascades on entry delete.
 
 ## Constraints
 

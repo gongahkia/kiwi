@@ -117,6 +117,15 @@ export const sources = pgTable(
   ]
 );
 
+export const examples = pgTable("examples", {
+  id: text("id").primaryKey(),
+  entryId: text("entry_id")
+    .notNull()
+    .references(() => entries.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  body: text("body").notNull()
+});
+
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
