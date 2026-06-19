@@ -12,7 +12,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
 - [ ] Reserve domain candidates — done when at least two of `wat.dev`, `getwat.dev`, `wat.tools` are availability-checked and one secured.
 - [ ] Reserve GitHub org `wat` or fallback — done when org exists and repo `wat/wat` is created.
-- [ ] Add commitlint + conventional commits — done when a non-conforming commit is rejected by husky hook.
 - [ ] Add changesets for versioning — done when `pnpm changeset` produces a valid changeset file.
 - [ ] Set up GitHub Actions CI matrix (lint, typecheck, test, build) — done when CI green on `main` w/ all jobs.
 - [ ] Define glossary entry schema in `packages/core/src/schema.ts` — done when Zod schema covers: id, term, term_normalized, expansions[], domains[], meaning_short, meaning_long, examples[], sources[], coiner, year_coined, confidence_tier (T1-T4), license, layer (public/team/personal), team_id?, created_at, updated_at, deprecated, deprecated_reason, aliases[], related_terms[].
