@@ -15,6 +15,7 @@ security posture.
 | [0012](0012-gif-encoder.md) | Accepted | Use the `gif` crate for built-in animated GIF output |
 | [0013](0013-tachyonfx-integration.md) | Accepted | Wrap upstream tachyonfx behind kumeyuri transition names |
 | [0014](0014-long-tail-release-pacing.md) | Accepted | Ship new long-tail diagram family support one release at a time |
+| [0015](0015-mcp-sdk.md) | Accepted | Use the official `rmcp` Rust SDK for MCP server work |
 
 ## Maintenance
 
