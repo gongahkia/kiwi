@@ -484,7 +484,7 @@
 - [x] Phase 2: tachyonfx integration depth — wrap or fork
 - [x] Phase 3: SMIL vs CSS-keyframe-only SVG (GitHub sanitiser behaviour decisive)
 - [x] Phase 3: GIF encoder choice — `gif` crate vs `gifski` bindings (quality vs deps)
-- [ ] Phase 4: kumeyuri.dev hosting — Cloudflare Pages vs GitHub Pages vs Vercel
+- [x] Phase 4: kumeyuri.dev hosting — Cloudflare Pages vs GitHub Pages vs Vercel
 - [x] Phase 5: pacing of long-tail diagram types — bundled monthly release vs one-per-release
 - [x] Phase 6: MCP SDK choice — `rmcp` maturity vs hand-rolled stdio transport
 - [x] Phase 7: WASM host — wasmtime vs wasmer; resolve via prototyping

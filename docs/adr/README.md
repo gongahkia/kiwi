@@ -16,6 +16,7 @@ security posture.
 | [0013](0013-tachyonfx-integration.md) | Accepted | Wrap upstream tachyonfx behind kumeyuri transition names |
 | [0014](0014-long-tail-release-pacing.md) | Accepted | Ship new long-tail diagram family support one release at a time |
 | [0015](0015-mcp-sdk.md) | Accepted | Use the official `rmcp` Rust SDK for MCP server work |
+| [0016](0016-site-hosting.md) | Accepted | Host `kumeyuri.dev` on Cloudflare Pages |
 
 ## Maintenance
 
