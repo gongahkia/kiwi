@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
 import type { SearchEntry, SearchResponse, SearchResult } from "@wat/search";
+import { applyDomainContextBoost } from "@wat/search/boost";
 
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
@@ -140,6 +141,7 @@ export async function GET(request: NextRequest) {
 
   const query =
     request.nextUrl.searchParams.get("q") ?? request.nextUrl.searchParams.get("query") ?? "";
+  const context = request.nextUrl.searchParams.get("context") ?? "";
   const limit = Number(request.nextUrl.searchParams.get("limit") ?? "10");
   const minConfidence = request.nextUrl.searchParams.get("min_confidence") as
     | keyof typeof confidenceRank
@@ -150,15 +152,19 @@ export async function GET(request: NextRequest) {
   }
 
   const entries = await getPublicEntries();
-  const matches = entries
+  const scoredMatches = entries
     .filter(
       (entry) =>
         !minConfidence || confidenceRank[entry.confidence_tier] <= confidenceRank[minConfidence]
     )
     .map((entry) => scoreEntry(query, entry))
-    .filter((result): result is SearchResult => result != null)
-    .sort((left, right) => right.score - left.score || left.entry.id.localeCompare(right.entry.id))
-    .slice(0, Number.isFinite(limit) && limit > 0 ? limit : 10);
+    .filter((result): result is SearchResult => result != null);
+  const rankedMatches = context.trim()
+    ? applyDomainContextBoost(scoredMatches, { context, query })
+    : scoredMatches.sort(
+        (left, right) => right.score - left.score || left.entry.id.localeCompare(right.entry.id)
+      );
+  const matches = rankedMatches.slice(0, Number.isFinite(limit) && limit > 0 ? limit : 10);
 
   logSearchEvent(query, startedAt, matches);
 

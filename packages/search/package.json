@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./boost": {
+      "types": "./dist/boost.d.ts",
+      "default": "./dist/boost.js"
     }
   },
   "scripts": {

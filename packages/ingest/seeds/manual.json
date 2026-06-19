@@ -1026,6 +1026,41 @@
       "related_terms": ["HPA", "Pod", "K8s"]
     },
     {
+      "id": "seed-cap-cluster-autoscaler",
+      "term": "CAP",
+      "term_normalized": "cap",
+      "expansions": ["Cluster Autoscaler"],
+      "domains": ["kubernetes", "autoscaling"],
+      "meaning_short": "A Kubernetes component that adjusts cluster node count for schedulable capacity.",
+      "meaning_long": "Cluster Autoscaler adds or removes Kubernetes nodes when pending pods need capacity or existing nodes are underused.",
+      "examples": [
+        "On Kubernetes docs pages, CAP should resolve to Cluster Autoscaler before CAP theorem."
+      ],
+      "sources": [
+        {
+          "url": "https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/",
+          "title": "Node Autoscaling",
+          "publisher": "Kubernetes",
+          "license": "CC-BY-4.0",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "Kubernetes documents Cluster Autoscaler as a node autoscaling component.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-19T00:00:00.000Z",
+      "updated_at": "2026-06-19T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["CA"],
+      "related_terms": ["HPA", "VPA", "K8s"]
+    },
+    {
       "id": "seed-qos-quality-of-service",
       "term": "QoS",
       "term_normalized": "qos",

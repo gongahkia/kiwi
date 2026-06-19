@@ -187,11 +187,20 @@ function renderResult(term: string, response: LookupResponse) {
   }
 }
 
+function pageContext(): string {
+  const headings = Array.from(document.querySelectorAll("h1,h2,h3"))
+    .map((element) => element.textContent?.trim())
+    .filter((text): text is string => Boolean(text))
+    .slice(0, 12);
+
+  return [location.hostname, document.title, ...headings].join(" ").slice(0, 1200);
+}
+
 function lookup(term: string, event: MouseEvent) {
   placeTooltip(event);
   ensureTooltip().textContent = `${term}: loading`;
   void browser.runtime
-    .sendMessage({ context: location.hostname, limit: 1, term, type: "wat.lookup" })
+    .sendMessage({ context: pageContext(), limit: 1, term, type: "wat.lookup" })
     .then((response: LookupResponse) => {
       if (activeToken === term) renderResult(term, response);
     });
