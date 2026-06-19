@@ -1,5 +1,6 @@
 #include "media_probe.hpp"
 
+#include "frame.hpp"
 #include "png_writer.hpp"
 
 #include <array>
@@ -167,8 +168,18 @@ CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
 struct DecodeStats {
   int64_t decoded_frames = 0;
   int64_t converted_rgb_frames = 0;
+  int64_t owned_frames = 0;
   std::optional<std::filesystem::path> dumped_png;
 };
+
+Frame makeOwnedFrame(int width, int height, std::span<const uint8_t> rgb) {
+  Frame frame;
+  frame.w = width;
+  frame.h = height;
+  frame.rgb.assign(rgb.begin(), rgb.end());
+  frame.pts_us = 0;
+  return frame;
+}
 
 DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, RgbConverter* converter, int64_t* frame_index, const MediaProbeOptions& options) {
   DecodeStats stats;
@@ -179,9 +190,15 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
       if (converter != nullptr) {
         const auto rgb = converter->convert(frame);
         ++stats.converted_rgb_frames;
+        const Frame owned_frame = makeOwnedFrame(converter->width(), converter->height(), rgb);
+        if (owned_frame.w != converter->width() || owned_frame.h != converter->height() ||
+            owned_frame.rgb.size() != rgb.size()) {
+          throw std::runtime_error("owned frame RGB24 copy failed");
+        }
+        ++stats.owned_frames;
         if (options.dump_png.has_value() && options.dump_frame_index.has_value() &&
             *frame_index == *options.dump_frame_index) {
-          writePngRgb24(*options.dump_png, converter->width(), converter->height(), rgb);
+          writePngRgb24(*options.dump_png, owned_frame.w, owned_frame.h, owned_frame.rgb);
           stats.dumped_png = *options.dump_png;
         }
       }
@@ -199,6 +216,7 @@ DecodeStats receiveDecodedFrames(AVCodecContext* codec_context, AVFrame* frame, 
 void mergeStats(DecodeStats* target, const DecodeStats& update) {
   target->decoded_frames += update.decoded_frames;
   target->converted_rgb_frames += update.converted_rgb_frames;
+  target->owned_frames += update.owned_frames;
   if (update.dumped_png.has_value()) {
     target->dumped_png = update.dumped_png;
   }
@@ -318,6 +336,7 @@ MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOp
   info.average_fps = rationalToDouble(video_stream->avg_frame_rate);
   info.decoded_frames = decode_stats.decoded_frames;
   info.converted_rgb_frames = decode_stats.converted_rgb_frames;
+  info.owned_frames = decode_stats.owned_frames;
   info.dumped_png = decode_stats.dumped_png;
   return info;
 }
@@ -346,7 +365,8 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
   }
   out << '\n'
       << "decoded_frames: " << info.decoded_frames << '\n'
-      << "converted_rgb_frames: " << info.converted_rgb_frames << '\n';
+      << "converted_rgb_frames: " << info.converted_rgb_frames << '\n'
+      << "owned_frames: " << info.owned_frames << '\n';
   if (info.dumped_png.has_value()) {
     out << "dumped_png: " << info.dumped_png->string() << '\n';
   }

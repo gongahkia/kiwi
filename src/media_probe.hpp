@@ -18,6 +18,7 @@ struct MediaProbeInfo {
   std::optional<double> average_fps;
   int64_t decoded_frames = 0;
   int64_t converted_rgb_frames = 0;
+  int64_t owned_frames = 0;
   std::optional<std::filesystem::path> dumped_png;
 };
 
