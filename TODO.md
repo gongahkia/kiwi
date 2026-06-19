@@ -83,7 +83,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Record demo of Claude Desktop calling wat MCP — done when GIF in `/docs/assets/mcp-demo.gif`.
 
 ## P4 — Self-host packaging
-- [ ] Helm chart `charts/wat` for k8s — done when `helm install wat charts/wat` brings up stack on a kind cluster.
 - [ ] Terraform module for Fly.io single-region deploy — done when `terraform apply` produces a working URL.
 
 ## P4 — Hosted instance (operator-side)

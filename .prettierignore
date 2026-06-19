@@ -7,3 +7,4 @@ TODO.md
 pnpm-lock.yaml
 **/drizzle/meta/*.json
 data/deltas/**/*.json
+charts/*/templates/*.yaml

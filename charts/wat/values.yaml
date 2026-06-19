@@ -1,0 +1,42 @@
+nameOverride: ""
+fullnameOverride: ""
+
+postgres:
+  image:
+    repository: pgvector/pgvector
+    tag: pg16
+    pullPolicy: IfNotPresent
+  database: wat
+  user: wat
+  password: wat
+  storage:
+    size: 1Gi
+
+web:
+  replicaCount: 1
+  image:
+    repository: wat-web
+    tag: local
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    WAT_RATE_LIMIT_IP: "100000"
+    WAT_RATE_LIMIT_TEAM: "100000"
+    WAT_RATE_LIMIT_USER: "100000"
+    WAT_RATE_LIMIT_WINDOW_MS: "60000"
+
+slack:
+  replicaCount: 1
+  image:
+    repository: wat-slack
+    tag: local
+    pullPolicy: IfNotPresent
+  appToken: xapp-local-dev
+  httpMode: "true"
+  socketMode: "true"
+  service:
+    type: ClusterIP
+    port: 3001
