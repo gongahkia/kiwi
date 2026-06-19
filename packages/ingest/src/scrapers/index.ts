@@ -1,4 +1,5 @@
 import type { ScraperPlugin } from "../scraper.js";
+import { awsServicesScraper } from "./aws-services.js";
 import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
 import { exampleScraper } from "./example.js";
 import { jargonFileScraper } from "./jargon-file.js";
@@ -11,6 +12,7 @@ import { w3cGlossaryScraper } from "./w3c-glossary.js";
 import { wikipediaAcronymsScraper } from "./wikipedia-acronyms.js";
 
 export const scrapers = new Map<string, ScraperPlugin>([
+  [awsServicesScraper.name, awsServicesScraper],
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
   [exampleScraper.name, exampleScraper],
   [jargonFileScraper.name, jargonFileScraper],
