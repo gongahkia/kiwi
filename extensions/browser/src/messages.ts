@@ -17,6 +17,14 @@ export type LookupResponse =
       status?: number;
     };
 
+export const sidePanelQueryStorageKey = "watSidePanelQuery";
+
+export interface SidePanelQuery {
+  context: string;
+  createdAt: string;
+  term: string;
+}
+
 export function isLookupMessage(message: unknown): message is LookupMessage {
   if (!message || typeof message !== "object") return false;
   const candidate = message as Partial<LookupMessage>;

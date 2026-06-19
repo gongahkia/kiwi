@@ -1,4 +1,8 @@
-import { type LookupResponse } from "../../src/messages.js";
+import {
+  sidePanelQueryStorageKey,
+  type LookupResponse,
+  type SidePanelQuery
+} from "../../src/messages.js";
 
 interface SearchEntry {
   expansions?: string[];
@@ -79,9 +83,10 @@ function renderEntries(entries: SearchEntry[]) {
   }
 }
 
-async function search(term: string) {
+async function search(term: string, queuedContext?: string) {
   results.textContent = "Searching...";
-  const context = await activeContext();
+  const context = queuedContext ?? (await activeContext());
+  pageContext.textContent = context;
   const response = (await browser.runtime.sendMessage({
     context,
     limit: 5,
@@ -97,10 +102,26 @@ async function search(term: string) {
   renderEntries(resultEntries(response.body));
 }
 
+async function consumeQueuedLookup() {
+  const stored = (await browser.storage.local.get(sidePanelQueryStorageKey)) as Record<
+    string,
+    SidePanelQuery | undefined
+  >;
+  const pending = stored[sidePanelQueryStorageKey];
+  if (!pending?.term) {
+    await activeContext();
+    return;
+  }
+
+  query.value = pending.term;
+  await browser.storage.local.remove(sidePanelQueryStorageKey);
+  await search(pending.term, pending.context);
+}
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const term = query.value.trim();
   if (term) void search(term);
 });
 
-void activeContext();
+void consumeQueuedLookup();
