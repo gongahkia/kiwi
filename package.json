@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "bench": "pnpm --filter @wat/search bench",
     "build": "tsc -b",
     "build:all": "pnpm -r --filter '@wat/*' --if-present build",
     "changeset": "changeset",
@@ -14,7 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ingest": "pnpm --filter @wat/ingest ingest",
+    "latency:search": "node scripts/measure-search-latency.mjs",
     "lint": "eslint . && prettier --check .",
+    "load:search": "k6 run scripts/k6-search.js",
     "prepare": "husky",
     "test": "pnpm -r --if-present test",
     "test:e2e:auth": "sh scripts/e2e-auth-mailpit.sh",

@@ -31,5 +31,17 @@ export default [
         URL: "readonly"
       }
     }
+  },
+  {
+    files: ["scripts/k6-*.js"],
+    languageOptions: {
+      globals: {
+        __ENV: "readonly",
+        __ITER: "readonly",
+        __VU: "readonly",
+        console: "readonly",
+        open: "readonly"
+      }
+    }
   }
 ];
