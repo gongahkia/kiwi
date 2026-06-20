@@ -4,15 +4,13 @@
 
 Extension: `extensions/diff-reviewer.ts`
 
-Shows an in-terminal side-by-side review overlay for recent `edit` and `write` tool changes.
+Captures `edit` and `write` tool changes during a turn, then shows one review overlay after the agent finishes.
 
 Keys:
 
 ```txt
-h/l  previous/next file
-j/k  scroll
-J/K  fast scroll
-q    close
+overview: j/k navigate, enter/o/1 open detail, q close
+detail:   j/k scroll, J/K fast scroll, b back, q close
 ```
 
 Reopen the latest captured review overlay:
