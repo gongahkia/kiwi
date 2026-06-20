@@ -30,27 +30,20 @@ SLACK_APP_TOKEN=
 
 ## Docker Compose
 
-The current compose file starts Postgres:
+The compose file starts Postgres, Mailpit, web, and Slack services:
 
 ```sh
-docker compose up -d postgres
+docker compose up --build
 ```
 
-Run the web app against it:
+Expected local endpoints:
 
-```sh
-pnpm install
-pnpm db:generate
-pnpm dev
-```
+- web app: <http://localhost:3000>
+- Slack webhook health: <http://localhost:3001/healthz>
+- Mailpit: <http://localhost:8025>
+- Postgres: `localhost:5432`
 
-Target full-stack compose should include:
-
-- web app on `:3000`
-- Slack app worker/webhook service
-- Postgres with persistent volume
-- health checks for `/healthz`, `/readyz`, and Postgres readiness
-- seed/import step for the dev corpus
+The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. Run migrations/seeding against the compose DSN before production use.
 
 ## Helm
 
@@ -74,7 +67,7 @@ Expected chart components:
 
 ## Fly.io
 
-Target Terraform path:
+Terraform path:
 
 ```sh
 cd infra/fly
@@ -82,19 +75,7 @@ terraform init
 terraform apply
 ```
 
-Expected module inputs:
-
-- app name
-- region
-- `DATABASE_URL`
-- `NEXT_PUBLIC_SITE_URL`
-- Slack secrets when Slack is enabled
-
-Expected outputs:
-
-- web URL
-- app name
-- database attachment or DSN reference
+The module in `infra/fly` provisions a single-region web machine, Fly app IPs, health checks, and secrets for auth/OAuth/database configuration. It expects a prebuilt web image and an external Postgres DSN.
 
 ## Backups
 
