@@ -1,4 +1,4 @@
-import { execFile as execFileCallback } from "node:child_process";
+import { execFile as execFileCallback, execFileSync } from "node:child_process";
 import { randomInt } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -18,7 +18,9 @@ const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
 let client: Client;
 
-describe("searchPostgresEntries", () => {
+const shouldRunContainerTests = process.env.CI === "true" || hasDockerRuntime();
+
+describe.skipIf(!shouldRunContainerTests)("searchPostgresEntries", () => {
   beforeAll(async () => {
     await execFile("docker", [
       "run",
@@ -57,6 +59,15 @@ describe("searchPostgresEntries", () => {
     expect(response.matches[0]?.entry.sources.length).toBeGreaterThan(0);
   });
 });
+
+function hasDockerRuntime(): boolean {
+  try {
+    execFileSync("docker", ["info"], { stdio: "ignore", timeout: 5_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function connectWithRetry(): Promise<Client> {
   let lastError: unknown;

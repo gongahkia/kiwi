@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
@@ -7,7 +9,9 @@ import { applyMigrations } from "./migrate.js";
 let client: Client;
 let container: StartedTestContainer;
 
-describe("db schema integration", () => {
+const shouldRunContainerTests = process.env.CI === "true" || hasDockerRuntime();
+
+describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
   beforeAll(async () => {
     container = await new GenericContainer("pgvector/pgvector:pg16")
       .withEnvironment({
@@ -174,6 +178,15 @@ describe("db schema integration", () => {
     expect(rows[0]).toEqual({ reason: "update", status: "pending" });
   });
 });
+
+function hasDockerRuntime(): boolean {
+  try {
+    execFileSync("docker", ["info"], { stdio: "ignore", timeout: 5_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function insertEntry(
   id: string,
