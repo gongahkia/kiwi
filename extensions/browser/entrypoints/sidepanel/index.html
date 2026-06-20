@@ -17,6 +17,42 @@
         <button type="submit">Search</button>
       </form>
       <section id="results" aria-live="polite"></section>
+      <section class="panel-section">
+        <h2>Save custom acronym</h2>
+        <p class="hint">Create a personal or team overlay entry from any page selection.</p>
+        <form id="save-form">
+          <label>
+            Acronym or term
+            <input id="save-term" name="term" placeholder="CAP" required />
+          </label>
+          <label>
+            Expansion
+            <input
+              id="save-expansion"
+              name="expansion"
+              placeholder="Change Approval Process"
+              required
+            />
+          </label>
+          <label>
+            Meaning / note
+            <textarea
+              id="save-meaning"
+              name="meaning"
+              placeholder="What should this mean for you or your team?"
+            ></textarea>
+          </label>
+          <label>
+            Save to
+            <select id="save-scope" name="scope">
+              <option value="personal">Personal</option>
+              <option value="team">Team</option>
+            </select>
+          </label>
+          <button type="submit">Save acronym</button>
+        </form>
+        <p id="save-status" aria-live="polite"></p>
+      </section>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

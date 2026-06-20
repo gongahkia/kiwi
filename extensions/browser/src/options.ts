@@ -3,6 +3,7 @@ export interface WatOptions {
   apiBaseUrl: string;
   apiToken: string;
   domainFilters: string[];
+  teamId: string;
   highlightMode: boolean;
   hoverMode: boolean;
 }
@@ -14,6 +15,7 @@ export const defaultOptions: WatOptions = {
   apiBaseUrl: "http://localhost:3000",
   apiToken: "",
   domainFilters: [],
+  teamId: "",
   highlightMode: false,
   hoverMode: false
 };

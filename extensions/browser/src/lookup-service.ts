@@ -27,6 +27,9 @@ export function authHeaders(options: WatOptions): Headers {
   if (options.accountEmail) {
     headers.set("x-wat-user-id", options.accountEmail);
   }
+  if (options.teamId) {
+    headers.set("x-wat-team-id", options.teamId);
+  }
 
   return headers;
 }

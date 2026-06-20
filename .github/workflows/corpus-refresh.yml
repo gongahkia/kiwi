@@ -4,19 +4,40 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: Scraper source name
+        description: Scraper source name, or all
         required: false
-        default: example
+        default: all
   schedule:
-    - cron: "0 3 * * 0"
+    - cron: "0 3 * * *"
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  refresh:
+  sources:
     runs-on: ubuntu-latest
+    outputs:
+      sources: ${{ steps.sources.outputs.sources }}
+    steps:
+      - id: sources
+        env:
+          REQUESTED_SOURCE: ${{ github.event.inputs.source || 'all' }}
+        run: |
+          all='["aws-services","azure-services","cncf-glossary","d-edge-foss-acronyms","gcp-services","ietf-rfc-index","jargon-file","kubernetes-glossary","linux-foundation-glossary","mdn-glossary","nist-csrc-glossary","postgresql-glossary","w3c-glossary","wikipedia-acronyms"]'
+          if [ "$REQUESTED_SOURCE" = "all" ] || [ -z "$REQUESTED_SOURCE" ]; then
+            echo "sources=$all" >> "$GITHUB_OUTPUT"
+          else
+            node -e 'const source = process.env.REQUESTED_SOURCE; console.log(`sources=${JSON.stringify([source])}`)' >> "$GITHUB_OUTPUT"
+          fi
+
+  refresh:
+    needs: sources
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        source: ${{ fromJSON(needs.sources.outputs.sources) }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -27,12 +48,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - id: vars
         run: |
-          source="${{ github.event.inputs.source }}"
-          if [ -z "$source" ]; then
-            source="example"
-          fi
           echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-          echo "source=$source" >> "$GITHUB_OUTPUT"
+          echo "source=${{ matrix.source }}" >> "$GITHUB_OUTPUT"
       - id: ingest
         run: |
           delta_path=$(pnpm --filter @wat/ingest ingest run "${{ steps.vars.outputs.source }}" | tail -n 1)

@@ -29,6 +29,7 @@ const form = byId<HTMLFormElement>("options-form");
 const apiBaseUrl = byId<HTMLInputElement>("api-base-url");
 const accountEmail = byId<HTMLInputElement>("account-email");
 const apiToken = byId<HTMLInputElement>("api-token");
+const teamId = byId<HTMLInputElement>("team-id");
 const hoverMode = byId<HTMLInputElement>("hover-mode");
 const highlightMode = byId<HTMLInputElement>("highlight-mode");
 const domainFilters = byId<HTMLInputElement>("domain-filters");
@@ -38,6 +39,7 @@ function renderOptions(options: WatOptions) {
   apiBaseUrl.value = options.apiBaseUrl;
   accountEmail.value = options.accountEmail;
   apiToken.value = options.apiToken;
+  teamId.value = options.teamId;
   hoverMode.checked = options.hoverMode;
   highlightMode.checked = options.highlightMode;
   domainFilters.value = domainFilterText(options.domainFilters);
@@ -49,6 +51,7 @@ function optionsFromForm(): WatOptions {
     apiBaseUrl: apiBaseUrl.value.trim() || defaultOptions.apiBaseUrl,
     apiToken: apiToken.value.trim(),
     domainFilters: parseDomainFilters(domainFilters.value),
+    teamId: teamId.value.trim(),
     highlightMode: highlightMode.checked,
     hoverMode: hoverMode.checked
   };

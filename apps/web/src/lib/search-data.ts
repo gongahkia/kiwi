@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { SearchEntry } from "@wat/search";
 
 import type { ApiIdentity } from "@/lib/api-identity";
+import { getPersonalEntries } from "@/lib/personal-entries";
 import { getTeamEntries, type TeamEntry } from "@/lib/team-entries";
 import { getTeamMember } from "@/lib/team-members";
 
@@ -32,17 +33,25 @@ export function getScopedTeamEntries(identity: ApiIdentity): SearchEntry[] {
   const member = identity.userId ? getTeamMember(identity.userId) : null;
   if (!member && !identity.teamId) return [];
 
-  return getTeamEntries().map(teamEntryToSearchEntry);
+  return getTeamEntries().map((entry) => layeredEntryToSearchEntry(entry, "team"));
 }
 
-function teamEntryToSearchEntry(entry: TeamEntry): SearchEntry {
+export function getScopedPersonalEntries(identity: ApiIdentity): SearchEntry[] {
+  if (identity.type !== "api" || !identity.userId) return [];
+
+  return getPersonalEntries(identity.userId).map((entry) =>
+    layeredEntryToSearchEntry(entry, "personal")
+  );
+}
+
+function layeredEntryToSearchEntry(entry: TeamEntry, layer: "personal" | "team"): SearchEntry {
   return {
     aliases: [],
     confidence_tier: "T4",
     domains: entry.domains,
     expansions: [entry.expansion],
     id: entry.id,
-    layer: "team",
+    layer,
     meaning_short: entry.meaning,
     sources: entry.sources.map((source) => ({ ...source, source_quality: "community" })),
     term: entry.term,

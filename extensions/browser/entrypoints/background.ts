@@ -1,7 +1,15 @@
 import { defineBackground } from "wxt/utils/define-background";
 
-import { isLookupMessage, sidePanelQueryStorageKey, type SidePanelQuery } from "../src/messages.js";
+import {
+  isLookupMessage,
+  isSaveCustomEntryMessage,
+  sidePanelCustomEntryStorageKey,
+  sidePanelQueryStorageKey,
+  type SidePanelCustomEntryDraft,
+  type SidePanelQuery
+} from "../src/messages.js";
 import { handleLookup } from "../src/lookup-service.js";
+import { handleSaveCustomEntry } from "../src/save-entry-service.js";
 import { defaultOptions, optionsStorageKey } from "../src/options.js";
 
 type BrowserTab = Awaited<ReturnType<typeof browser.tabs.query>>[number];
@@ -10,7 +18,8 @@ interface ContextMenuClickInfo {
   selectionText?: string;
 }
 
-const contextMenuId = "wat.lookup.selection";
+const lookupContextMenuId = "wat.lookup.selection";
+const saveContextMenuId = "wat.save.selection";
 
 function tabContext(tab: BrowserTab): string {
   if (!tab.url) return "";
@@ -22,6 +31,14 @@ function tabContext(tab: BrowserTab): string {
   }
 }
 
+function tabSourceUrl(tab: BrowserTab): string | undefined {
+  if (!tab.url || tab.url.startsWith("chrome://") || tab.url.startsWith("chrome-extension://")) {
+    return undefined;
+  }
+
+  return tab.url;
+}
+
 function openSidePanel(tab: BrowserTab) {
   if (tab.id == null || !browser.sidePanel) return;
   void browser.sidePanel.open({ tabId: tab.id });
@@ -31,8 +48,13 @@ function ensureContextMenu() {
   void browser.contextMenus.removeAll().then(() => {
     browser.contextMenus.create({
       contexts: ["selection"],
-      id: contextMenuId,
+      id: lookupContextMenuId,
       title: 'Look up "%s" in wat'
+    });
+    browser.contextMenus.create({
+      contexts: ["selection"],
+      id: saveContextMenuId,
+      title: 'Save "%s" as custom acronym'
     });
   });
 }
@@ -45,6 +67,19 @@ async function queueSidePanelLookup(tab: BrowserTab, term: string) {
   };
 
   await browser.storage.local.set({ [sidePanelQueryStorageKey]: query });
+  openSidePanel(tab);
+}
+
+async function queueCustomEntryDraft(tab: BrowserTab, term: string) {
+  const draft: SidePanelCustomEntryDraft = {
+    context: tabContext(tab),
+    createdAt: new Date().toISOString(),
+    sourceTitle: tab.title,
+    sourceUrl: tabSourceUrl(tab),
+    term: term.trim()
+  };
+
+  await browser.storage.local.set({ [sidePanelCustomEntryStorageKey]: draft });
   openSidePanel(tab);
 }
 
@@ -61,13 +96,19 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((message: unknown) => {
-    if (!isLookupMessage(message)) return undefined;
-    return handleLookup(message);
+    if (isLookupMessage(message)) return handleLookup(message);
+    if (isSaveCustomEntryMessage(message)) return handleSaveCustomEntry(message);
+    return undefined;
   });
 
   browser.contextMenus.onClicked.addListener((info: ContextMenuClickInfo, tab?: BrowserTab) => {
-    if (info.menuItemId !== contextMenuId || !info.selectionText?.trim() || !tab) return;
-    void queueSidePanelLookup(tab, info.selectionText);
+    if (!info.selectionText?.trim() || !tab) return;
+    if (info.menuItemId === lookupContextMenuId) {
+      void queueSidePanelLookup(tab, info.selectionText);
+    }
+    if (info.menuItemId === saveContextMenuId) {
+      void queueCustomEntryDraft(tab, info.selectionText);
+    }
   });
 
   browser.action.onClicked.addListener((tab: BrowserTab) => {

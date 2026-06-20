@@ -1,6 +1,9 @@
 import {
+  sidePanelCustomEntryStorageKey,
   sidePanelQueryStorageKey,
   type LookupResponse,
+  type SaveCustomEntryResponse,
+  type SidePanelCustomEntryDraft,
   type SidePanelQuery
 } from "../../src/messages.js";
 
@@ -38,10 +41,33 @@ function resultEntries(body: unknown): SearchEntry[] {
   return searchBody.matches?.flatMap((match) => (match.entry ? [match.entry] : [])) ?? [];
 }
 
+function domainFromContext(context: string): string[] {
+  const domain = context.trim().toLowerCase();
+  return domain ? [domain] : [];
+}
+
+function sourceUrlFromContext(context: string): string | undefined {
+  if (/^https?:\/\//i.test(context)) return context;
+  return currentDraft?.sourceUrl;
+}
+
+function fillSaveDraft(draft: SidePanelCustomEntryDraft) {
+  currentDraft = draft;
+  saveTerm.value = draft.term;
+  saveStatus.textContent = `Ready to save from ${draft.context || "this page"}.`;
+}
+
 const pageContext = byId<HTMLParagraphElement>("page-context");
 const form = byId<HTMLFormElement>("search-form");
 const query = byId<HTMLInputElement>("query");
 const results = byId<HTMLElement>("results");
+const saveForm = byId<HTMLFormElement>("save-form");
+const saveTerm = byId<HTMLInputElement>("save-term");
+const saveExpansion = byId<HTMLInputElement>("save-expansion");
+const saveMeaning = byId<HTMLTextAreaElement>("save-meaning");
+const saveScope = byId<HTMLSelectElement>("save-scope");
+const saveStatus = byId<HTMLParagraphElement>("save-status");
+let currentDraft: SidePanelCustomEntryDraft | null = null;
 
 async function activeContext(): Promise<string> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -118,10 +144,51 @@ async function consumeQueuedLookup() {
   await search(pending.term, pending.context);
 }
 
+async function consumeCustomEntryDraft() {
+  const stored = (await browser.storage.local.get(sidePanelCustomEntryStorageKey)) as Record<
+    string,
+    SidePanelCustomEntryDraft | undefined
+  >;
+  const pending = stored[sidePanelCustomEntryStorageKey];
+  if (!pending?.term) return;
+
+  fillSaveDraft(pending);
+  await browser.storage.local.remove(sidePanelCustomEntryStorageKey);
+}
+
+async function saveCustomEntry() {
+  const context = currentDraft?.context ?? (await activeContext());
+  saveStatus.textContent = "Saving...";
+  const response = (await browser.runtime.sendMessage({
+    domains: domainFromContext(context),
+    expansion: saveExpansion.value,
+    meaning: saveMeaning.value,
+    scope: saveScope.value === "team" ? "team" : "personal",
+    sourceTitle: currentDraft?.sourceTitle ?? document.title,
+    sourceUrl: sourceUrlFromContext(context),
+    term: saveTerm.value,
+    type: "wat.customEntry.save"
+  })) as SaveCustomEntryResponse;
+
+  if (!response.ok) {
+    saveStatus.textContent = response.error;
+    return;
+  }
+
+  saveStatus.textContent = "Saved. Future searches will include this custom layer.";
+  saveExpansion.value = "";
+  saveMeaning.value = "";
+}
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const term = query.value.trim();
   if (term) void search(term);
 });
 
-void consumeQueuedLookup();
+saveForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (saveTerm.value.trim() && saveExpansion.value.trim()) void saveCustomEntry();
+});
+
+void consumeQueuedLookup().then(() => consumeCustomEntryDraft());

@@ -6,7 +6,11 @@ import { applyDomainContextBoost } from "@wat/search/boost";
 
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
-import { getPublicEntries, getScopedTeamEntries } from "@/lib/search-data";
+import {
+  getPublicEntries,
+  getScopedPersonalEntries,
+  getScopedTeamEntries
+} from "@/lib/search-data";
 import { confidenceRank, scoreEntry, sortMatches } from "@/lib/search-core";
 
 export const runtime = "nodejs";
@@ -42,6 +46,17 @@ function clientIp(request: NextRequest): string {
   );
 }
 
+function withCorsHeaders(response: NextResponse) {
+  response.headers.set(
+    "access-control-allow-headers",
+    "authorization, content-type, x-api-key, x-wat-team-id, x-wat-user-id"
+  );
+  response.headers.set("access-control-allow-methods", "GET, OPTIONS");
+  response.headers.set("access-control-allow-origin", "*");
+
+  return response;
+}
+
 function withRateLimitHeaders(response: NextResponse, decision: ReturnType<typeof checkRateLimit>) {
   response.headers.set("retry-after", String(decision.retryAfter));
   response.headers.set("x-ratelimit-limit", String(decision.limit));
@@ -49,14 +64,20 @@ function withRateLimitHeaders(response: NextResponse, decision: ReturnType<typeo
   response.headers.set("x-ratelimit-reset", String(Math.ceil(decision.resetAt / 1000)));
   response.headers.set("x-ratelimit-scope", decision.scope);
 
-  return response;
+  return withCorsHeaders(response);
+}
+
+export function OPTIONS() {
+  return withCorsHeaders(new NextResponse(null, { status: 204 }));
 }
 
 export async function GET(request: NextRequest) {
   const startedAt = performance.now();
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
-    return NextResponse.json({ error: identity.error }, { status: identity.status });
+    return withCorsHeaders(
+      NextResponse.json({ error: identity.error }, { status: identity.status })
+    );
   }
 
   const rateLimit = checkRateLimit(
@@ -86,10 +107,17 @@ export async function GET(request: NextRequest) {
     | null;
 
   if (!query.trim()) {
-    return NextResponse.json<SearchResponse>({ matches: [], suggest_url: "/suggest?term=" });
+    return withRateLimitHeaders(
+      NextResponse.json<SearchResponse>({ matches: [], suggest_url: "/suggest?term=" }),
+      rateLimit
+    );
   }
 
-  const entries = [...(await getPublicEntries()), ...getScopedTeamEntries(identity.identity)];
+  const entries = [
+    ...(await getPublicEntries()),
+    ...getScopedTeamEntries(identity.identity),
+    ...getScopedPersonalEntries(identity.identity)
+  ];
   const scoredMatches = entries
     .filter(
       (entry) =>
