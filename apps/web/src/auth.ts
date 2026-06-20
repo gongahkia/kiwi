@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
-import EmailProvider from "next-auth/providers/email";
 
+import { createAuthProviders } from "./auth-providers";
 import { watNextAuthAdapter } from "@/lib/next-auth-adapter";
 
 export const authOptions: NextAuthOptions = {
@@ -23,12 +23,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     verifyRequest: "/login?check=email"
   },
-  providers: [
-    EmailProvider({
-      from: process.env.EMAIL_FROM ?? "wat@localhost",
-      server: process.env.EMAIL_SERVER ?? "smtp://localhost:1025"
-    })
-  ],
+  providers: createAuthProviders(),
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "database"
