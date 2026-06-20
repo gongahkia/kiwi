@@ -154,5 +154,201 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Browser ext + Slack app + MCP server all functional against same hosted instance — verified by E2E suite.
 - [ ] CI green on `main` for 7 consecutive days — verified by GH Actions history.
 
+## Audit backlog — team adoption readiness (2026-06-20)
+
+### P0 — Stop data loss and make Postgres the product source of truth
+- [ ] Replace in-memory team entry store with Postgres-backed repository — done when `apps/web/src/lib/team-entries.ts` reads/writes `team_entries`, `team_entry_sources`, and related rows, survives process restart, and all existing team-entry tests run against an isolated test DB.
+- [ ] Replace in-memory personal entry store with Postgres-backed repository — done when personal entries persist across restart, are scoped by authenticated `user_id`, and personal export/import tests prove user A cannot read user B entries.
+- [ ] Replace in-memory suggestion queue with Postgres-backed repository — done when `/suggest/api` and `/team/admin/review/api` persist suggested edits in `suggested_edits` and pending suggestions survive redeploy.
+- [ ] Replace in-memory audit log with Postgres-backed repository — done when every create/update/delete/approve/import action writes `audit_log` rows and admin audit UI reads from DB.
+- [ ] Replace in-memory team settings with Postgres-backed repository — done when settings are stored per `team_id` in `teams.settings_jsonb` or a dedicated table and persist across restart.
+- [ ] Replace in-memory rate limiter for hosted mode — done when rate limits use Redis/Upstash/Postgres advisory storage in production and still support an in-memory dev fallback.
+- [ ] Add DB repository interfaces for public, team, and personal entries — done when web/API/search code depends on typed repositories instead of module-level arrays or seed JSON reads.
+- [ ] Migrate team entry source model to match glossary source schema — done when team/personal entries store source quality, title, URL, publisher, license, retrieved date, and snippet in normalized DB rows.
+- [ ] Add idempotent migration runner for app startup or release phase — done when a clean deploy can run migrations exactly once without manual `pnpm db:migrate` steps.
+- [ ] Add idempotent public corpus seed/import job — done when a clean DB can import checked-in corpus data without duplicates and without deleting team/personal overlays.
+- [ ] Update Docker Compose to apply migrations and seed public corpus automatically — done when `docker compose up --build` yields a searchable DB-backed app on a clean machine.
+- [ ] Make `/readyz` verify database connectivity and migration state — done when readiness fails if DB is unavailable, migrations are missing, or seed corpus is absent.
+- [ ] Add restart persistence smoke test — done when an E2E creates a team entry, restarts web, and confirms the entry is still searchable.
+- [ ] Add multi-instance persistence smoke test — done when two web processes behind the same DB can create/read the same team and personal entries.
+
+### P0 — Unify authentication and authorization
+- [ ] Replace custom `wat_session` authorization with NextAuth session resolution — done when middleware and route handlers use NextAuth session/user/team data and `wat_session` is removed except test-only fixtures.
+- [ ] Add shared server auth helper — done when every protected route calls one helper that returns `{ userId, teamId, role }` or throws typed unauthorized/forbidden errors.
+- [ ] Protect personal APIs with authenticated user sessions — done when `/personal/api` and personal exports reject unauthenticated requests and only use the session user ID.
+- [ ] Protect team admin APIs with team admin role checks in route handlers — done when `/team/admin/*/api` cannot be called directly by non-admins even if middleware is bypassed.
+- [ ] Protect suggestion review APIs with team admin role checks — done when only admins for the target team can approve/reject suggestions.
+- [ ] Scope all team reads and writes by `team_id` — done when team entries, members, settings, imports, exports, suggestions, and audit logs always filter by authenticated team.
+- [ ] Add tenant isolation integration tests — done when tests prove team A cannot list/search/export/update/delete team B data through web APIs, browser extension API calls, Slack, or MCP.
+- [ ] Add per-team API key table — done when API keys are hashed at rest, scoped to one team, optionally one user, and can be created/revoked/rotated by team admins.
+- [ ] Replace global `WAT_API_KEY` for hosted multi-tenant traffic — done when production API calls authenticate via DB-backed per-team keys and global `WAT_API_KEY` is only a self-host/dev escape hatch.
+- [ ] Add API key scopes — done when keys can be read-only, suggestion-write, team-entry-write, or admin, and endpoints enforce those scopes.
+- [ ] Add API key management UI — done when admins can create, name, copy once, revoke, and rotate team API keys from the web app.
+- [ ] Add API key last-used metadata — done when key usage stores last-used time, actor, IP hash, and surface without logging raw keys.
+- [ ] Add email-domain team claim flow — done when first verified user for a domain can claim/create a team and later users with same domain join as members by default.
+- [ ] Add public-email-domain guardrail — done when gmail.com/outlook.com/yahoo.com/etc. do not auto-create shared teams without explicit invite or manual approval.
+- [ ] Add admin recovery path — done when a team with no admins can recover ownership through a documented, audited process.
+
+### P0 — Make multi-tenant search real
+- [ ] Switch web search API to DB-backed merged search — done when `/api/v1/search` reads public, team, and personal entries from Postgres for the authenticated identity.
+- [ ] Preserve layer priority in DB-backed search — done when identical terms rank personal > team > public for scoped users and tests cover collisions.
+- [ ] Add team/private entries to web search UI for signed-in users — done when the homepage search includes scoped personal/team overlays, not only public seed entries.
+- [ ] Add context/domain boosting for DB-backed team and personal entries — done when `context` boosts matching domains across all layers and tests cover browser page hostname context.
+- [ ] Add no-result suggestion flow tied to authenticated team — done when no-match searches can create scoped suggestions without leaking query text across teams.
+- [ ] Add search result provenance for user-contributed entries — done when team/personal results clearly show user/team-contributed confidence and source status.
+- [ ] Add DB search performance indexes for team/personal tables — done when EXPLAIN plans use FTS/trigram indexes and p95 stays under target with public + team overlays.
+- [ ] Add search analytics with privacy-safe aggregation — done when query hashes, layer hits, confidence distribution, and latency are captured without raw private query logging.
+
+### P0 — Security and privacy blockers before private team data
+- [ ] Remove wildcard CORS from production API responses — done when allowed origins are configurable per deployment/team and browser extension origins are explicitly allowed.
+- [ ] Add CSRF protection or strict same-origin handling for cookie-authenticated mutations — done when web form/API mutations cannot be triggered cross-site by an attacker.
+- [ ] Add Slack request signature verification — done when `/slack/events` rejects unsigned or replayed Slack requests.
+- [ ] Encrypt OAuth tokens and bot tokens at rest — done when Slack/Google/other OAuth tokens use envelope encryption or `SLACK_TOKEN_ENCRYPTION_KEY` equivalent with rotation docs.
+- [ ] Stop defaulting private/team custom entries to `MIT` license — done when private custom entries use an explicit internal/proprietary/unknown license status and UI explains it.
+- [ ] Add source/license validation for custom team entries — done when public-corpus rules remain strict and private entries cannot accidentally claim public-compatible provenance unless provided.
+- [ ] Add audit entries for API key and integration changes — done when key creation/revocation, Slack install, extension token creation, imports, and member role changes are audited.
+- [ ] Add private-data-safe logging policy enforcement — done when logs never include raw private definitions, raw queries for authenticated teams, API keys, cookies, OAuth tokens, or magic links.
+- [ ] Add XSS regression tests for all user-provided glossary fields — done when term, expansion, meaning, source title, source snippet, and domains are rendered escaped across web/extension/Slack.
+- [ ] Add SQL injection regression tests for all DB-backed filters and forms — done when fuzzed strings do not produce SQL errors or cross-tenant reads.
+- [ ] Add abuse controls for write endpoints — done when suggestions, imports, custom-entry saves, and Slack writes have per-user/team/IP limits and actionable 429 responses.
+- [ ] Add security headers — done when production responses include CSP, HSTS where appropriate, frame protections, content-type options, and referrer policy.
+- [ ] Add responsible disclosure contact to README and security docs — done when users can privately report vulnerabilities without opening a public exploit issue.
+
+### P1 — Team onboarding and admin usability
+- [ ] Build first-run team onboarding flow — done when a new user can create or join a team, set team name/domain, and land on an admin checklist.
+- [ ] Build member invitation flow — done when admins can invite users by email, pending invites expire, and accepted invites create scoped team membership.
+- [ ] Build member role management backed by DB — done when admins can promote/demote/remove members and all changes persist/audit.
+- [ ] Build team settings page backed by DB — done when default domain filters, public-layer toggle, and domain tags are team-specific and durable.
+- [ ] Add team import UI for JSON and CSV — done when admins can upload glossary files, preview validation errors, and import accepted rows.
+- [ ] Add import dry-run and conflict resolution — done when duplicate term/expansion conflicts show create/update/skip choices before commit.
+- [ ] Add export UI for JSON and CSV backed by DB — done when admins can export only their team entries with sources and audit metadata.
+- [ ] Add bulk edit/delete safeguards — done when destructive bulk actions require confirmation and write audit rows.
+- [ ] Add team glossary dashboard — done when admins see total entries, pending suggestions, top searched acronyms, no-result gaps, stale entries, and source coverage.
+- [ ] Add entry validation messages in CRUD forms — done when invalid source URLs, missing fields, duplicate IDs, and duplicate term/expansion pairs show inline errors.
+- [ ] Add generated IDs for manual entries — done when users do not have to invent stable IDs while creating entries in the UI.
+- [ ] Add clear confidence/layer labels for team users — done when users understand whether a result is public, team, personal, pending, or low-confidence.
+- [ ] Add no-result CTA to create/suggest an acronym — done when failed searches can flow directly into personal save or team suggestion.
+
+### P1 — Browser extension adoption blockers
+- [ ] Add extension login/pairing flow — done when a user can connect the extension to their wat account without manually pasting API URL, email, token, and team ID.
+- [ ] Add extension team picker — done when users in multiple teams can choose the active team and the extension sends the right team scope.
+- [ ] Add extension custom-entry save E2E test — done when selecting page text, saving a custom acronym, and finding it in later lookup is covered headlessly.
+- [ ] Add extension conflict handling for saved acronyms — done when saving an existing term shows update/keep both/cancel choices instead of a raw 409.
+- [ ] Add extension save-source preview — done when users see the page URL/title that will be attached before saving.
+- [ ] Add extension offline/error states — done when failed lookup/save distinguishes offline, unauthorized, forbidden, rate-limited, and validation errors.
+- [ ] Add extension privacy mode review — done when hover/highlight behavior is documented and verified to send only tokens/context, not full page contents by default.
+- [ ] Add extension settings validation — done when invalid API URLs/tokens show a test-connection failure before save.
+- [ ] Add extension release assets — done when required icons, screenshots, short/long descriptions, and privacy copy are committed.
+- [ ] Publish signed browser extension builds — done when Chrome, Firefox, and Edge users can install without developer mode.
+- [ ] Add enterprise extension deployment docs — done when a team admin can deploy via Chrome Enterprise/Edge policy with preconfigured API URL.
+
+### P1 — Slack adoption blockers
+- [ ] Replace Slack HTTP scaffold with real Bolt runtime wiring — done when the deployed Slack app receives commands/events and dispatches registered wat handlers.
+- [ ] Implement Slack OAuth install callback — done when `Add to Slack` completes, verifies state, and stores workspace/team install data.
+- [ ] Persist Slack workspace installs in DB — done when bot/user tokens, workspace ID, team mapping, installer, scopes, and timestamps survive restart.
+- [ ] Map Slack workspace to wat team securely — done when installer identity/domain maps to an existing or new wat team with admin review for ambiguous cases.
+- [ ] Enforce Slack admin + wat admin for `/wat-define` — done when a Slack workspace admin who is not a wat team admin cannot write team entries.
+- [ ] Send Slack API auth headers to wat API — done when Slack lookup/write requests use scoped per-team credentials rather than anonymous/global calls.
+- [ ] Implement `/wat` command in deployed Slack app — done when a real Slack workspace command returns sourced ephemeral results from the same hosted API as web.
+- [ ] Implement `/wat-define` against DB-backed team entries — done when approved Slack definitions appear in web search/admin and audit logs.
+- [ ] Implement `/wat-suggest` against DB-backed suggestion queue — done when member suggestions appear in web review queue.
+- [ ] Implement message shortcut against selected message only — done when explicit shortcuts parse acronyms from the selected payload and do not ingest channel history.
+- [ ] Add Slack workspace/channel rate limits backed by durable store — done when command bursts are throttled per workspace/channel/user.
+- [ ] Add Slack install/remove lifecycle handling — done when app uninstall revokes tokens and disables workspace integration without deleting glossary data.
+- [ ] Add Slack E2E or contract tests — done when command, shortcut, mention, install, signature verification, and rate-limit paths are tested.
+- [ ] Prepare Slack App Directory submission — done when security questionnaire, scopes, privacy notes, screenshots, and demo GIF are ready.
+
+### P1 — MCP adoption blockers
+- [ ] Back MCP lookup with hosted/API or DB repositories instead of dev fixtures — done when MCP returns the same scoped public/team entries as web for the same API key.
+- [ ] Replace MCP file-backed suggestions with DB-backed suggestions — done when `suggest_definition` queues suggestions in the same review UI as web/Slack.
+- [ ] Add MCP per-team API key support — done when MCP auth uses DB-backed scoped keys and returns clear unauthorized/forbidden errors.
+- [ ] Publish `@wat/mcp` package — done when users can run `npx @wat/mcp@latest` without cloning the repo.
+- [ ] Add MCP hosted configuration docs — done when Claude Desktop/Cursor examples show hosted URL, key scopes, team ID behavior, and self-host mode.
+- [ ] Add MCP integration tests against a running web API — done when lookup/list/suggest are verified against seeded DB fixtures.
+- [ ] Submit MCP catalog listings — done when Anthropic/Cursor listing PRs or submissions are opened with screenshots and docs.
+
+### P1 — Public corpus coverage and ingestion readiness
+- [ ] Import scraper outputs into production-searchable corpus — done when daily corpus refresh deltas can be reviewed, merged, and loaded into the DB-backed public search index.
+- [ ] Increase seed/public corpus beyond demo size — done when public search covers at least the target launch benchmark set and no longer relies on ~50 unique seed terms.
+- [ ] Add corpus source inventory page — done when docs/UI list each source, license policy, last refresh time, entry count, and failure status.
+- [ ] Add corpus refresh dashboard/report — done when scheduled scraper runs publish added/changed/removed counts, license changes, parser errors, and benchmark impact.
+- [ ] Add bad-delta rollback path — done when a bad corpus import can be reverted to a known-good version with documented commands.
+- [ ] Add source license change alerts — done when changes in source license metadata block automatic import until reviewed.
+- [ ] Add benchmark set for ambiguous acronyms — done when CAP/API/ACL/etc. have expected domain-aware rankings and regressions fail CI.
+- [ ] Add no-fabrication corpus gate — done when entries without acceptable provenance are excluded from public results or marked review-only.
+- [ ] Add corpus quality sampling workflow — done when each refresh PR includes random sample entries for human review.
+
+### P1 — API readiness for teams and integrations
+- [ ] Document `POST /api/v1/custom-entries` — done when API docs include request/response schemas, auth, scopes, CORS behavior, errors, and examples.
+- [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.
+- [ ] Standardize REST error shapes — done when all APIs return consistent `{ error, code, message, request_id }` style responses.
+- [ ] Add pagination to list/export APIs where needed — done when large teams can list entries, audit logs, and suggestions without loading all rows.
+- [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
+- [ ] Add custom-entry update/upsert mode — done when integrations can intentionally update an existing acronym without relying on generated IDs.
+- [ ] Add API examples for curl, browser extension, Slack, and MCP — done when docs show minimal working authenticated requests for each surface.
+- [ ] Add request IDs to all API responses and logs — done when support can correlate user-visible errors to server logs.
+
+### P1 — Self-host and deployment usability
+- [ ] Create one-command local demo path — done when a new developer can run one documented command and get web search, DB, seeded corpus, and Mailpit working.
+- [ ] Create one-command production-ish self-host path — done when Docker Compose with `.env` boots web + DB + migrations + seed + health checks without manual commands.
+- [ ] Add `.env` validation at startup — done when missing/unsafe production secrets fail fast with actionable messages.
+- [ ] Add generated secrets helper — done when docs/scripts help self-hosters generate `AUTH_SECRET`, API key seed, and token encryption keys.
+- [ ] Add backup and restore scripts to Compose docs — done when a self-hoster can run backup, restore to a new DB, and verify search works.
+- [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
+- [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.
+- [ ] Add production readiness checklist — done when docs state required secrets, DB extensions, migrations, backups, TLS, rate limits, and monitoring.
+- [ ] Add clean-machine install test to CI or release process — done when Compose is verified on a fresh Linux runner before releases.
+
+### P1 — Hosted service operations
+- [ ] Provision hosted Postgres with pg_trgm and pgvector — done when migrations run and DB health is monitored.
+- [ ] Deploy hosted web instance with DB-backed search — done when production URL returns public search results and scoped team results for a test team.
+- [ ] Add production monitoring dashboard — done when request rate, errors, latency, DB connections, DB CPU, queue/import failures, and scraper failures are visible.
+- [ ] Add alerting for availability and data-path failures — done when `/readyz`, search latency, DB errors, Slack event failures, and corpus refresh failures alert maintainers.
+- [ ] Add scheduled backup verification — done when latest backup is restored in a drill and verified at least monthly.
+- [ ] Add deploy rollback procedure — done when a bad web/API deploy can be rolled back without data loss and the runbook documents it.
+- [ ] Add WAF/basic abuse rules — done when obvious SQLi/XSS probes and abusive request patterns are blocked or rate-limited at the edge.
+
+### P2 — Product UX gaps that will block normal teams
+- [ ] Add guided install page for each surface — done when web, extension, Slack, MCP, and API install steps are separated by role and environment.
+- [ ] Add admin checklist after team creation — done when admins see next steps for importing acronyms, inviting members, installing extension, and connecting Slack.
+- [ ] Add sample team glossary import template — done when CSV/JSON templates can be downloaded and imported successfully.
+- [ ] Add onboarding empty states — done when empty team glossary, no suggestions, no members, and no API keys pages explain what to do next.
+- [ ] Add no-results learning loop — done when no-result searches can be converted into suggestions/personal entries and later reviewed.
+- [ ] Add duplicate/ambiguous acronym UX — done when users can see and choose among multiple expansions by domain/layer/confidence.
+- [ ] Add stale-entry review workflow — done when entries can be marked stale/needs review and admins can update or deprecate them.
+- [ ] Add deprecation support for team/personal entries — done when deprecated entries remain auditable but are hidden or labeled in normal search.
+- [ ] Add user-facing privacy explanations — done when extension, Slack, MCP, and web describe exactly what text is sent and stored.
+
+### P2 — Testing gates for credible beta
+- [ ] Add full team onboarding E2E — done when Playwright covers sign up, create team, invite member, add entry, search entry, export entry.
+- [ ] Add browser extension authenticated save/search E2E — done when extension pairs with a test account, saves selected text, and lookup returns personal/team layer.
+- [ ] Add Slack installed-workspace E2E/fixture test — done when a simulated Slack command writes/reads scoped team data through the deployed API path.
+- [ ] Add MCP hosted API E2E — done when Claude/Cursor-compatible server calls lookup/list/suggest against a test hosted API.
+- [ ] Add tenant isolation test suite — done when every team/personal endpoint has positive same-tenant and negative cross-tenant cases.
+- [ ] Add persistence test suite — done when restart/redeploy does not lose entries, suggestions, settings, keys, audit logs, or installs.
+- [ ] Add migration compatibility test — done when migrations apply from empty DB and from previous release snapshots.
+- [ ] Add import/export round-trip tests — done when exported team glossary can be imported into a new team without loss of required fields.
+- [ ] Add load test with team overlays — done when benchmark includes public corpus plus at least 10k team entries and meets p95 targets.
+- [ ] Add browser cross-compat release test checklist to CI artifacts — done when Chrome/Firefox/Edge/Brave results are recorded for each extension release.
+
+### P2 — Documentation gaps that will cause failed adoption
+- [ ] Rewrite README around current maturity and install paths — done when README clearly distinguishes demo, self-host, hosted beta, extension, Slack, and MCP readiness.
+- [ ] Add honest limitations page — done when docs list unsupported/experimental areas: hosted auth, persistence status, extension store status, Slack status, MCP status, and corpus coverage.
+- [ ] Add team admin guide — done when admins can follow docs to create a team, import entries, manage members, issue keys, and review suggestions.
+- [ ] Add developer architecture guide for DB-backed layers — done when contributors can see how public/team/personal entries flow from DB to search and surfaces.
+- [ ] Add security model docs for tenants and keys — done when docs explain tenant isolation, key scopes, Slack permissions, extension privacy, and audit logs.
+- [ ] Add migration/runbook docs for self-hosters — done when self-hosters can upgrade versions, run migrations, back up, restore, and rollback.
+- [ ] Add troubleshooting docs — done when common failures such as missing DB extensions, email login failures, extension auth failures, Slack signature errors, and no search results have fixes.
+
+### Beta readiness acceptance gates from audit
+- [ ] New-team time-to-value ≤15 minutes — verified when a fresh team can sign up, create/import an acronym, install/connect the extension, and see a scoped lookup in under 15 minutes without maintainer help.
+- [ ] No in-memory product-critical state in production — verified when entries, suggestions, settings, audit logs, installs, API keys, and rate limits survive restart/redeploy.
+- [ ] Auth/session model is single-source — verified when NextAuth or the chosen auth system owns all user/team identity and no production path depends on `wat_session`.
+- [ ] Tenant isolation proven — verified when automated tests cover cross-team denial for every private read/write path.
+- [ ] Browser extension install is non-developer-mode — verified when at least one signed store or enterprise-install path works with documented auth.
+- [ ] Same hosted instance powers web, extension, Slack, and MCP — verified when all four surfaces read the same DB-backed public/team/personal data for a test team.
+- [ ] Private glossary legal/privacy defaults are safe — verified when private entries are not mislabeled as open-source/public and privacy docs match actual data flows.
+- [ ] Self-host clean install works — verified when `docker compose up --build` on a clean machine runs migrations, seeds corpus, and passes `/readyz` plus a search smoke test.
+
 ## Folder/root note
 Rename folder freely; keep `idea.md` and `todo.md` at project root.
