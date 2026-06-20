@@ -87,7 +87,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ## P5 — Testing
 - [ ] Integration tests for `packages/db` against ephemeral Postgres (testcontainers) — done when tests pass in CI.
 - [ ] E2E tests for web search UX (Playwright) — done when 10 scenarios pass headless in CI.
-- [ ] Slack app integration tests w/ Bolt's test helpers — done when slash + shortcut + mention scenarios pass.
 - [ ] Load test search endpoint (k6) — done when 100 RPS sustained w/ p95 <200ms hosted.
 - [ ] Chaos test for DB failover (self-host) — done when killing primary recovers within 30s via compose-level retry.
 - [ ] Security tests for SQLi/XSS — done when fuzz inputs over all forms produce no SQL errors and outputs are sanitized.
