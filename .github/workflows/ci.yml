@@ -45,6 +45,19 @@ jobs:
       - run: pnpm test:e2e:web
       - run: pnpm test:e2e:extension
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit:deps
+      - run: pnpm audit:licenses
+
   build:
     runs-on: ubuntu-latest
     steps:
