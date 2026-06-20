@@ -29,6 +29,8 @@ Shows real available pi data:
 
 ```txt
 gpt-5.5▸xhigh · ~/Desktop/coding/projects/... · main · Working · Context 36% left
+# outside a git repo, the git section is omitted entirely
+# gpt-5.5▸xhigh · ~/Downloads · Ready · Context 36% left
 ```
 
 Reload all pi resources:

@@ -2,7 +2,7 @@
  * Fried Apple Pie terminal line
  *
  * A Claude-style pi footer inspired by the screenshot:
- * model▸thinking · cwd · git-branch · Working/Ready · Context N% left · 5h N% left · weekly N% left
+ * model▸thinking · cwd · git-branch-if-present · Working/Ready · Context N% left
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -65,13 +65,13 @@ export default function (pi: ExtensionAPI) {
 				render(width: number): string[] {
 					const model = ctx.model?.id ?? "no-model";
 					const thinking = pi.getThinkingLevel();
-					const branch = footerData.getGitBranch() ?? "no-git";
+					const branch = footerData.getGitBranch();
 					const status = working ? "Working" : "Ready";
 
 					const parts = [
 						hex(COLORS.model, `${model}▸${thinking}`),
 						hex(COLORS.path, compactCwd(ctx.cwd)),
-						hex(COLORS.branch, branch),
+						...(branch ? [hex(COLORS.branch, branch)] : []),
 						hex(COLORS.status, status),
 						hex(COLORS.context, contextLeft(ctx)),
 					];
