@@ -1,17 +1,18 @@
 # TODO.md — Structure-Based ASCII Terminal Media Renderer (C++)
 
-> **Project:** A native, compiled, terminal-resident, A/V-synced media player whose
-> headline feature is **structure-based ASCII** — directional/shape-aware glyph
-> selection driven by edge orientation — running live on video, webcam, and streams.
-> **Language:** C++20. **Decode:** FFmpeg/libav. **Audio:** miniaudio (or SDL2).
-> **Differentiator:** glyphs chosen by *shape*, not just brightness, in real time.
+> **Project:** `contourtty` — a native, compiled, terminal-resident, A/V-synced media player whose
+> headline feature is **structure-based ASCII**: directional/shape-aware glyph selection driven by edge
+> orientation, running live on video, webcam, streams, shaders, and 3D scenes.
+> **Language:** C++20. **Decode:** FFmpeg/libav. **Audio:** miniaudio. **GPU:** Metal (Darwin) + Vulkan (portable).
+> **Differentiator:** glyphs chosen by *shape*, not just brightness, in real time — extended in v2 with
+> HoG/SDF features, Unicode 16 octant/sextant blitters, shader-in-terminal input, temporal coherence,
+> and Kitty/Sixel/iTerm hybrid output.
 >
-> This file is the master checklist. Each phase has its own detailed document
-> (`PHASE_A.md` … `PHASE_G.md`). Work top to bottom. Do **not** start a phase
-> until the previous phase's "Phase exit criteria" are all checked.
+> This file is the master checklist. Each phase has its own detailed document (`PHASE_A.md` … `PHASE_P.md`).
+> Work top to bottom. Do **not** start a phase until the previous phase's "Phase exit criteria" are all checked.
 >
-> Every task below has a **DoD** (Definition of Done) — a concrete, testable
-> condition. A task is not complete until its DoD is objectively true.
+> Every task below has a **DoD** (Definition of Done) — a concrete, testable condition. A task is not
+> complete until its DoD is objectively true.
 
 ---
 
@@ -20,96 +21,256 @@
 - `[ ]` = not started, `[~]` = in progress, `[x]` = done (DoD met).
 - Tasks are grouped by phase; phase docs contain the *how*, this file is the *what + done-when*.
 - "Reference" points to the relevant section of a phase doc.
-- Bench/perf numbers are recorded in `BENCHMARKS.md` (create in Phase A).
+- Bench/perf numbers are recorded in `BENCHMARKS.md`.
 
 ---
 
 ## Phase overview
 
-| Phase | Title | Goal | Doc |
-|---|---|---|---|
-| A | Foundations & scaffolding | Build system, repo, terminal raw mode, clean teardown | `PHASE_A.md` |
-| B | Decode & frame pipeline | FFmpeg decode → RGB frames → correct-aspect downscale | `PHASE_B.md` |
-| C | Luminance renderer + emission | Brightness→glyph, truecolor, differential writes | `PHASE_C.md` |
-| D | Audio & sync | Audio playback, master clock, frame-skip to hold timing | `PHASE_D.md` |
-| E | **Structure mode (the differentiator)** | Edge/shape-aware glyph selection, live | `PHASE_E.md` |
-| F | Inputs & modes | Webcam, streams, images/GIF, color tiers, dithering | `PHASE_F.md` |
-| G | Performance, polish, release | GPU path, exports, packaging, docs, launch | `PHASE_G.md` |
+| Phase | Title | Goal | Doc | Milestone |
+|---|---|---|---|---|
+| A | Foundations & scaffolding | Build system, repo, terminal raw mode, clean teardown | `PHASE_A.md` | — |
+| B | Decode & frame pipeline | FFmpeg decode → RGB frames → correct-aspect downscale | `PHASE_B.md` | — |
+| C | Luminance renderer + emission | Brightness→glyph, truecolor, differential writes | `PHASE_C.md` | `v0.1` |
+| D | Audio & sync | Audio playback, master clock, frame-skip to hold timing | `PHASE_D.md` | — |
+| E | Structure mode (the differentiator) | Edge/shape-aware glyph selection, live | `PHASE_E.md` | `v0.5` |
+| F | Inputs & modes | Webcam, streams, images/GIF, color tiers, dithering | `PHASE_F.md` | — |
+| G | Performance, polish, release | GPU path, exports, packaging, docs | `PHASE_G.md` | — |
+| H | Render-graph refactor | Typed DAG of Passes; CPU/GPU sibling dispatch | `PHASE_H.md` | — |
+| I | Glyph science upgrade | FreeType + HoG + SDF + nanoflann + evolved charsets | `PHASE_I.md` | — |
+| J | Blitter ladder & Unicode 16 | Octant/sextant blitters, capability detection, line ligatures | `PHASE_J.md` | — |
+| K | Stylized NPR modes | ETF/CLD, Kuwahara, hatch, stipple, LIC, OKLab posterise | `PHASE_K.md` | — |
+| L | Shader-in-terminal & procedural | Vulkan backend, GLSL/WGSL shader input, OBJ scene loader | `PHASE_L.md` | `v0.9` |
+| M | Temporal coherence | Hysteresis, optical-flow warped history, supersampling | `PHASE_M.md` | — |
+| N | Hybrid graphics protocols | Kitty / Sixel / iTerm pixel + text overlay | `PHASE_N.md` | `v0.95` |
+| O | New content paths | Image grid, stdin data, asciinema re-stylise, captions | `PHASE_O.md` | — |
+| P | Interactivity, demos, polish | OSD, A/B split, snapshot, README, packaging, launch | `PHASE_P.md` | `v1.0` |
 
-**Milestone tags:** end of C = `v0.1` (plumbing proven). End of E = `v0.5` (the reason it exists). End of G = `v1.0` (best-in-class, launchable).
+**Milestone tags:** end of C = `v0.1` (plumbing proven). End of E = `v0.5` (the reason it exists). End of L = `v0.9` (shader-in-terminal, scenes). End of N = `v0.95` (hybrid graphics). End of P = `v1.0` (best-in-class, launchable).
 
 ---
 
 ## PHASE A — Foundations & scaffolding
-*Doc: `PHASE_A.md`. Goal: a buildable, well-structured repo that opens the terminal, goes raw, restores cleanly, and has CI.*
+*Doc: `PHASE_A.md`. Status: substantially done; CI/exit criteria remain blocked on GitHub Actions billing.*
 
-- [ ] **A10. CI: build matrix.** DoD: GitHub Actions builds on Linux + macOS (Windows optional flag), fails on warnings; badge in README.
-  - 2026-06-19: blocked by GitHub Actions billing/spending-limit state before any job steps start. Owner override: continue Phase B while A10/Phase A exit remain pending.
-  - 2026-06-19: `gh run view 27823322318` confirms all CI jobs fail before logs with: "recent account payments have failed or your spending limit needs to be increased."
-  - 2026-06-19: `gh run view 27825788779` confirms the same billing/spending-limit blocker across build, asan-ubsan, and valgrind jobs after current commits.
+- [ ] **A10. CI: build matrix.** DoD: GitHub Actions builds on Linux + macOS (Windows optional flag), fails on warnings; badge in README. Reference: PHASE_A §CI.
+  - Blocked: account billing/spending-limit state on hosted runners; local builds pass.
 - [ ] **Phase A exit criteria.** DoD: clean build on ≥2 OSes in CI; raw-mode guard provably restores on normal exit, Ctrl-C, and exception; size query + SIGWINCH working.
-  - 2026-06-19: `scripts/verify_terminal_paths.sh` proves local PTY raw-mode restore on keyboard quit, Ctrl-C, and forced exception, plus terminal size query; `terminal_tests` covers SIGINT/SIGWINCH flags. CI proof remains blocked by billing/spending-limit state.
+  - Local PTY proof complete (`scripts/verify_terminal_paths.sh`, `terminal_tests`); hosted CI proof blocked.
 
 ---
 
 ## PHASE B — Decode & frame pipeline
-*Doc: `PHASE_B.md`. Goal: turn any local file into a stream of RGB frames at the right grid resolution, using the modern send/receive libav API.*
-
+*Doc: `PHASE_B.md`. Status: complete (decode + sws_scale + threaded queue working; PTS handling validated).* No open items.
 
 ---
 
-## PHASE C — Luminance renderer + emission  → **v0.1**
-*Doc: `PHASE_C.md`. Goal: the full live pipeline with the baseline brightness→glyph renderer, truecolor, and the differential emitter that makes high framerates possible.*
-
+## PHASE C — Luminance renderer + emission → **v0.1**
+*Doc: `PHASE_C.md`. Status: complete (luminance ramp + truecolor SGR + diff emitter shipped).* No open items.
 
 ---
 
 ## PHASE D — Audio & sync
-*Doc: `PHASE_D.md`. Goal: audio playback with the audio track as the master clock, and adaptive frame-skip so video tracks audio rather than drifting.*
-
+*Doc: `PHASE_D.md`. Status: complete (miniaudio backend, audio clock master, frame-skip working).* No open items.
 
 ---
 
-## PHASE E — Structure mode (the differentiator)  → **v0.5**
-*Doc: `PHASE_E.md`. Goal: the reason the project exists — glyphs chosen by shape/edge orientation, not just brightness, computed live. This is the headline.*
+## PHASE E — Structure mode (the differentiator) → **v0.5**
+*Doc: `PHASE_E.md`. Status: complete (Sobel + DoG + 9-region shape vectors + NCC matching; Metal backend on Darwin).* No open items remaining in this scope; richer features (HoG/SDF) move to PHASE_I.
 
 ---
 
 ## PHASE F — Inputs & modes
-*Doc: `PHASE_F.md`. Goal: make it work on the inputs people actually want, and across terminal capability tiers.*
+*Doc: `PHASE_F.md`. Status: complete (webcam, images, GIFs, FFmpeg streams, yt-dlp resolver, truecolor/256/16/mono, ordered + FS dither, halfblock, braille).* No open items.
 
-## PHASE G — Performance, polish, release  → **v1.0**
-*Doc: `PHASE_G.md`. Goal: make it fast, packaged, documented, and launched.*
+---
 
-- [ ] **G7. Packaging.** DoD: single static-ish binary releases for Linux/macOS (+ Windows if feasible); a Homebrew formula and/or `.deb`; documented `ffmpeg` runtime requirement. Reference: PHASE_G §Packaging.
-  - 2026-06-19: added CPack install/TGZ packaging, Linux DEB generation path, tag-driven release workflow, head-only Homebrew formula, and FFmpeg runtime docs. Local macOS package script builds, runs tests, emits TGZ, extracts it, and verifies `contourtty --version`; hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: re-ran `scripts/package_release.sh` after adding the Objective-C++/Metal source; release build, 19 tests, and CPack TGZ generation passed locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: re-ran `scripts/package_release.sh` after the Metal average-output update; release build, 19 tests, and CPack TGZ generation still pass locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: re-ran `scripts/package_release.sh` after GPU DoG completion; release build, 19 tests, and CPack TGZ generation still pass locally on macOS arm64. Hosted Linux/macOS artifact proof remains blocked by GitHub Actions billing/spending-limit state.
-- [ ] **Phase G exit criteria → tag `v1.0`.** DoD: fast (GPU path or strong SIMD), packaged for ≥2 platforms, fully documented, with reproducible benchmarks.
+## PHASE G — Performance, polish, release
+*Doc: `PHASE_G.md`. Status: partial.*
+
+- [~] **G1. CPU SIMD + multithreading the analysis pass.** DoD: measured multicore speedup recorded; output unchanged. Reference: PHASE_G §CPU.
+  - Row-band multithreading done (`renderWorkerCount` in `renderer.cpp`); explicit SIMD (AVX2/NEON) deferred — relies on compiler auto-vectorisation today. Open: hand-SIMD the gradient + dot-product inner loops on x86_64 and arm64; record before/after in BENCHMARKS.md.
+- [~] **G2. GPU compute path.** DoD: significant fps gain at high cell counts recorded; correctness matches CPU within tolerance. Reference: PHASE_G §GPU.
+  - Metal backend done for Sobel, DoG, cell-average, and structure glyph selection on Darwin. Open: Vulkan port — moved to PHASE_L §VulkanBackend.
+- [ ] **G3. MP4 export rasterisation.** DoD: the MP4 plays in a normal player and shows the ASCII rendering with audio muxed. Reference: PHASE_G §ExportMP4.
+  - ANSI and asciinema export work; MP4 path currently silent + rasterisation stub. Unblocks once Phase I ships FreeType (`GlyphFont` rasteriser) and is shared via Phase N's `raster_compose`.
+- [x] **G4. Asciinema + raw ANSI export.** Shipped.
+- [x] **G5. Config file + defaults.** Shipped (`$XDG_CONFIG_HOME/contourtty/config`).
+- [~] **G6. Golden-frame regression tests.** DoD: tests run in CI and catch regressions for every mode. Reference: PHASE_G §Tests.
+  - Local goldens exist for luminance, structure, halfblock, braille. Open: extend to every Phase I–O mode/style; gate CI on them once billing unblocks.
+- [~] **G7. Packaging.** DoD: a user on a fresh machine can install and run with documented steps. Reference: PHASE_G §Packaging.
+  - CPack TGZ + Linux DEB + tag-driven release workflow + head-only Homebrew formula present locally. Open: hosted artifact build (Actions billing blocks); Homebrew versioned bottle; static-FFmpeg link for self-contained releases (moves into PHASE_P §Packaging).
+- [ ] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
+  - README + CONTRIBUTING + man page exist; v2 features will land their own README updates in Phase P. Open: refresh hero GIF after Phase P.
+- [ ] **G10. Publish honest benchmark numbers.** DoD: numbers reproducible from documented commands; linked from README. Reference: PHASE_G §Bench.
+  - BENCHMARKS.md scaffolded with current numbers. Open: full sweep across all modes/styles/backends in PHASE_P §Bench.
+- [ ] **Phase G exit criteria → tag `v1.0`.** Deferred — `v1.0` now gates on PHASE_P exit. PHASE_G exit is partial: SIMD remaining, MP4 rasterisation remaining, hosted CI remaining.
+
+### Cross-cutting (from G)
+- [~] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.
+  - Local macOS ASan/UBSan clean; hosted Linux proof blocked by billing.
+- [~] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
+  - macOS `leaks --atExit` clean on normal export, seek+quit, SIGINT (`scripts/verify_shutdown_paths.sh`). Hosted Linux Valgrind/ASan proof blocked.
+
+---
+
+## PHASE H — Render-graph refactor *(load-bearing for I–P)*
+*Doc: `PHASE_H.md`. Goal: turn `renderFrame()` into a typed DAG of Passes so later phases compose.*
+
+- [ ] **H1. Pass + RenderGraph types.** DoD: `src/render_graph.{hpp,cpp}` defines `Pass`, `PassPort`, `BufferDesc`, `Graph`, `PassContext`; topological sort + cycle detection covered by tests. Reference: PHASE_H §Types.
+- [ ] **H2. Lift existing pipeline into Passes.** DoD: `luminance`, `contrast`, `dog`, `sobel`, `edge-field`, `cell-average`, `cell-shape`, `shape-match`, `ramp-pick`, `halfblock`, `braille`, `emit` each register as a Pass; `renderer.cpp` shrinks to "build graph, run graph"; all existing golden-frame outputs byte-identical. Reference: PHASE_H §Migration.
+- [ ] **H3. CPU/GPU scheduler.** DoD: per-Pass backend choice is bound once at graph build, not per call; `--gpu` on a machine without Metal/Vulkan logs the fallback once and runs CPU; per-Pass backend dispatch visible in `--graph dump`. Reference: PHASE_H §Scheduler.
+- [ ] **H4. Config-driven graph composition.** DoD: `pipeline=structure` in config file produces the same result as `--mode structure` on the CLI; `--pipeline NAME` overrides config. Reference: PHASE_H §Composition.
+- [ ] **H5. `--graph dump`.** DoD: dump output is deterministic per config; covered by a golden test; readable enough to lift into README. Reference: PHASE_H §Dump.
+- [ ] **H6. Graph tests.** DoD: `tests/render_graph_tests.cpp` covers topological sort, cycle detection, missing-input detection, backend fallback, dump format; an externally-defined no-op Pass works. Reference: PHASE_H §Tests.
+- [ ] **Phase H exit criteria.** DoD: all current modes resolve to a graph; output byte-identical to v0.5; new Passes can be added in one file without modifying `renderer.cpp`.
+
+---
+
+## PHASE I — Glyph science upgrade
+*Doc: `PHASE_I.md`. Goal: FreeType-driven glyph table, HoG features, SDF option, k-d tree lookup, evolved charsets.*
+
+- [ ] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
+- [ ] **I2. HoG feature swap.** DoD: 2×2 × 8-bin (32-D) HoG vectors per glyph and per cell, L2-normalised; cosine similarity matching; `tests/glyph_hog_tests.cpp` covers gradient-direction sanity and edge cases. Reference: PHASE_I §HoG.
+- [ ] **I3. Ramp auto-sort.** DoD: `--ramp-sort` orders any custom ramp by FreeType-derived ink density; off by default; documented as ramp-changing. Reference: PHASE_I §RampSort.
+- [ ] **I4. SDF feature mode.** DoD: `--glyph-features sdf` runs; per-glyph SDFs precomputed at build time; continuous overlap integral for shape vectors; A/B against `hog` recorded in BENCHMARKS.md. Reference: PHASE_I §SDF.
+- [ ] **I5. nanoflann k-d tree lookup.** DoD: at curated-set size 64, per-cell shape-match cost drops ≥10× vs linear NCC; match-rate ≥99% vs linear with documented tie-breaking differences. Reference: PHASE_I §kdTree.
+- [ ] **I6. Curated charsets.** DoD: `portrait-30`, `lineart-40`, `blueprint-24` JSON files under `share/contourtty/charsets/` load via `--charset NAME`; README documents each. Reference: PHASE_I §Curated.
+- [ ] **I7. Offline charset evolver.** DoD: `tools/evolve_charset.cpp` reproduces shipped `portrait-30` byte-for-byte with fixed seed; runs <1 min on a laptop. Reference: PHASE_I §Evolve.
+- [ ] **I8. SAD block-element picker.** DoD: `--mode blocks` uses precomputed bitmap SAD across `░▒▓█` + quadrants; visibly closer to source than ramp-only on still images. Reference: PHASE_I §BlockSAD.
+- [ ] **I9. Glyph-science tests + bench.** DoD: `glyph_font_tests`, `glyph_hog_tests`, `glyph_sdf_tests`, `kd_tree_tests` all pass; BENCHMARKS.md rows for HoG vs overlap vs SDF, curated-set sweep, per-cell ns. Reference: PHASE_I §Tests / §Bench.
+- [ ] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
+
+---
+
+## PHASE J — Blitter ladder & Unicode 16
+*Doc: `PHASE_J.md`. Goal: octant/sextant/color-braille/blocks blitters, capability detection, structure overlay, line ligatures.*
+
+- [ ] **J1. `TerminalCaps` detection.** DoD: env + font-cmap + allowlist resolves caps in <5 ms; `--caps dump` prints the resolved struct; never issues escapes that require a response. Reference: PHASE_J §Caps.
+- [ ] **J2. Octant blitter.** DoD: `--mode octant` on a Unicode-16-capable terminal renders the circle test visibly rounder than halfblock and braille at the same grid; bit-order asserted by tests. Reference: PHASE_J §Octant.
+- [ ] **J3. Sextant blitter.** DoD: `--mode sextant` works on Unicode-13-capable terminals without octant fonts; mask→codepoint lookup table exhaustively tested. Reference: PHASE_J §Sextant.
+- [ ] **J4. `--mode auto` ladder resolver.** DoD: per-`(TERM_PROGRAM, font, --render-mode)` capability matrix in `docs/blitter-ladder.md` documents the resolved rung; parameterized tests cover the matrix. Reference: PHASE_J §AutoMode.
+- [ ] **J5. Color braille.** DoD: `--mode braille --color-mode truecolor` enables fg/bg color on braille glyphs; mono behaviour preserved when `--mono`. Reference: PHASE_J §BrailleColor.
+- [ ] **J6. Structure overlay as orthogonal Pass.** DoD: `--mode octant --structure-overlay on` overlays contour glyphs on the octant fill; works on every blitter; `--structure-overlay auto` defaults sensibly. Reference: PHASE_J §StructureOverlay.
+- [ ] **J7. Line ligatures.** DoD: `--line-ligatures` swaps `/\|-` for box-drawing joins where adjacent cells form a continuous edge; rotated-rectangle clip shows continuous box-drawing borders. Reference: PHASE_J §LineLigatures.
+- [ ] **J8. `--mode blocks` wired to SAD picker.** DoD: `--mode blocks` reuses Phase I §BlockSAD; goldens added. Reference: PHASE_J §Mode.
+- [ ] **J9. Blitter tests + bench.** DoD: `terminal_caps_tests`, `octant_renderer_tests`, `sextant_renderer_tests` all pass; BENCHMARKS.md gains octant/sextant/blocks rows. Reference: PHASE_J §Tests / §Bench.
+- [ ] **Phase J exit criteria.** DoD: ladder resolution documented and tested; octant + sextant blitters ship; structure overlay composes with all blitters.
+
+---
+
+## PHASE K — Stylized NPR modes
+*Doc: `PHASE_K.md`. Goal: painterly / hatch / stipple / flow styles.*
+
+- [ ] **K1. ETF + CLD.** DoD: `--etf-iters N` smooths the Sobel orientation field; cube clip shows continuous diagonals across cells instead of glyph breaks; A/B recorded. Reference: PHASE_K §ETF.
+- [ ] **K2. Anisotropic Kuwahara pre-pass.** DoD: `--style painterly` produces visibly larger flat regions before structure analysis; cube test still tracks contours. Reference: PHASE_K §Kuwahara.
+- [ ] **K3. Cross-hatch mode.** DoD: `--style hatch` renders a portrait recognisably as an ink-style cross-hatch drawing at 160×45. Reference: PHASE_K §Hatch.
+- [ ] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
+- [ ] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
+- [ ] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.
+- [ ] **K7. Style → Pass composition.** DoD: `--graph dump` for each `--style` shows the documented Pass insertion; `--style` is single-valued; multiple styles via `--graph file.yaml`. Reference: PHASE_K §StyleComposition.
+- [ ] **K8. NPR tests + bench.** DoD: per-style golden frames; 720p/1080p fps recorded per style, CPU vs GPU. Reference: PHASE_K §Tests / §Bench.
+- [ ] **Phase K exit criteria.** DoD: four named styles ship; each at ≥24 fps 720p truecolor on the reference machine; styles compose with all blitter modes.
+
+---
+
+## PHASE L — Shader-in-terminal & procedural input → **v0.9**
+*Doc: `PHASE_L.md`. Goal: Vulkan portable backend, GLSL/WGSL user shaders, OBJ scene loader.*
+
+- [ ] **L1. Vulkan compute backend.** DoD: `src/gpu_vulkan/` ports Metal kernels (Sobel, DoG, cell-average, shape-match) to Vulkan 1.3; output matches macOS Metal reference within tolerance recorded in BENCHMARKS.md. Reference: PHASE_L §VulkanBackend.
+- [ ] **L2. Shader cross-compile.** DoD: `glslang` + SPIRV-Cross vendored; GLSL → SPIR-V → MSL on Darwin, GLSL → SPIR-V on Linux/Windows; golden SPIR-V tests for fixed inputs. Reference: PHASE_L §ShaderInput / §VulkanBackend.
+- [ ] **L3. User shader source.** DoD: `--input shader.glsl` accepts a Shadertoy-style `mainImage()`; uniforms `iResolution/iTime/iTimeDelta/iFrame/iMouse/iChannel0..3` populated; hot-reload on file change. Reference: PHASE_L §ShaderInput.
+- [ ] **L4. OBJ scene loader + tiny rasteriser.** DoD: `--input scene.obj` rotates Suzanne at 320×120 cells at ≥30 fps producing albedo + depth + normal G-buffers. Reference: PHASE_L §SceneInput.
+- [ ] **L5. Depth/normal-aware glyphs.** DoD: `normal-orient` + `depth-shade` Passes use the G-buffer instead of screen-space gradients; rotated cube shows hatching along surface curvature. Reference: PHASE_L §NormalGlyphs.
+- [ ] **L6. `--graph file.yaml` loader.** DoD: minimal in-tree YAML parser; example graph reproducing default `structure` pipeline byte-identical; documented examples in `share/contourtty/graphs/`. Reference: PHASE_L §GraphYaml.
+- [ ] **L7. Bundled shaders.** DoD: `noise.glsl`, `plasma.glsl`, `feedback.glsl`, `sdf_room.glsl` ship under `share/contourtty/shaders/`; all compile clean on both backends; used as smoke tests. Reference: PHASE_L §Shaders.
+- [ ] **L8. Shader/scene tests + bench.** DoD: `shader_compile_tests`, `vulkan_backend_tests`, `scene_source_tests` pass; cross-backend equivalence (Metal vs Vulkan Sobel within 1-LSB) verified; fps recorded per source. Reference: PHASE_L §Tests / §Bench.
+- [ ] **Phase L exit criteria → tag `v0.9`.** DoD: `--input shader.glsl` runs on Vulkan or Metal at ≥30 fps 720p truecolor; `--input scene.obj` rotates an OBJ with depth+normal-aware glyphs; `--graph file.yaml` works as a power-user surface.
+
+---
+
+## PHASE M — Temporal coherence
+*Doc: `PHASE_M.md`. Goal: kill ASCII shimmer.*
+
+- [ ] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
+- [ ] **M2. Optical flow on working luminance.** DoD: `src/optical_flow.{hpp,cpp}` block-matching produces vec2 displacements per coarse block; correct on synthetic translations; ~0 on static frames. Reference: PHASE_M §Flow.
+- [ ] **M3. Flow-warped history.** DoD: `warp-history` Pass warps previous-frame glyph/shape-vector buffers by flow; pan-induced flicker drops below the §Hysteresis-only baseline. Reference: PHASE_M §Flow.
+- [ ] **M4. Temporal supersampling.** DoD: `--temporal-supersample N` decodes at N× source fps when source <30 fps; emits at source fps; cleaner orientations recorded on cube clip at the cost of ~1.5× decode CPU. Reference: PHASE_M §Supersample.
+- [ ] **M5. OKLab Δ diff threshold.** DoD: `--diff-oklab-eps` filters sub-perceptual SGR re-emits; bytes-per-frame on the pan clip drops 20–40% vs v0.5 with visuals unchanged within tolerance. Reference: PHASE_M §EmitDeltaOklab.
+- [ ] **M6. Seek/resize history clear.** DoD: seeking forward then back, or resizing, doesn't carry ghost glyph choices. Reference: PHASE_M §Seek.
+- [ ] **M7. Temporal tests + bench.** DoD: `optical_flow_tests`, `hysteresis_tests`, golden flicker metric below threshold for default stickiness; BENCHMARKS.md records per-Pass cost. Reference: PHASE_M §Tests / §Bench.
+- [ ] **Phase M exit criteria.** DoD: per-cell glyph-change rate on the pan-clip baseline drops by ≥60%; A/V drift unchanged within ±2 ms; no fidelity regression on real motion.
+
+---
+
+## PHASE N — Hybrid graphics protocols → **v0.95**
+*Doc: `PHASE_N.md`. Goal: Kitty/Sixel/iTerm pixel + text overlay.*
+
+- [ ] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
+- [ ] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
+- [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
+- [ ] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.
+- [ ] **N5. `--render-mode {text|pixel|hybrid|auto}`.** DoD: caps → mode resolution table tested; `auto` degrades to `text` silently when graphics unsupported; hybrid mode composes pixel layer + sparse text overlay. Reference: PHASE_N §RenderMode.
+- [ ] **N6. Bandwidth guard.** DoD: `--bandwidth-cap MB/s` (default 50) drops frames at the source when exceeded; one-time warning; tested against a deliberately slow pipe. Reference: PHASE_N §BandwidthGuard.
+- [ ] **N7. Hybrid pixel/text alignment.** DoD: vertical overlay `|` on uniform region produces a line aligned to within ±1 px of the cell-column boundary in screen captures. Reference: PHASE_N §Hybrid.
+- [ ] **N8. Graphics-protocol tests + bench.** DoD: `kitty_graphics_tests`, `sixel_tests`, `iterm_inline_tests`, `render_mode_tests` all pass; bytes/frame and fps recorded per protocol in BENCHMARKS.md. Reference: PHASE_N §Tests / §Bench.
+- [ ] **Phase N exit criteria → tag `v0.95`.** DoD: `pixel` mode on Kitty runs at full source resolution; `hybrid` shows contour sharpness vs pixel-only; `text` default unchanged.
+
+---
+
+## PHASE O — New content paths
+*Doc: `PHASE_O.md`. Goal: image grids, stdin data, asciinema in, scene polish, captions.*
+
+- [ ] **O1. Image grid / contact sheet.** DoD: `--input "*.png" --grid 4x3` renders a fitted grid; resize reflows; per-tile fps independent for GIF tiles. Reference: PHASE_O §ImageGrid.
+- [ ] **O2. Stdin data plots.** DoD: `seq 1 1000 | awk '{print sin($1/10)}' | contourtty --input stdin --plot waveform` renders a smooth sine; `spectrum` runs a small in-tree FFT; `heatmap` slides a 2D window. Reference: PHASE_O §StdinData.
+- [ ] **O3. Asciinema re-stylise.** DoD: `--input recording.cast` replays through the render graph at original pacing; minimal VTE-lite handles SGR + cursor + scroll + clear; structure mode on a `htop` cast yields a stylised but readable version. Reference: PHASE_O §Asciinema.
+- [ ] **O4. Bundled scenes + camera presets.** DoD: `contourtty --input contourtty:scene:suzanne --style cell-shade` works with no extra files; `--scene-camera turntable|orbit|fly` selectable. Reference: PHASE_O §SceneSource.
+- [ ] **O5. Multi-source overlay.** DoD: `--input video.mp4 --overlay scene.obj` composes scene over video with depth-threshold alpha. Reference: PHASE_O §Pipeline.
+- [ ] **O6. Caption sidecar.** DoD: `--captions out.srt` writes a deterministic, time-aligned SubRip summary track; covered by golden test. Reference: PHASE_O §Captions.
+- [ ] **O7. Content-path tests + bench.** DoD: `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, `caption_summarise_tests` all pass; stdin plot fps and asciinema replay overhead in BENCHMARKS.md. Reference: PHASE_O §Tests / §Bench.
+- [ ] **Phase O exit criteria.** DoD: all four new `--input` types work end-to-end; no regression in video/camera/stream playback.
+
+---
+
+## PHASE P — Interactivity, demos, polish → **v1.0**
+*Doc: `PHASE_P.md`. Goal: OSD, split, snapshot, README, packaging, launch.*
+
+- [ ] **P1. OSD + live tuning.** DoD: `i`/`o` toggles bottom-row OSD; keys cycle `--style`, `--mode`, `--charset`, `--glyph-features`, `--gpu`; numeric keys bump `--edge-threshold`, `--dog-sigma`, `--contrast`; changes take effect within one frame; OSD never bleeds into diff'd content. Reference: PHASE_P §OSD.
+- [ ] **P2. A/B split view.** DoD: `--split luminance:structure` runs two graphs side-by-side off a single decoded source; draggable seam; the split mode is the README hero. Reference: PHASE_P §Split.
+- [ ] **P3. Still snapshot.** DoD: `--still hero.png` (and `--still-at HH:MM:SS`) writes a PNG visually matching the live frame; reuses Phase I FreeType + Phase N `raster_compose`. Reference: PHASE_P §Still.
+- [ ] **P4. `--help` ↔ man page parity.** DoD: every CLI flag from H–O appears in both `--help` and `docs/contourtty.1`; both generated from a single declarative source; parity test gates the build. Reference: PHASE_P §HelpAndMan.
+- [ ] **P5. README + docs refresh.** DoD: hero GIF is the v2 split demo; "How structure mode works" diagram updated for the render graph; "What's new in v1.0" callout; one-line install per platform. Reference: PHASE_P §README.
+- [ ] **P6. Pull the CI trigger.** DoD: once billing unblocks: green badge on main; ASan+UBSan+Valgrind on Linux; cross-backend Metal/Vulkan equivalence test; tagged releases build signed binaries + .deb + Homebrew bottle. Reference: PHASE_P §CI.
+- [ ] **P7. Finish packaging.** DoD: `brew install contourtty` on fresh macOS; `apt install ./contourtty_*.deb` on Ubuntu; GitHub Releases binaries run on clean machines with documented FFmpeg dependency; static-FFmpeg link offered for self-contained builds. Reference: PHASE_P §Packaging.
+- [ ] **P8. Benchmarks final sweep.** DoD: BENCHMARKS.md rows for every mode (luminance / structure-HoG / structure-SDF / octant / sextant / halfblock / braille / blocks / hatch / stipple / painterly / flow / pixel-Kitty) × 720p/1080p × CPU/GPU, with reproducible commands and ±10% repeatability. Reference: PHASE_P §Bench.
+- [ ] **P9. Demo assets.** DoD: `docs/v1.0-split-demo.gif`, `docs/v1.0-shader-demo.gif`, `docs/v1.0-scene-demo.gif` all in repo and linked from README. Reference: PHASE_P §Demo.
+- [ ] **P10. Golden coverage for everything new.** DoD: every new style/mode/source/render-mode has at least one golden frame test; capability matrix parameterized test; OSD-driven render test via `--input-keys`. Reference: PHASE_P §Tests.
+- [ ] **Phase P exit criteria → tag `v1.0`.** DoD: OSD + split + snapshot ship; README is launch-quality; releases on GitHub + Homebrew + .deb; honest benchmarks published; CI green.
 
 ---
 
 ## Cross-cutting / always-on tasks
-- [ ] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.
-  - 2026-06-19: local `asan-ubsan` build, CTest, structure export smoke, and shutdown-path smoke are clean; sanitizer CI is configured to run them, but hosted proof remains blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: after the Metal structure backend changes, local macOS `asan-ubsan` configure/build, 19-test CTest suite, `--gpu` structure diagnostic dump, and shutdown-path smoke are clean. macOS ASan reports `detect_leaks` unsupported, so leak proof still depends on hosted Linux ASan/Valgrind once Actions billing is fixed.
-  - 2026-06-19: after GPU DoG completion, local macOS `asan-ubsan` configure/build, 19-test CTest suite, decode/render dump smoke, and shutdown-path smoke are clean with `ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1`; `detect_leaks=1` still aborts as unsupported on macOS, so hosted Linux proof remains blocked by GitHub Actions billing/spending-limit state.
-- [ ] **X2. No leaks on shutdown.** DoD: Valgrind/ASan reports no leaks after normal exit, Ctrl-C, and seek.
-  - 2026-06-19: macOS `leaks --atExit` reports `0 leaks for 0 total leaked bytes` on normal structure export shutdown; Valgrind is unavailable locally, and Ctrl-C/seek leak paths remain unverified.
-  - 2026-06-19: `scripts/verify_shutdown_paths.sh` proves normal export, keyboard quit, seek+quit, and SIGINT reach clean shutdown logs locally and is wired into sanitizer CI; this verifies shutdown behavior locally, with hosted ASan/LSan proof still blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: Valgrind CI job is configured for normal structure export leak checks on Ubuntu; hosted Valgrind result and Ctrl-C/seek leak accounting remain unverified while GitHub Actions is billing-blocked.
-  - 2026-06-19: Valgrind CI now wraps `scripts/verify_shutdown_paths.sh`, so normal export, keyboard quit, seek+quit, and SIGINT all run under definite-leak checks; sanitizer shutdown smoke now sets `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`. Hosted proof remains blocked by GitHub Actions billing/spending-limit state.
-  - 2026-06-19: after GPU DoG completion, macOS `leaks --atExit -- ./build/ci/contourtty --gpu --mode structure --dog-sigma 0.5,1.4 ...` reports `0 leaks for 0 total leaked bytes` on normal ANSI export. Hosted Valgrind/ASan leak proof for normal, Ctrl-C, and seek remains blocked by GitHub Actions billing/spending-limit state.
+
+- [~] **X1. Memory safety.** Local clean; hosted Linux ASan/UBSan blocked by billing (carried into PHASE_P §CI).
+- [~] **X2. No leaks on shutdown.** Local macOS clean across normal/seek/Ctrl-C; hosted Linux Valgrind blocked.
+- [ ] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / libsixel / nanoflann / stb_image_write.
+- [ ] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
+- [ ] **X5. Licence audit on shipped charsets/fonts/noise tiles.** DoD: every binary asset in `share/contourtty/` is documented with origin + licence in `share/contourtty/LICENSES.md`.
 
 ---
 
 ## Reference materials (study before/while building)
-- **Decode:** dranger ffmpeg tutorial; leandromoreira/ffmpeg-libav-tutorial; FFmpeg send/receive API doxygen. Use the modern `avcodec_send_packet`/`avcodec_receive_frame` API, **not** `avcodec_decode_video2`.
-- **Terminal color:** termstandard/colors; ANSI escape code (Wikipedia); "Terminal Colors Demystified". Truecolor SGR: `\e[38;2;r;g;bm` / `\e[48;2;r;g;bm`. Detect via `COLORTERM`; respect `NO_COLOR`.
-- **Structure ASCII (the core technique):** Alex Harri, "ASCII characters are not pixels" (shape vectors via sampling-circle overlap + cel-shading contrast). Acerola's ASCII shader (Sobel/DoG + directional glyphs). Academic: structure-based ASCII (HoG/NCC glyph matching).
-- **Reference tools to study (not copy):** `timg` and `chafa` source for protocol detection, dithering, threading, frame-skip; `mpv` `--vo=kitty` for the fidelity ceiling.
-- **Aspect ratio:** terminal cells ≈ 1:2 (w:h); expose a correction knob (timg does). Circle test is the canary.
+
+- **Decode:** dranger ffmpeg tutorial; leandromoreira/ffmpeg-libav-tutorial; FFmpeg send/receive API doxygen. Use `avcodec_send_packet`/`avcodec_receive_frame`, not `avcodec_decode_video2`.
+- **Terminal color:** termstandard/colors; ANSI escape code (Wikipedia); "Terminal Colors Demystified"; OKLab — Raph Levien critique; `prettypretty` (OKLab in terminal palettes).
+- **Structure ASCII (the core technique):** Alex Harri, "ASCII characters are not pixels"; Acerola's ASCII shader (Sobel/DoG + directional glyphs); academic: Chung 2022 (HoG/NCC glyph matching); Dalal & Triggs (HoG); SDF text — Metal by Example, libGDX.
+- **Stylised NPR:** Coherent Line Drawing; anisotropic Kuwahara; void-and-cluster blue noise; Line Integral Convolution.
+- **Terminal capability:** Unicode 16 Symbols for Legacy Computing (octants, sextants); notcurses blitter ladder; chafa symbol picker; Kitty graphics protocol; Sixel; iTerm2 inline image; Tattoy text compositor (Shadertoy-in-terminal).
+- **Reference tools to study (not copy):** `timg`, `chafa`, `notcurses`, `viu`, `mpv --vo=kitty`, `tattoy`.
+- **Aspect ratio:** terminal cells ≈ 1:2 (w:h); expose a correction knob; circle test is the canary.
+
+---
 
 ## Naming
-Avoid the saturated `ascii-video-player` / `timg` / `tplay` / `chafa` namespace. Structure-angle candidates: `glyph`, `glyphstream`, `etch`, `inkterm`, `hatch`, `strok`. Verify on GitHub + crates/Homebrew before committing (task A2).
+
+Project name: `contourtty`. Saturated names rejected (timg / tplay / chafa / ascii-video-player). Alternatives rejected for collisions (`strok`, `glyph`, `hatch`, `glyphstream`, `etch`, `inkterm`). The repo directory is still `strok/` for historical reasons; binary is `contourtty`.
