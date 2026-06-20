@@ -8,6 +8,12 @@ Build before using the local config:
 pnpm --filter @wat/mcp build
 ```
 
+After publishing, users can run it with npm without cloning the repo:
+
+```sh
+npx @wat/mcp@latest
+```
+
 ## Claude Desktop
 
 ```json
