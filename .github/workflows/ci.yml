@@ -43,6 +43,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm test:e2e:web
+      - run: pnpm test:e2e:extension
 
   build:
     runs-on: ubuntu-latest

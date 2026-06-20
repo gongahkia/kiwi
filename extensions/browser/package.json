@@ -6,12 +6,14 @@
   "scripts": {
     "build": "wxt build -b chrome",
     "build:firefox": "wxt build -b firefox",
+    "build:stores": "pnpm build && pnpm build:firefox && pnpm zip && pnpm zip:firefox",
     "dev": "wxt -b chrome",
     "dev:firefox": "wxt -b firefox",
     "postinstall": "wxt prepare",
     "test": "vitest run src",
     "typecheck": "tsc -b --noEmit",
-    "zip": "wxt zip -b chrome"
+    "zip": "wxt zip -b chrome",
+    "zip:firefox": "wxt zip -b firefox"
   },
   "devDependencies": {
     "vitest": "^4.1.9",
