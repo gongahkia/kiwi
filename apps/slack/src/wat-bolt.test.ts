@@ -86,6 +86,92 @@ describe("wat Bolt handlers", () => {
     expect(JSON.stringify(response)).toContain("wat_disambiguate");
   });
 
+  it("lets configured admins define team entries from Slack", async () => {
+    const receiver = createWatApp({ slackAdminUserIds: ["U_ALICE"] });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-define",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "SLO as Service Level Objective -- Reliability target for a service.",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Defined SLO as Service Level Objective."
+    });
+    expect(responsePayload("/team/admin/entries/api")).toMatchObject({
+      expansion: "Service Level Objective",
+      meaning: "Reliability target for a service.",
+      term: "SLO"
+    });
+  });
+
+  it("queues member suggestions from Slack", async () => {
+    const receiver = createWatApp();
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-suggest",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "RTO as Recovery Time Objective -- Maximum acceptable restore time.",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_BOB",
+      user_name: "bob"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Suggested RTO as Recovery Time Objective for admin review."
+    });
+    expect(responsePayload("/suggest/api")).toMatchObject({
+      expansion: "Recovery Time Objective",
+      meaning: "Maximum acceptable restore time.",
+      term: "RTO"
+    });
+  });
+
+  it("rejects non-admin define attempts", async () => {
+    const receiver = createWatApp({ slackAdminUserIds: ["U_ALICE"] });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-define",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "RPO as Recovery Point Objective",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_BOB",
+      user_name: "bob"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Only configured Slack workspace admins can define team entries."
+    });
+    expect(captured.some((item) => item.path === "/team/admin/entries/api")).toBe(false);
+  });
+
   it("responds to the explain-acronyms message shortcut with detected entries", async () => {
     const receiver = createWatApp();
 
@@ -152,7 +238,7 @@ describe("wat Bolt handlers", () => {
   });
 });
 
-function createWatApp(): BoltTestReceiver {
+function createWatApp(options: { slackAdminUserIds?: string[] } = {}): BoltTestReceiver {
   const receiver = new BoltTestReceiver();
   const app = new App({
     botId: "B_WAT",
@@ -165,7 +251,10 @@ function createWatApp(): BoltTestReceiver {
     token: "xoxb-test",
     tokenVerificationEnabled: false
   });
-  registerWatBoltHandlers(app, { watApiBaseUrl: baseUrl });
+  registerWatBoltHandlers(app, {
+    slackAdminUserIds: options.slackAdminUserIds,
+    watApiBaseUrl: baseUrl
+  });
   return receiver;
 }
 
@@ -184,7 +273,12 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
-  if (url.pathname === "/response" || url.pathname === "/api/chat.postMessage") {
+  if (
+    url.pathname === "/response" ||
+    url.pathname === "/api/chat.postMessage" ||
+    url.pathname === "/team/admin/entries/api" ||
+    url.pathname === "/suggest/api"
+  ) {
     captured.push({ body: await readBody(request), path: url.pathname });
     writeJson(response, 200, { ok: true, ts: "1700000003.000000" });
     return;
