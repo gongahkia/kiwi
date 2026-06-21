@@ -96,8 +96,8 @@
   - CPack TGZ + Linux DEB + tag-driven release workflow + head-only Homebrew formula present locally. Open: hosted artifact build (Actions billing blocks); Homebrew versioned bottle; static-FFmpeg link for self-contained releases (moves into PHASE_P §Packaging).
 - [x] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
   - README now covers current install deps, first run, structure-vs-luminance differentiator, mode/style/render-mode knobs, new content paths, export/still/caption outputs, and graph inspection. CONTRIBUTING documents local build/test/package flow; `help_manpage_parity_tests` keeps `--help` and `docs/contourtty.1` in sync from `src/cli_spec.cpp`. P5 still owns the v1.0 split hero/demo refresh.
-- [ ] **G10. Publish honest benchmark numbers.** DoD: numbers reproducible from documented commands; linked from README. Reference: PHASE_G §Bench.
-  - BENCHMARKS.md scaffolded with current numbers. Open: full sweep across all modes/styles/backends in PHASE_P §Bench.
+- [x] **G10. Publish honest benchmark numbers.** DoD: numbers reproducible from documented commands; linked from README. Reference: PHASE_G §Bench.
+  - BENCHMARKS.md records host specs, fixture generation, reproducible commands, and local fps/bytes/frame rows for decode, luminance, structure, blitters, styles, temporal passes, stdin plots, and asciinema replay; README links it from "How structure mode works". The exhaustive v1.0 matrix remains P8.
 - [ ] **Phase G exit criteria → tag `v1.0`.** Deferred — `v1.0` now gates on PHASE_P exit. PHASE_G exit is partial: full golden coverage, hosted release artifacts, final docs/demo refresh, final benchmark sweep, and hosted CI remain.
 
 ### Cross-cutting (from G)
