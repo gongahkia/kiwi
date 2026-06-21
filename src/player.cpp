@@ -21,6 +21,7 @@
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "hybrid_emitter.hpp"
+#include "image_grid.hpp"
 #include "kitty_graphics.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
@@ -1277,6 +1278,281 @@ const Frame& frameWithOverlay(const Frame& base, const SceneOverlaySource& overl
   return **storage;
 }
 
+struct LoadedImageGrid {
+  ImageGridSpec spec;
+  std::vector<Frame> frames;
+};
+
+ImageGridSpec requireImageGridSpec(const CliOptions& options) {
+  if (!options.grid.has_value()) {
+    throw std::runtime_error("missing image grid");
+  }
+  const std::optional<ImageGridSpec> spec = parseImageGridSpec(*options.grid);
+  if (!spec.has_value()) {
+    throw std::runtime_error("invalid image grid");
+  }
+  return *spec;
+}
+
+LoadedImageGrid loadImageGridFirstFrames(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  LoadedImageGrid grid{.spec = requireImageGridSpec(options)};
+  const std::vector<std::filesystem::path> paths = expandImageGridPattern(std::filesystem::path(*options.input));
+  const std::vector<ImageGridTile> tiles = layoutImageGridTiles(paths, grid.spec);
+  if (tiles.empty()) {
+    throw std::runtime_error("image grid input matched no files: " + *options.input);
+  }
+  grid.frames.reserve(tiles.size());
+  for (const ImageGridTile& tile : tiles) {
+    VideoDecoder decoder(tile.path);
+    std::optional<Frame> frame = decoder.nextFrame();
+    if (!frame.has_value()) {
+      throw std::runtime_error("image grid tile contains no video frames: " + tile.path.string());
+    }
+    grid.frames.push_back(std::move(*frame));
+  }
+  CONTOURTTY_LOG_INFO(logger, "image grid tiles=" + std::to_string(grid.frames.size()) +
+                                " grid=" + std::to_string(grid.spec.cols) + "x" + std::to_string(grid.spec.rows));
+  return grid;
+}
+
+Frame composeImageGridForTerminal(const LoadedImageGrid& grid, const CliOptions& options, TerminalSize terminal, int64_t pts_us = 0) {
+  const int target_cols = std::max(grid.spec.cols, options.width.value_or(terminal.cols));
+  const int target_pixel_rows = std::max(grid.spec.rows, static_cast<int>(std::llround(static_cast<double>(options.height.value_or(terminal.rows)) / options.cell_aspect)));
+  const int tile_width = std::max(1, (target_cols + grid.spec.cols - 1) / grid.spec.cols);
+  const int tile_height = std::max(1, (target_pixel_rows + grid.spec.rows - 1) / grid.spec.rows);
+  return composeImageGridFrame(grid.frames, grid.spec, tile_width, tile_height, pts_us);
+}
+
+int exportImageGridMedia(const CliOptions& options, Logger& logger) {
+  if (!options.export_file.has_value()) {
+    throw std::runtime_error("missing export file");
+  }
+  logGpuRequest(options, logger);
+  const std::filesystem::path output_path = *options.export_file;
+  const ExportKind kind = exportKindForPath(output_path);
+  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  const TerminalSize terminal = exportTerminalSize(options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0), .origin_row = 1, .origin_col = 1};
+  CellBuffer cells;
+  RenderStats render_stats;
+  RenderTemporalState temporal_state;
+  SceneOverlaySource overlay_source(options);
+  std::optional<Frame> overlay_frame;
+  const Frame grid_frame = composeImageGridForTerminal(grid, options, terminal);
+  const Frame& render_input = frameWithOverlay(grid_frame, overlay_source, 0.0, &overlay_frame);
+  renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  CaptionSidecarWriter caption_writer(options.captions_file, defaultCaptionDurationUs(options));
+  caption_writer.recordFrame(grid_frame, 0);
+
+  if (kind == ExportKind::Mp4) {
+    RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
+    Mp4VideoWriter writer(output_path, raster.width, raster.height, options.fps.value_or(30.0), nullptr);
+    writer.writeFrame(raster.rgb);
+    writer.finish();
+    caption_writer.finish();
+    CONTOURTTY_LOG_INFO(logger, "exported frames=1 path=" + output_path.string());
+    return 0;
+  }
+
+  std::ofstream output(output_path, std::ios::binary);
+  if (!output) {
+    throw std::runtime_error("could not open export file: " + output_path.string());
+  }
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<EmissionResult> emission;
+  if (graphics_options.has_value()) {
+    emission = EmissionResult{
+      .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal),
+      .changed_cells = cells.size(),
+    };
+  } else {
+    DiffEmitter emitter;
+    emission = emitter.emit(cells, emission_options);
+  }
+
+  if (kind == ExportKind::Ansi) {
+    output << "\x1b[2J\x1b[H\x1b[?25l";
+    if (emission.has_value()) {
+      output.write(emission->bytes.data(), static_cast<std::streamsize>(emission->bytes.size()));
+    }
+    output << "\x1b[0m\x1b[?25h\n";
+  } else {
+    output << "{\"version\":2,\"width\":" << cells.cols() << ",\"height\":" << cells.rows() << "}\n";
+    writeCastEvent(output, 0.0, "\x1b[2J\x1b[H\x1b[?25l");
+    if (emission.has_value()) {
+      writeCastEvent(output, 0.0, emission->bytes);
+    }
+    writeCastEvent(output, 0.0, "\x1b[0m\x1b[?25h\n");
+  }
+  if (!output) {
+    throw std::runtime_error("failed to write export file: " + output_path.string());
+  }
+  caption_writer.finish();
+  CONTOURTTY_LOG_INFO(logger, "exported frames=1 path=" + output_path.string());
+  if (logger.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000));
+  }
+  return 0;
+}
+
+int writeImageGridStillSnapshot(const CliOptions& options, Logger& logger) {
+  if (!options.still_file.has_value()) {
+    throw std::runtime_error("missing still output file");
+  }
+  logGpuRequest(options, logger);
+  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  const TerminalSize terminal = exportTerminalSize(options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  CellBuffer cells;
+  RenderStats render_stats;
+  RenderTemporalState temporal_state;
+  SceneOverlaySource overlay_source(options);
+  std::optional<Frame> overlay_frame;
+  const Frame grid_frame = composeImageGridForTerminal(grid, options, terminal, options.still_at_us.value_or(0));
+  const Frame& render_input = frameWithOverlay(grid_frame, overlay_source, static_cast<double>(options.still_at_us.value_or(0)) / 1000000.0, &overlay_frame);
+  renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
+  writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
+  CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+                                " size=" + std::to_string(raster.width) + "x" + std::to_string(raster.height));
+  return 0;
+}
+
+bool renderImageGridStill(const LoadedImageGrid& grid,
+                          std::u32string_view ramp,
+                          const CliOptions& options,
+                          TerminalSize* terminal,
+                          const GlyphShapeTable* shape_table,
+                          CellBuffer* cells,
+                          DiffEmitter* emitter,
+                          const EmissionOptions& emission_options,
+                          const std::optional<GraphicsFrameOptions>& graphics_options,
+                          std::optional<BandwidthGuard>* graphics_bandwidth,
+                          const GlyphFont* glyph_font,
+                          RenderStats* render_stats,
+                          RuntimeDebugStats* debug_stats) {
+  const TerminalSize render_terminal = debugRenderTerminal(*terminal, options);
+  const CliOptions render_options = debugRenderOptions(options, *terminal);
+  const Frame frame = composeImageGridForTerminal(grid, options, render_terminal);
+  renderFrame(frame, ramp, render_options, render_terminal, shape_table, cells, render_stats);
+  EmissionResult emission;
+  if (graphics_options.has_value()) {
+    emission = EmissionResult{
+      .bytes = renderedGraphicsFrameBytes(*cells, options, *graphics_options, emission_options, render_terminal),
+      .changed_cells = cells->size(),
+    };
+    BandwidthDecision decision = (*graphics_bandwidth)->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
+    if (!decision.send) {
+      if (debug_stats != nullptr) {
+        debug_stats->recordDroppedFrame();
+      }
+      return debug_stats == nullptr || debug_stats->maybeReport(*terminal);
+    }
+  } else {
+    emission = emitter->emit(*cells, centeredEmissionOptions(emission_options, render_terminal, *cells));
+  }
+  if (debug_stats != nullptr) {
+    debug_stats->recordInputFrame();
+    debug_stats->recordPresentedFrame(*cells, emission);
+  }
+  if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+    return false;
+  }
+  (void)glyph_font;
+  return debug_stats == nullptr || debug_stats->maybeReport(*terminal, true);
+}
+
+int playImageGrid(const CliOptions& options, Logger& logger) {
+  logGpuRequest(options, logger);
+  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+  resetQuitFlag();
+  g_pending_commands.clear();
+  installQuitSignalHandlers();
+  installResizeSignalHandler();
+  TerminalSession session;
+  CONTOURTTY_LOG_INFO(logger, "image grid playback started");
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  TerminalSize terminal = queryTerminalSize();
+  CellBuffer cells;
+  DiffEmitter emitter;
+  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
+  RenderStats render_stats;
+  RuntimeDebugStats debug_stats(options, &logger);
+  bool quit = false;
+
+  std::string clear = "\x1b[2J";
+  writeAll(STDOUT_FILENO, clear);
+  consumeResizeFlag();
+  if (!renderImageGridStill(grid, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, graphics_options, &graphics_bandwidth, glyph_font_ptr, logger.enabled() ? &render_stats : nullptr, &debug_stats)) {
+    quit = true;
+  }
+  while (!quit && !shouldQuit()) {
+    const PlaybackCommand command = pollKeyboardCommand();
+    if (command == PlaybackCommand::Quit) {
+      quit = true;
+      break;
+    }
+    if (consumeResizeFlag()) {
+      terminal = queryTerminalSize();
+      emitter.reset();
+      if (graphics_bandwidth.has_value()) {
+        graphics_bandwidth->reset();
+      }
+      std::string clear_resize = "\x1b[2J";
+      writeAll(STDOUT_FILENO, clear_resize);
+      if (!renderImageGridStill(grid, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, graphics_options, &graphics_bandwidth, glyph_font_ptr, logger.enabled() ? &render_stats : nullptr, &debug_stats)) {
+        quit = true;
+        break;
+      }
+    }
+    if (!debug_stats.maybeReport(terminal)) {
+      quit = true;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (render_stats.frames > 0) {
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000));
+  }
+  return quit || shouldQuit() ? 130 : 0;
+}
+
 }  // namespace
 
 int exportMedia(const CliOptions& options, Logger& logger) {
@@ -1285,6 +1561,9 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   }
   if (!options.export_file.has_value()) {
     throw std::runtime_error("missing export file");
+  }
+  if (options.grid.has_value()) {
+    return exportImageGridMedia(options, logger);
   }
   logGpuRequest(options, logger);
 
@@ -1508,6 +1787,9 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   }
   if (!options.still_file.has_value()) {
     throw std::runtime_error("missing still output file");
+  }
+  if (options.grid.has_value()) {
+    return writeImageGridStillSnapshot(options, logger);
   }
   logGpuRequest(options, logger);
 
@@ -2117,6 +2399,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   if (isStdinInput(*options.input)) {
     return playStdinPlot(options, logger);
+  }
+  if (options.grid.has_value()) {
+    return playImageGrid(options, logger);
   }
   if (isAsciinemaCastInput(*options.input)) {
     return playAsciinemaCast(options, logger);
