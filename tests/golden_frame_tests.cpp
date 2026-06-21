@@ -495,9 +495,11 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "warp-history(cpu)  flow:OpticalFlow, base-cells:CellGlyphs -> warped-history:CellGlyphs\n"
                 "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
-                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, warped-history:CellGlyphs, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "octant auto structure overlay graph dump golden");
   }
@@ -514,9 +516,11 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "warp-history(cpu)  flow:OpticalFlow, base-cells:CellGlyphs -> warped-history:CellGlyphs\n"
                 "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
-                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, warped-history:CellGlyphs, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "line-ligatures(cpu)  cells:CellGlyphs -> ligature-cells:CellGlyphs\n"
                 "emit(cpu)  ligature-cells:CellGlyphs -> \n",
                 "line ligature graph dump golden");
@@ -551,11 +555,13 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
                 "cell-average(cpu)  frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
                 "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
-                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "warp-history(cpu)  flow:OpticalFlow, base-cells:CellGlyphs -> warped-history:CellGlyphs\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, warped-history:CellGlyphs, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "structure graph dump golden");
   }
@@ -571,11 +577,13 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
                 "cell-average(cpu)  styled-frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
                 "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
-                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "warp-history(cpu)  flow:OpticalFlow, base-cells:CellGlyphs -> warped-history:CellGlyphs\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, warped-history:CellGlyphs, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "painterly graph dump golden");
   }
@@ -659,12 +667,14 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> raw-gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "etf(cpu)  raw-gradients:GradientField -> gradients:GradientField\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
                 "cell-average(cpu)  frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
                 "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
-                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "warp-history(cpu)  flow:OpticalFlow, base-cells:CellGlyphs -> warped-history:CellGlyphs\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, warped-history:CellGlyphs, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "ETF graph dump golden");
   }

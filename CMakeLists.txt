@@ -104,6 +104,7 @@ add_executable(contourtty
   src/media_input.cpp
   src/media_probe.cpp
   src/octant_renderer.cpp
+  src/optical_flow.cpp
   src/posterize.cpp
   src/png_writer.cpp
   src/player.cpp
@@ -119,6 +120,7 @@ add_executable(contourtty
   src/terminal.cpp
   src/terminal_caps.cpp
   src/video_decoder.cpp
+  src/warp_history.cpp
 )
 target_include_directories(contourtty SYSTEM PRIVATE third_party)
 target_compile_features(contourtty PRIVATE cxx_std_20)
@@ -754,6 +756,7 @@ add_executable(golden_frame_tests
   src/line_ligatures.cpp
   src/luminance.cpp
   src/octant_renderer.cpp
+  src/optical_flow.cpp
   src/posterize.cpp
   src/render_graph.cpp
   src/render_layout.cpp
@@ -763,6 +766,7 @@ add_executable(golden_frame_tests
   src/structure_edges.cpp
   src/structure_overlay.cpp
   src/structure_sampling.cpp
+  src/warp_history.cpp
 )
 target_include_directories(golden_frame_tests PRIVATE src)
 target_compile_features(golden_frame_tests PRIVATE cxx_std_20)
@@ -1032,6 +1036,31 @@ else()
   endif()
 endif()
 add_test(NAME hysteresis COMMAND hysteresis_tests)
+
+add_executable(warp_history_tests
+  tests/warp_history_tests.cpp
+  src/optical_flow.cpp
+  src/warp_history.cpp
+)
+target_include_directories(warp_history_tests PRIVATE src)
+target_compile_features(warp_history_tests PRIVATE cxx_std_20)
+set_target_properties(warp_history_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(warp_history_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(warp_history_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(warp_history_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(warp_history_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME warp_history COMMAND warp_history_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

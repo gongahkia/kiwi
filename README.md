@@ -123,12 +123,13 @@ Structure mode still starts from the same decoded RGB frame and terminal layout 
 
 ```text
 RGB frame -> luminance field -> optional contrast/DoG -> Sobel gradients
-          -> per-cell edge orientation + magnitude -> glyph choice -> CellBuffer
+          -> per-cell edge orientation + magnitude -> optional temporal history
+          -> glyph choice -> CellBuffer
 ```
 
 The luminance renderer picks a glyph from the brightness ramp for every cell. Structure mode keeps that brightness glyph as a fallback, then detects directional edges in the cell. Strong vertical, horizontal, and diagonal gradients map to structure glyphs such as `|`, `_`, `/`, `\`, and `+`.
 
-When shape matching is enabled, the edge magnitude field inside the cell is sampled into a compact shape vector and compared against precomputed vectors for the structure glyph set. This lets the renderer choose by local stroke shape rather than by brightness alone. DoG (`--dog-sigma`) can isolate line-like detail before Sobel, ETF (`--etf-iters`) smooths noisy edge orientations before glyph choice, and `--contrast` can widen separation in low-contrast footage.
+When shape matching is enabled, the edge magnitude field inside the cell is sampled into a compact shape vector and compared against precomputed vectors for the structure glyph set. This lets the renderer choose by local stroke shape rather than by brightness alone. DoG (`--dog-sigma`) can isolate line-like detail before Sobel, ETF (`--etf-iters`) smooths noisy edge orientations before glyph choice, `--contrast` can widen separation in low-contrast footage, and `--glyph-stickiness` uses optical-flow-warped glyph history to reduce near-tie flicker.
 
 Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
 

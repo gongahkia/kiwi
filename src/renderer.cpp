@@ -15,6 +15,7 @@
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
 #include "octant_renderer.hpp"
+#include "optical_flow.hpp"
 #include "posterize.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
@@ -23,6 +24,7 @@
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
+#include "warp_history.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -92,6 +94,10 @@ double glyphStickinessFromCli(const CliOptions& options) {
   return options.glyph_stickiness.value_or(0.05);
 }
 
+bool glyphTemporalEnabledFromCli(const CliOptions& options) {
+  return glyphStickinessFromCli(options) > 0.0;
+}
+
 bool painterlyStyleEnabled(const CliOptions& options) {
   return options.style == "painterly" ||
          std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
@@ -151,6 +157,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
   const bool posterize_enabled = options.posterize.has_value();
+  const bool glyph_temporal_enabled = glyphTemporalEnabledFromCli(options);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   const auto decode_pass = [] {
@@ -209,6 +216,14 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .outputs = {renderPort("edge-field", BufferKind::EdgeField)},
       .supports = {Backend::Cpu},
     });
+    if (glyph_temporal_enabled && !hatch_enabled && !flow_enabled) {
+      passes->push_back(Pass{
+        .id = "optical-flow",
+        .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
+        .outputs = {renderPort("flow", BufferKind::OpticalFlow)},
+        .supports = {Backend::Cpu},
+      });
+    }
   };
   const auto append_structure_overlay = [&](std::vector<Pass>* passes, const std::string& base_input) {
     if (hatch_enabled) {
@@ -235,9 +250,19 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .outputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors)},
       .supports = {Backend::Cpu},
     });
+    if (glyph_temporal_enabled) {
+      passes->push_back(Pass{
+        .id = "warp-history",
+        .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)},
+        .outputs = {renderPort("warped-history", BufferKind::CellGlyphs)},
+        .supports = {Backend::Cpu},
+      });
+    }
     passes->push_back(Pass{
       .id = "overlay-structure",
-      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
+      .inputs = glyph_temporal_enabled
+                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort(base_input, BufferKind::CellGlyphs)}
+                  : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu, Backend::Metal},
     });
@@ -366,9 +391,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::optional<LuminanceField> analysis_luminance;
   std::optional<GradientField> structure_gradients;
   std::optional<LuminanceField> structure_ink;
+  std::optional<FlowField> flow_field;
   std::optional<GpuStructureGlyphs> gpu_structure_glyphs;
   std::vector<Rgb> average_colors;
   std::vector<CellLuminanceRegion> cell_shape_regions;
+  std::vector<char32_t> warped_previous_glyphs;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
@@ -378,7 +405,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool flow_enabled = flowStyleEnabled(options);
   const bool posterize_enabled = options.posterize.has_value();
   const double glyph_stickiness = glyphStickinessFromCli(options);
-  const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyph_stickiness > 0.0;
+  const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
@@ -614,6 +641,25 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         }
       },
     });
+    if (glyph_hysteresis_enabled) {
+      passes->push_back(Pass{
+        .id = "optical-flow",
+        .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
+        .outputs = {renderPort("flow", BufferKind::OpticalFlow)},
+        .supports = {Backend::Cpu},
+        .run = [&](PassContext&) {
+          if (!analysis_luminance.has_value()) {
+            return;
+          }
+          if (temporal_state->previous_luminance.has_value() &&
+              temporal_state->previous_luminance->width == analysis_luminance->width &&
+              temporal_state->previous_luminance->height == analysis_luminance->height) {
+            flow_field = computeBlockOpticalFlow(*temporal_state->previous_luminance, *analysis_luminance);
+          }
+          temporal_state->previous_luminance = *analysis_luminance;
+        },
+      });
+    }
   };
 
   const auto cell_shape_pass = [&](const std::string& base_input) {
@@ -637,10 +683,27 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto warp_history_pass = [&](const std::string& base_input) {
+    return Pass{
+      .id = "warp-history",
+      .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("warped-history", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        warped_previous_glyphs.clear();
+        if (flow_field.has_value() && !previous_glyphs.empty()) {
+          warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *flow_field);
+        }
+      },
+    };
+  };
+
   const auto overlay_structure_pass = [&](const std::string& base_input) {
     return Pass{
       .id = "overlay-structure",
-      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
+      .inputs = glyph_hysteresis_enabled
+                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort(base_input, BufferKind::CellGlyphs)}
+                  : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext&) {
@@ -685,7 +748,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                                                        : match_region(cell_shape_regions[cell_index]);
                 if (glyph_hysteresis_enabled) {
                   const GlyphShapeMatch best = matchGlyphShapeWithScore(features, *shape_table);
-                  const char32_t previous_glyph = previous_glyphs.empty() ? cell.glyph : previous_glyphs[cell_index];
+                  const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
+                  const char32_t previous_glyph = history_glyphs.empty() ? cell.glyph : history_glyphs[cell_index];
                   const double previous_score = scoreGlyphShape(features, *shape_table, previous_glyph);
                   cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness).glyph;
                 } else {
@@ -804,6 +868,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         passes.push_back(lic_pass(blitter_output));
       } else {
         passes.push_back(cell_shape_pass(blitter_output));
+        if (glyph_hysteresis_enabled) {
+          passes.push_back(warp_history_pass(blitter_output));
+        }
         passes.push_back(overlay_structure_pass(blitter_output));
       }
       append_emit_after_overlay(&passes);
@@ -835,6 +902,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       passes.push_back(lic_pass("base-cells"));
     } else {
       passes.push_back(cell_shape_pass("base-cells"));
+      if (glyph_hysteresis_enabled) {
+        passes.push_back(warp_history_pass("base-cells"));
+      }
       passes.push_back(overlay_structure_pass("base-cells"));
     }
     append_emit_after_overlay(&passes);

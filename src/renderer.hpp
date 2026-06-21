@@ -5,9 +5,11 @@
 #include "frame.hpp"
 #include "glyph_shape.hpp"
 #include "hysteresis.hpp"
+#include "luminance.hpp"
 #include "terminal.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -23,9 +25,11 @@ struct RenderStats {
 
 struct RenderTemporalState {
   GlyphHysteresisState glyph_hysteresis;
+  std::optional<LuminanceField> previous_luminance;
 
   void reset() {
     glyph_hysteresis.reset();
+    previous_luminance.reset();
   }
 };
 

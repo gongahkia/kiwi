@@ -56,7 +56,7 @@ bool startsWith(std::string_view value, std::string_view prefix) {
 bool knownPassId(const std::string& id) {
   static const std::unordered_set<std::string> ids{
     "decode", "kuwahara", "posterize", "luminance", "contrast", "dog", "sobel", "etf",
-    "edge-field", "cell-average", "ramp-pick", "cell-shape", "overlay-structure",
+    "edge-field", "optical-flow", "cell-average", "ramp-pick", "cell-shape", "warp-history", "overlay-structure",
     "shape-match", "crosshatch", "lic", "stipple", "line-ligatures", "emit",
     "halfblock", "blocks", "octant", "sextant", "braille",
   };
