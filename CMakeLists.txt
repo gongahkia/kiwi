@@ -503,6 +503,7 @@ add_executable(golden_frame_tests
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/luminance.cpp
+  src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
   src/structure_edges.cpp
