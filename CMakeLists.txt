@@ -1859,6 +1859,10 @@ if(BASH_EXECUTABLE)
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/input_keys_smoke.sh" $<TARGET_FILE:contourtty>
   )
   set_tests_properties(input_keys_smoke PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME render_mode_live_smoke
+    COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/render_mode_live_smoke.sh" $<TARGET_FILE:contourtty>
+  )
+  set_tests_properties(render_mode_live_smoke PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME evolve_charset
     COMMAND ${BASH_EXECUTABLE} -c "$<TARGET_FILE:evolve_charset> --seed 1337 --name portrait-30 --output '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json' && '${CMAKE_COMMAND}' -E compare_files '${CMAKE_CURRENT_SOURCE_DIR}/share/contourtty/charsets/portrait-30.json' '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json'"
   )
