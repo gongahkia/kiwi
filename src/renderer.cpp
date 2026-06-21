@@ -288,6 +288,14 @@ bool glyphTemporalEnabledFromCli(const CliOptions& options) {
   return glyphStickinessFromCli(options) > 0.0;
 }
 
+double orientationStickinessFromCli(const CliOptions& options) {
+  return options.orient_stickiness.value_or(0.0);
+}
+
+bool orientationTemporalEnabledFromCli(const CliOptions& options) {
+  return orientationStickinessFromCli(options) > 0.0;
+}
+
 bool painterlyStyleEnabled(const CliOptions& options) {
   return options.style == "painterly" ||
          std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
@@ -598,6 +606,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   cells->resize(size.cols, size.rows);
   if (temporal_state != nullptr) {
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
+    temporal_state->orientation_hysteresis.resize(size.cols, size.rows);
   }
   std::vector<char32_t> previous_glyphs;
   if (temporal_state != nullptr) {
@@ -620,6 +629,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<CellLuminanceRegion> cell_shape_regions;
   std::vector<char32_t> warped_previous_glyphs;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
+  const double orient_stickiness = orientationStickinessFromCli(options);
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const bool painterly_enabled = painterlyStyleEnabled(options);
@@ -632,6 +642,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromCli(options);
   const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
+  const bool orientation_hysteresis_enabled = temporal_state != nullptr && orientationTemporalEnabledFromCli(options);
   const bool motion_flow_enabled = flow_enabled && temporal_state != nullptr;
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
@@ -997,7 +1008,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                   local_stats->ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
                 }
               } else {
-                cell.glyph = *edge_glyph;
+                char32_t directional_glyph = *edge_glyph;
+                if (orientation_hysteresis_enabled) {
+                  directional_glyph = temporal_state->orientation_hysteresis.choose(cell_index, directional_glyph, gradient.orientation, orient_stickiness).glyph;
+                }
+                cell.glyph = directional_glyph;
               }
             }
           }

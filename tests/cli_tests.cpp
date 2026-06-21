@@ -541,6 +541,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--orient-stickiness", "0.12"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "orientation stickiness parses");
+    expect(parsed.options.orient_stickiness.has_value() && *parsed.options.orient_stickiness == 0.12, "orientation stickiness stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--orient-stickiness", "4"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "orientation stickiness rejects above pi");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));

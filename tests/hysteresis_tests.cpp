@@ -76,4 +76,20 @@ int main() {
   const double default_rate = alternatingGlyphChangeRate(0.05);
   expect(std::abs(unstuck_rate - 1.0) < 0.001, "flicker metric baseline changes every frame");
   expect(default_rate <= 0.40 * unstuck_rate, "default stickiness keeps flicker metric below threshold");
+
+  contourtty::OrientationHysteresisState orientation_state;
+  orientation_state.resize(1, 1);
+  auto orient_first = orientation_state.choose(0, U'|', 0.0, 0.15);
+  expect(orient_first.glyph == U'|' && !orient_first.kept_previous, "first orientation stores without hysteresis");
+
+  auto orient_near = orientation_state.choose(0, U'/', 0.10, 0.15);
+  expect(orient_near.glyph == U'|' && orient_near.kept_previous, "near orientation bucket keeps previous");
+
+  auto orient_far = orientation_state.choose(0, U'/', 0.50, 0.15);
+  expect(orient_far.glyph == U'/' && !orient_far.kept_previous, "far orientation bucket switches glyph");
+
+  orientation_state.reset();
+  orientation_state.resize(1, 1);
+  auto orient_after_reset = orientation_state.choose(0, U'\\', 0.0, 0.15);
+  expect(orient_after_reset.glyph == U'\\' && !orient_after_reset.kept_previous, "orientation reset clears history");
 }

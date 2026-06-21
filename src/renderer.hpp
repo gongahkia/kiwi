@@ -31,10 +31,12 @@ struct RenderStats {
 
 struct RenderTemporalState {
   GlyphHysteresisState glyph_hysteresis;
+  OrientationHysteresisState orientation_hysteresis;
   std::optional<LuminanceField> previous_luminance;
 
   void reset() {
     glyph_hysteresis.reset();
+    orientation_hysteresis.reset();
     previous_luminance.reset();
   }
 };

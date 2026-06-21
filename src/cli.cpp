@@ -409,6 +409,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--posterize",
           "--contrast",
           "--glyph-stickiness",
+          "--orient-stickiness",
           "--dither",
           "--diff-oklab-eps",
           "--bandwidth-cap",
@@ -602,6 +603,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.glyph_stickiness = *parsed;
+    } else if (flag == "--orient-stickiness") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value() || *parsed > 3.14159265358979323846) {
+        result.error = "invalid value for --orient-stickiness: " + std::string(*value);
+        return result;
+      }
+      result.options.orient_stickiness = *parsed;
     } else if (flag == "--dither") {
       if (!isOneOf(*value, {"none", "ordered", "fs"})) {
         result.error = "invalid value for --dither: " + std::string(*value);

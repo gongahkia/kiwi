@@ -37,6 +37,7 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--posterize N", "OKLab L posterize levels, 2..64"},
   {"--contrast N", "structure contrast adjustment"},
   {"--glyph-stickiness N", "retain near-tied structure glyphs, 0..1"},
+  {"--orient-stickiness N", "retain near-tied structure edge orientations in radians"},
   {"--dither {none|ordered|fs}", "color dithering mode"},
   {"--diff-oklab-eps N", "suppress sub-perceptual color diff emits"},
   {"--bandwidth-cap N", "graphics protocol cap in MB/s, default 50"},

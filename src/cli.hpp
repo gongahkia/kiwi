@@ -41,6 +41,7 @@ struct CliOptions {
   std::optional<int> posterize;
   std::optional<double> contrast;
   std::optional<double> glyph_stickiness;
+  std::optional<double> orient_stickiness;
   std::string dither = "none";
   std::optional<double> diff_oklab_eps;
   double bandwidth_cap_mb_s = 50.0;
