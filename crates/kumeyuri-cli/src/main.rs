@@ -4990,6 +4990,58 @@ muted = "#7d8590"
         assert_eq!(timeline.len(), 1);
     }
 
+    #[test]
+    fn playback_timelines_build_for_all_snapshot_fixtures() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("tests/snapshots");
+        let paths = snapshot_input_paths(&root);
+
+        assert_eq!(paths.len(), 135);
+
+        for path in paths {
+            let source = fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let timeline =
+                playback_timeline_from_source(&source, AnimationOptions::default(), false)
+                    .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+
+            assert!(!timeline.is_empty(), "{}", path.display());
+        }
+    }
+
+    fn snapshot_input_paths(root: &Path) -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        collect_snapshot_input_paths(root, &mut paths);
+        paths.sort();
+        paths
+    }
+
+    fn collect_snapshot_input_paths(dir: &Path, paths: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(dir)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()))
+        {
+            let path = entry
+                .unwrap_or_else(|error| {
+                    panic!("failed to read entry in {}: {error}", dir.display())
+                })
+                .path();
+            if path.is_dir() {
+                if path.file_name().is_some_and(|name| name == "parse-errors") {
+                    continue;
+                }
+                collect_snapshot_input_paths(&path, paths);
+            } else if path.extension().is_some_and(|extension| extension == "mmd")
+                && path
+                    .parent()
+                    .and_then(Path::file_name)
+                    .is_some_and(|name| name == "input")
+            {
+                paths.push(path);
+            }
+        }
+    }
+
     fn warning_lines(warnings: &[super::LayoutWarning]) -> Vec<String> {
         warnings.iter().map(super::LayoutWarning::line).collect()
     }
