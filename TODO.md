@@ -88,8 +88,6 @@
 ## PHASE G — Performance, polish, release
 *Doc: `PHASE_G.md`. Status: partial.*
 
-- [~] **G1. CPU SIMD + multithreading the analysis pass.** DoD: measured multicore speedup recorded; output unchanged. Reference: PHASE_G §CPU.
-  - Row-band multithreading done (`renderWorkerCount` in `renderer.cpp`); explicit SIMD (AVX2/NEON) deferred — relies on compiler auto-vectorisation today. Open: hand-SIMD the gradient + dot-product inner loops on x86_64 and arm64; record before/after in BENCHMARKS.md.
 - [~] **G2. GPU compute path.** DoD: significant fps gain at high cell counts recorded; correctness matches CPU within tolerance. Reference: PHASE_G §GPU.
   - Metal backend done for Sobel, DoG, cell-average, and structure glyph selection on Darwin. Open: Vulkan port — moved to PHASE_L §VulkanBackend.
 - [ ] **G3. MP4 export rasterisation.** DoD: the MP4 plays in a normal player and shows the ASCII rendering with audio muxed. Reference: PHASE_G §ExportMP4.

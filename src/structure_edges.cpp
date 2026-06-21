@@ -8,15 +8,174 @@
 #include <thread>
 #include <vector>
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+#include <immintrin.h>
+#endif
+
 namespace contourtty {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+#define CONTOURTTY_X86_AVX2_TARGET __attribute__((target("avx2")))
+#else
+#define CONTOURTTY_X86_AVX2_TARGET
+#endif
+
 double sampleClamped(const LuminanceField& field, int x, int y) {
   const int clamped_x = std::min(std::max(x, 0), field.width - 1);
   const int clamped_y = std::min(std::max(y, 0), field.height - 1);
   return field.values[static_cast<std::size_t>(clamped_y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(clamped_x)];
+}
+
+Gradient sobelScalarPixel(const LuminanceField& field, int x, int y) {
+  const double gx =
+    -sampleClamped(field, x - 1, y - 1) + sampleClamped(field, x + 1, y - 1) -
+    2.0 * sampleClamped(field, x - 1, y) + 2.0 * sampleClamped(field, x + 1, y) -
+    sampleClamped(field, x - 1, y + 1) + sampleClamped(field, x + 1, y + 1);
+  const double gy =
+    -sampleClamped(field, x - 1, y - 1) - 2.0 * sampleClamped(field, x, y - 1) - sampleClamped(field, x + 1, y - 1) +
+    sampleClamped(field, x - 1, y + 1) + 2.0 * sampleClamped(field, x, y + 1) + sampleClamped(field, x + 1, y + 1);
+  return Gradient{.gx = gx, .gy = gy};
+}
+
+void storeSobelPixel(GradientField* gradients, int width, int x, int y, double gx, double gy) {
+  gradients->values[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = Gradient{.gx = gx, .gy = gy};
+}
+
+void computeSobelScalarRow(const LuminanceField& field, int y, GradientField* gradients) {
+  for (int x = 0; x < field.width; ++x) {
+    const Gradient gradient = sobelScalarPixel(field, x, y);
+    storeSobelPixel(gradients, field.width, x, y, gradient.gx, gradient.gy);
+  }
+}
+
+#if defined(__aarch64__) && defined(__ARM_NEON)
+void computeSobelNeonRow(const LuminanceField& field, int y, GradientField* gradients) {
+  if (field.width < 3 || y == 0 || y == field.height - 1) {
+    computeSobelScalarRow(field, y, gradients);
+    return;
+  }
+
+  const std::size_t width = static_cast<std::size_t>(field.width);
+  const double* previous = field.values.data() + static_cast<std::size_t>(y - 1) * width;
+  const double* current = field.values.data() + static_cast<std::size_t>(y) * width;
+  const double* next = field.values.data() + static_cast<std::size_t>(y + 1) * width;
+  Gradient edge = sobelScalarPixel(field, 0, y);
+  storeSobelPixel(gradients, field.width, 0, y, edge.gx, edge.gy);
+
+  int x = 1;
+  const int vector_end = field.width - 1 - ((field.width - 2) % 2);
+  for (; x < vector_end; x += 2) {
+    const float64x2_t top_left = vld1q_f64(previous + x - 1);
+    const float64x2_t top_center = vld1q_f64(previous + x);
+    const float64x2_t top_right = vld1q_f64(previous + x + 1);
+    const float64x2_t middle_left = vld1q_f64(current + x - 1);
+    const float64x2_t middle_right = vld1q_f64(current + x + 1);
+    const float64x2_t bottom_left = vld1q_f64(next + x - 1);
+    const float64x2_t bottom_center = vld1q_f64(next + x);
+    const float64x2_t bottom_right = vld1q_f64(next + x + 1);
+    float64x2_t gx = vsubq_f64(vnegq_f64(top_left), vnegq_f64(top_right));
+    gx = vsubq_f64(gx, vaddq_f64(middle_left, middle_left));
+    gx = vaddq_f64(gx, vaddq_f64(middle_right, middle_right));
+    gx = vsubq_f64(gx, bottom_left);
+    gx = vaddq_f64(gx, bottom_right);
+    float64x2_t gy = vsubq_f64(vnegq_f64(top_left), vaddq_f64(top_center, top_center));
+    gy = vsubq_f64(gy, top_right);
+    gy = vaddq_f64(gy, bottom_left);
+    gy = vaddq_f64(gy, vaddq_f64(bottom_center, bottom_center));
+    gy = vaddq_f64(gy, bottom_right);
+    double gx_values[2];
+    double gy_values[2];
+    vst1q_f64(gx_values, gx);
+    vst1q_f64(gy_values, gy);
+    storeSobelPixel(gradients, field.width, x, y, gx_values[0], gy_values[0]);
+    storeSobelPixel(gradients, field.width, x + 1, y, gx_values[1], gy_values[1]);
+  }
+  for (; x < field.width - 1; ++x) {
+    const Gradient gradient = sobelScalarPixel(field, x, y);
+    storeSobelPixel(gradients, field.width, x, y, gradient.gx, gradient.gy);
+  }
+
+  edge = sobelScalarPixel(field, field.width - 1, y);
+  storeSobelPixel(gradients, field.width, field.width - 1, y, edge.gx, edge.gy);
+}
+#endif
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+bool avx2Available() {
+  return __builtin_cpu_supports("avx2");
+}
+
+CONTOURTTY_X86_AVX2_TARGET void computeSobelAvx2Row(const LuminanceField& field, int y, GradientField* gradients) {
+  if (field.width < 5 || y == 0 || y == field.height - 1) {
+    computeSobelScalarRow(field, y, gradients);
+    return;
+  }
+
+  const std::size_t width = static_cast<std::size_t>(field.width);
+  const double* previous = field.values.data() + static_cast<std::size_t>(y - 1) * width;
+  const double* current = field.values.data() + static_cast<std::size_t>(y) * width;
+  const double* next = field.values.data() + static_cast<std::size_t>(y + 1) * width;
+  Gradient edge = sobelScalarPixel(field, 0, y);
+  storeSobelPixel(gradients, field.width, 0, y, edge.gx, edge.gy);
+
+  int x = 1;
+  const int vector_end = field.width - 1 - ((field.width - 2) % 4);
+  for (; x < vector_end; x += 4) {
+    const __m256d top_left = _mm256_loadu_pd(previous + x - 1);
+    const __m256d top_center = _mm256_loadu_pd(previous + x);
+    const __m256d top_right = _mm256_loadu_pd(previous + x + 1);
+    const __m256d middle_left = _mm256_loadu_pd(current + x - 1);
+    const __m256d middle_right = _mm256_loadu_pd(current + x + 1);
+    const __m256d bottom_left = _mm256_loadu_pd(next + x - 1);
+    const __m256d bottom_center = _mm256_loadu_pd(next + x);
+    const __m256d bottom_right = _mm256_loadu_pd(next + x + 1);
+    __m256d gx = _mm256_sub_pd(_mm256_sub_pd(_mm256_setzero_pd(), top_left), _mm256_sub_pd(_mm256_setzero_pd(), top_right));
+    gx = _mm256_sub_pd(gx, _mm256_add_pd(middle_left, middle_left));
+    gx = _mm256_add_pd(gx, _mm256_add_pd(middle_right, middle_right));
+    gx = _mm256_sub_pd(gx, bottom_left);
+    gx = _mm256_add_pd(gx, bottom_right);
+    __m256d gy = _mm256_sub_pd(_mm256_sub_pd(_mm256_setzero_pd(), top_left), _mm256_add_pd(top_center, top_center));
+    gy = _mm256_sub_pd(gy, top_right);
+    gy = _mm256_add_pd(gy, bottom_left);
+    gy = _mm256_add_pd(gy, _mm256_add_pd(bottom_center, bottom_center));
+    gy = _mm256_add_pd(gy, bottom_right);
+    double gx_values[4];
+    double gy_values[4];
+    _mm256_storeu_pd(gx_values, gx);
+    _mm256_storeu_pd(gy_values, gy);
+    for (int lane = 0; lane < 4; ++lane) {
+      storeSobelPixel(gradients, field.width, x + lane, y, gx_values[lane], gy_values[lane]);
+    }
+  }
+  for (; x < field.width - 1; ++x) {
+    const Gradient gradient = sobelScalarPixel(field, x, y);
+    storeSobelPixel(gradients, field.width, x, y, gradient.gx, gradient.gy);
+  }
+
+  edge = sobelScalarPixel(field, field.width - 1, y);
+  storeSobelPixel(gradients, field.width, field.width - 1, y, edge.gx, edge.gy);
+}
+#endif
+
+void computeSobelRow(const LuminanceField& field, int y, GradientField* gradients) {
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  computeSobelNeonRow(field, y, gradients);
+#elif defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+  if (avx2Available()) {
+    computeSobelAvx2Row(field, y, gradients);
+  } else {
+    computeSobelScalarRow(field, y, gradients);
+  }
+#else
+  computeSobelScalarRow(field, y, gradients);
+#endif
 }
 
 int workerCount(int rows, int items) {
@@ -106,16 +265,7 @@ GradientField computeSobelGradients(const LuminanceField& field) {
   gradients.values.assign(static_cast<std::size_t>(field.width) * static_cast<std::size_t>(field.height), Gradient{});
   parallelRows(field.height, field.width * field.height, [&](int row_begin, int row_end) {
     for (int y = row_begin; y < row_end; ++y) {
-      for (int x = 0; x < field.width; ++x) {
-        const double gx =
-          -sampleClamped(field, x - 1, y - 1) + sampleClamped(field, x + 1, y - 1) -
-          2.0 * sampleClamped(field, x - 1, y) + 2.0 * sampleClamped(field, x + 1, y) -
-          sampleClamped(field, x - 1, y + 1) + sampleClamped(field, x + 1, y + 1);
-        const double gy =
-          -sampleClamped(field, x - 1, y - 1) - 2.0 * sampleClamped(field, x, y - 1) - sampleClamped(field, x + 1, y - 1) +
-          sampleClamped(field, x - 1, y + 1) + 2.0 * sampleClamped(field, x, y + 1) + sampleClamped(field, x + 1, y + 1);
-        gradients.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(field.width) + static_cast<std::size_t>(x)] = Gradient{.gx = gx, .gy = gy};
-      }
+      computeSobelRow(field, y, &gradients);
     }
   });
   return gradients;

@@ -8,11 +8,25 @@
 #include <stdexcept>
 #include <string>
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+#include <immintrin.h>
+#endif
+
 namespace contourtty {
 namespace {
 
 constexpr int kBitmapWidth = 5;
 constexpr int kBitmapHeight = 7;
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+#define CONTOURTTY_X86_AVX2_TARGET __attribute__((target("avx2")))
+#else
+#define CONTOURTTY_X86_AVX2_TARGET
+#endif
 
 using BitmapRows = std::array<std::string_view, kBitmapHeight>;
 
@@ -124,6 +138,80 @@ void normalizeFeatures(GlyphShapeTable* table) {
   }
 }
 
+struct DotNorm {
+  double dot = 0.0;
+  double entry_norm = 0.0;
+};
+
+[[maybe_unused]] DotNorm dotAndEntryNormScalar(std::span<const double> features, std::span<const double> entry_features) {
+  DotNorm result;
+  for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
+    result.dot += features[i] * entry_features[i];
+    result.entry_norm += entry_features[i] * entry_features[i];
+  }
+  return result;
+}
+
+#if defined(__aarch64__) && defined(__ARM_NEON)
+DotNorm dotAndEntryNormNeon(std::span<const double> features, std::span<const double> entry_features) {
+  double dot_products[kShapeRegionCount];
+  double norm_products[kShapeRegionCount];
+  for (std::size_t i = 0; i < 8; i += 2) {
+    const float64x2_t feature_values = vld1q_f64(features.data() + i);
+    const float64x2_t entry_values = vld1q_f64(entry_features.data() + i);
+    vst1q_f64(dot_products + i, vmulq_f64(feature_values, entry_values));
+    vst1q_f64(norm_products + i, vmulq_f64(entry_values, entry_values));
+  }
+  dot_products[8] = features[8] * entry_features[8];
+  norm_products[8] = entry_features[8] * entry_features[8];
+  DotNorm result;
+  for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
+    result.dot += dot_products[i];
+    result.entry_norm += norm_products[i];
+  }
+  return result;
+}
+#endif
+
+#if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+bool avx2Available() {
+  return __builtin_cpu_supports("avx2");
+}
+
+CONTOURTTY_X86_AVX2_TARGET DotNorm dotAndEntryNormAvx2(std::span<const double> features, std::span<const double> entry_features) {
+  double dot_products[kShapeRegionCount];
+  double norm_products[kShapeRegionCount];
+  for (std::size_t i = 0; i < 8; i += 4) {
+    const __m256d feature_values = _mm256_loadu_pd(features.data() + i);
+    const __m256d entry_values = _mm256_loadu_pd(entry_features.data() + i);
+    _mm256_storeu_pd(dot_products + i, _mm256_mul_pd(feature_values, entry_values));
+    _mm256_storeu_pd(norm_products + i, _mm256_mul_pd(entry_values, entry_values));
+  }
+  dot_products[8] = features[8] * entry_features[8];
+  norm_products[8] = entry_features[8] * entry_features[8];
+  DotNorm result;
+  for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
+    result.dot += dot_products[i];
+    result.entry_norm += norm_products[i];
+  }
+  return result;
+}
+#endif
+
+DotNorm dotAndEntryNorm(std::span<const double> features, std::span<const double> entry_features) {
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  return dotAndEntryNormNeon(features, entry_features);
+#elif defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
+  static const bool use_avx2 = avx2Available();
+  if (use_avx2) {
+    return dotAndEntryNormAvx2(features, entry_features);
+  }
+  return dotAndEntryNormScalar(features, entry_features);
+#else
+  return dotAndEntryNormScalar(features, entry_features);
+#endif
+}
+
 }  // namespace
 
 std::vector<double> renderPrecomputedGlyphBitmap(char32_t glyph, int cell_width, int cell_height) {
@@ -202,16 +290,11 @@ char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable
     if (entry.features.size() != kShapeRegionCount) {
       throw std::invalid_argument("glyph shape table feature length mismatch");
     }
-    double dot = 0.0;
-    double entry_norm = 0.0;
-    for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
-      dot += features[i] * entry.features[i];
-      entry_norm += entry.features[i] * entry.features[i];
-    }
-    if (entry_norm == 0.0) {
+    const DotNorm dot_norm = dotAndEntryNorm(features, entry.features);
+    if (dot_norm.entry_norm == 0.0) {
       continue;
     }
-    const double score = dot / std::sqrt(feature_norm * entry_norm);
+    const double score = dot_norm.dot / std::sqrt(feature_norm * dot_norm.entry_norm);
     if (score > best_score) {
       best_score = score;
       best_glyph = entry.glyph;
