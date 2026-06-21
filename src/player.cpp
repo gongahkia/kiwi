@@ -23,6 +23,7 @@
 #include "kitty_graphics.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
+#include "overlay_compose.hpp"
 #include "png_writer.hpp"
 #include "raster_compose.hpp"
 #include "render_mode.hpp"
@@ -1216,6 +1217,54 @@ class CaptionSidecarWriter {
   bool finished_ = false;
 };
 
+class SceneOverlaySource {
+ public:
+  explicit SceneOverlaySource(const CliOptions& options) {
+    if (!options.overlay.has_value()) {
+      return;
+    }
+    const std::string& overlay = *options.overlay;
+    std::optional<std::filesystem::path> path = resolveBundledScene(overlay);
+    if (!path.has_value()) {
+      path = std::filesystem::path(overlay);
+    }
+    if (path->extension() != ".obj") {
+      throw std::runtime_error("unsupported overlay source: " + overlay);
+    }
+    mesh_.emplace(loadObjScene(*path));
+    path_ = path->string();
+  }
+
+  bool enabled() const noexcept {
+    return mesh_.has_value();
+  }
+
+  const std::string& pathString() const noexcept {
+    return path_;
+  }
+
+  Frame compose(const Frame& base, double time_seconds) const {
+    if (!mesh_.has_value()) {
+      return base;
+    }
+    const SceneGBuffer overlay = renderSceneGBuffer(*mesh_, SceneRenderOptions{.width = base.w, .height = base.h, .time_seconds = time_seconds});
+    return composeDepthOverlay(base, overlay);
+  }
+
+ private:
+  std::optional<SceneMesh> mesh_;
+  std::string path_;
+};
+
+const Frame& frameWithOverlay(const Frame& base, const SceneOverlaySource& overlay_source, double time_seconds, std::optional<Frame>* storage) {
+  storage->reset();
+  if (!overlay_source.enabled()) {
+    return base;
+  }
+  storage->emplace(overlay_source.compose(base, time_seconds));
+  return **storage;
+}
+
 }  // namespace
 
 int exportMedia(const CliOptions& options, Logger& logger) {
@@ -1250,6 +1299,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   std::optional<BandwidthGuard> graphics_bandwidth;
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
+  SceneOverlaySource overlay_source(options);
+  if (overlay_source.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
   }
   CellBuffer cells;
   DiffEmitter emitter;
@@ -1293,7 +1346,9 @@ int exportMedia(const CliOptions& options, Logger& logger) {
       CONTOURTTY_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
     }
     std::optional<Frame> second_frame = video_decoder.nextFrame();
-    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    std::optional<Frame> overlay_frame;
+    const Frame& render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &overlay_frame);
+    renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
     RasterImage raster = rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr);
     Mp4VideoWriter writer(output_path,
@@ -1305,7 +1360,9 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     ++exported_frames;
 
     const auto write_mp4_frame = [&](const Frame& current_frame) {
-      renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+      std::optional<Frame> current_overlay_frame;
+      const Frame& current_render_input = frameWithOverlay(current_frame, overlay_source, exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), &current_overlay_frame);
+      renderFrame(current_render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
       caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
       writer.writeFrame(rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr).rgb);
     };
@@ -1358,8 +1415,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   };
 
   const auto write_frame = [&](const Frame& current_frame) {
-    renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
+    std::optional<Frame> overlay_frame;
+    const Frame& render_input = frameWithOverlay(current_frame, overlay_source, timestamp, &overlay_frame);
+    renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
     const std::optional<EmissionResult> emission = emit_cells(timestamp);
     if (emission.has_value()) {
@@ -1368,7 +1427,9 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   };
 
   temporal_state.reset();
-  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  std::optional<Frame> first_overlay_frame;
+  const Frame& first_render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &first_overlay_frame);
+  renderFrame(first_render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
@@ -1454,10 +1515,17 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   const TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
+  SceneOverlaySource overlay_source(options);
+  if (overlay_source.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
+  }
   CellBuffer cells;
   RenderTemporalState temporal_state;
   RenderStats render_stats;
-  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  std::optional<Frame> overlay_frame;
+  const double overlay_time_seconds = static_cast<double>(options.still_at_us.value_or(frame->pts_us)) / 1000000.0;
+  const Frame& render_input = frameWithOverlay(*frame, overlay_source, overlay_time_seconds, &overlay_frame);
+  renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
   writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
   CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
@@ -1714,6 +1782,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  SceneOverlaySource overlay_source(options);
+  if (overlay_source.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
+  }
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
@@ -1892,7 +1964,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
-    renderFrame(*frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    std::optional<Frame> overlay_frame;
+    const Frame& render_input = frameWithOverlay(*frame, overlay_source, static_cast<double>(current_video_us) / 1000000.0, &overlay_frame);
+    renderFrame(render_input, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }
