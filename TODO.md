@@ -150,7 +150,8 @@
   - Blocked locally: `glslangValidator` and `spirv-cross` are absent.
 - [ ] **L3. User shader source.** DoD: `--input shader.glsl` accepts a Shadertoy-style `mainImage()`; uniforms `iResolution/iTime/iTimeDelta/iFrame/iMouse/iChannel0..3` populated; hot-reload on file change. Reference: PHASE_L §ShaderInput.
   - Blocked by L2 shader compiler plumbing.
-- [ ] **L4. OBJ scene loader + tiny rasteriser.** DoD: `--input scene.obj` rotates Suzanne at 320×120 cells at ≥30 fps producing albedo + depth + normal G-buffers. Reference: PHASE_L §SceneInput.
+- [~] **L4. OBJ scene loader + tiny rasteriser.** DoD: `--input scene.obj` rotates Suzanne at 320×120 cells at ≥30 fps producing albedo + depth + normal G-buffers. Reference: PHASE_L §SceneInput.
+  - OBJ parser plus CPU albedo/depth/normal G-buffer rasterizer landed. Open: wire `--input scene.obj`, bundled Suzanne, camera controls, and fps evidence.
 - [ ] **L5. Depth/normal-aware glyphs.** DoD: `normal-orient` + `depth-shade` Passes use the G-buffer instead of screen-space gradients; rotated cube shows hatching along surface curvature. Reference: PHASE_L §NormalGlyphs.
 - [x] **L6. `--graph file.yaml` loader.** DoD: minimal in-tree YAML parser; example graph reproducing default `structure` pipeline byte-identical; documented examples in `share/contourtty/graphs/`. Reference: PHASE_L §GraphYaml.
 - [ ] **L7. Bundled shaders.** DoD: `noise.glsl`, `plasma.glsl`, `feedback.glsl`, `sdf_room.glsl` ship under `share/contourtty/shaders/`; all compile clean on both backends; used as smoke tests. Reference: PHASE_L §Shaders.
