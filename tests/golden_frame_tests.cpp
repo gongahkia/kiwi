@@ -434,6 +434,35 @@ int main() {
   }
 
   {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(64), gray(128), gray(255),
+      gray(255), gray(128), gray(64), gray(0),
+      gray(32), gray(96), gray(160), gray(224),
+      gray(224), gray(160), gray(96), gray(32),
+    });
+    const std::vector<std::string> styles {"painterly", "hatch", "stipple", "flow"};
+    const std::vector<std::string> modes {"luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"};
+    for (const std::string& style : styles) {
+      for (const std::string& mode : modes) {
+        contourtty::CliOptions options;
+        options.style = style;
+        options.mode = mode;
+        options.width = 2;
+        options.height = 2;
+        options.cell_aspect = 1.0;
+        options.edge_threshold = 0.01;
+        options.lic_length = 3;
+        contourtty::CellBuffer cells;
+        contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+        expect(cells.cols() == 2 && cells.rows() == 2, "style/blitter matrix renders expected dimensions");
+        for (const contourtty::Cell& cell : cells.cells()) {
+          expect(cell.glyph != U'\0', "style/blitter matrix writes glyphs");
+        }
+      }
+    }
+  }
+
+  {
     contourtty::SceneGBuffer gbuffer;
     gbuffer.albedo = frameFromPixels(4, 2, {
       gray(220), gray(220), gray(220), gray(220),
