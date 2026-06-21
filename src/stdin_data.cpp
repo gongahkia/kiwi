@@ -1,6 +1,7 @@
 #include "stdin_data.hpp"
 
 #include <charconv>
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <cstdlib>
@@ -14,6 +15,71 @@ constexpr double kPi = 3.141592653589793238462643383279502884;
 
 bool separator(char ch) noexcept {
   return ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
+PlotRaster blankRaster(int width, int height) {
+  if (width <= 0 || height <= 0) {
+    throw std::invalid_argument("plot dimensions must be positive");
+  }
+  return PlotRaster{
+    .width = width,
+    .height = height,
+    .values = std::vector<double>(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), 0.0),
+  };
+}
+
+void setPixel(PlotRaster* raster, int x, int y, double value) {
+  if (x < 0 || y < 0 || x >= raster->width || y >= raster->height) {
+    return;
+  }
+  double& dst = raster->values[static_cast<std::size_t>(y) * static_cast<std::size_t>(raster->width) + static_cast<std::size_t>(x)];
+  dst = std::max(dst, std::clamp(value, 0.0, 1.0));
+}
+
+std::pair<double, double> minMax(std::span<const double> samples) {
+  if (samples.empty()) {
+    return {0.0, 1.0};
+  }
+  auto [min_it, max_it] = std::minmax_element(samples.begin(), samples.end());
+  if (*min_it == *max_it) {
+    const double center = *min_it;
+    return {center - 1.0, center + 1.0};
+  }
+  return {*min_it, *max_it};
+}
+
+double normalize(double value, double min_value, double max_value) {
+  return std::clamp((value - min_value) / (max_value - min_value), 0.0, 1.0);
+}
+
+std::size_t sampleIndexForColumn(int x, int width, std::size_t sample_count) {
+  if (sample_count <= 1 || width <= 1) {
+    return 0;
+  }
+  return static_cast<std::size_t>(std::llround((static_cast<double>(x) * static_cast<double>(sample_count - 1)) / static_cast<double>(width - 1)));
+}
+
+void drawLine(PlotRaster* raster, int x0, int y0, int x1, int y1) {
+  const int dx = std::abs(x1 - x0);
+  const int sx = x0 < x1 ? 1 : -1;
+  const int dy = -std::abs(y1 - y0);
+  const int sy = y0 < y1 ? 1 : -1;
+  int error = dx + dy;
+  while (true) {
+    setPixel(raster, x0, y0, 1.0);
+    if (x0 == x1 && y0 == y1) {
+      break;
+    }
+    const int twice_error = 2 * error;
+    if (twice_error >= dy) {
+      error += dy;
+      x0 += sx;
+    }
+    if (twice_error <= dx) {
+      error += dx;
+      y0 += sy;
+    }
+  }
 }
 
 std::size_t nextPowerOfTwo(std::size_t value) {
@@ -47,6 +113,13 @@ void fft(std::vector<std::complex<double>>* values) {
 }
 
 }  // namespace
+
+double PlotRaster::at(int x, int y) const {
+  if (x < 0 || y < 0 || x >= width || y >= height) {
+    throw std::out_of_range("plot raster index out of range");
+  }
+  return values.at(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x));
+}
 
 std::optional<PlotKind> parsePlotKind(std::string_view value) noexcept {
   if (value == "waveform") {
@@ -101,6 +174,81 @@ std::vector<double> spectrumMagnitudes(std::span<const double> samples) {
     magnitudes[i] = std::abs(values[i]);
   }
   return magnitudes;
+}
+
+PlotRaster renderWaveformPlot(std::span<const double> samples, int width, int height) {
+  PlotRaster raster = blankRaster(width, height);
+  if (samples.empty()) {
+    return raster;
+  }
+  const auto [min_value, max_value] = minMax(samples);
+  int previous_x = 0;
+  int previous_y = 0;
+  bool has_previous = false;
+  for (int x = 0; x < width; ++x) {
+    const std::size_t sample_index = sampleIndexForColumn(x, width, samples.size());
+    const double normalized = normalize(samples[sample_index], min_value, max_value);
+    const int y = std::clamp(static_cast<int>(std::lround((1.0 - normalized) * static_cast<double>(height - 1))), 0, height - 1);
+    if (has_previous) {
+      drawLine(&raster, previous_x, previous_y, x, y);
+    } else {
+      setPixel(&raster, x, y, 1.0);
+    }
+    previous_x = x;
+    previous_y = y;
+    has_previous = true;
+  }
+  return raster;
+}
+
+PlotRaster renderSpectrumPlot(std::span<const double> samples, int width, int height) {
+  PlotRaster raster = blankRaster(width, height);
+  const std::vector<double> magnitudes = spectrumMagnitudes(samples);
+  if (magnitudes.empty()) {
+    return raster;
+  }
+  const double max_value = *std::max_element(magnitudes.begin(), magnitudes.end());
+  if (max_value <= 0.0) {
+    return raster;
+  }
+  for (int x = 0; x < width; ++x) {
+    const std::size_t bin = sampleIndexForColumn(x, width, magnitudes.size());
+    const double normalized = std::clamp(magnitudes[bin] / max_value, 0.0, 1.0);
+    const int bar_height = std::max(1, static_cast<int>(std::lround(normalized * static_cast<double>(height))));
+    for (int y = height - bar_height; y < height; ++y) {
+      setPixel(&raster, x, y, normalized);
+    }
+  }
+  return raster;
+}
+
+PlotRaster renderHeatmapPlot(std::span<const double> samples, int width, int height) {
+  PlotRaster raster = blankRaster(width, height);
+  if (samples.empty()) {
+    return raster;
+  }
+  const std::size_t cells = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+  const std::size_t start = samples.size() > cells ? samples.size() - cells : 0;
+  const std::span<const double> window = samples.subspan(start);
+  const auto [min_value, max_value] = minMax(window);
+  for (std::size_t i = 0; i < window.size(); ++i) {
+    const int x = static_cast<int>(i % static_cast<std::size_t>(width));
+    const int y = static_cast<int>(i / static_cast<std::size_t>(width));
+    setPixel(&raster, x, y, normalize(window[i], min_value, max_value));
+  }
+  return raster;
+}
+
+PlotRaster renderPlot(PlotKind kind, std::span<const double> samples, int width, int height) {
+  switch (kind) {
+    case PlotKind::Waveform:
+      return renderWaveformPlot(samples, width, height);
+    case PlotKind::Spectrum:
+      return renderSpectrumPlot(samples, width, height);
+    case PlotKind::Heatmap:
+      return renderHeatmapPlot(samples, width, height);
+  }
+  throw std::invalid_argument("unknown plot kind");
 }
 
 }  // namespace contourtty

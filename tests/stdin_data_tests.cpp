@@ -55,4 +55,29 @@ int main() {
     expect(near(magnitudes[1], 1.0), "impulse bin 1 magnitude");
     expect(near(magnitudes[2], 1.0), "impulse nyquist magnitude");
   }
+
+  {
+    const std::vector<double> samples{-1.0, 0.0, 1.0};
+    const contourtty::PlotRaster raster = contourtty::renderWaveformPlot(samples, 3, 3);
+    expect(raster.width == 3 && raster.height == 3, "waveform raster dimensions");
+    expect(raster.at(0, 2) == 1.0, "waveform low sample bottom");
+    expect(raster.at(1, 1) == 1.0, "waveform middle sample center");
+    expect(raster.at(2, 0) == 1.0, "waveform high sample top");
+  }
+
+  {
+    const std::vector<double> samples{1.0, 0.0, 0.0, 0.0};
+    const contourtty::PlotRaster raster = contourtty::renderSpectrumPlot(samples, 3, 4);
+    expect(raster.at(0, 0) > 0.0, "spectrum first bin reaches top");
+    expect(raster.at(1, 3) > 0.0, "spectrum middle bin reaches bottom");
+    expect(raster.at(2, 3) > 0.0, "spectrum last bin reaches bottom");
+  }
+
+  {
+    const std::vector<double> samples{0.0, 1.0, 2.0, 3.0};
+    const contourtty::PlotRaster raster = contourtty::renderHeatmapPlot(samples, 2, 2);
+    expect(near(raster.at(0, 0), 0.0), "heatmap min");
+    expect(near(raster.at(1, 1), 1.0), "heatmap max");
+    expect(raster.at(1, 0) > raster.at(0, 0), "heatmap rising");
+  }
 }
