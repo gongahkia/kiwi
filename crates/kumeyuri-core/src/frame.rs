@@ -1,3 +1,5 @@
+//! Fixed-cell frame model and static diagram rendering.
+
 use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
     ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
@@ -39,6 +41,7 @@ use crate::layout::{
 use crate::theme::{Theme, ThemeRole};
 use crate::unicode::bidi_visual_order_line;
 
+/// Rectangular grid of styled glyph cells plus animation markers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
     width: usize,
@@ -48,6 +51,7 @@ pub struct Frame {
 }
 
 impl Frame {
+    /// Create a blank frame with default cell styles.
     #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
         Self {
@@ -58,6 +62,7 @@ impl Frame {
         }
     }
 
+    /// Create a blank frame where every cell starts with the supplied style.
     #[must_use]
     pub fn new_styled(width: usize, height: usize, style: CellStyle) -> Self {
         Self {
@@ -75,43 +80,51 @@ impl Frame {
         }
     }
 
+    /// Return frame width in cells.
     #[must_use]
     pub const fn width(&self) -> usize {
         self.width
     }
 
+    /// Return frame height in cells.
     #[must_use]
     pub const fn height(&self) -> usize {
         self.height
     }
 
+    /// Return cells in row-major order.
     #[must_use]
     pub fn cells(&self) -> &[GlyphCell] {
         &self.cells
     }
 
+    /// Return keyframe markers associated with this frame.
     #[must_use]
     pub fn markers(&self) -> &[KeyFrameMarker] {
         &self.markers
     }
 
+    /// Return a cell by coordinate.
     pub fn cell(&self, x: usize, y: usize) -> Result<&GlyphCell, FrameError> {
         let index = self.index(x, y)?;
         Ok(&self.cells[index])
     }
 
+    /// Replace a cell by coordinate.
     pub fn set_cell(&mut self, x: usize, y: usize, cell: GlyphCell) -> Result<(), FrameError> {
         let index = self.index(x, y)?;
         self.cells[index] = cell;
         Ok(())
     }
 
+    /// Write one glyph at a coordinate while preserving existing style/marker.
     pub fn put_glyph(&mut self, x: usize, y: usize, glyph: char) -> Result<(), FrameError> {
         let index = self.index(x, y)?;
         self.cells[index].glyph = glyph;
         Ok(())
     }
 
+    /// Write one glyph and style at a coordinate.
     pub fn put_styled_glyph(
         &mut self,
         x: usize,
@@ -125,6 +138,7 @@ impl Frame {
         Ok(())
     }
 
+    /// Write one line of text and return the number of glyphs written.
     pub fn write_text(
         &mut self,
         x: usize,
@@ -156,10 +170,12 @@ impl Frame {
         Ok(written)
     }
 
+    /// Add a keyframe marker region.
     pub fn add_marker(&mut self, marker: KeyFrameMarker) {
         self.markers.push(marker);
     }
 
+    /// Attach a marker id to one cell.
     pub fn mark_cell(
         &mut self,
         x: usize,
@@ -178,6 +194,7 @@ impl Frame {
         Ok(y * self.width + x)
     }
 
+    /// Return frame glyphs as one string per row.
     #[must_use]
     pub fn to_lines(&self) -> Vec<String> {
         if self.width == 0 {
@@ -189,6 +206,7 @@ impl Frame {
             .collect()
     }
 
+    /// Return a copy padded to at least `min_width` cells.
     #[must_use]
     pub fn with_min_width(&self, min_width: usize) -> Self {
         if min_width <= self.width {
@@ -212,10 +230,14 @@ impl Frame {
     }
 }
 
+/// One cell in a frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GlyphCell {
+    /// Display glyph.
     pub glyph: char,
+    /// Style applied to the glyph.
     pub style: CellStyle,
+    /// Optional marker id attached to this cell.
     pub marker: Option<String>,
 }
 
@@ -229,74 +251,129 @@ impl Default for GlyphCell {
     }
 }
 
+/// Style metadata for a frame cell.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct CellStyle {
+    /// Optional foreground color.
     pub foreground: Option<Color>,
+    /// Optional background color.
     pub background: Option<Color>,
+    /// Whether the glyph should be rendered bold.
     pub bold: bool,
+    /// Whether the glyph should be rendered italic.
     pub italic: bool,
+    /// Whether the glyph should be rendered underlined.
     pub underline: bool,
 }
 
+/// Cell color reference.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Color {
+    /// ANSI 8-bit color index.
     Ansi(u8),
-    Rgb { red: u8, green: u8, blue: u8 },
+    /// Explicit RGB color.
+    Rgb {
+        /// Red channel.
+        red: u8,
+        /// Green channel.
+        green: u8,
+        /// Blue channel.
+        blue: u8,
+    },
+    /// Theme role or named color reference.
     Theme(String),
 }
 
+/// Marker region emitted into animation frames.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyFrameMarker {
+    /// Stable marker id.
     pub id: String,
+    /// Marker lifecycle kind.
     pub kind: KeyFrameMarkerKind,
+    /// Cell region covered by this marker.
     pub region: FrameRegion,
 }
 
+/// Marker lifecycle kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyFrameMarkerKind {
+    /// Region enters the active animation set.
     Enter,
+    /// Region is currently active.
     Active,
+    /// Region exits the active animation set.
     Exit,
+    /// Region remains visible without emphasis.
     Hold,
 }
 
+/// Rectangular region in frame coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrameRegion {
+    /// Left cell coordinate.
     pub x: usize,
+    /// Top cell coordinate.
     pub y: usize,
+    /// Region width in cells.
     pub width: usize,
+    /// Region height in cells.
     pub height: usize,
 }
 
+/// Error returned by frame coordinate operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrameError {
-    OutOfBounds { x: usize, y: usize },
+    /// Coordinate is outside the frame.
+    OutOfBounds {
+        /// X coordinate.
+        x: usize,
+        /// Y coordinate.
+        y: usize,
+    },
 }
 
+/// Glyph set used for diagram drawing.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Charset {
+    /// ASCII-only glyphs.
     #[default]
     Ascii,
+    /// Unicode box-drawing and block glyphs.
     Unicode,
 }
 
+/// Concrete glyph palette for boxes, edges, arrows, and fills.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlyphPalette {
+    /// Horizontal edge glyph.
     pub horizontal: char,
+    /// Vertical edge glyph.
     pub vertical: char,
+    /// Top-left corner glyph.
     pub top_left: char,
+    /// Top-right corner glyph.
     pub top_right: char,
+    /// Bottom-left corner glyph.
     pub bottom_left: char,
+    /// Bottom-right corner glyph.
     pub bottom_right: char,
+    /// Crossing/intersection glyph.
     pub crossing: char,
+    /// Left arrow glyph.
     pub arrow_left: char,
+    /// Right arrow glyph.
     pub arrow_right: char,
+    /// Up arrow glyph.
     pub arrow_up: char,
+    /// Down arrow glyph.
     pub arrow_down: char,
+    /// Filled block glyph.
     pub block: char,
 }
 
 impl GlyphPalette {
+    /// Return the ASCII glyph palette.
     #[must_use]
     pub const fn ascii() -> Self {
         Self {
@@ -315,6 +392,7 @@ impl GlyphPalette {
         }
     }
 
+    /// Return the Unicode glyph palette.
     #[must_use]
     pub const fn unicode() -> Self {
         Self {
@@ -333,6 +411,7 @@ impl GlyphPalette {
         }
     }
 
+    /// Return the palette for a charset.
     #[must_use]
     pub const fn for_charset(charset: Charset) -> Self {
         match charset {
@@ -348,6 +427,7 @@ impl Default for GlyphPalette {
     }
 }
 
+/// Renderer that converts parsed diagrams into static frames.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct StaticFrameRenderer {
     flow: FlowLayoutEngine,
@@ -383,6 +463,7 @@ pub struct StaticFrameRenderer {
 }
 
 impl StaticFrameRenderer {
+    /// Create a renderer with explicit engines for the three original roots.
     #[must_use]
     pub const fn new(
         flow: FlowLayoutEngine,
@@ -423,6 +504,7 @@ impl StaticFrameRenderer {
         }
     }
 
+    /// Create a renderer with explicit engines and glyph palette.
     #[must_use]
     pub const fn with_palette(
         flow: FlowLayoutEngine,
@@ -464,6 +546,7 @@ impl StaticFrameRenderer {
         }
     }
 
+    /// Create a renderer with explicit engines and theme.
     #[must_use]
     pub const fn new_with_theme(
         flow: FlowLayoutEngine,
@@ -505,17 +588,20 @@ impl StaticFrameRenderer {
         }
     }
 
+    /// Return a copy using a different glyph palette.
     #[must_use]
     pub const fn with_glyph_palette(mut self, palette: GlyphPalette) -> Self {
         self.palette = palette;
         self
     }
 
+    /// Return a copy using the palette for a charset.
     #[must_use]
     pub const fn with_glyph_charset(self, charset: Charset) -> Self {
         self.with_glyph_palette(GlyphPalette::for_charset(charset))
     }
 
+    /// Return a copy using a different theme and matching glyph palette.
     #[must_use]
     pub const fn with_theme(mut self, theme: Theme) -> Self {
         self.palette = GlyphPalette::for_charset(theme.charset);
@@ -523,22 +609,26 @@ impl StaticFrameRenderer {
         self
     }
 
+    /// Return a copy using a different flowchart layout config.
     #[must_use]
     pub const fn with_flow_layout_config(mut self, config: FlowLayoutConfig) -> Self {
         self.flow = FlowLayoutEngine::new(config);
         self
     }
 
+    /// Return the renderer glyph palette.
     #[must_use]
     pub const fn palette(&self) -> GlyphPalette {
         self.palette
     }
 
+    /// Return the renderer theme.
     #[must_use]
     pub const fn theme(&self) -> Theme {
         self.theme
     }
 
+    /// Render any supported diagram kind.
     #[must_use]
     pub fn render_diagram(&self, diagram: &Diagram) -> Frame {
         match &diagram.kind {
@@ -573,51 +663,61 @@ impl StaticFrameRenderer {
         }
     }
 
+    /// Render a flowchart diagram.
     #[must_use]
     pub fn render_flowchart(&self, ast: &FlowchartAst) -> Frame {
         render_flow_layout(&self.flow.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a sequence diagram.
     #[must_use]
     pub fn render_sequence(&self, ast: &SequenceAst) -> Frame {
         render_sequence_layout(&self.sequence.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a state diagram.
     #[must_use]
     pub fn render_state(&self, ast: &StateAst) -> Frame {
         render_flow_layout(&self.state.layout(ast).graph, self.palette, self.theme)
     }
 
+    /// Render a class diagram.
     #[must_use]
     pub fn render_class(&self, ast: &ClassAst) -> Frame {
         render_class_layout(&self.class.layout(ast), self.palette, self.theme)
     }
 
+    /// Render an ER diagram.
     #[must_use]
     pub fn render_er(&self, ast: &ErAst) -> Frame {
         render_class_layout(&self.er.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a requirement diagram.
     #[must_use]
     pub fn render_requirement(&self, ast: &RequirementAst) -> Frame {
         render_requirement_layout(&self.requirement.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a C4 diagram.
     #[must_use]
     pub fn render_c4(&self, ast: &C4Ast) -> Frame {
         render_c4_layout(&self.c4.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a Gantt diagram.
     #[must_use]
     pub fn render_gantt(&self, ast: &GanttAst) -> Frame {
         render_gantt_layout(&self.gantt.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a pie chart with all slices visible.
     #[must_use]
     pub fn render_pie(&self, ast: &PieAst) -> Frame {
         self.render_pie_progress(ast, ast.slices.len())
     }
 
+    /// Render a pie chart with only the first `visible_slices` slices visible.
     #[must_use]
     pub fn render_pie_progress(&self, ast: &PieAst, visible_slices: usize) -> Frame {
         render_pie_layout(
@@ -628,86 +728,103 @@ impl StaticFrameRenderer {
         )
     }
 
+    /// Render a quadrant chart.
     #[must_use]
     pub fn render_quadrant(&self, ast: &QuadrantAst) -> Frame {
         render_quadrant_layout(&self.quadrant.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a ZenUML diagram.
     #[must_use]
     pub fn render_zenuml(&self, ast: &ZenUmlAst) -> Frame {
         render_zenuml_layout(&self.zenuml.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a Sankey diagram.
     #[must_use]
     pub fn render_sankey(&self, ast: &SankeyAst) -> Frame {
         render_sankey_layout(&self.sankey.layout(ast), self.palette, self.theme)
     }
 
+    /// Render an XY chart.
     #[must_use]
     pub fn render_xy_chart(&self, ast: &XyChartAst) -> Frame {
         render_xy_chart_layout(&self.xy_chart.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a block diagram.
     #[must_use]
     pub fn render_block_diagram(&self, ast: &BlockDiagramAst) -> Frame {
         render_block_layout(&self.block.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a packet diagram.
     #[must_use]
     pub fn render_packet(&self, ast: &PacketAst) -> Frame {
         render_packet_layout(&self.packet.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a Kanban diagram.
     #[must_use]
     pub fn render_kanban(&self, ast: &KanbanAst) -> Frame {
         render_kanban_layout(&self.kanban.layout(ast), self.palette, self.theme)
     }
 
+    /// Render an architecture diagram.
     #[must_use]
     pub fn render_architecture(&self, ast: &crate::ast::ArchitectureAst) -> Frame {
         render_architecture_layout(&self.architecture.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a radar chart.
     #[must_use]
     pub fn render_radar(&self, ast: &RadarAst) -> Frame {
         render_radar_layout(&self.radar.layout(ast), self.palette, self.theme)
     }
 
+    /// Render an event modeling diagram.
     #[must_use]
     pub fn render_event_modeling(&self, ast: &EventModelingAst) -> Frame {
         render_event_modeling_layout(&self.event_modeling.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a treemap diagram.
     #[must_use]
     pub fn render_treemap(&self, ast: &TreemapAst) -> Frame {
         render_treemap_layout(&self.treemap.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a Venn diagram.
     #[must_use]
     pub fn render_venn(&self, ast: &VennAst) -> Frame {
         render_venn_layout(&self.venn.layout(ast), self.palette, self.theme)
     }
 
+    /// Render an Ishikawa diagram.
     #[must_use]
     pub fn render_ishikawa(&self, ast: &IshikawaAst) -> Frame {
         render_ishikawa_layout(&self.ishikawa.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a Wardley map.
     #[must_use]
     pub fn render_wardley(&self, ast: &WardleyAst) -> Frame {
         render_wardley_layout(&self.wardley.layout(ast), self.palette, self.theme)
     }
 
+    /// Render a tree view diagram.
     #[must_use]
     pub fn render_tree_view(&self, ast: &TreeViewAst) -> Frame {
         render_tree_view_layout(&self.tree_view.layout(ast), self.theme)
     }
 
+    /// Render a mindmap with all depths visible.
     #[must_use]
     pub fn render_mindmap(&self, ast: &MindmapAst) -> Frame {
         self.render_mindmap_progress(ast, usize::MAX)
     }
 
+    /// Render a mindmap with nodes visible through `visible_depth`.
     #[must_use]
     pub fn render_mindmap_progress(&self, ast: &MindmapAst, visible_depth: usize) -> Frame {
         render_mindmap_layout(
@@ -718,11 +835,13 @@ impl StaticFrameRenderer {
         )
     }
 
+    /// Render a journey diagram with all tasks visible.
     #[must_use]
     pub fn render_journey(&self, ast: &JourneyAst) -> Frame {
         self.render_journey_progress(ast, ast.tasks.len())
     }
 
+    /// Render a journey diagram with the first `visible_tasks` tasks visible.
     #[must_use]
     pub fn render_journey_progress(&self, ast: &JourneyAst, visible_tasks: usize) -> Frame {
         render_journey_layout(
@@ -733,6 +852,7 @@ impl StaticFrameRenderer {
         )
     }
 
+    /// Render a git graph with all commits visible.
     #[must_use]
     pub fn render_gitgraph(&self, ast: &GitGraphAst) -> Frame {
         self.render_gitgraph_progress(
@@ -741,6 +861,7 @@ impl StaticFrameRenderer {
         )
     }
 
+    /// Render a git graph with the first `visible_commits` commits visible.
     #[must_use]
     pub fn render_gitgraph_progress(&self, ast: &GitGraphAst, visible_commits: usize) -> Frame {
         render_gitgraph_layout(
@@ -751,11 +872,13 @@ impl StaticFrameRenderer {
         )
     }
 
+    /// Render a timeline diagram with all periods visible.
     #[must_use]
     pub fn render_timeline(&self, ast: &TimelineAst) -> Frame {
         self.render_timeline_progress(ast, ast.periods.len())
     }
 
+    /// Render a timeline diagram with the first `visible_periods` periods visible.
     #[must_use]
     pub fn render_timeline_progress(&self, ast: &TimelineAst, visible_periods: usize) -> Frame {
         render_timeline_layout(
