@@ -1,6 +1,7 @@
 #include "player.hpp"
 
 #include "ansi.hpp"
+#include "asciinema_source.hpp"
 #include "audio_backend.hpp"
 #include "audio_decode.hpp"
 #include "bandwidth_guard.hpp"
@@ -1465,9 +1466,189 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   return 0;
 }
 
+bool isAsciinemaCastInput(std::string_view input) {
+  return std::filesystem::path(std::string(input)).extension() == ".cast";
+}
+
+int playAsciinemaCast(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  logGpuRequest(options, logger);
+
+  AsciinemaFrameSource source = AsciinemaFrameSource::fromFile(*options.input);
+  CONTOURTTY_LOG_INFO(logger, "asciinema cast width=" + std::to_string(source.header().width) +
+                                " height=" + std::to_string(source.header().height));
+  CONTOURTTY_LOG_INFO(logger, "no audio stream; using cast event pacing");
+
+  resetQuitFlag();
+  g_pending_commands.clear();
+  installQuitSignalHandlers();
+  installResizeSignalHandler();
+  TerminalSession session;
+  CONTOURTTY_LOG_INFO(logger, "playback started");
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  if (shape_vectors.has_value()) {
+    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+                                  " features=" + std::to_string(kShapeRegionCount));
+  }
+
+  TerminalSize terminal = queryTerminalSize();
+  CellBuffer cells;
+  DiffEmitter emitter;
+  RenderTemporalState temporal_state;
+  FramePacer pacer(options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
+  RenderStats render_stats;
+  RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
+  RuntimeDebugStats debug_stats(options, &logger);
+  bool quit = false;
+  bool paused = false;
+
+  std::string clear = "\x1b[2J";
+  writeAll(STDOUT_FILENO, clear);
+  consumeResizeFlag();
+
+  while (!shouldQuit()) {
+    switch (pollKeyboardCommand()) {
+      case PlaybackCommand::None:
+        break;
+      case PlaybackCommand::Quit:
+        quit = true;
+        break;
+      case PlaybackCommand::TogglePause:
+        paused = !paused;
+        CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+        break;
+      case PlaybackCommand::SeekBackward:
+      case PlaybackCommand::SeekForward:
+        break;
+    }
+    if (quit) {
+      break;
+    }
+    if (paused) {
+      if (!debug_stats.maybeReport(terminal)) {
+        quit = true;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+
+    std::optional<Frame> frame = source.nextFrame();
+    if (!frame.has_value()) {
+      if (options.loop) {
+        source.restart();
+        pacer.reset();
+        emitter.reset();
+        if (graphics_bandwidth.has_value()) {
+          graphics_bandwidth->reset();
+        }
+        temporal_state.reset();
+        std::string clear_loop = "\x1b[2J";
+        writeAll(STDOUT_FILENO, clear_loop);
+        CONTOURTTY_LOG_INFO(logger, "asciinema cast loop restarted");
+        continue;
+      }
+      break;
+    }
+
+    debug_stats.recordInputFrame();
+    pacer.waitForFrame(*frame);
+    if (shouldQuit()) {
+      quit = true;
+      break;
+    }
+    if (consumeResizeFlag()) {
+      terminal = queryTerminalSize();
+      emitter.reset();
+      if (graphics_bandwidth.has_value()) {
+        graphics_bandwidth->reset();
+      }
+      temporal_state.reset();
+      std::string clear_resize = "\x1b[2J";
+      writeAll(STDOUT_FILENO, clear_resize);
+    }
+
+    const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
+    const CliOptions render_options = debugRenderOptions(options, terminal);
+    renderFrame(*frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    EmissionResult emission;
+    if (graphics_options.has_value()) {
+      emission = EmissionResult{
+        .bytes = graphicsFrameBytes(cells, *graphics_options, render_terminal),
+        .changed_cells = cells.size(),
+      };
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
+      if (!decision.send) {
+        debug_stats.recordDroppedFrame();
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        if (!debug_stats.maybeReport(terminal)) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+    } else {
+      emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    }
+    debug_stats.recordPresentedFrame(cells, emission);
+    if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+      quit = true;
+      break;
+    }
+    if (!debug_stats.maybeReport(terminal)) {
+      quit = true;
+      break;
+    }
+  }
+
+  if (!quit && !shouldQuit()) {
+    pacer.finish();
+  }
+  if (logger.enabled()) {
+    const int64_t shape_match_us = render_stats.shape_match_ns / 1000;
+    const double avg_shape_match_ns = render_stats.shape_match_cells > 0
+                                        ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
+                                        : 0.0;
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000) +
+                                  " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
+                                  " shape_match_us=" + std::to_string(shape_match_us) +
+                                  " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns) +
+                                  " optical_flow_blocks=" + std::to_string(render_stats.optical_flow_blocks) +
+                                  " optical_flow_us=" + std::to_string(render_stats.optical_flow_ns / 1000) +
+                                  " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
+                                  " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
+  }
+  return quit ? 130 : 0;
+}
+
 int playMedia(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
+  }
+  if (isAsciinemaCastInput(*options.input)) {
+    return playAsciinemaCast(options, logger);
   }
   logGpuRequest(options, logger);
 
