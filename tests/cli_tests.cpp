@@ -295,6 +295,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--scene-camera", "orbit"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "scene camera parses");
+    expect(parsed.options.scene_camera == "orbit", "scene camera stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--scene-camera", "bad"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "scene camera rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--caps", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "caps dump parses");

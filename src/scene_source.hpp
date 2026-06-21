@@ -3,6 +3,7 @@
 #include "frame.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,14 @@ struct SceneGBuffer {
   std::vector<SceneVec3> normals;
 };
 
+enum class SceneCameraPreset {
+  Turntable,
+  Orbit,
+  Fly,
+};
+
+std::optional<SceneCameraPreset> parseSceneCameraPreset(std::string_view value) noexcept;
+std::optional<std::filesystem::path> resolveBundledScene(std::string_view input);
 SceneMesh parseObjScene(std::string_view text);
 SceneMesh loadObjScene(const std::filesystem::path& path);
 SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions options);

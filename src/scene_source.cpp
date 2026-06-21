@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <fstream>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -135,6 +136,35 @@ void putPixel(SceneGBuffer* buffer, int width, int x, int y, double depth, Scene
 }
 
 }  // namespace
+
+std::optional<SceneCameraPreset> parseSceneCameraPreset(std::string_view value) noexcept {
+  if (value == "turntable") {
+    return SceneCameraPreset::Turntable;
+  }
+  if (value == "orbit") {
+    return SceneCameraPreset::Orbit;
+  }
+  if (value == "fly") {
+    return SceneCameraPreset::Fly;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::filesystem::path> resolveBundledScene(std::string_view input) {
+  constexpr std::string_view prefix = "contourtty:scene:";
+  if (!input.starts_with(prefix)) {
+    return std::nullopt;
+  }
+  const std::string name(input.substr(prefix.size()));
+  if (name.empty() || name.find('/') != std::string::npos || name.find('\\') != std::string::npos) {
+    throw std::invalid_argument("invalid bundled scene name");
+  }
+  std::filesystem::path path = std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "share" / "contourtty" / "scenes" / (name + ".obj");
+  if (!std::filesystem::exists(path)) {
+    throw std::invalid_argument("unknown bundled scene: " + name);
+  }
+  return path;
+}
 
 SceneMesh parseObjScene(std::string_view text) {
   SceneMesh mesh;

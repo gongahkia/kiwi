@@ -2,6 +2,7 @@
 
 #include "glyph_ramp.hpp"
 #include "image_grid.hpp"
+#include "scene_source.hpp"
 #include "stdin_data.hpp"
 
 #include <charconv>
@@ -365,6 +366,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--plot",
           "--plot-window",
           "--plot-rate",
+          "--scene-camera",
           "--caps",
           "--dump-frame",
           "--dump-png",
@@ -595,6 +597,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.plot_rate_hz = *parsed;
+    } else if (flag == "--scene-camera") {
+      if (!parseSceneCameraPreset(*value).has_value()) {
+        result.error = "invalid value for --scene-camera: " + std::string(*value);
+        return result;
+      }
+      result.options.scene_camera = std::string(*value);
     } else if (flag == "--caps") {
       if (value->empty()) {
         result.error = "invalid value for --caps: expected dump or override spec";
@@ -733,6 +741,7 @@ std::string helpText(std::string_view program_name) {
       << "  --plot {waveform|spectrum|heatmap}\n"
       << "  --plot-window N                stdin plot rolling sample count\n"
       << "  --plot-rate N                  stdin plot refresh rate in Hz\n"
+      << "  --scene-camera {turntable|orbit|fly}\n"
       << "  --caps dump|SPEC               print or override terminal capability detection\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"

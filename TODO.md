@@ -150,7 +150,7 @@
 - [ ] **L3. User shader source.** DoD: `--input shader.glsl` accepts a Shadertoy-style `mainImage()`; uniforms `iResolution/iTime/iTimeDelta/iFrame/iMouse/iChannel0..3` populated; hot-reload on file change. Reference: PHASE_L §ShaderInput.
   - Blocked by L2 shader compiler plumbing.
 - [~] **L4. OBJ scene loader + tiny rasteriser.** DoD: `--input scene.obj` rotates Suzanne at 320×120 cells at ≥30 fps producing albedo + depth + normal G-buffers. Reference: PHASE_L §SceneInput.
-  - OBJ parser plus CPU albedo/depth/normal G-buffer rasterizer landed. Open: wire `--input scene.obj`, bundled Suzanne, camera controls, and fps evidence.
+  - OBJ parser plus CPU albedo/depth/normal G-buffer rasterizer landed; bundled scene alias and camera preset parsing are tested. Open: wire `--input scene.obj`, bundled Suzanne asset, camera controls in playback, and fps evidence.
 - [ ] **L5. Depth/normal-aware glyphs.** DoD: `normal-orient` + `depth-shade` Passes use the G-buffer instead of screen-space gradients; rotated cube shows hatching along surface curvature. Reference: PHASE_L §NormalGlyphs.
 - [x] **L6. `--graph file.yaml` loader.** DoD: minimal in-tree YAML parser; example graph reproducing default `structure` pipeline byte-identical; documented examples in `share/contourtty/graphs/`. Reference: PHASE_L §GraphYaml.
 - [ ] **L7. Bundled shaders.** DoD: `noise.glsl`, `plasma.glsl`, `feedback.glsl`, `sdf_room.glsl` ship under `share/contourtty/shaders/`; all compile clean on both backends; used as smoke tests. Reference: PHASE_L §Shaders.
@@ -210,7 +210,8 @@
   - `--plot`, `--plot-window`, and `--plot-rate` parse; `stdin_data_tests` cover numeric parsing and in-tree FFT magnitudes. Open: live stdin source, waveform/spectrum/heatmap rasterisation, render pacing.
 - [~] **O3. Asciinema re-stylise.** DoD: `--input recording.cast` replays through the render graph at original pacing; minimal VTE-lite handles SGR + cursor + scroll + clear; structure mode on a `htop` cast yields a stylised but readable version. Reference: PHASE_O §Asciinema.
   - `asciinema_in_tests` cover v2 header and event-line parsing. Open: VTE-lite cell buffer, original pacing, render graph restyling.
-- [ ] **O4. Bundled scenes + camera presets.** DoD: `contourtty --input contourtty:scene:suzanne --style cell-shade` works with no extra files; `--scene-camera turntable|orbit|fly` selectable. Reference: PHASE_O §SceneSource.
+- [~] **O4. Bundled scenes + camera presets.** DoD: `contourtty --input contourtty:scene:suzanne --style cell-shade` works with no extra files; `--scene-camera turntable|orbit|fly` selectable. Reference: PHASE_O §SceneSource.
+  - `contourtty:scene:cube` resolves to an installed OBJ asset; `--scene-camera turntable|orbit|fly` parses. Open: bundled Suzanne, `cell-shade` style, and scene playback source.
 - [ ] **O5. Multi-source overlay.** DoD: `--input video.mp4 --overlay scene.obj` composes scene over video with depth-threshold alpha. Reference: PHASE_O §Pipeline.
 - [ ] **O6. Caption sidecar.** DoD: `--captions out.srt` writes a deterministic, time-aligned SubRip summary track; covered by golden test. Reference: PHASE_O §Captions.
 - [ ] **O7. Content-path tests + bench.** DoD: `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, `caption_summarise_tests` all pass; stdin plot fps and asciinema replay overhead in BENCHMARKS.md. Reference: PHASE_O §Tests / §Bench.

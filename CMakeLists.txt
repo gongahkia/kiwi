@@ -121,6 +121,7 @@ add_executable(contourtty
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
+  src/scene_source.cpp
   src/sextant_renderer.cpp
   src/stdin_data.cpp
   src/stipple.cpp
@@ -476,6 +477,7 @@ add_executable(cli_tests
   src/cli.cpp
   src/glyph_ramp.cpp
   src/image_grid.cpp
+  src/scene_source.cpp
   src/stdin_data.cpp
 )
 target_include_directories(cli_tests PRIVATE src)

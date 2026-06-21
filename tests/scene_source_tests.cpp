@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <optional>
 
 namespace {
 
@@ -34,6 +36,15 @@ bool anyNormal(const contourtty::SceneGBuffer& buffer) {
 }  // namespace
 
 int main() {
+  expect(contourtty::parseSceneCameraPreset("turntable") == contourtty::SceneCameraPreset::Turntable, "turntable camera parses");
+  expect(contourtty::parseSceneCameraPreset("orbit") == contourtty::SceneCameraPreset::Orbit, "orbit camera parses");
+  expect(contourtty::parseSceneCameraPreset("fly") == contourtty::SceneCameraPreset::Fly, "fly camera parses");
+  expect(!contourtty::parseSceneCameraPreset("bad").has_value(), "bad camera rejected");
+
+  const std::optional<std::filesystem::path> bundled = contourtty::resolveBundledScene("contourtty:scene:cube");
+  expect(bundled.has_value(), "bundled cube resolves");
+  expect(contourtty::loadObjScene(*bundled).triangles.size() == 12, "bundled cube loads");
+
   const contourtty::SceneMesh triangle = contourtty::parseObjScene(
     "v -1 -1 0\n"
     "v 1 -1 0\n"
