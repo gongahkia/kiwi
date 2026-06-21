@@ -1,3 +1,5 @@
+//! Command-line interface for rendering and managing Kumeyuri diagrams.
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     env,
