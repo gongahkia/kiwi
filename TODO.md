@@ -173,7 +173,8 @@
   - `--diff-oklab-eps` suppresses subthreshold truecolor SGR re-emits against the last emitted state. Open: pan-clip byte/frame benchmark vs v0.5.
 - [~] **M6. Seek/resize history clear.** DoD: seeking forward then back, or resizing, doesn't carry ghost glyph choices. Reference: PHASE_M §Seek.
   - Playback seek, loop restart, and resize reset glyph hysteresis state alongside the diff emitter. Open: interactive seek/resize regression proof.
-- [ ] **M7. Temporal tests + bench.** DoD: `optical_flow_tests`, `hysteresis_tests`, golden flicker metric below threshold for default stickiness; BENCHMARKS.md records per-Pass cost. Reference: PHASE_M §Tests / §Bench.
+- [~] **M7. Temporal tests + bench.** DoD: `optical_flow_tests`, `hysteresis_tests`, golden flicker metric below threshold for default stickiness; BENCHMARKS.md records per-Pass cost. Reference: PHASE_M §Tests / §Bench.
+  - `optical_flow_tests`, `hysteresis_tests`, `warp_history_tests`, graph goldens, and BENCHMARKS temporal pass cost rows are in place. Open: golden flicker metric threshold and supersample cost row.
 - [ ] **Phase M exit criteria.** DoD: per-cell glyph-change rate on the pan-clip baseline drops by ≥60%; A/V drift unchanged within ±2 ms; no fidelity regression on real motion.
 
 ---

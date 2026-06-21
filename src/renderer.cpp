@@ -651,10 +651,15 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
           if (!analysis_luminance.has_value()) {
             return;
           }
+          const auto flow_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
           if (temporal_state->previous_luminance.has_value() &&
               temporal_state->previous_luminance->width == analysis_luminance->width &&
               temporal_state->previous_luminance->height == analysis_luminance->height) {
             flow_field = computeBlockOpticalFlow(*temporal_state->previous_luminance, *analysis_luminance);
+            if (stats != nullptr) {
+              stats->optical_flow_blocks += static_cast<int64_t>(flow_field->vectors.size());
+              stats->optical_flow_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - flow_started).count();
+            }
           }
           temporal_state->previous_luminance = *analysis_luminance;
         },
@@ -692,7 +697,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .run = [&](PassContext&) {
         warped_previous_glyphs.clear();
         if (flow_field.has_value() && !previous_glyphs.empty()) {
+          const auto warp_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
           warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *flow_field);
+          if (stats != nullptr) {
+            stats->warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size());
+            stats->warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();
+          }
         }
       },
     };

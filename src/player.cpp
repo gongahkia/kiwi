@@ -1309,7 +1309,11 @@ int exportMedia(const CliOptions& options, Logger& logger) {
                                     " render_us=" + std::to_string(render_stats.render_ns / 1000) +
                                     " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
                                     " shape_match_us=" + std::to_string(shape_match_us) +
-                                    " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns));
+                                    " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns) +
+                                    " optical_flow_blocks=" + std::to_string(render_stats.optical_flow_blocks) +
+                                    " optical_flow_us=" + std::to_string(render_stats.optical_flow_ns / 1000) +
+                                    " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
+                                    " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
     }
   };
 
@@ -1671,7 +1675,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
                                   " render_us=" + std::to_string(render_us) +
                                   " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
                                   " shape_match_us=" + std::to_string(shape_match_us) +
-                                  " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns));
+                                  " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns) +
+                                  " optical_flow_blocks=" + std::to_string(render_stats.optical_flow_blocks) +
+                                  " optical_flow_us=" + std::to_string(render_stats.optical_flow_ns / 1000) +
+                                  " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
+                                  " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
   }
   (void)debug_stats.maybeReport(terminal, true);
   if (quit || shouldQuit()) {
