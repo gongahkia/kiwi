@@ -20,6 +20,7 @@
 #include "graphics_emitter.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
+#include "hybrid_emitter.hpp"
 #include "kitty_graphics.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
@@ -1114,18 +1115,14 @@ std::optional<GraphicsFrameOptions> graphicsOptionsFromResolution(const CliOptio
     CONTOURTTY_LOG_INFO(logger, "render mode " + options.render_mode + " degraded to text");
     return std::nullopt;
   }
-  if (resolution.mode == ResolvedRenderMode::Hybrid) {
-    CONTOURTTY_LOG_INFO(logger, "hybrid render mode requested; sparse overlay path not wired yet, using text");
-    return std::nullopt;
-  }
-  if (resolution.mode != ResolvedRenderMode::Pixel) {
+  if (resolution.mode != ResolvedRenderMode::Pixel && resolution.mode != ResolvedRenderMode::Hybrid) {
     return std::nullopt;
   }
   if (resolution.protocol == GraphicsProtocol::Sixel || resolution.protocol == GraphicsProtocol::None) {
     CONTOURTTY_LOG_INFO(logger, "graphics protocol " + std::string(toString(resolution.protocol)) + " not implemented; using text");
     return std::nullopt;
   }
-  CONTOURTTY_LOG_INFO(logger, "render mode pixel protocol=" + std::string(toString(resolution.protocol)));
+  CONTOURTTY_LOG_INFO(logger, "render mode " + std::string(toString(resolution.mode)) + " protocol=" + std::string(toString(resolution.protocol)));
   return GraphicsFrameOptions{
     .protocol = resolution.protocol,
     .color_mode = color_mode,
@@ -1144,6 +1141,18 @@ std::string graphicsFrameBytes(const CellBuffer& cells, const GraphicsFrameOptio
   appendCursorMove(bytes, origin.row, origin.col);
   bytes += emitGraphicsFrame(cells, graphics_options).bytes;
   return bytes;
+}
+
+std::string renderedGraphicsFrameBytes(const CellBuffer& cells, const CliOptions& options, const GraphicsFrameOptions& graphics_options, EmissionOptions emission_options, TerminalSize terminal) {
+  if (options.render_mode == "hybrid") {
+    return emitHybridFrame(cells, HybridFrameOptions{
+                              .graphics = graphics_options,
+                              .text = emission_options,
+                              .terminal = terminal,
+                            })
+      .bytes;
+  }
+  return graphicsFrameBytes(cells, graphics_options, terminal);
 }
 
 std::chrono::steady_clock::time_point exportTimepoint(double timestamp) {
@@ -1401,7 +1410,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   const auto emit_cells = [&](double timestamp) -> std::optional<EmissionResult> {
     if (graphics_options.has_value()) {
-      const std::string bytes = graphicsFrameBytes(cells, *graphics_options, terminal);
+      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal);
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
       if (!decision.send) {
         if (decision.warn) {
@@ -1696,7 +1705,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = graphicsFrameBytes(cells, *graphics_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -1865,7 +1874,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = graphicsFrameBytes(cells, *graphics_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -2178,7 +2187,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = graphicsFrameBytes(cells, *graphics_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());

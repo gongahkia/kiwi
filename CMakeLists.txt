@@ -106,6 +106,7 @@ add_executable(contourtty
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
+  src/hybrid_emitter.cpp
   src/iterm_inline.cpp
   src/kuwahara.cpp
   src/kitty_graphics.cpp
@@ -1290,6 +1291,45 @@ else()
   endif()
 endif()
 add_test(NAME overlay_compose COMMAND overlay_compose_tests)
+
+add_executable(hybrid_emitter_tests
+  tests/hybrid_emitter_tests.cpp
+  src/ansi.cpp
+  src/base64.cpp
+  src/color_dither.cpp
+  src/color_quantization.cpp
+  src/glyph_font.cpp
+  src/graphics_alignment.cpp
+  src/graphics_emitter.cpp
+  src/hybrid_emitter.cpp
+  src/iterm_inline.cpp
+  src/kitty_graphics.cpp
+  src/png_writer.cpp
+  src/raster_compose.cpp
+  src/render_layout.cpp
+  src/render_mode.cpp
+)
+target_include_directories(hybrid_emitter_tests PRIVATE src)
+target_include_directories(hybrid_emitter_tests SYSTEM PRIVATE third_party)
+target_compile_features(hybrid_emitter_tests PRIVATE cxx_std_20)
+set_target_properties(hybrid_emitter_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(hybrid_emitter_tests PRIVATE PkgConfig::FREETYPE ZLIB::ZLIB)
+if(MSVC)
+  target_compile_options(hybrid_emitter_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(hybrid_emitter_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(hybrid_emitter_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(hybrid_emitter_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME hybrid_emitter COMMAND hybrid_emitter_tests)
 
 add_executable(graphics_emitter_tests
   tests/graphics_emitter_tests.cpp
