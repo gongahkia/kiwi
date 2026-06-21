@@ -1170,10 +1170,12 @@ fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConf
         let Some((key, value)) = field.split_once(':') else {
             continue;
         };
-        let key = key.trim();
+        let key = unquote(key.trim());
         let value = value.trim();
         match key {
-            "animate" => mode = Some(parse_animation_mode(value)?),
+            "animate" => {
+                parse_animation_value(value, &mut mode, &mut speed, &mut repeat, &mut easing)?
+            }
             "speed" => speed = parse_animation_speed(value)?,
             "loop" => repeat = parse_animation_loop(value)?,
             "easing" => easing = parse_animation_easing(value)?,
@@ -1194,11 +1196,14 @@ fn split_directive_fields(raw: &str) -> Vec<&str> {
     let mut fields = Vec::new();
     let mut start = 0usize;
     let mut quote = None;
+    let mut depth = 0usize;
     for (index, glyph) in raw.char_indices() {
         match (quote, glyph) {
             (Some(active), value) if value == active => quote = None,
             (None, '\'' | '"') => quote = Some(glyph),
-            (None, ',') => {
+            (None, '{') => depth += 1,
+            (None, '}') => depth = depth.saturating_sub(1),
+            (None, ',') if depth == 0 => {
                 fields.push(raw[start..index].trim());
                 start = index + glyph.len_utf8();
             }
@@ -1207,6 +1212,41 @@ fn split_directive_fields(raw: &str) -> Vec<&str> {
     }
     fields.push(raw[start..].trim());
     fields
+}
+
+fn parse_animation_value(
+    value: &str,
+    mode: &mut Option<AnimationMode>,
+    speed: &mut f32,
+    repeat: &mut bool,
+    easing: &mut AnimationEasing,
+) -> Result<(), AnimationConfigParseError> {
+    let Some(body) = object_body(value) else {
+        *mode = Some(parse_animation_mode(value)?);
+        return Ok(());
+    };
+
+    for field in split_directive_fields(body) {
+        let Some((key, value)) = field.split_once(':') else {
+            continue;
+        };
+        match unquote(key.trim()) {
+            "mode" => *mode = Some(parse_animation_mode(value.trim())?),
+            "speed" => *speed = parse_animation_speed(value.trim())?,
+            "loop" => *repeat = parse_animation_loop(value.trim())?,
+            "easing" => *easing = parse_animation_easing(value.trim())?,
+            key => return Err(AnimationConfigParseError::UnknownField(key.to_owned())),
+        }
+    }
+    Ok(())
+}
+
+fn object_body(value: &str) -> Option<&str> {
+    let value = value.trim();
+    value
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+        .map(str::trim)
 }
 
 fn parse_animation_mode(value: &str) -> Result<AnimationMode, AnimationConfigParseError> {
@@ -2939,6 +2979,23 @@ mod tests {
             .unwrap();
 
         assert_eq!(config.mode, AnimationMode::Trace);
+        assert_eq!(config.speed, 2.0);
+        assert!(config.repeat);
+        assert_eq!(config.easing, AnimationEasing::Ease);
+    }
+
+    #[test]
+    fn animation_config_parses_object_animate_directive() {
+        let directive = Parser::parse_mermaid_directive(
+            r#"%%{ animate: { "mode": "none", "speed": 2.0, "loop": true, "easing": "ease" } }%%"#,
+        )
+        .unwrap();
+
+        let config = AnimationConfig::from_directive(&directive)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(config.mode, AnimationMode::None);
         assert_eq!(config.speed, 2.0);
         assert!(config.repeat);
         assert_eq!(config.easing, AnimationEasing::Ease);
