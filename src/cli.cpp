@@ -2,6 +2,7 @@
 
 #include "glyph_ramp.hpp"
 #include "image_grid.hpp"
+#include "stdin_data.hpp"
 
 #include <charconv>
 #include <cstdlib>
@@ -361,6 +362,9 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--export",
           "--graph",
           "--grid",
+          "--plot",
+          "--plot-window",
+          "--plot-rate",
           "--caps",
           "--dump-frame",
           "--dump-png",
@@ -571,6 +575,26 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.grid = std::string(*value);
+    } else if (flag == "--plot") {
+      if (!parsePlotKind(*value).has_value()) {
+        result.error = "invalid value for --plot: " + std::string(*value);
+        return result;
+      }
+      result.options.plot = std::string(*value);
+    } else if (flag == "--plot-window") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --plot-window: " + std::string(*value);
+        return result;
+      }
+      result.options.plot_window = *parsed;
+    } else if (flag == "--plot-rate") {
+      const auto parsed = parsePositiveDouble(*value, false);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --plot-rate: " + std::string(*value);
+        return result;
+      }
+      result.options.plot_rate_hz = *parsed;
     } else if (flag == "--caps") {
       if (value->empty()) {
         result.error = "invalid value for --caps: expected dump or override spec";
@@ -706,6 +730,9 @@ std::string helpText(std::string_view program_name) {
       << "  --no-debug-stats               disable config-default debug stats\n"
       << "  --graph dump|FILE.yaml         print resolved graph or load graph file\n"
       << "  --grid CxR                     image contact sheet columns x rows\n"
+      << "  --plot {waveform|spectrum|heatmap}\n"
+      << "  --plot-window N                stdin plot rolling sample count\n"
+      << "  --plot-rate N                  stdin plot refresh rate in Hz\n"
       << "  --caps dump|SPEC               print or override terminal capability detection\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"

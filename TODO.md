@@ -206,7 +206,8 @@
 
 - [~] **O1. Image grid / contact sheet.** DoD: `--input "*.png" --grid 4x3` renders a fitted grid; resize reflows; per-tile fps independent for GIF tiles. Reference: PHASE_O §ImageGrid.
   - `--grid CxR` parses; `image_grid_tests` cover in-process glob expansion and tile-slot layout. Open: MediaSource rendering, resize reflow, GIF tile pacing.
-- [ ] **O2. Stdin data plots.** DoD: `seq 1 1000 | awk '{print sin($1/10)}' | contourtty --input stdin --plot waveform` renders a smooth sine; `spectrum` runs a small in-tree FFT; `heatmap` slides a 2D window. Reference: PHASE_O §StdinData.
+- [~] **O2. Stdin data plots.** DoD: `seq 1 1000 | awk '{print sin($1/10)}' | contourtty --input stdin --plot waveform` renders a smooth sine; `spectrum` runs a small in-tree FFT; `heatmap` slides a 2D window. Reference: PHASE_O §StdinData.
+  - `--plot`, `--plot-window`, and `--plot-rate` parse; `stdin_data_tests` cover numeric parsing and in-tree FFT magnitudes. Open: live stdin source, waveform/spectrum/heatmap rasterisation, render pacing.
 - [ ] **O3. Asciinema re-stylise.** DoD: `--input recording.cast` replays through the render graph at original pacing; minimal VTE-lite handles SGR + cursor + scroll + clear; structure mode on a `htop` cast yields a stylised but readable version. Reference: PHASE_O §Asciinema.
 - [ ] **O4. Bundled scenes + camera presets.** DoD: `contourtty --input contourtty:scene:suzanne --style cell-shade` works with no extra files; `--scene-camera turntable|orbit|fly` selectable. Reference: PHASE_O §SceneSource.
 - [ ] **O5. Multi-source overlay.** DoD: `--input video.mp4 --overlay scene.obj` composes scene over video with depth-threshold alpha. Reference: PHASE_O §Pipeline.

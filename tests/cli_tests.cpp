@@ -279,6 +279,22 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--input", "stdin", "--plot", "waveform", "--plot-window", "512", "--plot-rate", "20"};
+    const auto parsed = contourtty::parseArgs(9, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "stdin plot flags parse");
+    expect(parsed.options.input.has_value() && *parsed.options.input == "stdin", "stdin input stored");
+    expect(parsed.options.plot.has_value() && *parsed.options.plot == "waveform", "plot stored");
+    expect(parsed.options.plot_window == 512, "plot window stored");
+    expect(parsed.options.plot_rate_hz == 20.0, "plot rate stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--plot", "bad"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "plot rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--caps", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "caps dump parses");
