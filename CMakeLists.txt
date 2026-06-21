@@ -104,6 +104,7 @@ add_executable(contourtty
   src/renderer.cpp
   src/sextant_renderer.cpp
   src/structure_edges.cpp
+  src/structure_overlay.cpp
   src/structure_sampling.cpp
   src/stream_resolver.cpp
   src/terminal.cpp
@@ -742,6 +743,7 @@ add_executable(golden_frame_tests
   src/renderer.cpp
   src/sextant_renderer.cpp
   src/structure_edges.cpp
+  src/structure_overlay.cpp
   src/structure_sampling.cpp
 )
 target_include_directories(golden_frame_tests PRIVATE src)
@@ -998,6 +1000,7 @@ add_test(NAME terminal_caps COMMAND terminal_caps_tests)
 add_executable(auto_mode_tests
   tests/auto_mode_tests.cpp
   src/auto_mode.cpp
+  src/structure_overlay.cpp
 )
 target_include_directories(auto_mode_tests PRIVATE src)
 target_compile_features(auto_mode_tests PRIVATE cxx_std_20)

@@ -54,6 +54,21 @@ int main() {
 
   {
     contourtty::CliOptions options = autoOptions();
+    options.structure_overlay = "off";
+    options.edge_threshold = 0.2;
+    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    expect(options.mode == "luminance", "auto overlay off fallback");
+  }
+
+  {
+    contourtty::CliOptions options = autoOptions();
+    options.structure_overlay = "on";
+    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    expect(options.mode == "structure", "auto overlay on fallback");
+  }
+
+  {
+    contourtty::CliOptions options = autoOptions();
     contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
     expect(options.mode == "luminance", "auto luminance fallback");
   }

@@ -43,7 +43,7 @@ The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. A hea
 
 With audio present in local files, video is paced from the audio playback clock. Remote streams and camera input use wall-clock pacing to avoid full audio predecode before playback. Late video frames are dropped once they fall too far behind the clock, capped at 50ms, so playback holds sync instead of accumulating lag. `--max-fps N` decimates rendered video frames for slow terminals while audio continues; `--log FILE` records rendered/dropped frame counts and drift.
 
-Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
+Structure overlay replaces high-edge cell glyphs while preserving the active blitter colors. `--structure-overlay auto` enables it for `--mode structure` or structure-tuning flags, `on` forces it for modes such as octant/sextant/braille/halfblock/blocks, and `off` disables it. `--edge-strength 0` disables edge picks, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
 Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, `portrait-30`, `lineart-40`, `blueprint-24`, and `braille`; `portrait-30` is density-rich for faces/figures, `lineart-40` emphasizes strokes/corners, and `blueprint-24` keeps thin technical geometry. `--mode braille` packs a 2x4 luminance grid into each Unicode braille cell with separate foreground/background averages; `--charset braille` remains accepted as a packed-renderer alias. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--ramp-sort` sorts the active ramp by FreeType ink density, so it requires `--font` unless the active charset is `braille`. `--glyph-features hog` swaps shape matching from the legacy 9-region overlap vector to a 32-D HoG vector; `--glyph-features sdf` uses signed-distance overlap features. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
 
@@ -82,6 +82,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
 | `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select renderer. |
 | `--render-mode auto\|text\|pixel\|hybrid` | Select text/pixel ladder intent; pixel transport lands in Phase N. |
+| `--structure-overlay auto\|on\|off` | Overlay structure contours over the active blitter. |
 | `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select a render-graph preset; overrides config `pipeline`. |
 | `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
 | `--glyph-features overlap\|hog\|sdf` | Select the structure shape-matching feature vector. |

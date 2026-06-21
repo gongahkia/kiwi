@@ -22,6 +22,7 @@
 #include "render_layout.hpp"
 #include "renderer.hpp"
 #include "structure_edges.hpp"
+#include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
 #include "stream_resolver.hpp"
 #include "terminal.hpp"
@@ -1147,7 +1148,7 @@ std::u32string rampFromOptions(const CliOptions& options, const GlyphFont* glyph
 }
 
 std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
-  if (options.mode != "structure" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
+  if (!structureOverlayEnabled(options)) {
     return std::nullopt;
   }
   if (options.glyph_features == "hog") {

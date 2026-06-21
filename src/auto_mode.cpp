@@ -1,18 +1,8 @@
 #include "auto_mode.hpp"
 
+#include "structure_overlay.hpp"
+
 namespace contourtty {
-namespace {
-
-bool structureImplied(const CliOptions& options) {
-  return options.edge_threshold.has_value() ||
-         options.edge_strength.has_value() ||
-         options.dog_sigma.has_value() ||
-         options.dog_threshold.has_value() ||
-         options.contrast.has_value() ||
-         options.glyph_features != "overlap";
-}
-
-}  // namespace
 
 void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
   if (options->mode != "auto") {
@@ -34,7 +24,7 @@ void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
     options->mode = "halfblock";
     return;
   }
-  options->mode = structureImplied(*options) ? "structure" : "luminance";
+  options->mode = structureOverlayEnabled(*options) ? "structure" : "luminance";
 }
 
 }  // namespace contourtty

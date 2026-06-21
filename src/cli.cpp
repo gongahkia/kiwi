@@ -316,6 +316,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--max-fps",
           "--mode",
           "--render-mode",
+          "--structure-overlay",
           "--pipeline",
           "--font",
           "--glyph-features",
@@ -397,6 +398,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.render_mode = std::string(*value);
+    } else if (flag == "--structure-overlay") {
+      if (!isOneOf(*value, {"auto", "on", "off"})) {
+        result.error = "invalid value for --structure-overlay: " + std::string(*value);
+        return result;
+      }
+      result.options.structure_overlay = std::string(*value);
     } else if (flag == "--pipeline") {
       if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"})) {
         result.error = "invalid value for --pipeline: " + std::string(*value);
@@ -574,6 +581,7 @@ std::string helpText(std::string_view program_name) {
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
       << "  --render-mode {auto|text|pixel|hybrid}\n"
+      << "  --structure-overlay {auto|on|off}\n"
       << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
       << "  --glyph-features {overlap|hog|sdf}\n"

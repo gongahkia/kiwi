@@ -14,6 +14,7 @@
 #include "render_layout.hpp"
 #include "sextant_renderer.hpp"
 #include "structure_edges.hpp"
+#include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
 
 #include <algorithm>
@@ -23,6 +24,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -87,7 +89,18 @@ GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
   return graph_options;
 }
 
+std::optional<std::string> directBlitterMode(const CliOptions& options) {
+  if (options.mode == "halfblock" || options.mode == "blocks" || options.mode == "octant" || options.mode == "sextant" || options.mode == "braille") {
+    return options.mode;
+  }
+  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+    return "braille";
+  }
+  return std::nullopt;
+}
+
 std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
+  const bool overlay_enabled = structureOverlayEnabled(options);
   const auto decode_pass = [] {
     return Pass{
       .id = "decode",
@@ -102,89 +115,75 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     };
   };
-  std::vector<Pass> passes;
-  passes.push_back(decode_pass());
-  if (options.mode == "halfblock") {
-    passes.push_back(Pass{
-      .id = "halfblock",
+  const auto luminance_pass = [] {
+    return Pass{
+      .id = "luminance",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
-    });
-    passes.push_back(emit_pass("cells"));
-    return passes;
-  }
-  if (options.mode == "blocks") {
-    passes.push_back(Pass{
-      .id = "blocks",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-    });
-    passes.push_back(emit_pass("cells"));
-    return passes;
-  }
-  if (options.mode == "octant") {
-    passes.push_back(Pass{
-      .id = "octant",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-    });
-    passes.push_back(emit_pass("cells"));
-    return passes;
-  }
-  if (options.mode == "sextant") {
-    passes.push_back(Pass{
-      .id = "sextant",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-    });
-    passes.push_back(emit_pass("cells"));
-    return passes;
-  }
-  if (options.mode == "braille" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
-    passes.push_back(Pass{
-      .id = "braille",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-    });
-    passes.push_back(emit_pass("cells"));
-    return passes;
-  }
-  passes.push_back(Pass{
-    .id = "luminance",
-    .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-    .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
-    .supports = {Backend::Cpu},
-  });
-  if (options.mode == "structure") {
-    passes.push_back(Pass{
+    };
+  };
+  const auto append_structure_analysis = [](std::vector<Pass>* passes) {
+    passes->push_back(Pass{
       .id = "contrast",
       .inputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "dog",
       .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu, Backend::Metal},
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "edge-field",
       .inputs = {renderPort("gradients", BufferKind::GradientField)},
       .outputs = {renderPort("edge-field", BufferKind::EdgeField)},
       .supports = {Backend::Cpu},
     });
+  };
+  const auto append_structure_overlay = [](std::vector<Pass>* passes, const std::string& base_input) {
+    passes->push_back(Pass{
+      .id = "cell-shape",
+      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort(base_input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors)},
+      .supports = {Backend::Cpu},
+    });
+    passes->push_back(Pass{
+      .id = "overlay-structure",
+      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu, Backend::Metal},
+    });
+  };
+  std::vector<Pass> passes;
+  passes.push_back(decode_pass());
+  if (const std::optional<std::string> blitter = directBlitterMode(options)) {
+    const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
+    passes.push_back(Pass{
+      .id = *blitter,
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort(blitter_output, BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    if (overlay_enabled) {
+      passes.push_back(luminance_pass());
+      append_structure_analysis(&passes);
+      append_structure_overlay(&passes, blitter_output);
+    }
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  passes.push_back(luminance_pass());
+  if (overlay_enabled) {
+    append_structure_analysis(&passes);
     passes.push_back(Pass{
       .id = "cell-average",
       .inputs = {renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)},
@@ -197,18 +196,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .outputs = {renderPort("base-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
     });
-    passes.push_back(Pass{
-      .id = "cell-shape",
-      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("base-cells", BufferKind::CellGlyphs)},
-      .outputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors)},
-      .supports = {Backend::Cpu},
-    });
-    passes.push_back(Pass{
-      .id = "shape-match",
-      .inputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("base-cells", BufferKind::CellGlyphs)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu, Backend::Metal},
-    });
+    append_structure_overlay(&passes, "base-cells");
     passes.push_back(emit_pass("cells"));
     return passes;
   }
@@ -250,6 +238,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<Rgb> average_colors;
   std::vector<CellLuminanceRegion> cell_shape_regions;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
+  const bool overlay_enabled = structureOverlayEnabled(options);
   std::vector<ShapeMatchStats> worker_stats;
 
   const auto finish_stats = [&] {
@@ -284,91 +273,39 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
-  if (options.mode == "halfblock") {
-    std::vector<Pass> passes;
-    passes.push_back(decode_pass());
-    passes.push_back(Pass{
-      .id = "halfblock",
+  const auto luminance_pass = [&] {
+    return Pass{
+      .id = "luminance",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        renderHalfBlockFrame(frame, size.cols, size.rows, cells);
+        analysis_luminance = makeLuminanceField(frame);
       },
-    });
-    passes.push_back(emit_pass("cells"));
-    run_graph(std::move(passes));
-    finish_stats();
-    return;
-  }
-  if (options.mode == "blocks") {
-    std::vector<Pass> passes;
-    passes.push_back(decode_pass());
-    passes.push_back(Pass{
-      .id = "blocks",
+    };
+  };
+
+  const auto append_blitter_pass = [&](std::vector<Pass>* passes, const std::string& blitter, const std::string& output) {
+    passes->push_back(Pass{
+      .id = blitter,
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort(output, BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
-      .run = [&](PassContext&) {
-        renderBlockSadFrame(frame, size.cols, size.rows, cells);
+      .run = [&, blitter](PassContext&) {
+        if (blitter == "halfblock") {
+          renderHalfBlockFrame(frame, size.cols, size.rows, cells);
+        } else if (blitter == "blocks") {
+          renderBlockSadFrame(frame, size.cols, size.rows, cells);
+        } else if (blitter == "octant") {
+          renderOctantFrame(frame, size.cols, size.rows, cells);
+        } else if (blitter == "sextant") {
+          renderSextantFrame(frame, size.cols, size.rows, cells);
+        } else if (blitter == "braille") {
+          renderBrailleFrame(frame, size.cols, size.rows, cells);
+        }
       },
     });
-    passes.push_back(emit_pass("cells"));
-    run_graph(std::move(passes));
-    finish_stats();
-    return;
-  }
-  if (options.mode == "octant") {
-    std::vector<Pass> passes;
-    passes.push_back(decode_pass());
-    passes.push_back(Pass{
-      .id = "octant",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-      .run = [&](PassContext&) {
-        renderOctantFrame(frame, size.cols, size.rows, cells);
-      },
-    });
-    passes.push_back(emit_pass("cells"));
-    run_graph(std::move(passes));
-    finish_stats();
-    return;
-  }
-  if (options.mode == "sextant") {
-    std::vector<Pass> passes;
-    passes.push_back(decode_pass());
-    passes.push_back(Pass{
-      .id = "sextant",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-      .run = [&](PassContext&) {
-        renderSextantFrame(frame, size.cols, size.rows, cells);
-      },
-    });
-    passes.push_back(emit_pass("cells"));
-    run_graph(std::move(passes));
-    finish_stats();
-    return;
-  }
-  if (options.mode == "braille" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
-    std::vector<Pass> passes;
-    passes.push_back(decode_pass());
-    passes.push_back(Pass{
-      .id = "braille",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu},
-      .run = [&](PassContext&) {
-        renderBrailleFrame(frame, size.cols, size.rows, cells);
-      },
-    });
-    passes.push_back(emit_pass("cells"));
-    run_graph(std::move(passes));
-    finish_stats();
-    return;
-  }
+  };
 
   const auto cell_average_pass = [&](std::vector<PassPort> inputs) {
     return Pass{
@@ -427,20 +364,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
-  std::vector<Pass> passes;
-  passes.push_back(decode_pass());
-  passes.push_back(Pass{
-    .id = "luminance",
-    .inputs = {renderPort("frame", BufferKind::RgbFrame)},
-    .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
-    .supports = {Backend::Cpu},
-    .run = [&](PassContext&) {
-      analysis_luminance = makeLuminanceField(frame);
-    },
-  });
-
-  if (options.mode == "structure") {
-    passes.push_back(Pass{
+  const auto append_structure_analysis = [&](std::vector<Pass>* passes) {
+    passes->push_back(Pass{
       .id = "contrast",
       .inputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
@@ -449,7 +374,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         analysis_luminance = applyStructureContrast(*analysis_luminance, contrastFromCli(options));
       },
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "dog",
       .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
@@ -468,7 +393,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         analysis_luminance = differenceOfGaussians(*analysis_luminance, dog_options);
       },
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("gradients", BufferKind::GradientField)},
@@ -489,7 +414,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         }
       },
     });
-    passes.push_back(Pass{
+    passes->push_back(Pass{
       .id = "edge-field",
       .inputs = {renderPort("gradients", BufferKind::GradientField)},
       .outputs = {renderPort("edge-field", BufferKind::EdgeField)},
@@ -500,11 +425,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         }
       },
     });
-    passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)}));
-    passes.push_back(ramp_pick_pass("base-cells"));
-    passes.push_back(Pass{
+  };
+
+  const auto cell_shape_pass = [&](const std::string& base_input) {
+    return Pass{
       .id = "cell-shape",
-      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("base-cells", BufferKind::CellGlyphs)},
+      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
@@ -519,10 +445,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
           }
         }
       },
-    });
-    passes.push_back(Pass{
-      .id = "shape-match",
-      .inputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("base-cells", BufferKind::CellGlyphs)},
+    };
+  };
+
+  const auto overlay_structure_pass = [&](const std::string& base_input) {
+    return Pass{
+      .id = "overlay-structure",
+      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext&) {
@@ -594,7 +523,36 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
           }
         }
       },
-    });
+    };
+  };
+
+  if (const std::optional<std::string> blitter = directBlitterMode(options)) {
+    std::vector<Pass> passes;
+    const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
+    passes.push_back(decode_pass());
+    append_blitter_pass(&passes, *blitter, blitter_output);
+    if (overlay_enabled) {
+      passes.push_back(luminance_pass());
+      append_structure_analysis(&passes);
+      passes.push_back(cell_shape_pass(blitter_output));
+      passes.push_back(overlay_structure_pass(blitter_output));
+    }
+    passes.push_back(emit_pass("cells"));
+    run_graph(std::move(passes));
+    finish_stats();
+    return;
+  }
+
+  std::vector<Pass> passes;
+  passes.push_back(decode_pass());
+  passes.push_back(luminance_pass());
+
+  if (overlay_enabled) {
+    append_structure_analysis(&passes);
+    passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)}));
+    passes.push_back(ramp_pick_pass("base-cells"));
+    passes.push_back(cell_shape_pass("base-cells"));
+    passes.push_back(overlay_structure_pass("base-cells"));
     passes.push_back(emit_pass("cells"));
   } else {
     passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame)}));

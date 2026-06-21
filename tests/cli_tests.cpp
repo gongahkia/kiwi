@@ -189,6 +189,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--structure-overlay", "on"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "structure overlay parses");
+    expect(parsed.options.structure_overlay == "on", "structure overlay stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--structure-overlay", "bad"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "structure overlay rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--ramp-sort"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
     expect(parsed.error.empty(), "ramp sort parses");

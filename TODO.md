@@ -126,9 +126,8 @@
 ---
 
 ## PHASE J — Blitter ladder & Unicode 16
-*Doc: `PHASE_J.md`. Goal: structure overlay, line ligatures.*
+*Doc: `PHASE_J.md`. Goal: line ligatures.*
 
-- [ ] **J6. Structure overlay as orthogonal Pass.** DoD: `--mode octant --structure-overlay on` overlays contour glyphs on the octant fill; works on every blitter; `--structure-overlay auto` defaults sensibly. Reference: PHASE_J §StructureOverlay.
 - [ ] **J7. Line ligatures.** DoD: `--line-ligatures` swaps `/\|-` for box-drawing joins where adjacent cells form a continuous edge; rotated-rectangle clip shows continuous box-drawing borders. Reference: PHASE_J §LineLigatures.
 - [ ] **J9. Blitter tests + bench.** DoD: `terminal_caps_tests`, `octant_renderer_tests`, `sextant_renderer_tests` all pass; BENCHMARKS.md gains octant/sextant/blocks rows. Reference: PHASE_J §Tests / §Bench.
 - [ ] **Phase J exit criteria.** DoD: ladder resolution documented and tested; octant + sextant blitters ship; structure overlay composes with all blitters.
