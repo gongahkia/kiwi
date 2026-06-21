@@ -101,6 +101,7 @@ add_executable(contourtty
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
+  src/sextant_renderer.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
   src/stream_resolver.cpp
@@ -647,6 +648,32 @@ else()
 endif()
 add_test(NAME octant_renderer COMMAND octant_renderer_tests)
 
+add_executable(sextant_renderer_tests
+  tests/sextant_renderer_tests.cpp
+  src/frame_sampling.cpp
+  src/luminance.cpp
+  src/sextant_renderer.cpp
+)
+target_include_directories(sextant_renderer_tests PRIVATE src)
+target_compile_features(sextant_renderer_tests PRIVATE cxx_std_20)
+set_target_properties(sextant_renderer_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(sextant_renderer_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(sextant_renderer_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(sextant_renderer_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(sextant_renderer_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME sextant_renderer COMMAND sextant_renderer_tests)
+
 add_executable(render_layout_tests
   tests/render_layout_tests.cpp
   src/render_layout.cpp
@@ -712,6 +739,7 @@ add_executable(golden_frame_tests
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
+  src/sextant_renderer.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
 )

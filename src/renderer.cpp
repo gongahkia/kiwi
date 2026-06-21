@@ -12,6 +12,7 @@
 #include "octant_renderer.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
+#include "sextant_renderer.hpp"
 #include "structure_edges.hpp"
 #include "structure_sampling.hpp"
 
@@ -126,6 +127,16 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   if (options.mode == "octant") {
     passes.push_back(Pass{
       .id = "octant",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  if (options.mode == "sextant") {
+    passes.push_back(Pass{
+      .id = "sextant",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
@@ -317,6 +328,23 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         renderOctantFrame(frame, size.cols, size.rows, cells);
+      },
+    });
+    passes.push_back(emit_pass("cells"));
+    run_graph(std::move(passes));
+    finish_stats();
+    return;
+  }
+  if (options.mode == "sextant") {
+    std::vector<Pass> passes;
+    passes.push_back(decode_pass());
+    passes.push_back(Pass{
+      .id = "sextant",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        renderSextantFrame(frame, size.cols, size.rows, cells);
       },
     });
     passes.push_back(emit_pass("cells"));
