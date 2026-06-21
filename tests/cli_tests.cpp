@@ -293,6 +293,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "flow"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "flow style parses");
+    expect(parsed.options.style == "flow", "flow style stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--style", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "style rejects invalid value");
@@ -336,6 +343,19 @@ int main() {
     const char* argv[] = {"contourtty", "--etf-iters", "17"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "etf iters rejects excessive value");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--lic-length", "12"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "LIC length parses");
+    expect(parsed.options.lic_length.has_value() && *parsed.options.lic_length == 12, "LIC length stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--lic-length", "0"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "LIC length rejects zero");
   }
 
   {

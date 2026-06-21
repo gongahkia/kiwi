@@ -11,6 +11,7 @@
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "kuwahara.hpp"
+#include "lic.hpp"
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
 #include "octant_renderer.hpp"
@@ -78,7 +79,11 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
 }
 
 int etfIterationsFromCli(const CliOptions& options) {
-  return options.etf_iters.value_or(options.style == "hatch" ? 2 : 0);
+  return options.etf_iters.value_or(options.style == "hatch" || options.style == "flow" ? 2 : 0);
+}
+
+int licLengthFromCli(const CliOptions& options) {
+  return options.lic_length.value_or(8);
 }
 
 bool painterlyStyleEnabled(const CliOptions& options) {
@@ -91,6 +96,10 @@ bool hatchStyleEnabled(const CliOptions& options) {
 
 bool stippleStyleEnabled(const CliOptions& options) {
   return options.style == "stipple";
+}
+
+bool flowStyleEnabled(const CliOptions& options) {
+  return options.style == "flow";
 }
 
 int renderWorkerCount(int cols, int rows) {
@@ -130,6 +139,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool painterly_enabled = painterlyStyleEnabled(options);
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
+  const bool flow_enabled = flowStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   const auto decode_pass = [] {
     return Pass{
@@ -192,6 +202,15 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     if (hatch_enabled) {
       passes->push_back(Pass{
         .id = "crosshatch",
+        .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+        .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+        .supports = {Backend::Cpu},
+      });
+      return;
+    }
+    if (flow_enabled) {
+      passes->push_back(Pass{
+        .id = "lic",
         .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
         .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
         .supports = {Backend::Cpu},
@@ -326,6 +345,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool painterly_enabled = painterlyStyleEnabled(options);
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
+  const bool flow_enabled = flowStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   Frame styled_frame;
   const Frame* render_frame = &frame;
@@ -661,6 +681,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto lic_pass = [&](const std::string& base_input) {
+    return Pass{
+      .id = "lic",
+      .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        if (structure_gradients.has_value()) {
+          applyLicFlow(cells, *structure_gradients, size.cols, size.rows, licLengthFromCli(options), edge_threshold);
+        }
+      },
+    };
+  };
+
   const auto line_ligatures_pass = [&] {
     return Pass{
       .id = "line-ligatures",
@@ -710,6 +744,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       append_structure_analysis(&passes);
       if (hatch_enabled) {
         passes.push_back(crosshatch_pass(blitter_output));
+      } else if (flow_enabled) {
+        passes.push_back(lic_pass(blitter_output));
       } else {
         passes.push_back(cell_shape_pass(blitter_output));
         passes.push_back(overlay_structure_pass(blitter_output));
@@ -736,6 +772,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     passes.push_back(ramp_pick_pass("base-cells"));
     if (hatch_enabled) {
       passes.push_back(crosshatch_pass("base-cells"));
+    } else if (flow_enabled) {
+      passes.push_back(lic_pass("base-cells"));
     } else {
       passes.push_back(cell_shape_pass("base-cells"));
       passes.push_back(overlay_structure_pass("base-cells"));

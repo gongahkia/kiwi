@@ -45,7 +45,7 @@ With audio present in local files, video is paced from the audio playback clock.
 
 Structure overlay replaces high-edge cell glyphs while preserving the active blitter colors. `--structure-overlay auto` enables it for `--mode structure` or structure-tuning flags, `on` forces it for modes such as octant/sextant/braille/halfblock/blocks, and `off` disables it. `--line-ligatures` post-processes structure edges into box-drawing joins. `--edge-strength 0` disables edge picks, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
-Styles insert NPR pre/post passes into the render graph. `--style painterly` runs a directional Kuwahara pre-pass before luminance and structure analysis to flatten local color regions while preserving hard contours. `--style hatch` replaces structure overlay with ETF-smoothed crosshatch glyphs driven by edge orientation and shade density. `--style stipple` replaces cell glyphs with blue-noise-thresholded dot glyphs.
+Styles insert NPR pre/post passes into the render graph. `--style painterly` runs a directional Kuwahara pre-pass before luminance and structure analysis to flatten local color regions while preserving hard contours. `--style hatch` replaces structure overlay with ETF-smoothed crosshatch glyphs driven by edge orientation and shade density. `--style stipple` replaces cell glyphs with blue-noise-thresholded dot glyphs. `--style flow` replaces structure overlay with ETF-guided LIC strokes; `--lic-length N` controls the trace length.
 
 Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--etf-iters N` smooths the Sobel orientation field and applies a CLD edge field, `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, `portrait-30`, `lineart-40`, `blueprint-24`, and `braille`; `portrait-30` is density-rich for faces/figures, `lineart-40` emphasizes strokes/corners, and `blueprint-24` keeps thin technical geometry. `--mode braille` packs a 2x4 luminance grid into each Unicode braille cell with separate foreground/background averages; `--charset braille` remains accepted as a packed-renderer alias. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--ramp-sort` sorts the active ramp by FreeType ink density, so it requires `--font` unless the active charset is `braille`. `--glyph-features hog` swaps shape matching from the legacy 9-region overlap vector to a 32-D HoG vector; `--glyph-features sdf` uses signed-distance overlap features. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
 
@@ -83,7 +83,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
 | `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select renderer. |
-| `--style none\|painterly\|hatch\|stipple` | Insert a stylized render-graph pre/pass set. |
+| `--style none\|painterly\|hatch\|stipple\|flow` | Insert a stylized render-graph pre/pass set. |
 | `--render-mode auto\|text\|pixel\|hybrid` | Select text/pixel ladder intent; pixel transport lands in Phase N. |
 | `--structure-overlay auto\|on\|off` | Overlay structure contours over the active blitter. |
 | `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select a render-graph preset; overrides config `pipeline`. |
@@ -99,6 +99,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--dog-sigma N[,M]` | Difference-of-Gaussians sigma pair; `0` disables DoG. |
 | `--dog-threshold N` | DoG response threshold. |
 | `--etf-iters N` | Smooth the structure orientation field before edge glyph selection. |
+| `--lic-length N` | Set `flow` style convolution length, 1..64. |
 | `--contrast N` | Structure analysis contrast boost. |
 | `--dither none\|ordered\|fs` | Palette dithering mode. |
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |

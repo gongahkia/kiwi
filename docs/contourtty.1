@@ -25,7 +25,7 @@ options:
   --fps N                        override source fps
   --max-fps N                    cap render fps
   --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}
-  --style {none|painterly|hatch|stipple}
+  --style {none|painterly|hatch|stipple|flow}
   --render-mode {auto|text|pixel|hybrid}
   --structure-overlay {auto|on|off}
   --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}
@@ -43,6 +43,7 @@ options:
   --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables
   --dog-threshold N              difference-of-gaussians threshold
   --etf-iters N                  smooth structure orientation field; 0 disables
+  --lic-length N                 flow style convolution length, 1..64
   --contrast N                   structure contrast adjustment
   --dither {none|ordered|fs}     color dithering mode
   --loop                         loop input

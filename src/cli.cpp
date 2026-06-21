@@ -348,6 +348,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--dog-sigma",
           "--dog-threshold",
           "--etf-iters",
+          "--lic-length",
           "--contrast",
           "--dither",
           "--log",
@@ -414,7 +415,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.mode = std::string(*value);
     } else if (flag == "--style") {
-      if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple"})) {
+      if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple", "flow"})) {
         result.error = "invalid value for --style: " + std::string(*value);
         return result;
       }
@@ -494,6 +495,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.etf_iters = *parsed;
+    } else if (flag == "--lic-length") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value() || *parsed > 64) {
+        result.error = "invalid value for --lic-length: " + std::string(*value);
+        return result;
+      }
+      result.options.lic_length = *parsed;
     } else if (flag == "--contrast") {
       const auto parsed = parsePositiveDouble(*value, true);
       if (!parsed.has_value()) {
@@ -614,7 +622,7 @@ std::string helpText(std::string_view program_name) {
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
-      << "  --style {none|painterly|hatch|stipple}\n"
+      << "  --style {none|painterly|hatch|stipple|flow}\n"
       << "  --render-mode {auto|text|pixel|hybrid}\n"
       << "  --structure-overlay {auto|on|off}\n"
       << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
@@ -632,6 +640,7 @@ std::string helpText(std::string_view program_name) {
       << "  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables\n"
       << "  --dog-threshold N              difference-of-gaussians threshold\n"
       << "  --etf-iters N                  smooth structure orientation field; 0 disables\n"
+      << "  --lic-length N                 flow style convolution length, 1..64\n"
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"
