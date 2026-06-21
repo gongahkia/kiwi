@@ -266,7 +266,7 @@
 - [x] Add BiDi snapshot tests with Arabic, Hebrew, Persian samples
 - [x] Add CJK snapshot tests with Japanese, Korean, Simplified + Traditional Chinese samples
 - [x] Integrate `fluent-rs` for user-facing strings
-- [x] Extract every user-facing string into `locales/en-US.ftl`
+- [x] Extract every user-facing string into `crates/kumeyuri-cli/locales/en-US.ftl`
 - [x] Add locale-detection from `$LANG` / `$LC_ALL`; `--lang` override flag
 - [x] Add font-fallback chain in raster renderer using `font-kit`: Noto Sans, Noto Sans CJK, Noto Sans Arabic, Noto Color Emoji
 - [x] Add emoji rendering test corpus (skin-tone modifiers, ZWJ sequences, regional indicators)

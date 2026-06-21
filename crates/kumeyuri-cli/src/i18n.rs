@@ -4,7 +4,7 @@ use fluent_bundle::{FluentArgs, FluentBundle, FluentResource};
 use unic_langid::LanguageIdentifier;
 
 const DEFAULT_LOCALE: &str = "en-US";
-const EN_US_FTL: &str = include_str!("../../../locales/en-US.ftl");
+const EN_US_FTL: &str = include_str!("../locales/en-US.ftl");
 
 thread_local! {
     static CURRENT: RefCell<I18n> = RefCell::new(I18n::en_us().expect("embedded Fluent resources must be valid"));
