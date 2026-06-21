@@ -118,6 +118,7 @@ add_executable(contourtty
   src/media_probe.cpp
   src/octant_renderer.cpp
   src/optical_flow.cpp
+  src/overlay_compose.cpp
   src/posterize.cpp
   src/png_writer.cpp
   src/player.cpp
@@ -1265,6 +1266,30 @@ else()
   endif()
 endif()
 add_test(NAME graphics_alignment COMMAND graphics_alignment_tests)
+
+add_executable(overlay_compose_tests
+  tests/overlay_compose_tests.cpp
+  src/overlay_compose.cpp
+)
+target_include_directories(overlay_compose_tests PRIVATE src)
+target_compile_features(overlay_compose_tests PRIVATE cxx_std_20)
+set_target_properties(overlay_compose_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(overlay_compose_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(overlay_compose_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(overlay_compose_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(overlay_compose_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME overlay_compose COMMAND overlay_compose_tests)
 
 add_executable(graphics_emitter_tests
   tests/graphics_emitter_tests.cpp
