@@ -88,8 +88,6 @@
 ## PHASE G — Performance, polish, release
 *Doc: `PHASE_G.md`. Status: partial.*
 
-- [~] **G2. GPU compute path.** DoD: significant fps gain at high cell counts recorded; correctness matches CPU within tolerance. Reference: PHASE_G §GPU.
-  - Metal backend done for Sobel, DoG, cell-average, and structure glyph selection on Darwin. Open: Vulkan port — moved to PHASE_L §VulkanBackend.
 - [ ] **G3. MP4 export rasterisation.** DoD: the MP4 plays in a normal player and shows the ASCII rendering with audio muxed. Reference: PHASE_G §ExportMP4.
   - ANSI and asciinema export work; MP4 path currently silent + rasterisation stub. Unblocks once Phase I ships FreeType (`GlyphFont` rasteriser) and is shared via Phase N's `raster_compose`.
 - [x] **G4. Asciinema + raw ANSI export.** Shipped.
