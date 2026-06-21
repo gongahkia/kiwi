@@ -128,7 +128,6 @@
 ## PHASE J — Blitter ladder & Unicode 16
 *Doc: `PHASE_J.md`. Goal: color-braille blitter, structure overlay, line ligatures.*
 
-- [ ] **J4. `--mode auto` ladder resolver.** DoD: per-`(TERM_PROGRAM, font, --render-mode)` capability matrix in `docs/blitter-ladder.md` documents the resolved rung; parameterized tests cover the matrix. Reference: PHASE_J §AutoMode.
 - [ ] **J5. Color braille.** DoD: `--mode braille --color-mode truecolor` enables fg/bg color on braille glyphs; mono behaviour preserved when `--mono`. Reference: PHASE_J §BrailleColor.
 - [ ] **J6. Structure overlay as orthogonal Pass.** DoD: `--mode octant --structure-overlay on` overlays contour glyphs on the octant fill; works on every blitter; `--structure-overlay auto` defaults sensibly. Reference: PHASE_J §StructureOverlay.
 - [ ] **J7. Line ligatures.** DoD: `--line-ligatures` swaps `/\|-` for box-drawing joins where adjacent cells form a continuous edge; rotated-rectangle clip shows continuous box-drawing borders. Reference: PHASE_J §LineLigatures.

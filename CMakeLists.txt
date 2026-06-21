@@ -74,6 +74,7 @@ endif()
 
 add_executable(contourtty
   src/ansi.cpp
+  src/auto_mode.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
   src/cli.cpp
@@ -993,6 +994,30 @@ else()
   endif()
 endif()
 add_test(NAME terminal_caps COMMAND terminal_caps_tests)
+
+add_executable(auto_mode_tests
+  tests/auto_mode_tests.cpp
+  src/auto_mode.cpp
+)
+target_include_directories(auto_mode_tests PRIVATE src)
+target_compile_features(auto_mode_tests PRIVATE cxx_std_20)
+set_target_properties(auto_mode_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(auto_mode_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(auto_mode_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(auto_mode_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(auto_mode_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME auto_mode COMMAND auto_mode_tests)
 
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)

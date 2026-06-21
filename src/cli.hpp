@@ -21,6 +21,7 @@ struct CliOptions {
   std::optional<double> fps;
   std::optional<double> max_fps;
   std::string mode = "luminance";
+  std::string render_mode = "text";
   std::optional<std::string> pipeline;
   std::optional<std::string> font_path;
   std::string glyph_features = "overlap";

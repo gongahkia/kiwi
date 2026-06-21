@@ -1,3 +1,4 @@
+#include "auto_mode.hpp"
 #include "cli.hpp"
 #include "log.hpp"
 #include "media_probe.hpp"
@@ -39,33 +40,47 @@ int runApp(int argc, char** argv) {
     return 0;
   }
 
+  contourtty::CliOptions options = parsed.options;
   contourtty::Logger logger;
-  if (parsed.options.log_file.has_value()) {
-    logger = contourtty::Logger(*parsed.options.log_file);
+  if (options.log_file.has_value()) {
+    logger = contourtty::Logger(*options.log_file);
     CONTOURTTY_LOG_INFO(logger, "logger initialized");
   }
 
-  if (parsed.options.caps.has_value() || logger.enabled()) {
-    const std::optional<std::string> caps_override = parsed.options.caps.has_value() && *parsed.options.caps != "dump"
-                                                       ? parsed.options.caps
+  std::optional<contourtty::TerminalCaps> terminal_caps;
+  const auto get_caps = [&]() -> const contourtty::TerminalCaps& {
+    if (!terminal_caps.has_value()) {
+      const std::optional<std::string> caps_override = options.caps.has_value() && *options.caps != "dump"
+                                                       ? options.caps
                                                        : std::nullopt;
-    const auto caps = contourtty::detectTerminalCapsFromEnvironment(parsed.options.font_path, caps_override);
+      terminal_caps = contourtty::detectTerminalCapsFromEnvironment(options.font_path, caps_override);
+    }
+    return *terminal_caps;
+  };
+
+  if (options.caps.has_value() || logger.enabled() || options.mode == "auto") {
+    const auto& caps = get_caps();
     CONTOURTTY_LOG_INFO(logger, "terminal caps " + contourtty::summarizeTerminalCaps(caps));
-    if (parsed.options.caps.has_value() && *parsed.options.caps == "dump") {
+    if (options.caps.has_value() && *options.caps == "dump") {
       std::cout << contourtty::formatTerminalCaps(caps);
       return 0;
     }
   }
 
-  if (parsed.options.graph.has_value()) {
-    std::cout << contourtty::dumpRenderGraph(parsed.options);
+  if (options.mode == "auto") {
+    resolveAutoMode(&options, get_caps());
+    CONTOURTTY_LOG_INFO(logger, "auto mode resolved to " + options.mode);
+  }
+
+  if (options.graph.has_value()) {
+    std::cout << contourtty::dumpRenderGraph(options);
     return 0;
   }
 
-  if (parsed.options.input.has_value()) {
-    contourtty::CliOptions options = parsed.options;
-    options.input = contourtty::resolveMediaInput(*parsed.options.input);
-    if (*options.input != *parsed.options.input) {
+  if (options.input.has_value()) {
+    const std::string original_input = *options.input;
+    options.input = contourtty::resolveMediaInput(original_input);
+    if (*options.input != original_input) {
       CONTOURTTY_LOG_INFO(logger, "resolved input via yt-dlp");
     }
     if (options.export_file.has_value()) {

@@ -80,8 +80,9 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
-| `--mode luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select renderer. |
-| `--pipeline luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select a render-graph preset; overrides config `pipeline`. |
+| `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select renderer. |
+| `--render-mode auto\|text\|pixel\|hybrid` | Select text/pixel ladder intent; pixel transport lands in Phase N. |
+| `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select a render-graph preset; overrides config `pipeline`. |
 | `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
 | `--glyph-features overlap\|hog\|sdf` | Select the structure shape-matching feature vector. |
 | `--ramp-sort`, `--no-ramp-sort` | Sort the active ramp by FreeType ink density, or disable config-default sorting. |

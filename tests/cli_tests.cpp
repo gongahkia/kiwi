@@ -93,6 +93,14 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--mode", "auto", "--render-mode", "hybrid"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "auto mode parses");
+    expect(parsed.options.mode == "auto", "auto mode stored");
+    expect(parsed.options.render_mode == "hybrid", "render mode stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--pipeline", "structure"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "pipeline parses");
@@ -122,6 +130,14 @@ int main() {
     expect(parsed.error.empty(), "sextant pipeline parses");
     expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "sextant", "sextant pipeline stored");
     expect(parsed.options.mode == "sextant", "sextant pipeline maps mode");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--pipeline", "auto"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "auto pipeline parses");
+    expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "auto", "auto pipeline stored");
+    expect(parsed.options.mode == "auto", "auto pipeline maps mode");
   }
 
   {
