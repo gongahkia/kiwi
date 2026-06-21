@@ -77,6 +77,7 @@ add_executable(contourtty
   src/ansi.cpp
   src/auto_mode.cpp
   src/asciinema_in.cpp
+  src/asciinema_source.cpp
   src/asciinema_vte.cpp
   src/base64.cpp
   src/bandwidth_guard.cpp
@@ -1397,6 +1398,33 @@ else()
   endif()
 endif()
 add_test(NAME asciinema_vte COMMAND asciinema_vte_tests)
+
+add_executable(asciinema_source_tests
+  tests/asciinema_source_tests.cpp
+  src/asciinema_source.cpp
+  src/asciinema_in.cpp
+  src/asciinema_vte.cpp
+  src/color_quantization.cpp
+)
+target_include_directories(asciinema_source_tests PRIVATE src)
+target_compile_features(asciinema_source_tests PRIVATE cxx_std_20)
+set_target_properties(asciinema_source_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(asciinema_source_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(asciinema_source_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(asciinema_source_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(asciinema_source_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME asciinema_source COMMAND asciinema_source_tests)
 
 add_executable(caption_summarise_tests
   tests/caption_summarise_tests.cpp
