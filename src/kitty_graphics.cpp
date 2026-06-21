@@ -1,0 +1,135 @@
+#include "kitty_graphics.hpp"
+
+#include <limits>
+#include <stdexcept>
+
+namespace contourtty {
+namespace {
+
+constexpr char kEsc[] = "\x1b_G";
+constexpr char kSt[] = "\x1b\\";
+constexpr char kBase64Alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::size_t checkedRgbByteCount(int width, int height) {
+  if (width <= 0 || height <= 0) {
+    throw std::invalid_argument("kitty image dimensions must be positive");
+  }
+  const std::size_t w = static_cast<std::size_t>(width);
+  const std::size_t h = static_cast<std::size_t>(height);
+  if (w > std::numeric_limits<std::size_t>::max() / h / 3U) {
+    throw std::invalid_argument("kitty image dimensions overflow");
+  }
+  return w * h * 3U;
+}
+
+void validateOptions(const KittyImageOptions& options) {
+  if (options.image_id == 0) {
+    throw std::invalid_argument("kitty image id must be non-zero");
+  }
+  if (options.placement_id == 0) {
+    throw std::invalid_argument("kitty placement id must be non-zero");
+  }
+  if (options.columns < 0 || options.rows < 0) {
+    throw std::invalid_argument("kitty placement dimensions cannot be negative");
+  }
+  if (options.chunk_size == 0 || options.chunk_size > 4096 || options.chunk_size % 4U != 0U) {
+    throw std::invalid_argument("kitty chunk size must be a positive multiple of 4 no larger than 4096");
+  }
+}
+
+std::string base64Encode(std::span<const uint8_t> bytes) {
+  std::string encoded;
+  encoded.reserve(((bytes.size() + 2U) / 3U) * 4U);
+  for (std::size_t index = 0; index < bytes.size(); index += 3U) {
+    const uint32_t a = bytes[index];
+    const uint32_t b = (index + 1U < bytes.size()) ? bytes[index + 1U] : 0U;
+    const uint32_t c = (index + 2U < bytes.size()) ? bytes[index + 2U] : 0U;
+    const uint32_t triple = (a << 16U) | (b << 8U) | c;
+    encoded.push_back(kBase64Alphabet[(triple >> 18U) & 0x3FU]);
+    encoded.push_back(kBase64Alphabet[(triple >> 12U) & 0x3FU]);
+    encoded.push_back(index + 1U < bytes.size() ? kBase64Alphabet[(triple >> 6U) & 0x3FU] : '=');
+    encoded.push_back(index + 2U < bytes.size() ? kBase64Alphabet[triple & 0x3FU] : '=');
+  }
+  return encoded;
+}
+
+void appendChunk(std::string& output, const std::string& control, std::string_view payload) {
+  output.append(kEsc);
+  output.append(control);
+  output.push_back(';');
+  output.append(payload);
+  output.append(kSt);
+}
+
+std::string makeFirstChunkControl(int width, int height, const KittyImageOptions& options, bool more) {
+  std::string control = "a=T,t=d,f=24,s=" + std::to_string(width) + ",v=" + std::to_string(height) +
+                        ",i=" + std::to_string(options.image_id) + ",p=" + std::to_string(options.placement_id);
+  if (options.suppress_response) {
+    control += ",q=2";
+  }
+  if (options.columns > 0) {
+    control += ",c=" + std::to_string(options.columns);
+  }
+  if (options.rows > 0) {
+    control += ",r=" + std::to_string(options.rows);
+  }
+  if (options.leave_cursor) {
+    control += ",C=1";
+  }
+  control += more ? ",m=1" : ",m=0";
+  return control;
+}
+
+std::string makeFollowupChunkControl(bool suppress_response, bool more) {
+  std::string control;
+  if (suppress_response) {
+    control = "q=2,";
+  }
+  control += more ? "m=1" : "m=0";
+  return control;
+}
+
+}  // namespace
+
+std::string encodeKittyRgb24(std::span<const uint8_t> rgb, int width, int height, const KittyImageOptions& options) {
+  const std::size_t expected = checkedRgbByteCount(width, height);
+  if (rgb.size() != expected) {
+    throw std::invalid_argument("kitty RGB24 payload size does not match dimensions");
+  }
+  validateOptions(options);
+
+  const std::string payload = base64Encode(rgb);
+  std::string output;
+  output.reserve(payload.size() + (payload.size() / options.chunk_size + 1U) * 64U);
+  for (std::size_t offset = 0; offset < payload.size();) {
+    const std::size_t chunk_size = std::min(options.chunk_size, payload.size() - offset);
+    const bool first = offset == 0;
+    const bool more = offset + chunk_size < payload.size();
+    const std::string control = first ? makeFirstChunkControl(width, height, options, more) : makeFollowupChunkControl(options.suppress_response, more);
+    appendChunk(output, control, std::string_view(payload).substr(offset, chunk_size));
+    offset += chunk_size;
+  }
+  return output;
+}
+
+std::string encodeKittyRgb24(const RasterImage& image, const KittyImageOptions& options) {
+  return encodeKittyRgb24(image.rgb, image.width, image.height, options);
+}
+
+std::string deleteKittyImage(uint32_t image_id, uint32_t placement_id, bool suppress_response) {
+  if (image_id == 0) {
+    throw std::invalid_argument("kitty image id must be non-zero");
+  }
+  std::string control = "a=d,d=i,i=" + std::to_string(image_id);
+  if (placement_id != 0) {
+    control += ",p=" + std::to_string(placement_id);
+  }
+  if (suppress_response) {
+    control += ",q=2";
+  }
+  std::string output;
+  appendChunk(output, control, "");
+  return output;
+}
+
+}  // namespace contourtty

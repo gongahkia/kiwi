@@ -96,6 +96,7 @@ add_executable(contourtty
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
   src/kuwahara.cpp
+  src/kitty_graphics.cpp
   src/lic.cpp
   src/line_ligatures.cpp
   src/luminance.cpp
@@ -1091,6 +1092,30 @@ else()
 endif()
 target_link_libraries(raster_compose_tests PRIVATE PkgConfig::FREETYPE)
 add_test(NAME raster_compose COMMAND raster_compose_tests)
+
+add_executable(kitty_graphics_tests
+  tests/kitty_graphics_tests.cpp
+  src/kitty_graphics.cpp
+)
+target_include_directories(kitty_graphics_tests PRIVATE src)
+target_compile_features(kitty_graphics_tests PRIVATE cxx_std_20)
+set_target_properties(kitty_graphics_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(kitty_graphics_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(kitty_graphics_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(kitty_graphics_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(kitty_graphics_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME kitty_graphics COMMAND kitty_graphics_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
