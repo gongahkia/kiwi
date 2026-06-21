@@ -126,10 +126,7 @@
 ---
 
 ## PHASE J — Blitter ladder & Unicode 16
-*Doc: `PHASE_J.md`. Goal: blitter tests + bench.*
-
-- [ ] **J9. Blitter tests + bench.** DoD: `terminal_caps_tests`, `octant_renderer_tests`, `sextant_renderer_tests` all pass; BENCHMARKS.md gains octant/sextant/blocks rows. Reference: PHASE_J §Tests / §Bench.
-- [ ] **Phase J exit criteria.** DoD: ladder resolution documented and tested; octant + sextant blitters ship; structure overlay composes with all blitters.
+*Doc: `PHASE_J.md`. Status: complete (capability detection, auto ladder, blocks/octant/sextant/braille blitters, structure overlay, line ligatures, and blitter benchmarks).* No open items.
 
 ---
 
