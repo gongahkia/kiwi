@@ -109,12 +109,9 @@
 ---
 
 ## PHASE H — Render-graph refactor *(load-bearing for I–P)*
-*Doc: `PHASE_H.md`. Goal: turn `renderFrame()` into a typed DAG of Passes so later phases compose.*
+*Doc: `PHASE_H.md`. Status: graph core, renderer lift, config composition, graph dump, and graph tests done; scheduler fallback proof remains.*
 
 - [ ] **H3. CPU/GPU scheduler.** DoD: per-Pass backend choice is bound once at graph build, not per call; `--gpu` on a machine without Metal/Vulkan logs the fallback once and runs CPU; per-Pass backend dispatch visible in `--graph dump`. Reference: PHASE_H §Scheduler.
-- [ ] **H4. Config-driven graph composition.** DoD: `pipeline=structure` in config file produces the same result as `--mode structure` on the CLI; `--pipeline NAME` overrides config. Reference: PHASE_H §Composition.
-- [ ] **H5. `--graph dump`.** DoD: dump output is deterministic per config; covered by a golden test; readable enough to lift into README. Reference: PHASE_H §Dump.
-- [ ] **H6. Graph tests.** DoD: `tests/render_graph_tests.cpp` covers topological sort, cycle detection, missing-input detection, backend fallback, dump format; an externally-defined no-op Pass works. Reference: PHASE_H §Tests.
 - [ ] **Phase H exit criteria.** DoD: all current modes resolve to a graph; output byte-identical to v0.5; new Passes can be added in one file without modifying `renderer.cpp`.
 
 ---

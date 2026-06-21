@@ -74,7 +74,130 @@ int renderWorkerCount(int cols, int rows) {
   return std::min(rows, max_workers);
 }
 
+GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
+  GraphBuildOptions graph_options;
+  graph_options.backend_preference = options.gpu && gpuSobelAvailable()
+                                       ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
+                                       : std::vector<Backend>{Backend::Cpu};
+  return graph_options;
+}
+
+std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
+  const auto decode_pass = [] {
+    return Pass{
+      .id = "decode",
+      .outputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .supports = {Backend::Cpu},
+    };
+  };
+  const auto emit_pass = [](std::string input) {
+    return Pass{
+      .id = "emit",
+      .inputs = {renderPort(std::move(input), BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    };
+  };
+  std::vector<Pass> passes;
+  passes.push_back(decode_pass());
+  if (options.mode == "halfblock") {
+    passes.push_back(Pass{
+      .id = "halfblock",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+    passes.push_back(Pass{
+      .id = "braille",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  passes.push_back(Pass{
+    .id = "luminance",
+    .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+    .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
+    .supports = {Backend::Cpu},
+  });
+  if (options.mode == "structure") {
+    passes.push_back(Pass{
+      .id = "contrast",
+      .inputs = {renderPort("luminance", BufferKind::LuminanceField)},
+      .outputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(Pass{
+      .id = "dog",
+      .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
+      .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
+      .supports = {Backend::Cpu, Backend::Metal},
+    });
+    passes.push_back(Pass{
+      .id = "sobel",
+      .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
+      .outputs = {renderPort("gradients", BufferKind::GradientField)},
+      .supports = {Backend::Cpu, Backend::Metal},
+    });
+    passes.push_back(Pass{
+      .id = "edge-field",
+      .inputs = {renderPort("gradients", BufferKind::GradientField)},
+      .outputs = {renderPort("edge-field", BufferKind::EdgeField)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(Pass{
+      .id = "cell-average",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)},
+      .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
+      .supports = {Backend::Cpu, Backend::Metal},
+    });
+    passes.push_back(Pass{
+      .id = "ramp-pick",
+      .inputs = {renderPort("cell-colors", BufferKind::CellColors), renderPort("luminance", BufferKind::LuminanceField)},
+      .outputs = {renderPort("base-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(Pass{
+      .id = "cell-shape",
+      .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort("base-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(Pass{
+      .id = "shape-match",
+      .inputs = {renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("base-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu, Backend::Metal},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  passes.push_back(Pass{
+    .id = "cell-average",
+    .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+    .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
+    .supports = {Backend::Cpu, Backend::Metal},
+  });
+  passes.push_back(Pass{
+    .id = "ramp-pick",
+    .inputs = {renderPort("cell-colors", BufferKind::CellColors), renderPort("luminance", BufferKind::LuminanceField)},
+    .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+    .supports = {Backend::Cpu},
+  });
+  passes.push_back(emit_pass("cells"));
+  return passes;
+}
+
 }  // namespace
+
+std::string dumpRenderGraph(const CliOptions& options) {
+  return buildGraph(renderGraphSkeleton(options), renderGraphBuildOptions(options)).dump();
+}
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
@@ -104,8 +227,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     }
   };
 
-  const auto run_graph = [](std::vector<Pass> passes) {
-    Graph graph = buildGraph(std::move(passes));
+  const auto run_graph = [&](std::vector<Pass> passes) {
+    Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(options));
     PassContext context;
     graph.run(context);
   };
@@ -245,12 +368,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu, Backend::Metal},
-      .run = [&](PassContext&) {
+      .run = [&](PassContext& context) {
         const DogOptions dog_options = dogOptionsFromCli(options);
         if (!dog_options.enabled()) {
           return;
         }
-        if (options.gpu) {
+        if (context.backend() == Backend::Metal) {
           if (auto gpu_dog = differenceOfGaussiansGpu(*analysis_luminance, dog_options)) {
             analysis_luminance = std::move(*gpu_dog);
             return;
@@ -264,8 +387,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
-      .run = [&](PassContext&) {
-        if (options.gpu) {
+      .run = [&](PassContext& context) {
+        if (context.backend() == Backend::Metal) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(frame, *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {

@@ -69,6 +69,15 @@ bool parseDogSigma(std::string_view value, CliOptions* options) {
   return true;
 }
 
+void applyPipeline(std::string_view value, CliOptions* options) {
+  options->pipeline = std::string(value);
+  if (value == "halfblock") {
+    options->mode = "halfblock";
+    return;
+  }
+  options->mode = std::string(value);
+}
+
 std::string_view stripFlagValue(std::string_view arg, std::string_view* value) {
   const auto equals = arg.find('=');
   if (equals == std::string_view::npos) {
@@ -282,6 +291,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--fps",
           "--max-fps",
           "--mode",
+          "--pipeline",
           "--color-mode",
           "--color",
           "--charset",
@@ -293,6 +303,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--dither",
           "--log",
           "--export",
+          "--graph",
           "--dump-frame",
           "--dump-png",
         })) {
@@ -352,6 +363,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.mode = std::string(*value);
+    } else if (flag == "--pipeline") {
+      if (!isOneOf(*value, {"luminance", "structure", "halfblock"})) {
+        result.error = "invalid value for --pipeline: " + std::string(*value);
+        return result;
+      }
+      applyPipeline(*value, &result.options);
     } else if (flag == "--color-mode" || flag == "--color") {
       if (!isOneOf(*value, {"auto", "truecolor", "256", "16", "mono"})) {
         result.error = "invalid value for " + std::string(flag) + ": " + std::string(*value);
@@ -407,6 +424,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {
       result.options.export_file = std::string(*value);
+    } else if (flag == "--graph") {
+      if (!isOneOf(*value, {"dump"})) {
+        result.error = "invalid value for --graph: " + std::string(*value);
+        return result;
+      }
+      result.options.graph = std::string(*value);
     } else if (flag == "--dump-frame") {
       const auto parsed = parsePositiveInt(*value);
       if (!parsed.has_value()) {
@@ -498,6 +521,7 @@ std::string helpText(std::string_view program_name) {
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {luminance|structure|halfblock}\n"
+      << "  --pipeline {luminance|structure|halfblock}\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
       << "  --mono                         disable color output\n"
@@ -518,6 +542,7 @@ std::string helpText(std::string_view program_name) {
       << "  --no-gpu                       disable config-default gpu request\n"
       << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
       << "  --no-debug-stats               disable config-default debug stats\n"
+      << "  --graph dump                   print resolved render graph and exit\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
       << "  --dump-png FILE                write dumped frame as RGB PNG\n";

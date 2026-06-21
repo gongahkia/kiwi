@@ -204,4 +204,33 @@ int main() {
       expectEqual(serializeCells(gpu_cells), serializeCells(cpu_cells), "gpu structure render parity");
     }
   }
+
+  {
+    contourtty::CliOptions options;
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "luminance(cpu)  frame:RgbFrame -> luminance:LuminanceField\n"
+                "cell-average(cpu)  frame:RgbFrame -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "luminance graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
+    options.mode = "structure";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "luminance(cpu)  frame:RgbFrame -> luminance:LuminanceField\n"
+                "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
+                "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
+                "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "cell-average(cpu)  frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
+                "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
+                "shape-match(cpu)  cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "structure graph dump golden");
+  }
 }

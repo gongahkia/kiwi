@@ -21,6 +21,7 @@ struct CliOptions {
   std::optional<double> fps;
   std::optional<double> max_fps;
   std::string mode = "luminance";
+  std::optional<std::string> pipeline;
   std::string color_mode = "auto";
   std::optional<std::string> charset;
   std::optional<double> edge_threshold;
@@ -37,6 +38,7 @@ struct CliOptions {
   bool debug_stats = false;
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;
+  std::optional<std::string> graph;
   std::optional<int> dump_frame;
   std::optional<std::string> dump_png;
 };

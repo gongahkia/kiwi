@@ -63,7 +63,7 @@ Controls: `space` pauses/resumes audio and video together, left/right arrows see
 
 Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
-Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `mode=structure` or `charset=" .#"`; CLI flags override config defaults.
+Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults.
 
 ## Flag reference
 
@@ -79,6 +79,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
 | `--mode luminance\|structure\|halfblock` | Select renderer. |
+| `--pipeline luminance\|structure\|halfblock` | Select a render-graph preset; overrides config `pipeline`. |
 | `--color-mode auto\|truecolor\|256\|16\|mono` | Select color tier. |
 | `--color auto\|truecolor\|256\|16\|mono` | Alias for `--color-mode`. |
 | `--mono`, `--no-mono` | Force mono, or restore automatic color detection. |
@@ -94,6 +95,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--log FILE` | Write diagnostics. |
 | `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
 | `--debug-stats`, `--no-debug-stats` | Show or hide live FPS, CPU, and RSS diagnostics during playback; samples are also written when `--log` is set. |
+| `--graph dump` | Print the resolved render graph and exit. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
 | `--dump-png FILE` | Write dumped frame as RGB PNG. |
@@ -112,6 +114,8 @@ The luminance renderer picks a glyph from the brightness ramp for every cell. St
 When shape matching is enabled, the edge magnitude field inside the cell is sampled into a compact shape vector and compared against precomputed vectors for the structure glyph set. This lets the renderer choose by local stroke shape rather than by brightness alone. DoG (`--dog-sigma`) can isolate line-like detail before Sobel, and `--contrast` can widen separation in low-contrast footage.
 
 Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
+
+`--graph dump --mode structure` prints the resolved pass DAG with each pass backend and typed inputs/outputs, matching the pipeline documented above.
 
 ## Name
 

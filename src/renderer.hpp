@@ -7,6 +7,7 @@
 #include "terminal.hpp"
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace contourtty {
@@ -20,5 +21,6 @@ struct RenderStats {
 };
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr);
+std::string dumpRenderGraph(const CliOptions& options);
 
 }  // namespace contourtty

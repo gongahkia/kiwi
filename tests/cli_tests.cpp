@@ -72,6 +72,20 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--pipeline", "structure"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "pipeline parses");
+    expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "structure", "pipeline stored");
+    expect(parsed.options.mode == "structure", "pipeline maps mode");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--pipeline", "invalid"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "pipeline rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--input", "cam"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "input flag parses");
@@ -91,6 +105,19 @@ int main() {
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "debug stats flags parse");
     expect(!parsed.options.debug_stats, "debug stats disable stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--graph", "dump"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "graph dump parses");
+    expect(parsed.options.graph.has_value() && *parsed.options.graph == "dump", "graph dump stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--graph", "bad"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "graph rejects invalid value");
   }
 
   {
@@ -127,11 +154,12 @@ int main() {
   }
 
   {
-    writeConfig(test_root / "defaults", "mode=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
+    writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
     expect(parsed.error.empty(), "config defaults parse");
-    expect(parsed.options.mode == "structure", "config mode stored");
+    expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "structure", "config pipeline stored");
+    expect(parsed.options.mode == "structure", "config pipeline maps mode");
     expect(parsed.options.charset.has_value() && *parsed.options.charset == " .#", "config charset stored");
     expect(parsed.options.width.has_value() && *parsed.options.width == 33, "config width stored");
     expect(parsed.options.fit, "config fit stored");
@@ -142,10 +170,11 @@ int main() {
   }
 
   {
-    const char* argv[] = {"contourtty", "--charset", "@%", "--width", "44", "--no-fit", "--mirror", "--no-debug-stats", "--color-mode", "truecolor", "movie.mp4"};
-    const auto parsed = contourtty::parseArgs(11, const_cast<char**>(argv));
+    const char* argv[] = {"contourtty", "--pipeline", "luminance", "--charset", "@%", "--width", "44", "--no-fit", "--mirror", "--no-debug-stats", "--color-mode", "truecolor", "movie.mp4"};
+    const auto parsed = contourtty::parseArgs(13, const_cast<char**>(argv));
     expect(parsed.error.empty(), "cli overrides config parse");
-    expect(parsed.options.mode == "structure", "config mode remains default");
+    expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "luminance", "cli pipeline overrides config");
+    expect(parsed.options.mode == "luminance", "cli pipeline maps mode");
     expect(parsed.options.charset.has_value() && *parsed.options.charset == "@%", "cli charset overrides config");
     expect(parsed.options.width.has_value() && *parsed.options.width == 44, "cli width overrides config");
     expect(!parsed.options.fit, "cli no-fit overrides config");

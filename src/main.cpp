@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "media_probe.hpp"
 #include "player.hpp"
+#include "renderer.hpp"
 #include "stream_resolver.hpp"
 #include "terminal.hpp"
 
@@ -40,6 +41,11 @@ int runApp(int argc, char** argv) {
   if (parsed.options.log_file.has_value()) {
     logger = contourtty::Logger(*parsed.options.log_file);
     CONTOURTTY_LOG_INFO(logger, "logger initialized");
+  }
+
+  if (parsed.options.graph.has_value()) {
+    std::cout << contourtty::dumpRenderGraph(parsed.options);
+    return 0;
   }
 
   if (parsed.options.input.has_value()) {
