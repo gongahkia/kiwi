@@ -1,0 +1,76 @@
+#include "cli_spec.hpp"
+
+namespace contourtty {
+namespace {
+
+constexpr CliOptionSpec kCliOptionSpecs[] = {
+  {"--help", "show this help"},
+  {"--version", "show version"},
+  {"--width N", "target terminal columns"},
+  {"--height N", "target terminal rows"},
+  {"--input PATH|URL|cam", "input path, stream URL, or camera alias"},
+  {"--cell-aspect N", "terminal cell width/height ratio"},
+  {"--fit", "fit output to terminal"},
+  {"--no-fit", "disable config-default fit"},
+  {"--fps N", "override source fps"},
+  {"--max-fps N", "cap render fps"},
+  {"--mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}", ""},
+  {"--style {none|painterly|hatch|stipple|flow}", ""},
+  {"--render-mode {auto|text|pixel|hybrid}", ""},
+  {"--structure-overlay {auto|on|off}", ""},
+  {"--pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}", ""},
+  {"--font PATH", "use FreeType font for glyph analysis/export"},
+  {"--glyph-features {overlap|hog|sdf}", ""},
+  {"--ramp-sort", "sort glyph ramp by FreeType ink density"},
+  {"--no-ramp-sort", "disable config-default ramp sort"},
+  {"--color-mode {auto|truecolor|256|16|mono}", ""},
+  {"--color {auto|truecolor|256|16|mono}", ""},
+  {"--mono", "disable color output"},
+  {"--no-mono", "restore automatic color detection"},
+  {"--charset NAME|string", "glyph preset or custom glyph string"},
+  {"--edge-threshold N", "structure edge threshold"},
+  {"--edge-strength N", "structure edge overlay strength"},
+  {"--dog-sigma N[,M]", "difference-of-gaussians sigma pair; 0 disables"},
+  {"--dog-threshold N", "difference-of-gaussians threshold"},
+  {"--etf-iters N", "smooth structure orientation field; 0 disables"},
+  {"--lic-length N", "flow style convolution length, 1..64"},
+  {"--posterize N", "OKLab L posterize levels, 2..64"},
+  {"--contrast N", "structure contrast adjustment"},
+  {"--glyph-stickiness N", "retain near-tied structure glyphs, 0..1"},
+  {"--dither {none|ordered|fs}", "color dithering mode"},
+  {"--diff-oklab-eps N", "suppress sub-perceptual color diff emits"},
+  {"--bandwidth-cap N", "graphics protocol cap in MB/s, default 50"},
+  {"--loop", "loop input"},
+  {"--no-loop", "disable config-default looping"},
+  {"--mirror", "mirror camera input horizontally"},
+  {"--no-mirror", "disable camera mirroring"},
+  {"--log FILE", "write diagnostics to file"},
+  {"--gpu", "request gpu analysis path"},
+  {"--no-gpu", "disable config-default gpu request"},
+  {"--line-ligatures", "use box-drawing joins for structure edges"},
+  {"--no-line-ligatures", "disable config-default line ligatures"},
+  {"--debug-stats", "show live fps/cpu/rss diagnostics"},
+  {"--no-debug-stats", "disable config-default debug stats"},
+  {"--graph dump|FILE.yaml", "print resolved graph or load graph file"},
+  {"--grid CxR", "image contact sheet columns x rows"},
+  {"--plot {waveform|spectrum|heatmap}", ""},
+  {"--overlay PATH|SOURCE", "overlay a second source over input"},
+  {"--captions FILE.srt", "write deterministic sidecar captions"},
+  {"--plot-window N", "stdin plot rolling sample count"},
+  {"--plot-rate N", "stdin plot refresh rate in Hz"},
+  {"--scene-camera {turntable|orbit|fly}", ""},
+  {"--caps dump|SPEC", "print or override terminal capability detection"},
+  {"--export FILE", "render to output file"},
+  {"--still FILE.png", "write one rendered PNG snapshot"},
+  {"--still-at HH:MM:SS[.ffffff]", "seek timestamp for --still"},
+  {"--dump-frame N", "dump decoded frame N for diagnostics"},
+  {"--dump-png FILE", "write dumped frame as RGB PNG"},
+};
+
+}  // namespace
+
+std::span<const CliOptionSpec> cliOptionSpecs() noexcept {
+  return kCliOptionSpecs;
+}
+
+}  // namespace contourtty

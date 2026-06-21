@@ -84,6 +84,7 @@ add_executable(contourtty
   src/braille_renderer.cpp
   src/captions.cpp
   src/cli.cpp
+  src/cli_spec.cpp
   src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
@@ -478,6 +479,7 @@ add_test(NAME kd_tree COMMAND kd_tree_tests)
 add_executable(cli_tests
   tests/cli_tests.cpp
   src/cli.cpp
+  src/cli_spec.cpp
   src/glyph_ramp.cpp
   src/image_grid.cpp
   src/scene_source.cpp
@@ -506,6 +508,7 @@ add_test(NAME cli COMMAND cli_tests)
 add_executable(help_manpage_parity_tests
   tests/help_manpage_parity_tests.cpp
   src/cli.cpp
+  src/cli_spec.cpp
   src/glyph_ramp.cpp
   src/image_grid.cpp
   src/scene_source.cpp

@@ -1,5 +1,6 @@
 #include "cli.hpp"
 
+#include "cli_spec.hpp"
 #include "glyph_ramp.hpp"
 #include "image_grid.hpp"
 #include "scene_source.hpp"
@@ -767,68 +768,20 @@ std::string helpText(std::string_view program_name) {
   std::ostringstream out;
   out << "usage: " << program_name << " [options] [<input>]\n"
       << "\n"
-      << "options:\n"
-      << "  --help                         show this help\n"
-      << "  --version                      show version\n"
-      << "  --width N                      target terminal columns\n"
-      << "  --height N                     target terminal rows\n"
-      << "  --input PATH|URL|cam           input path, stream URL, or camera alias\n"
-      << "  --cell-aspect N                terminal cell width/height ratio\n"
-      << "  --fit                          fit output to terminal\n"
-      << "  --no-fit                       disable config-default fit\n"
-      << "  --fps N                        override source fps\n"
-      << "  --max-fps N                    cap render fps\n"
-      << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
-      << "  --style {none|painterly|hatch|stipple|flow}\n"
-      << "  --render-mode {auto|text|pixel|hybrid}\n"
-      << "  --structure-overlay {auto|on|off}\n"
-      << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
-      << "  --font PATH                    use FreeType font for glyph analysis/export\n"
-      << "  --glyph-features {overlap|hog|sdf}\n"
-      << "  --ramp-sort                    sort glyph ramp by FreeType ink density\n"
-      << "  --no-ramp-sort                 disable config-default ramp sort\n"
-      << "  --color-mode {auto|truecolor|256|16|mono}\n"
-      << "  --color {auto|truecolor|256|16|mono}\n"
-      << "  --mono                         disable color output\n"
-      << "  --no-mono                      restore automatic color detection\n"
-      << "  --charset NAME|string          glyph preset or custom glyph string\n"
-      << "  --edge-threshold N             structure edge threshold\n"
-      << "  --edge-strength N              structure edge overlay strength\n"
-      << "  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables\n"
-      << "  --dog-threshold N              difference-of-gaussians threshold\n"
-      << "  --etf-iters N                  smooth structure orientation field; 0 disables\n"
-      << "  --lic-length N                 flow style convolution length, 1..64\n"
-      << "  --posterize N                  OKLab L posterize levels, 2..64\n"
-      << "  --contrast N                   structure contrast adjustment\n"
-      << "  --glyph-stickiness N           retain near-tied structure glyphs, 0..1\n"
-      << "  --dither {none|ordered|fs}     color dithering mode\n"
-      << "  --diff-oklab-eps N             suppress sub-perceptual color diff emits\n"
-      << "  --bandwidth-cap N              graphics protocol cap in MB/s, default 50\n"
-      << "  --loop                         loop input\n"
-      << "  --no-loop                      disable config-default looping\n"
-      << "  --mirror                       mirror camera input horizontally\n"
-      << "  --no-mirror                    disable camera mirroring\n"
-      << "  --log FILE                     write diagnostics to file\n"
-      << "  --gpu                          request gpu analysis path\n"
-      << "  --no-gpu                       disable config-default gpu request\n"
-      << "  --line-ligatures               use box-drawing joins for structure edges\n"
-      << "  --no-line-ligatures            disable config-default line ligatures\n"
-      << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
-      << "  --no-debug-stats               disable config-default debug stats\n"
-      << "  --graph dump|FILE.yaml         print resolved graph or load graph file\n"
-      << "  --grid CxR                     image contact sheet columns x rows\n"
-      << "  --plot {waveform|spectrum|heatmap}\n"
-      << "  --overlay PATH|SOURCE          overlay a second source over input\n"
-      << "  --captions FILE.srt            write deterministic sidecar captions\n"
-      << "  --plot-window N                stdin plot rolling sample count\n"
-      << "  --plot-rate N                  stdin plot refresh rate in Hz\n"
-      << "  --scene-camera {turntable|orbit|fly}\n"
-      << "  --caps dump|SPEC               print or override terminal capability detection\n"
-      << "  --export FILE                  render to output file\n"
-      << "  --still FILE.png               write one rendered PNG snapshot\n"
-      << "  --still-at HH:MM:SS[.ffffff]   seek timestamp for --still\n"
-      << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
-      << "  --dump-png FILE                write dumped frame as RGB PNG\n";
+      << "options:\n";
+  constexpr std::size_t kHelpSyntaxWidth = 31;
+  for (const CliOptionSpec& option : cliOptionSpecs()) {
+    out << "  " << option.syntax;
+    if (!option.description.empty()) {
+      if (option.syntax.size() < kHelpSyntaxWidth) {
+        out << std::string(kHelpSyntaxWidth - option.syntax.size(), ' ');
+      } else {
+        out << ' ';
+      }
+      out << option.description;
+    }
+    out << '\n';
+  }
   return out.str();
 }
 
