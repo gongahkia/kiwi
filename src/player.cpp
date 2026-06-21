@@ -11,6 +11,7 @@
 #include "frame_sampling.hpp"
 #include "glyph_font.hpp"
 #include "glyph_hog.hpp"
+#include "glyph_kdtree.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_sdf.hpp"
 #include "glyph_shape.hpp"
@@ -1150,10 +1151,14 @@ std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, 
     return std::nullopt;
   }
   if (options.glyph_features == "hog") {
+    GlyphShapeTable table;
     if (glyph_font != nullptr) {
-      return buildHogGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+      table = buildHogGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+    } else {
+      table = buildHogGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
     }
-    return buildHogGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+    attachGlyphKdTree(&table);
+    return table;
   }
   if (options.glyph_features == "sdf") {
     if (glyph_font != nullptr) {

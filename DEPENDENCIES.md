@@ -11,6 +11,7 @@ contourtty keeps runtime dependencies explicit and avoids hidden package-manager
 | pkg-config | any current | system | Used to discover FFmpeg libraries. |
 | zlib | any current | system/find-package | PNG dump compression for decode verification. |
 | FreeType | 2.12 | `pkg-config` | Font-backed glyph rasterization for structure matching and MP4 export. |
+| nanoflann | 1.9.0 | vendored header | HoG glyph k-d tree nearest-neighbor lookup. |
 
 ## Media decode and conversion
 
@@ -70,6 +71,10 @@ Audio clock smoke samples the miniaudio callback-backed playback clock while the
 | internal parser | in-tree | source | `--help`, `--version`, positional input, typed flags, enum validation. |
 
 The Phase A parser is hand-rolled and in-tree to avoid an early external dependency. Revisit CLI11 only if flag complexity grows enough to justify vendoring it.
+
+## Glyph lookup
+
+`third_party/nanoflann.hpp` is pinned to upstream tag `v1.9.0` from `https://github.com/jlblancoc/nanoflann`. nanoflann is BSD-licensed and header-only.
 
 ## Install prerequisites
 

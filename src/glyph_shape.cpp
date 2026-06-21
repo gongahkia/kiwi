@@ -291,7 +291,7 @@ GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view 
   return table;
 }
 
-char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table) {
+char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShapeTable& table) {
   if (features.size() != table.feature_count) {
     throw std::invalid_argument("shape feature length mismatch");
   }
@@ -329,6 +329,16 @@ char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable
     }
   }
   return best_glyph;
+}
+
+char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table) {
+  if (features.size() != table.feature_count) {
+    throw std::invalid_argument("shape feature length mismatch");
+  }
+  if (table.index) {
+    return table.index->match(features);
+  }
+  return matchGlyphShapeLinear(features, table);
 }
 
 }  // namespace contourtty
