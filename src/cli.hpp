@@ -55,6 +55,7 @@ struct CliOptions {
   std::optional<std::string> still_file;
   std::optional<int64_t> still_at_us;
   std::optional<std::string> graph;
+  std::optional<std::string> split;
   std::optional<std::string> grid;
   std::optional<std::string> plot;
   std::optional<std::string> overlay;

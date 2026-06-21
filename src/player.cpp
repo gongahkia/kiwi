@@ -17,6 +17,7 @@
 #include "glyph_ramp.hpp"
 #include "glyph_sdf.hpp"
 #include "glyph_shape.hpp"
+#include "graph_yaml.hpp"
 #include "graphics_emitter.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
@@ -31,6 +32,7 @@
 #include "render_mode.hpp"
 #include "render_layout.hpp"
 #include "renderer.hpp"
+#include "split.hpp"
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
@@ -337,6 +339,55 @@ CliOptions liveRenderOptions(const CliOptions& options, TerminalSize render_term
     render_options.height = render_terminal.rows;
   }
   return render_options;
+}
+
+struct SplitPlaybackConfig {
+  SplitSpec spec;
+  std::optional<GraphYaml> left_graph;
+  std::optional<GraphYaml> right_graph;
+};
+
+std::optional<SplitPlaybackConfig> splitPlaybackConfigFromOptions(const CliOptions& options) {
+  if (!options.split.has_value()) {
+    if (options.graph.has_value() && options.graph->find(',') != std::string::npos) {
+      throw std::runtime_error("--graph A.yaml,B.yaml requires --split");
+    }
+    return std::nullopt;
+  }
+  const std::optional<SplitSpec> spec = parseSplitSpec(*options.split);
+  if (!spec.has_value()) {
+    throw std::runtime_error("invalid --split value");
+  }
+  SplitPlaybackConfig config{.spec = *spec};
+  if (options.graph.has_value() && options.graph->find(',') != std::string::npos) {
+    const std::optional<SplitSpec> graph_spec = parseSplitGraphSpec(*options.graph);
+    if (!graph_spec.has_value()) {
+      throw std::runtime_error("invalid --graph split pair");
+    }
+    config.left_graph = loadGraphYamlFile(graph_spec->left);
+    config.right_graph = loadGraphYamlFile(graph_spec->right);
+  }
+  return config;
+}
+
+CliOptions splitSideOptions(const CliOptions& base_options,
+                            const SplitPlaybackConfig& config,
+                            bool left_side,
+                            TerminalSize terminal) {
+  CliOptions side_options = base_options;
+  side_options.split.reset();
+  side_options.graph.reset();
+  side_options.width = terminal.cols;
+  if (!side_options.height.has_value() || *side_options.height > terminal.rows) {
+    side_options.height = terminal.rows;
+  }
+  const std::optional<GraphYaml>& graph = left_side ? config.left_graph : config.right_graph;
+  if (graph.has_value()) {
+    applyGraphYamlToOptions(*graph, &side_options);
+    return side_options;
+  }
+  applySplitBranch(left_side ? config.spec.left : config.spec.right, &side_options);
+  return side_options;
 }
 
 bool writeOsdOverlay(const CliOptions& options, bool osd_active, TerminalSize terminal) {
@@ -2871,6 +2922,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
   CONTOURTTY_LOG_INFO(logger, "playback started");
 
   CliOptions live_options = options;
+  std::optional<SplitPlaybackConfig> split_config = splitPlaybackConfigFromOptions(live_options);
+  if (split_config.has_value()) {
+    CONTOURTTY_LOG_INFO(logger, "split enabled left=" + split_config->spec.left + " right=" + split_config->spec.right);
+  }
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(live_options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   std::u32string ramp;
@@ -2888,8 +2943,12 @@ int playMedia(const CliOptions& options, Logger& logger) {
   TerminalSize terminal = queryTerminalSize();
   VideoDecoder video_decoder(*live_options.input);
   CellBuffer cells;
+  CellBuffer split_left_cells;
+  CellBuffer split_right_cells;
   DiffEmitter emitter;
   RenderTemporalState temporal_state;
+  RenderTemporalState split_left_temporal_state;
+  RenderTemporalState split_right_temporal_state;
   FramePacer pacer(live_options);
   std::unique_ptr<PcmPlayer> audio_player;
   if (decoded_audio.has_value()) {
@@ -2927,6 +2986,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   int64_t current_video_us = 0;
   std::optional<Frame> still_frame;
   bool osd_active = false;
+  std::optional<int> split_seam_col;
 
   std::string clear = "\x1b[2J";
   writeAll(STDOUT_FILENO, clear);
@@ -2938,6 +2998,8 @@ int playMedia(const CliOptions& options, Logger& logger) {
       graphics_bandwidth->reset();
     }
     temporal_state.reset();
+    split_left_temporal_state.reset();
+    split_right_temporal_state.reset();
     std::string clear_screen = "\x1b[2J";
     writeAll(STDOUT_FILENO, clear_screen);
   };
@@ -2992,9 +3054,27 @@ int playMedia(const CliOptions& options, Logger& logger) {
         }
         return true;
       case PlaybackCommand::SeekBackward:
+        if (split_config.has_value()) {
+          const int cols = liveRenderTerminal(terminal, live_options, osd_active).cols;
+          if (cols >= 3) {
+            split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(cols)) - 2, cols);
+            reset_render_state();
+            CONTOURTTY_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
+          }
+          return true;
+        }
         seek_to((audio_player != nullptr ? audio_player->masterClockUs() : current_video_us) - 5000000);
         return true;
       case PlaybackCommand::SeekForward:
+        if (split_config.has_value()) {
+          const int cols = liveRenderTerminal(terminal, live_options, osd_active).cols;
+          if (cols >= 3) {
+            split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(cols)) + 2, cols);
+            reset_render_state();
+            CONTOURTTY_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
+          }
+          return true;
+        }
         seek_to((audio_player != nullptr ? audio_player->masterClockUs() : current_video_us) + 5000000);
         return true;
       case PlaybackCommand::ToggleOsd:
@@ -3151,7 +3231,21 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, static_cast<double>(current_video_us) / 1000000.0, &overlay_frame);
-    renderFrame(render_input, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    if (split_config.has_value() && render_terminal.cols >= 3) {
+      split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(render_terminal.cols)), render_terminal.cols);
+      const SplitLayout layout = splitLayout(render_terminal.cols, *split_seam_col);
+      TerminalSize left_terminal = render_terminal;
+      left_terminal.cols = layout.left_cols;
+      TerminalSize right_terminal = render_terminal;
+      right_terminal.cols = layout.right_cols;
+      const CliOptions left_options = splitSideOptions(render_options, *split_config, true, left_terminal);
+      const CliOptions right_options = splitSideOptions(render_options, *split_config, false, right_terminal);
+      renderFrame(render_input, ramp, left_options, left_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_left_cells, render_stats_ptr, &split_left_temporal_state);
+      renderFrame(render_input, ramp, right_options, right_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_right_cells, render_stats_ptr, &split_right_temporal_state);
+      composeSplitCells(split_left_cells, split_right_cells, layout, &cells);
+    } else {
+      renderFrame(render_input, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    }
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }

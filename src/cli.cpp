@@ -4,6 +4,7 @@
 #include "glyph_ramp.hpp"
 #include "image_grid.hpp"
 #include "scene_source.hpp"
+#include "split.hpp"
 #include "stdin_data.hpp"
 
 #include <charconv>
@@ -416,6 +417,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--still",
           "--still-at",
           "--graph",
+          "--split",
           "--grid",
           "--plot",
           "--overlay",
@@ -642,6 +644,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.graph = std::string(*value);
+    } else if (flag == "--split") {
+      if (!parseSplitSpec(*value).has_value()) {
+        result.error = "invalid value for --split: expected LEFT:RIGHT";
+        return result;
+      }
+      result.options.split = std::string(*value);
     } else if (flag == "--grid") {
       if (!parseImageGridSpec(*value).has_value()) {
         result.error = "invalid value for --grid: expected CxR";

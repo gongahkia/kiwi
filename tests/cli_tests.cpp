@@ -266,6 +266,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--split", "luminance:structure"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "split parses");
+    expect(parsed.options.split.has_value() && *parsed.options.split == "luminance:structure", "split stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--split", "luminance:bad"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "split rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--grid", "4x3"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "grid parses");

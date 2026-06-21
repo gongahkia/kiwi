@@ -42,7 +42,11 @@ int runApp(int argc, char** argv) {
   }
 
   contourtty::CliOptions options = parsed.options;
-  if (options.graph.has_value() && *options.graph != "dump") {
+  if (options.graph.has_value() && *options.graph != "dump" && options.graph->find(',') != std::string::npos && !options.split.has_value()) {
+    std::cerr << "invalid value for --graph: graph pair requires --split\n";
+    return 2;
+  }
+  if (options.graph.has_value() && *options.graph != "dump" && options.graph->find(',') == std::string::npos) {
     contourtty::applyGraphYamlToOptions(contourtty::loadGraphYamlFile(*options.graph), &options);
   }
   contourtty::Logger logger;

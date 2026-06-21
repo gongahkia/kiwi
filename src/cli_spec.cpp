@@ -52,6 +52,7 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--debug-stats", "show live fps/cpu/rss diagnostics"},
   {"--no-debug-stats", "disable config-default debug stats"},
   {"--graph dump|FILE.yaml", "print resolved graph or load graph file"},
+  {"--split LEFT:RIGHT", "render two pipelines side-by-side with a draggable seam"},
   {"--grid CxR", "image contact sheet columns x rows"},
   {"--plot {waveform|spectrum|heatmap}", ""},
   {"--overlay PATH|SOURCE", "overlay a second source over input"},

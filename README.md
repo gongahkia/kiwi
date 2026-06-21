@@ -128,6 +128,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--line-ligatures`, `--no-line-ligatures` | Use box-drawing joins for structure edges, or disable config-default joins. |
 | `--debug-stats`, `--no-debug-stats` | Show or hide live FPS, CPU, and RSS diagnostics during playback; samples are also written when `--log` is set. |
 | `--graph dump\|FILE.yaml` | Print the resolved render graph or load a graph file. |
+| `--split LEFT:RIGHT` | Render two pipelines side-by-side; left/right arrows move the seam. |
 | `--grid CxR` | Render matched image inputs as a contact sheet. |
 | `--plot waveform\|spectrum\|heatmap` | Render numeric stdin as a data plot. |
 | `--overlay PATH\|SOURCE` | Overlay a scene source over the primary input. |

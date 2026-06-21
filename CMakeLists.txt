@@ -130,6 +130,7 @@ add_executable(contourtty
   src/renderer.cpp
   src/scene_source.cpp
   src/sextant_renderer.cpp
+  src/split.cpp
   src/stdin_data.cpp
   src/stipple.cpp
   src/structure_edges.cpp
@@ -486,6 +487,7 @@ add_executable(cli_tests
   src/glyph_ramp.cpp
   src/image_grid.cpp
   src/scene_source.cpp
+  src/split.cpp
   src/stdin_data.cpp
 )
 target_include_directories(cli_tests PRIVATE src)
@@ -515,6 +517,7 @@ add_executable(help_manpage_parity_tests
   src/glyph_ramp.cpp
   src/image_grid.cpp
   src/scene_source.cpp
+  src/split.cpp
   src/stdin_data.cpp
 )
 target_include_directories(help_manpage_parity_tests PRIVATE src)
@@ -787,6 +790,30 @@ else()
   endif()
 endif()
 add_test(NAME render_graph COMMAND render_graph_tests)
+
+add_executable(split_tests
+  tests/split_tests.cpp
+  src/split.cpp
+)
+target_include_directories(split_tests PRIVATE src)
+target_compile_features(split_tests PRIVATE cxx_std_20)
+set_target_properties(split_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(split_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(split_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(split_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(split_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME split COMMAND split_tests)
 
 add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
