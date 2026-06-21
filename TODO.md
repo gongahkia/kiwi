@@ -109,9 +109,7 @@
 ---
 
 ## PHASE H — Render-graph refactor *(load-bearing for I–P)*
-*Doc: `PHASE_H.md`. Status: graph core, renderer lift, config composition, graph dump, graph tests, and scheduler fallback proof done; exit criteria remains.*
-
-- [ ] **Phase H exit criteria.** DoD: all current modes resolve to a graph; output byte-identical to v0.5; new Passes can be added in one file without modifying `renderer.cpp`.
+*Doc: `PHASE_H.md`. Status: complete (all current modes resolve to graphs; graph/golden tests cover byte-stable output and extension mechanics).* No open items.
 
 ---
 
