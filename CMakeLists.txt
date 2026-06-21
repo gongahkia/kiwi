@@ -5,6 +5,10 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 include(GNUInstallDirs)
+add_compile_definitions(
+  CONTOURTTY_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  CONTOURTTY_DATA_DIR="${CMAKE_INSTALL_FULL_DATADIR}/contourtty"
+)
 
 set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_stub.cpp)
 set(CONTOURTTY_GPU_LIBS)
@@ -125,6 +129,11 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/contourtty.1")
   install(FILES docs/contourtty.1
     DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  )
+endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/share/contourtty")
+  install(DIRECTORY share/contourtty
+    DESTINATION ${CMAKE_INSTALL_DATADIR}
   )
 endif()
 

@@ -32,6 +32,9 @@ int main() {
   expect(contourtty::resolveCharsetRamp("blocks") == U" ░▒▓█", "blocks preset resolves");
   expect(contourtty::resolveCharsetRamp("binary") == U" 01", "binary preset resolves");
   expect(contourtty::resolveCharsetRamp("detailed").size() > contourtty::kDefaultGlyphRamp.size(), "detailed preset resolves");
+  expect(contourtty::resolveCharsetRamp("portrait-30").size() == 30, "portrait charset resolves");
+  expect(contourtty::resolveCharsetRamp("lineart-40").size() == 40, "lineart charset resolves");
+  expect(contourtty::resolveCharsetRamp("blueprint-24").size() == 24, "blueprint charset resolves");
   expect(contourtty::isBrailleCharset("braille"), "braille preset detected");
   expect(contourtty::isValidCharset("abc"), "valid charset accepted");
   expect(contourtty::isValidCharset("braille"), "braille charset accepted");

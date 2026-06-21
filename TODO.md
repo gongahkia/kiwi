@@ -121,7 +121,6 @@
 
 - [~] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
   - FreeType `--font` path, overlap/HoG/SDF table input, and MP4 glyph raster input are working; Phase N `raster_compose` consumer is still pending.
-- [ ] **I6. Curated charsets.** DoD: `portrait-30`, `lineart-40`, `blueprint-24` JSON files under `share/contourtty/charsets/` load via `--charset NAME`; README documents each. Reference: PHASE_I §Curated.
 - [ ] **I7. Offline charset evolver.** DoD: `tools/evolve_charset.cpp` reproduces shipped `portrait-30` byte-for-byte with fixed seed; runs <1 min on a laptop. Reference: PHASE_I §Evolve.
 - [ ] **I8. SAD block-element picker.** DoD: `--mode blocks` uses precomputed bitmap SAD across `░▒▓█` + quadrants; visibly closer to source than ramp-only on still images. Reference: PHASE_I §BlockSAD.
 - [ ] **I9. Glyph-science tests + bench.** DoD: `glyph_font_tests`, `glyph_hog_tests`, `glyph_sdf_tests`, `kd_tree_tests` all pass; BENCHMARKS.md rows for HoG vs overlap vs SDF, curated-set sweep, per-cell ns. Reference: PHASE_I §Tests / §Bench.
