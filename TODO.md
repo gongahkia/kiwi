@@ -209,7 +209,7 @@
 - [~] **O2. Stdin data plots.** DoD: `seq 1 1000 | awk '{print sin($1/10)}' | contourtty --input stdin --plot waveform` renders a smooth sine; `spectrum` runs a small in-tree FFT; `heatmap` slides a 2D window. Reference: PHASE_O §StdinData.
   - `--plot`, `--plot-window`, and `--plot-rate` parse; `stdin_data_tests` cover numeric parsing, in-tree FFT magnitudes, and waveform/spectrum/heatmap plot rasterisation. Open: live stdin source and render pacing.
 - [~] **O3. Asciinema re-stylise.** DoD: `--input recording.cast` replays through the render graph at original pacing; minimal VTE-lite handles SGR + cursor + scroll + clear; structure mode on a `htop` cast yields a stylised but readable version. Reference: PHASE_O §Asciinema.
-  - `asciinema_in_tests` cover v2 header and event-line parsing. Open: VTE-lite cell buffer, original pacing, render graph restyling.
+  - `asciinema_in_tests` cover v2 header and event-line parsing; `asciinema_vte_tests` cover VTE-lite SGR, cursor, scroll, and clear handling. Open: original pacing, render graph restyling.
 - [~] **O4. Bundled scenes + camera presets.** DoD: `contourtty --input contourtty:scene:suzanne --style cell-shade` works with no extra files; `--scene-camera turntable|orbit|fly` selectable. Reference: PHASE_O §SceneSource.
   - `contourtty:scene:cube` resolves to an installed OBJ asset; `--scene-camera turntable|orbit|fly` parses. Open: bundled Suzanne, `cell-shade` style, and scene playback source.
 - [~] **O5. Multi-source overlay.** DoD: `--input video.mp4 --overlay scene.obj` composes scene over video with depth-threshold alpha. Reference: PHASE_O §Pipeline.
