@@ -26,24 +26,31 @@ use crate::unicode::{
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
+/// Layered graph layout optimisation helpers.
 pub mod optimise {
     use std::cmp::Ordering;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// Directed edge between layered node indexes.
     pub struct LayeredEdge {
+        /// Source endpoint.
         pub from: usize,
+        /// Target endpoint.
         pub to: usize,
     }
 
     impl LayeredEdge {
         #[must_use]
+        /// Creates an instance with the provided configuration.
         pub const fn new(from: usize, to: usize) -> Self {
             Self { from, to }
         }
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// Configuration for layered edge crossing minimisation.
     pub struct CrossingMinimisationConfig {
+        /// Sweeps.
         pub sweeps: usize,
     }
 
@@ -55,17 +62,20 @@ pub mod optimise {
 
     impl CrossingMinimisationConfig {
         #[must_use]
+        /// Returns the default configuration values.
         pub const fn default_values() -> Self {
             Self { sweeps: 4 }
         }
     }
 
     #[must_use]
+    /// Minimises edge crossings for layered nodes.
     pub fn minimise_crossings(layers: &[usize], edges: &[LayeredEdge]) -> Vec<usize> {
         minimise_crossings_with_config(layers, edges, CrossingMinimisationConfig::default_values())
     }
 
     #[must_use]
+    /// Minimises edge crossings using the supplied configuration.
     pub fn minimise_crossings_with_config(
         layers: &[usize],
         edges: &[LayeredEdge],
@@ -81,6 +91,7 @@ pub mod optimise {
     }
 
     #[must_use]
+    /// Counts edge crossings for a layered ordering.
     pub fn count_crossings(layers: &[usize], order: &[usize], edges: &[LayeredEdge]) -> usize {
         assert_eq!(layers.len(), order.len(), "order length must match layers");
         validate_edges(layers, edges);
@@ -212,15 +223,23 @@ pub mod optimise {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Namespace for layout-related data types.
 pub struct Layout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the flow layout engine.
 pub struct FlowLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Node height.
     pub node_height: i32,
+    /// Max label width.
     pub max_label_width: Option<i32>,
 }
 
@@ -238,25 +257,35 @@ impl Default for FlowLayoutConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Two-dimensional integer coordinate.
 pub struct Point {
+    /// Horizontal coordinate.
     pub x: i32,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Two-dimensional integer extent.
 pub struct Size {
+    /// Width in layout units.
     pub width: i32,
+    /// Height in layout units.
     pub height: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Rectangle with an origin and size.
 pub struct Rect {
+    /// Top-left origin point.
     pub origin: Point,
+    /// Overall layout size.
     pub size: Size,
 }
 
 impl Rect {
     #[must_use]
+    /// Returns the rectangle center point.
     pub const fn center(self) -> Point {
         Point {
             x: self.origin.x + self.size.width / 2,
@@ -265,58 +294,90 @@ impl Rect {
     }
 
     #[must_use]
+    /// Returns the x coordinate of the right edge.
     pub const fn right(self) -> i32 {
         self.origin.x + self.size.width
     }
 
     #[must_use]
+    /// Returns the y coordinate of the bottom edge.
     pub const fn bottom(self) -> i32 {
         self.origin.y + self.size.height
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned flow node geometry.
 pub struct PositionedFlowNode {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Rendered node shape.
     pub shape: FlowShape,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Layer index.
     pub layer: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned flow edge geometry.
 pub struct PositionedFlowEdge {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Arrow start.
     pub arrow_start: ArrowHead,
+    /// Arrow end.
     pub arrow_end: ArrowHead,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned flow subgraph geometry.
 pub struct PositionedFlowSubgraph {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Child ids.
     pub child_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed flow layout geometry.
 pub struct FlowLayout {
+    /// Diagram layout direction.
     pub direction: Direction,
+    /// Positioned nodes.
     pub nodes: Vec<PositionedFlowNode>,
+    /// Positioned edges.
     pub edges: Vec<PositionedFlowEdge>,
+    /// Subgraphs.
     pub subgraphs: Vec<PositionedFlowSubgraph>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the sequence layout engine.
 pub struct SequenceLayoutConfig {
+    /// Lane spacing.
     pub lane_spacing: i32,
+    /// Event spacing.
     pub event_spacing: i32,
+    /// Participant width.
     pub participant_width: i32,
+    /// Participant height.
     pub participant_height: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -333,77 +394,125 @@ impl Default for SequenceLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence participant geometry.
 pub struct PositionedSequenceParticipant {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Lane x.
     pub lane_x: i32,
+    /// Header rectangle.
     pub header: Rect,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence message geometry.
 pub struct PositionedSequenceMessage {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Display label.
     pub label: Option<String>,
+    /// Number.
     pub number: Option<String>,
+    /// Vertical coordinate.
     pub y: i32,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence note geometry.
 pub struct PositionedSequenceNote {
+    /// Positioned participants.
     pub participants: Vec<String>,
+    /// Display label.
     pub label: String,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence control geometry.
 pub struct PositionedSequenceControl {
+    /// Element kind.
     pub kind: SequenceControlKind,
+    /// Display label.
     pub label: Option<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence box geometry.
 pub struct PositionedSequenceBox {
+    /// Display label.
     pub label: Option<String>,
+    /// Positioned participants.
     pub participants: Vec<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence activation geometry.
 pub struct PositionedSequenceActivation {
+    /// Participant.
     pub participant: String,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sequence destroy geometry.
 pub struct PositionedSequenceDestroy {
+    /// Participant.
     pub participant: String,
+    /// Layout point.
     pub point: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed sequence layout geometry.
 pub struct SequenceLayout {
+    /// Positioned participants.
     pub participants: Vec<PositionedSequenceParticipant>,
+    /// Boxes.
     pub boxes: Vec<PositionedSequenceBox>,
+    /// Positioned messages.
     pub messages: Vec<PositionedSequenceMessage>,
+    /// Positioned notes.
     pub notes: Vec<PositionedSequenceNote>,
+    /// Positioned control blocks.
     pub controls: Vec<PositionedSequenceControl>,
+    /// Positioned activations.
     pub activations: Vec<PositionedSequenceActivation>,
+    /// Positioned destroy markers.
     pub destroys: Vec<PositionedSequenceDestroy>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the zen UML layout engine.
 pub struct ZenUmlLayoutConfig {
+    /// Lane spacing.
     pub lane_spacing: i32,
+    /// Participant width.
     pub participant_width: i32,
+    /// Participant height.
     pub participant_height: i32,
+    /// Event spacing.
     pub event_spacing: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -415,6 +524,7 @@ impl Default for ZenUmlLayoutConfig {
 
 impl ZenUmlLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             lane_spacing: 14,
@@ -427,48 +537,79 @@ impl ZenUmlLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned zen UML participant geometry.
 pub struct PositionedZenUmlParticipant {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Annotator.
     pub annotator: Option<String>,
+    /// Lane x.
     pub lane_x: i32,
+    /// Header rectangle.
     pub header: Rect,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned zen UML message geometry.
 pub struct PositionedZenUmlMessage {
+    /// Source endpoint.
     pub from: Option<String>,
+    /// Target endpoint.
     pub to: String,
+    /// Display label.
     pub label: String,
+    /// Element kind.
     pub kind: ZenUmlMessageKind,
+    /// Tree depth.
     pub depth: u16,
+    /// Vertical coordinate.
     pub y: i32,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned zen UML fragment geometry.
 pub struct PositionedZenUmlFragment {
+    /// Display label.
     pub label: String,
+    /// Tree depth.
     pub depth: u16,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed zen UML layout geometry.
 pub struct ZenUmlLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Positioned participants.
     pub participants: Vec<PositionedZenUmlParticipant>,
+    /// Positioned messages.
     pub messages: Vec<PositionedZenUmlMessage>,
+    /// Positioned fragments.
     pub fragments: Vec<PositionedZenUmlFragment>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the sankey layout engine.
 pub struct SankeyLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Node height.
     pub node_height: i32,
 }
 
@@ -480,6 +621,7 @@ impl Default for SankeyLayoutConfig {
 
 impl SankeyLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 16,
@@ -492,35 +634,56 @@ impl SankeyLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sankey node geometry.
 pub struct PositionedSankeyNode {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Layer index.
     pub layer: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned sankey link geometry.
 pub struct PositionedSankeyLink {
+    /// Source.
     pub source: String,
+    /// Target.
     pub target: String,
+    /// Formatted value text.
     pub value_text: String,
+    /// Scaled integer value.
     pub value_units: u64,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed sankey layout geometry.
 pub struct SankeyLayout {
+    /// Positioned nodes.
     pub nodes: Vec<PositionedSankeyNode>,
+    /// Positioned links.
     pub links: Vec<PositionedSankeyLink>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the XY chart layout engine.
 pub struct XyChartLayoutConfig {
+    /// Plot width.
     pub plot_width: i32,
+    /// Plot height.
     pub plot_height: i32,
+    /// Left margin.
     pub left_margin: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -532,6 +695,7 @@ impl Default for XyChartLayoutConfig {
 
 impl XyChartLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             plot_width: 60,
@@ -543,33 +707,55 @@ impl XyChartLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned XY chart series geometry.
 pub struct PositionedXyChartSeries {
+    /// Element kind.
     pub kind: XyChartSeriesKind,
+    /// Polyline points.
     pub points: Vec<Point>,
+    /// Value texts.
     pub value_texts: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed XY chart layout geometry.
 pub struct XyChartLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// X title.
     pub x_title: Option<String>,
+    /// Y title.
     pub y_title: Option<String>,
+    /// X labels.
     pub x_labels: Vec<String>,
+    /// Y min label.
     pub y_min_label: String,
+    /// Y max label.
     pub y_max_label: String,
+    /// Plot rectangle.
     pub plot: Rect,
+    /// Positioned chart series.
     pub series: Vec<PositionedXyChartSeries>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the block layout engine.
 pub struct BlockLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Node height.
     pub node_height: i32,
+    /// Container padding.
     pub container_padding: i32,
+    /// Default columns.
     pub default_columns: u16,
 }
 
@@ -581,6 +767,7 @@ impl Default for BlockLayoutConfig {
 
 impl BlockLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 4,
@@ -595,46 +782,75 @@ impl BlockLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned block node geometry.
 pub struct PositionedBlockNode {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Rendered node shape.
     pub shape: BlockShape,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Row.
     pub row: usize,
+    /// Column.
     pub column: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned block container geometry.
 pub struct PositionedBlockContainer {
+    /// Stable identifier.
     pub id: Option<String>,
+    /// Display label.
     pub label: String,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned block edge geometry.
 pub struct PositionedBlockEdge {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Display label.
     pub label: Option<String>,
+    /// Arrow start.
     pub arrow_start: ArrowHead,
+    /// Arrow end.
     pub arrow_end: ArrowHead,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed block layout geometry.
 pub struct BlockLayout {
+    /// Positioned nodes.
     pub nodes: Vec<PositionedBlockNode>,
+    /// Containers.
     pub containers: Vec<PositionedBlockContainer>,
+    /// Positioned edges.
     pub edges: Vec<PositionedBlockEdge>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the packet layout engine.
 pub struct PacketLayoutConfig {
+    /// Bits per row.
     pub bits_per_row: u32,
+    /// Bit width.
     pub bit_width: i32,
+    /// Row height.
     pub row_height: i32,
+    /// Row spacing.
     pub row_spacing: i32,
+    /// Title spacing.
     pub title_spacing: i32,
 }
 
@@ -646,6 +862,7 @@ impl Default for PacketLayoutConfig {
 
 impl PacketLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             bits_per_row: 32,
@@ -658,39 +875,64 @@ impl PacketLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned packet field geometry.
 pub struct PositionedPacketField {
+    /// Display label.
     pub label: String,
+    /// Range label.
     pub range_label: String,
+    /// Start bit.
     pub start_bit: u32,
+    /// End bit.
     pub end_bit: u32,
+    /// Row.
     pub row: u32,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned packet row geometry.
 pub struct PositionedPacketRow {
+    /// Row.
     pub row: u32,
+    /// First bit.
     pub first_bit: u32,
+    /// Last bit.
     pub last_bit: u32,
+    /// Label y.
     pub label_y: i32,
+    /// Rect y.
     pub rect_y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed packet layout geometry.
 pub struct PacketLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Rendered text rows.
     pub rows: Vec<PositionedPacketRow>,
+    /// Fields.
     pub fields: Vec<PositionedPacketField>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the kanban layout engine.
 pub struct KanbanLayoutConfig {
+    /// Column spacing.
     pub column_spacing: i32,
+    /// Card spacing.
     pub card_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Column min width.
     pub column_min_width: i32,
+    /// Header height.
     pub header_height: i32,
+    /// Card base height.
     pub card_base_height: i32,
 }
 
@@ -702,6 +944,7 @@ impl Default for KanbanLayoutConfig {
 
 impl KanbanLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             column_spacing: 4,
@@ -715,38 +958,62 @@ impl KanbanLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned kanban column geometry.
 pub struct PositionedKanbanColumn {
+    /// Stable identifier.
     pub id: Option<String>,
+    /// Optional title.
     pub title: String,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Header rectangle.
     pub header: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned kanban task geometry.
 pub struct PositionedKanbanTask {
+    /// Column index.
     pub column_index: usize,
+    /// Stable identifier.
     pub id: Option<String>,
+    /// Display label.
     pub label: String,
+    /// Task metadata pairs.
     pub metadata: Vec<(String, String)>,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed kanban layout geometry.
 pub struct KanbanLayout {
+    /// Positioned columns.
     pub columns: Vec<PositionedKanbanColumn>,
+    /// Positioned tasks.
     pub tasks: Vec<PositionedKanbanTask>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the architecture layout engine.
 pub struct ArchitectureLayoutConfig {
+    /// Node min width.
     pub node_min_width: i32,
+    /// Node height.
     pub node_height: i32,
+    /// Junction height.
     pub junction_height: i32,
+    /// Group min width.
     pub group_min_width: i32,
+    /// Group title height.
     pub group_title_height: i32,
+    /// Group padding.
     pub group_padding: i32,
+    /// Item spacing.
     pub item_spacing: i32,
+    /// Group spacing.
     pub group_spacing: i32,
 }
 
@@ -758,6 +1025,7 @@ impl Default for ArchitectureLayoutConfig {
 
 impl ArchitectureLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             node_min_width: 16,
@@ -773,63 +1041,103 @@ impl ArchitectureLayoutConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Architecture node kind.
 pub enum ArchitectureNodeKind {
+    /// Service variant.
     Service,
+    /// Junction variant.
     Junction,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned architecture group geometry.
 pub struct PositionedArchitectureGroup {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Optional icon name.
     pub icon: Option<String>,
+    /// Parent identifier.
     pub parent: Option<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Header rectangle.
     pub header: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned architecture node geometry.
 pub struct PositionedArchitectureNode {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Optional icon name.
     pub icon: Option<String>,
+    /// Parent identifier.
     pub parent: Option<String>,
+    /// Element kind.
     pub kind: ArchitectureNodeKind,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned architecture edge geometry.
 pub struct PositionedArchitectureEdge {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// From side.
     pub from_side: ArchitectureSide,
+    /// To side.
     pub to_side: ArchitectureSide,
+    /// From group.
     pub from_group: bool,
+    /// To group.
     pub to_group: bool,
+    /// Arrow start.
     pub arrow_start: bool,
+    /// Arrow end.
     pub arrow_end: bool,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned architecture alignment geometry.
 pub struct PositionedArchitectureAlignment {
+    /// Axis.
     pub axis: ArchitectureAlignAxis,
+    /// Members.
     pub members: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed architecture layout geometry.
 pub struct ArchitectureLayout {
+    /// Groups.
     pub groups: Vec<PositionedArchitectureGroup>,
+    /// Positioned nodes.
     pub nodes: Vec<PositionedArchitectureNode>,
+    /// Positioned edges.
     pub edges: Vec<PositionedArchitectureEdge>,
+    /// Alignments.
     pub alignments: Vec<PositionedArchitectureAlignment>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the radar layout engine.
 pub struct RadarLayoutConfig {
+    /// Radius.
     pub radius: i32,
+    /// Title spacing.
     pub title_spacing: i32,
+    /// Legend spacing.
     pub legend_spacing: i32,
 }
 
@@ -841,6 +1149,7 @@ impl Default for RadarLayoutConfig {
 
 impl RadarLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             radius: 8,
@@ -851,49 +1160,81 @@ impl RadarLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned radar axis geometry.
 pub struct PositionedRadarAxis {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// End.
     pub end: Point,
+    /// Label origin.
     pub label_origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned radar point geometry.
 pub struct PositionedRadarPoint {
+    /// Axis ID.
     pub axis_id: String,
+    /// Optional value text.
     pub value: String,
+    /// Layout point.
     pub point: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned radar curve geometry.
 pub struct PositionedRadarCurve {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Curve marker character.
     pub marker: char,
+    /// Polyline points.
     pub points: Vec<PositionedRadarPoint>,
+    /// Legend origin.
     pub legend_origin: Option<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed radar layout geometry.
 pub struct RadarLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Axes.
     pub axes: Vec<PositionedRadarAxis>,
+    /// Curves.
     pub curves: Vec<PositionedRadarCurve>,
+    /// Rings.
     pub rings: Vec<Vec<Point>>,
+    /// Center point.
     pub center: Point,
+    /// Show legend.
     pub show_legend: bool,
+    /// Min value.
     pub min_value: String,
+    /// Max value.
     pub max_value: String,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the event modeling layout engine.
 pub struct EventModelingLayoutConfig {
+    /// Column spacing.
     pub column_spacing: i32,
+    /// Lane spacing.
     pub lane_spacing: i32,
+    /// Node width.
     pub node_width: i32,
+    /// Node height.
     pub node_height: i32,
+    /// Lane label width.
     pub lane_label_width: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -905,6 +1246,7 @@ impl Default for EventModelingLayoutConfig {
 
 impl EventModelingLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             column_spacing: 6,
@@ -918,54 +1260,88 @@ impl EventModelingLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned event modeling lane geometry.
 pub struct PositionedEventModelingLane {
+    /// Stable identifier.
     pub id: String,
+    /// Optional title.
     pub title: String,
+    /// Vertical coordinate.
     pub y: i32,
+    /// Height in layout units.
     pub height: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned event modeling frame geometry.
 pub struct PositionedEventModelingFrame {
+    /// Number.
     pub number: String,
+    /// Entity.
     pub entity: String,
+    /// Entity type.
     pub entity_type: EventModelingEntityType,
+    /// Frame kind.
     pub frame_kind: EventModelingFrameKind,
+    /// Data ref.
     pub data_ref: Option<String>,
+    /// Data summary.
     pub data_summary: Option<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Lane index.
     pub lane_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned event modeling relation geometry.
 pub struct PositionedEventModelingRelation {
+    /// From index.
     pub from_index: usize,
+    /// To index.
     pub to_index: usize,
+    /// Polyline points.
     pub points: Vec<Point>,
+    /// Explicit.
     pub explicit: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned event modeling data block geometry.
 pub struct PositionedEventModelingDataBlock {
+    /// Stable identifier.
     pub id: String,
+    /// Ty.
     pub ty: Option<String>,
+    /// Summary.
     pub summary: String,
+    /// Top-left origin point.
     pub origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed event modeling layout geometry.
 pub struct EventModelingLayout {
+    /// Lanes.
     pub lanes: Vec<PositionedEventModelingLane>,
+    /// Frames.
     pub frames: Vec<PositionedEventModelingFrame>,
+    /// Relations.
     pub relations: Vec<PositionedEventModelingRelation>,
+    /// Data blocks.
     pub data_blocks: Vec<PositionedEventModelingDataBlock>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the treemap layout engine.
 pub struct TreemapLayoutConfig {
+    /// Width in layout units.
     pub width: i32,
+    /// Height in layout units.
     pub height: i32,
+    /// Padding.
     pub padding: i32,
 }
 
@@ -977,6 +1353,7 @@ impl Default for TreemapLayoutConfig {
 
 impl TreemapLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             width: 78,
@@ -987,27 +1364,43 @@ impl TreemapLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned treemap node geometry.
 pub struct PositionedTreemapNode {
+    /// Display label.
     pub label: String,
+    /// Optional value text.
     pub value: Option<String>,
+    /// Aggregate value.
     pub aggregate_value: String,
+    /// CSS class names.
     pub classes: Vec<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Tree depth.
     pub depth: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed treemap layout geometry.
 pub struct TreemapLayout {
+    /// Positioned nodes.
     pub nodes: Vec<PositionedTreemapNode>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the venn layout engine.
 pub struct VennLayoutConfig {
+    /// Width in layout units.
     pub width: i32,
+    /// Height in layout units.
     pub height: i32,
+    /// Radius x.
     pub radius_x: i32,
+    /// Radius y.
     pub radius_y: i32,
+    /// Title spacing.
     pub title_spacing: i32,
 }
 
@@ -1019,6 +1412,7 @@ impl Default for VennLayoutConfig {
 
 impl VennLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             width: 74,
@@ -1031,50 +1425,83 @@ impl VennLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned venn set geometry.
 pub struct PositionedVennSet {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Overall layout size.
     pub size: Option<String>,
+    /// Center point.
     pub center: Point,
+    /// Radius x.
     pub radius_x: i32,
+    /// Radius y.
     pub radius_y: i32,
+    /// Texts.
     pub texts: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned venn union geometry.
 pub struct PositionedVennUnion {
+    /// Members.
     pub members: Vec<String>,
+    /// Display label.
     pub label: Option<String>,
+    /// Overall layout size.
     pub size: Option<String>,
+    /// Layout point.
     pub point: Point,
+    /// Texts.
     pub texts: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned venn style geometry.
 pub struct PositionedVennStyle {
+    /// Targets.
     pub targets: Vec<String>,
+    /// Declarations.
     pub declarations: Vec<String>,
+    /// Top-left origin point.
     pub origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed venn layout geometry.
 pub struct VennLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Sets.
     pub sets: Vec<PositionedVennSet>,
+    /// Unions.
     pub unions: Vec<PositionedVennUnion>,
+    /// Styles.
     pub styles: Vec<PositionedVennStyle>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the ishikawa layout engine.
 pub struct IshikawaLayoutConfig {
+    /// Width in layout units.
     pub width: i32,
+    /// Spine y.
     pub spine_y: i32,
+    /// Root offset.
     pub root_offset: i32,
+    /// Row spacing.
     pub row_spacing: i32,
+    /// Child indent.
     pub child_indent: i32,
+    /// Node padding.
     pub node_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Node height.
     pub node_height: i32,
 }
 
@@ -1086,6 +1513,7 @@ impl Default for IshikawaLayoutConfig {
 
 impl IshikawaLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             width: 118,
@@ -1101,36 +1529,58 @@ impl IshikawaLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned ishikawa node geometry.
 pub struct PositionedIshikawaNode {
+    /// Display label.
     pub label: String,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Tree depth.
     pub depth: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Positioned ishikawa edge geometry.
 pub struct PositionedIshikawaEdge {
+    /// Source endpoint.
     pub from: Point,
+    /// Target endpoint.
     pub to: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed ishikawa layout geometry.
 pub struct IshikawaLayout {
+    /// Event.
     pub event: String,
+    /// Event rect.
     pub event_rect: Rect,
+    /// Spine start.
     pub spine_start: Point,
+    /// Spine end.
     pub spine_end: Point,
+    /// Positioned nodes.
     pub nodes: Vec<PositionedIshikawaNode>,
+    /// Positioned edges.
     pub edges: Vec<PositionedIshikawaEdge>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the wardley layout engine.
 pub struct WardleyLayoutConfig {
+    /// Width in layout units.
     pub width: i32,
+    /// Height in layout units.
     pub height: i32,
+    /// Margin left.
     pub margin_left: i32,
+    /// Margin top.
     pub margin_top: i32,
+    /// Plot width.
     pub plot_width: i32,
+    /// Plot height.
     pub plot_height: i32,
 }
 
@@ -1142,6 +1592,7 @@ impl Default for WardleyLayoutConfig {
 
 impl WardleyLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             width: 96,
@@ -1155,61 +1606,99 @@ impl WardleyLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned wardley component geometry.
 pub struct PositionedWardleyComponent {
+    /// Name.
     pub name: String,
+    /// Element kind.
     pub kind: WardleyComponentKind,
+    /// Layout point.
     pub point: Point,
+    /// Label origin.
     pub label_origin: Point,
+    /// Decorators.
     pub decorators: Vec<WardleyDecorator>,
+    /// Pipeline.
     pub pipeline: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned wardley link geometry.
 pub struct PositionedWardleyLink {
+    /// Source endpoint.
     pub from: Point,
+    /// Target endpoint.
     pub to: Point,
+    /// Element kind.
     pub kind: WardleyLinkKind,
+    /// Display label.
     pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned wardley evolve geometry.
 pub struct PositionedWardleyEvolve {
+    /// Source endpoint.
     pub from: Point,
+    /// Target endpoint.
     pub to: Point,
+    /// Name.
     pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned wardley text geometry.
 pub struct PositionedWardleyText {
+    /// Text.
     pub text: String,
+    /// Layout point.
     pub point: Point,
+    /// Element kind.
     pub kind: WardleyTextKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Wardley text kind.
 pub enum WardleyTextKind {
+    /// Note variant.
     Note,
+    /// Annotation variant.
     Annotation,
+    /// Accelerator variant.
     Accelerator,
+    /// Deaccelerator variant.
     Deaccelerator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed wardley layout geometry.
 pub struct WardleyLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Plot rectangle.
     pub plot: Rect,
+    /// Components.
     pub components: Vec<PositionedWardleyComponent>,
+    /// Positioned links.
     pub links: Vec<PositionedWardleyLink>,
+    /// Evolves.
     pub evolves: Vec<PositionedWardleyEvolve>,
+    /// Texts.
     pub texts: Vec<PositionedWardleyText>,
+    /// Stages.
     pub stages: Vec<String>,
+    /// Annotations origin.
     pub annotations_origin: Option<Point>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the tree view layout engine.
 pub struct TreeViewLayoutConfig {
+    /// Padding x.
     pub padding_x: i32,
+    /// Padding y.
     pub padding_y: i32,
 }
 
@@ -1221,6 +1710,7 @@ impl Default for TreeViewLayoutConfig {
 
 impl TreeViewLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             padding_x: 1,
@@ -1230,40 +1720,63 @@ impl TreeViewLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned tree view node geometry.
 pub struct PositionedTreeViewNode {
+    /// Prefix.
     pub prefix: String,
+    /// Display label.
     pub label: String,
+    /// Directory.
     pub directory: bool,
+    /// Optional icon name.
     pub icon: String,
+    /// CSS class names.
     pub classes: Vec<String>,
+    /// Optional description text.
     pub description: Option<String>,
+    /// Tree depth.
     pub depth: usize,
+    /// Layout point.
     pub point: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed tree view layout geometry.
 pub struct TreeViewLayout {
+    /// Positioned nodes.
     pub nodes: Vec<PositionedTreeViewNode>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed state layout geometry.
 pub struct StateLayout {
+    /// Graph.
     pub graph: FlowLayout,
+    /// Composites.
     pub composites: Vec<PositionedStateComposite>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned state composite geometry.
 pub struct PositionedStateComposite {
+    /// Stable identifier.
     pub id: String,
+    /// Child ids.
     pub child_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the class layout engine.
 pub struct ClassLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
 }
 
@@ -1275,6 +1788,7 @@ impl Default for ClassLayoutConfig {
 
 impl ClassLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 12,
@@ -1286,42 +1800,70 @@ impl ClassLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned class node geometry.
 pub struct PositionedClassNode {
+    /// Stable identifier.
     pub id: String,
+    /// Annotations.
     pub annotations: Vec<String>,
+    /// Fields.
     pub fields: Vec<String>,
+    /// Methods.
     pub methods: Vec<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Layer index.
     pub layer: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned class relationship geometry.
 pub struct PositionedClassRelationship {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Line.
     pub line: ClassRelationshipLine,
+    /// Start marker.
     pub start_marker: ClassRelationshipMarker,
+    /// End marker.
     pub end_marker: ClassRelationshipMarker,
+    /// Start cardinality.
     pub start_cardinality: Option<String>,
+    /// End cardinality.
     pub end_cardinality: Option<String>,
+    /// Display label.
     pub label: Option<String>,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed class layout geometry.
 pub struct ClassLayout {
+    /// Diagram layout direction.
     pub direction: Direction,
+    /// Positioned nodes.
     pub nodes: Vec<PositionedClassNode>,
+    /// Positioned relationships.
     pub relationships: Vec<PositionedClassRelationship>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the requirement layout engine.
 pub struct RequirementLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
 }
 
@@ -1333,6 +1875,7 @@ impl Default for RequirementLayoutConfig {
 
 impl RequirementLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 14,
@@ -1344,52 +1887,87 @@ impl RequirementLayoutConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Positioned requirement node kind geometry.
 pub enum PositionedRequirementNodeKind {
+    /// Requirement variant.
     Requirement,
+    /// Element variant.
     Element,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned requirement node geometry.
 pub struct PositionedRequirementNode {
+    /// Stable identifier.
     pub id: String,
+    /// Element kind.
     pub kind: PositionedRequirementNodeKind,
+    /// Type label.
     pub type_label: String,
+    /// Name.
     pub name: String,
+    /// Rendered text rows.
     pub rows: Vec<String>,
+    /// CSS class names.
     pub classes: Vec<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Layer index.
     pub layer: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned requirement relationship geometry.
 pub struct PositionedRequirementRelationship {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Element kind.
     pub kind: RequirementRelationshipKind,
+    /// Display label.
     pub label: String,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed requirement layout geometry.
 pub struct RequirementLayout {
+    /// Diagram layout direction.
     pub direction: Direction,
+    /// Positioned nodes.
     pub nodes: Vec<PositionedRequirementNode>,
+    /// Positioned relationships.
     pub relationships: Vec<PositionedRequirementRelationship>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the C4 layout engine.
 pub struct C4LayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Horizontal padding.
     pub horizontal_padding: i32,
+    /// Boundary padding x.
     pub boundary_padding_x: i32,
+    /// Boundary padding y.
     pub boundary_padding_y: i32,
+    /// Boundary header height.
     pub boundary_header_height: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Shape in row.
     pub shape_in_row: usize,
+    /// Boundary in row.
     pub boundary_in_row: usize,
+    /// Diagram layout direction.
     pub direction: Direction,
 }
 
@@ -1401,6 +1979,7 @@ impl Default for C4LayoutConfig {
 
 impl C4LayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 8,
@@ -1418,59 +1997,101 @@ impl C4LayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned C4 element geometry.
 pub struct PositionedC4Element {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Kind label.
     pub kind_label: String,
+    /// Optional technology label.
     pub technology: Option<String>,
+    /// Optional description text.
     pub description: Option<String>,
+    /// Style rows.
     pub style_rows: Vec<String>,
+    /// Parent identifier.
     pub parent: Option<String>,
+    /// Whether the element is external.
     pub external: bool,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Layer index.
     pub layer: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned C4 boundary geometry.
 pub struct PositionedC4Boundary {
+    /// Stable identifier.
     pub id: String,
+    /// Display label.
     pub label: String,
+    /// Kind label.
     pub kind_label: String,
+    /// Ty.
     pub ty: Option<String>,
+    /// Header height.
     pub header_height: i32,
+    /// Style rows.
     pub style_rows: Vec<String>,
+    /// Parent identifier.
     pub parent: Option<String>,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Tree depth.
     pub depth: usize,
+    /// Order within the layer.
     pub order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned C4 relationship geometry.
 pub struct PositionedC4Relationship {
+    /// Source endpoint.
     pub from: String,
+    /// Target endpoint.
     pub to: String,
+    /// Element kind.
     pub kind: C4RelationshipKind,
+    /// Display label.
     pub label: String,
+    /// Optional technology label.
     pub technology: Option<String>,
+    /// Style rows.
     pub style_rows: Vec<String>,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed C4 layout geometry.
 pub struct C4Layout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Elements.
     pub elements: Vec<PositionedC4Element>,
+    /// Boundaries.
     pub boundaries: Vec<PositionedC4Boundary>,
+    /// Positioned relationships.
     pub relationships: Vec<PositionedC4Relationship>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the gantt layout engine.
 pub struct GanttLayoutConfig {
+    /// Left width.
     pub left_width: i32,
+    /// Day width.
     pub day_width: i32,
+    /// Row height.
     pub row_height: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -1482,6 +2103,7 @@ impl Default for GanttLayoutConfig {
 
 impl GanttLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             left_width: 18,
@@ -1493,49 +2115,81 @@ impl GanttLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned gantt section geometry.
 pub struct PositionedGanttSection {
+    /// Display label.
     pub label: String,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned gantt task geometry.
 pub struct PositionedGanttTask {
+    /// Stable identifier.
     pub id: Option<String>,
+    /// Optional title.
     pub title: String,
+    /// Section.
     pub section: Option<String>,
+    /// Tags.
     pub tags: Vec<GanttTaskTag>,
+    /// Start.
     pub start: i32,
+    /// End.
     pub end: i32,
+    /// Bounding rectangle.
     pub rect: Rect,
+    /// Label origin.
     pub label_origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned gantt tick geometry.
 pub struct PositionedGanttTick {
+    /// Day.
     pub day: i32,
+    /// Horizontal coordinate.
     pub x: i32,
+    /// Display label.
     pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed gantt layout geometry.
 pub struct GanttLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Positioned sections.
     pub sections: Vec<PositionedGanttSection>,
+    /// Positioned tasks.
     pub tasks: Vec<PositionedGanttTask>,
+    /// Positioned ticks.
     pub ticks: Vec<PositionedGanttTick>,
+    /// Excluded days.
     pub excluded_days: Vec<i32>,
+    /// Today x.
     pub today_x: Option<i32>,
+    /// Day width.
     pub day_width: i32,
+    /// Min day.
     pub min_day: i32,
+    /// Max day.
     pub max_day: i32,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the pie layout engine.
 pub struct PieLayoutConfig {
+    /// Radius x.
     pub radius_x: i32,
+    /// Radius y.
     pub radius_y: i32,
+    /// Top padding.
     pub top_padding: i32,
+    /// Legend gap.
     pub legend_gap: i32,
 }
 
@@ -1547,6 +2201,7 @@ impl Default for PieLayoutConfig {
 
 impl PieLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             radius_x: 12,
@@ -1558,37 +2213,60 @@ impl PieLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Rendered cell for a pie slice fill.
 pub struct PieCell {
+    /// Layout point.
     pub point: Point,
+    /// Slice index.
     pub slice_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned pie slice geometry.
 pub struct PositionedPieSlice {
+    /// Display label.
     pub label: String,
+    /// Formatted value text.
     pub value_text: String,
+    /// Scaled integer value.
     pub value_units: u64,
+    /// Percent basis points.
     pub percent_basis_points: u16,
+    /// Label origin.
     pub label_origin: Point,
+    /// Legend origin.
     pub legend_origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed pie layout geometry.
 pub struct PieLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Show data.
     pub show_data: bool,
+    /// Center point.
     pub center: Point,
+    /// Positioned slices.
     pub slices: Vec<PositionedPieSlice>,
+    /// Rendered pie cells.
     pub cells: Vec<PieCell>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the quadrant layout engine.
 pub struct QuadrantLayoutConfig {
+    /// Plot width.
     pub plot_width: i32,
+    /// Plot height.
     pub plot_height: i32,
+    /// Left margin.
     pub left_margin: i32,
+    /// Top padding.
     pub top_padding: i32,
+    /// Label gap.
     pub label_gap: i32,
 }
 
@@ -1600,6 +2278,7 @@ impl Default for QuadrantLayoutConfig {
 
 impl QuadrantLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             plot_width: 61,
@@ -1612,40 +2291,66 @@ impl QuadrantLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned quadrant point geometry.
 pub struct PositionedQuadrantPoint {
+    /// Display label.
     pub label: String,
+    /// X value.
     pub x_value: u16,
+    /// Y value.
     pub y_value: u16,
+    /// Layout point.
     pub point: Point,
+    /// Label origin.
     pub label_origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned quadrant section geometry.
 pub struct PositionedQuadrantSection {
+    /// Index.
     pub index: u8,
+    /// Display label.
     pub label: String,
+    /// Top-left origin point.
     pub origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed quadrant layout geometry.
 pub struct QuadrantLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// X start.
     pub x_start: String,
+    /// X end.
     pub x_end: String,
+    /// Y start.
     pub y_start: String,
+    /// Y end.
     pub y_end: String,
+    /// Plot rectangle.
     pub plot: Rect,
+    /// Quadrants.
     pub quadrants: Vec<PositionedQuadrantSection>,
+    /// Polyline points.
     pub points: Vec<PositionedQuadrantPoint>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the mindmap layout engine.
 pub struct MindmapLayoutConfig {
+    /// Horizontal spacing.
     pub horizontal_spacing: i32,
+    /// Vertical spacing.
     pub vertical_spacing: i32,
+    /// Node padding.
     pub node_padding: i32,
+    /// Min node width.
     pub min_node_width: i32,
+    /// Node height.
     pub node_height: i32,
 }
 
@@ -1657,6 +2362,7 @@ impl Default for MindmapLayoutConfig {
 
 impl MindmapLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             horizontal_spacing: 8,
@@ -1669,38 +2375,62 @@ impl MindmapLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned mindmap node geometry.
 pub struct PositionedMindmapNode {
+    /// Stable identifier.
     pub id: usize,
+    /// Display label.
     pub label: String,
+    /// Rendered node shape.
     pub shape: MindmapShape,
+    /// Optional icon name.
     pub icon: Option<String>,
+    /// CSS class names.
     pub classes: Vec<String>,
+    /// Tree depth.
     pub depth: usize,
+    /// Bounding rectangle.
     pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned mindmap edge geometry.
 pub struct PositionedMindmapEdge {
+    /// Source endpoint.
     pub from: usize,
+    /// Target endpoint.
     pub to: usize,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed mindmap layout geometry.
 pub struct MindmapLayout {
+    /// Positioned nodes.
     pub nodes: Vec<PositionedMindmapNode>,
+    /// Positioned edges.
     pub edges: Vec<PositionedMindmapEdge>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the journey layout engine.
 pub struct JourneyLayoutConfig {
+    /// Label width.
     pub label_width: i32,
+    /// Score width.
     pub score_width: i32,
+    /// Score label width.
     pub score_label_width: i32,
+    /// Actor gap.
     pub actor_gap: i32,
+    /// Row height.
     pub row_height: i32,
+    /// Section gap.
     pub section_gap: i32,
+    /// Top padding.
     pub top_padding: i32,
 }
 
@@ -1712,6 +2442,7 @@ impl Default for JourneyLayoutConfig {
 
 impl JourneyLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             label_width: 24,
@@ -1726,40 +2457,66 @@ impl JourneyLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned journey section geometry.
 pub struct PositionedJourneySection {
+    /// Display label.
     pub label: String,
+    /// Vertical coordinate.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned journey task geometry.
 pub struct PositionedJourneyTask {
+    /// Index.
     pub index: usize,
+    /// Display label.
     pub label: String,
+    /// Section.
     pub section: Option<String>,
+    /// Score.
     pub score: u8,
+    /// Actors.
     pub actors: Vec<String>,
+    /// Actor style indices.
     pub actor_style_indices: Vec<usize>,
+    /// Label origin.
     pub label_origin: Point,
+    /// Bar rect.
     pub bar_rect: Rect,
+    /// Score origin.
     pub score_origin: Point,
+    /// Actors origin.
     pub actors_origin: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed journey layout geometry.
 pub struct JourneyLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Positioned sections.
     pub sections: Vec<PositionedJourneySection>,
+    /// Actors.
     pub actors: Vec<String>,
+    /// Positioned tasks.
     pub tasks: Vec<PositionedJourneyTask>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the git graph layout engine.
 pub struct GitGraphLayoutConfig {
+    /// Label width.
     pub label_width: i32,
+    /// Commit spacing.
     pub commit_spacing: i32,
+    /// Branch spacing.
     pub branch_spacing: i32,
+    /// Top padding.
     pub top_padding: i32,
+    /// Left padding.
     pub left_padding: i32,
 }
 
@@ -1771,6 +2528,7 @@ impl Default for GitGraphLayoutConfig {
 
 impl GitGraphLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             label_width: 12,
@@ -1783,48 +2541,79 @@ impl GitGraphLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned git graph branch geometry.
 pub struct PositionedGitGraphBranch {
+    /// Name.
     pub name: String,
+    /// Lane.
     pub lane: usize,
+    /// Label origin.
     pub label_origin: Point,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned git graph commit geometry.
 pub struct PositionedGitGraphCommit {
+    /// Index.
     pub index: usize,
+    /// Stable identifier.
     pub id: String,
+    /// Tag.
     pub tag: Option<String>,
+    /// Branch.
     pub branch: String,
+    /// Element kind.
     pub kind: GitGraphCommitKind,
+    /// Layout point.
     pub point: Point,
+    /// Label origin.
     pub label_origin: Point,
+    /// Tag origin.
     pub tag_origin: Option<Point>,
+    /// Is merge.
     pub is_merge: bool,
+    /// Is cherry pick.
     pub is_cherry_pick: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned git graph edge geometry.
 pub struct PositionedGitGraphEdge {
+    /// Source endpoint.
     pub from: usize,
+    /// Target endpoint.
     pub to: usize,
+    /// Polyline points.
     pub points: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed git graph layout geometry.
 pub struct GitGraphLayout {
+    /// Orientation.
     pub orientation: GitGraphOrientation,
+    /// Branches.
     pub branches: Vec<PositionedGitGraphBranch>,
+    /// Commits.
     pub commits: Vec<PositionedGitGraphCommit>,
+    /// Positioned edges.
     pub edges: Vec<PositionedGitGraphEdge>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Configuration values for the timeline layout engine.
 pub struct TimelineLayoutConfig {
+    /// Period spacing.
     pub period_spacing: i32,
+    /// Section gap.
     pub section_gap: i32,
+    /// Top padding.
     pub top_padding: i32,
+    /// Left padding.
     pub left_padding: i32,
 }
 
@@ -1836,6 +2625,7 @@ impl Default for TimelineLayoutConfig {
 
 impl TimelineLayoutConfig {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             period_spacing: 20,
@@ -1847,168 +2637,214 @@ impl TimelineLayoutConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned timeline section geometry.
 pub struct PositionedTimelineSection {
+    /// Display label.
     pub label: Option<String>,
+    /// Vertical coordinate.
     pub y: i32,
+    /// Axis start.
     pub axis_start: Point,
+    /// Axis end.
     pub axis_end: Point,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Positioned timeline period geometry.
 pub struct PositionedTimelinePeriod {
+    /// Index.
     pub index: usize,
+    /// Display label.
     pub label: String,
+    /// Section.
     pub section: Option<String>,
+    /// Events.
     pub events: Vec<String>,
+    /// Layout point.
     pub point: Point,
+    /// Label origin.
     pub label_origin: Point,
+    /// Event origins.
     pub event_origins: Vec<Point>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Computed timeline layout geometry.
 pub struct TimelineLayout {
+    /// Optional title.
     pub title: Option<String>,
+    /// Positioned sections.
     pub sections: Vec<PositionedTimelineSection>,
+    /// Periods.
     pub periods: Vec<PositionedTimelinePeriod>,
+    /// Overall layout size.
     pub size: Size,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes flow layout geometry.
 pub struct FlowLayoutEngine {
     config: FlowLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes sequence layout geometry.
 pub struct SequenceLayoutEngine {
     config: SequenceLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes zen UML layout geometry.
 pub struct ZenUmlLayoutEngine {
     config: ZenUmlLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes sankey layout geometry.
 pub struct SankeyLayoutEngine {
     config: SankeyLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes XY chart layout geometry.
 pub struct XyChartLayoutEngine {
     config: XyChartLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes block layout geometry.
 pub struct BlockLayoutEngine {
     config: BlockLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes packet layout geometry.
 pub struct PacketLayoutEngine {
     config: PacketLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes kanban layout geometry.
 pub struct KanbanLayoutEngine {
     config: KanbanLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes architecture layout geometry.
 pub struct ArchitectureLayoutEngine {
     config: ArchitectureLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes radar layout geometry.
 pub struct RadarLayoutEngine {
     config: RadarLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes event modeling layout geometry.
 pub struct EventModelingLayoutEngine {
     config: EventModelingLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes treemap layout geometry.
 pub struct TreemapLayoutEngine {
     config: TreemapLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes venn layout geometry.
 pub struct VennLayoutEngine {
     config: VennLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes ishikawa layout geometry.
 pub struct IshikawaLayoutEngine {
     config: IshikawaLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes wardley layout geometry.
 pub struct WardleyLayoutEngine {
     config: WardleyLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes tree view layout geometry.
 pub struct TreeViewLayoutEngine {
     config: TreeViewLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes state layout geometry.
 pub struct StateLayoutEngine {
     flow: FlowLayoutEngine,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes class layout geometry.
 pub struct ClassLayoutEngine {
     config: ClassLayoutConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Computes ER layout geometry.
 pub struct ErLayoutEngine {
     config: ClassLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes gantt layout geometry.
 pub struct GanttLayoutEngine {
     config: GanttLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes pie layout geometry.
 pub struct PieLayoutEngine {
     config: PieLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes quadrant layout geometry.
 pub struct QuadrantLayoutEngine {
     config: QuadrantLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes mindmap layout geometry.
 pub struct MindmapLayoutEngine {
     config: MindmapLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes journey layout geometry.
 pub struct JourneyLayoutEngine {
     config: JourneyLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes git graph layout geometry.
 pub struct GitGraphLayoutEngine {
     config: GitGraphLayoutConfig,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// Computes timeline layout geometry.
 pub struct TimelineLayoutEngine {
     config: TimelineLayoutConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Computes requirement layout geometry.
 pub struct RequirementLayoutEngine {
     config: RequirementLayoutConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Computes C4 layout geometry.
 pub struct C4LayoutEngine {
     config: C4LayoutConfig,
 }
@@ -2033,11 +2869,13 @@ impl Default for C4LayoutEngine {
 
 impl FlowLayoutEngine {
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: FlowLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &FlowchartAst) -> FlowLayout {
         let graph = LayoutGraph::from_ast(ast);
         let layers = assign_layers(&graph);
@@ -2054,11 +2892,13 @@ impl FlowLayoutEngine {
 
 impl SequenceLayoutEngine {
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: SequenceLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &SequenceAst) -> SequenceLayout {
         let participants = sequence_participants(ast);
         let positioned_participants = self.position_participants(&participants);
@@ -2552,6 +3392,7 @@ fn sequence_message_text_width(message: &PositionedSequenceMessage) -> Option<us
 
 impl ZenUmlLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: ZenUmlLayoutConfig::default_values(),
@@ -2559,11 +3400,13 @@ impl ZenUmlLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: ZenUmlLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &ZenUmlAst) -> ZenUmlLayout {
         let title_height = i32::from(ast.title.is_some()) * 2;
         let participants = self.position_participants(ast, title_height);
@@ -2805,6 +3648,7 @@ fn zenuml_fragment_label(kind: ZenUmlFragmentKind, label: &Option<Label>) -> Str
 
 impl SankeyLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: SankeyLayoutConfig::default_values(),
@@ -2812,11 +3656,13 @@ impl SankeyLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: SankeyLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &SankeyAst) -> SankeyLayout {
         let ids = sankey_node_ids(ast);
         let layers = sankey_layers(ast, &ids);
@@ -3004,6 +3850,7 @@ fn sankey_link_label_point(link: &PositionedSankeyLink) -> Option<Point> {
 
 impl XyChartLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: XyChartLayoutConfig::default_values(),
@@ -3011,11 +3858,13 @@ impl XyChartLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: XyChartLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &XyChartAst) -> XyChartLayout {
         let title = ast.title.as_ref().map(|title| title.text.clone());
         let x_title = ast
@@ -3181,6 +4030,7 @@ fn xy_chart_y(plot: Rect, value: i64, y_min: i64, y_max: i64) -> i32 {
 
 impl BlockLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: BlockLayoutConfig::default_values(),
@@ -3188,11 +4038,13 @@ impl BlockLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: BlockLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &BlockDiagramAst) -> BlockLayout {
         let lookup = ast
             .blocks
@@ -3509,6 +4361,7 @@ fn block_edge_label_point(edge: &PositionedBlockEdge) -> Option<Point> {
 
 impl PacketLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: PacketLayoutConfig::default_values(),
@@ -3516,11 +4369,13 @@ impl PacketLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: PacketLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &PacketAst) -> PacketLayout {
         let title = ast.title.as_ref().map(|title| title.text.clone());
         let row_offset = if title.is_some() {
@@ -3617,6 +4472,7 @@ fn packet_range_label(start: u32, end: u32) -> String {
 
 impl KanbanLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: KanbanLayoutConfig::default_values(),
@@ -3624,11 +4480,13 @@ impl KanbanLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: KanbanLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &KanbanAst) -> KanbanLayout {
         let mut columns = Vec::new();
         let mut tasks = Vec::new();
@@ -3721,6 +4579,7 @@ fn kanban_metadata_pair(metadata: &KanbanMetadata) -> (String, String) {
 
 impl ArchitectureLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: ArchitectureLayoutConfig::default_values(),
@@ -3728,11 +4587,13 @@ impl ArchitectureLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: ArchitectureLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &ArchitectureAst) -> ArchitectureLayout {
         let context = ArchitectureLayoutContext::new(ast);
         let mut groups = Vec::new();
@@ -4110,6 +4971,7 @@ fn architecture_side_point(rect: Rect, side: ArchitectureSide) -> Point {
 
 impl RadarLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: RadarLayoutConfig::default_values(),
@@ -4117,11 +4979,13 @@ impl RadarLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: RadarLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &RadarAst) -> RadarLayout {
         let axis_labels = ast
             .axes
@@ -4409,6 +5273,7 @@ fn radar_number_label(value: f64) -> String {
 
 impl EventModelingLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: EventModelingLayoutConfig::default_values(),
@@ -4416,11 +5281,13 @@ impl EventModelingLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: EventModelingLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &EventModelingAst) -> EventModelingLayout {
         let mut lane_ids = Vec::<String>::new();
         let mut lane_titles = Vec::<String>::new();
@@ -4631,6 +5498,7 @@ fn event_modeling_data_block_label(block: &PositionedEventModelingDataBlock) -> 
 
 impl TreemapLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: TreemapLayoutConfig::default_values(),
@@ -4638,11 +5506,13 @@ impl TreemapLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: TreemapLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &TreemapAst) -> TreemapLayout {
         let mut nodes = Vec::new();
         let root_rect = Rect {
@@ -4810,6 +5680,7 @@ fn treemap_number_label(value: f64) -> String {
 
 impl VennLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: VennLayoutConfig::default_values(),
@@ -4817,11 +5688,13 @@ impl VennLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: VennLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &VennAst) -> VennLayout {
         let title_offset = ast.title.as_ref().map_or(0, |_| self.config.title_spacing);
         let centers = venn_centers(
@@ -5008,6 +5881,7 @@ fn venn_style_label(style: &PositionedVennStyle) -> String {
 
 impl IshikawaLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: IshikawaLayoutConfig::default_values(),
@@ -5015,11 +5889,13 @@ impl IshikawaLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: IshikawaLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &IshikawaAst) -> IshikawaLayout {
         let event_width = (label_width(&ast.event.text) + self.config.node_padding * 2)
             .max(self.config.min_node_width);
@@ -5235,6 +6111,7 @@ fn normalize_ishikawa_layout(layout: &mut IshikawaLayout) {
 
 impl WardleyLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: WardleyLayoutConfig::default_values(),
@@ -5242,11 +6119,13 @@ impl WardleyLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: WardleyLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &WardleyAst) -> WardleyLayout {
         let title_offset = ast.title.as_ref().map_or(0, |_| 2);
         let plot = Rect {
@@ -5415,6 +6294,7 @@ fn normalize_wardley_layout(layout: &mut WardleyLayout) {
 
 impl TreeViewLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: TreeViewLayoutConfig::default_values(),
@@ -5422,11 +6302,13 @@ impl TreeViewLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: TreeViewLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &TreeViewAst) -> TreeViewLayout {
         let mut nodes = Vec::new();
         let mut y = 0i32;
@@ -5569,11 +6451,13 @@ fn tree_view_auto_icon(node: &TreeViewNode) -> String {
 
 impl StateLayoutEngine {
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(flow: FlowLayoutEngine) -> Self {
         Self { flow }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &StateAst) -> StateLayout {
         let direction = ast
             .direction
@@ -5616,6 +6500,7 @@ impl StateLayoutEngine {
 
 impl ClassLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: ClassLayoutConfig::default_values(),
@@ -5623,11 +6508,13 @@ impl ClassLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: ClassLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &ClassAst) -> ClassLayout {
         let direction = ast
             .direction
@@ -5717,6 +6604,7 @@ impl ClassLayoutEngine {
 
 impl ErLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: ClassLayoutConfig {
@@ -5729,11 +6617,13 @@ impl ErLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: ClassLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &ErAst) -> ClassLayout {
         let direction = Direction::LeftRight;
         let graph = LayoutGraph::from_er_ast(ast);
@@ -5822,6 +6712,7 @@ impl ErLayoutEngine {
 
 impl RequirementLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: RequirementLayoutConfig::default_values(),
@@ -5829,11 +6720,13 @@ impl RequirementLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: RequirementLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &RequirementAst) -> RequirementLayout {
         let direction = ast
             .direction
@@ -6077,6 +6970,7 @@ fn requirement_relationship_label(kind: RequirementRelationshipKind) -> &'static
 
 impl C4LayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: C4LayoutConfig::default_values(),
@@ -6084,11 +6978,13 @@ impl C4LayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: C4LayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &C4Ast) -> C4Layout {
         let config = c4_config_from_statements(self.config, ast);
         let styles = c4_style_map(ast);
@@ -6896,6 +7792,7 @@ fn c4_polyline_label_point(points: &[Point]) -> Option<Point> {
 
 impl GanttLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: GanttLayoutConfig::default_values(),
@@ -6903,11 +7800,13 @@ impl GanttLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: GanttLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &GanttAst) -> GanttLayout {
         let schedule_config = gantt_schedule_config(ast);
         let scheduled = schedule_gantt_tasks(ast, &schedule_config);
@@ -7409,6 +8308,7 @@ fn days_from_civil(year: i32, month: i32, day: i32) -> i32 {
 
 impl PieLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: PieLayoutConfig::default_values(),
@@ -7416,11 +8316,13 @@ impl PieLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: PieLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &PieAst) -> PieLayout {
         let total = ast
             .slices
@@ -7504,6 +8406,7 @@ impl PieLayoutEngine {
 
 impl QuadrantLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: QuadrantLayoutConfig::default_values(),
@@ -7511,11 +8414,13 @@ impl QuadrantLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: QuadrantLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &QuadrantAst) -> QuadrantLayout {
         let title = ast.title.as_ref().map(|title| title.text.clone());
         let x_start = ast
@@ -7867,6 +8772,7 @@ fn pie_slice_percent_label(basis_points: u16) -> String {
 
 impl MindmapLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: MindmapLayoutConfig::default_values(),
@@ -7874,11 +8780,13 @@ impl MindmapLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: MindmapLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &MindmapAst) -> MindmapLayout {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
@@ -7907,6 +8815,7 @@ impl MindmapLayoutEngine {
 
 impl JourneyLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: JourneyLayoutConfig::default_values(),
@@ -7914,11 +8823,13 @@ impl JourneyLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: JourneyLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &JourneyAst) -> JourneyLayout {
         let mut sections = Vec::new();
         let mut tasks = Vec::new();
@@ -8032,6 +8943,7 @@ fn journey_actor_text_width(task: &PositionedJourneyTask) -> i32 {
 
 impl GitGraphLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: GitGraphLayoutConfig::default_values(),
@@ -8039,11 +8951,13 @@ impl GitGraphLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: GitGraphLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &GitGraphAst) -> GitGraphLayout {
         let simulation = simulate_gitgraph(ast);
         let lanes = gitgraph_lanes(&simulation.branches);
@@ -8437,6 +9351,7 @@ fn gitgraph_layout_size(
 
 impl TimelineLayoutEngine {
     #[must_use]
+    /// Returns the default configuration values.
     pub const fn default_values() -> Self {
         Self {
             config: TimelineLayoutConfig::default_values(),
@@ -8444,11 +9359,13 @@ impl TimelineLayoutEngine {
     }
 
     #[must_use]
+    /// Creates an instance with the provided configuration.
     pub const fn new(config: TimelineLayoutConfig) -> Self {
         Self { config }
     }
 
     #[must_use]
+    /// Computes positioned layout data for the parsed diagram.
     pub fn layout(&self, ast: &TimelineAst) -> TimelineLayout {
         let groups = timeline_groups(ast);
         let mut sections = Vec::new();
