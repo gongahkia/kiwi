@@ -37,6 +37,7 @@ struct CliOptions {
   std::optional<double> dog_threshold;
   std::optional<int> etf_iters;
   std::optional<int> lic_length;
+  std::optional<int> posterize;
   std::optional<double> contrast;
   std::string dither = "none";
   bool fit = false;

@@ -359,6 +359,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--posterize", "4"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "posterize parses");
+    expect(parsed.options.posterize.has_value() && *parsed.options.posterize == 4, "posterize stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--posterize", "1"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "posterize rejects one level");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));

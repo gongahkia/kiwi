@@ -102,6 +102,7 @@ add_executable(contourtty
   src/media_input.cpp
   src/media_probe.cpp
   src/octant_renderer.cpp
+  src/posterize.cpp
   src/png_writer.cpp
   src/player.cpp
   src/render_graph.cpp
@@ -749,6 +750,7 @@ add_executable(golden_frame_tests
   src/line_ligatures.cpp
   src/luminance.cpp
   src/octant_renderer.cpp
+  src/posterize.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
@@ -905,6 +907,31 @@ else()
   endif()
 endif()
 add_test(NAME lic COMMAND lic_tests)
+
+add_executable(posterize_tests
+  tests/posterize_tests.cpp
+  src/luminance.cpp
+  src/posterize.cpp
+)
+target_include_directories(posterize_tests PRIVATE src)
+target_compile_features(posterize_tests PRIVATE cxx_std_20)
+set_target_properties(posterize_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(posterize_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(posterize_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(posterize_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(posterize_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME posterize COMMAND posterize_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

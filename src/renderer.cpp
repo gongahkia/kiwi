@@ -15,6 +15,7 @@
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
 #include "octant_renderer.hpp"
+#include "posterize.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
 #include "sextant_renderer.hpp"
@@ -140,7 +141,9 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
-  const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
+  const bool posterize_enabled = options.posterize.has_value();
+  const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
+  const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   const auto decode_pass = [] {
     return Pass{
       .id = "decode",
@@ -267,6 +270,14 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     });
   }
+  if (posterize_enabled) {
+    passes.push_back(Pass{
+      .id = "posterize",
+      .inputs = {renderPort(source_frame_input, BufferKind::RgbFrame)},
+      .outputs = {renderPort("posterized-frame", BufferKind::RgbFrame)},
+      .supports = {Backend::Cpu},
+    });
+  }
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
     passes.push_back(Pass{
@@ -346,8 +357,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
-  const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
+  const bool posterize_enabled = options.posterize.has_value();
+  const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
+  const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
+  Frame posterized_frame;
   const Frame* render_frame = &frame;
   const auto active_frame = [&]() -> const Frame& {
     return *render_frame;
@@ -387,6 +401,19 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .run = [&](PassContext&) {
         styled_frame = applyKuwaharaFilter(frame, 2);
         render_frame = &styled_frame;
+      },
+    };
+  };
+
+  const auto posterize_pass = [&] {
+    return Pass{
+      .id = "posterize",
+      .inputs = {renderPort(source_frame_input, BufferKind::RgbFrame)},
+      .outputs = {renderPort("posterized-frame", BufferKind::RgbFrame)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        posterized_frame = posterizeFrameOklab(active_frame(), *options.posterize);
+        render_frame = &posterized_frame;
       },
     };
   };
@@ -738,6 +765,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     if (painterly_enabled) {
       passes.push_back(kuwahara_pass());
     }
+    if (posterize_enabled) {
+      passes.push_back(posterize_pass());
+    }
     append_blitter_pass(&passes, *blitter, blitter_output);
     if (overlay_enabled) {
       passes.push_back(luminance_pass());
@@ -763,6 +793,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   passes.push_back(decode_pass());
   if (painterly_enabled) {
     passes.push_back(kuwahara_pass());
+  }
+  if (posterize_enabled) {
+    passes.push_back(posterize_pass());
   }
   passes.push_back(luminance_pass());
 

@@ -505,6 +505,26 @@ int main() {
 
   {
     contourtty::CliOptions options;
+    options.style = "hatch";
+    options.posterize = 4;
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "posterize(cpu)  frame:RgbFrame -> posterized-frame:RgbFrame\n"
+                "luminance(cpu)  posterized-frame:RgbFrame -> luminance:LuminanceField\n"
+                "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
+                "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
+                "sobel(cpu)  structure-luminance:LuminanceField -> raw-gradients:GradientField\n"
+                "etf(cpu)  raw-gradients:GradientField -> gradients:GradientField\n"
+                "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "cell-average(cpu)  posterized-frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
+                "crosshatch(cpu)  gradients:GradientField, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "posterize hatch graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
     options.mode = "structure";
     options.etf_iters = 2;
     expectEqual(contourtty::dumpRenderGraph(options),

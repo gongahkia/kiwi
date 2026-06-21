@@ -349,6 +349,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--dog-threshold",
           "--etf-iters",
           "--lic-length",
+          "--posterize",
           "--contrast",
           "--dither",
           "--log",
@@ -502,6 +503,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.lic_length = *parsed;
+    } else if (flag == "--posterize") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value() || *parsed < 2 || *parsed > 64) {
+        result.error = "invalid value for --posterize: " + std::string(*value);
+        return result;
+      }
+      result.options.posterize = *parsed;
     } else if (flag == "--contrast") {
       const auto parsed = parsePositiveDouble(*value, true);
       if (!parsed.has_value()) {
@@ -641,6 +649,7 @@ std::string helpText(std::string_view program_name) {
       << "  --dog-threshold N              difference-of-gaussians threshold\n"
       << "  --etf-iters N                  smooth structure orientation field; 0 disables\n"
       << "  --lic-length N                 flow style convolution length, 1..64\n"
+      << "  --posterize N                  OKLab L posterize levels, 2..64\n"
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"
