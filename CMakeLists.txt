@@ -75,6 +75,7 @@ endif()
 add_executable(contourtty
   src/ansi.cpp
   src/auto_mode.cpp
+  src/base64.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
   src/cli.cpp
@@ -95,6 +96,7 @@ add_executable(contourtty
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
+  src/iterm_inline.cpp
   src/kuwahara.cpp
   src/kitty_graphics.cpp
   src/lic.cpp
@@ -1095,6 +1097,7 @@ add_test(NAME raster_compose COMMAND raster_compose_tests)
 
 add_executable(kitty_graphics_tests
   tests/kitty_graphics_tests.cpp
+  src/base64.cpp
   src/kitty_graphics.cpp
 )
 target_include_directories(kitty_graphics_tests PRIVATE src)
@@ -1116,6 +1119,33 @@ else()
   endif()
 endif()
 add_test(NAME kitty_graphics COMMAND kitty_graphics_tests)
+
+add_executable(iterm_inline_tests
+  tests/iterm_inline_tests.cpp
+  src/base64.cpp
+  src/iterm_inline.cpp
+  src/png_writer.cpp
+)
+target_include_directories(iterm_inline_tests PRIVATE src)
+target_compile_features(iterm_inline_tests PRIVATE cxx_std_20)
+set_target_properties(iterm_inline_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(iterm_inline_tests PRIVATE ZLIB::ZLIB)
+if(MSVC)
+  target_compile_options(iterm_inline_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(iterm_inline_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(iterm_inline_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(iterm_inline_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME iterm_inline COMMAND iterm_inline_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

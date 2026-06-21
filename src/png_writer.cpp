@@ -32,7 +32,7 @@ void appendChunk(std::vector<uint8_t>& png, std::array<char, 4> type, std::span<
 
 }  // namespace
 
-void writePngRgb24(const std::filesystem::path& path, int width, int height, std::span<const uint8_t> rgb) {
+std::vector<uint8_t> encodePngRgb24(int width, int height, std::span<const uint8_t> rgb) {
   if (width <= 0 || height <= 0) {
     throw std::runtime_error("invalid png dimensions");
   }
@@ -73,7 +73,11 @@ void writePngRgb24(const std::filesystem::path& path, int width, int height, std
   appendChunk(png, {'I', 'H', 'D', 'R'}, ihdr);
   appendChunk(png, {'I', 'D', 'A', 'T'}, compressed);
   appendChunk(png, {'I', 'E', 'N', 'D'}, {});
+  return png;
+}
 
+void writePngRgb24(const std::filesystem::path& path, int width, int height, std::span<const uint8_t> rgb) {
+  const std::vector<uint8_t> png = encodePngRgb24(width, height, rgb);
   std::ofstream out(path, std::ios::binary);
   if (!out) {
     throw std::runtime_error("failed to open png output: " + path.string());

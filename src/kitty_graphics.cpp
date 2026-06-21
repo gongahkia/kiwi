@@ -1,5 +1,7 @@
 #include "kitty_graphics.hpp"
 
+#include "base64.hpp"
+
 #include <limits>
 #include <stdexcept>
 
@@ -8,7 +10,6 @@ namespace {
 
 constexpr char kEsc[] = "\x1b_G";
 constexpr char kSt[] = "\x1b\\";
-constexpr char kBase64Alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 std::size_t checkedRgbByteCount(int width, int height) {
   if (width <= 0 || height <= 0) {
@@ -35,22 +36,6 @@ void validateOptions(const KittyImageOptions& options) {
   if (options.chunk_size == 0 || options.chunk_size > 4096 || options.chunk_size % 4U != 0U) {
     throw std::invalid_argument("kitty chunk size must be a positive multiple of 4 no larger than 4096");
   }
-}
-
-std::string base64Encode(std::span<const uint8_t> bytes) {
-  std::string encoded;
-  encoded.reserve(((bytes.size() + 2U) / 3U) * 4U);
-  for (std::size_t index = 0; index < bytes.size(); index += 3U) {
-    const uint32_t a = bytes[index];
-    const uint32_t b = (index + 1U < bytes.size()) ? bytes[index + 1U] : 0U;
-    const uint32_t c = (index + 2U < bytes.size()) ? bytes[index + 2U] : 0U;
-    const uint32_t triple = (a << 16U) | (b << 8U) | c;
-    encoded.push_back(kBase64Alphabet[(triple >> 18U) & 0x3FU]);
-    encoded.push_back(kBase64Alphabet[(triple >> 12U) & 0x3FU]);
-    encoded.push_back(index + 1U < bytes.size() ? kBase64Alphabet[(triple >> 6U) & 0x3FU] : '=');
-    encoded.push_back(index + 2U < bytes.size() ? kBase64Alphabet[triple & 0x3FU] : '=');
-  }
-  return encoded;
 }
 
 void appendChunk(std::string& output, const std::string& control, std::string_view payload) {
