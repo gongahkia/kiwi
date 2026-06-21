@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
@@ -249,6 +251,28 @@ PlotRaster renderPlot(PlotKind kind, std::span<const double> samples, int width,
       return renderHeatmapPlot(samples, width, height);
   }
   throw std::invalid_argument("unknown plot kind");
+}
+
+Frame plotRasterToFrame(const PlotRaster& raster, int64_t pts_us, Rgb ink, Rgb background) {
+  if (raster.width <= 0 || raster.height <= 0 || raster.values.size() != static_cast<std::size_t>(raster.width) * static_cast<std::size_t>(raster.height)) {
+    throw std::invalid_argument("invalid plot raster");
+  }
+  Frame frame{
+    .w = raster.width,
+    .h = raster.height,
+    .pts_us = pts_us,
+  };
+  frame.rgb.resize(static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h) * 3U);
+  for (int y = 0; y < raster.height; ++y) {
+    for (int x = 0; x < raster.width; ++x) {
+      const double value = std::clamp(raster.at(x, y), 0.0, 1.0);
+      const std::size_t offset = (static_cast<std::size_t>(y) * static_cast<std::size_t>(raster.width) + static_cast<std::size_t>(x)) * 3U;
+      frame.rgb[offset] = static_cast<uint8_t>(std::lround(static_cast<double>(background.r) * (1.0 - value) + static_cast<double>(ink.r) * value));
+      frame.rgb[offset + 1U] = static_cast<uint8_t>(std::lround(static_cast<double>(background.g) * (1.0 - value) + static_cast<double>(ink.g) * value));
+      frame.rgb[offset + 2U] = static_cast<uint8_t>(std::lround(static_cast<double>(background.b) * (1.0 - value) + static_cast<double>(ink.b) * value));
+    }
+  }
+  return frame;
 }
 
 }  // namespace contourtty

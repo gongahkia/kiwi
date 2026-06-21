@@ -1,5 +1,8 @@
 #pragma once
 
+#include "frame.hpp"
+#include "luminance.hpp"
+
 #include <optional>
 #include <span>
 #include <string_view>
@@ -28,5 +31,6 @@ PlotRaster renderWaveformPlot(std::span<const double> samples, int width, int he
 PlotRaster renderSpectrumPlot(std::span<const double> samples, int width, int height);
 PlotRaster renderHeatmapPlot(std::span<const double> samples, int width, int height);
 PlotRaster renderPlot(PlotKind kind, std::span<const double> samples, int width, int height);
+Frame plotRasterToFrame(const PlotRaster& raster, int64_t pts_us = 0, Rgb ink = Rgb{.r = 0, .g = 255, .b = 128}, Rgb background = Rgb{});
 
 }  // namespace contourtty

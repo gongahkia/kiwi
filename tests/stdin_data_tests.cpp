@@ -80,4 +80,17 @@ int main() {
     expect(near(raster.at(1, 1), 1.0), "heatmap max");
     expect(raster.at(1, 0) > raster.at(0, 0), "heatmap rising");
   }
+
+  {
+    contourtty::PlotRaster raster{
+      .width = 2,
+      .height = 1,
+      .values = {1.0, 0.0},
+    };
+    const contourtty::Frame frame = contourtty::plotRasterToFrame(raster, 123, contourtty::Rgb{.r = 10, .g = 20, .b = 30}, contourtty::Rgb{.r = 1, .g = 2, .b = 3});
+    expect(frame.w == 2 && frame.h == 1, "plot frame dimensions");
+    expect(frame.pts_us == 123, "plot frame pts");
+    expect(frame.rgb[0] == 10 && frame.rgb[1] == 20 && frame.rgb[2] == 30, "plot frame ink pixel");
+    expect(frame.rgb[3] == 1 && frame.rgb[4] == 2 && frame.rgb[5] == 3, "plot frame background pixel");
+  }
 }
