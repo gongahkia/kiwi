@@ -86,7 +86,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--version` | Show version. |
 | `--width N` | Target terminal columns or export columns. |
 | `--height N` | Target terminal rows or export rows. |
-| `--input PATH\|URL\|cam` | Input path, stream URL, or camera alias. |
+| `--input PATH\|URL\|cam\|stdin` | Input path, stream URL, camera alias, or stdin plot data. |
 | `--cell-aspect N` | Terminal cell width/height ratio; default is `0.5`. |
 | `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
 | `--fps N` | Override source fps for playback/export pacing. |

@@ -97,7 +97,8 @@ int runApp(int argc, char** argv) {
       return contourtty::writeCaptionSidecar(options, logger);
     }
     const bool diagnostic_probe = options.dump_frame.has_value() || options.dump_png.has_value();
-    if (contourtty::terminalSessionAvailable() && !diagnostic_probe) {
+    const bool stdin_playback = *options.input == "stdin";
+    if ((stdin_playback || contourtty::terminalSessionAvailable()) && !diagnostic_probe) {
       return contourtty::playMedia(options, logger);
     }
 

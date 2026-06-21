@@ -33,6 +33,7 @@
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
+#include "stdin_data.hpp"
 #include "stream_resolver.hpp"
 #include "terminal_caps.hpp"
 #include "terminal.hpp"
@@ -49,9 +50,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -1583,6 +1586,26 @@ Frame renderSceneFrame(const SceneMesh& mesh, const CliOptions& options, Termina
   return std::move(gbuffer.albedo);
 }
 
+bool isStdinInput(std::string_view input) noexcept {
+  return input == "stdin";
+}
+
+std::string readAllStdinText() {
+  std::ostringstream buffer;
+  buffer << std::cin.rdbuf();
+  return buffer.str();
+}
+
+TerminalSize terminalSizeFromStdoutOrOptions(const CliOptions& options) {
+  if (::isatty(STDOUT_FILENO) != 0) {
+    return queryTerminalSize();
+  }
+  return TerminalSize{
+    .cols = options.width.value_or(80),
+    .rows = options.height.value_or(24),
+  };
+}
+
 int playAsciinemaCast(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
@@ -1922,9 +1945,178 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   return quit ? 130 : 0;
 }
 
+int playStdinPlot(const CliOptions& options, Logger& logger) {
+  if (!options.plot.has_value()) {
+    throw std::runtime_error("stdin input requires --plot");
+  }
+  const std::optional<PlotKind> plot_kind = parsePlotKind(*options.plot);
+  if (!plot_kind.has_value()) {
+    throw std::runtime_error("invalid plot kind");
+  }
+  const std::vector<double> values = parseStdinDataNumbers(readAllStdinText());
+  if (values.empty()) {
+    throw std::runtime_error("stdin plot input contains no numeric samples");
+  }
+  logGpuRequest(options, logger);
+  CONTOURTTY_LOG_INFO(logger, "stdin plot samples=" + std::to_string(values.size()));
+
+  resetQuitFlag();
+  g_pending_commands.clear();
+  installQuitSignalHandlers();
+  installResizeSignalHandler();
+  const bool interactive = terminalSessionAvailable();
+  std::unique_ptr<TerminalSession> session;
+  if (interactive) {
+    session = std::make_unique<TerminalSession>();
+  } else {
+    CONTOURTTY_LOG_INFO(logger, "stdin plot keyboard controls disabled");
+  }
+  CONTOURTTY_LOG_INFO(logger, "playback started");
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  if (shape_vectors.has_value()) {
+    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+                                  " features=" + std::to_string(kShapeRegionCount));
+  }
+
+  TerminalSize terminal = terminalSizeFromStdoutOrOptions(options);
+  CellBuffer cells;
+  DiffEmitter emitter;
+  RenderTemporalState temporal_state;
+  CliOptions pacing_options = options;
+  pacing_options.fps = options.plot_rate_hz;
+  FramePacer pacer(pacing_options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
+  RenderStats render_stats;
+  RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
+  RuntimeDebugStats debug_stats(options, &logger);
+  bool quit = false;
+  bool paused = false;
+
+  std::string clear = "\x1b[2J";
+  writeAll(STDOUT_FILENO, clear);
+  consumeResizeFlag();
+
+  for (std::size_t sample_end = 1; sample_end <= values.size() && !shouldQuit(); ++sample_end) {
+    if (interactive) {
+      switch (pollKeyboardCommand()) {
+        case PlaybackCommand::None:
+          break;
+        case PlaybackCommand::Quit:
+          quit = true;
+          break;
+        case PlaybackCommand::TogglePause:
+          paused = !paused;
+          CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+          break;
+        case PlaybackCommand::SeekBackward:
+        case PlaybackCommand::SeekForward:
+          break;
+      }
+    }
+    if (quit) {
+      break;
+    }
+    while (paused && !shouldQuit()) {
+      if (!debug_stats.maybeReport(terminal)) {
+        quit = true;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (interactive && pollKeyboardCommand() == PlaybackCommand::TogglePause) {
+        paused = false;
+        CONTOURTTY_LOG_INFO(logger, "playback resumed");
+      }
+    }
+    if (quit || shouldQuit()) {
+      break;
+    }
+    if (consumeResizeFlag()) {
+      terminal = terminalSizeFromStdoutOrOptions(options);
+      emitter.reset();
+      if (graphics_bandwidth.has_value()) {
+        graphics_bandwidth->reset();
+      }
+      temporal_state.reset();
+      std::string clear_resize = "\x1b[2J";
+      writeAll(STDOUT_FILENO, clear_resize);
+    }
+
+    const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
+    const int plot_width = std::max(1, options.width.value_or(render_terminal.cols));
+    const int plot_height = std::max(1, static_cast<int>(std::llround(static_cast<double>(options.height.value_or(render_terminal.rows)) / options.cell_aspect)));
+    const std::size_t window_begin = sample_end > static_cast<std::size_t>(options.plot_window) ? sample_end - static_cast<std::size_t>(options.plot_window) : 0;
+    const std::span<const double> window(values.data() + window_begin, sample_end - window_begin);
+    const int64_t pts_us = static_cast<int64_t>(std::llround((static_cast<double>(sample_end - 1) * 1000000.0) / options.plot_rate_hz));
+    const Frame frame = plotRasterToFrame(renderPlot(*plot_kind, window, plot_width, plot_height), pts_us);
+    debug_stats.recordInputFrame();
+    pacer.waitForFrame(frame);
+    const CliOptions render_options = debugRenderOptions(options, terminal);
+    renderFrame(frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    EmissionResult emission;
+    if (graphics_options.has_value()) {
+      emission = EmissionResult{
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
+        .changed_cells = cells.size(),
+      };
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
+      if (!decision.send) {
+        debug_stats.recordDroppedFrame();
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        if (!debug_stats.maybeReport(terminal)) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+    } else {
+      emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    }
+    debug_stats.recordPresentedFrame(cells, emission);
+    if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+      quit = true;
+      break;
+    }
+    if (!debug_stats.maybeReport(terminal)) {
+      quit = true;
+      break;
+    }
+  }
+
+  if (!interactive) {
+    std::string reset = "\x1b[0m\x1b[?25h\n";
+    writeAll(STDOUT_FILENO, reset);
+  }
+  if (logger.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000));
+  }
+  return quit ? 130 : 0;
+}
+
 int playMedia(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
+  }
+  if (isStdinInput(*options.input)) {
+    return playStdinPlot(options, logger);
   }
   if (isAsciinemaCastInput(*options.input)) {
     return playAsciinemaCast(options, logger);
