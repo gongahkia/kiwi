@@ -112,6 +112,7 @@ add_executable(contourtty
   src/png_writer.cpp
   src/player.cpp
   src/raster_compose.cpp
+  src/render_mode.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
@@ -1146,6 +1147,30 @@ else()
   endif()
 endif()
 add_test(NAME iterm_inline COMMAND iterm_inline_tests)
+
+add_executable(render_mode_tests
+  tests/render_mode_tests.cpp
+  src/render_mode.cpp
+)
+target_include_directories(render_mode_tests PRIVATE src)
+target_compile_features(render_mode_tests PRIVATE cxx_std_20)
+set_target_properties(render_mode_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(render_mode_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(render_mode_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(render_mode_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(render_mode_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME render_mode COMMAND render_mode_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
