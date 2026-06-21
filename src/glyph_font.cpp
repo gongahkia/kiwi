@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -39,13 +40,15 @@ std::string ftError(std::string_view action, FT_Error error) {
 }
 
 void writeGrayBitmap(const FT_Bitmap& bitmap, int src_x, int src_y, double* alpha) {
-  const unsigned char value = bitmap.buffer[static_cast<std::size_t>(src_y) * static_cast<std::size_t>(bitmap.pitch) + static_cast<std::size_t>(src_x)];
+  const int pitch = std::abs(bitmap.pitch);
+  const unsigned char value = bitmap.buffer[static_cast<std::size_t>(src_y) * static_cast<std::size_t>(pitch) + static_cast<std::size_t>(src_x)];
   const unsigned int max_value = bitmap.num_grays > 1 ? bitmap.num_grays - 1U : 255U;
   *alpha = std::clamp(static_cast<double>(value) / static_cast<double>(max_value), 0.0, 1.0);
 }
 
 void writeMonoBitmap(const FT_Bitmap& bitmap, int src_x, int src_y, double* alpha) {
-  const unsigned char byte = bitmap.buffer[static_cast<std::size_t>(src_y) * static_cast<std::size_t>(bitmap.pitch) + static_cast<std::size_t>(src_x / 8)];
+  const int pitch = std::abs(bitmap.pitch);
+  const unsigned char byte = bitmap.buffer[static_cast<std::size_t>(src_y) * static_cast<std::size_t>(pitch) + static_cast<std::size_t>(src_x / 8)];
   *alpha = (byte & (0x80U >> (src_x % 8))) != 0 ? 1.0 : 0.0;
 }
 

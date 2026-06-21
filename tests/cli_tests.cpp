@@ -99,6 +99,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--glyph-features", "hog"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "glyph features parse");
+    expect(parsed.options.glyph_features == "hog", "glyph features stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--glyph-features", "sdf"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "glyph features rejects unimplemented value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--input", "cam"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "input flag parses");

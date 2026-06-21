@@ -293,6 +293,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--mode",
           "--pipeline",
           "--font",
+          "--glyph-features",
           "--color-mode",
           "--color",
           "--charset",
@@ -376,6 +377,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.font_path = std::string(*value);
+    } else if (flag == "--glyph-features") {
+      if (!isOneOf(*value, {"overlap", "hog"})) {
+        result.error = "invalid value for --glyph-features: " + std::string(*value);
+        return result;
+      }
+      result.options.glyph_features = std::string(*value);
     } else if (flag == "--color-mode" || flag == "--color") {
       if (!isOneOf(*value, {"auto", "truecolor", "256", "16", "mono"})) {
         result.error = "invalid value for " + std::string(flag) + ": " + std::string(*value);
@@ -530,6 +537,7 @@ std::string helpText(std::string_view program_name) {
       << "  --mode {luminance|structure|halfblock}\n"
       << "  --pipeline {luminance|structure|halfblock}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
+      << "  --glyph-features {overlap|hog}\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
       << "  --mono                         disable color output\n"

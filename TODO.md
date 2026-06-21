@@ -119,8 +119,8 @@
 ## PHASE I — Glyph science upgrade
 *Doc: `PHASE_I.md`. Goal: FreeType-driven glyph table, HoG features, SDF option, k-d tree lookup, evolved charsets.*
 
-- [ ] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
-- [ ] **I2. HoG feature swap.** DoD: 2×2 × 8-bin (32-D) HoG vectors per glyph and per cell, L2-normalised; cosine similarity matching; `tests/glyph_hog_tests.cpp` covers gradient-direction sanity and edge cases. Reference: PHASE_I §HoG.
+- [~] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
+  - FreeType `--font` path, overlap/HoG table input, and MP4 glyph raster input are working; SDF and Phase N consumers are still pending.
 - [ ] **I3. Ramp auto-sort.** DoD: `--ramp-sort` orders any custom ramp by FreeType-derived ink density; off by default; documented as ramp-changing. Reference: PHASE_I §RampSort.
 - [ ] **I4. SDF feature mode.** DoD: `--glyph-features sdf` runs; per-glyph SDFs precomputed at build time; continuous overlap integral for shape vectors; A/B against `hog` recorded in BENCHMARKS.md. Reference: PHASE_I §SDF.
 - [ ] **I5. nanoflann k-d tree lookup.** DoD: at curated-set size 64, per-cell shape-match cost drops ≥10× vs linear NCC; match-rate ≥99% vs linear with documented tie-breaking differences. Reference: PHASE_I §kdTree.

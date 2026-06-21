@@ -23,6 +23,7 @@ struct CliOptions {
   std::string mode = "luminance";
   std::optional<std::string> pipeline;
   std::optional<std::string> font_path;
+  std::string glyph_features = "overlap";
   std::string color_mode = "auto";
   std::optional<std::string> charset;
   std::optional<double> edge_threshold;

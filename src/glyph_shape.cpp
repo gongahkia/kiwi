@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <functional>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -126,8 +125,11 @@ std::vector<double> shapeFeatures(std::span<const double> bitmap, int width, int
 }
 
 void normalizeFeatures(GlyphShapeTable* table) {
-  std::vector<double> maxima(kShapeRegionCount, 0.0);
+  std::vector<double> maxima(table->feature_count, 0.0);
   for (const GlyphShapeVector& entry : table->entries) {
+    if (entry.features.size() != table->feature_count) {
+      throw std::invalid_argument("glyph shape table feature length mismatch");
+    }
     for (std::size_t i = 0; i < entry.features.size(); ++i) {
       maxima[i] = std::max(maxima[i], entry.features[i]);
     }
@@ -148,7 +150,7 @@ struct DotNorm {
 
 [[maybe_unused]] DotNorm dotAndEntryNormScalar(std::span<const double> features, std::span<const double> entry_features) {
   DotNorm result;
-  for (std::size_t i = 0; i < kShapeRegionCount; ++i) {
+  for (std::size_t i = 0; i < features.size(); ++i) {
     result.dot += features[i] * entry_features[i];
     result.entry_norm += entry_features[i] * entry_features[i];
   }
@@ -202,6 +204,9 @@ CONTOURTTY_X86_AVX2_TARGET DotNorm dotAndEntryNormAvx2(std::span<const double> f
 #endif
 
 DotNorm dotAndEntryNorm(std::span<const double> features, std::span<const double> entry_features) {
+  if (features.size() != kShapeRegionCount || entry_features.size() != kShapeRegionCount) {
+    return dotAndEntryNormScalar(features, entry_features);
+  }
 #if defined(__aarch64__) && defined(__ARM_NEON)
   return dotAndEntryNormNeon(features, entry_features);
 #elif defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
@@ -255,6 +260,7 @@ GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width,
   GlyphShapeTable table;
   table.cell_width = cell_width;
   table.cell_height = cell_height;
+  table.feature_count = kShapeRegionCount;
   for (const char32_t glyph : uniqueGlyphs(glyphs)) {
     const std::vector<double> bitmap = renderPrecomputedGlyphBitmap(glyph, cell_width, cell_height);
     table.entries.push_back(GlyphShapeVector{
@@ -273,6 +279,7 @@ GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view 
   GlyphShapeTable table;
   table.cell_width = cell_width;
   table.cell_height = cell_height;
+  table.feature_count = kShapeRegionCount;
   for (const char32_t glyph : uniqueGlyphs(glyphs)) {
     const GlyphRaster& raster = font.raster(glyph, cell_width, cell_height);
     table.entries.push_back(GlyphShapeVector{
@@ -285,7 +292,7 @@ GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view 
 }
 
 char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table) {
-  if (features.size() != kShapeRegionCount) {
+  if (features.size() != table.feature_count) {
     throw std::invalid_argument("shape feature length mismatch");
   }
   if (table.entries.empty()) {
@@ -308,7 +315,7 @@ char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable
   char32_t best_glyph = table.entries.front().glyph;
   double best_score = -std::numeric_limits<double>::infinity();
   for (const GlyphShapeVector& entry : table.entries) {
-    if (entry.features.size() != kShapeRegionCount) {
+    if (entry.features.size() != table.feature_count) {
       throw std::invalid_argument("glyph shape table feature length mismatch");
     }
     const DotNorm dot_norm = dotAndEntryNorm(features, entry.features);

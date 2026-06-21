@@ -35,6 +35,7 @@ struct GlyphShapeVector {
 struct GlyphShapeTable {
   int cell_width = 0;
   int cell_height = 0;
+  std::size_t feature_count = kShapeRegionCount;
   std::vector<GlyphShapeVector> entries;
 };
 

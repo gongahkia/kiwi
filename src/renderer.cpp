@@ -2,6 +2,7 @@
 
 #include "braille_renderer.hpp"
 #include "frame_sampling.hpp"
+#include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
@@ -388,7 +389,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
-        if (context.backend() == Backend::Metal) {
+        if (context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_count == kShapeRegionCount)) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(frame, *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {
@@ -441,7 +442,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext&) {
         std::vector<Cell>& cell_values = cells->cells();
-        if (gpu_structure_glyphs.has_value()) {
+        if (gpu_structure_glyphs.has_value() && (shape_table == nullptr || shape_table->feature_count == kShapeRegionCount)) {
           for (std::size_t index = 0; index < cell_values.size(); ++index) {
             const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[index];
             if (gpu_glyph != U'\0') {
@@ -467,11 +468,17 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
               }
               if (shape_table != nullptr && structure_ink.has_value()) {
                 const auto match_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+                const auto match_region = [&](const CellLuminanceRegion& region) {
+                  if (shape_table->feature_count == kHogFeatureCount) {
+                    return hogVectorForCell(region);
+                  }
+                  return shapeVectorForCell(region);
+                };
                 if (cell_shape_regions.empty()) {
                   const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
-                  cell.glyph = matchGlyphShape(shapeVectorForCell(region), *shape_table);
+                  cell.glyph = matchGlyphShape(match_region(region), *shape_table);
                 } else {
-                  cell.glyph = matchGlyphShape(shapeVectorForCell(cell_shape_regions[cell_index]), *shape_table);
+                  cell.glyph = matchGlyphShape(match_region(cell_shape_regions[cell_index]), *shape_table);
                 }
                 if (stats != nullptr) {
                   ++local_stats->cells;

@@ -10,6 +10,7 @@
 #include "diff_emitter.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_font.hpp"
+#include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "gpu_sobel.hpp"
@@ -1138,6 +1139,12 @@ std::u32string exportRampFromOptions(const CliOptions& options) {
 std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
   if (options.mode != "structure" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
     return std::nullopt;
+  }
+  if (options.glyph_features == "hog") {
+    if (glyph_font != nullptr) {
+      return buildHogGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+    }
+    return buildHogGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
   }
   if (glyph_font != nullptr) {
     return buildGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
