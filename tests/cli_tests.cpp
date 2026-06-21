@@ -321,6 +321,26 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--still", "hero.png", "--still-at", "01:02:03.004"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "still snapshot parses");
+    expect(parsed.options.still_file.has_value() && *parsed.options.still_file == "hero.png", "still path stored");
+    expect(parsed.options.still_at_us.has_value() && *parsed.options.still_at_us == 3723004000, "still timestamp stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--still", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "still rejects empty");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--still-at", "2"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "still timestamp rejects malformed value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--scene-camera", "orbit"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "scene camera parses");

@@ -21,6 +21,7 @@
 #include "kitty_graphics.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
+#include "png_writer.hpp"
 #include "raster_compose.hpp"
 #include "render_mode.hpp"
 #include "render_layout.hpp"
@@ -1319,6 +1320,43 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     throw std::runtime_error("failed to write export file: " + output_path.string());
   }
   log_export();
+  return 0;
+}
+
+int writeStillSnapshot(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  if (!options.still_file.has_value()) {
+    throw std::runtime_error("missing still output file");
+  }
+  logGpuRequest(options, logger);
+
+  VideoDecoder video_decoder(*options.input);
+  if (options.still_at_us.has_value()) {
+    video_decoder.seekToUs(*options.still_at_us);
+  }
+  auto frame = video_decoder.nextFrame();
+  if (!frame.has_value()) {
+    throw std::runtime_error("input contains no video frames");
+  }
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  const TerminalSize terminal = exportTerminalSize(options);
+  const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  CellBuffer cells;
+  RenderTemporalState temporal_state;
+  RenderStats render_stats;
+  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
+  writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
+  CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+                                " width=" + std::to_string(raster.width) +
+                                " height=" + std::to_string(raster.height));
   return 0;
 }
 

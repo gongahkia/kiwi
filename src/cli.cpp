@@ -48,6 +48,17 @@ std::optional<int> parseNonNegativeInt(std::string_view value) {
   return parsed;
 }
 
+std::optional<int64_t> parseNonNegativeInt64(std::string_view value) {
+  int64_t parsed = 0;
+  const auto* first = value.data();
+  const auto* last = value.data() + value.size();
+  const auto result = std::from_chars(first, last, parsed);
+  if (result.ec != std::errc{} || result.ptr != last || parsed < 0) {
+    return std::nullopt;
+  }
+  return parsed;
+}
+
 std::optional<double> parsePositiveDouble(std::string_view value, bool allow_zero) {
   std::string copy(value);
   char* end = nullptr;
@@ -59,6 +70,45 @@ std::optional<double> parsePositiveDouble(std::string_view value, bool allow_zer
     return std::nullopt;
   }
   return parsed;
+}
+
+std::optional<int64_t> parseTimestampUs(std::string_view value) {
+  const auto first_colon = value.find(':');
+  if (first_colon == std::string_view::npos) {
+    return std::nullopt;
+  }
+  const auto second_colon = value.find(':', first_colon + 1);
+  if (second_colon == std::string_view::npos || value.find(':', second_colon + 1) != std::string_view::npos) {
+    return std::nullopt;
+  }
+  const auto hours = parseNonNegativeInt64(value.substr(0, first_colon));
+  const auto minutes = parseNonNegativeInt64(value.substr(first_colon + 1, second_colon - first_colon - 1));
+  std::string_view seconds_part = value.substr(second_colon + 1);
+  if (!hours.has_value() || !minutes.has_value() || *minutes > 59 || seconds_part.empty()) {
+    return std::nullopt;
+  }
+  int64_t micros = 0;
+  if (const auto dot = seconds_part.find('.'); dot != std::string_view::npos) {
+    std::string_view fractional = seconds_part.substr(dot + 1);
+    seconds_part = seconds_part.substr(0, dot);
+    if (fractional.empty() || fractional.size() > 6) {
+      return std::nullopt;
+    }
+    for (char ch : fractional) {
+      if (ch < '0' || ch > '9') {
+        return std::nullopt;
+      }
+      micros = (micros * 10) + (ch - '0');
+    }
+    for (std::size_t i = fractional.size(); i < 6; ++i) {
+      micros *= 10;
+    }
+  }
+  const auto seconds = parseNonNegativeInt64(seconds_part);
+  if (!seconds.has_value() || *seconds > 59) {
+    return std::nullopt;
+  }
+  return (((*hours * 60) + *minutes) * 60 + *seconds) * 1000000 + micros;
 }
 
 bool parseDogSigma(std::string_view value, CliOptions* options) {
@@ -361,6 +411,8 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--bandwidth-cap",
           "--log",
           "--export",
+          "--still",
+          "--still-at",
           "--graph",
           "--grid",
           "--plot",
@@ -567,6 +619,19 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {
       result.options.export_file = std::string(*value);
+    } else if (flag == "--still") {
+      if (value->empty()) {
+        result.error = "invalid value for --still: expected output path";
+        return result;
+      }
+      result.options.still_file = std::string(*value);
+    } else if (flag == "--still-at") {
+      const auto parsed = parseTimestampUs(*value);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --still-at: expected HH:MM:SS[.ffffff]";
+        return result;
+      }
+      result.options.still_at_us = *parsed;
     } else if (flag == "--graph") {
       if (value->empty()) {
         result.error = "invalid value for --graph: expected dump or yaml file";
@@ -760,6 +825,8 @@ std::string helpText(std::string_view program_name) {
       << "  --scene-camera {turntable|orbit|fly}\n"
       << "  --caps dump|SPEC               print or override terminal capability detection\n"
       << "  --export FILE                  render to output file\n"
+      << "  --still FILE.png               write one rendered PNG snapshot\n"
+      << "  --still-at HH:MM:SS[.ffffff]   seek timestamp for --still\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
       << "  --dump-png FILE                write dumped frame as RGB PNG\n";
   return out.str();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -51,6 +52,8 @@ struct CliOptions {
   bool debug_stats = false;
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;
+  std::optional<std::string> still_file;
+  std::optional<int64_t> still_at_us;
   std::optional<std::string> graph;
   std::optional<std::string> grid;
   std::optional<std::string> plot;

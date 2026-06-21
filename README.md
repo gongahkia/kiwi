@@ -65,7 +65,7 @@ Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color whe
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
-Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
+Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. `--still hero.png` writes one rasterized PNG snapshot, optionally seeking first with `--still-at HH:MM:SS`. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
 Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/contourtty/graphs/`.
 
@@ -114,6 +114,8 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--graph dump\|FILE.yaml` | Print the resolved render graph or load a graph file. |
 | `--caps dump\|SPEC` | Print or override terminal capability detection. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
+| `--still FILE.png` | Write one rendered PNG snapshot. |
+| `--still-at HH:MM:SS[.ffffff]` | Seek timestamp before writing `--still`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
 | `--dump-png FILE` | Write dumped frame as RGB PNG. |
 

@@ -182,13 +182,13 @@
 *Doc: `PHASE_N.md`. Goal: Kitty/Sixel/iTerm pixel + text overlay.*
 
 - [~] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
-  - `src/raster_compose.{hpp,cpp}` now owns the cell-to-RGB raster path; MP4 export, pixel-mode export/playback, and `graphics_emitter` consume it. Open: still snapshot consumer.
+  - `src/raster_compose.{hpp,cpp}` now owns the cell-to-RGB raster path; MP4 export, pixel-mode export/playback, `graphics_emitter`, and `--still` consume it. Open: visual terminal-vs-raster proof.
 - [~] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
   - Direct RGB24 Kitty encoder, base64 chunking, placement ids, delete escapes, cell-raster graphics-frame emission, and pixel-mode export/playback dispatch are in place. Open: persistent delta uploads and live Kitty/Ghostty/WezTerm proof.
 - [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
   - Blocked locally: `libsixel`, `img2sixel`, and `sixel2png` are absent.
 - [~] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.
-  - iTerm OSC 1337 inline PNG encoder is tested and reuses the in-tree PNG encoder; pixel-mode export/playback can emit cell-raster iTerm frames. Open: `--still` wiring and live iTerm proof.
+  - iTerm OSC 1337 inline PNG encoder is tested and reuses the in-tree PNG encoder; pixel-mode export/playback can emit cell-raster iTerm frames; `--still` writes raster PNG snapshots. Open: live iTerm proof.
 - [~] **N5. `--render-mode {text|pixel|hybrid|auto}`.** DoD: caps → mode resolution table tested; `auto` degrades to `text` silently when graphics unsupported; hybrid mode composes pixel layer + sparse text overlay. Reference: PHASE_N §RenderMode.
   - CLI parsing existed; `render_mode_tests` covers caps-to-mode/protocol resolution and graphics-to-text degradation, and pixel-mode export/playback dispatch is wired for implemented protocols. Open: hybrid sparse text overlay composition.
 - [~] **N6. Bandwidth guard.** DoD: `--bandwidth-cap MB/s` (default 50) drops frames at the source when exceeded; one-time warning; tested against a deliberately slow pipe. Reference: PHASE_N §BandwidthGuard.
@@ -227,7 +227,8 @@
 
 - [ ] **P1. OSD + live tuning.** DoD: `i`/`o` toggles bottom-row OSD; keys cycle `--style`, `--mode`, `--charset`, `--glyph-features`, `--gpu`; numeric keys bump `--edge-threshold`, `--dog-sigma`, `--contrast`; changes take effect within one frame; OSD never bleeds into diff'd content. Reference: PHASE_P §OSD.
 - [ ] **P2. A/B split view.** DoD: `--split luminance:structure` runs two graphs side-by-side off a single decoded source; draggable seam; the split mode is the README hero. Reference: PHASE_P §Split.
-- [ ] **P3. Still snapshot.** DoD: `--still hero.png` (and `--still-at HH:MM:SS`) writes a PNG visually matching the live frame; reuses Phase I FreeType + Phase N `raster_compose`. Reference: PHASE_P §Still.
+- [~] **P3. Still snapshot.** DoD: `--still hero.png` (and `--still-at HH:MM:SS`) writes a PNG visually matching the live frame; reuses Phase I FreeType + Phase N `raster_compose`. Reference: PHASE_P §Still.
+  - `--still FILE.png` and `--still-at HH:MM:SS[.ffffff]` parse; still snapshots render through `renderFrame` + `raster_compose` + `png_writer`. Open: visual live-frame parity proof.
 - [ ] **P4. `--help` ↔ man page parity.** DoD: every CLI flag from H–O appears in both `--help` and `docs/contourtty.1`; both generated from a single declarative source; parity test gates the build. Reference: PHASE_P §HelpAndMan.
 - [ ] **P5. README + docs refresh.** DoD: hero GIF is the v2 split demo; "How structure mode works" diagram updated for the render graph; "What's new in v1.0" callout; one-line install per platform. Reference: PHASE_P §README.
 - [ ] **P6. Pull the CI trigger.** DoD: once billing unblocks: green badge on main; ASan+UBSan+Valgrind on Linux; cross-backend Metal/Vulkan equivalence test; tagged releases build signed binaries + .deb + Homebrew bottle. Reference: PHASE_P §CI.
