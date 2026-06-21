@@ -1492,6 +1492,33 @@ else()
 endif()
 add_test(NAME asciinema_source COMMAND asciinema_source_tests)
 
+add_executable(video_decoder_tests
+  tests/video_decoder_tests.cpp
+  src/video_decoder.cpp
+  src/media_input.cpp
+  src/terminal.cpp
+)
+target_include_directories(video_decoder_tests PRIVATE src)
+target_compile_features(video_decoder_tests PRIVATE cxx_std_20)
+set_target_properties(video_decoder_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(video_decoder_tests PRIVATE PkgConfig::FFMPEG)
+if(MSVC)
+  target_compile_options(video_decoder_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(video_decoder_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(video_decoder_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(video_decoder_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME video_decoder COMMAND video_decoder_tests)
+
 add_executable(caption_summarise_tests
   tests/caption_summarise_tests.cpp
   src/captions.cpp

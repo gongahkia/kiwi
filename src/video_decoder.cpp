@@ -303,7 +303,7 @@ struct VideoDecoder::Impl {
     }
   }
 
-  std::optional<Frame> nextFrame() {
+  std::optional<Frame> decodeNextFrame() {
     while (true) {
       if (auto decoded = receiveFrame()) {
         return decoded;
@@ -346,6 +346,15 @@ struct VideoDecoder::Impl {
     }
   }
 
+  std::optional<Frame> nextFrame() {
+    if (pending_frame.has_value()) {
+      Frame frame = std::move(*pending_frame);
+      pending_frame.reset();
+      return frame;
+    }
+    return decodeNextFrame();
+  }
+
   void seekToUs(int64_t position_us) {
     const int64_t clamped_us = std::max<int64_t>(0, position_us);
     const int64_t timestamp = av_rescale_q(clamped_us, AVRational{1, 1000000}, stream->time_base);
@@ -358,6 +367,19 @@ struct VideoDecoder::Impl {
     frame_index = average_fps.has_value() && *average_fps > 0.0
                     ? static_cast<int64_t>(std::llround(static_cast<double>(clamped_us) * *average_fps / 1000000.0))
                     : 0;
+    pending_frame.reset();
+    if (clamped_us == 0) {
+      return;
+    }
+    std::optional<Frame> last_frame;
+    while (auto frame = decodeNextFrame()) {
+      if (frame->pts_us >= clamped_us) {
+        pending_frame = std::move(*frame);
+        return;
+      }
+      last_frame = std::move(*frame);
+    }
+    pending_frame = std::move(last_frame);
   }
 
   FormatContextPtr format_context;
@@ -375,6 +397,7 @@ struct VideoDecoder::Impl {
   bool animated_image = false;
   SwsContext* sws_context = nullptr;
   std::vector<uint8_t> rgb_scratch;
+  std::optional<Frame> pending_frame;
 };
 
 VideoDecoder::VideoDecoder(const std::filesystem::path& input) : impl_(std::make_unique<Impl>(input)) {}
