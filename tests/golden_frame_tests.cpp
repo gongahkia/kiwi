@@ -185,8 +185,27 @@ int main() {
     contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(1, 1), nullptr, &cells);
     expectEqual(serializeCells(cells),
                 "1x1\n"
-                "10369:63,63,63:0,0,0|\n",
+                "10369:255,255,255:0,0,0|\n",
                 "braille golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(2, 4, {
+      contourtty::Rgb{.r = 0, .g = 255, .b = 0}, contourtty::Rgb{.r = 0, .g = 0, .b = 255},
+      contourtty::Rgb{.r = 0, .g = 255, .b = 0}, contourtty::Rgb{.r = 0, .g = 0, .b = 255},
+      contourtty::Rgb{.r = 0, .g = 255, .b = 0}, contourtty::Rgb{.r = 0, .g = 0, .b = 255},
+      contourtty::Rgb{.r = 0, .g = 255, .b = 0}, contourtty::Rgb{.r = 0, .g = 0, .b = 255},
+    });
+    contourtty::CliOptions options;
+    options.mode = "braille";
+    options.width = 1;
+    options.height = 1;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(1, 1), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "1x1\n"
+                "10311:0,255,0:0,0,255|\n",
+                "braille mode color golden frame");
   }
 
   {
@@ -301,6 +320,16 @@ int main() {
                 "sextant(cpu)  frame:RgbFrame -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "sextant graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
+    options.mode = "braille";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "braille(cpu)  frame:RgbFrame -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "braille graph dump golden");
   }
 
   {

@@ -45,7 +45,7 @@ With audio present in local files, video is paced from the audio playback clock.
 
 Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
-Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, `portrait-30`, `lineart-40`, `blueprint-24`, and `braille`; `portrait-30` is density-rich for faces/figures, `lineart-40` emphasizes strokes/corners, and `blueprint-24` keeps thin technical geometry. `braille` packs a 2x4 luminance grid into each Unicode braille cell. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--ramp-sort` sorts the active ramp by FreeType ink density, so it requires `--font` unless the active charset is `braille`. `--glyph-features hog` swaps shape matching from the legacy 9-region overlap vector to a 32-D HoG vector; `--glyph-features sdf` uses signed-distance overlap features. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
+Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, `portrait-30`, `lineart-40`, `blueprint-24`, and `braille`; `portrait-30` is density-rich for faces/figures, `lineart-40` emphasizes strokes/corners, and `blueprint-24` keeps thin technical geometry. `--mode braille` packs a 2x4 luminance grid into each Unicode braille cell with separate foreground/background averages; `--charset braille` remains accepted as a packed-renderer alias. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--ramp-sort` sorts the active ramp by FreeType ink density, so it requires `--font` unless the active charset is `braille`. `--glyph-features hog` swaps shape matching from the legacy 9-region overlap vector to a 32-D HoG vector; `--glyph-features sdf` uses signed-distance overlap features. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
 
@@ -59,7 +59,7 @@ Capability detection uses environment variables, an allowlist, and optional Free
 
 Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized.
 
-`--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals. `--mode blocks` uses SAD over shade and quadrant block glyph bitmaps for 2x2 subcell luminance detail. `--mode octant` packs a 2x4 luminance grid into Unicode 16 octant block glyphs with separate foreground/background averages; `--mode sextant` uses the Unicode 13 2x3 fallback set.
+`--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals. `--mode blocks` uses SAD over shade and quadrant block glyph bitmaps for 2x2 subcell luminance detail. `--mode braille` packs a 2x4 luminance grid into Unicode braille cells with truecolor fg/bg averages. `--mode octant` packs a 2x4 luminance grid into Unicode 16 octant block glyphs with separate foreground/background averages; `--mode sextant` uses the Unicode 13 2x3 fallback set.
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
@@ -80,9 +80,9 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
-| `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select renderer. |
+| `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select renderer. |
 | `--render-mode auto\|text\|pixel\|hybrid` | Select text/pixel ladder intent; pixel transport lands in Phase N. |
-| `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant` | Select a render-graph preset; overrides config `pipeline`. |
+| `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select a render-graph preset; overrides config `pipeline`. |
 | `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
 | `--glyph-features overlap\|hog\|sdf` | Select the structure shape-matching feature vector. |
 | `--ramp-sort`, `--no-ramp-sort` | Sort the active ramp by FreeType ink density, or disable config-default sorting. |

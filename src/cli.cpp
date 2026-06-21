@@ -87,6 +87,10 @@ void applyPipeline(std::string_view value, CliOptions* options) {
     options->mode = "sextant";
     return;
   }
+  if (value == "braille") {
+    options->mode = "braille";
+    return;
+  }
   options->mode = std::string(value);
 }
 
@@ -382,7 +386,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.max_fps = *parsed;
     } else if (flag == "--mode") {
-      if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant"})) {
+      if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"})) {
         result.error = "invalid value for --mode: " + std::string(*value);
         return result;
       }
@@ -394,7 +398,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.render_mode = std::string(*value);
     } else if (flag == "--pipeline") {
-      if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant"})) {
+      if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"})) {
         result.error = "invalid value for --pipeline: " + std::string(*value);
         return result;
       }
@@ -568,9 +572,9 @@ std::string helpText(std::string_view program_name) {
       << "  --no-fit                       disable config-default fit\n"
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
-      << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant}\n"
+      << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
       << "  --render-mode {auto|text|pixel|hybrid}\n"
-      << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant}\n"
+      << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
       << "  --glyph-features {overlap|hog|sdf}\n"
       << "  --ramp-sort                    sort glyph ramp by FreeType ink density\n"

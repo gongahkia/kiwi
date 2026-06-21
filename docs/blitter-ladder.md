@@ -8,7 +8,7 @@
 |---|---|---|
 | truecolor + octant cmap | `text` | `octant` |
 | truecolor + sextant cmap, no octants | `text` | `sextant` |
-| truecolor + braille cmap only | `text` | `luminance --charset braille` |
+| truecolor + braille cmap only | `text` | `braille` |
 | truecolor, no packed block cmap | `text` | `halfblock` |
 | no truecolor + structure option passed | `text` | `structure` |
 | no truecolor + no structure option | `text` | `luminance` |

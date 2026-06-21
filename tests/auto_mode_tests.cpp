@@ -36,8 +36,7 @@ int main() {
   {
     contourtty::CliOptions options = autoOptions();
     contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{.truecolor = true, .font_has_braille = true});
-    expect(options.mode == "luminance", "auto picks packed braille mode");
-    expect(options.charset.has_value() && *options.charset == "braille", "auto sets braille charset");
+    expect(options.mode == "braille", "auto picks packed braille mode");
   }
 
   {

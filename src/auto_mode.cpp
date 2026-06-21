@@ -27,8 +27,7 @@ void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
     return;
   }
   if (caps.truecolor && caps.font_has_braille) {
-    options->mode = "luminance";
-    options->charset = "braille";
+    options->mode = "braille";
     return;
   }
   if (caps.truecolor) {

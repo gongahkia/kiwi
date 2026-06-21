@@ -144,7 +144,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     passes.push_back(emit_pass("cells"));
     return passes;
   }
-  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+  if (options.mode == "braille" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
     passes.push_back(Pass{
       .id = "braille",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
@@ -352,7 +352,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     finish_stats();
     return;
   }
-  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+  if (options.mode == "braille" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
     std::vector<Pass> passes;
     passes.push_back(decode_pass());
     passes.push_back(Pass{

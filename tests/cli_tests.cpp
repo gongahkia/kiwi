@@ -93,6 +93,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--mode", "braille"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "braille mode parses");
+    expect(parsed.options.mode == "braille", "braille mode stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--mode", "auto", "--render-mode", "hybrid"};
     const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
     expect(parsed.error.empty(), "auto mode parses");
@@ -130,6 +137,14 @@ int main() {
     expect(parsed.error.empty(), "sextant pipeline parses");
     expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "sextant", "sextant pipeline stored");
     expect(parsed.options.mode == "sextant", "sextant pipeline maps mode");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--pipeline", "braille"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "braille pipeline parses");
+    expect(parsed.options.pipeline.has_value() && *parsed.options.pipeline == "braille", "braille pipeline stored");
+    expect(parsed.options.mode == "braille", "braille pipeline maps mode");
   }
 
   {
