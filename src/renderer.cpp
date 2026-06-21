@@ -80,7 +80,8 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
 }
 
 int etfIterationsFromCli(const CliOptions& options) {
-  return options.etf_iters.value_or(options.style == "hatch" || options.style == "flow" ? 2 : 0);
+  const bool graph_etf = std::find(options.graph_passes.begin(), options.graph_passes.end(), "etf") != options.graph_passes.end();
+  return options.etf_iters.value_or(options.style == "hatch" || options.style == "flow" || graph_etf ? 2 : 0);
 }
 
 int licLengthFromCli(const CliOptions& options) {
@@ -88,19 +89,23 @@ int licLengthFromCli(const CliOptions& options) {
 }
 
 bool painterlyStyleEnabled(const CliOptions& options) {
-  return options.style == "painterly";
+  return options.style == "painterly" ||
+         std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
 }
 
 bool hatchStyleEnabled(const CliOptions& options) {
-  return options.style == "hatch";
+  return options.style == "hatch" ||
+         std::find(options.graph_passes.begin(), options.graph_passes.end(), "crosshatch") != options.graph_passes.end();
 }
 
 bool stippleStyleEnabled(const CliOptions& options) {
-  return options.style == "stipple";
+  return options.style == "stipple" ||
+         std::find(options.graph_passes.begin(), options.graph_passes.end(), "stipple") != options.graph_passes.end();
 }
 
 bool flowStyleEnabled(const CliOptions& options) {
-  return options.style == "flow";
+  return options.style == "flow" ||
+         std::find(options.graph_passes.begin(), options.graph_passes.end(), "lic") != options.graph_passes.end();
 }
 
 int renderWorkerCount(int cols, int rows) {

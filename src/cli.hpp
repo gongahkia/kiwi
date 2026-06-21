@@ -49,6 +49,7 @@ struct CliOptions {
   std::optional<std::string> log_file;
   std::optional<std::string> export_file;
   std::optional<std::string> graph;
+  std::vector<std::string> graph_passes;
   std::optional<std::string> caps;
   std::optional<int> dump_frame;
   std::optional<std::string> dump_png;

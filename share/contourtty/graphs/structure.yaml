@@ -1,0 +1,12 @@
+passes:
+  - id: decode
+  - id: luminance
+  - id: contrast
+  - id: dog
+  - id: sobel
+  - id: edge-field
+  - id: cell-average
+  - id: ramp-pick
+  - id: cell-shape
+  - id: overlay-structure
+  - id: emit

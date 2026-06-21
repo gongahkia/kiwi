@@ -253,9 +253,16 @@ int main() {
   }
 
   {
-    const char* argv[] = {"contourtty", "--graph", "bad"};
+    const char* argv[] = {"contourtty", "--graph", "share/contourtty/graphs/structure.yaml"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
-    expect(!parsed.error.empty(), "graph rejects invalid value");
+    expect(parsed.error.empty(), "graph file parses");
+    expect(parsed.options.graph.has_value() && *parsed.options.graph == "share/contourtty/graphs/structure.yaml", "graph file stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--graph", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "graph rejects empty value");
   }
 
   {

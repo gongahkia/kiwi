@@ -1,5 +1,6 @@
 #include "auto_mode.hpp"
 #include "cli.hpp"
+#include "graph_yaml.hpp"
 #include "log.hpp"
 #include "media_probe.hpp"
 #include "player.hpp"
@@ -41,6 +42,9 @@ int runApp(int argc, char** argv) {
   }
 
   contourtty::CliOptions options = parsed.options;
+  if (options.graph.has_value() && *options.graph != "dump") {
+    contourtty::applyGraphYamlToOptions(contourtty::loadGraphYamlFile(*options.graph), &options);
+  }
   contourtty::Logger logger;
   if (options.log_file.has_value()) {
     logger = contourtty::Logger(*options.log_file);
@@ -72,7 +76,7 @@ int runApp(int argc, char** argv) {
     CONTOURTTY_LOG_INFO(logger, "auto mode resolved to " + options.mode);
   }
 
-  if (options.graph.has_value()) {
+  if (options.graph.has_value() && *options.graph == "dump") {
     std::cout << contourtty::dumpRenderGraph(options);
     return 0;
   }

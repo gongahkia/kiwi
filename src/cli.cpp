@@ -534,8 +534,8 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
     } else if (flag == "--export") {
       result.options.export_file = std::string(*value);
     } else if (flag == "--graph") {
-      if (!isOneOf(*value, {"dump"})) {
-        result.error = "invalid value for --graph: " + std::string(*value);
+      if (value->empty()) {
+        result.error = "invalid value for --graph: expected dump or yaml file";
         return result;
       }
       result.options.graph = std::string(*value);
@@ -669,7 +669,7 @@ std::string helpText(std::string_view program_name) {
       << "  --no-line-ligatures            disable config-default line ligatures\n"
       << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
       << "  --no-debug-stats               disable config-default debug stats\n"
-      << "  --graph dump                   print resolved render graph and exit\n"
+      << "  --graph dump|FILE.yaml         print resolved graph or load graph file\n"
       << "  --caps dump|SPEC               print or override terminal capability detection\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"

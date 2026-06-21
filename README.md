@@ -67,7 +67,7 @@ Controls: `space` pauses/resumes audio and video together, left/right arrows see
 
 Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
-Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults.
+Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/contourtty/graphs/`.
 
 ## Flag reference
 
@@ -109,7 +109,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--gpu`, `--no-gpu` | Request or disable the optional GPU analysis path. |
 | `--line-ligatures`, `--no-line-ligatures` | Use box-drawing joins for structure edges, or disable config-default joins. |
 | `--debug-stats`, `--no-debug-stats` | Show or hide live FPS, CPU, and RSS diagnostics during playback; samples are also written when `--log` is set. |
-| `--graph dump` | Print the resolved render graph and exit. |
+| `--graph dump\|FILE.yaml` | Print the resolved render graph or load a graph file. |
 | `--caps dump\|SPEC` | Print or override terminal capability detection. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--dump-frame N` | Decode frame `N` for diagnostics. |
@@ -130,7 +130,7 @@ When shape matching is enabled, the edge magnitude field inside the cell is samp
 
 Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
 
-`--graph dump --mode structure` prints the resolved pass DAG with each pass backend and typed inputs/outputs, matching the pipeline documented above.
+`--graph dump --mode structure` prints the resolved pass DAG with each pass backend and typed inputs/outputs, matching the pipeline documented above. `--graph share/contourtty/graphs/structure.yaml` loads the default structure graph; `share/contourtty/graphs/painterly_hatch_stipple.yaml` shows multi-pass style composition.
 
 ## Name
 

@@ -135,8 +135,7 @@
 - [~] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
   - `--style flow` ships ETF-guided spatial LIC strokes with `--lic-length`. Open: align with motion gradients after optical flow lands in Phase M.
 - [x] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.
-- [~] **K7. Style → Pass composition.** DoD: `--graph dump` for each `--style` shows the documented Pass insertion; `--style` is single-valued; multiple styles via `--graph file.yaml`. Reference: PHASE_K §StyleComposition.
-  - `--graph dump` has goldens for `painterly`, `hatch`, `stipple`, and `flow`; duplicate `--style` is rejected. Open: multi-style `--graph file.yaml` waits for Phase L graph-file support.
+- [x] **K7. Style → Pass composition.** DoD: `--graph dump` for each `--style` shows the documented Pass insertion; `--style` is single-valued; multiple styles via `--graph file.yaml`. Reference: PHASE_K §StyleComposition.
 - [x] **K8. NPR tests + bench.** DoD: per-style golden frames; 720p/1080p fps recorded per style, CPU vs GPU. Reference: PHASE_K §Tests / §Bench.
 - [ ] **Phase K exit criteria.** DoD: four named styles ship; each at ≥24 fps 720p truecolor on the reference machine; styles compose with all blitter modes.
 
@@ -146,11 +145,14 @@
 *Doc: `PHASE_L.md`. Goal: Vulkan portable backend, GLSL/WGSL user shaders, OBJ scene loader.*
 
 - [ ] **L1. Vulkan compute backend.** DoD: `src/gpu_vulkan/` ports Metal kernels (Sobel, DoG, cell-average, shape-match) to Vulkan 1.3; output matches macOS Metal reference within tolerance recorded in BENCHMARKS.md. Reference: PHASE_L §VulkanBackend.
+  - Blocked locally: no Vulkan SDK/tools available (`vulkaninfo` absent, `pkg-config vulkan` absent).
 - [ ] **L2. Shader cross-compile.** DoD: `glslang` + SPIRV-Cross vendored; GLSL → SPIR-V → MSL on Darwin, GLSL → SPIR-V on Linux/Windows; golden SPIR-V tests for fixed inputs. Reference: PHASE_L §ShaderInput / §VulkanBackend.
+  - Blocked locally: `glslangValidator` and `spirv-cross` are absent.
 - [ ] **L3. User shader source.** DoD: `--input shader.glsl` accepts a Shadertoy-style `mainImage()`; uniforms `iResolution/iTime/iTimeDelta/iFrame/iMouse/iChannel0..3` populated; hot-reload on file change. Reference: PHASE_L §ShaderInput.
+  - Blocked by L2 shader compiler plumbing.
 - [ ] **L4. OBJ scene loader + tiny rasteriser.** DoD: `--input scene.obj` rotates Suzanne at 320×120 cells at ≥30 fps producing albedo + depth + normal G-buffers. Reference: PHASE_L §SceneInput.
 - [ ] **L5. Depth/normal-aware glyphs.** DoD: `normal-orient` + `depth-shade` Passes use the G-buffer instead of screen-space gradients; rotated cube shows hatching along surface curvature. Reference: PHASE_L §NormalGlyphs.
-- [ ] **L6. `--graph file.yaml` loader.** DoD: minimal in-tree YAML parser; example graph reproducing default `structure` pipeline byte-identical; documented examples in `share/contourtty/graphs/`. Reference: PHASE_L §GraphYaml.
+- [x] **L6. `--graph file.yaml` loader.** DoD: minimal in-tree YAML parser; example graph reproducing default `structure` pipeline byte-identical; documented examples in `share/contourtty/graphs/`. Reference: PHASE_L §GraphYaml.
 - [ ] **L7. Bundled shaders.** DoD: `noise.glsl`, `plasma.glsl`, `feedback.glsl`, `sdf_room.glsl` ship under `share/contourtty/shaders/`; all compile clean on both backends; used as smoke tests. Reference: PHASE_L §Shaders.
 - [ ] **L8. Shader/scene tests + bench.** DoD: `shader_compile_tests`, `vulkan_backend_tests`, `scene_source_tests` pass; cross-backend equivalence (Metal vs Vulkan Sobel within 1-LSB) verified; fps recorded per source. Reference: PHASE_L §Tests / §Bench.
 - [ ] **Phase L exit criteria → tag `v0.9`.** DoD: `--input shader.glsl` runs on Vulkan or Metal at ≥30 fps 720p truecolor; `--input scene.obj` rotates an OBJ with depth+normal-aware glyphs; `--graph file.yaml` works as a power-user surface.

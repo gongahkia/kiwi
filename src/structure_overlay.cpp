@@ -1,11 +1,26 @@
 #include "structure_overlay.hpp"
 
 namespace contourtty {
+namespace {
+
+bool graphImpliesStructure(const CliOptions& options) {
+  for (const std::string& pass : options.graph_passes) {
+    if (pass == "dog" || pass == "sobel" || pass == "etf" || pass == "edge-field" ||
+        pass == "cell-shape" || pass == "overlay-structure" || pass == "shape-match" ||
+        pass == "crosshatch" || pass == "lic") {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
 
 bool structureOverlayImplied(const CliOptions& options) {
   return options.mode == "structure" ||
          options.style == "hatch" ||
          options.style == "flow" ||
+         graphImpliesStructure(options) ||
          options.edge_threshold.has_value() ||
          options.edge_strength.has_value() ||
          options.dog_sigma.has_value() ||

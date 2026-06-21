@@ -1,0 +1,15 @@
+passes:
+  - id: decode
+  - id: kuwahara
+  - id: luminance
+  - id: contrast
+  - id: dog
+  - id: sobel
+  - id: etf
+    params: { iters: 3 }
+  - id: edge-field
+  - id: cell-average
+  - id: ramp-pick
+  - id: crosshatch
+  - id: stipple
+  - id: emit

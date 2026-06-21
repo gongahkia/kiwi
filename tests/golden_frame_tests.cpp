@@ -2,6 +2,7 @@
 #include "glyph_shape.hpp"
 #include "frame_sampling.hpp"
 #include "gpu_sobel.hpp"
+#include "graph_yaml.hpp"
 #include "renderer.hpp"
 
 #include <cstdlib>
@@ -228,6 +229,46 @@ int main() {
                 "124:0,0,0:0,0,0|124:255,255,255:0,0,0|\n"
                 "124:0,0,0:0,0,0|124:255,255,255:0,0,0|\n",
                 "structure directional golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+    });
+    contourtty::CliOptions direct_options;
+    direct_options.mode = "structure";
+    direct_options.width = 2;
+    direct_options.height = 2;
+    direct_options.cell_aspect = 1.0;
+    direct_options.edge_threshold = 0.01;
+    contourtty::CellBuffer direct_cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, direct_options, terminal(2, 2), nullptr, &direct_cells);
+
+    contourtty::CliOptions graph_options;
+    graph_options.width = 2;
+    graph_options.height = 2;
+    graph_options.cell_aspect = 1.0;
+    contourtty::applyGraphYamlToOptions(contourtty::parseGraphYaml(
+                                          "passes:\n"
+                                          "  - id: decode\n"
+                                          "  - id: luminance\n"
+                                          "  - id: contrast\n"
+                                          "  - id: dog\n"
+                                          "  - id: sobel\n"
+                                          "  - id: edge-field\n"
+                                          "    params: { threshold: 0.01 }\n"
+                                          "  - id: cell-average\n"
+                                          "  - id: ramp-pick\n"
+                                          "  - id: cell-shape\n"
+                                          "  - id: overlay-structure\n"
+                                          "  - id: emit\n"),
+                                        &graph_options);
+    contourtty::CellBuffer graph_cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, graph_options, terminal(2, 2), nullptr, &graph_cells);
+    expectEqual(serializeCells(graph_cells), serializeCells(direct_cells), "graph yaml structure golden parity");
   }
 
   {
