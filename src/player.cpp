@@ -175,6 +175,18 @@ enum class PlaybackCommand {
   TogglePause,
   SeekBackward,
   SeekForward,
+  ToggleOsd,
+  CycleStyle,
+  CycleMode,
+  CycleCharset,
+  CycleGlyphFeatures,
+  ToggleGpu,
+  EdgeThresholdDown,
+  EdgeThresholdUp,
+  DogSigmaDown,
+  DogSigmaUp,
+  ContrastDown,
+  ContrastUp,
 };
 
 std::deque<PlaybackCommand> g_pending_commands;
@@ -259,6 +271,101 @@ CliOptions debugRenderOptions(const CliOptions& options, TerminalSize terminal) 
     }
   }
   return render_options;
+}
+
+std::string formatLiveDouble(double value) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(2) << value;
+  return out.str();
+}
+
+double bumpedValue(std::optional<double>* value, double fallback, double delta, double lower, double upper) {
+  const double next = std::clamp(value->value_or(fallback) + delta, lower, upper);
+  *value = next;
+  return next;
+}
+
+std::string cycleStringValue(std::string_view current, std::span<const std::string_view> values) {
+  if (values.empty()) {
+    return std::string(current);
+  }
+  auto it = std::find(values.begin(), values.end(), current);
+  if (it == values.end()) {
+    return std::string(values.front());
+  }
+  ++it;
+  if (it == values.end()) {
+    it = values.begin();
+  }
+  return std::string(*it);
+}
+
+std::optional<std::string> cycleOptionalStringValue(const std::optional<std::string>& current, std::span<const std::string_view> values) {
+  const std::string next = cycleStringValue(current.value_or(""), values);
+  if (next.empty()) {
+    return std::nullopt;
+  }
+  return next;
+}
+
+std::string osdCharsetLabel(const CliOptions& options) {
+  return options.charset.value_or("default");
+}
+
+int osdReservedRows(bool osd_active, TerminalSize terminal) {
+  if (!osd_active || terminal.rows <= 1) {
+    return 0;
+  }
+  return std::min(2, terminal.rows - 1);
+}
+
+TerminalSize liveRenderTerminal(TerminalSize terminal, const CliOptions& options, bool osd_active) {
+  const int debug_rows = options.debug_stats && terminal.rows > 1 ? 1 : 0;
+  const int osd_rows = osdReservedRows(osd_active, terminal);
+  terminal.rows = std::max(1, terminal.rows - debug_rows - osd_rows);
+  return terminal;
+}
+
+TerminalSize liveDebugTerminal(TerminalSize terminal, bool osd_active) {
+  terminal.rows = std::max(1, terminal.rows - osdReservedRows(osd_active, terminal));
+  return terminal;
+}
+
+CliOptions liveRenderOptions(const CliOptions& options, TerminalSize render_terminal) {
+  CliOptions render_options = options;
+  if (!render_options.height.has_value() || *render_options.height > render_terminal.rows) {
+    render_options.height = render_terminal.rows;
+  }
+  return render_options;
+}
+
+bool writeOsdOverlay(const CliOptions& options, bool osd_active, TerminalSize terminal) {
+  if (!osd_active || terminal.rows <= 1 || terminal.cols <= 0) {
+    return true;
+  }
+  std::array<std::string, 2> lines {
+    "OSD m=" + options.mode +
+      " s=" + options.style +
+      " c=" + osdCharsetLabel(options) +
+      " f=" + options.glyph_features +
+      " gpu=" + (options.gpu ? std::string("on") : std::string("off")) +
+      " e=" + formatLiveDouble(options.edge_threshold.value_or(0.35)) +
+      " dog=" + formatLiveDouble(options.dog_sigma.value_or(0.0)) +
+      " ctr=" + formatLiveDouble(options.contrast.value_or(0.0)),
+    "keys: s/m/c/f/g cycle/toggle  1/2 edge  3/4 dog  5/6 ctr  i/o hide",
+  };
+  const int rows = osdReservedRows(osd_active, terminal);
+  std::string out;
+  appendSgrReset(out);
+  for (int i = 0; i < rows; ++i) {
+    const int row = terminal.rows - rows + i + 1;
+    appendCursorMove(out, row, 1);
+    out += "\x1b[2K";
+    const std::string& line = lines[static_cast<std::size_t>(i)];
+    out += line.substr(0, static_cast<std::size_t>(terminal.cols));
+  }
+  appendSgrReset(out);
+  return writeAll(STDOUT_FILENO, out);
 }
 
 bool writeDebugStatusLine(TerminalSize terminal, std::string_view line) {
@@ -400,6 +507,54 @@ PlaybackCommand pollKeyboardCommand() {
     }
     if (buffer[i] == ' ') {
       g_pending_commands.push_back(PlaybackCommand::TogglePause);
+      continue;
+    }
+    if (buffer[i] == 'i' || buffer[i] == 'I' || buffer[i] == 'o' || buffer[i] == 'O') {
+      g_pending_commands.push_back(PlaybackCommand::ToggleOsd);
+      continue;
+    }
+    if (buffer[i] == 's' || buffer[i] == 'S') {
+      g_pending_commands.push_back(PlaybackCommand::CycleStyle);
+      continue;
+    }
+    if (buffer[i] == 'm' || buffer[i] == 'M') {
+      g_pending_commands.push_back(PlaybackCommand::CycleMode);
+      continue;
+    }
+    if (buffer[i] == 'c' || buffer[i] == 'C') {
+      g_pending_commands.push_back(PlaybackCommand::CycleCharset);
+      continue;
+    }
+    if (buffer[i] == 'f' || buffer[i] == 'F') {
+      g_pending_commands.push_back(PlaybackCommand::CycleGlyphFeatures);
+      continue;
+    }
+    if (buffer[i] == 'g' || buffer[i] == 'G') {
+      g_pending_commands.push_back(PlaybackCommand::ToggleGpu);
+      continue;
+    }
+    if (buffer[i] == '1') {
+      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdDown);
+      continue;
+    }
+    if (buffer[i] == '2') {
+      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdUp);
+      continue;
+    }
+    if (buffer[i] == '3') {
+      g_pending_commands.push_back(PlaybackCommand::DogSigmaDown);
+      continue;
+    }
+    if (buffer[i] == '4') {
+      g_pending_commands.push_back(PlaybackCommand::DogSigmaUp);
+      continue;
+    }
+    if (buffer[i] == '5') {
+      g_pending_commands.push_back(PlaybackCommand::ContrastDown);
+      continue;
+    }
+    if (buffer[i] == '6') {
+      g_pending_commands.push_back(PlaybackCommand::ContrastUp);
       continue;
     }
     if (buffer[i] == '\x1b' && i + 2 < n && buffer[i + 1] == '[') {
@@ -2177,6 +2332,18 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
         break;
       case PlaybackCommand::SeekBackward:
       case PlaybackCommand::SeekForward:
+      case PlaybackCommand::ToggleOsd:
+      case PlaybackCommand::CycleStyle:
+      case PlaybackCommand::CycleMode:
+      case PlaybackCommand::CycleCharset:
+      case PlaybackCommand::CycleGlyphFeatures:
+      case PlaybackCommand::ToggleGpu:
+      case PlaybackCommand::EdgeThresholdDown:
+      case PlaybackCommand::EdgeThresholdUp:
+      case PlaybackCommand::DogSigmaDown:
+      case PlaybackCommand::DogSigmaUp:
+      case PlaybackCommand::ContrastDown:
+      case PlaybackCommand::ContrastUp:
         break;
     }
     if (quit) {
@@ -2362,6 +2529,19 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
         emitter.reset();
         temporal_state.reset();
         break;
+      case PlaybackCommand::ToggleOsd:
+      case PlaybackCommand::CycleStyle:
+      case PlaybackCommand::CycleMode:
+      case PlaybackCommand::CycleCharset:
+      case PlaybackCommand::CycleGlyphFeatures:
+      case PlaybackCommand::ToggleGpu:
+      case PlaybackCommand::EdgeThresholdDown:
+      case PlaybackCommand::EdgeThresholdUp:
+      case PlaybackCommand::DogSigmaDown:
+      case PlaybackCommand::DogSigmaUp:
+      case PlaybackCommand::ContrastDown:
+      case PlaybackCommand::ContrastUp:
+        break;
     }
     if (quit) {
       break;
@@ -2533,6 +2713,18 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
           break;
         case PlaybackCommand::SeekBackward:
         case PlaybackCommand::SeekForward:
+        case PlaybackCommand::ToggleOsd:
+        case PlaybackCommand::CycleStyle:
+        case PlaybackCommand::CycleMode:
+        case PlaybackCommand::CycleCharset:
+        case PlaybackCommand::CycleGlyphFeatures:
+        case PlaybackCommand::ToggleGpu:
+        case PlaybackCommand::EdgeThresholdDown:
+        case PlaybackCommand::EdgeThresholdUp:
+        case PlaybackCommand::DogSigmaDown:
+        case PlaybackCommand::DogSigmaUp:
+        case PlaybackCommand::ContrastDown:
+        case PlaybackCommand::ContrastUp:
           break;
       }
     }
@@ -2678,21 +2870,27 @@ int playMedia(const CliOptions& options, Logger& logger) {
   TerminalSession session;
   CONTOURTTY_LOG_INFO(logger, "playback started");
 
-  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  CliOptions live_options = options;
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(live_options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
-  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
-  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
-  if (shape_vectors.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
-                                  " features=" + std::to_string(kShapeRegionCount));
-  }
+  std::u32string ramp;
+  std::optional<GlyphShapeTable> shape_vectors;
+  const auto rebuild_glyph_state = [&] {
+    ramp = rampFromOptions(live_options, glyph_font_ptr);
+    shape_vectors = shapeTableFromOptions(live_options, glyph_font_ptr);
+    if (shape_vectors.has_value()) {
+      CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+                                    " features=" + std::to_string(kShapeRegionCount));
+    }
+  };
+  rebuild_glyph_state();
 
   TerminalSize terminal = queryTerminalSize();
-  VideoDecoder video_decoder(*options.input);
+  VideoDecoder video_decoder(*live_options.input);
   CellBuffer cells;
   DiffEmitter emitter;
   RenderTemporalState temporal_state;
-  FramePacer pacer(options);
+  FramePacer pacer(live_options);
   std::unique_ptr<PcmPlayer> audio_player;
   if (decoded_audio.has_value()) {
     audio_player = std::make_unique<PcmPlayer>(
@@ -2702,36 +2900,47 @@ int playMedia(const CliOptions& options, Logger& logger) {
         .channels = static_cast<uint32_t>(decoded_audio->channels),
       });
   }
-  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  const ColorMode color_mode = resolveColorMode(live_options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
-  const DitherMode dither_mode = ditherModeFromString(options.dither);
-  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  const DitherMode dither_mode = ditherModeFromString(live_options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = live_options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
-  if (options.render_mode != "text") {
-    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  if (live_options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(live_options, detectGraphicsCaps(live_options), color_mode, dither_mode, glyph_font_ptr, logger);
   }
   std::optional<BandwidthGuard> graphics_bandwidth;
   if (graphics_options.has_value()) {
-    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+    graphics_bandwidth.emplace(live_options.bandwidth_cap_mb_s);
   }
-  SceneOverlaySource overlay_source(options);
+  SceneOverlaySource overlay_source(live_options);
   if (overlay_source.enabled()) {
     CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
   }
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
-  RuntimeDebugStats debug_stats(options, &logger);
+  RuntimeDebugStats debug_stats(live_options, &logger);
   AudioSyncState audio_sync;
   bool quit = false;
   bool paused_without_audio = false;
   bool audio_started = false;
   int64_t current_video_us = 0;
   std::optional<Frame> still_frame;
+  bool osd_active = false;
 
   std::string clear = "\x1b[2J";
   writeAll(STDOUT_FILENO, clear);
   consumeResizeFlag();
+
+  const auto reset_render_state = [&] {
+    emitter.reset();
+    if (graphics_bandwidth.has_value()) {
+      graphics_bandwidth->reset();
+    }
+    temporal_state.reset();
+    std::string clear_screen = "\x1b[2J";
+    writeAll(STDOUT_FILENO, clear_screen);
+  };
 
   const auto seek_to = [&](int64_t target_us) {
     const int64_t clamped_us = audio_player != nullptr
@@ -2745,17 +2954,28 @@ int playMedia(const CliOptions& options, Logger& logger) {
     video_decoder.seekToUs(clamped_us);
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
-    emitter.reset();
-    if (graphics_bandwidth.has_value()) {
-      graphics_bandwidth->reset();
-    }
-    temporal_state.reset();
-    std::string clear_seek = "\x1b[2J";
-    writeAll(STDOUT_FILENO, clear_seek);
+    reset_render_state();
     CONTOURTTY_LOG_INFO(logger, "seek target_us=" + std::to_string(clamped_us));
   };
 
   const auto apply_command = [&](PlaybackCommand command) {
+    constexpr std::array<std::string_view, 5> style_cycle {"none", "painterly", "hatch", "stipple", "flow"};
+    constexpr std::array<std::string_view, 7> mode_cycle {"luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"};
+    constexpr std::array<std::string_view, 7> charset_cycle {"", "standard", "blocks", "detailed", "portrait-30", "lineart-40", "blueprint-24"};
+    constexpr std::array<std::string_view, 3> glyph_feature_cycle {"overlap", "hog", "sdf"};
+    const auto apply_live_change = [&](std::string_view label) {
+      rebuild_glyph_state();
+      reset_render_state();
+      CONTOURTTY_LOG_INFO(logger, "live " + std::string(label) +
+                                    " mode=" + live_options.mode +
+                                    " style=" + live_options.style +
+                                    " charset=" + osdCharsetLabel(live_options) +
+                                    " glyph=" + live_options.glyph_features +
+                                    " gpu=" + (live_options.gpu ? std::string("on") : std::string("off")) +
+                                    " edge=" + formatLiveDouble(live_options.edge_threshold.value_or(0.35)) +
+                                    " dog=" + formatLiveDouble(live_options.dog_sigma.value_or(0.0)) +
+                                    " contrast=" + formatLiveDouble(live_options.contrast.value_or(0.0)));
+    };
     switch (command) {
       case PlaybackCommand::None:
         return true;
@@ -2777,6 +2997,57 @@ int playMedia(const CliOptions& options, Logger& logger) {
       case PlaybackCommand::SeekForward:
         seek_to((audio_player != nullptr ? audio_player->masterClockUs() : current_video_us) + 5000000);
         return true;
+      case PlaybackCommand::ToggleOsd:
+        osd_active = !osd_active;
+        reset_render_state();
+        CONTOURTTY_LOG_INFO(logger, osd_active ? "osd shown" : "osd hidden");
+        return true;
+      case PlaybackCommand::CycleStyle:
+        live_options.style = cycleStringValue(live_options.style, style_cycle);
+        apply_live_change("style");
+        return true;
+      case PlaybackCommand::CycleMode:
+        live_options.mode = cycleStringValue(live_options.mode, mode_cycle);
+        apply_live_change("mode");
+        return true;
+      case PlaybackCommand::CycleCharset:
+        live_options.charset = cycleOptionalStringValue(live_options.charset, charset_cycle);
+        apply_live_change("charset");
+        return true;
+      case PlaybackCommand::CycleGlyphFeatures:
+        live_options.glyph_features = cycleStringValue(live_options.glyph_features, glyph_feature_cycle);
+        apply_live_change("glyph");
+        return true;
+      case PlaybackCommand::ToggleGpu:
+        live_options.gpu = !live_options.gpu;
+        apply_live_change("gpu");
+        return true;
+      case PlaybackCommand::EdgeThresholdDown:
+        bumpedValue(&live_options.edge_threshold, 0.35, -0.05, 0.0, 2.0);
+        apply_live_change("edge");
+        return true;
+      case PlaybackCommand::EdgeThresholdUp:
+        bumpedValue(&live_options.edge_threshold, 0.35, 0.05, 0.0, 2.0);
+        apply_live_change("edge");
+        return true;
+      case PlaybackCommand::DogSigmaDown:
+        bumpedValue(&live_options.dog_sigma, 0.0, -0.10, 0.0, 8.0);
+        live_options.dog_sigma2.reset();
+        apply_live_change("dog");
+        return true;
+      case PlaybackCommand::DogSigmaUp:
+        bumpedValue(&live_options.dog_sigma, 0.0, 0.10, 0.0, 8.0);
+        live_options.dog_sigma2.reset();
+        apply_live_change("dog");
+        return true;
+      case PlaybackCommand::ContrastDown:
+        bumpedValue(&live_options.contrast, 0.0, -0.10, 0.0, 4.0);
+        apply_live_change("contrast");
+        return true;
+      case PlaybackCommand::ContrastUp:
+        bumpedValue(&live_options.contrast, 0.0, 0.10, 0.0, 4.0);
+        apply_live_change("contrast");
+        return true;
     }
     return true;
   };
@@ -2787,7 +3058,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       break;
     }
     if (audio_player != nullptr && audio_player->paused()) {
-      if (!debug_stats.maybeReport(terminal)) {
+      if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
         quit = true;
         break;
       }
@@ -2795,7 +3066,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       continue;
     }
     if (audio_player == nullptr && paused_without_audio) {
-      if (!debug_stats.maybeReport(terminal)) {
+      if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
         quit = true;
         break;
       }
@@ -2808,17 +3079,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
       if (video_decoder.isAnimatedImage()) {
         video_decoder.restart();
         pacer.reset();
-        emitter.reset();
-        if (graphics_bandwidth.has_value()) {
-          graphics_bandwidth->reset();
-        }
-        temporal_state.reset();
-        std::string clear_loop = "\x1b[2J";
-        writeAll(STDOUT_FILENO, clear_loop);
+        reset_render_state();
         CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
         continue;
       }
-      if (options.loop && !video_decoder.isStillImage()) {
+      if (live_options.loop && !video_decoder.isStillImage()) {
         video_decoder.restart();
         if (audio_player != nullptr) {
           audio_player->seekToUs(0);
@@ -2826,18 +3091,12 @@ int playMedia(const CliOptions& options, Logger& logger) {
         pacer.reset();
         resetSyncForSeek(&audio_sync);
         current_video_us = 0;
-        emitter.reset();
-        if (graphics_bandwidth.has_value()) {
-          graphics_bandwidth->reset();
-        }
-        temporal_state.reset();
-        std::string clear_loop = "\x1b[2J";
-        writeAll(STDOUT_FILENO, clear_loop);
+        reset_render_state();
         CONTOURTTY_LOG_INFO(logger, "input loop restarted");
         continue;
       }
       if (video_decoder.isStillImage() && still_frame.has_value()) {
-        quit = holdStillFrame(*still_frame, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr, &debug_stats);
+        quit = holdStillFrame(*still_frame, ramp, live_options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr, &debug_stats);
       }
       break;
     }
@@ -2851,7 +3110,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
     if (audio_player != nullptr) {
       PlaybackCommand command = PlaybackCommand::None;
-      const FrameAction action = waitForAudioClock(*frame, options, *audio_player, &audio_sync, &drift_stats, &command);
+      const FrameAction action = waitForAudioClock(*frame, live_options, *audio_player, &audio_sync, &drift_stats, &command);
       if (action == FrameAction::Quit) {
         quit = true;
         break;
@@ -2865,7 +3124,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       }
       if (action == FrameAction::Drop) {
         debug_stats.recordDroppedFrame();
-        if (!debug_stats.maybeReport(terminal)) {
+        if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
           quit = true;
           break;
         }
@@ -2880,17 +3139,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
-      emitter.reset();
-      if (graphics_bandwidth.has_value()) {
-        graphics_bandwidth->reset();
-      }
-      temporal_state.reset();
-      std::string clear_resize = "\x1b[2J";
-      writeAll(STDOUT_FILENO, clear_resize);
+      reset_render_state();
     }
 
-    const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
-    const CliOptions render_options = debugRenderOptions(options, terminal);
+    const TerminalSize render_terminal = liveRenderTerminal(terminal, live_options, osd_active);
+    const CliOptions render_options = liveRenderOptions(live_options, render_terminal);
     if (audio_sync.first_video_pts_us >= 0) {
       current_video_us = frameMediaUs(*frame, audio_sync.first_video_pts_us);
     } else {
@@ -2905,7 +3158,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, live_options, *graphics_options, emission_options, render_terminal),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -2914,7 +3167,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         if (decision.warn) {
           CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
-        if (!debug_stats.maybeReport(terminal)) {
+        if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
           quit = true;
           break;
         }
@@ -2928,7 +3181,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
       quit = true;
       break;
     }
-    if (!debug_stats.maybeReport(terminal)) {
+    if (!writeOsdOverlay(live_options, osd_active, terminal)) {
+      quit = true;
+      break;
+    }
+    if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
       quit = true;
       break;
     }
@@ -2965,7 +3222,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
                                   " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
                                   " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
   }
-  (void)debug_stats.maybeReport(terminal, true);
+  (void)debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active), true);
   if (quit || shouldQuit()) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
   } else {
