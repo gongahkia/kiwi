@@ -3,6 +3,7 @@
 #include "ansi.hpp"
 #include "audio_backend.hpp"
 #include "audio_decode.hpp"
+#include "bandwidth_guard.hpp"
 #include "braille_renderer.hpp"
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
@@ -14,17 +15,21 @@
 #include "glyph_ramp.hpp"
 #include "glyph_sdf.hpp"
 #include "glyph_shape.hpp"
+#include "graphics_emitter.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
+#include "kitty_graphics.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
 #include "raster_compose.hpp"
+#include "render_mode.hpp"
 #include "render_layout.hpp"
 #include "renderer.hpp"
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
 #include "stream_resolver.hpp"
+#include "terminal_caps.hpp"
 #include "terminal.hpp"
 #include "video_decoder.hpp"
 
@@ -1084,6 +1089,63 @@ void logGpuRequest(const CliOptions& options, Logger& logger) {
   }
 }
 
+std::optional<std::string> capsOverrideFromOptions(const CliOptions& options) {
+  if (options.caps.has_value() && *options.caps != "dump") {
+    return options.caps;
+  }
+  return std::nullopt;
+}
+
+std::optional<GraphicsFrameOptions> graphicsOptionsFromResolution(const CliOptions& options,
+                                                                  const TerminalCaps& caps,
+                                                                  ColorMode color_mode,
+                                                                  DitherMode dither_mode,
+                                                                  const GlyphFont* glyph_font,
+                                                                  Logger& logger) {
+  if (options.render_mode == "text") {
+    return std::nullopt;
+  }
+  const RenderModeResolution resolution = resolveRenderMode(options, caps);
+  if (resolution.degraded_to_text) {
+    CONTOURTTY_LOG_INFO(logger, "render mode " + options.render_mode + " degraded to text");
+    return std::nullopt;
+  }
+  if (resolution.mode == ResolvedRenderMode::Hybrid) {
+    CONTOURTTY_LOG_INFO(logger, "hybrid render mode requested; sparse overlay path not wired yet, using text");
+    return std::nullopt;
+  }
+  if (resolution.mode != ResolvedRenderMode::Pixel) {
+    return std::nullopt;
+  }
+  if (resolution.protocol == GraphicsProtocol::Sixel || resolution.protocol == GraphicsProtocol::None) {
+    CONTOURTTY_LOG_INFO(logger, "graphics protocol " + std::string(toString(resolution.protocol)) + " not implemented; using text");
+    return std::nullopt;
+  }
+  CONTOURTTY_LOG_INFO(logger, "render mode pixel protocol=" + std::string(toString(resolution.protocol)));
+  return GraphicsFrameOptions{
+    .protocol = resolution.protocol,
+    .color_mode = color_mode,
+    .dither_mode = dither_mode,
+    .glyph_font = glyph_font,
+  };
+}
+
+TerminalCaps detectGraphicsCaps(const CliOptions& options) {
+  return detectTerminalCapsFromEnvironment(options.font_path, capsOverrideFromOptions(options));
+}
+
+std::string graphicsFrameBytes(const CellBuffer& cells, const GraphicsFrameOptions& graphics_options, TerminalSize terminal) {
+  const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, terminal);
+  std::string bytes;
+  appendCursorMove(bytes, origin.row, origin.col);
+  bytes += emitGraphicsFrame(cells, graphics_options).bytes;
+  return bytes;
+}
+
+std::chrono::steady_clock::time_point exportTimepoint(double timestamp) {
+  return std::chrono::steady_clock::time_point{} + std::chrono::microseconds(static_cast<int64_t>(std::llround(timestamp * 1000000.0)));
+}
+
 }  // namespace
 
 int exportMedia(const CliOptions& options, Logger& logger) {
@@ -1109,7 +1171,16 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0), .origin_row = 1, .origin_col = 1};
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0), .origin_row = 1, .origin_col = 1};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (kind != ExportKind::Mp4 && options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
   CellBuffer cells;
   DiffEmitter emitter;
   RenderTemporalState temporal_state;
@@ -1192,10 +1263,28 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     }
   };
 
+  const auto emit_cells = [&](double timestamp) -> std::optional<EmissionResult> {
+    if (graphics_options.has_value()) {
+      const std::string bytes = graphicsFrameBytes(cells, *graphics_options, terminal);
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
+      if (!decision.send) {
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        return std::nullopt;
+      }
+      return EmissionResult{.bytes = bytes, .changed_cells = cells.size()};
+    }
+    return emitter.emit(cells, emission_options);
+  };
+
   const auto write_frame = [&](const Frame& current_frame) {
     renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
-    const EmissionResult emission = emitter.emit(cells, emission_options);
-    write_emission(exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), emission.bytes);
+    const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
+    const std::optional<EmissionResult> emission = emit_cells(timestamp);
+    if (emission.has_value()) {
+      write_emission(timestamp, emission->bytes);
+    }
   };
 
   temporal_state.reset();
@@ -1211,8 +1300,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     writeCastEvent(output, 0.0, "\x1b[2J\x1b[H\x1b[?25l");
   }
 
-  write_emission(0.0, emitter.emit(cells, emission_options).bytes);
-  ++exported_frames;
+  if (const std::optional<EmissionResult> emission = emit_cells(0.0); emission.has_value()) {
+    write_emission(0.0, emission->bytes);
+    ++exported_frames;
+  }
   while ((frame = video_decoder.nextFrame()).has_value()) {
     ++frame_index;
     write_frame(*frame);
@@ -1289,7 +1380,16 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
-  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
@@ -1318,6 +1418,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
     emitter.reset();
+    if (graphics_bandwidth.has_value()) {
+      graphics_bandwidth->reset();
+    }
     temporal_state.reset();
     std::string clear_seek = "\x1b[2J";
     writeAll(STDOUT_FILENO, clear_seek);
@@ -1378,6 +1481,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
         video_decoder.restart();
         pacer.reset();
         emitter.reset();
+        if (graphics_bandwidth.has_value()) {
+          graphics_bandwidth->reset();
+        }
         temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
@@ -1393,6 +1499,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
         resetSyncForSeek(&audio_sync);
         current_video_us = 0;
         emitter.reset();
+        if (graphics_bandwidth.has_value()) {
+          graphics_bandwidth->reset();
+        }
         temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
@@ -1444,6 +1553,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
       emitter.reset();
+      if (graphics_bandwidth.has_value()) {
+        graphics_bandwidth->reset();
+      }
       temporal_state.reset();
       std::string clear_resize = "\x1b[2J";
       writeAll(STDOUT_FILENO, clear_resize);
@@ -1460,7 +1572,27 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }
-    const EmissionResult emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    EmissionResult emission;
+    if (graphics_options.has_value()) {
+      emission = EmissionResult{
+        .bytes = graphicsFrameBytes(cells, *graphics_options, render_terminal),
+        .changed_cells = cells.size(),
+      };
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
+      if (!decision.send) {
+        debug_stats.recordDroppedFrame();
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        if (!debug_stats.maybeReport(terminal)) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+    } else {
+      emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    }
     debug_stats.recordPresentedFrame(cells, emission);
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;
@@ -1508,6 +1640,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
   } else {
     CONTOURTTY_LOG_INFO(logger, "playback reached eof");
+  }
+  if (graphics_options.has_value() && graphics_options->protocol == GraphicsProtocol::Kitty) {
+    (void)writeAll(STDOUT_FILENO, deleteKittyImage(graphics_options->image_id, graphics_options->placement_id));
   }
   return 0;
 }
