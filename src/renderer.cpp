@@ -9,6 +9,7 @@
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
+#include "octant_renderer.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
 #include "structure_edges.hpp"
@@ -115,6 +116,16 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   if (options.mode == "blocks") {
     passes.push_back(Pass{
       .id = "blocks",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  if (options.mode == "octant") {
+    passes.push_back(Pass{
+      .id = "octant",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
@@ -289,6 +300,23 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         renderBlockSadFrame(frame, size.cols, size.rows, cells);
+      },
+    });
+    passes.push_back(emit_pass("cells"));
+    run_graph(std::move(passes));
+    finish_stats();
+    return;
+  }
+  if (options.mode == "octant") {
+    std::vector<Pass> passes;
+    passes.push_back(decode_pass());
+    passes.push_back(Pass{
+      .id = "octant",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        renderOctantFrame(frame, size.cols, size.rows, cells);
       },
     });
     passes.push_back(emit_pass("cells"));

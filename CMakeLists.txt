@@ -95,6 +95,7 @@ add_executable(contourtty
   src/main.cpp
   src/media_input.cpp
   src/media_probe.cpp
+  src/octant_renderer.cpp
   src/png_writer.cpp
   src/player.cpp
   src/render_graph.cpp
@@ -620,6 +621,32 @@ else()
 endif()
 add_test(NAME block_sad COMMAND block_sad_tests)
 
+add_executable(octant_renderer_tests
+  tests/octant_renderer_tests.cpp
+  src/frame_sampling.cpp
+  src/luminance.cpp
+  src/octant_renderer.cpp
+)
+target_include_directories(octant_renderer_tests PRIVATE src)
+target_compile_features(octant_renderer_tests PRIVATE cxx_std_20)
+set_target_properties(octant_renderer_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(octant_renderer_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(octant_renderer_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(octant_renderer_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(octant_renderer_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME octant_renderer COMMAND octant_renderer_tests)
+
 add_executable(render_layout_tests
   tests/render_layout_tests.cpp
   src/render_layout.cpp
@@ -681,6 +708,7 @@ add_executable(golden_frame_tests
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/luminance.cpp
+  src/octant_renderer.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
