@@ -238,6 +238,27 @@ else()
   endif()
 endif()
 
+add_executable(evolve_charset
+  tools/evolve_charset.cpp
+)
+target_compile_features(evolve_charset PRIVATE cxx_std_20)
+set_target_properties(evolve_charset PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(evolve_charset PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(evolve_charset PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(evolve_charset PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(evolve_charset PRIVATE -Werror)
+  endif()
+endif()
+
 enable_testing()
 
 add_executable(luminance_tests
@@ -862,6 +883,13 @@ else()
   endif()
 endif()
 add_test(NAME terminal COMMAND terminal_tests)
+
+find_program(BASH_EXECUTABLE bash)
+if(BASH_EXECUTABLE)
+  add_test(NAME evolve_charset
+    COMMAND ${BASH_EXECUTABLE} -c "$<TARGET_FILE:evolve_charset> --seed 1337 --name portrait-30 --output '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json' && '${CMAKE_COMMAND}' -E compare_files '${CMAKE_CURRENT_SOURCE_DIR}/share/contourtty/charsets/portrait-30.json' '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json'"
+  )
+endif()
 
 set(CPACK_PACKAGE_NAME "contourtty")
 set(CPACK_PACKAGE_VENDOR "contourtty")
