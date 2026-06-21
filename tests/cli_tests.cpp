@@ -295,6 +295,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--overlay", "scene.obj"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "overlay parses");
+    expect(parsed.options.overlay.has_value() && *parsed.options.overlay == "scene.obj", "overlay stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--overlay", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "overlay rejects empty");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--scene-camera", "orbit"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "scene camera parses");

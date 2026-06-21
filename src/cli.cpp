@@ -364,6 +364,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--graph",
           "--grid",
           "--plot",
+          "--overlay",
           "--plot-window",
           "--plot-rate",
           "--scene-camera",
@@ -583,6 +584,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.plot = std::string(*value);
+    } else if (flag == "--overlay") {
+      if (value->empty()) {
+        result.error = "invalid value for --overlay: expected path or source";
+        return result;
+      }
+      result.options.overlay = std::string(*value);
     } else if (flag == "--plot-window") {
       const auto parsed = parsePositiveInt(*value);
       if (!parsed.has_value()) {
@@ -739,6 +746,7 @@ std::string helpText(std::string_view program_name) {
       << "  --graph dump|FILE.yaml         print resolved graph or load graph file\n"
       << "  --grid CxR                     image contact sheet columns x rows\n"
       << "  --plot {waveform|spectrum|heatmap}\n"
+      << "  --overlay PATH|SOURCE          overlay a second source over input\n"
       << "  --plot-window N                stdin plot rolling sample count\n"
       << "  --plot-rate N                  stdin plot refresh rate in Hz\n"
       << "  --scene-camera {turntable|orbit|fly}\n"
