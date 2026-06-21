@@ -392,6 +392,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--bandwidth-cap", "12.5"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "bandwidth cap parses");
+    expect(parsed.options.bandwidth_cap_mb_s == 12.5, "bandwidth cap stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--bandwidth-cap", "0"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "bandwidth cap rejects zero");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--glyph-stickiness", "0.08"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "glyph stickiness parses");

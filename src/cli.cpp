@@ -355,6 +355,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--glyph-stickiness",
           "--dither",
           "--diff-oklab-eps",
+          "--bandwidth-cap",
           "--log",
           "--export",
           "--graph",
@@ -545,6 +546,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.diff_oklab_eps = *parsed;
+    } else if (flag == "--bandwidth-cap") {
+      const auto parsed = parsePositiveDouble(*value, false);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --bandwidth-cap: " + std::string(*value);
+        return result;
+      }
+      result.options.bandwidth_cap_mb_s = *parsed;
     } else if (flag == "--log") {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {
@@ -676,6 +684,7 @@ std::string helpText(std::string_view program_name) {
       << "  --glyph-stickiness N           retain near-tied structure glyphs, 0..1\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --diff-oklab-eps N             suppress sub-perceptual color diff emits\n"
+      << "  --bandwidth-cap N              graphics protocol cap in MB/s, default 50\n"
       << "  --loop                         loop input\n"
       << "  --no-loop                      disable config-default looping\n"
       << "  --mirror                       mirror camera input horizontally\n"

@@ -191,7 +191,8 @@
   - iTerm OSC 1337 inline PNG encoder is tested and reuses the in-tree PNG encoder. Open: `--still` wiring and live iTerm proof.
 - [~] **N5. `--render-mode {text|pixel|hybrid|auto}`.** DoD: caps → mode resolution table tested; `auto` degrades to `text` silently when graphics unsupported; hybrid mode composes pixel layer + sparse text overlay. Reference: PHASE_N §RenderMode.
   - CLI parsing existed; `render_mode_tests` now covers caps-to-mode/protocol resolution and graphics-to-text degradation. Open: player dispatch and hybrid sparse text overlay composition.
-- [ ] **N6. Bandwidth guard.** DoD: `--bandwidth-cap MB/s` (default 50) drops frames at the source when exceeded; one-time warning; tested against a deliberately slow pipe. Reference: PHASE_N §BandwidthGuard.
+- [~] **N6. Bandwidth guard.** DoD: `--bandwidth-cap MB/s` (default 50) drops frames at the source when exceeded; one-time warning; tested against a deliberately slow pipe. Reference: PHASE_N §BandwidthGuard.
+  - `--bandwidth-cap` parses with default 50 MB/s; `bandwidth_guard_tests` covers rolling-window drops and one-time warning state. Open: wire guard into graphics playback and slow-pipe proof.
 - [ ] **N7. Hybrid pixel/text alignment.** DoD: vertical overlay `|` on uniform region produces a line aligned to within ±1 px of the cell-column boundary in screen captures. Reference: PHASE_N §Hybrid.
 - [~] **N8. Graphics-protocol tests + bench.** DoD: `kitty_graphics_tests`, `sixel_tests`, `iterm_inline_tests`, `render_mode_tests` all pass; bytes/frame and fps recorded per protocol in BENCHMARKS.md. Reference: PHASE_N §Tests / §Bench.
   - `kitty_graphics_tests`, `iterm_inline_tests`, and `render_mode_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, inline PNG payloads, and caps-to-mode resolution. Open: Sixel tests plus bytes/frame and fps bench.
