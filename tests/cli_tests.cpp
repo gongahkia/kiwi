@@ -306,6 +306,12 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "hatch", "--style", "flow"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "style rejects duplicate value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--charset", ""};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "charset rejects empty value");

@@ -223,6 +223,7 @@ bool appendConfigArg(std::vector<std::string>* args, std::string_view key_view, 
 CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
   CliParseResult result;
   result.options = defaults;
+  bool style_seen = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string_view arg(argv[i]);
@@ -416,11 +417,16 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.mode = std::string(*value);
     } else if (flag == "--style") {
+      if (style_seen) {
+        result.error = "duplicate flag: --style";
+        return result;
+      }
       if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple", "flow"})) {
         result.error = "invalid value for --style: " + std::string(*value);
         return result;
       }
       result.options.style = std::string(*value);
+      style_seen = true;
     } else if (flag == "--render-mode") {
       if (!isOneOf(*value, {"auto", "text", "pixel", "hybrid"})) {
         result.error = "invalid value for --render-mode: " + std::string(*value);
