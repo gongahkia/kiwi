@@ -80,6 +80,7 @@ add_executable(contourtty
   src/glyph_font.cpp
   src/glyph_hog.cpp
   src/glyph_ramp.cpp
+  src/glyph_sdf.cpp
   src/glyph_shape.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
@@ -355,6 +356,33 @@ else()
 endif()
 add_test(NAME glyph_hog COMMAND glyph_hog_tests)
 
+add_executable(glyph_sdf_tests
+  tests/glyph_sdf_tests.cpp
+  src/glyph_font.cpp
+  src/glyph_sdf.cpp
+  src/glyph_shape.cpp
+)
+target_include_directories(glyph_sdf_tests PRIVATE src)
+target_compile_features(glyph_sdf_tests PRIVATE cxx_std_20)
+set_target_properties(glyph_sdf_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(glyph_sdf_tests PRIVATE PkgConfig::FREETYPE)
+if(MSVC)
+  target_compile_options(glyph_sdf_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(glyph_sdf_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(glyph_sdf_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(glyph_sdf_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME glyph_sdf COMMAND glyph_sdf_tests)
+
 add_executable(cli_tests
   tests/cli_tests.cpp
   src/cli.cpp
@@ -559,6 +587,7 @@ add_executable(golden_frame_tests
   src/glyph_font.cpp
   src/glyph_hog.cpp
   src/glyph_ramp.cpp
+  src/glyph_sdf.cpp
   src/glyph_shape.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp

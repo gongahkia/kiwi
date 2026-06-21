@@ -12,6 +12,7 @@
 #include "glyph_font.hpp"
 #include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
+#include "glyph_sdf.hpp"
 #include "glyph_shape.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
@@ -1153,6 +1154,12 @@ std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, 
       return buildHogGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
     }
     return buildHogGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+  }
+  if (options.glyph_features == "sdf") {
+    if (glyph_font != nullptr) {
+      return buildSdfGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+    }
+    return buildSdfGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
   }
   if (glyph_font != nullptr) {
     return buildGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);

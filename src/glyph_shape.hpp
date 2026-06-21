@@ -27,6 +27,12 @@ enum class ShapeRegion : std::size_t {
   BottomRight,
 };
 
+enum class GlyphFeatureKind {
+  Overlap,
+  Hog,
+  Sdf,
+};
+
 struct GlyphShapeVector {
   char32_t glyph = U' ';
   std::vector<double> features;
@@ -36,6 +42,7 @@ struct GlyphShapeTable {
   int cell_width = 0;
   int cell_height = 0;
   std::size_t feature_count = kShapeRegionCount;
+  GlyphFeatureKind feature_kind = GlyphFeatureKind::Overlap;
   std::vector<GlyphShapeVector> entries;
 };
 

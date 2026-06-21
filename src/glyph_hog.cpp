@@ -63,6 +63,7 @@ GlyphShapeTable buildHogTable(std::u32string_view glyphs, int cell_width, int ce
   table.cell_width = cell_width;
   table.cell_height = cell_height;
   table.feature_count = kHogFeatureCount;
+  table.feature_kind = GlyphFeatureKind::Hog;
   for (const char32_t glyph : uniqueGlyphs(glyphs)) {
     table.entries.push_back(GlyphShapeVector{
       .glyph = glyph,

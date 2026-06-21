@@ -386,7 +386,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.font_path = std::string(*value);
     } else if (flag == "--glyph-features") {
-      if (!isOneOf(*value, {"overlap", "hog"})) {
+      if (!isOneOf(*value, {"overlap", "hog", "sdf"})) {
         result.error = "invalid value for --glyph-features: " + std::string(*value);
         return result;
       }
@@ -545,7 +545,7 @@ std::string helpText(std::string_view program_name) {
       << "  --mode {luminance|structure|halfblock}\n"
       << "  --pipeline {luminance|structure|halfblock}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
-      << "  --glyph-features {overlap|hog}\n"
+      << "  --glyph-features {overlap|hog|sdf}\n"
       << "  --ramp-sort                    sort glyph ramp by FreeType ink density\n"
       << "  --no-ramp-sort                 disable config-default ramp sort\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"

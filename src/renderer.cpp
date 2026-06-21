@@ -4,6 +4,7 @@
 #include "frame_sampling.hpp"
 #include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
+#include "glyph_sdf.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "luminance.hpp"
@@ -389,7 +390,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
-        if (context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_count == kShapeRegionCount)) {
+        if (context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(frame, *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {
@@ -442,7 +443,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext&) {
         std::vector<Cell>& cell_values = cells->cells();
-        if (gpu_structure_glyphs.has_value() && (shape_table == nullptr || shape_table->feature_count == kShapeRegionCount)) {
+        if (gpu_structure_glyphs.has_value() && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           for (std::size_t index = 0; index < cell_values.size(); ++index) {
             const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[index];
             if (gpu_glyph != U'\0') {
@@ -471,6 +472,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                 const auto match_region = [&](const CellLuminanceRegion& region) {
                   if (shape_table->feature_count == kHogFeatureCount) {
                     return hogVectorForCell(region);
+                  }
+                  if (shape_table->feature_kind == GlyphFeatureKind::Sdf) {
+                    return sdfVectorForCell(region);
                   }
                   return shapeVectorForCell(region);
                 };

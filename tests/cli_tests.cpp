@@ -108,7 +108,8 @@ int main() {
   {
     const char* argv[] = {"contourtty", "--glyph-features", "sdf"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
-    expect(!parsed.error.empty(), "glyph features rejects unimplemented value");
+    expect(parsed.error.empty(), "sdf glyph features parse");
+    expect(parsed.options.glyph_features == "sdf", "sdf glyph features stored");
   }
 
   {
