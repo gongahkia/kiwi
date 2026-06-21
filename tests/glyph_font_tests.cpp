@@ -1,4 +1,5 @@
 #include "glyph_font.hpp"
+#include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 
 #include <array>
@@ -105,4 +106,10 @@ int main() {
   const contourtty::GlyphShapeTable alternate_table = contourtty::buildGlyphShapeTable(alternate, contourtty::kDefaultStructureShapeGlyphs, 10, 14);
   expect(featureDistance(mono_table, alternate_table, U'/') > 0.05, "font changes glyph shape features");
   expect(findDifferentMatch(mono_table, alternate_table), "font changes at least one shape-match decision");
+
+  std::u32string reversed_default(contourtty::kDefaultGlyphRamp.rbegin(), contourtty::kDefaultGlyphRamp.rend());
+  const std::u32string sorted_default = contourtty::sortRampByInkDensity(contourtty::kDefaultGlyphRamp, mono, 10, 14);
+  const std::u32string sorted_reversed = contourtty::sortRampByInkDensity(reversed_default, mono, 10, 14);
+  expect(sorted_default == sorted_reversed, "ramp sort is independent of input order");
+  expect(contourtty::sortRampByInkDensity(U"@ .", mono, 10, 14).front() == U' ', "ramp sort puts space first");
 }

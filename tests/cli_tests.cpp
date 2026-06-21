@@ -112,6 +112,21 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--ramp-sort"};
+    const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "ramp sort parses");
+    expect(parsed.options.ramp_sort, "ramp sort stored");
+  }
+
+  {
+    writeConfig(test_root / "ramp-sort", "ramp-sort=true\n");
+    const char* argv[] = {"contourtty", "--no-ramp-sort"};
+    const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "no ramp sort parses");
+    expect(!parsed.options.ramp_sort, "no ramp sort overrides config");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--input", "cam"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "input flag parses");

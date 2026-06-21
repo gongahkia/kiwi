@@ -149,4 +149,26 @@ const GlyphRaster& GlyphFont::raster(char32_t glyph, int cell_width, int cell_he
   return impl_->raster(glyph, cell_width, cell_height);
 }
 
+double glyphInkDensity(const GlyphFont& font, char32_t glyph, int cell_width, int cell_height) {
+  const GlyphRaster& raster = font.raster(glyph, cell_width, cell_height);
+  double sum = 0.0;
+  for (const double alpha : raster.alpha) {
+    sum += alpha;
+  }
+  return sum / static_cast<double>(raster.alpha.size());
+}
+
+std::u32string sortRampByInkDensity(std::u32string_view ramp, const GlyphFont& font, int cell_width, int cell_height) {
+  std::u32string sorted(ramp);
+  std::sort(sorted.begin(), sorted.end(), [&](char32_t lhs, char32_t rhs) {
+    const double lhs_density = glyphInkDensity(font, lhs, cell_width, cell_height);
+    const double rhs_density = glyphInkDensity(font, rhs, cell_width, cell_height);
+    if (lhs_density == rhs_density) {
+      return lhs < rhs;
+    }
+    return lhs_density < rhs_density;
+  });
+  return sorted;
+}
+
 }  // namespace contourtty

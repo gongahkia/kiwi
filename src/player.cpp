@@ -1129,11 +1129,19 @@ TerminalSize exportTerminalSize(const CliOptions& options) {
   };
 }
 
-std::u32string exportRampFromOptions(const CliOptions& options) {
-  if (options.charset.has_value() && !isBrailleCharset(*options.charset)) {
-    return resolveCharsetRamp(*options.charset);
+std::u32string rampFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
+  std::u32string ramp = kDefaultGlyphRamp.data();
+  const bool packed_braille = options.charset.has_value() && isBrailleCharset(*options.charset);
+  if (options.charset.has_value() && !packed_braille) {
+    ramp = resolveCharsetRamp(*options.charset);
   }
-  return kDefaultGlyphRamp.data();
+  if (options.ramp_sort && !packed_braille) {
+    if (glyph_font == nullptr) {
+      throw std::runtime_error("--ramp-sort requires --font PATH");
+    }
+    ramp = sortRampByInkDensity(ramp, *glyph_font, 10, 14);
+  }
+  return ramp;
 }
 
 std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
@@ -1242,7 +1250,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
-  const std::u32string ramp = exportRampFromOptions(options);
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
@@ -1387,14 +1395,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   TerminalSession session;
   CONTOURTTY_LOG_INFO(logger, "playback started");
 
-  std::u32string ramp = kDefaultGlyphRamp.data();
-  if (options.charset.has_value()) {
-    if (!isBrailleCharset(*options.charset)) {
-      ramp = resolveCharsetRamp(*options.charset);
-    }
-  }
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   if (shape_vectors.has_value()) {
     CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +

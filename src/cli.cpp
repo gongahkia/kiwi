@@ -144,7 +144,7 @@ std::optional<std::filesystem::path> defaultConfigPath() {
 }
 
 bool isConfigBooleanKey(std::string_view key) {
-  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats"});
+  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats", "ramp-sort"});
 }
 
 std::optional<bool> parseConfigBool(std::string_view value) {
@@ -272,6 +272,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
     }
     if (flag == "--no-debug-stats") {
       result.options.debug_stats = false;
+      continue;
+    }
+    if (flag == "--ramp-sort") {
+      result.options.ramp_sort = true;
+      continue;
+    }
+    if (flag == "--no-ramp-sort") {
+      result.options.ramp_sort = false;
       continue;
     }
     if (flag == "--mono") {
@@ -538,6 +546,8 @@ std::string helpText(std::string_view program_name) {
       << "  --pipeline {luminance|structure|halfblock}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
       << "  --glyph-features {overlap|hog}\n"
+      << "  --ramp-sort                    sort glyph ramp by FreeType ink density\n"
+      << "  --no-ramp-sort                 disable config-default ramp sort\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
       << "  --mono                         disable color output\n"
