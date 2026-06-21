@@ -82,6 +82,7 @@ add_executable(contourtty
   src/color_mode.cpp
   src/color_quantization.cpp
   src/diff_emitter.cpp
+  src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
   src/glyph_hog.cpp
@@ -729,6 +730,7 @@ add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
   src/glyph_hog.cpp
@@ -768,6 +770,30 @@ else()
   endif()
 endif()
 add_test(NAME golden_frame COMMAND golden_frame_tests)
+
+add_executable(etf_tests
+  tests/etf_tests.cpp
+  src/etf.cpp
+)
+target_include_directories(etf_tests PRIVATE src)
+target_compile_features(etf_tests PRIVATE cxx_std_20)
+set_target_properties(etf_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(etf_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(etf_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(etf_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(etf_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME etf COMMAND etf_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

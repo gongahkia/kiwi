@@ -34,6 +34,17 @@ std::optional<int> parsePositiveInt(std::string_view value) {
   return parsed;
 }
 
+std::optional<int> parseNonNegativeInt(std::string_view value) {
+  int parsed = 0;
+  const auto* first = value.data();
+  const auto* last = value.data() + value.size();
+  const auto result = std::from_chars(first, last, parsed);
+  if (result.ec != std::errc{} || result.ptr != last || parsed < 0) {
+    return std::nullopt;
+  }
+  return parsed;
+}
+
 std::optional<double> parsePositiveDouble(std::string_view value, bool allow_zero) {
   std::string copy(value);
   char* end = nullptr;
@@ -335,6 +346,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--edge-strength",
           "--dog-sigma",
           "--dog-threshold",
+          "--etf-iters",
           "--contrast",
           "--dither",
           "--log",
@@ -468,6 +480,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.dog_threshold = *parsed;
+    } else if (flag == "--etf-iters") {
+      const auto parsed = parseNonNegativeInt(*value);
+      if (!parsed.has_value() || *parsed > 16) {
+        result.error = "invalid value for --etf-iters: " + std::string(*value);
+        return result;
+      }
+      result.options.etf_iters = *parsed;
     } else if (flag == "--contrast") {
       const auto parsed = parsePositiveDouble(*value, true);
       if (!parsed.has_value()) {
@@ -604,6 +623,7 @@ std::string helpText(std::string_view program_name) {
       << "  --edge-strength N              structure edge overlay strength\n"
       << "  --dog-sigma N[,M]              difference-of-gaussians sigma pair; 0 disables\n"
       << "  --dog-threshold N              difference-of-gaussians threshold\n"
+      << "  --etf-iters N                  smooth structure orientation field; 0 disables\n"
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --loop                         loop input\n"

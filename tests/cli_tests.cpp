@@ -299,6 +299,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--etf-iters", "3"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "etf iters parse");
+    expect(parsed.options.etf_iters.has_value() && *parsed.options.etf_iters == 3, "etf iters stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--etf-iters", "17"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "etf iters rejects excessive value");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));

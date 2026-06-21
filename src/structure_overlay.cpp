@@ -8,6 +8,7 @@ bool structureOverlayImplied(const CliOptions& options) {
          options.edge_strength.has_value() ||
          options.dog_sigma.has_value() ||
          options.dog_threshold.has_value() ||
+         options.etf_iters.has_value() ||
          options.contrast.has_value() ||
          options.glyph_features != "overlap";
 }

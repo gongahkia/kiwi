@@ -2,6 +2,7 @@
 
 #include "block_sad.hpp"
 #include "braille_renderer.hpp"
+#include "etf.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
@@ -73,6 +74,10 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
   return edgeThresholdFromCli(options) / strength;
 }
 
+int etfIterationsFromCli(const CliOptions& options) {
+  return options.etf_iters.value_or(0);
+}
+
 int renderWorkerCount(int cols, int rows) {
   if (rows < 2 || cols * rows < 1024) {
     return 1;
@@ -106,6 +111,7 @@ std::optional<std::string> directBlitterMode(const CliOptions& options) {
 
 std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool overlay_enabled = structureOverlayEnabled(options);
+  const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const auto decode_pass = [] {
     return Pass{
       .id = "decode",
@@ -128,7 +134,8 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     };
   };
-  const auto append_structure_analysis = [](std::vector<Pass>* passes) {
+  const auto append_structure_analysis = [&](std::vector<Pass>* passes) {
+    const std::string sobel_output = etf_enabled ? "raw-gradients" : "gradients";
     passes->push_back(Pass{
       .id = "contrast",
       .inputs = {renderPort("luminance", BufferKind::LuminanceField)},
@@ -144,9 +151,17 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     passes->push_back(Pass{
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
-      .outputs = {renderPort("gradients", BufferKind::GradientField)},
+      .outputs = {renderPort(sobel_output, BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
     });
+    if (etf_enabled) {
+      passes->push_back(Pass{
+        .id = "etf",
+        .inputs = {renderPort("raw-gradients", BufferKind::GradientField)},
+        .outputs = {renderPort("gradients", BufferKind::GradientField)},
+        .supports = {Backend::Cpu},
+      });
+    }
     passes->push_back(Pass{
       .id = "edge-field",
       .inputs = {renderPort("gradients", BufferKind::GradientField)},
@@ -256,6 +271,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<CellLuminanceRegion> cell_shape_regions;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   const bool overlay_enabled = structureOverlayEnabled(options);
+  const bool etf_enabled = etfIterationsFromCli(options) > 0;
   std::vector<ShapeMatchStats> worker_stats;
 
   const auto finish_stats = [&] {
@@ -413,10 +429,10 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     passes->push_back(Pass{
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
-      .outputs = {renderPort("gradients", BufferKind::GradientField)},
+      .outputs = {renderPort(etf_enabled ? "raw-gradients" : "gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
-        if (context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
+        if (!etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(frame, *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {
@@ -431,6 +447,19 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         }
       },
     });
+    if (etf_enabled) {
+      passes->push_back(Pass{
+        .id = "etf",
+        .inputs = {renderPort("raw-gradients", BufferKind::GradientField)},
+        .outputs = {renderPort("gradients", BufferKind::GradientField)},
+        .supports = {Backend::Cpu},
+        .run = [&](PassContext&) {
+          if (structure_gradients.has_value()) {
+            structure_gradients = smoothEtfGradients(*structure_gradients, etfIterationsFromCli(options));
+          }
+        },
+      });
+    }
     passes->push_back(Pass{
       .id = "edge-field",
       .inputs = {renderPort("gradients", BufferKind::GradientField)},
@@ -438,7 +467,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         if (structure_gradients.has_value()) {
-          structure_ink = gradientMagnitudeField(*structure_gradients, edge_threshold);
+          structure_ink = etf_enabled
+                            ? coherentLineField(*structure_gradients, edge_threshold)
+                            : gradientMagnitudeField(*structure_gradients, edge_threshold);
         }
       },
     });
