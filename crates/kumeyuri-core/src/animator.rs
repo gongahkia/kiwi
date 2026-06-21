@@ -1,3 +1,5 @@
+//! Animation configuration, timelines, and default diagram animators.
+
 use crate::ast::{
     ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement, Diagram,
     DiagramKind, ErAst, ErStatement, EventModelingStatement, FlowStatement, FlowchartAst, GanttAst,
@@ -21,69 +23,83 @@ use crate::layout::{
 use std::collections::VecDeque;
 use std::time::Duration;
 
+/// Convenience entry points for default diagram animations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Animator;
 
 impl Animator {
+    /// Build the default sequence playback timeline.
     #[must_use]
     pub fn sequence_playback(ast: &SequenceAst) -> Timeline {
         SequencePlaybackAnimator::default().animate(ast)
     }
 
+    /// Build the default flowchart trace timeline.
     #[must_use]
     pub fn flowchart_trace(ast: &FlowchartAst) -> Timeline {
         FlowchartTraceAnimator::default().animate(ast)
     }
 
+    /// Build the default state-transition timeline.
     #[must_use]
     pub fn state_transitions(ast: &StateAst) -> Timeline {
         StateTransitionAnimator::default().animate(ast)
     }
 
+    /// Build the default class relationship trace timeline.
     #[must_use]
     pub fn class_trace(ast: &ClassAst) -> Timeline {
         ClassRelationshipAnimator::default().animate(ast)
     }
 
+    /// Build the default ER relationship trace timeline.
     #[must_use]
     pub fn er_trace(ast: &ErAst) -> Timeline {
         ErRelationshipAnimator::default().animate(ast)
     }
 
+    /// Build the default Gantt sweep timeline.
     #[must_use]
     pub fn gantt_sweep(ast: &GanttAst) -> Timeline {
         GanttSweepAnimator::default().animate(ast)
     }
 
+    /// Build the default pie slice-growth timeline.
     #[must_use]
     pub fn pie_growth(ast: &PieAst) -> Timeline {
         PieSliceGrowthAnimator::default().animate(ast)
     }
 
+    /// Build the default mindmap expansion timeline.
     #[must_use]
     pub fn mindmap_expand(ast: &MindmapAst) -> Timeline {
         MindmapExpandAnimator::default().animate(ast)
     }
 
+    /// Build the default journey task-trace timeline.
     #[must_use]
     pub fn journey_trace(ast: &JourneyAst) -> Timeline {
         JourneyTraceAnimator::default().animate(ast)
     }
 
+    /// Build the default git graph commit-trace timeline.
     #[must_use]
     pub fn gitgraph_trace(ast: &GitGraphAst) -> Timeline {
         GitGraphTraceAnimator::default().animate(ast)
     }
 
+    /// Build the default timeline reveal animation.
     #[must_use]
     pub fn timeline_reveal(ast: &TimelineAst) -> Timeline {
         TimelineRevealAnimator::default().animate(ast)
     }
 
+    /// Animate a diagram using directives and default options.
     pub fn animate_diagram(diagram: &Diagram) -> Result<Timeline, AnimationConfigParseError> {
         Self::animate_diagram_with_options(diagram, AnimationOptions::default())
     }
 
+    /// Animate a diagram with runtime speed/repeat overrides.
     pub fn animate_diagram_with_options(
         diagram: &Diagram,
         options: AnimationOptions,
@@ -95,6 +111,7 @@ impl Animator {
         )
     }
 
+    /// Animate a diagram with runtime overrides and a custom static renderer.
     pub fn animate_diagram_with_options_and_renderer(
         diagram: &Diagram,
         options: AnimationOptions,
@@ -192,6 +209,7 @@ impl Animator {
     }
 }
 
+/// Runtime animation overrides supplied outside Mermaid directives.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct AnimationOptions {
     speed: Option<f32>,
@@ -199,6 +217,7 @@ pub struct AnimationOptions {
 }
 
 impl AnimationOptions {
+    /// Create animation overrides, validating speed when present.
     pub fn new(speed: Option<f32>, repeat: Option<bool>) -> Result<Self, AnimationConfigError> {
         if speed.is_some_and(|speed| !is_valid_animation_speed(speed)) {
             return Err(AnimationConfigError::InvalidSpeed);
@@ -206,22 +225,29 @@ impl AnimationOptions {
         Ok(Self { speed, repeat })
     }
 
+    /// Optional playback speed multiplier.
     #[must_use]
     pub const fn speed(self) -> Option<f32> {
         self.speed
     }
 
+    /// Optional repeat override.
     #[must_use]
     pub const fn repeat(self) -> Option<bool> {
         self.repeat
     }
 }
 
+/// Parsed animation directive config.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AnimationConfig {
+    /// Animation mode.
     pub mode: AnimationMode,
+    /// Playback speed multiplier.
     pub speed: f32,
+    /// Whether playback loops.
     pub repeat: bool,
+    /// Easing policy requested by the directive.
     pub easing: AnimationEasing,
 }
 
@@ -237,8 +263,10 @@ impl Default for AnimationConfig {
 }
 
 impl AnimationConfig {
+    /// Default speed multiplier.
     pub const DEFAULT_SPEED: f32 = 1.0;
 
+    /// Extract animation config from diagram-level and nested directives.
     pub fn from_diagram(diagram: &Diagram) -> Result<Option<Self>, AnimationConfigParseError> {
         let mut config = None;
         apply_animation_directives(&diagram.directives, &mut config)?;
@@ -387,6 +415,7 @@ impl AnimationConfig {
         Ok(config)
     }
 
+    /// Parse one Mermaid directive when it targets animation.
     pub fn from_directive(
         directive: &MermaidDirective,
     ) -> Result<Option<Self>, AnimationConfigParseError> {
@@ -400,6 +429,7 @@ impl AnimationConfig {
         parse_animation_directive(&directive.raw).map(Some)
     }
 
+    /// Create an animation config and validate speed.
     pub fn new(
         mode: AnimationMode,
         speed: f32,
@@ -418,70 +448,119 @@ impl AnimationConfig {
     }
 }
 
+/// Supported animation modes.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum AnimationMode {
+    /// Sequence-style playback.
     Playback,
+    /// Trace graph/path-like structures.
     Trace,
+    /// Transition-focused state playback.
     Transitions,
+    /// Static output with no animation.
     #[default]
     None,
 }
 
+/// Supported animation easing names.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum AnimationEasing {
+    /// Linear timing.
     #[default]
     Linear,
+    /// Ease timing.
     Ease,
 }
 
+/// Error returned while creating animation options/config.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnimationConfigError {
+    /// Speed was not finite or was not positive.
     InvalidSpeed,
 }
 
+/// Error returned while parsing or applying animation directives.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnimationConfigParseError {
+    /// Directive is missing the required `animate` value.
     MissingAnimate,
+    /// Directive contained an unknown field.
     UnknownField(String),
+    /// Directive referenced an unknown mode.
     UnknownMode(String),
+    /// Directive referenced an unknown easing value.
     UnknownEasing(String),
+    /// Directive speed was invalid.
     InvalidSpeed(String),
+    /// Directive loop value was invalid.
     InvalidLoop(String),
+    /// Requested mode is not supported for the diagram kind.
     UnsupportedMode {
+        /// Requested animation mode.
         mode: AnimationMode,
+        /// Diagram kind being animated.
         diagram: AnimationDiagramKind,
     },
 }
 
+/// Diagram-kind name used in animation compatibility errors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnimationDiagramKind {
+    /// Flowchart diagram.
     Flowchart,
+    /// Sequence diagram.
     Sequence,
+    /// State diagram.
     State,
+    /// Class diagram.
     Class,
+    /// ER diagram.
     Er,
+    /// Gantt diagram.
     Gantt,
+    /// Pie chart.
     Pie,
+    /// Quadrant chart.
     Quadrant,
+    /// ZenUML diagram.
     ZenUml,
+    /// Sankey diagram.
     Sankey,
+    /// XY chart.
     XyChart,
+    /// Block diagram.
     Block,
+    /// Packet diagram.
     Packet,
+    /// Kanban diagram.
     Kanban,
+    /// Architecture diagram.
     Architecture,
+    /// Radar chart.
     Radar,
+    /// Event modeling diagram.
     EventModeling,
+    /// Treemap diagram.
     Treemap,
+    /// Venn diagram.
     Venn,
+    /// Ishikawa diagram.
     Ishikawa,
+    /// Wardley map.
     Wardley,
+    /// Tree view diagram.
     TreeView,
+    /// Mindmap diagram.
     Mindmap,
+    /// Journey diagram.
     Journey,
+    /// Git graph diagram.
     GitGraph,
+    /// Timeline diagram.
     Timeline,
+    /// Requirement diagram.
     Requirement,
+    /// C4 diagram.
     C4,
 }
 
@@ -1256,6 +1335,7 @@ fn scaled_duration(duration: Duration, speed: f32) -> Duration {
     Duration::from_secs_f64(duration.as_secs_f64() / f64::from(speed))
 }
 
+/// One animation frame plus its display duration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyFrame {
     frame: Frame,
@@ -1263,22 +1343,26 @@ pub struct KeyFrame {
 }
 
 impl KeyFrame {
+    /// Create a keyframe from a frame and duration.
     #[must_use]
     pub const fn new(frame: Frame, duration: Duration) -> Self {
         Self { frame, duration }
     }
 
+    /// Return the frame payload.
     #[must_use]
     pub const fn frame(&self) -> &Frame {
         &self.frame
     }
 
+    /// Return how long this keyframe should be displayed.
     #[must_use]
     pub const fn duration(&self) -> Duration {
         self.duration
     }
 }
 
+/// Ordered keyframes plus repeat metadata.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Timeline {
     keyframes: Vec<KeyFrame>,
@@ -1286,6 +1370,7 @@ pub struct Timeline {
 }
 
 impl Timeline {
+    /// Create an empty non-repeating timeline.
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -1294,6 +1379,7 @@ impl Timeline {
         }
     }
 
+    /// Create a non-repeating timeline from keyframes.
     #[must_use]
     pub fn from_keyframes(keyframes: Vec<KeyFrame>) -> Self {
         Self {
@@ -1302,41 +1388,49 @@ impl Timeline {
         }
     }
 
+    /// Create a single-frame timeline.
     #[must_use]
     pub fn from_frame(frame: Frame, duration: Duration) -> Self {
         Self::from_keyframes(vec![KeyFrame::new(frame, duration)])
     }
 
+    /// Return a copy configured with repeat metadata.
     #[must_use]
     pub fn with_repeat(mut self, repeat: bool) -> Self {
         self.repeat = repeat;
         self
     }
 
+    /// Append a keyframe.
     pub fn push(&mut self, keyframe: KeyFrame) {
         self.keyframes.push(keyframe);
     }
 
+    /// Return keyframes.
     #[must_use]
     pub fn keyframes(&self) -> &[KeyFrame] {
         &self.keyframes
     }
 
+    /// Return whether playback should repeat.
     #[must_use]
     pub const fn repeat(&self) -> bool {
         self.repeat
     }
 
+    /// Return the number of keyframes.
     #[must_use]
     pub fn len(&self) -> usize {
         self.keyframes.len()
     }
 
+    /// Return whether the timeline contains no keyframes.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.keyframes.is_empty()
     }
 
+    /// Return the sum of all keyframe durations.
     #[must_use]
     pub fn total_duration(&self) -> Duration {
         self.keyframes
@@ -1346,6 +1440,7 @@ impl Timeline {
     }
 }
 
+/// Animator that traces flowchart nodes and outgoing edges.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FlowchartTraceAnimator {
     frame_duration: Duration,
@@ -1360,26 +1455,31 @@ impl Default for FlowchartTraceAnimator {
 }
 
 impl FlowchartTraceAnimator {
+    /// Create a flowchart trace animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(550)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a flowchart with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &FlowchartAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a flowchart with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
@@ -1557,6 +1657,7 @@ fn flow_node_marker_id(node_id: &str) -> String {
     format!("flow-node-{node_id}")
 }
 
+/// Animator that highlights state transitions in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StateTransitionAnimator {
     frame_duration: Duration,
@@ -1571,26 +1672,31 @@ impl Default for StateTransitionAnimator {
 }
 
 impl StateTransitionAnimator {
+    /// Create a state-transition animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a state diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &StateAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a state diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(self, ast: &StateAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = StateLayoutEngine::default().layout(ast);
@@ -1684,6 +1790,7 @@ fn state_node_marker_id(node_id: &str) -> String {
     format!("state-node-{node_id}")
 }
 
+/// Animator that traces class relationships.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClassRelationshipAnimator {
     frame_duration: Duration,
@@ -1698,26 +1805,31 @@ impl Default for ClassRelationshipAnimator {
 }
 
 impl ClassRelationshipAnimator {
+    /// Create a class relationship animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a class diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &ClassAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a class diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(self, ast: &ClassAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = ClassLayoutEngine::default().layout(ast);
@@ -1803,6 +1915,7 @@ fn class_node_marker_id(node_id: &str) -> String {
     format!("class-node-{node_id}")
 }
 
+/// Animator that traces ER relationships.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ErRelationshipAnimator {
     frame_duration: Duration,
@@ -1817,26 +1930,31 @@ impl Default for ErRelationshipAnimator {
 }
 
 impl ErRelationshipAnimator {
+    /// Create an ER relationship animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate an ER diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &ErAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate an ER diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(self, ast: &ErAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = ErLayoutEngine::default_values().layout(ast);
@@ -1883,6 +2001,7 @@ fn add_er_relationship_markers(
     );
 }
 
+/// Animator that reveals Gantt tasks in chronological order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GanttSweepAnimator {
     frame_duration: Duration,
@@ -1897,26 +2016,31 @@ impl Default for GanttSweepAnimator {
 }
 
 impl GanttSweepAnimator {
+    /// Create a Gantt sweep animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a Gantt diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &GanttAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a Gantt diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(self, ast: &GanttAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = GanttLayoutEngine::default().layout(ast);
@@ -1976,6 +2100,7 @@ fn add_gantt_task_marker(
     mark_region_cells(frame, region, &id);
 }
 
+/// Animator that reveals pie slices incrementally.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PieSliceGrowthAnimator {
     frame_duration: Duration,
@@ -1990,26 +2115,31 @@ impl Default for PieSliceGrowthAnimator {
 }
 
 impl PieSliceGrowthAnimator {
+    /// Create a pie slice animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a pie chart with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &PieAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a pie chart with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(self, ast: &PieAst, renderer: StaticFrameRenderer) -> Timeline {
         let layout = PieLayoutEngine::default().layout(ast);
@@ -2069,6 +2199,7 @@ fn pie_slice_region(layout: &PieLayout, slice_index: usize) -> Option<FrameRegio
     region_from_bounds(min_x, min_y, max_x, max_y)
 }
 
+/// Animator that reveals mindmap levels by depth.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MindmapExpandAnimator {
     frame_duration: Duration,
@@ -2083,26 +2214,31 @@ impl Default for MindmapExpandAnimator {
 }
 
 impl MindmapExpandAnimator {
+    /// Create a mindmap expansion animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a mindmap with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &MindmapAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a mindmap with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
@@ -2155,6 +2291,7 @@ fn add_mindmap_node_marker(
     mark_region_cells(frame, region, &id);
 }
 
+/// Animator that reveals journey tasks in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JourneyTraceAnimator {
     frame_duration: Duration,
@@ -2169,26 +2306,31 @@ impl Default for JourneyTraceAnimator {
 }
 
 impl JourneyTraceAnimator {
+    /// Create a journey trace animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a journey diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &JourneyAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a journey diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
@@ -2257,6 +2399,7 @@ fn journey_actor_marker_width(task: &PositionedJourneyTask) -> i32 {
     actor_names + separators
 }
 
+/// Animator that reveals git graph commits in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GitGraphTraceAnimator {
     frame_duration: Duration,
@@ -2271,26 +2414,31 @@ impl Default for GitGraphTraceAnimator {
 }
 
 impl GitGraphTraceAnimator {
+    /// Create a git graph trace animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a git graph with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &GitGraphAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a git graph with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
@@ -2344,6 +2492,7 @@ fn add_gitgraph_commit_marker(
     mark_region_cells(frame, region, &id);
 }
 
+/// Animator that reveals timeline periods in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimelineRevealAnimator {
     frame_duration: Duration,
@@ -2358,26 +2507,31 @@ impl Default for TimelineRevealAnimator {
 }
 
 impl TimelineRevealAnimator {
+    /// Create a timeline reveal animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(650)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a timeline diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &TimelineAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a timeline diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
@@ -2443,6 +2597,7 @@ fn add_polyline_marker(frame: &mut Frame, points: &[Point], id: &str, kind: KeyF
     mark_polyline_cells(frame, points, id);
 }
 
+/// Animator that plays sequence messages in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SequencePlaybackAnimator {
     frame_duration: Duration,
@@ -2457,26 +2612,31 @@ impl Default for SequencePlaybackAnimator {
 }
 
 impl SequencePlaybackAnimator {
+    /// Create a sequence playback animator with a frame duration.
     #[must_use]
     pub const fn new(frame_duration: Duration) -> Self {
         Self { frame_duration }
     }
 
+    /// Return the default frame duration.
     #[must_use]
     pub fn default_frame_duration() -> Duration {
         Duration::from_millis(700)
     }
 
+    /// Return this animator's frame duration.
     #[must_use]
     pub const fn frame_duration(self) -> Duration {
         self.frame_duration
     }
 
+    /// Animate a sequence diagram with the default static renderer.
     #[must_use]
     pub fn animate(self, ast: &SequenceAst) -> Timeline {
         self.animate_with_renderer(ast, StaticFrameRenderer::default())
     }
 
+    /// Animate a sequence diagram with a custom static renderer.
     #[must_use]
     pub fn animate_with_renderer(
         self,
