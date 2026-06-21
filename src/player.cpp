@@ -1458,6 +1458,7 @@ class SceneOverlaySource {
       .alpha = options.overlay_alpha,
       .depth_threshold = options.overlay_depth_threshold,
     };
+    camera_preset_ = parseSceneCameraPreset(options.scene_camera).value_or(SceneCameraPreset::Turntable);
     const std::string& overlay = *options.overlay;
     std::optional<std::filesystem::path> path = resolveBundledScene(overlay);
     if (!path.has_value()) {
@@ -1482,7 +1483,7 @@ class SceneOverlaySource {
     if (!mesh_.has_value()) {
       return base;
     }
-    const SceneGBuffer overlay = renderSceneGBuffer(*mesh_, SceneRenderOptions{.width = base.w, .height = base.h, .time_seconds = time_seconds});
+    const SceneGBuffer overlay = renderSceneGBuffer(*mesh_, SceneRenderOptions{.width = base.w, .height = base.h, .time_seconds = time_seconds, .camera_preset = camera_preset_});
     return composeDepthOverlay(base, overlay, options_);
   }
 
@@ -1490,6 +1491,7 @@ class SceneOverlaySource {
   std::optional<SceneMesh> mesh_;
   std::string path_;
   DepthOverlayOptions options_;
+  SceneCameraPreset camera_preset_ = SceneCameraPreset::Turntable;
 };
 
 const Frame& frameWithOverlay(const Frame& base, const SceneOverlaySource& overlay_source, double time_seconds, std::optional<Frame>* storage) {
@@ -2264,25 +2266,16 @@ SceneMesh loadSceneInputMesh(std::string_view input) {
   return loadObjScene(std::filesystem::path(std::string(input)));
 }
 
-double sceneCameraTime(const CliOptions& options, double time_seconds) {
-  const std::optional<SceneCameraPreset> preset = parseSceneCameraPreset(options.scene_camera);
-  if (preset == SceneCameraPreset::Orbit) {
-    return time_seconds * 0.5;
-  }
-  if (preset == SceneCameraPreset::Fly) {
-    return time_seconds * 1.5;
-  }
-  return time_seconds;
-}
-
 SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us) {
   const int cols = std::max(1, options.width.value_or(terminal.cols));
   const int rows = std::max(1, options.height.value_or(terminal.rows));
   const int pixel_rows = std::max(1, static_cast<int>(std::llround(static_cast<double>(rows) / options.cell_aspect)));
+  const SceneCameraPreset camera_preset = parseSceneCameraPreset(options.scene_camera).value_or(SceneCameraPreset::Turntable);
   SceneGBuffer gbuffer = renderSceneGBuffer(mesh, SceneRenderOptions{
                                                     .width = cols,
                                                     .height = pixel_rows,
-                                                    .time_seconds = sceneCameraTime(options, static_cast<double>(pts_us) / 1000000.0),
+                                                    .time_seconds = static_cast<double>(pts_us) / 1000000.0,
+                                                    .camera_preset = camera_preset,
                                                   });
   gbuffer.albedo.pts_us = pts_us;
   return gbuffer;

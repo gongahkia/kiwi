@@ -33,6 +33,10 @@ bool anyNormal(const contourtty::SceneGBuffer& buffer) {
   return false;
 }
 
+bool albedoDiffers(const contourtty::SceneGBuffer& lhs, const contourtty::SceneGBuffer& rhs) {
+  return lhs.albedo.rgb != rhs.albedo.rgb;
+}
+
 }  // namespace
 
 int main() {
@@ -43,7 +47,8 @@ int main() {
 
   const std::optional<std::filesystem::path> bundled = contourtty::resolveBundledScene("contourtty:scene:cube");
   expect(bundled.has_value(), "bundled cube resolves");
-  expect(contourtty::loadObjScene(*bundled).triangles.size() == 12, "bundled cube loads");
+  const contourtty::SceneMesh cube = contourtty::loadObjScene(*bundled);
+  expect(cube.triangles.size() == 12, "bundled cube loads");
 
   const contourtty::SceneMesh triangle = contourtty::parseObjScene(
     "v -1 -1 0\n"
@@ -73,4 +78,11 @@ int main() {
 
   const contourtty::SceneGBuffer rotated = contourtty::renderSceneGBuffer(triangle, contourtty::SceneRenderOptions{.width = 16, .height = 16, .time_seconds = 0.5});
   expect(anyFiniteDepth(rotated), "rotated scene render writes depth");
+
+  const contourtty::SceneGBuffer turntable = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Turntable});
+  const contourtty::SceneGBuffer orbit = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Orbit});
+  const contourtty::SceneGBuffer fly = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Fly});
+  expect(anyFiniteDepth(turntable) && anyFiniteDepth(orbit) && anyFiniteDepth(fly), "camera presets render depth");
+  expect(albedoDiffers(turntable, orbit), "orbit camera changes rendered view");
+  expect(albedoDiffers(turntable, fly), "fly camera changes rendered view");
 }

@@ -32,22 +32,23 @@ struct SceneMesh {
   std::vector<SceneTriangle> triangles;
 };
 
+enum class SceneCameraPreset {
+  Turntable,
+  Orbit,
+  Fly,
+};
+
 struct SceneRenderOptions {
   int width = 0;
   int height = 0;
   double time_seconds = 0.0;
+  SceneCameraPreset camera_preset = SceneCameraPreset::Turntable;
 };
 
 struct SceneGBuffer {
   Frame albedo;
   std::vector<double> depth;
   std::vector<SceneVec3> normals;
-};
-
-enum class SceneCameraPreset {
-  Turntable,
-  Orbit,
-  Fly,
 };
 
 std::optional<SceneCameraPreset> parseSceneCameraPreset(std::string_view value) noexcept;

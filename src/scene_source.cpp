@@ -72,6 +72,38 @@ SceneVec3 rotateY(SceneVec3 value, double radians) {
   };
 }
 
+SceneVec3 rotateX(SceneVec3 value, double radians) {
+  const double c = std::cos(radians);
+  const double s = std::sin(radians);
+  return SceneVec3{
+    .x = value.x,
+    .y = value.y * c - value.z * s,
+    .z = value.y * s + value.z * c,
+  };
+}
+
+SceneVec3 rotateZ(SceneVec3 value, double radians) {
+  const double c = std::cos(radians);
+  const double s = std::sin(radians);
+  return SceneVec3{
+    .x = value.x * c - value.y * s,
+    .y = value.x * s + value.y * c,
+    .z = value.z,
+  };
+}
+
+SceneVec3 transformForCamera(SceneVec3 value, SceneCameraPreset preset, double time_seconds) {
+  switch (preset) {
+    case SceneCameraPreset::Turntable:
+      return rotateY(value, time_seconds);
+    case SceneCameraPreset::Orbit:
+      return rotateX(rotateY(value, -time_seconds * 0.7), 0.35);
+    case SceneCameraPreset::Fly:
+      return rotateZ(rotateX(rotateY(value, time_seconds * 1.1), std::sin(time_seconds * 0.7) * 0.3), std::cos(time_seconds * 0.5) * 0.2);
+  }
+  return rotateY(value, time_seconds);
+}
+
 int parseIndex(std::string_view text, int count) {
   if (text.empty()) {
     return -1;
@@ -236,7 +268,7 @@ SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions option
   std::vector<SceneVec3> rotated;
   rotated.reserve(mesh.positions.size());
   for (const SceneVec3 position : mesh.positions) {
-    rotated.push_back(rotateY(position, options.time_seconds));
+    rotated.push_back(transformForCamera(position, options.camera_preset, options.time_seconds));
   }
   double min_x = rotated[0].x;
   double max_x = rotated[0].x;
@@ -263,7 +295,7 @@ SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions option
         .x = position.x * scale + offset_x,
         .y = offset_y - position.y * scale,
         .z = position.z,
-        .normal = rotateY(vertexNormal(mesh, triangle, refs[i]), options.time_seconds),
+        .normal = transformForCamera(vertexNormal(mesh, triangle, refs[i]), options.camera_preset, options.time_seconds),
       };
     }
     const double area = edge(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
