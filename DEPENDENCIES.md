@@ -92,7 +92,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 
 | Dependency | Minimum | Strategy | License posture | Status |
 |---|---:|---|---|---|
-| Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend. |
+| Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` is set. |
 | Vulkan SDK / loader | 1.3 | system or future vendored SDK headers | Vulkan-Headers Apache-2.0; loader Apache-2.0/MIT-style | Not linked yet; Phase L Vulkan backend is locally blocked until SDK/tools are present. |
 | glslang | TBD | not vendored | BSD-3-Clause | Not vendored/linked yet; Phase L shader cross-compile blocked locally. |
 | SPIRV-Cross | TBD | not vendored | Apache-2.0 | Not vendored/linked yet; Phase L shader cross-compile blocked locally. |
@@ -132,3 +132,19 @@ sudo apt-get install -y build-essential cmake pkg-config \
   libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev \
   libavdevice-dev zlib1g-dev libfreetype-dev
 ```
+
+Minimal build:
+
+```sh
+cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
+cmake --build build/light --target contourtty --parallel
+```
+
+The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan, shader cross-compile, Sixel, or other graphics-protocol libraries.
+
+Local macOS Release measurement on 2026-06-21:
+
+| Build | Command | Binary bytes | Optional framework delta |
+|---|---|---:|---|
+| default | `cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release` | 1,496,856 | Links Metal + Foundation on Apple platforms. |
+| light | `cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON` | 1,460,120 | Omits Metal + Foundation; `--gpu` falls back to CPU. |

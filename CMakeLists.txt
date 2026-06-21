@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(CONTOURTTY_LIGHT "Build without optional GPU/protocol backends" OFF)
 
 include(GNUInstallDirs)
 add_compile_definitions(
@@ -12,7 +13,7 @@ add_compile_definitions(
 
 set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_stub.cpp)
 set(CONTOURTTY_GPU_LIBS)
-if(APPLE)
+if(APPLE AND NOT CONTOURTTY_LIGHT)
   enable_language(OBJCXX)
   find_library(METAL_FRAMEWORK Metal REQUIRED)
   find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)

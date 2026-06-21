@@ -21,6 +21,15 @@ cmake --build --preset ci
 ./build/ci/contourtty <video-file>
 ```
 
+Minimal CPU-only build:
+
+```sh
+cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
+cmake --build build/light --target contourtty --parallel
+```
+
+`CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan, shader cross-compilation, and Sixel are not linked in the current tree.
+
 Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`) plus zlib. On macOS, install them with `brew install ffmpeg zlib`; on Debian/Ubuntu, install the matching `libav*-dev` packages for builds and the corresponding shared runtime packages for packaged binaries.
 
 Install from source:

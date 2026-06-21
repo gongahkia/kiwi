@@ -247,7 +247,8 @@
 - [~] **X2. No leaks on shutdown.** Local macOS clean across normal/seek/Ctrl-C; hosted Linux Valgrind blocked.
 - [~] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / libsixel / nanoflann / stb_image_write.
   - `DEPENDENCIES.md` now lists current system/vendored libraries, license posture, platform frameworks, protocol-only encoders, planned blocked Vulkan/glslang/SPIRV-Cross/libsixel deps, and shipped data assets. Open: finalize after Vulkan/Sixel/shader deps are actually added.
-- [ ] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
+- [x] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
+  - `CONTOURTTY_LIGHT` configures a CPU-only build that skips optional Apple Metal linkage; `build/light/contourtty` built locally and omits Metal/Foundation in `otool -L`. `DEPENDENCIES.md` records the local Release size delta: 1,496,856 bytes default vs 1,460,120 bytes light.
 - [x] **X5. Licence audit on shipped charsets/fonts/noise tiles.** DoD: every binary asset in `share/contourtty/` is documented with origin + licence in `share/contourtty/LICENSES.md`.
   - `share/contourtty/LICENSES.md` lists current charsets, graph presets, and bundled OBJ scene; it records that no fonts, blue-noise tiles, shader files, or third-party binary assets are currently shipped there.
 
