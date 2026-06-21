@@ -91,7 +91,7 @@
 - [x] **G4. Asciinema + raw ANSI export.** Shipped.
 - [x] **G5. Config file + defaults.** Shipped (`$XDG_CONFIG_HOME/contourtty/config`).
 - [~] **G6. Golden-frame regression tests.** DoD: tests run in CI and catch regressions for every mode. Reference: PHASE_G §Tests.
-  - Local goldens exist for luminance, structure, halfblock, braille, blocks, octant, and sextant. Open: extend to every Phase I–O mode/style; gate CI on them once billing unblocks.
+  - Local goldens exist for luminance, structure, halfblock, braille, blocks, octant, sextant, NPR styles, O-phase source adapters, and implemented graphics emitters. Open: gate CI on them once billing unblocks.
 - [~] **G7. Packaging.** DoD: a user on a fresh machine can install and run with documented steps. Reference: PHASE_G §Packaging.
   - CPack TGZ + Linux DEB + tag-driven release workflow + head-only Homebrew formula present locally. Open: hosted artifact build (Actions billing blocks); Homebrew versioned bottle; static-FFmpeg link for self-contained releases (moves into PHASE_P §Packaging).
 - [x] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
@@ -240,8 +240,8 @@
 - [ ] **P7. Finish packaging.** DoD: `brew install contourtty` on fresh macOS; `apt install ./contourtty_*.deb` on Ubuntu; GitHub Releases binaries run on clean machines with documented FFmpeg dependency; static-FFmpeg link offered for self-contained builds. Reference: PHASE_P §Packaging.
 - [ ] **P8. Benchmarks final sweep.** DoD: BENCHMARKS.md rows for every mode (luminance / structure-HoG / structure-SDF / octant / sextant / halfblock / braille / blocks / hatch / stipple / painterly / flow / pixel-Kitty) × 720p/1080p × CPU/GPU, with reproducible commands and ±10% repeatability. Reference: PHASE_P §Bench.
 - [ ] **P9. Demo assets.** DoD: `docs/v1.0-split-demo.gif`, `docs/v1.0-shader-demo.gif`, `docs/v1.0-scene-demo.gif` all in repo and linked from README. Reference: PHASE_P §Demo.
-- [~] **P10. Golden coverage for everything new.** DoD: every new style/mode/source/render-mode has at least one golden frame test; capability matrix parameterized test; OSD-driven render test via `--input-keys`. Reference: PHASE_P §Tests.
-  - `--input-keys TEXT` queues literal playback key bytes for automated PTY flows; `input_keys_smoke` drives OSD/style/mode/knob changes on a generated clip and asserts live-change logs. `render_mode_tests` now runs a request x capability matrix for text/auto/pixel/hybrid over no-graphics/Kitty/Sixel/iTerm. Open: full golden coverage across every new source/render-mode.
+- [x] **P10. Golden coverage for everything new.** DoD: every new style/mode/source/render-mode has at least one golden frame test; capability matrix parameterized test; OSD-driven render test via `--input-keys`. Reference: PHASE_P §Tests.
+  - `--input-keys TEXT` queues literal playback key bytes for automated PTY flows; `input_keys_smoke` drives OSD/style/mode/knob changes on a generated clip and asserts live-change logs. `render_mode_tests` runs a request x capability matrix for text/auto/pixel/hybrid over no-graphics/Kitty/Sixel/iTerm. `golden_frame_tests` covers new modes/styles and O-phase source adapters; `graphics_emitter_tests` locks Kitty/iTerm render-mode payload bytes; `render_mode_live_smoke` proves PTY auto-degrade and hybrid dispatch.
 - [ ] **Phase P exit criteria → tag `v1.0`.** DoD: OSD + split + snapshot ship; README is launch-quality; releases on GitHub + Homebrew + .deb; honest benchmarks published; CI green.
 
 ---

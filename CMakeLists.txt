@@ -817,8 +817,12 @@ add_test(NAME split COMMAND split_tests)
 
 add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
+  src/asciinema_in.cpp
+  src/asciinema_source.cpp
+  src/asciinema_vte.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/color_quantization.cpp
   src/crosshatch.cpp
   src/etf.cpp
   src/frame_sampling.cpp
@@ -831,6 +835,7 @@ add_executable(golden_frame_tests
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
+  src/image_grid.cpp
   src/kuwahara.cpp
   src/lic.cpp
   src/line_ligatures.cpp
@@ -841,8 +846,10 @@ add_executable(golden_frame_tests
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
+  src/scene_source.cpp
   src/sextant_renderer.cpp
   src/stipple.cpp
+  src/stdin_data.cpp
   src/structure_edges.cpp
   src/structure_overlay.cpp
   src/structure_sampling.cpp

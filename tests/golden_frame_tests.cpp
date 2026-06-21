@@ -1,13 +1,17 @@
+#include "asciinema_source.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "frame_sampling.hpp"
 #include "gpu_sobel.hpp"
 #include "graph_yaml.hpp"
+#include "image_grid.hpp"
 #include "renderer.hpp"
 #include "scene_source.hpp"
+#include "stdin_data.hpp"
 
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -460,6 +464,82 @@ int main() {
         }
       }
     }
+  }
+
+  {
+    const contourtty::Frame frame = contourtty::composeImageGridFrame({
+      frameFromPixels(1, 1, {gray(255)}),
+      frameFromPixels(1, 1, {gray(0)}),
+    }, contourtty::ImageGridSpec{.cols = 2, .rows = 1}, 1, 1);
+    contourtty::CliOptions options;
+    options.width = 2;
+    options.height = 1;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, U" @", options, terminal(2, 1), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x1\n"
+                "64:255,255,255:0,0,0|32:0,0,0:0,0,0|\n",
+                "image-grid source golden frame");
+  }
+
+  {
+    const std::vector<double> samples{-1.0, 0.0, 1.0};
+    const contourtty::PlotRaster raster = contourtty::renderWaveformPlot(samples, 3, 3);
+    const contourtty::Frame frame = contourtty::plotRasterToFrame(raster, 0, gray(255), gray(0));
+    contourtty::CliOptions options;
+    options.width = 3;
+    options.height = 3;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, U" @", options, terminal(3, 3), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "3x3\n"
+                "32:0,0,0:0,0,0|32:0,0,0:0,0,0|64:255,255,255:0,0,0|\n"
+                "32:0,0,0:0,0,0|64:255,255,255:0,0,0|32:0,0,0:0,0,0|\n"
+                "64:255,255,255:0,0,0|32:0,0,0:0,0,0|32:0,0,0:0,0,0|\n",
+                "stdin waveform source golden frame");
+  }
+
+  {
+    contourtty::AsciinemaFrameSource source = contourtty::AsciinemaFrameSource::fromString(
+      "{\"version\":2,\"width\":2,\"height\":1}\n"
+      "[0.000000,\"o\",\"A\"]\n");
+    const std::optional<contourtty::Frame> frame = source.nextFrame();
+    expect(frame.has_value(), "asciinema source frame exists");
+    contourtty::CliOptions options;
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(*frame, U" @", options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "64:255,255,255:0,0,0|32:0,0,0:0,0,0|\n"
+                "64:255,255,255:0,0,0|32:0,0,0:0,0,0|\n",
+                "asciinema source golden frame");
+  }
+
+  {
+    const contourtty::SceneMesh mesh = contourtty::parseObjScene(
+      "v -1 -1 0\n"
+      "v 1 -1 0\n"
+      "v 0 1 0\n"
+      "vn 0 0 1\n"
+      "f 1//1 2//1 3//1\n");
+    contourtty::SceneGBuffer gbuffer = contourtty::renderSceneGBuffer(mesh, contourtty::SceneRenderOptions{.width = 4, .height = 4});
+    contourtty::CliOptions options;
+    options.style = "cell-shade";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(gbuffer.albedo, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "58:127,127,255:0,0,0|32:0,0,0:0,0,0|\n"
+                "58:127,127,255:0,0,0|58:127,127,255:0,0,0|\n",
+                "scene source golden frame");
   }
 
   {
