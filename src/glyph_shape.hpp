@@ -39,6 +39,11 @@ struct GlyphShapeVector {
   std::vector<double> features;
 };
 
+struct GlyphShapeMatch {
+  char32_t glyph = U' ';
+  double score = 0.0;
+};
+
 class GlyphShapeIndex {
  public:
   virtual ~GlyphShapeIndex() = default;
@@ -59,7 +64,10 @@ std::vector<double> shapeVectorForValues(std::span<const double> values, int wid
 std::vector<double> shapeVectorForCell(const CellLuminanceRegion& region);
 GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width, int cell_height);
 GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view glyphs, int cell_width, int cell_height);
+double scoreGlyphShape(std::span<const double> features, const GlyphShapeTable& table, char32_t glyph);
+GlyphShapeMatch matchGlyphShapeLinearWithScore(std::span<const double> features, const GlyphShapeTable& table);
 char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShapeTable& table);
+GlyphShapeMatch matchGlyphShapeWithScore(std::span<const double> features, const GlyphShapeTable& table);
 char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table);
 
 }  // namespace contourtty

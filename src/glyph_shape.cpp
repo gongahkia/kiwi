@@ -220,6 +220,18 @@ DotNorm dotAndEntryNorm(std::span<const double> features, std::span<const double
 #endif
 }
 
+double featureNorm(std::span<const double> features) {
+  double norm = 0.0;
+  for (const double value : features) {
+    norm += value * value;
+  }
+  return norm;
+}
+
+bool isSpaceGlyph(char32_t glyph) noexcept {
+  return glyph == U' ';
+}
+
 }  // namespace
 
 std::vector<double> renderPrecomputedGlyphBitmap(char32_t glyph, int cell_width, int cell_height) {
@@ -291,7 +303,7 @@ GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view 
   return table;
 }
 
-char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShapeTable& table) {
+double scoreGlyphShape(std::span<const double> features, const GlyphShapeTable& table, char32_t glyph) {
   if (features.size() != table.feature_count) {
     throw std::invalid_argument("shape feature length mismatch");
   }
@@ -299,17 +311,43 @@ char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShap
     throw std::invalid_argument("empty glyph shape table");
   }
 
-  double feature_norm = 0.0;
-  for (const double value : features) {
-    feature_norm += value * value;
+  const double feature_norm = featureNorm(features);
+  if (feature_norm == 0.0) {
+    return isSpaceGlyph(glyph) ? 1.0 : 0.0;
   }
+
+  for (const GlyphShapeVector& entry : table.entries) {
+    if (entry.features.size() != table.feature_count) {
+      throw std::invalid_argument("glyph shape table feature length mismatch");
+    }
+    if (entry.glyph != glyph) {
+      continue;
+    }
+    const DotNorm dot_norm = dotAndEntryNorm(features, entry.features);
+    if (dot_norm.entry_norm == 0.0) {
+      return 0.0;
+    }
+    return dot_norm.dot / std::sqrt(feature_norm * dot_norm.entry_norm);
+  }
+  return 0.0;
+}
+
+GlyphShapeMatch matchGlyphShapeLinearWithScore(std::span<const double> features, const GlyphShapeTable& table) {
+  if (features.size() != table.feature_count) {
+    throw std::invalid_argument("shape feature length mismatch");
+  }
+  if (table.entries.empty()) {
+    throw std::invalid_argument("empty glyph shape table");
+  }
+
+  const double feature_norm = featureNorm(features);
   if (feature_norm == 0.0) {
     for (const GlyphShapeVector& entry : table.entries) {
-      if (entry.glyph == U' ') {
-        return entry.glyph;
+      if (isSpaceGlyph(entry.glyph)) {
+        return GlyphShapeMatch{.glyph = entry.glyph, .score = 1.0};
       }
     }
-    return table.entries.front().glyph;
+    return GlyphShapeMatch{.glyph = table.entries.front().glyph, .score = 1.0};
   }
 
   char32_t best_glyph = table.entries.front().glyph;
@@ -328,7 +366,18 @@ char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShap
       best_glyph = entry.glyph;
     }
   }
-  return best_glyph;
+  return GlyphShapeMatch{.glyph = best_glyph, .score = best_score};
+}
+
+char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShapeTable& table) {
+  return matchGlyphShapeLinearWithScore(features, table).glyph;
+}
+
+GlyphShapeMatch matchGlyphShapeWithScore(std::span<const double> features, const GlyphShapeTable& table) {
+  if (features.size() != table.feature_count) {
+    throw std::invalid_argument("shape feature length mismatch");
+  }
+  return matchGlyphShapeLinearWithScore(features, table);
 }
 
 char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table) {

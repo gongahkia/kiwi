@@ -61,8 +61,13 @@ int main() {
     expect(value == 0.0, "space shape vector is empty");
   }
 
-  expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'|', 10, 14), 10, 14), table) == U'|', "vertical bitmap matches vertical glyph");
-  expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14), table) == U'/', "slash bitmap matches slash glyph");
+  const std::vector<double> vertical_features = contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'|', 10, 14), 10, 14);
+  const std::vector<double> slash_features = contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14);
+  expect(contourtty::matchGlyphShape(vertical_features, table) == U'|', "vertical bitmap matches vertical glyph");
+  expect(contourtty::matchGlyphShape(slash_features, table) == U'/', "slash bitmap matches slash glyph");
+  const contourtty::GlyphShapeMatch slash_match = contourtty::matchGlyphShapeWithScore(slash_features, table);
+  expect(slash_match.glyph == U'/' && slash_match.score > 0.99, "shape match returns score");
+  expect(contourtty::scoreGlyphShape(slash_features, table, U'/') > contourtty::scoreGlyphShape(slash_features, table, U'|'), "shape score ranks matching glyph higher");
   expect(contourtty::matchGlyphShape(contourtty::shapeVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'\\', 10, 14), 10, 14), table) == U'\\', "backslash bitmap matches backslash glyph");
   expect(contourtty::matchGlyphShape(std::vector<double>(contourtty::kShapeRegionCount, 0.0), table) == U' ', "empty cell matches space");
 

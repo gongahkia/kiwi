@@ -163,13 +163,15 @@
 ## PHASE M — Temporal coherence
 *Doc: `PHASE_M.md`. Goal: kill ASCII shimmer.*
 
-- [ ] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
+- [~] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
+  - Score-returning glyph matcher, temporal glyph state, and `--glyph-stickiness` shipped. Open: fixed pan-clip flicker metric, real-motion tolerance proof, orientation bucket stickiness.
 - [x] **M2. Optical flow on working luminance.** DoD: `src/optical_flow.{hpp,cpp}` block-matching produces vec2 displacements per coarse block; correct on synthetic translations; ~0 on static frames. Reference: PHASE_M §Flow.
 - [ ] **M3. Flow-warped history.** DoD: `warp-history` Pass warps previous-frame glyph/shape-vector buffers by flow; pan-induced flicker drops below the §Hysteresis-only baseline. Reference: PHASE_M §Flow.
 - [ ] **M4. Temporal supersampling.** DoD: `--temporal-supersample N` decodes at N× source fps when source <30 fps; emits at source fps; cleaner orientations recorded on cube clip at the cost of ~1.5× decode CPU. Reference: PHASE_M §Supersample.
 - [~] **M5. OKLab Δ diff threshold.** DoD: `--diff-oklab-eps` filters sub-perceptual SGR re-emits; bytes-per-frame on the pan clip drops 20–40% vs v0.5 with visuals unchanged within tolerance. Reference: PHASE_M §EmitDeltaOklab.
   - `--diff-oklab-eps` suppresses subthreshold truecolor SGR re-emits against the last emitted state. Open: pan-clip byte/frame benchmark vs v0.5.
-- [ ] **M6. Seek/resize history clear.** DoD: seeking forward then back, or resizing, doesn't carry ghost glyph choices. Reference: PHASE_M §Seek.
+- [~] **M6. Seek/resize history clear.** DoD: seeking forward then back, or resizing, doesn't carry ghost glyph choices. Reference: PHASE_M §Seek.
+  - Playback seek, loop restart, and resize reset glyph hysteresis state alongside the diff emitter. Open: interactive seek/resize regression proof.
 - [ ] **M7. Temporal tests + bench.** DoD: `optical_flow_tests`, `hysteresis_tests`, golden flicker metric below threshold for default stickiness; BENCHMARKS.md records per-Pass cost. Reference: PHASE_M §Tests / §Bench.
 - [ ] **Phase M exit criteria.** DoD: per-cell glyph-change rate on the pan-clip baseline drops by ≥60%; A/V drift unchanged within ±2 ms; no fidelity regression on real motion.
 

@@ -4,6 +4,7 @@
 #include "cli.hpp"
 #include "frame.hpp"
 #include "glyph_shape.hpp"
+#include "hysteresis.hpp"
 #include "terminal.hpp"
 
 #include <cstdint>
@@ -20,7 +21,15 @@ struct RenderStats {
   int64_t shape_match_ns = 0;
 };
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr);
+struct RenderTemporalState {
+  GlyphHysteresisState glyph_hysteresis;
+
+  void reset() {
+    glyph_hysteresis.reset();
+  }
+};
+
+void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr, RenderTemporalState* temporal_state = nullptr);
 std::string dumpRenderGraph(const CliOptions& options);
 
 }  // namespace contourtty

@@ -1291,6 +1291,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0), .origin_row = 1, .origin_col = 1};
   CellBuffer cells;
   DiffEmitter emitter;
+  RenderTemporalState temporal_state;
   RenderStats render_stats;
   const int64_t first_pts_us = frame->pts_us;
   int64_t frame_index = 0;
@@ -1322,7 +1323,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
       CONTOURTTY_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
     }
     std::optional<Frame> second_frame = video_decoder.nextFrame();
-    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+    renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     Mp4VideoWriter writer(output_path,
                           cells.cols() * kExportCellPixelWidth,
                           cells.rows() * kExportCellPixelHeight,
@@ -1332,7 +1333,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     ++exported_frames;
 
     const auto write_mp4_frame = [&](const Frame& current_frame) {
-      renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+      renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
       writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr));
     };
     if (second_frame.has_value()) {
@@ -1366,12 +1367,13 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   };
 
   const auto write_frame = [&](const Frame& current_frame) {
-    renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+    renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     const EmissionResult emission = emitter.emit(cells, emission_options);
     write_emission(exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), emission.bytes);
   };
 
-  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
+  temporal_state.reset();
+  renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
   emitter.reset();
@@ -1448,6 +1450,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   VideoDecoder video_decoder(*options.input);
   CellBuffer cells;
   DiffEmitter emitter;
+  RenderTemporalState temporal_state;
   FramePacer pacer(options);
   std::unique_ptr<PcmPlayer> audio_player;
   if (decoded_audio.has_value()) {
@@ -1489,6 +1492,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
     emitter.reset();
+    temporal_state.reset();
     std::string clear_seek = "\x1b[2J";
     writeAll(STDOUT_FILENO, clear_seek);
     CONTOURTTY_LOG_INFO(logger, "seek target_us=" + std::to_string(clamped_us));
@@ -1548,6 +1552,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         video_decoder.restart();
         pacer.reset();
         emitter.reset();
+        temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
         CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
@@ -1562,6 +1567,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         resetSyncForSeek(&audio_sync);
         current_video_us = 0;
         emitter.reset();
+        temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
         CONTOURTTY_LOG_INFO(logger, "input loop restarted");
@@ -1612,6 +1618,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
       emitter.reset();
+      temporal_state.reset();
       std::string clear_resize = "\x1b[2J";
       writeAll(STDOUT_FILENO, clear_resize);
     }
@@ -1623,7 +1630,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
-    renderFrame(*frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr);
+    renderFrame(*frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
     if (video_decoder.isStillImage()) {
       still_frame = *frame;
     }

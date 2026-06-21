@@ -88,6 +88,10 @@ int licLengthFromCli(const CliOptions& options) {
   return options.lic_length.value_or(8);
 }
 
+double glyphStickinessFromCli(const CliOptions& options) {
+  return options.glyph_stickiness.value_or(0.05);
+}
+
 bool painterlyStyleEnabled(const CliOptions& options) {
   return options.style == "painterly" ||
          std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
@@ -340,10 +344,20 @@ std::string dumpRenderGraph(const CliOptions& options) {
   return buildGraph(renderGraphSkeleton(options), renderGraphBuildOptions(options)).dump();
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
+  if (temporal_state != nullptr) {
+    temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
+  }
+  std::vector<char32_t> previous_glyphs;
+  if (temporal_state != nullptr) {
+    previous_glyphs.reserve(cells->cells().size());
+    for (const Cell& cell : cells->cells()) {
+      previous_glyphs.push_back(cell.glyph);
+    }
+  }
   if (stats != nullptr) {
     ++stats->frames;
     stats->cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
@@ -363,6 +377,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
   const bool posterize_enabled = options.posterize.has_value();
+  const double glyph_stickiness = glyphStickinessFromCli(options);
+  const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyph_stickiness > 0.0;
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
@@ -557,7 +573,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort(etf_enabled ? "raw-gradients" : "gradients", BufferKind::GradientField)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
-        if (!etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
+        if (!glyph_hysteresis_enabled && !etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(active_frame(), *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {
@@ -664,11 +680,16 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                   }
                   return shapeVectorForCell(region);
                 };
-                if (cell_shape_regions.empty()) {
-                  const CellLuminanceRegion region = sampleCellRegion(*structure_ink, size.cols, size.rows, col, row);
-                  cell.glyph = matchGlyphShape(match_region(region), *shape_table);
+                const std::vector<double> features = cell_shape_regions.empty()
+                                                       ? match_region(sampleCellRegion(*structure_ink, size.cols, size.rows, col, row))
+                                                       : match_region(cell_shape_regions[cell_index]);
+                if (glyph_hysteresis_enabled) {
+                  const GlyphShapeMatch best = matchGlyphShapeWithScore(features, *shape_table);
+                  const char32_t previous_glyph = previous_glyphs.empty() ? cell.glyph : previous_glyphs[cell_index];
+                  const double previous_score = scoreGlyphShape(features, *shape_table, previous_glyph);
+                  cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness).glyph;
                 } else {
-                  cell.glyph = matchGlyphShape(match_region(cell_shape_regions[cell_index]), *shape_table);
+                  cell.glyph = matchGlyphShape(features, *shape_table);
                 }
                 if (stats != nullptr) {
                   ++local_stats->cells;

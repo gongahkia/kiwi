@@ -392,6 +392,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--glyph-stickiness", "0.08"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "glyph stickiness parses");
+    expect(parsed.options.glyph_stickiness.has_value() && *parsed.options.glyph_stickiness == 0.08, "glyph stickiness stored");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));

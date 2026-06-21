@@ -352,6 +352,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--lic-length",
           "--posterize",
           "--contrast",
+          "--glyph-stickiness",
           "--dither",
           "--diff-oklab-eps",
           "--log",
@@ -524,6 +525,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.contrast = *parsed;
+    } else if (flag == "--glyph-stickiness") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value() || *parsed > 1.0) {
+        result.error = "invalid value for --glyph-stickiness: " + std::string(*value);
+        return result;
+      }
+      result.options.glyph_stickiness = *parsed;
     } else if (flag == "--dither") {
       if (!isOneOf(*value, {"none", "ordered", "fs"})) {
         result.error = "invalid value for --dither: " + std::string(*value);
@@ -665,6 +673,7 @@ std::string helpText(std::string_view program_name) {
       << "  --lic-length N                 flow style convolution length, 1..64\n"
       << "  --posterize N                  OKLab L posterize levels, 2..64\n"
       << "  --contrast N                   structure contrast adjustment\n"
+      << "  --glyph-stickiness N           retain near-tied structure glyphs, 0..1\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
       << "  --diff-oklab-eps N             suppress sub-perceptual color diff emits\n"
       << "  --loop                         loop input\n"
