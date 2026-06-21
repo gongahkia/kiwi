@@ -116,8 +116,7 @@
 ## PHASE I — Glyph science upgrade
 *Doc: `PHASE_I.md`. Goal: FreeType-driven glyph table, HoG features, SDF option, k-d tree lookup, evolved charsets.*
 
-- [~] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
-  - FreeType `--font` path, overlap/HoG/SDF table input, and MP4 glyph raster input are working; Phase N `raster_compose` consumer is still pending.
+- [x] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
 - [ ] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
 
 ---
@@ -182,7 +181,8 @@
 ## PHASE N — Hybrid graphics protocols → **v0.95**
 *Doc: `PHASE_N.md`. Goal: Kitty/Sixel/iTerm pixel + text overlay.*
 
-- [ ] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
+- [~] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
+  - `src/raster_compose.{hpp,cpp}` now owns the cell-to-RGB raster path and MP4 export consumes it. Open: still snapshot and graphics-protocol consumers.
 - [ ] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
 - [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
 - [ ] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.

@@ -108,6 +108,7 @@ add_executable(contourtty
   src/posterize.cpp
   src/png_writer.cpp
   src/player.cpp
+  src/raster_compose.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
@@ -1061,6 +1062,35 @@ else()
   endif()
 endif()
 add_test(NAME warp_history COMMAND warp_history_tests)
+
+add_executable(raster_compose_tests
+  tests/raster_compose_tests.cpp
+  src/color_dither.cpp
+  src/color_mode.cpp
+  src/color_quantization.cpp
+  src/glyph_font.cpp
+  src/raster_compose.cpp
+)
+target_include_directories(raster_compose_tests PRIVATE src)
+target_compile_features(raster_compose_tests PRIVATE cxx_std_20)
+set_target_properties(raster_compose_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(raster_compose_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(raster_compose_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(raster_compose_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(raster_compose_tests PRIVATE -Werror)
+  endif()
+endif()
+target_link_libraries(raster_compose_tests PRIVATE PkgConfig::FREETYPE)
+add_test(NAME raster_compose COMMAND raster_compose_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
