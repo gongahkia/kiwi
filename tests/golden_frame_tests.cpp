@@ -300,6 +300,91 @@ int main() {
   }
 
   {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(64), gray(192), gray(255),
+      gray(0), gray(64), gray(192), gray(255),
+      gray(255), gray(192), gray(64), gray(0),
+      gray(255), gray(192), gray(64), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.style = "painterly";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "32:32,32,32:0,0,0|35:223,223,223:0,0,0|\n"
+                "35:223,223,223:0,0,0|32:32,32,32:0,0,0|\n",
+                "painterly style golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(255), gray(255), gray(0), gray(0),
+      gray(255), gray(255), gray(0), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.style = "hatch";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    options.edge_threshold = 0.01;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "9587:0,0,0:0,0,0|9586:255,255,255:0,0,0|\n"
+                "9586:255,255,255:0,0,0|9587:0,0,0:0,0,0|\n",
+                "hatch style golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(2, 2, {
+      gray(0), gray(96),
+      gray(160), gray(255),
+    });
+    contourtty::CliOptions options;
+    options.style = "stipple";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "9679:0,0,0:0,0,0|9679:96,96,96:0,0,0|\n"
+                "32:160,160,160:0,0,0|32:255,255,255:0,0,0|\n",
+                "stipple style golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(255), gray(255), gray(0), gray(0),
+      gray(255), gray(255), gray(0), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.style = "flow";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    options.edge_threshold = 0.01;
+    options.lic_length = 3;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "9585:0,0,0:0,0,0|32:255,255,255:0,0,0|\n"
+                "32:255,255,255:0,0,0|9585:0,0,0:0,0,0|\n",
+                "flow style golden frame");
+  }
+
+  {
     const contourtty::Frame frame = frameFromPixels(8, 8, {
       gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255), gray(255),
       gray(0), gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255),
