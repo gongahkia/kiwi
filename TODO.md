@@ -121,7 +121,6 @@
 
 - [~] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
   - FreeType `--font` path, overlap/HoG/SDF table input, and MP4 glyph raster input are working; Phase N `raster_compose` consumer is still pending.
-- [ ] **I9. Glyph-science tests + bench.** DoD: `glyph_font_tests`, `glyph_hog_tests`, `glyph_sdf_tests`, `kd_tree_tests` all pass; BENCHMARKS.md rows for HoG vs overlap vs SDF, curated-set sweep, per-cell ns. Reference: PHASE_I §Tests / §Bench.
 - [ ] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
 
 ---

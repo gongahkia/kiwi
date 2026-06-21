@@ -1277,10 +1277,16 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   const auto log_export = [&] {
     CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
     if (logger.enabled()) {
+      const int64_t shape_match_us = render_stats.shape_match_ns / 1000;
+      const double avg_shape_match_ns = render_stats.shape_match_cells > 0
+                                          ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
+                                          : 0.0;
       CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                     " cells=" + std::to_string(render_stats.cells) +
                                     " render_us=" + std::to_string(render_stats.render_ns / 1000) +
-                                    " shape_match_cells=" + std::to_string(render_stats.shape_match_cells));
+                                    " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
+                                    " shape_match_us=" + std::to_string(shape_match_us) +
+                                    " avg_shape_match_ns=" + std::to_string(avg_shape_match_ns));
     }
   };
 
