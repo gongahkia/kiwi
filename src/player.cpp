@@ -1872,10 +1872,31 @@ bool isStdinInput(std::string_view input) noexcept {
   return input == "stdin";
 }
 
-std::string readAllStdinText() {
-  std::ostringstream buffer;
-  buffer << std::cin.rdbuf();
-  return buffer.str();
+bool stdinNumberSeparator(char ch) noexcept {
+  return ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
+std::optional<double> readNextStdinNumber() {
+  std::string token;
+  char ch = 0;
+  while (std::cin.get(ch)) {
+    if (stdinNumberSeparator(ch)) {
+      if (!token.empty()) {
+        break;
+      }
+      continue;
+    }
+    token.push_back(ch);
+  }
+  if (token.empty()) {
+    return std::nullopt;
+  }
+  char* parsed_end = nullptr;
+  const double value = std::strtod(token.c_str(), &parsed_end);
+  if (parsed_end == token.c_str() || *parsed_end != '\0') {
+    throw std::invalid_argument("invalid numeric stdin token: " + token);
+  }
+  return value;
 }
 
 TerminalSize terminalSizeFromStdoutOrOptions(const CliOptions& options) {
@@ -2235,12 +2256,15 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   if (!plot_kind.has_value()) {
     throw std::runtime_error("invalid plot kind");
   }
-  const std::vector<double> values = parseStdinDataNumbers(readAllStdinText());
-  if (values.empty()) {
+  std::optional<double> first_value = readNextStdinNumber();
+  if (!first_value.has_value()) {
     throw std::runtime_error("stdin plot input contains no numeric samples");
   }
+  std::vector<double> values{*first_value};
+  values.reserve(static_cast<std::size_t>(std::max(1, options.plot_window)));
+  std::size_t sample_count = 1;
   logGpuRequest(options, logger);
-  CONTOURTTY_LOG_INFO(logger, "stdin plot samples=" + std::to_string(values.size()));
+  CONTOURTTY_LOG_INFO(logger, "stdin plot streaming");
 
   resetQuitFlag();
   g_pending_commands.clear();
@@ -2293,7 +2317,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   writeAll(STDOUT_FILENO, clear);
   consumeResizeFlag();
 
-  for (std::size_t sample_end = 1; sample_end <= values.size() && !shouldQuit(); ++sample_end) {
+  while (!shouldQuit()) {
     if (interactive) {
       switch (pollKeyboardCommand()) {
         case PlaybackCommand::None:
@@ -2319,9 +2343,16 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
         break;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if (interactive && pollKeyboardCommand() == PlaybackCommand::TogglePause) {
-        paused = false;
-        CONTOURTTY_LOG_INFO(logger, "playback resumed");
+      if (interactive) {
+        const PlaybackCommand command = pollKeyboardCommand();
+        if (command == PlaybackCommand::Quit) {
+          quit = true;
+          break;
+        }
+        if (command == PlaybackCommand::TogglePause) {
+          paused = false;
+          CONTOURTTY_LOG_INFO(logger, "playback resumed");
+        }
       }
     }
     if (quit || shouldQuit()) {
@@ -2341,10 +2372,8 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
     const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
     const int plot_width = std::max(1, options.width.value_or(render_terminal.cols));
     const int plot_height = std::max(1, static_cast<int>(std::llround(static_cast<double>(options.height.value_or(render_terminal.rows)) / options.cell_aspect)));
-    const std::size_t window_begin = sample_end > static_cast<std::size_t>(options.plot_window) ? sample_end - static_cast<std::size_t>(options.plot_window) : 0;
-    const std::span<const double> window(values.data() + window_begin, sample_end - window_begin);
-    const int64_t pts_us = static_cast<int64_t>(std::llround((static_cast<double>(sample_end - 1) * 1000000.0) / options.plot_rate_hz));
-    const Frame frame = plotRasterToFrame(renderPlot(*plot_kind, window, plot_width, plot_height), pts_us);
+    const int64_t pts_us = static_cast<int64_t>(std::llround((static_cast<double>(sample_count - 1) * 1000000.0) / options.plot_rate_hz));
+    const Frame frame = plotRasterToFrame(renderPlot(*plot_kind, std::span<const double>(values.data(), values.size()), plot_width, plot_height), pts_us);
     debug_stats.recordInputFrame();
     pacer.waitForFrame(frame);
     const CliOptions render_options = debugRenderOptions(options, terminal);
@@ -2379,6 +2408,15 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
       quit = true;
       break;
     }
+    std::optional<double> next_value = readNextStdinNumber();
+    if (!next_value.has_value()) {
+      break;
+    }
+    values.push_back(*next_value);
+    if (values.size() > static_cast<std::size_t>(options.plot_window)) {
+      values.erase(values.begin());
+    }
+    ++sample_count;
   }
 
   if (!interactive) {
@@ -2386,6 +2424,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
     writeAll(STDOUT_FILENO, reset);
   }
   if (logger.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "stdin plot samples=" + std::to_string(sample_count));
     CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000));
