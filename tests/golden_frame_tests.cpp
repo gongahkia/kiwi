@@ -406,7 +406,7 @@ int main() {
     expectEqual(serializeCells(cells),
                 "2x2\n"
                 "9679:0,0,0:0,0,0|9679:96,96,96:0,0,0|\n"
-                "32:160,160,160:0,0,0|32:255,255,255:0,0,0|\n",
+                "8226:160,160,160:0,0,0|32:255,255,255:0,0,0|\n",
                 "stipple style golden frame");
   }
 
@@ -666,7 +666,7 @@ int main() {
                 "luminance(cpu)  frame:RgbFrame -> luminance:LuminanceField\n"
                 "cell-average(cpu)  frame:RgbFrame -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
-                "stipple(cpu)  cells:CellGlyphs -> stipple-cells:CellGlyphs\n"
+                "stipple(cpu)  cells:CellGlyphs, frame:RgbFrame -> stipple-cells:CellGlyphs\n"
                 "emit(cpu)  stipple-cells:CellGlyphs -> \n",
                 "stipple graph dump golden");
   }

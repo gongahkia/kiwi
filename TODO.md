@@ -129,8 +129,8 @@
 ## PHASE K — Stylized NPR modes
 *Doc: `PHASE_K.md`. Goal: painterly / hatch / stipple / flow styles.*
 
-- [~] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
-  - `--style stipple` ships with a deterministic 64x64 rank tile and dot glyph pass. Open: replace generated hash-rank tile with checked-in void-and-cluster tile; add braille/octant sub-cell carriers.
+- [x] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
+  - `--style stipple` ships with checked-in `share/contourtty/noise/blue_noise_64.bin`; `--mode braille` and `--mode octant` use source-frame 2x4 sub-cell dot carriers.
 - [x] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
   - `--style flow` ships ETF-guided spatial LIC strokes with `--lic-length`; when temporal state is available it reuses optical flow and maps motion vectors into LIC stroke directions, with a gradient fallback on the first frame. `lic_tests` cover horizontal motion producing horizontal strokes; graph/runtime proof shows `optical-flow` feeding `lic`, and `--style none` has no LIC/flow passes.
 - [x] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.
@@ -254,7 +254,7 @@
 - [x] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
   - `CONTOURTTY_LIGHT` configures a CPU-only build that skips optional Apple Metal linkage; `build/light/contourtty` built locally and omits Metal/Foundation in `otool -L`. `DEPENDENCIES.md` records the local Release size delta: 1,496,856 bytes default vs 1,460,120 bytes light.
 - [x] **X5. Licence audit on shipped charsets/fonts/noise tiles.** DoD: every binary asset in `share/contourtty/` is documented with origin + licence in `share/contourtty/LICENSES.md`.
-  - `share/contourtty/LICENSES.md` lists current charsets, graph presets, and bundled OBJ scene; it records that no fonts, blue-noise tiles, shader files, or third-party binary assets are currently shipped there.
+  - `share/contourtty/LICENSES.md` lists current charsets, graph presets, blue-noise tile, and bundled OBJ scene; it records that no fonts, shader files, or third-party binary assets are currently shipped there.
 
 ---
 

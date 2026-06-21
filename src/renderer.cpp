@@ -490,7 +490,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     }
     passes->push_back(Pass{
       .id = "stipple",
-      .inputs = {renderPort(input, BufferKind::CellGlyphs)},
+      .inputs = {renderPort(input, BufferKind::CellGlyphs), renderPort(frame_input, BufferKind::RgbFrame)},
       .outputs = {renderPort("stipple-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
     });
@@ -625,6 +625,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool painterly_enabled = painterlyStyleEnabled(options);
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
+  const StippleCarrier stipple_carrier = stippleCarrierFromMode(options.mode);
   const bool flow_enabled = flowStyleEnabled(options);
   const bool scene_cell_shade_enabled = options.style == "cell-shade";
   const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
@@ -1108,11 +1109,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       }
       passes->push_back(Pass{
         .id = "stipple",
-        .inputs = {renderPort(input, BufferKind::CellGlyphs)},
+        .inputs = {renderPort(input, BufferKind::CellGlyphs), renderPort(frame_input, BufferKind::RgbFrame)},
         .outputs = {renderPort("stipple-cells", BufferKind::CellGlyphs)},
         .supports = {Backend::Cpu},
         .run = [&](PassContext&) {
-          applyStipple(cells);
+          applyStipple(cells, stipple_carrier, &active_frame());
         },
       });
       return std::string("stipple-cells");

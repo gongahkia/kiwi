@@ -946,7 +946,9 @@ add_test(NAME crosshatch COMMAND crosshatch_tests)
 
 add_executable(stipple_tests
   tests/stipple_tests.cpp
+  src/frame_sampling.cpp
   src/luminance.cpp
+  src/octant_renderer.cpp
   src/stipple.cpp
 )
 target_include_directories(stipple_tests PRIVATE src)
