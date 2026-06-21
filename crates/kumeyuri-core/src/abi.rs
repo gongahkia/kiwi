@@ -1,21 +1,29 @@
+//! Stable host/plugin ABI contracts.
+
 use std::{fmt, str::FromStr};
 
 use crate::{animator::Timeline, frame::Frame, theme::Theme};
 
+/// Current kumeyuri plugin ABI version supported by this host crate.
 pub const KUMEYURI_ABI_VERSION: AbiVersion = AbiVersion::new(1, 0);
 
+/// Semantic version for plugin ABI compatibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AbiVersion {
+    /// ABI major version; mismatches are incompatible.
     pub major: u16,
+    /// ABI minor version; higher host minors can load lower required minors.
     pub minor: u16,
 }
 
 impl AbiVersion {
+    /// Build an ABI version from major and minor parts.
     #[must_use]
     pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
 
+    /// Return whether this host ABI supports a required plugin ABI.
     #[must_use]
     pub const fn supports(self, required: Self) -> bool {
         self.major == required.major && self.minor >= required.minor
@@ -45,23 +53,34 @@ impl FromStr for AbiVersion {
     }
 }
 
+/// Error returned when an ABI version string cannot be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AbiVersionParseError;
 
+/// Optional runtime capability a plugin can request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Capability {
+    /// Read files from an explicitly granted filesystem scope.
     FsRead = 0,
+    /// Write files in an explicitly granted filesystem scope.
     FsWrite = 1,
+    /// Fetch external network resources.
     NetFetch = 2,
+    /// Read selected environment variables.
     EnvRead = 3,
+    /// Read from the kumeyuri plugin cache.
     CacheRead = 4,
+    /// Write to the kumeyuri plugin cache.
     CacheWrite = 5,
+    /// Read wall-clock time.
     ClockNow = 6,
+    /// Request random bytes from the host.
     RandomBytes = 7,
 }
 
 impl Capability {
+    /// Every known capability in a stable display order.
     pub const ALL: [Self; 8] = [
         Self::FsRead,
         Self::FsWrite,
@@ -73,6 +92,7 @@ impl Capability {
         Self::RandomBytes,
     ];
 
+    /// Return the manifest spelling for this capability.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -116,25 +136,30 @@ impl FromStr for Capability {
     }
 }
 
+/// Error returned when a capability string cannot be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CapabilityParseError;
 
+/// Bitset of plugin runtime capabilities.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct CapabilitySet {
     bits: u64,
 }
 
 impl CapabilitySet {
+    /// Return an empty capability set.
     #[must_use]
     pub const fn empty() -> Self {
         Self { bits: 0 }
     }
 
+    /// Return a set containing every known capability.
     #[must_use]
     pub fn all() -> Self {
         Self::from_capabilities(Capability::ALL)
     }
 
+    /// Build a capability set from capability values.
     #[must_use]
     pub fn from_capabilities(capabilities: impl IntoIterator<Item = Capability>) -> Self {
         let mut set = Self::empty();
@@ -144,30 +169,36 @@ impl CapabilitySet {
         set
     }
 
+    /// Build a capability set from capability values.
     #[must_use]
     #[allow(clippy::should_implement_trait)]
     pub fn from_iter(capabilities: impl IntoIterator<Item = Capability>) -> Self {
         Self::from_capabilities(capabilities)
     }
 
+    /// Return whether the set contains a capability.
     #[must_use]
     pub const fn contains(self, capability: Capability) -> bool {
         self.bits & capability.bit() != 0
     }
 
+    /// Add a capability to the set.
     pub fn insert(&mut self, capability: Capability) {
         self.bits |= capability.bit();
     }
 
+    /// Remove a capability from the set.
     pub fn remove(&mut self, capability: Capability) {
         self.bits &= !capability.bit();
     }
 
+    /// Return whether every capability in this set is present in `allowed`.
     #[must_use]
     pub const fn is_subset(self, allowed: Self) -> bool {
         self.bits & !allowed.bits == 0
     }
 
+    /// Iterate over enabled capabilities in stable display order.
     pub fn iter(self) -> impl Iterator<Item = Capability> {
         Capability::ALL
             .into_iter()
@@ -181,13 +212,17 @@ impl FromIterator<Capability> for CapabilitySet {
     }
 }
 
+/// Metadata supplied to render backend plugins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RenderBackendMetadata {
+    /// Optional human-readable diagram title.
     pub title: Option<String>,
+    /// Optional source path for diagnostics or provenance.
     pub source_path: Option<String>,
 }
 
 impl RenderBackendMetadata {
+    /// Return metadata with no optional fields.
     #[must_use]
     pub const fn empty() -> Self {
         Self {
@@ -203,23 +238,34 @@ impl Default for RenderBackendMetadata {
     }
 }
 
+/// Request passed to a render backend plugin.
 #[derive(Debug)]
 pub struct RenderBackendRequest<'timeline, 'metadata> {
+    /// Host ABI used for this request.
     pub abi: AbiVersion,
+    /// Requested output format identifier.
     pub format: &'static str,
+    /// Requested theme name.
     pub theme: &'static str,
+    /// Timeline to render.
     pub timeline: &'timeline Timeline,
+    /// Source metadata for the render.
     pub metadata: &'metadata RenderBackendMetadata,
 }
 
+/// Bytes returned by a render backend.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RenderArtifact {
+    /// Encoded output bytes.
     pub bytes: Vec<u8>,
+    /// MIME media type for the bytes.
     pub media_type: String,
+    /// Preferred filename extension without a leading dot.
     pub extension: String,
 }
 
 impl RenderArtifact {
+    /// Create a render artifact from encoded bytes and content metadata.
     #[must_use]
     pub fn new(
         bytes: Vec<u8>,
@@ -234,24 +280,35 @@ impl RenderArtifact {
     }
 }
 
+/// Error returned by render backend validation or execution.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RenderBackendError {
+    /// The plugin requires an ABI unsupported by the host.
     IncompatibleAbi {
+        /// ABI supported by the host.
         host: AbiVersion,
+        /// ABI required by the plugin.
         required: AbiVersion,
     },
+    /// The plugin requested capabilities that were not granted.
     MissingCapabilities(CapabilitySet),
+    /// The requested render format is unsupported.
     UnsupportedFormat(String),
+    /// Rendering failed with a backend-specific message.
     RenderFailed(String),
 }
 
+/// Opaque parsed diagram payload returned by diagram-type plugins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedDiagram {
+    /// Encoded plugin-specific diagram bytes.
     pub bytes: Vec<u8>,
+    /// MIME-like media type for the encoded diagram.
     pub media_type: String,
 }
 
 impl ParsedDiagram {
+    /// Create a parsed diagram payload.
     #[must_use]
     pub fn new(bytes: Vec<u8>, media_type: impl Into<String>) -> Self {
         Self {
@@ -261,43 +318,63 @@ impl ParsedDiagram {
     }
 }
 
+/// Request passed to a diagram-type parser plugin.
 #[derive(Debug)]
 pub struct DiagramParseRequest<'source> {
+    /// Host ABI used for this request.
     pub abi: AbiVersion,
+    /// Mermaid source to parse.
     pub source: &'source str,
 }
 
+/// Request passed to a diagram-type layout plugin.
 #[derive(Debug)]
 pub struct DiagramLayoutRequest<'diagram> {
+    /// Host ABI used for this request.
     pub abi: AbiVersion,
+    /// Parsed diagram payload produced by the same plugin.
     pub diagram: &'diagram ParsedDiagram,
 }
 
+/// Error returned by diagram-type plugins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiagramTypeError {
+    /// The plugin requires an ABI unsupported by the host.
     IncompatibleAbi {
+        /// ABI supported by the host.
         host: AbiVersion,
+        /// ABI required by the plugin.
         required: AbiVersion,
     },
+    /// The plugin requested capabilities that were not granted.
     MissingCapabilities(CapabilitySet),
+    /// The source header is not supported by this plugin.
     UnsupportedHeader(String),
+    /// Parsing failed with a plugin-specific message.
     ParseFailed(String),
+    /// Layout failed with a plugin-specific message.
     LayoutFailed(String),
 }
 
+/// Extension point for custom diagram parsers and layout engines.
 pub trait DiagramType {
+    /// Stable plugin identifier.
     fn id(&self) -> &'static str;
 
+    /// ABI required by this plugin.
     fn abi_version(&self) -> AbiVersion {
         KUMEYURI_ABI_VERSION
     }
 
+    /// Mermaid root headers accepted by this plugin.
     fn headers(&self) -> &'static [&'static str];
 
+    /// Runtime capabilities required by this plugin.
     fn required_capabilities(&self) -> CapabilitySet {
         CapabilitySet::empty()
     }
 
+    /// Validate ABI and capability compatibility before executing the plugin.
     fn validate(
         &self,
         host_abi: AbiVersion,
@@ -317,39 +394,56 @@ pub trait DiagramType {
         Ok(())
     }
 
+    /// Parse source into a plugin-owned diagram payload.
     fn parse(&self, request: DiagramParseRequest<'_>) -> Result<ParsedDiagram, DiagramTypeError>;
 
+    /// Layout a parsed diagram into a kumeyuri frame.
     fn layout(&self, request: DiagramLayoutRequest<'_>) -> Result<Frame, DiagramTypeError>;
 }
 
+/// Request passed to a theme transform plugin.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeTransformRequest {
+    /// Host ABI used for this request.
     pub abi: AbiVersion,
+    /// Theme to transform.
     pub theme: Theme,
 }
 
+/// Error returned by theme transform plugins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ThemeTransformError {
+    /// The plugin requires an ABI unsupported by the host.
     IncompatibleAbi {
+        /// ABI supported by the host.
         host: AbiVersion,
+        /// ABI required by the plugin.
         required: AbiVersion,
     },
+    /// The plugin requested capabilities that were not granted.
     MissingCapabilities(CapabilitySet),
+    /// The input theme is unsupported by this plugin.
     UnsupportedTheme(String),
+    /// Transformation failed with a plugin-specific message.
     TransformFailed(String),
 }
 
+/// Extension point for transforming themes before rendering.
 pub trait ThemeTransform {
+    /// Stable plugin identifier.
     fn id(&self) -> &'static str;
 
+    /// ABI required by this plugin.
     fn abi_version(&self) -> AbiVersion {
         KUMEYURI_ABI_VERSION
     }
 
+    /// Runtime capabilities required by this plugin.
     fn required_capabilities(&self) -> CapabilitySet {
         CapabilitySet::empty()
     }
 
+    /// Validate ABI and capability compatibility before executing the plugin.
     fn validate(
         &self,
         host_abi: AbiVersion,
@@ -371,26 +465,35 @@ pub trait ThemeTransform {
         Ok(())
     }
 
+    /// Transform a theme.
     fn transform(&self, request: ThemeTransformRequest) -> Result<Theme, ThemeTransformError>;
 }
 
+/// Extension point for custom render backends.
 pub trait RenderBackend {
+    /// Stable plugin identifier.
     fn id(&self) -> &'static str;
 
+    /// ABI required by this plugin.
     fn abi_version(&self) -> AbiVersion {
         KUMEYURI_ABI_VERSION
     }
 
+    /// Output format handled by this backend.
     fn format(&self) -> &'static str;
 
+    /// MIME media type emitted by this backend.
     fn media_type(&self) -> &'static str;
 
+    /// Default filename extension emitted by this backend.
     fn extension(&self) -> &'static str;
 
+    /// Runtime capabilities required by this backend.
     fn required_capabilities(&self) -> CapabilitySet {
         CapabilitySet::empty()
     }
 
+    /// Validate ABI and capability compatibility before executing the backend.
     fn validate(
         &self,
         host_abi: AbiVersion,
@@ -412,6 +515,7 @@ pub trait RenderBackend {
         Ok(())
     }
 
+    /// Render a timeline into an artifact.
     fn render(
         &self,
         request: RenderBackendRequest<'_, '_>,

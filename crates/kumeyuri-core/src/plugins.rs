@@ -1,3 +1,5 @@
+//! Plugin manifest loading, runtime policy, and cache path helpers.
+
 use std::{
     collections::BTreeMap,
     env, fmt, fs,
@@ -9,18 +11,26 @@ use serde::Deserialize;
 
 use crate::abi::{AbiVersion, Capability, CapabilitySet, KUMEYURI_ABI_VERSION};
 
+/// Expected filename for a kumeyuri plugin manifest.
 pub const PLUGIN_MANIFEST_FILE: &str = "kumeyuri.plugin.json";
+/// XDG application directory used by the plugin cache.
 pub const PLUGIN_CACHE_APP_DIR: &str = "kumeyuri";
+/// Subdirectory under the application cache root that stores plugins.
 pub const PLUGIN_CACHE_PLUGINS_DIR: &str = "plugins";
 
+/// Plugin extension category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PluginKind {
+    /// Renderer plugin implementing a custom output backend.
     RenderBackend,
+    /// Diagram plugin implementing parser and layout hooks.
     DiagramType,
+    /// Theme plugin transforming built-in or user themes.
     ThemeTransform,
 }
 
 impl PluginKind {
+    /// Return the manifest spelling for this plugin kind.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -30,6 +40,7 @@ impl PluginKind {
         }
     }
 
+    /// Return the export name required in the plugin manifest.
     #[must_use]
     pub const fn required_export(self) -> &'static str {
         match self {
@@ -59,38 +70,54 @@ impl FromStr for PluginKind {
     }
 }
 
+/// Error returned when a plugin kind string cannot be parsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PluginKindParseError;
 
+/// Parsed `kumeyuri.plugin.json` manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginManifest {
+    /// Package name.
     pub name: String,
+    /// Package version.
     pub version: String,
+    /// ABI required by the plugin.
     pub abi: AbiVersion,
+    /// Relative path to the plugin WASM component.
     pub entry: PathBuf,
+    /// Extension category.
     pub kind: PluginKind,
+    /// Runtime capabilities requested by the plugin.
     pub capabilities: CapabilitySet,
+    /// Export map advertised by the plugin package.
     pub exports: BTreeMap<String, String>,
 }
 
+/// Plugin package loaded from disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedPlugin {
+    /// Parsed package manifest.
     pub manifest: PluginManifest,
+    /// Directory containing the plugin package.
     pub package_dir: PathBuf,
+    /// Raw WASM component bytes.
     pub component: Vec<u8>,
 }
 
+/// Loader for plugin packages compatible with a host ABI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PluginLoader {
     host_abi: AbiVersion,
 }
 
 impl PluginLoader {
+    /// Create a loader for a specific host ABI.
     #[must_use]
     pub const fn new(host_abi: AbiVersion) -> Self {
         Self { host_abi }
     }
 
+    /// Load a plugin manifest and WASM component from a package directory.
     pub fn load_package(
         &self,
         package_dir: impl AsRef<Path>,
@@ -116,6 +143,7 @@ impl PluginLoader {
         })
     }
 
+    /// Parse and validate a plugin manifest JSON document.
     pub fn parse_manifest_json(&self, source: &str) -> Result<PluginManifest, PluginLoadError> {
         let raw: RawPluginManifest =
             serde_json::from_str(source).map_err(|error| PluginLoadError::ParseManifest {
@@ -159,12 +187,14 @@ impl Default for PluginLoader {
     }
 }
 
+/// Runtime capability grant policy for plugin execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PluginRuntimePolicy {
     granted: CapabilitySet,
 }
 
 impl PluginRuntimePolicy {
+    /// Create a policy that grants no capabilities.
     #[must_use]
     pub const fn deny_all() -> Self {
         Self {
@@ -172,21 +202,25 @@ impl PluginRuntimePolicy {
         }
     }
 
+    /// Create a policy with explicit capability grants.
     #[must_use]
     pub const fn with_grants(granted: CapabilitySet) -> Self {
         Self { granted }
     }
 
+    /// Return capabilities granted by this policy.
     #[must_use]
     pub const fn granted(self) -> CapabilitySet {
         self.granted
     }
 
+    /// Return whether this policy grants a capability.
     #[must_use]
     pub const fn allows(self, capability: Capability) -> bool {
         self.granted.contains(capability)
     }
 
+    /// Validate that a manifest requests only granted capabilities.
     pub fn validate_manifest(&self, manifest: &PluginManifest) -> Result<(), PluginPolicyError> {
         if !manifest.capabilities.is_subset(self.granted) {
             return Err(PluginPolicyError::CapabilityDenied(manifest.capabilities));
@@ -201,22 +235,27 @@ impl Default for PluginRuntimePolicy {
     }
 }
 
+/// Error returned when a plugin violates runtime policy.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginPolicyError {
+    /// A manifest requested capabilities not granted by policy.
     CapabilityDenied(CapabilitySet),
 }
 
+/// Filesystem layout helper for the plugin cache.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginCache {
     root: PathBuf,
 }
 
 impl PluginCache {
+    /// Create a cache rooted at an explicit path.
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
     }
 
+    /// Create a cache below an XDG data-home directory.
     #[must_use]
     pub fn from_data_home(data_home: impl AsRef<Path>) -> Self {
         Self::new(
@@ -227,6 +266,7 @@ impl PluginCache {
         )
     }
 
+    /// Create a cache from `XDG_DATA_HOME` or `HOME`.
     pub fn from_env() -> Result<Self, PluginCacheError> {
         if let Some(data_home) = non_empty_env_path("XDG_DATA_HOME") {
             return Ok(Self::from_data_home(data_home));
@@ -237,11 +277,13 @@ impl PluginCache {
         Err(PluginCacheError::MissingDataHome)
     }
 
+    /// Return the cache root directory.
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
     }
 
+    /// Return the cache directory for a manifest and content hash.
     pub fn package_dir(
         &self,
         manifest: &PluginManifest,
@@ -255,6 +297,7 @@ impl PluginCache {
         )
     }
 
+    /// Return the cache directory for package identity and content hash parts.
     pub fn package_dir_for(
         &self,
         name: &str,
@@ -271,6 +314,7 @@ impl PluginCache {
             .join(content_hash))
     }
 
+    /// Create and return the cache directory for a package if needed.
     pub fn ensure_package_dir(
         &self,
         manifest: &PluginManifest,
@@ -290,33 +334,59 @@ impl PluginCache {
     }
 }
 
+/// Error returned while resolving or creating plugin cache paths.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginCacheError {
+    /// Neither `XDG_DATA_HOME` nor `HOME` was available.
     MissingDataHome,
+    /// The content hash is not a safe lowercase hexadecimal cache component.
     InvalidContentHash(String),
-    CreateDir { path: PathBuf, source: String },
+    /// Creating a cache directory failed.
+    CreateDir {
+        /// Directory path that could not be created.
+        path: PathBuf,
+        /// I/O error message.
+        source: String,
+    },
 }
 
+/// Error returned while loading a plugin package.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginLoadError {
+    /// Reading the manifest file failed.
     ReadManifest {
+        /// Manifest path.
         path: PathBuf,
+        /// I/O error message.
         source: String,
     },
+    /// Parsing the manifest JSON failed.
     ParseManifest {
+        /// Parser error message.
         source: String,
     },
+    /// The manifest ABI string was invalid.
     InvalidAbi(String),
+    /// The manifest requires an ABI unsupported by the host.
     UnsupportedAbi {
+        /// ABI supported by the host.
         host: AbiVersion,
+        /// ABI required by the plugin.
         required: AbiVersion,
     },
+    /// The manifest plugin kind was not recognized.
     UnknownKind(String),
+    /// A requested capability was not recognized.
     UnknownCapability(String),
+    /// The entry path was absolute, unsafe, or not a WASM file.
     InvalidEntry(String),
+    /// A required export was missing from the manifest.
     MissingExport(&'static str),
+    /// Reading the WASM entry file failed.
     ReadEntry {
+        /// Entry path.
         path: PathBuf,
+        /// I/O error message.
         source: String,
     },
 }

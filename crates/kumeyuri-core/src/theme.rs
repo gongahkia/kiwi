@@ -1,3 +1,5 @@
+//! Built-in themes and `.kumetheme.toml` discovery/validation.
+
 use std::{
     collections::BTreeSet,
     env, fs,
@@ -7,23 +9,36 @@ use std::{
 use crate::frame::{CellStyle, Charset, Color};
 use serde::{Deserialize, Serialize};
 
+/// Built-in theme identifier.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltInTheme {
+    /// Default dark ASCII theme.
     #[default]
     Default,
+    /// Black-and-white ASCII theme.
     Mono,
+    /// Tokyo Night inspired Unicode theme.
     TokyoNight,
+    /// GitHub light Unicode theme.
     Github,
+    /// Dracula inspired Unicode theme.
     Dracula,
+    /// Solarized light Unicode theme.
     SolarizedLight,
+    /// Solarized dark Unicode theme.
     SolarizedDark,
+    /// Nord inspired Unicode theme.
     Nord,
+    /// Catppuccin Mocha inspired Unicode theme.
     CatppuccinMocha,
+    /// High-contrast ASCII theme.
     HighContrast,
+    /// Print-friendly monochrome ASCII theme.
     PrintMono,
 }
 
 impl BuiltInTheme {
+    /// Every built-in theme in display order.
     pub const ALL: [Self; 11] = [
         Self::Default,
         Self::Mono,
@@ -38,6 +53,7 @@ impl BuiltInTheme {
         Self::PrintMono,
     ];
 
+    /// Return the stable kebab-case theme name.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
@@ -55,6 +71,7 @@ impl BuiltInTheme {
         }
     }
 
+    /// Parse a built-in theme by kebab-case name.
     #[must_use]
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
@@ -73,34 +90,48 @@ impl BuiltInTheme {
         }
     }
 
+    /// Return the theme values for this built-in theme.
     #[must_use]
     pub const fn theme(self) -> Theme {
         Theme::built_in(self)
     }
 }
 
+/// Location a discovered theme came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ThemeSource {
+    /// Theme file from the project search path.
     Project(PathBuf),
+    /// Theme file from `XDG_DATA_HOME`.
     XdgDataHome(PathBuf),
+    /// Theme file from `XDG_DATA_DIRS`.
     XdgDataDir(PathBuf),
+    /// Bundled built-in theme.
     Bundled(BuiltInTheme),
 }
 
+/// Theme name plus its source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeSearchEntry {
+    /// Theme name.
     pub name: String,
+    /// Theme location.
     pub source: ThemeSource,
 }
 
+/// Directories searched for `.kumetheme.toml` files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeSearchPaths {
+    /// Project-local directories searched before user/system paths.
     pub project_dirs: Vec<PathBuf>,
+    /// Optional XDG data-home root.
     pub xdg_data_home: Option<PathBuf>,
+    /// XDG data-directory roots.
     pub xdg_data_dirs: Vec<PathBuf>,
 }
 
 impl ThemeSearchPaths {
+    /// Build theme search paths from environment lookup and the process home.
     #[must_use]
     pub fn from_env(
         project_dir: impl Into<PathBuf>,
@@ -113,6 +144,7 @@ impl ThemeSearchPaths {
         )
     }
 
+    /// Build theme search paths from environment lookup and an explicit home.
     #[must_use]
     pub fn from_env_with_home(
         project_dir: impl Into<PathBuf>,
@@ -139,6 +171,7 @@ impl ThemeSearchPaths {
         }
     }
 
+    /// Return concrete theme directories with their source category.
     #[must_use]
     pub fn search_dirs(&self) -> Vec<(ThemeDirSource, PathBuf)> {
         let mut dirs = Vec::new();
@@ -155,13 +188,18 @@ impl ThemeSearchPaths {
     }
 }
 
+/// Category for a theme search directory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeDirSource {
+    /// Project-local theme directory.
     Project,
+    /// User data-home theme directory.
     XdgDataHome,
+    /// System data-dir theme directory.
     XdgDataDir,
 }
 
+/// Discover custom themes, then append bundled themes not shadowed by files.
 #[must_use]
 pub fn discover_themes(paths: &ThemeSearchPaths) -> Vec<ThemeSearchEntry> {
     let mut entries = Vec::new();
@@ -218,14 +256,19 @@ fn kumetheme_file_name(path: PathBuf) -> Option<(String, PathBuf)> {
     }
 }
 
+/// RGB color used by themes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RgbColor {
+    /// Red channel.
     pub red: u8,
+    /// Green channel.
     pub green: u8,
+    /// Blue channel.
     pub blue: u8,
 }
 
 impl RgbColor {
+    /// Create an RGB color from channel values.
     #[must_use]
     pub const fn new(red: u8, green: u8, blue: u8) -> Self {
         Self { red, green, blue }
@@ -242,17 +285,24 @@ impl From<RgbColor> for Color {
     }
 }
 
+/// Parsed `.kumetheme.toml` schema.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KumethemeToml {
+    /// Theme name.
     pub name: String,
+    /// Glyph charset preference.
     pub charset: KumethemeCharset,
+    /// Role colors as `#rrggbb` strings.
     pub colors: KumethemeColors,
 }
 
+/// Charset value accepted by `.kumetheme.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum KumethemeCharset {
+    /// ASCII glyph palette.
     Ascii,
+    /// Unicode box-drawing glyph palette.
     Unicode,
 }
 
@@ -265,29 +315,47 @@ impl From<KumethemeCharset> for Charset {
     }
 }
 
+/// Color fields accepted by `.kumetheme.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KumethemeColors {
+    /// Background color.
     pub background: String,
+    /// Foreground color.
     pub foreground: String,
+    /// Accent color.
     pub accent: String,
+    /// Primary edge color.
     pub edge: String,
+    /// Secondary edge color.
     pub edge_alt: String,
+    /// Highlight color.
     pub highlight: String,
+    /// Muted text color.
     pub muted: String,
 }
 
+/// Error returned when a `.kumetheme.toml` value is invalid.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KumethemeError {
+    /// Theme name is not a kebab-case identifier.
     InvalidName(String),
-    InvalidHexColor { field: &'static str, value: String },
+    /// Color field is not a six-digit hex color.
+    InvalidHexColor {
+        /// Invalid color field name.
+        field: &'static str,
+        /// Invalid color value.
+        value: String,
+    },
 }
 
 impl KumethemeToml {
+    /// Validate theme name and all color fields.
     pub fn validate(&self) -> Result<(), KumethemeError> {
         validate_theme_name(&self.name)?;
         self.colors.validate()
     }
 
+    /// Validate and convert this schema to an owned runtime theme.
     pub fn to_theme(&self) -> Result<OwnedTheme, KumethemeError> {
         self.validate()?;
         Ok(OwnedTheme {
@@ -307,6 +375,7 @@ impl KumethemeToml {
 }
 
 impl KumethemeColors {
+    /// Validate all color strings.
     pub fn validate(&self) -> Result<(), KumethemeError> {
         parse_hex_color("background", &self.background)?;
         parse_hex_color("foreground", &self.foreground)?;
@@ -319,10 +388,14 @@ impl KumethemeColors {
     }
 }
 
+/// Owned theme converted from a custom theme file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OwnedTheme {
+    /// Theme name.
     pub name: String,
+    /// Glyph charset preference.
     pub charset: Charset,
+    /// Runtime color palette.
     pub colors: ThemeColors,
 }
 
@@ -367,36 +440,57 @@ fn parse_hex_byte(value: &str) -> u8 {
     u8::from_str_radix(value, 16).expect("validated hex byte")
 }
 
+/// Runtime color palette for frame roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThemeColors {
+    /// Background color.
     pub background: RgbColor,
+    /// Foreground text color.
     pub foreground: RgbColor,
+    /// Node/accent color.
     pub accent: RgbColor,
+    /// Primary edge color.
     pub edge: RgbColor,
+    /// Secondary edge color.
     pub edge_alt: RgbColor,
+    /// Highlight color.
     pub highlight: RgbColor,
+    /// Muted text color.
     pub muted: RgbColor,
 }
 
+/// Logical role mapped to a theme style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeRole {
+    /// Background role.
     Background,
+    /// Plain text role.
     Text,
+    /// Node role.
     Node,
+    /// Primary edge role.
     Edge,
+    /// Secondary edge role.
     EdgeAlt,
+    /// Highlight role.
     Highlight,
+    /// Muted text role.
     Muted,
 }
 
+/// Runtime theme with a static name, charset, and colors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Theme {
+    /// Theme name.
     pub name: &'static str,
+    /// Glyph charset preference.
     pub charset: Charset,
+    /// Runtime color palette.
     pub colors: ThemeColors,
 }
 
 impl Theme {
+    /// Return the runtime theme for a built-in theme identifier.
     #[must_use]
     pub const fn built_in(theme: BuiltInTheme) -> Self {
         match theme {
@@ -414,6 +508,7 @@ impl Theme {
         }
     }
 
+    /// Return all starter themes in display order.
     #[must_use]
     pub const fn starter_themes() -> [Self; 11] {
         [
@@ -431,6 +526,7 @@ impl Theme {
         ]
     }
 
+    /// Return the default dark ASCII theme.
     #[must_use]
     pub const fn default_theme() -> Self {
         Self {
@@ -448,6 +544,7 @@ impl Theme {
         }
     }
 
+    /// Return the monochrome ASCII theme.
     #[must_use]
     pub const fn mono() -> Self {
         Self {
@@ -465,6 +562,7 @@ impl Theme {
         }
     }
 
+    /// Return the Tokyo Night inspired Unicode theme.
     #[must_use]
     pub const fn tokyo_night() -> Self {
         Self {
@@ -482,6 +580,7 @@ impl Theme {
         }
     }
 
+    /// Return the GitHub light Unicode theme.
     #[must_use]
     pub const fn github() -> Self {
         Self {
@@ -499,6 +598,7 @@ impl Theme {
         }
     }
 
+    /// Return the Dracula inspired Unicode theme.
     #[must_use]
     pub const fn dracula() -> Self {
         Self {
@@ -516,6 +616,7 @@ impl Theme {
         }
     }
 
+    /// Return the Solarized light Unicode theme.
     #[must_use]
     pub const fn solarized_light() -> Self {
         Self {
@@ -533,6 +634,7 @@ impl Theme {
         }
     }
 
+    /// Return the Solarized dark Unicode theme.
     #[must_use]
     pub const fn solarized_dark() -> Self {
         Self {
@@ -550,6 +652,7 @@ impl Theme {
         }
     }
 
+    /// Return the Nord inspired Unicode theme.
     #[must_use]
     pub const fn nord() -> Self {
         Self {
@@ -567,6 +670,7 @@ impl Theme {
         }
     }
 
+    /// Return the Catppuccin Mocha inspired Unicode theme.
     #[must_use]
     pub const fn catppuccin_mocha() -> Self {
         Self {
@@ -584,6 +688,7 @@ impl Theme {
         }
     }
 
+    /// Return the high-contrast ASCII theme.
     #[must_use]
     pub const fn high_contrast() -> Self {
         Self {
@@ -601,6 +706,7 @@ impl Theme {
         }
     }
 
+    /// Return the print-friendly monochrome ASCII theme.
     #[must_use]
     pub const fn print_mono() -> Self {
         Self {
@@ -618,6 +724,7 @@ impl Theme {
         }
     }
 
+    /// Build a cell style for a logical theme role.
     #[must_use]
     pub fn style_for(self, role: ThemeRole) -> CellStyle {
         let foreground = match role {

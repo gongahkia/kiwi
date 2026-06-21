@@ -1,17 +1,22 @@
+//! Unicode display-width, grapheme, and bidirectional text helpers.
+
 use unicode_bidi::BidiInfo;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+/// Return the terminal display width of a string in character cells.
 #[must_use]
 pub fn display_width(text: &str) -> usize {
     UnicodeWidthStr::width(text)
 }
 
+/// Return the terminal display width as `i32`, saturating at `i32::MAX`.
 #[must_use]
 pub fn display_width_i32(text: &str) -> i32 {
     i32::try_from(display_width(text)).unwrap_or(i32::MAX)
 }
 
+/// Reorder one logical text line into visual order for BiDi display.
 #[must_use]
 pub fn bidi_visual_order_line(text: &str) -> String {
     let bidi = BidiInfo::new(text, None);
@@ -21,6 +26,7 @@ pub fn bidi_visual_order_line(text: &str) -> String {
     bidi.reorder_line(paragraph, 0..text.len()).into_owned()
 }
 
+/// Truncate a string to a maximum display width without splitting graphemes.
 #[must_use]
 pub fn truncate_display_width(text: &str, max_width: usize) -> String {
     let mut output = String::new();
@@ -36,6 +42,7 @@ pub fn truncate_display_width(text: &str, max_width: usize) -> String {
     output
 }
 
+/// Wrap text into display-width-limited lines without splitting graphemes.
 #[must_use]
 pub fn wrap_display_width_lines(text: &str, max_width: usize) -> Vec<String> {
     if text.is_empty() {

@@ -1,8 +1,13 @@
+//! Plain-text rendering for fixed-cell frames.
+
 use crate::frame::Frame;
 
+/// Formatting options for converting a frame into text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TextOutputConfig {
+    /// Whether trailing spaces and empty bottom rows are removed.
     pub trim_trailing_whitespace: bool,
+    /// Whether the rendered string ends with a newline.
     pub final_newline: bool,
 }
 
@@ -15,17 +20,20 @@ impl Default for TextOutputConfig {
     }
 }
 
+/// Renderer for converting a [`Frame`] into newline-delimited text.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct TextOutputBackend {
     config: TextOutputConfig,
 }
 
 impl TextOutputBackend {
+    /// Create a backend with explicit formatting options.
     #[must_use]
     pub const fn new(config: TextOutputConfig) -> Self {
         Self { config }
     }
 
+    /// Create a backend that preserves frame width and omits a final newline.
     #[must_use]
     pub const fn exact() -> Self {
         Self {
@@ -36,11 +44,13 @@ impl TextOutputBackend {
         }
     }
 
+    /// Return the formatting options used by this backend.
     #[must_use]
     pub const fn config(&self) -> TextOutputConfig {
         self.config
     }
 
+    /// Render a frame into a string.
     #[must_use]
     pub fn render_frame(&self, frame: &Frame) -> String {
         let mut lines = frame.to_lines();
@@ -61,6 +71,7 @@ impl TextOutputBackend {
     }
 }
 
+/// Render a frame with the default text backend.
 #[must_use]
 pub fn frame_to_text(frame: &Frame) -> String {
     TextOutputBackend::default().render_frame(frame)
