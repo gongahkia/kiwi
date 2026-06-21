@@ -5,6 +5,7 @@
 #include "audio_decode.hpp"
 #include "bandwidth_guard.hpp"
 #include "braille_renderer.hpp"
+#include "captions.hpp"
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
 #include "diff_emitter.hpp"
@@ -1147,6 +1148,90 @@ std::chrono::steady_clock::time_point exportTimepoint(double timestamp) {
   return std::chrono::steady_clock::time_point{} + std::chrono::microseconds(static_cast<int64_t>(std::llround(timestamp * 1000000.0)));
 }
 
+int64_t captionFrameTimeUs(const Frame& frame, int64_t first_pts_us, int64_t frame_index, const CliOptions& options) {
+  if (options.fps.has_value() && *options.fps > 0.0) {
+    return static_cast<int64_t>(std::llround((static_cast<double>(frame_index) * 1000000.0) / *options.fps));
+  }
+  return std::max<int64_t>(0, frame.pts_us - first_pts_us);
+}
+
+int64_t defaultCaptionDurationUs(const CliOptions& options) {
+  if (options.fps.has_value() && *options.fps > 0.0) {
+    return std::max<int64_t>(1000, static_cast<int64_t>(std::llround(1000000.0 / *options.fps)));
+  }
+  return 33333;
+}
+
+class CaptionSidecarWriter {
+ public:
+  CaptionSidecarWriter(const std::optional<std::string>& path, int64_t fallback_duration_us)
+      : fallback_duration_us_(std::max<int64_t>(1000, fallback_duration_us)) {
+    if (!path.has_value()) {
+      return;
+    }
+    path_ = std::filesystem::path(*path);
+    output_.emplace(*path_, std::ios::binary);
+    if (!*output_) {
+      throw std::runtime_error("could not open captions file: " + path_->string());
+    }
+  }
+
+  bool enabled() const noexcept {
+    return output_.has_value();
+  }
+
+  void recordFrame(const Frame& frame, int64_t start_us) {
+    if (!output_.has_value()) {
+      return;
+    }
+    if (pending_.has_value()) {
+      const int64_t end_us = std::max(start_us, pending_->start_us + 1000);
+      *output_ << formatSrtCue(next_index_++, pending_->start_us, end_us, pending_->text);
+      fallback_duration_us_ = std::max<int64_t>(1000, end_us - pending_->start_us);
+      ++cue_count_;
+    }
+    pending_ = PendingCue{.start_us = start_us, .text = summariseFrameCaption(frame)};
+  }
+
+  void finish() {
+    if (!output_.has_value() || finished_) {
+      return;
+    }
+    if (pending_.has_value()) {
+      *output_ << formatSrtCue(next_index_++, pending_->start_us, pending_->start_us + fallback_duration_us_, pending_->text);
+      ++cue_count_;
+      pending_.reset();
+    }
+    output_->flush();
+    if (!*output_) {
+      throw std::runtime_error("failed to write captions file: " + path_->string());
+    }
+    finished_ = true;
+  }
+
+  int cueCount() const noexcept {
+    return cue_count_;
+  }
+
+  std::string pathString() const {
+    return path_.has_value() ? path_->string() : std::string{};
+  }
+
+ private:
+  struct PendingCue {
+    int64_t start_us = 0;
+    std::string text;
+  };
+
+  std::optional<std::filesystem::path> path_;
+  std::optional<std::ofstream> output_;
+  std::optional<PendingCue> pending_;
+  int64_t fallback_duration_us_ = 33333;
+  int next_index_ = 1;
+  int cue_count_ = 0;
+  bool finished_ = false;
+};
+
 }  // namespace
 
 int exportMedia(const CliOptions& options, Logger& logger) {
@@ -1190,8 +1275,12 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   int64_t frame_index = 0;
   int64_t exported_frames = 0;
   double last_timestamp = 0.0;
+  CaptionSidecarWriter caption_writer(options.captions_file, defaultCaptionDurationUs(options));
   const auto log_export = [&] {
     CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+    if (caption_writer.enabled()) {
+      CONTOURTTY_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
+    }
     if (logger.enabled()) {
       const int64_t shape_match_us = render_stats.shape_match_ns / 1000;
       const double avg_shape_match_ns = render_stats.shape_match_cells > 0
@@ -1221,6 +1310,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     }
     std::optional<Frame> second_frame = video_decoder.nextFrame();
     renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
     RasterImage raster = rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr);
     Mp4VideoWriter writer(output_path,
                           raster.width,
@@ -1232,17 +1322,21 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
     const auto write_mp4_frame = [&](const Frame& current_frame) {
       renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+      caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
       writer.writeFrame(rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr).rgb);
     };
     if (second_frame.has_value()) {
+      ++frame_index;
       write_mp4_frame(*second_frame);
       ++exported_frames;
     }
     while ((frame = video_decoder.nextFrame()).has_value()) {
+      ++frame_index;
       write_mp4_frame(*frame);
       ++exported_frames;
     }
     writer.finish();
+    caption_writer.finish();
     log_export();
     return 0;
   }
@@ -1282,6 +1376,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   const auto write_frame = [&](const Frame& current_frame) {
     renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
+    caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
     const std::optional<EmissionResult> emission = emit_cells(timestamp);
     if (emission.has_value()) {
       write_emission(timestamp, emission->bytes);
@@ -1290,6 +1385,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   temporal_state.reset();
   renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
   emitter.reset();
@@ -1319,7 +1415,33 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   if (!output) {
     throw std::runtime_error("failed to write export file: " + output_path.string());
   }
+  caption_writer.finish();
   log_export();
+  return 0;
+}
+
+int writeCaptionSidecar(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  if (!options.captions_file.has_value()) {
+    throw std::runtime_error("missing captions file");
+  }
+  VideoDecoder video_decoder(*options.input);
+  auto frame = video_decoder.nextFrame();
+  if (!frame.has_value()) {
+    throw std::runtime_error("input contains no video frames");
+  }
+  CaptionSidecarWriter caption_writer(options.captions_file, defaultCaptionDurationUs(options));
+  const int64_t first_pts_us = frame->pts_us;
+  int64_t frame_index = 0;
+  do {
+    caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
+    ++frame_index;
+    frame = video_decoder.nextFrame();
+  } while (frame.has_value());
+  caption_writer.finish();
+  CONTOURTTY_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
   return 0;
 }
 
