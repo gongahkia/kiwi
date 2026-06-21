@@ -111,7 +111,6 @@
 ## PHASE H — Render-graph refactor *(load-bearing for I–P)*
 *Doc: `PHASE_H.md`. Goal: turn `renderFrame()` into a typed DAG of Passes so later phases compose.*
 
-- [ ] **H1. Pass + RenderGraph types.** DoD: `src/render_graph.{hpp,cpp}` defines `Pass`, `PassPort`, `BufferDesc`, `Graph`, `PassContext`; topological sort + cycle detection covered by tests. Reference: PHASE_H §Types.
 - [ ] **H2. Lift existing pipeline into Passes.** DoD: `luminance`, `contrast`, `dog`, `sobel`, `edge-field`, `cell-average`, `cell-shape`, `shape-match`, `ramp-pick`, `halfblock`, `braille`, `emit` each register as a Pass; `renderer.cpp` shrinks to "build graph, run graph"; all existing golden-frame outputs byte-identical. Reference: PHASE_H §Migration.
 - [ ] **H3. CPU/GPU scheduler.** DoD: per-Pass backend choice is bound once at graph build, not per call; `--gpu` on a machine without Metal/Vulkan logs the fallback once and runs CPU; per-Pass backend dispatch visible in `--graph dump`. Reference: PHASE_H §Scheduler.
 - [ ] **H4. Config-driven graph composition.** DoD: `pipeline=structure` in config file produces the same result as `--mode structure` on the CLI; `--pipeline NAME` overrides config. Reference: PHASE_H §Composition.

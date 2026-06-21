@@ -87,6 +87,7 @@ add_executable(contourtty
   src/media_probe.cpp
   src/png_writer.cpp
   src/player.cpp
+  src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
   src/structure_edges.cpp
@@ -468,6 +469,30 @@ else()
   endif()
 endif()
 add_test(NAME render_layout COMMAND render_layout_tests)
+
+add_executable(render_graph_tests
+  tests/render_graph_tests.cpp
+  src/render_graph.cpp
+)
+target_include_directories(render_graph_tests PRIVATE src)
+target_compile_features(render_graph_tests PRIVATE cxx_std_20)
+set_target_properties(render_graph_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(render_graph_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(render_graph_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(render_graph_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(render_graph_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME render_graph COMMAND render_graph_tests)
 
 add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
