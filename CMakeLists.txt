@@ -75,6 +75,7 @@ endif()
 add_executable(contourtty
   src/ansi.cpp
   src/auto_mode.cpp
+  src/asciinema_in.cpp
   src/base64.cpp
   src/bandwidth_guard.cpp
   src/block_sad.cpp
@@ -1310,6 +1311,30 @@ else()
   endif()
 endif()
 add_test(NAME stdin_data COMMAND stdin_data_tests)
+
+add_executable(asciinema_in_tests
+  tests/asciinema_in_tests.cpp
+  src/asciinema_in.cpp
+)
+target_include_directories(asciinema_in_tests PRIVATE src)
+target_compile_features(asciinema_in_tests PRIVATE cxx_std_20)
+set_target_properties(asciinema_in_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(asciinema_in_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(asciinema_in_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(asciinema_in_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(asciinema_in_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME asciinema_in COMMAND asciinema_in_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
