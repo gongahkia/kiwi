@@ -33,6 +33,7 @@ mkdir -p "$(dirname "$out")"
   printf '.nf\n'
   printf 'contourtty --mode structure movie.mp4\n'
   printf 'contourtty --width 120 --height 40 --color-mode 256 stream.m3u8\n'
+  printf 'contourtty --export out.mp4 --mode structure movie.mp4\n'
   printf 'contourtty --export out.cast --mode structure movie.mp4\n'
   printf '.fi\n'
   printf '.SH FILES\n'

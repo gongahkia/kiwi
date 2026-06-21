@@ -88,8 +88,6 @@
 ## PHASE G — Performance, polish, release
 *Doc: `PHASE_G.md`. Status: partial.*
 
-- [ ] **G3. MP4 export rasterisation.** DoD: the MP4 plays in a normal player and shows the ASCII rendering with audio muxed. Reference: PHASE_G §ExportMP4.
-  - ANSI and asciinema export work; MP4 path currently silent + rasterisation stub. Unblocks once Phase I ships FreeType (`GlyphFont` rasteriser) and is shared via Phase N's `raster_compose`.
 - [x] **G4. Asciinema + raw ANSI export.** Shipped.
 - [x] **G5. Config file + defaults.** Shipped (`$XDG_CONFIG_HOME/contourtty/config`).
 - [~] **G6. Golden-frame regression tests.** DoD: tests run in CI and catch regressions for every mode. Reference: PHASE_G §Tests.
@@ -100,7 +98,7 @@
   - README + CONTRIBUTING + man page exist; v2 features will land their own README updates in Phase P. Open: refresh hero GIF after Phase P.
 - [ ] **G10. Publish honest benchmark numbers.** DoD: numbers reproducible from documented commands; linked from README. Reference: PHASE_G §Bench.
   - BENCHMARKS.md scaffolded with current numbers. Open: full sweep across all modes/styles/backends in PHASE_P §Bench.
-- [ ] **Phase G exit criteria → tag `v1.0`.** Deferred — `v1.0` now gates on PHASE_P exit. PHASE_G exit is partial: SIMD remaining, MP4 rasterisation remaining, hosted CI remaining.
+- [ ] **Phase G exit criteria → tag `v1.0`.** Deferred — `v1.0` now gates on PHASE_P exit. PHASE_G exit is partial: full golden coverage, hosted release artifacts, final docs/demo refresh, final benchmark sweep, and hosted CI remain.
 
 ### Cross-cutting (from G)
 - [~] **X1. Memory safety.** DoD: ASan + UBSan clean in CI on the decode+render path.

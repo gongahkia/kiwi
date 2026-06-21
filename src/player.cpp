@@ -55,10 +55,12 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
+#include <libavutil/channel_layout.h>
 #include <libavutil/error.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/samplefmt.h>
 #include <libswscale/swscale.h>
 }
 
@@ -616,9 +618,54 @@ const AVCodec* chooseMp4Encoder() {
   throw std::runtime_error("no MP4-compatible video encoder found");
 }
 
+const AVCodec* chooseMp4AudioEncoder() {
+  if (const AVCodec* encoder = avcodec_find_encoder(AV_CODEC_ID_AAC)) {
+    return encoder;
+  }
+  throw std::runtime_error("no MP4-compatible AAC audio encoder found");
+}
+
+bool audioSampleFormatSupported(const AVCodec* codec, AVSampleFormat format) {
+#if LIBAVCODEC_VERSION_MAJOR >= 61
+  const void* configs = nullptr;
+  int config_count = 0;
+  const int result = avcodec_get_supported_config(nullptr, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, &configs, &config_count);
+  if (result >= 0 && configs != nullptr && config_count > 0) {
+    const auto* formats = static_cast<const AVSampleFormat*>(configs);
+    for (int i = 0; i < config_count; ++i) {
+      if (formats[i] == format) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return true;
+#else
+  if (codec->sample_fmts == nullptr) {
+    return true;
+  }
+  for (const AVSampleFormat* candidate = codec->sample_fmts; *candidate != AV_SAMPLE_FMT_NONE; ++candidate) {
+    if (*candidate == format) {
+      return true;
+    }
+  }
+  return false;
+#endif
+}
+
+AVSampleFormat chooseAudioSampleFormat(const AVCodec* codec) {
+  if (audioSampleFormatSupported(codec, AV_SAMPLE_FMT_FLTP)) {
+    return AV_SAMPLE_FMT_FLTP;
+  }
+  if (audioSampleFormatSupported(codec, AV_SAMPLE_FMT_FLT)) {
+    return AV_SAMPLE_FMT_FLT;
+  }
+  throw std::runtime_error("AAC encoder does not support float audio samples");
+}
+
 class Mp4VideoWriter {
  public:
-  Mp4VideoWriter(const std::filesystem::path& path, int width, int height, double fps) {
+  Mp4VideoWriter(const std::filesystem::path& path, int width, int height, double fps, const DecodedAudio* audio) {
     AVFormatContext* raw_format_context = nullptr;
     throwFfmpegError("could not allocate MP4 output", avformat_alloc_output_context2(&raw_format_context, nullptr, "mp4", path.string().c_str()));
     if (raw_format_context == nullptr) {
@@ -658,6 +705,7 @@ class Mp4VideoWriter {
     throwFfmpegError("could not open MP4 encoder", avcodec_open2(codec_context_.get(), encoder_, nullptr));
     throwFfmpegError("could not copy MP4 encoder parameters", avcodec_parameters_from_context(stream_->codecpar, codec_context_.get()));
     stream_->time_base = codec_context_->time_base;
+    initAudio(audio);
 
     if ((format_context_->oformat->flags & AVFMT_NOFILE) == 0) {
       throwFfmpegError("could not open MP4 output file", avio_open(&format_context_->pb, path.string().c_str(), AVIO_FLAG_WRITE));
@@ -677,6 +725,21 @@ class Mp4VideoWriter {
     if (packet_ == nullptr) {
       throw std::runtime_error("could not allocate MP4 packet");
     }
+    if (audio_codec_context_ != nullptr) {
+      audio_frame_.reset(av_frame_alloc());
+      if (audio_frame_ == nullptr) {
+        throw std::runtime_error("could not allocate MP4 audio frame");
+      }
+      audio_frame_->format = audio_codec_context_->sample_fmt;
+      audio_frame_->sample_rate = audio_codec_context_->sample_rate;
+      audio_frame_->nb_samples = audio_frame_samples_;
+      throwFfmpegError("could not copy MP4 audio frame layout", av_channel_layout_copy(&audio_frame_->ch_layout, &audio_codec_context_->ch_layout));
+      throwFfmpegError("could not allocate MP4 audio frame buffer", av_frame_get_buffer(audio_frame_.get(), 0));
+      audio_packet_.reset(av_packet_alloc());
+      if (audio_packet_ == nullptr) {
+        throw std::runtime_error("could not allocate MP4 audio packet");
+      }
+    }
     sws_context_.reset(sws_getContext(width, height, AV_PIX_FMT_RGB24, width, height, codec_context_->pix_fmt, SWS_BILINEAR, nullptr, nullptr, nullptr));
     if (sws_context_ == nullptr) {
       throw std::runtime_error("could not create MP4 RGB converter");
@@ -695,16 +758,124 @@ class Mp4VideoWriter {
       throw std::runtime_error("could not convert MP4 RGB frame");
     }
     frame_->pts = next_pts_++;
-    encode(frame_.get());
+    encodeVideo(frame_.get());
+    writeAudioThroughVideoTime();
   }
 
   void finish() {
-    encode(nullptr);
+    encodeVideo(nullptr);
+    writeRemainingAudio();
+    encodeAudio(nullptr);
     throwFfmpegError("could not write MP4 trailer", av_write_trailer(format_context_.get()));
   }
 
  private:
-  void encode(AVFrame* frame) {
+  void initAudio(const DecodedAudio* audio) {
+    if (audio == nullptr || audio->samples.empty()) {
+      return;
+    }
+    if (audio->sample_rate <= 0 || audio->channels <= 0) {
+      throw std::runtime_error("invalid decoded audio for MP4 export");
+    }
+    audio_ = audio;
+    audio_encoder_ = chooseMp4AudioEncoder();
+    audio_stream_ = avformat_new_stream(format_context_.get(), nullptr);
+    if (audio_stream_ == nullptr) {
+      throw std::runtime_error("could not create MP4 audio stream");
+    }
+    audio_codec_context_.reset(avcodec_alloc_context3(audio_encoder_));
+    if (audio_codec_context_ == nullptr) {
+      throw std::runtime_error("could not allocate MP4 audio encoder context");
+    }
+    audio_codec_context_->codec_id = audio_encoder_->id;
+    audio_codec_context_->codec_type = AVMEDIA_TYPE_AUDIO;
+    audio_codec_context_->sample_rate = audio->sample_rate;
+    audio_codec_context_->sample_fmt = chooseAudioSampleFormat(audio_encoder_);
+    audio_codec_context_->bit_rate = std::max<int64_t>(64000, static_cast<int64_t>(audio->channels) * 64000);
+    audio_codec_context_->time_base = AVRational{1, audio->sample_rate};
+    av_channel_layout_default(&audio_codec_context_->ch_layout, audio->channels);
+    if ((format_context_->oformat->flags & AVFMT_GLOBALHEADER) != 0) {
+      audio_codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+    throwFfmpegError("could not open MP4 audio encoder", avcodec_open2(audio_codec_context_.get(), audio_encoder_, nullptr));
+    throwFfmpegError("could not copy MP4 audio encoder parameters", avcodec_parameters_from_context(audio_stream_->codecpar, audio_codec_context_.get()));
+    audio_stream_->time_base = audio_codec_context_->time_base;
+    audio_frame_samples_ = audio_codec_context_->frame_size > 0 ? audio_codec_context_->frame_size : 1024;
+  }
+
+  std::size_t audioTotalSampleFrames() const {
+    if (audio_ == nullptr || audio_->channels <= 0) {
+      return 0;
+    }
+    return audio_->samples.size() / static_cast<std::size_t>(audio_->channels);
+  }
+
+  bool writeOneAudioFrame() {
+    if (audio_ == nullptr || audio_codec_context_ == nullptr || audio_frame_ == nullptr) {
+      return false;
+    }
+    const std::size_t total_frames = audioTotalSampleFrames();
+    if (next_audio_sample_frame_ >= total_frames) {
+      return false;
+    }
+    const int remaining = static_cast<int>(std::min<std::size_t>(total_frames - next_audio_sample_frame_, static_cast<std::size_t>(audio_frame_samples_)));
+    const bool variable_frame_size = (audio_codec_context_->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0;
+    const int send_samples = variable_frame_size ? remaining : audio_frame_samples_;
+    audio_frame_->nb_samples = send_samples;
+    throwFfmpegError("could not make MP4 audio frame writable", av_frame_make_writable(audio_frame_.get()));
+    fillAudioFrame(remaining, send_samples);
+    audio_frame_->pts = next_audio_pts_;
+    next_audio_pts_ += send_samples;
+    next_audio_sample_frame_ += static_cast<std::size_t>(remaining);
+    encodeAudio(audio_frame_.get());
+    return true;
+  }
+
+  void fillAudioFrame(int actual_samples, int send_samples) {
+    const int channels = audio_codec_context_->ch_layout.nb_channels;
+    if (channels != audio_->channels) {
+      throw std::runtime_error("MP4 audio channel count mismatch");
+    }
+    if (audio_codec_context_->sample_fmt == AV_SAMPLE_FMT_FLTP) {
+      for (int channel = 0; channel < channels; ++channel) {
+        auto* dst = reinterpret_cast<float*>(audio_frame_->data[channel]);
+        for (int i = 0; i < send_samples; ++i) {
+          dst[i] = i < actual_samples ? audio_->samples[(next_audio_sample_frame_ + static_cast<std::size_t>(i)) * static_cast<std::size_t>(channels) + static_cast<std::size_t>(channel)] : 0.0F;
+        }
+      }
+      return;
+    }
+    if (audio_codec_context_->sample_fmt == AV_SAMPLE_FMT_FLT) {
+      auto* dst = reinterpret_cast<float*>(audio_frame_->data[0]);
+      for (int i = 0; i < send_samples; ++i) {
+        for (int channel = 0; channel < channels; ++channel) {
+          const std::size_t dst_index = static_cast<std::size_t>(i) * static_cast<std::size_t>(channels) + static_cast<std::size_t>(channel);
+          dst[dst_index] = i < actual_samples ? audio_->samples[(next_audio_sample_frame_ + static_cast<std::size_t>(i)) * static_cast<std::size_t>(channels) + static_cast<std::size_t>(channel)] : 0.0F;
+        }
+      }
+      return;
+    }
+    throw std::runtime_error("unsupported MP4 audio sample format");
+  }
+
+  void writeAudioThroughVideoTime() {
+    if (audio_ == nullptr || audio_codec_context_ == nullptr) {
+      return;
+    }
+    const double video_seconds = static_cast<double>(next_pts_) * static_cast<double>(codec_context_->time_base.num) / static_cast<double>(codec_context_->time_base.den);
+    const std::size_t target_frames = std::min(audioTotalSampleFrames(), static_cast<std::size_t>(std::ceil(video_seconds * static_cast<double>(audio_codec_context_->sample_rate))));
+    while (next_audio_sample_frame_ < target_frames) {
+      if (!writeOneAudioFrame()) {
+        return;
+      }
+    }
+  }
+
+  void writeRemainingAudio() {
+    while (writeOneAudioFrame()) {}
+  }
+
+  void encodeVideo(AVFrame* frame) {
     throwFfmpegError("could not send MP4 frame to encoder", avcodec_send_frame(codec_context_.get(), frame));
     while (true) {
       const int result = avcodec_receive_packet(codec_context_.get(), packet_.get());
@@ -719,6 +890,24 @@ class Mp4VideoWriter {
     }
   }
 
+  void encodeAudio(AVFrame* frame) {
+    if (audio_codec_context_ == nullptr) {
+      return;
+    }
+    throwFfmpegError("could not send MP4 audio frame to encoder", avcodec_send_frame(audio_codec_context_.get(), frame));
+    while (true) {
+      const int result = avcodec_receive_packet(audio_codec_context_.get(), audio_packet_.get());
+      if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
+        return;
+      }
+      throwFfmpegError("could not receive MP4 audio packet", result);
+      av_packet_rescale_ts(audio_packet_.get(), audio_codec_context_->time_base, audio_stream_->time_base);
+      audio_packet_->stream_index = audio_stream_->index;
+      throwFfmpegError("could not write MP4 audio packet", av_interleaved_write_frame(format_context_.get(), audio_packet_.get()));
+      av_packet_unref(audio_packet_.get());
+    }
+  }
+
   const AVCodec* encoder_ = nullptr;
   AVStream* stream_ = nullptr;
   OutputFormatContextPtr format_context_;
@@ -727,6 +916,15 @@ class Mp4VideoWriter {
   EncodePacketPtr packet_;
   ExportSwsContextPtr sws_context_;
   int64_t next_pts_ = 0;
+  const DecodedAudio* audio_ = nullptr;
+  const AVCodec* audio_encoder_ = nullptr;
+  AVStream* audio_stream_ = nullptr;
+  EncoderContextPtr audio_codec_context_;
+  EncodeFramePtr audio_frame_;
+  EncodePacketPtr audio_packet_;
+  int audio_frame_samples_ = 0;
+  int64_t next_audio_pts_ = 0;
+  std::size_t next_audio_sample_frame_ = 0;
 };
 
 constexpr int kExportCellPixelWidth = 8;
@@ -1024,12 +1222,21 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   };
 
   if (kind == ExportKind::Mp4) {
+    std::optional<DecodedAudio> export_audio;
+    try {
+      export_audio = decodeAudioFile(std::filesystem::path(*options.input));
+      CONTOURTTY_LOG_INFO(logger, "export audio decoded frames=" + std::to_string(export_audio->decoded_frames) +
+                                    " duration_us=" + std::to_string(export_audio->duration_us));
+    } catch (const NoAudioStreamError&) {
+      CONTOURTTY_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
+    }
     std::optional<Frame> second_frame = video_decoder.nextFrame();
     renderFrame(*frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
     Mp4VideoWriter writer(output_path,
                           cells.cols() * kExportCellPixelWidth,
                           cells.rows() * kExportCellPixelHeight,
-                          mp4ExportFps(options, *frame, second_frame));
+                          mp4ExportFps(options, *frame, second_frame),
+                          export_audio.has_value() ? &*export_audio : nullptr);
     writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode));
     ++exported_frames;
 

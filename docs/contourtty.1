@@ -1,4 +1,4 @@
-.TH CONTOURTTY 1 "2026-06-19" "contourtty 0.0.0" "User Commands"
+.TH CONTOURTTY 1 "2026-06-21" "contourtty 0.0.0" "User Commands"
 .SH NAME
 contourtty \- structure-aware ASCII terminal media renderer
 .SH SYNOPSIS
@@ -43,6 +43,8 @@ options:
   --log FILE                     write diagnostics to file
   --gpu                          request gpu analysis path
   --no-gpu                       disable config-default gpu request
+  --debug-stats                  show live fps/cpu/rss diagnostics
+  --no-debug-stats               disable config-default debug stats
   --export FILE                  render to output file
   --dump-frame N                 dump decoded frame N for diagnostics
   --dump-png FILE                write dumped frame as RGB PNG
@@ -56,6 +58,7 @@ Command-line flags override config values.
 .nf
 contourtty --mode structure movie.mp4
 contourtty --width 120 --height 40 --color-mode 256 stream.m3u8
+contourtty --export out.mp4 --mode structure movie.mp4
 contourtty --export out.cast --mode structure movie.mp4
 .fi
 .SH FILES
