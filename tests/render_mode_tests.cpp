@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <string>
+#include <vector>
 
 namespace {
 
@@ -18,9 +20,53 @@ contourtty::CliOptions options(std::string render_mode) {
   return opts;
 }
 
+void expectResolution(const contourtty::RenderModeResolution& actual,
+                      contourtty::ResolvedRenderMode mode,
+                      contourtty::GraphicsProtocol protocol,
+                      bool degraded,
+                      const char* label) {
+  expect(actual.mode == mode, label);
+  expect(actual.protocol == protocol, label);
+  expect(actual.degraded_to_text == degraded, label);
+}
+
 }  // namespace
 
 int main() {
+  {
+    struct Case {
+      std::string requested;
+      contourtty::TerminalCaps caps;
+      contourtty::ResolvedRenderMode mode;
+      contourtty::GraphicsProtocol protocol;
+      bool degraded = false;
+      const char* label = "";
+    };
+    const std::vector<Case> cases {
+      Case{.requested = "text", .caps = {}, .mode = contourtty::ResolvedRenderMode::Text, .protocol = contourtty::GraphicsProtocol::None, .degraded = false, .label = "text/no-caps"},
+      Case{.requested = "text", .caps = contourtty::TerminalCaps{.kitty_graphics = true}, .mode = contourtty::ResolvedRenderMode::Text, .protocol = contourtty::GraphicsProtocol::None, .degraded = false, .label = "text/kitty"},
+      Case{.requested = "auto", .caps = {}, .mode = contourtty::ResolvedRenderMode::Text, .protocol = contourtty::GraphicsProtocol::None, .degraded = true, .label = "auto/no-caps"},
+      Case{.requested = "auto", .caps = contourtty::TerminalCaps{.kitty_graphics = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::Kitty, .degraded = false, .label = "auto/kitty"},
+      Case{.requested = "auto", .caps = contourtty::TerminalCaps{.sixel = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::Sixel, .degraded = false, .label = "auto/sixel"},
+      Case{.requested = "auto", .caps = contourtty::TerminalCaps{.iterm_inline = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::ITermInline, .degraded = false, .label = "auto/iterm"},
+      Case{.requested = "pixel", .caps = {}, .mode = contourtty::ResolvedRenderMode::Text, .protocol = contourtty::GraphicsProtocol::None, .degraded = true, .label = "pixel/no-caps"},
+      Case{.requested = "pixel", .caps = contourtty::TerminalCaps{.kitty_graphics = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::Kitty, .degraded = false, .label = "pixel/kitty"},
+      Case{.requested = "pixel", .caps = contourtty::TerminalCaps{.sixel = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::Sixel, .degraded = false, .label = "pixel/sixel"},
+      Case{.requested = "pixel", .caps = contourtty::TerminalCaps{.iterm_inline = true}, .mode = contourtty::ResolvedRenderMode::Pixel, .protocol = contourtty::GraphicsProtocol::ITermInline, .degraded = false, .label = "pixel/iterm"},
+      Case{.requested = "hybrid", .caps = {}, .mode = contourtty::ResolvedRenderMode::Text, .protocol = contourtty::GraphicsProtocol::None, .degraded = true, .label = "hybrid/no-caps"},
+      Case{.requested = "hybrid", .caps = contourtty::TerminalCaps{.kitty_graphics = true}, .mode = contourtty::ResolvedRenderMode::Hybrid, .protocol = contourtty::GraphicsProtocol::Kitty, .degraded = false, .label = "hybrid/kitty"},
+      Case{.requested = "hybrid", .caps = contourtty::TerminalCaps{.sixel = true}, .mode = contourtty::ResolvedRenderMode::Hybrid, .protocol = contourtty::GraphicsProtocol::Sixel, .degraded = false, .label = "hybrid/sixel"},
+      Case{.requested = "hybrid", .caps = contourtty::TerminalCaps{.iterm_inline = true}, .mode = contourtty::ResolvedRenderMode::Hybrid, .protocol = contourtty::GraphicsProtocol::ITermInline, .degraded = false, .label = "hybrid/iterm"},
+    };
+    for (const Case& test_case : cases) {
+      expectResolution(contourtty::resolveRenderMode(options(test_case.requested), test_case.caps),
+                       test_case.mode,
+                       test_case.protocol,
+                       test_case.degraded,
+                       test_case.label);
+    }
+  }
+
   {
     const auto resolved = contourtty::resolveRenderMode(options("text"), contourtty::TerminalCaps{.kitty_graphics = true});
     expect(resolved.mode == contourtty::ResolvedRenderMode::Text, "text stays text");

@@ -241,7 +241,7 @@
 - [ ] **P8. Benchmarks final sweep.** DoD: BENCHMARKS.md rows for every mode (luminance / structure-HoG / structure-SDF / octant / sextant / halfblock / braille / blocks / hatch / stipple / painterly / flow / pixel-Kitty) × 720p/1080p × CPU/GPU, with reproducible commands and ±10% repeatability. Reference: PHASE_P §Bench.
 - [ ] **P9. Demo assets.** DoD: `docs/v1.0-split-demo.gif`, `docs/v1.0-shader-demo.gif`, `docs/v1.0-scene-demo.gif` all in repo and linked from README. Reference: PHASE_P §Demo.
 - [~] **P10. Golden coverage for everything new.** DoD: every new style/mode/source/render-mode has at least one golden frame test; capability matrix parameterized test; OSD-driven render test via `--input-keys`. Reference: PHASE_P §Tests.
-  - `--input-keys TEXT` queues literal playback key bytes for automated PTY flows; `input_keys_smoke` drives OSD/style/mode/knob changes on a generated clip and asserts live-change logs. Open: full golden coverage across every new source/render-mode and capability matrix parameterization.
+  - `--input-keys TEXT` queues literal playback key bytes for automated PTY flows; `input_keys_smoke` drives OSD/style/mode/knob changes on a generated clip and asserts live-change logs. `render_mode_tests` now runs a request x capability matrix for text/auto/pixel/hybrid over no-graphics/Kitty/Sixel/iTerm. Open: full golden coverage across every new source/render-mode.
 - [ ] **Phase P exit criteria → tag `v1.0`.** DoD: OSD + split + snapshot ship; README is launch-quality; releases on GitHub + Homebrew + .deb; honest benchmarks published; CI green.
 
 ---
