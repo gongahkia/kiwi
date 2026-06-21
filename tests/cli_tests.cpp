@@ -246,6 +246,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--input-keys", "ism246q"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "input keys parse");
+    expect(parsed.options.input_keys.has_value() && *parsed.options.input_keys == "ism246q", "input keys stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--graph", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "graph dump parses");

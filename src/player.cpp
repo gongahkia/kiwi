@@ -530,6 +530,87 @@ class RuntimeDebugStats {
   int last_rows_ = 0;
 };
 
+void enqueueKeyboardBytes(std::string_view bytes) {
+  for (std::size_t i = 0; i < bytes.size(); ++i) {
+    if (bytes[i] == 'q' || bytes[i] == 'Q') {
+      g_pending_commands.push_back(PlaybackCommand::Quit);
+      continue;
+    }
+    if (bytes[i] == ' ') {
+      g_pending_commands.push_back(PlaybackCommand::TogglePause);
+      continue;
+    }
+    if (bytes[i] == 'i' || bytes[i] == 'I' || bytes[i] == 'o' || bytes[i] == 'O') {
+      g_pending_commands.push_back(PlaybackCommand::ToggleOsd);
+      continue;
+    }
+    if (bytes[i] == 's' || bytes[i] == 'S') {
+      g_pending_commands.push_back(PlaybackCommand::CycleStyle);
+      continue;
+    }
+    if (bytes[i] == 'm' || bytes[i] == 'M') {
+      g_pending_commands.push_back(PlaybackCommand::CycleMode);
+      continue;
+    }
+    if (bytes[i] == 'c' || bytes[i] == 'C') {
+      g_pending_commands.push_back(PlaybackCommand::CycleCharset);
+      continue;
+    }
+    if (bytes[i] == 'f' || bytes[i] == 'F') {
+      g_pending_commands.push_back(PlaybackCommand::CycleGlyphFeatures);
+      continue;
+    }
+    if (bytes[i] == 'g' || bytes[i] == 'G') {
+      g_pending_commands.push_back(PlaybackCommand::ToggleGpu);
+      continue;
+    }
+    if (bytes[i] == '1') {
+      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdDown);
+      continue;
+    }
+    if (bytes[i] == '2') {
+      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdUp);
+      continue;
+    }
+    if (bytes[i] == '3') {
+      g_pending_commands.push_back(PlaybackCommand::DogSigmaDown);
+      continue;
+    }
+    if (bytes[i] == '4') {
+      g_pending_commands.push_back(PlaybackCommand::DogSigmaUp);
+      continue;
+    }
+    if (bytes[i] == '5') {
+      g_pending_commands.push_back(PlaybackCommand::ContrastDown);
+      continue;
+    }
+    if (bytes[i] == '6') {
+      g_pending_commands.push_back(PlaybackCommand::ContrastUp);
+      continue;
+    }
+    if (bytes[i] == '\x1b' && i + 2 < bytes.size() && bytes[i + 1] == '[') {
+      if (bytes[i + 2] == 'D') {
+        g_pending_commands.push_back(PlaybackCommand::SeekBackward);
+        i += 2;
+        continue;
+      }
+      if (bytes[i + 2] == 'C') {
+        g_pending_commands.push_back(PlaybackCommand::SeekForward);
+        i += 2;
+        continue;
+      }
+    }
+  }
+}
+
+void enqueueScriptedInputKeys(const CliOptions& options, Logger& logger) {
+  if (!options.input_keys.has_value()) {
+    return;
+  }
+  enqueueKeyboardBytes(*options.input_keys);
+  CONTOURTTY_LOG_INFO(logger, "scripted input keys queued count=" + std::to_string(options.input_keys->size()));
+}
+
 PlaybackCommand pollKeyboardCommand() {
   if (!g_pending_commands.empty()) {
     const PlaybackCommand command = g_pending_commands.front();
@@ -551,76 +632,7 @@ PlaybackCommand pollKeyboardCommand() {
   if (n <= 0) {
     return PlaybackCommand::None;
   }
-  for (ssize_t i = 0; i < n; ++i) {
-    if (buffer[i] == 'q' || buffer[i] == 'Q') {
-      g_pending_commands.push_back(PlaybackCommand::Quit);
-      continue;
-    }
-    if (buffer[i] == ' ') {
-      g_pending_commands.push_back(PlaybackCommand::TogglePause);
-      continue;
-    }
-    if (buffer[i] == 'i' || buffer[i] == 'I' || buffer[i] == 'o' || buffer[i] == 'O') {
-      g_pending_commands.push_back(PlaybackCommand::ToggleOsd);
-      continue;
-    }
-    if (buffer[i] == 's' || buffer[i] == 'S') {
-      g_pending_commands.push_back(PlaybackCommand::CycleStyle);
-      continue;
-    }
-    if (buffer[i] == 'm' || buffer[i] == 'M') {
-      g_pending_commands.push_back(PlaybackCommand::CycleMode);
-      continue;
-    }
-    if (buffer[i] == 'c' || buffer[i] == 'C') {
-      g_pending_commands.push_back(PlaybackCommand::CycleCharset);
-      continue;
-    }
-    if (buffer[i] == 'f' || buffer[i] == 'F') {
-      g_pending_commands.push_back(PlaybackCommand::CycleGlyphFeatures);
-      continue;
-    }
-    if (buffer[i] == 'g' || buffer[i] == 'G') {
-      g_pending_commands.push_back(PlaybackCommand::ToggleGpu);
-      continue;
-    }
-    if (buffer[i] == '1') {
-      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdDown);
-      continue;
-    }
-    if (buffer[i] == '2') {
-      g_pending_commands.push_back(PlaybackCommand::EdgeThresholdUp);
-      continue;
-    }
-    if (buffer[i] == '3') {
-      g_pending_commands.push_back(PlaybackCommand::DogSigmaDown);
-      continue;
-    }
-    if (buffer[i] == '4') {
-      g_pending_commands.push_back(PlaybackCommand::DogSigmaUp);
-      continue;
-    }
-    if (buffer[i] == '5') {
-      g_pending_commands.push_back(PlaybackCommand::ContrastDown);
-      continue;
-    }
-    if (buffer[i] == '6') {
-      g_pending_commands.push_back(PlaybackCommand::ContrastUp);
-      continue;
-    }
-    if (buffer[i] == '\x1b' && i + 2 < n && buffer[i + 1] == '[') {
-      if (buffer[i + 2] == 'D') {
-        g_pending_commands.push_back(PlaybackCommand::SeekBackward);
-        i += 2;
-        continue;
-      }
-      if (buffer[i + 2] == 'C') {
-        g_pending_commands.push_back(PlaybackCommand::SeekForward);
-        i += 2;
-        continue;
-      }
-    }
-  }
+  enqueueKeyboardBytes(std::string_view(buffer, static_cast<std::size_t>(n)));
   if (g_pending_commands.empty()) {
     return PlaybackCommand::None;
   }
@@ -1837,6 +1849,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
   const LoadedImageGrid grid = loadImageGridTiles(options, logger);
   resetQuitFlag();
   g_pending_commands.clear();
+  enqueueScriptedInputKeys(options, logger);
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
@@ -2329,6 +2342,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
 
   resetQuitFlag();
   g_pending_commands.clear();
+  enqueueScriptedInputKeys(options, logger);
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
@@ -2513,6 +2527,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
 
   resetQuitFlag();
   g_pending_commands.clear();
+  enqueueScriptedInputKeys(options, logger);
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
@@ -2916,6 +2931,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   resetQuitFlag();
   g_pending_commands.clear();
+  enqueueScriptedInputKeys(options, logger);
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;

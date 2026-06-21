@@ -412,6 +412,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--dither",
           "--diff-oklab-eps",
           "--bandwidth-cap",
+          "--input-keys",
           "--log",
           "--export",
           "--still",
@@ -621,6 +622,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.bandwidth_cap_mb_s = *parsed;
+    } else if (flag == "--input-keys") {
+      if (value->empty()) {
+        result.error = "invalid value for --input-keys: expected key bytes";
+        return result;
+      }
+      result.options.input_keys = std::string(*value);
     } else if (flag == "--log") {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {

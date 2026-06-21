@@ -51,6 +51,7 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--no-line-ligatures", "disable config-default line ligatures"},
   {"--debug-stats", "show live fps/cpu/rss diagnostics"},
   {"--no-debug-stats", "disable config-default debug stats"},
+  {"--input-keys TEXT", "queue literal playback keys for test automation"},
   {"--graph dump|FILE.yaml", "print resolved graph or load graph file"},
   {"--split LEFT:RIGHT", "render two pipelines side-by-side with a draggable seam"},
   {"--grid CxR", "image contact sheet columns x rows"},
