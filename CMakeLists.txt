@@ -501,6 +501,35 @@ else()
 endif()
 add_test(NAME cli COMMAND cli_tests)
 
+add_executable(help_manpage_parity_tests
+  tests/help_manpage_parity_tests.cpp
+  src/cli.cpp
+  src/glyph_ramp.cpp
+  src/image_grid.cpp
+  src/scene_source.cpp
+  src/stdin_data.cpp
+)
+target_include_directories(help_manpage_parity_tests PRIVATE src)
+target_compile_definitions(help_manpage_parity_tests PRIVATE CONTOURTTY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_compile_features(help_manpage_parity_tests PRIVATE cxx_std_20)
+set_target_properties(help_manpage_parity_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(help_manpage_parity_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(help_manpage_parity_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(help_manpage_parity_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(help_manpage_parity_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME help_manpage_parity COMMAND help_manpage_parity_tests)
+
 add_executable(color_mode_tests
   tests/color_mode_tests.cpp
   src/color_mode.cpp

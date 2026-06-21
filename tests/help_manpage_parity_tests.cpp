@@ -1,0 +1,61 @@
+#include "cli.hpp"
+
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#ifndef CONTOURTTY_SOURCE_DIR
+#define CONTOURTTY_SOURCE_DIR "."
+#endif
+
+namespace {
+
+void expect(bool condition, const char* label) {
+  if (!condition) {
+    std::cerr << label << '\n';
+    std::exit(1);
+  }
+}
+
+std::vector<std::string> helpOptionLines() {
+  std::istringstream input(contourtty::helpText("contourtty"));
+  std::vector<std::string> lines;
+  std::string line;
+  bool in_options = false;
+  while (std::getline(input, line)) {
+    if (line == "options:") {
+      in_options = true;
+      continue;
+    }
+    if (in_options && line.starts_with("  --")) {
+      lines.push_back(line);
+    }
+  }
+  return lines;
+}
+
+std::string readFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  expect(static_cast<bool>(input), "man page opens");
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+}  // namespace
+
+int main() {
+  const std::string man = readFile(std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "docs" / "contourtty.1");
+  const std::vector<std::string> options = helpOptionLines();
+  expect(!options.empty(), "help exposes options");
+  for (const std::string& line : options) {
+    if (man.find(line) == std::string::npos) {
+      std::cerr << "missing manpage option: " << line << '\n';
+      return 1;
+    }
+  }
+}
