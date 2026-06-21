@@ -277,6 +277,29 @@ int main() {
   }
 
   {
+    const contourtty::Frame frame = frameFromPixels(4, 4, {
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+      gray(0), gray(0), gray(255), gray(255),
+    });
+    contourtty::CliOptions options;
+    options.mode = "structure";
+    options.line_ligatures = true;
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    options.edge_threshold = 0.01;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "2x2\n"
+                "9474:0,0,0:0,0,0|9474:255,255,255:0,0,0|\n"
+                "9474:0,0,0:0,0,0|9474:255,255,255:0,0,0|\n",
+                "line ligature golden frame");
+  }
+
+  {
     const contourtty::Frame frame = frameFromPixels(8, 8, {
       gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255), gray(255),
       gray(0), gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255),
@@ -351,6 +374,26 @@ int main() {
                 "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "octant auto structure overlay graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
+    options.mode = "octant";
+    options.structure_overlay = "on";
+    options.line_ligatures = true;
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "octant(cpu)  frame:RgbFrame -> base-cells:CellGlyphs\n"
+                "luminance(cpu)  frame:RgbFrame -> luminance:LuminanceField\n"
+                "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
+                "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
+                "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "line-ligatures(cpu)  cells:CellGlyphs -> ligature-cells:CellGlyphs\n"
+                "emit(cpu)  ligature-cells:CellGlyphs -> \n",
+                "line ligature graph dump golden");
   }
 
   {

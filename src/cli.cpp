@@ -160,7 +160,7 @@ std::optional<std::filesystem::path> defaultConfigPath() {
 }
 
 bool isConfigBooleanKey(std::string_view key) {
-  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats", "ramp-sort"});
+  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats", "ramp-sort", "line-ligatures"});
 }
 
 std::optional<bool> parseConfigBool(std::string_view value) {
@@ -280,6 +280,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
     }
     if (flag == "--no-gpu") {
       result.options.gpu = false;
+      continue;
+    }
+    if (flag == "--line-ligatures") {
+      result.options.line_ligatures = true;
+      continue;
+    }
+    if (flag == "--no-line-ligatures") {
+      result.options.line_ligatures = false;
       continue;
     }
     if (flag == "--debug-stats") {
@@ -605,6 +613,8 @@ std::string helpText(std::string_view program_name) {
       << "  --log FILE                     write diagnostics to file\n"
       << "  --gpu                          request gpu analysis path\n"
       << "  --no-gpu                       disable config-default gpu request\n"
+      << "  --line-ligatures               use box-drawing joins for structure edges\n"
+      << "  --no-line-ligatures            disable config-default line ligatures\n"
       << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
       << "  --no-debug-stats               disable config-default debug stats\n"
       << "  --graph dump                   print resolved render graph and exit\n"

@@ -239,6 +239,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--line-ligatures", "--no-line-ligatures"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "line ligature flags parse");
+    expect(!parsed.options.line_ligatures, "line ligature disable stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--graph", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "graph dump parses");

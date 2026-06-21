@@ -8,6 +8,7 @@
 #include "glyph_sdf.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
+#include "line_ligatures.hpp"
 #include "luminance.hpp"
 #include "octant_renderer.hpp"
 #include "render_graph.hpp"
@@ -163,6 +164,18 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu, Backend::Metal},
     });
   };
+  const auto append_line_ligatures = [&](std::vector<Pass>* passes) {
+    if (!options.line_ligatures || !overlay_enabled) {
+      return std::string("cells");
+    }
+    passes->push_back(Pass{
+      .id = "line-ligatures",
+      .inputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("ligature-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    return std::string("ligature-cells");
+  };
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {
@@ -178,7 +191,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       append_structure_analysis(&passes);
       append_structure_overlay(&passes, blitter_output);
     }
-    passes.push_back(emit_pass("cells"));
+    passes.push_back(emit_pass(append_line_ligatures(&passes)));
     return passes;
   }
   passes.push_back(luminance_pass());
@@ -197,7 +210,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     });
     append_structure_overlay(&passes, "base-cells");
-    passes.push_back(emit_pass("cells"));
+    passes.push_back(emit_pass(append_line_ligatures(&passes)));
     return passes;
   }
   passes.push_back(Pass{
@@ -526,6 +539,27 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto line_ligatures_pass = [&] {
+    return Pass{
+      .id = "line-ligatures",
+      .inputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("ligature-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        applyLineLigatures(cells);
+      },
+    };
+  };
+
+  const auto append_emit_after_overlay = [&](std::vector<Pass>* passes) {
+    if (options.line_ligatures) {
+      passes->push_back(line_ligatures_pass());
+      passes->push_back(emit_pass("ligature-cells"));
+    } else {
+      passes->push_back(emit_pass("cells"));
+    }
+  };
+
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {
     std::vector<Pass> passes;
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
@@ -536,8 +570,10 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       append_structure_analysis(&passes);
       passes.push_back(cell_shape_pass(blitter_output));
       passes.push_back(overlay_structure_pass(blitter_output));
+      append_emit_after_overlay(&passes);
+    } else {
+      passes.push_back(emit_pass("cells"));
     }
-    passes.push_back(emit_pass("cells"));
     run_graph(std::move(passes));
     finish_stats();
     return;
@@ -553,7 +589,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     passes.push_back(ramp_pick_pass("base-cells"));
     passes.push_back(cell_shape_pass("base-cells"));
     passes.push_back(overlay_structure_pass("base-cells"));
-    passes.push_back(emit_pass("cells"));
+    append_emit_after_overlay(&passes);
   } else {
     passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame)}));
     passes.push_back(ramp_pick_pass("cells"));
