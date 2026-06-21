@@ -4,10 +4,12 @@
 #include "player.hpp"
 #include "renderer.hpp"
 #include "stream_resolver.hpp"
+#include "terminal_caps.hpp"
 #include "terminal.hpp"
 
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -41,6 +43,18 @@ int runApp(int argc, char** argv) {
   if (parsed.options.log_file.has_value()) {
     logger = contourtty::Logger(*parsed.options.log_file);
     CONTOURTTY_LOG_INFO(logger, "logger initialized");
+  }
+
+  if (parsed.options.caps.has_value() || logger.enabled()) {
+    const std::optional<std::string> caps_override = parsed.options.caps.has_value() && *parsed.options.caps != "dump"
+                                                       ? parsed.options.caps
+                                                       : std::nullopt;
+    const auto caps = contourtty::detectTerminalCapsFromEnvironment(parsed.options.font_path, caps_override);
+    CONTOURTTY_LOG_INFO(logger, "terminal caps " + contourtty::summarizeTerminalCaps(caps));
+    if (parsed.options.caps.has_value() && *parsed.options.caps == "dump") {
+      std::cout << contourtty::formatTerminalCaps(caps);
+      return 0;
+    }
   }
 
   if (parsed.options.graph.has_value()) {

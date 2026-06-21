@@ -126,9 +126,8 @@
 ---
 
 ## PHASE J — Blitter ladder & Unicode 16
-*Doc: `PHASE_J.md`. Goal: octant/sextant/color-braille/blocks blitters, capability detection, structure overlay, line ligatures.*
+*Doc: `PHASE_J.md`. Goal: octant/sextant/color-braille/blocks blitters, structure overlay, line ligatures.*
 
-- [ ] **J1. `TerminalCaps` detection.** DoD: env + font-cmap + allowlist resolves caps in <5 ms; `--caps dump` prints the resolved struct; never issues escapes that require a response. Reference: PHASE_J §Caps.
 - [ ] **J2. Octant blitter.** DoD: `--mode octant` on a Unicode-16-capable terminal renders the circle test visibly rounder than halfblock and braille at the same grid; bit-order asserted by tests. Reference: PHASE_J §Octant.
 - [ ] **J3. Sextant blitter.** DoD: `--mode sextant` works on Unicode-13-capable terminals without octant fonts; mask→codepoint lookup table exhaustively tested. Reference: PHASE_J §Sextant.
 - [ ] **J4. `--mode auto` ladder resolver.** DoD: per-`(TERM_PROGRAM, font, --render-mode)` capability matrix in `docs/blitter-ladder.md` documents the resolved rung; parameterized tests cover the matrix. Reference: PHASE_J §AutoMode.

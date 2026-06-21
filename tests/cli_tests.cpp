@@ -178,6 +178,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--caps", "dump"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "caps dump parses");
+    expect(parsed.options.caps.has_value() && *parsed.options.caps == "dump", "caps dump stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--mode", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "mode rejects invalid value");

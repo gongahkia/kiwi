@@ -104,6 +104,7 @@ add_executable(contourtty
   src/structure_sampling.cpp
   src/stream_resolver.cpp
   src/terminal.cpp
+  src/terminal_caps.cpp
   src/video_decoder.cpp
 )
 target_include_directories(contourtty SYSTEM PRIVATE third_party)
@@ -911,6 +912,31 @@ else()
   endif()
 endif()
 add_test(NAME terminal COMMAND terminal_tests)
+
+add_executable(terminal_caps_tests
+  tests/terminal_caps_tests.cpp
+  src/terminal_caps.cpp
+)
+target_include_directories(terminal_caps_tests PRIVATE src)
+target_compile_features(terminal_caps_tests PRIVATE cxx_std_20)
+set_target_properties(terminal_caps_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(terminal_caps_tests PRIVATE PkgConfig::FREETYPE)
+if(MSVC)
+  target_compile_options(terminal_caps_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(terminal_caps_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(terminal_caps_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(terminal_caps_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME terminal_caps COMMAND terminal_caps_tests)
 
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
