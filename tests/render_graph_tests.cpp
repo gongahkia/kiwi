@@ -143,4 +143,43 @@ int main() {
     expect(graph.ordered.front().backend == contourtty::Backend::Cpu, "backend fallback picks supported preferred backend");
     expect(graph.dump() == "gpu-capable(cpu)   -> x:Custom\n", "deterministic graph dump");
   }
+
+  {
+    std::vector<contourtty::Pass> passes;
+    passes.push_back(contourtty::Pass{
+      .id = "gpu-capable",
+      .outputs = {port("x", contourtty::BufferKind::Custom)},
+      .supports = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+    });
+    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{
+      .backend_preference = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+      .available_backends = {contourtty::Backend::Cpu},
+    });
+    expect(graph.ordered.front().backend == contourtty::Backend::Cpu, "unavailable requested gpu falls back to cpu");
+  }
+
+  {
+    std::vector<contourtty::Pass> passes;
+    passes.push_back(contourtty::Pass{
+      .id = "gpu-capable",
+      .outputs = {port("x", contourtty::BufferKind::Custom)},
+      .supports = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+    });
+    passes.push_back(contourtty::Pass{
+      .id = "cpu-only",
+      .inputs = {port("x", contourtty::BufferKind::Custom)},
+      .outputs = {port("y", contourtty::BufferKind::Custom)},
+      .supports = {contourtty::Backend::Cpu},
+    });
+    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{
+      .backend_preference = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+      .available_backends = {contourtty::Backend::Cpu, contourtty::Backend::Metal},
+    });
+    expect(graph.ordered[0].backend == contourtty::Backend::Metal, "gpu-capable pass binds metal");
+    expect(graph.ordered[1].backend == contourtty::Backend::Cpu, "cpu-only pass stays cpu");
+    expect(graph.dump() ==
+             "gpu-capable(metal)   -> x:Custom\n"
+             "cpu-only(cpu)  x:Custom -> y:Custom\n",
+           "per-pass backend dump");
+  }
 }

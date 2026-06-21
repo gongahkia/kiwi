@@ -92,6 +92,7 @@ struct Pass {
 struct GraphBuildOptions {
   std::vector<std::string> external_inputs;
   std::vector<Backend> backend_preference = {Backend::Cpu};
+  std::vector<Backend> available_backends = {Backend::Cpu};
 };
 
 struct Graph {

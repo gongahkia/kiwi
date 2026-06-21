@@ -84,9 +84,13 @@ int renderWorkerCount(int cols, int rows) {
 
 GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
   GraphBuildOptions graph_options;
-  graph_options.backend_preference = options.gpu && gpuSobelAvailable()
+  graph_options.backend_preference = options.gpu
                                        ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
                                        : std::vector<Backend>{Backend::Cpu};
+  graph_options.available_backends = {Backend::Cpu};
+  if (gpuSobelAvailable()) {
+    graph_options.available_backends.push_back(Backend::Metal);
+  }
   return graph_options;
 }
 

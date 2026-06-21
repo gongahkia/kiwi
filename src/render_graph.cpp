@@ -23,21 +23,24 @@ bool containsBackend(std::span<const Backend> backends, Backend backend) {
   return std::find(backends.begin(), backends.end(), backend) != backends.end();
 }
 
-Backend chooseBackend(const Pass& pass, std::span<const Backend> preference) {
+Backend chooseBackend(const Pass& pass, std::span<const Backend> preference, std::span<const Backend> available) {
   if (pass.supports.empty()) {
     return Backend::Cpu;
   }
   for (const Backend backend : preference) {
-    if (backend != Backend::Auto && containsBackend(pass.supports, backend)) {
+    if (backend != Backend::Auto && containsBackend(pass.supports, backend) && containsBackend(available, backend)) {
       return backend;
     }
   }
   for (const Backend backend : pass.supports) {
-    if (backend != Backend::Auto) {
+    if (backend != Backend::Auto && containsBackend(available, backend)) {
       return backend;
     }
   }
-  return Backend::Cpu;
+  if (containsBackend(pass.supports, Backend::Cpu)) {
+    return Backend::Cpu;
+  }
+  throw GraphError("no available backend for pass: " + pass.id);
 }
 
 std::string describePort(const PassPort& port) {
@@ -141,7 +144,7 @@ Graph buildGraph(std::vector<Pass> passes, const GraphBuildOptions& options) {
     if (!pass_ids.insert(pass.id).second) {
       throw GraphError("duplicate pass id: " + pass.id);
     }
-    pass.backend = chooseBackend(pass, options.backend_preference);
+    pass.backend = chooseBackend(pass, options.backend_preference, options.available_backends);
     for (const PassPort& output : pass.outputs) {
       if (output.name.empty()) {
         throw GraphError("pass output name must not be empty: " + pass.id);

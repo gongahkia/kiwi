@@ -109,9 +109,8 @@
 ---
 
 ## PHASE H — Render-graph refactor *(load-bearing for I–P)*
-*Doc: `PHASE_H.md`. Status: graph core, renderer lift, config composition, graph dump, and graph tests done; scheduler fallback proof remains.*
+*Doc: `PHASE_H.md`. Status: graph core, renderer lift, config composition, graph dump, graph tests, and scheduler fallback proof done; exit criteria remains.*
 
-- [ ] **H3. CPU/GPU scheduler.** DoD: per-Pass backend choice is bound once at graph build, not per call; `--gpu` on a machine without Metal/Vulkan logs the fallback once and runs CPU; per-Pass backend dispatch visible in `--graph dump`. Reference: PHASE_H §Scheduler.
 - [ ] **Phase H exit criteria.** DoD: all current modes resolve to a graph; output byte-identical to v0.5; new Passes can be added in one file without modifying `renderer.cpp`.
 
 ---
