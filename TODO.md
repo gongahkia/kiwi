@@ -130,7 +130,8 @@
 ## PHASE K — Stylized NPR modes
 *Doc: `PHASE_K.md`. Goal: painterly / hatch / stipple / flow styles.*
 
-- [ ] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
+- [~] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
+  - `--style stipple` ships with a deterministic 64x64 rank tile and dot glyph pass. Open: replace generated hash-rank tile with checked-in void-and-cluster tile; add braille/octant sub-cell carriers.
 - [ ] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
 - [ ] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.
 - [ ] **K7. Style → Pass composition.** DoD: `--graph dump` for each `--style` shows the documented Pass insertion; `--style` is single-valued; multiple styles via `--graph file.yaml`. Reference: PHASE_K §StyleComposition.

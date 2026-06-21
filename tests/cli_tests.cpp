@@ -286,6 +286,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "stipple"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "stipple style parses");
+    expect(parsed.options.style == "stipple", "stipple style stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--style", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "style rejects invalid value");

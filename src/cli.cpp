@@ -414,7 +414,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.mode = std::string(*value);
     } else if (flag == "--style") {
-      if (!isOneOf(*value, {"none", "painterly", "hatch"})) {
+      if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple"})) {
         result.error = "invalid value for --style: " + std::string(*value);
         return result;
       }
@@ -614,7 +614,7 @@ std::string helpText(std::string_view program_name) {
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"
-      << "  --style {none|painterly|hatch}\n"
+      << "  --style {none|painterly|hatch|stipple}\n"
       << "  --render-mode {auto|text|pixel|hybrid}\n"
       << "  --structure-overlay {auto|on|off}\n"
       << "  --pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}\n"

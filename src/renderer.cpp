@@ -17,6 +17,7 @@
 #include "render_graph.hpp"
 #include "render_layout.hpp"
 #include "sextant_renderer.hpp"
+#include "stipple.hpp"
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
@@ -88,6 +89,10 @@ bool hatchStyleEnabled(const CliOptions& options) {
   return options.style == "hatch";
 }
 
+bool stippleStyleEnabled(const CliOptions& options) {
+  return options.style == "stipple";
+}
+
 int renderWorkerCount(int cols, int rows) {
   if (rows < 2 || cols * rows < 1024) {
     return 1;
@@ -124,6 +129,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const bool painterly_enabled = painterlyStyleEnabled(options);
   const bool hatch_enabled = hatchStyleEnabled(options);
+  const bool stipple_enabled = stippleStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   const auto decode_pass = [] {
     return Pass{
@@ -217,6 +223,21 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     });
     return std::string("ligature-cells");
   };
+  const auto append_stipple = [&](std::vector<Pass>* passes, const std::string& input) {
+    if (!stipple_enabled) {
+      return input;
+    }
+    passes->push_back(Pass{
+      .id = "stipple",
+      .inputs = {renderPort(input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("stipple-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    return std::string("stipple-cells");
+  };
+  const auto emit_styled = [&](std::vector<Pass>* passes, const std::string& input) {
+    passes->push_back(emit_pass(append_stipple(passes, input)));
+  };
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
   if (painterly_enabled) {
@@ -240,7 +261,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       append_structure_analysis(&passes);
       append_structure_overlay(&passes, blitter_output);
     }
-    passes.push_back(emit_pass(append_line_ligatures(&passes)));
+    emit_styled(&passes, append_line_ligatures(&passes));
     return passes;
   }
   passes.push_back(luminance_pass());
@@ -259,7 +280,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     });
     append_structure_overlay(&passes, "base-cells");
-    passes.push_back(emit_pass(append_line_ligatures(&passes)));
+    emit_styled(&passes, append_line_ligatures(&passes));
     return passes;
   }
   passes.push_back(Pass{
@@ -274,7 +295,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
     .supports = {Backend::Cpu},
   });
-  passes.push_back(emit_pass("cells"));
+  emit_styled(&passes, "cells");
   return passes;
 }
 
@@ -304,6 +325,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const bool painterly_enabled = painterlyStyleEnabled(options);
   const bool hatch_enabled = hatchStyleEnabled(options);
+  const bool stipple_enabled = stippleStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   Frame styled_frame;
   const Frame* render_frame = &frame;
@@ -652,12 +674,27 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   };
 
   const auto append_emit_after_overlay = [&](std::vector<Pass>* passes) {
-    if (options.line_ligatures) {
+    const auto append_stipple_pass = [&](std::string input) {
+      if (!stipple_enabled) {
+        return input;
+      }
+      passes->push_back(Pass{
+        .id = "stipple",
+        .inputs = {renderPort(input, BufferKind::CellGlyphs)},
+        .outputs = {renderPort("stipple-cells", BufferKind::CellGlyphs)},
+        .supports = {Backend::Cpu},
+        .run = [&](PassContext&) {
+          applyStipple(cells);
+        },
+      });
+      return std::string("stipple-cells");
+    };
+    std::string output = "cells";
+    if (options.line_ligatures && overlay_enabled) {
       passes->push_back(line_ligatures_pass());
-      passes->push_back(emit_pass("ligature-cells"));
-    } else {
-      passes->push_back(emit_pass("cells"));
+      output = "ligature-cells";
     }
+    passes->push_back(emit_pass(append_stipple_pass(output)));
   };
 
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {
@@ -679,7 +716,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       }
       append_emit_after_overlay(&passes);
     } else {
-      passes.push_back(emit_pass("cells"));
+      append_emit_after_overlay(&passes);
     }
     run_graph(std::move(passes));
     finish_stats();
@@ -707,7 +744,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   } else {
     passes.push_back(cell_average_pass({renderPort(frame_input, BufferKind::RgbFrame)}));
     passes.push_back(ramp_pick_pass("cells"));
-    passes.push_back(emit_pass("cells"));
+    append_emit_after_overlay(&passes);
   }
 
   run_graph(std::move(passes));

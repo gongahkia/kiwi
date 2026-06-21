@@ -474,6 +474,19 @@ int main() {
 
   {
     contourtty::CliOptions options;
+    options.style = "stipple";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "luminance(cpu)  frame:RgbFrame -> luminance:LuminanceField\n"
+                "cell-average(cpu)  frame:RgbFrame -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
+                "stipple(cpu)  cells:CellGlyphs -> stipple-cells:CellGlyphs\n"
+                "emit(cpu)  stipple-cells:CellGlyphs -> \n",
+                "stipple graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
     options.mode = "structure";
     options.etf_iters = 2;
     expectEqual(contourtty::dumpRenderGraph(options),

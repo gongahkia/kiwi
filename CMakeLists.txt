@@ -107,6 +107,7 @@ add_executable(contourtty
   src/render_layout.cpp
   src/renderer.cpp
   src/sextant_renderer.cpp
+  src/stipple.cpp
   src/structure_edges.cpp
   src/structure_overlay.cpp
   src/structure_sampling.cpp
@@ -750,6 +751,7 @@ add_executable(golden_frame_tests
   src/render_layout.cpp
   src/renderer.cpp
   src/sextant_renderer.cpp
+  src/stipple.cpp
   src/structure_edges.cpp
   src/structure_overlay.cpp
   src/structure_sampling.cpp
@@ -849,6 +851,31 @@ else()
   endif()
 endif()
 add_test(NAME crosshatch COMMAND crosshatch_tests)
+
+add_executable(stipple_tests
+  tests/stipple_tests.cpp
+  src/luminance.cpp
+  src/stipple.cpp
+)
+target_include_directories(stipple_tests PRIVATE src)
+target_compile_features(stipple_tests PRIVATE cxx_std_20)
+set_target_properties(stipple_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(stipple_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(stipple_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(stipple_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(stipple_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME stipple COMMAND stipple_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
