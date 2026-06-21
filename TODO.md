@@ -91,7 +91,7 @@
 - [x] **G4. Asciinema + raw ANSI export.** Shipped.
 - [x] **G5. Config file + defaults.** Shipped (`$XDG_CONFIG_HOME/contourtty/config`).
 - [~] **G6. Golden-frame regression tests.** DoD: tests run in CI and catch regressions for every mode. Reference: PHASE_G §Tests.
-  - Local goldens exist for luminance, structure, halfblock, braille. Open: extend to every Phase I–O mode/style; gate CI on them once billing unblocks.
+  - Local goldens exist for luminance, structure, halfblock, braille, and blocks. Open: extend to every Phase I–O mode/style; gate CI on them once billing unblocks.
 - [~] **G7. Packaging.** DoD: a user on a fresh machine can install and run with documented steps. Reference: PHASE_G §Packaging.
   - CPack TGZ + Linux DEB + tag-driven release workflow + head-only Homebrew formula present locally. Open: hosted artifact build (Actions billing blocks); Homebrew versioned bottle; static-FFmpeg link for self-contained releases (moves into PHASE_P §Packaging).
 - [ ] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
@@ -121,7 +121,6 @@
 
 - [~] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
   - FreeType `--font` path, overlap/HoG/SDF table input, and MP4 glyph raster input are working; Phase N `raster_compose` consumer is still pending.
-- [ ] **I8. SAD block-element picker.** DoD: `--mode blocks` uses precomputed bitmap SAD across `░▒▓█` + quadrants; visibly closer to source than ramp-only on still images. Reference: PHASE_I §BlockSAD.
 - [ ] **I9. Glyph-science tests + bench.** DoD: `glyph_font_tests`, `glyph_hog_tests`, `glyph_sdf_tests`, `kd_tree_tests` all pass; BENCHMARKS.md rows for HoG vs overlap vs SDF, curated-set sweep, per-cell ns. Reference: PHASE_I §Tests / §Bench.
 - [ ] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
 
@@ -137,7 +136,6 @@
 - [ ] **J5. Color braille.** DoD: `--mode braille --color-mode truecolor` enables fg/bg color on braille glyphs; mono behaviour preserved when `--mono`. Reference: PHASE_J §BrailleColor.
 - [ ] **J6. Structure overlay as orthogonal Pass.** DoD: `--mode octant --structure-overlay on` overlays contour glyphs on the octant fill; works on every blitter; `--structure-overlay auto` defaults sensibly. Reference: PHASE_J §StructureOverlay.
 - [ ] **J7. Line ligatures.** DoD: `--line-ligatures` swaps `/\|-` for box-drawing joins where adjacent cells form a continuous edge; rotated-rectangle clip shows continuous box-drawing borders. Reference: PHASE_J §LineLigatures.
-- [ ] **J8. `--mode blocks` wired to SAD picker.** DoD: `--mode blocks` reuses Phase I §BlockSAD; goldens added. Reference: PHASE_J §Mode.
 - [ ] **J9. Blitter tests + bench.** DoD: `terminal_caps_tests`, `octant_renderer_tests`, `sextant_renderer_tests` all pass; BENCHMARKS.md gains octant/sextant/blocks rows. Reference: PHASE_J §Tests / §Bench.
 - [ ] **Phase J exit criteria.** DoD: ladder resolution documented and tested; octant + sextant blitters ship; structure overlay composes with all blitters.
 

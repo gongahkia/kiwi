@@ -74,6 +74,7 @@ endif()
 
 add_executable(contourtty
   src/ansi.cpp
+  src/block_sad.cpp
   src/braille_renderer.cpp
   src/cli.cpp
   src/color_dither.cpp
@@ -592,6 +593,32 @@ else()
 endif()
 add_test(NAME halfblock_renderer COMMAND halfblock_renderer_tests)
 
+add_executable(block_sad_tests
+  tests/block_sad_tests.cpp
+  src/block_sad.cpp
+  src/frame_sampling.cpp
+  src/luminance.cpp
+)
+target_include_directories(block_sad_tests PRIVATE src)
+target_compile_features(block_sad_tests PRIVATE cxx_std_20)
+set_target_properties(block_sad_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(block_sad_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(block_sad_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(block_sad_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(block_sad_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME block_sad COMMAND block_sad_tests)
+
 add_executable(render_layout_tests
   tests/render_layout_tests.cpp
   src/render_layout.cpp
@@ -642,6 +669,7 @@ add_test(NAME render_graph COMMAND render_graph_tests)
 
 add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
+  src/block_sad.cpp
   src/braille_renderer.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp

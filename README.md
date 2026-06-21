@@ -57,7 +57,7 @@ Camera inputs: use `--input cam` for the platform default (`avfoundation` on mac
 
 Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized.
 
-`--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals.
+`--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals. `--mode blocks` uses SAD over shade and quadrant block glyph bitmaps for 2x2 subcell luminance detail.
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
@@ -78,8 +78,8 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
-| `--mode luminance\|structure\|halfblock` | Select renderer. |
-| `--pipeline luminance\|structure\|halfblock` | Select a render-graph preset; overrides config `pipeline`. |
+| `--mode luminance\|structure\|halfblock\|blocks` | Select renderer. |
+| `--pipeline luminance\|structure\|halfblock\|blocks` | Select a render-graph preset; overrides config `pipeline`. |
 | `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
 | `--glyph-features overlap\|hog\|sdf` | Select the structure shape-matching feature vector. |
 | `--ramp-sort`, `--no-ramp-sort` | Sort the active ramp by FreeType ink density, or disable config-default sorting. |

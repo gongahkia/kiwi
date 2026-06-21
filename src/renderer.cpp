@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 
+#include "block_sad.hpp"
 #include "braille_renderer.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_hog.hpp"
@@ -104,6 +105,16 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   if (options.mode == "halfblock") {
     passes.push_back(Pass{
       .id = "halfblock",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes.push_back(emit_pass("cells"));
+    return passes;
+  }
+  if (options.mode == "blocks") {
+    passes.push_back(Pass{
+      .id = "blocks",
       .inputs = {renderPort("frame", BufferKind::RgbFrame)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
@@ -261,6 +272,23 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         renderHalfBlockFrame(frame, size.cols, size.rows, cells);
+      },
+    });
+    passes.push_back(emit_pass("cells"));
+    run_graph(std::move(passes));
+    finish_stats();
+    return;
+  }
+  if (options.mode == "blocks") {
+    std::vector<Pass> passes;
+    passes.push_back(decode_pass());
+    passes.push_back(Pass{
+      .id = "blocks",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        renderBlockSadFrame(frame, size.cols, size.rows, cells);
       },
     });
     passes.push_back(emit_pass("cells"));

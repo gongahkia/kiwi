@@ -114,6 +114,24 @@ int main() {
   }
 
   {
+    const contourtty::Frame frame = frameFromPixels(2, 2, {
+      gray(0), gray(255),
+      gray(255), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.mode = "blocks";
+    options.width = 1;
+    options.height = 1;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(frame, contourtty::kDefaultGlyphRamp, options, terminal(1, 1), nullptr, &cells);
+    expectEqual(serializeCells(cells),
+                "1x1\n"
+                "9630:127,127,127:0,0,0|\n",
+                "blocks golden frame");
+  }
+
+  {
     const contourtty::Frame frame = frameFromPixels(2, 4, {
       gray(255), gray(0),
       gray(0), gray(0),
@@ -214,6 +232,16 @@ int main() {
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "luminance graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
+    options.mode = "blocks";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "blocks(cpu)  frame:RgbFrame -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "blocks graph dump golden");
   }
 
   {

@@ -75,6 +75,10 @@ void applyPipeline(std::string_view value, CliOptions* options) {
     options->mode = "halfblock";
     return;
   }
+  if (value == "blocks") {
+    options->mode = "blocks";
+    return;
+  }
   options->mode = std::string(value);
 }
 
@@ -368,13 +372,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       }
       result.options.max_fps = *parsed;
     } else if (flag == "--mode") {
-      if (!isOneOf(*value, {"luminance", "structure", "halfblock"})) {
+      if (!isOneOf(*value, {"luminance", "structure", "halfblock", "blocks"})) {
         result.error = "invalid value for --mode: " + std::string(*value);
         return result;
       }
       result.options.mode = std::string(*value);
     } else if (flag == "--pipeline") {
-      if (!isOneOf(*value, {"luminance", "structure", "halfblock"})) {
+      if (!isOneOf(*value, {"luminance", "structure", "halfblock", "blocks"})) {
         result.error = "invalid value for --pipeline: " + std::string(*value);
         return result;
       }
@@ -542,8 +546,8 @@ std::string helpText(std::string_view program_name) {
       << "  --no-fit                       disable config-default fit\n"
       << "  --fps N                        override source fps\n"
       << "  --max-fps N                    cap render fps\n"
-      << "  --mode {luminance|structure|halfblock}\n"
-      << "  --pipeline {luminance|structure|halfblock}\n"
+      << "  --mode {luminance|structure|halfblock|blocks}\n"
+      << "  --pipeline {luminance|structure|halfblock|blocks}\n"
       << "  --font PATH                    use FreeType font for glyph analysis/export\n"
       << "  --glyph-features {overlap|hog|sdf}\n"
       << "  --ramp-sort                    sort glyph ramp by FreeType ink density\n"
