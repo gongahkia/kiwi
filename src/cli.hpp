@@ -55,6 +55,7 @@ struct CliOptions {
   std::optional<std::string> grid;
   std::optional<std::string> plot;
   std::optional<std::string> overlay;
+  std::optional<std::string> captions_file;
   int plot_window = 256;
   double plot_rate_hz = 30.0;
   std::string scene_camera = "turntable";

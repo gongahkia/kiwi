@@ -365,6 +365,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--grid",
           "--plot",
           "--overlay",
+          "--captions",
           "--plot-window",
           "--plot-rate",
           "--scene-camera",
@@ -590,6 +591,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.overlay = std::string(*value);
+    } else if (flag == "--captions") {
+      if (value->empty()) {
+        result.error = "invalid value for --captions: expected output path";
+        return result;
+      }
+      result.options.captions_file = std::string(*value);
     } else if (flag == "--plot-window") {
       const auto parsed = parsePositiveInt(*value);
       if (!parsed.has_value()) {
@@ -747,6 +754,7 @@ std::string helpText(std::string_view program_name) {
       << "  --grid CxR                     image contact sheet columns x rows\n"
       << "  --plot {waveform|spectrum|heatmap}\n"
       << "  --overlay PATH|SOURCE          overlay a second source over input\n"
+      << "  --captions FILE.srt            write deterministic sidecar captions\n"
       << "  --plot-window N                stdin plot rolling sample count\n"
       << "  --plot-rate N                  stdin plot refresh rate in Hz\n"
       << "  --scene-camera {turntable|orbit|fly}\n"

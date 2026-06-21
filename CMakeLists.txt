@@ -80,6 +80,7 @@ add_executable(contourtty
   src/bandwidth_guard.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/captions.cpp
   src/cli.cpp
   src/color_dither.cpp
   src/color_mode.cpp
@@ -1337,6 +1338,30 @@ else()
   endif()
 endif()
 add_test(NAME asciinema_in COMMAND asciinema_in_tests)
+
+add_executable(caption_summarise_tests
+  tests/caption_summarise_tests.cpp
+  src/captions.cpp
+)
+target_include_directories(caption_summarise_tests PRIVATE src)
+target_compile_features(caption_summarise_tests PRIVATE cxx_std_20)
+set_target_properties(caption_summarise_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(caption_summarise_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(caption_summarise_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(caption_summarise_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(caption_summarise_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME caption_summarise COMMAND caption_summarise_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

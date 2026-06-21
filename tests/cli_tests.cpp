@@ -308,6 +308,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--captions", "out.srt"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "captions parses");
+    expect(parsed.options.captions_file.has_value() && *parsed.options.captions_file == "out.srt", "captions stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--captions", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "captions rejects empty");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--scene-camera", "orbit"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "scene camera parses");
