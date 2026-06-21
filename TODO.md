@@ -214,8 +214,8 @@
   - `contourtty:scene:cube` resolves to an installed OBJ asset; `--scene-camera turntable|orbit|fly` parses. Open: bundled Suzanne, `cell-shade` style, and scene playback source.
 - [~] **O5. Multi-source overlay.** DoD: `--input video.mp4 --overlay scene.obj` composes scene over video with depth-threshold alpha. Reference: PHASE_O §Pipeline.
   - `--overlay PATH|SOURCE` parses and stores a second source. Open: multi-source graph composition and depth-threshold alpha.
-- [~] **O6. Caption sidecar.** DoD: `--captions out.srt` writes a deterministic, time-aligned SubRip summary track; covered by golden test. Reference: PHASE_O §Captions.
-  - `--captions FILE.srt` parses; export and caption-only runs write deterministic frame-summary SRT cues from source PTS or `--fps`; `caption_summarise_tests` cover deterministic summaries and SRT formatting. Open: checked-in golden clip.
+- [x] **O6. Caption sidecar.** DoD: `--captions out.srt` writes a deterministic, time-aligned SubRip summary track; covered by golden test. Reference: PHASE_O §Captions.
+  - `--captions FILE.srt` parses; export and caption-only runs write deterministic frame-summary SRT cues from source PTS or `--fps`; `caption_summarise_tests` cover deterministic summaries, SRT formatting, and a literal two-cue SRT golden.
 - [~] **O7. Content-path tests + bench.** DoD: `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, `caption_summarise_tests` all pass; stdin plot fps and asciinema replay overhead in BENCHMARKS.md. Reference: PHASE_O §Tests / §Bench.
   - `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, and `caption_summarise_tests` pass locally. Open: stdin plot fps and asciinema replay overhead bench.
 - [ ] **Phase O exit criteria.** DoD: all four new `--input` types work end-to-end; no regression in video/camera/stream playback.

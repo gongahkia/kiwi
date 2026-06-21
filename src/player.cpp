@@ -1165,7 +1165,7 @@ int64_t defaultCaptionDurationUs(const CliOptions& options) {
 class CaptionSidecarWriter {
  public:
   CaptionSidecarWriter(const std::optional<std::string>& path, int64_t fallback_duration_us)
-      : fallback_duration_us_(std::max<int64_t>(1000, fallback_duration_us)) {
+      : builder_(fallback_duration_us) {
     if (!path.has_value()) {
       return;
     }
@@ -1184,24 +1184,15 @@ class CaptionSidecarWriter {
     if (!output_.has_value()) {
       return;
     }
-    if (pending_.has_value()) {
-      const int64_t end_us = std::max(start_us, pending_->start_us + 1000);
-      *output_ << formatSrtCue(next_index_++, pending_->start_us, end_us, pending_->text);
-      fallback_duration_us_ = std::max<int64_t>(1000, end_us - pending_->start_us);
-      ++cue_count_;
-    }
-    pending_ = PendingCue{.start_us = start_us, .text = summariseFrameCaption(frame)};
+    builder_.recordFrame(frame, start_us);
   }
 
   void finish() {
     if (!output_.has_value() || finished_) {
       return;
     }
-    if (pending_.has_value()) {
-      *output_ << formatSrtCue(next_index_++, pending_->start_us, pending_->start_us + fallback_duration_us_, pending_->text);
-      ++cue_count_;
-      pending_.reset();
-    }
+    const std::string srt = builder_.finish();
+    output_->write(srt.data(), static_cast<std::streamsize>(srt.size()));
     output_->flush();
     if (!*output_) {
       throw std::runtime_error("failed to write captions file: " + path_->string());
@@ -1210,7 +1201,7 @@ class CaptionSidecarWriter {
   }
 
   int cueCount() const noexcept {
-    return cue_count_;
+    return builder_.cueCount();
   }
 
   std::string pathString() const {
@@ -1218,17 +1209,9 @@ class CaptionSidecarWriter {
   }
 
  private:
-  struct PendingCue {
-    int64_t start_us = 0;
-    std::string text;
-  };
-
   std::optional<std::filesystem::path> path_;
   std::optional<std::ofstream> output_;
-  std::optional<PendingCue> pending_;
-  int64_t fallback_duration_us_ = 33333;
-  int next_index_ = 1;
-  int cue_count_ = 0;
+  CaptionSrtBuilder builder_;
   bool finished_ = false;
 };
 

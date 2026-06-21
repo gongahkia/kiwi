@@ -1,6 +1,7 @@
 #include "captions.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -69,6 +70,39 @@ std::string formatSrtCue(int index, int64_t start_us, int64_t end_us, const std:
       << formatSrtTimestamp(start_us) << " --> " << formatSrtTimestamp(end_us) << '\n'
       << text << "\n\n";
   return out.str();
+}
+
+CaptionSrtBuilder::CaptionSrtBuilder(int64_t fallback_duration_us)
+    : fallback_duration_us_(std::max<int64_t>(1000, fallback_duration_us)) {}
+
+void CaptionSrtBuilder::recordFrame(const Frame& frame, int64_t start_us) {
+  if (finished_) {
+    throw std::logic_error("cannot append to finished caption track");
+  }
+  if (pending_.has_value()) {
+    const int64_t end_us = std::max(start_us, pending_->start_us + 1000);
+    srt_ += formatSrtCue(next_index_++, pending_->start_us, end_us, pending_->text);
+    fallback_duration_us_ = std::max<int64_t>(1000, end_us - pending_->start_us);
+    ++cue_count_;
+  }
+  pending_ = PendingCue{.start_us = start_us, .text = summariseFrameCaption(frame)};
+}
+
+std::string CaptionSrtBuilder::finish() {
+  if (finished_) {
+    return srt_;
+  }
+  if (pending_.has_value()) {
+    srt_ += formatSrtCue(next_index_++, pending_->start_us, pending_->start_us + fallback_duration_us_, pending_->text);
+    pending_.reset();
+    ++cue_count_;
+  }
+  finished_ = true;
+  return srt_;
+}
+
+int CaptionSrtBuilder::cueCount() const noexcept {
+  return cue_count_;
 }
 
 }  // namespace contourtty
