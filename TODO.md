@@ -198,7 +198,7 @@
 - [~] **N7. Hybrid pixel/text alignment.** DoD: vertical overlay `|` on uniform region produces a line aligned to within ±1 px of the cell-column boundary in screen captures. Reference: PHASE_N §Hybrid.
   - `graphics_alignment_tests` lock raster-to-cell boundary math and ±1 px tolerance checks. Open: live hybrid screen-capture proof after player dispatch exists.
 - [~] **N8. Graphics-protocol tests + bench.** DoD: `kitty_graphics_tests`, `sixel_tests`, `iterm_inline_tests`, `render_mode_tests` all pass; bytes/frame and fps recorded per protocol in BENCHMARKS.md. Reference: PHASE_N §Tests / §Bench.
-  - `kitty_graphics_tests`, `iterm_inline_tests`, `render_mode_tests`, and `graphics_emitter_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, inline PNG payloads, caps-to-mode resolution, and cell-raster graphics emission. Open: Sixel tests plus bytes/frame and fps bench.
+  - `kitty_graphics_tests`, `iterm_inline_tests`, `render_mode_tests`, and `graphics_emitter_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, inline PNG payloads, caps-to-mode resolution, and cell-raster graphics emission. BENCHMARKS.md records Kitty pixel, iTerm pixel, and Kitty hybrid bytes/frame + fps rows. Open: Sixel tests and Sixel bench blocked by absent libsixel tooling.
 - [ ] **Phase N exit criteria → tag `v0.95`.** DoD: `pixel` mode on Kitty runs at full source resolution; `hybrid` shows contour sharpness vs pixel-only; `text` default unchanged.
 
 ---
