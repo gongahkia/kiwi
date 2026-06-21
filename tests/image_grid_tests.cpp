@@ -23,6 +23,10 @@ void touch(const fs::path& path) {
   out << "x";
 }
 
+int pixelR(const contourtty::Frame& frame, int x, int y) {
+  return frame.rgb[(static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3U];
+}
+
 }  // namespace
 
 int main() {
@@ -60,6 +64,23 @@ int main() {
     expect(tiles.size() == 2, "tile layout caps to slots");
     expect(tiles[0].col == 0 && tiles[0].row == 0, "first tile position");
     expect(tiles[1].col == 1 && tiles[1].row == 0, "second tile position");
+  }
+
+  {
+    const contourtty::Frame red{.w = 1, .h = 1, .rgb = {255, 0, 0}, .pts_us = 10};
+    const contourtty::Frame blue{.w = 1, .h = 1, .rgb = {0, 0, 255}, .pts_us = 20};
+    const contourtty::Frame sheet = contourtty::composeImageGridFrame({red, blue}, contourtty::ImageGridSpec{.cols = 2, .rows = 1}, 2, 2, 30);
+    expect(sheet.w == 4 && sheet.h == 2, "sheet dimensions");
+    expect(sheet.pts_us == 30, "sheet pts");
+    expect(pixelR(sheet, 0, 0) == 255, "first tile copied");
+    expect(pixelR(sheet, 2, 0) == 0, "second tile copied");
+  }
+
+  {
+    const contourtty::Frame wide{.w = 2, .h = 1, .rgb = {255, 0, 0, 255, 0, 0}};
+    const contourtty::Frame sheet = contourtty::composeImageGridFrame({wide}, contourtty::ImageGridSpec{.cols = 1, .rows = 1}, 4, 4);
+    expect(pixelR(sheet, 0, 0) == 0, "letterbox top row remains blank");
+    expect(pixelR(sheet, 0, 1) == 255, "letterboxed image centered");
   }
 
   fs::remove_all(root);
