@@ -983,6 +983,30 @@ else()
 endif()
 add_test(NAME scene_source COMMAND scene_source_tests)
 
+add_executable(optical_flow_tests
+  tests/optical_flow_tests.cpp
+  src/optical_flow.cpp
+)
+target_include_directories(optical_flow_tests PRIVATE src)
+target_compile_features(optical_flow_tests PRIVATE cxx_std_20)
+set_target_properties(optical_flow_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(optical_flow_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(optical_flow_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(optical_flow_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(optical_flow_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME optical_flow COMMAND optical_flow_tests)
+
 add_executable(media_input_tests
   tests/media_input_tests.cpp
   src/media_input.cpp

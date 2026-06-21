@@ -164,7 +164,7 @@
 *Doc: `PHASE_M.md`. Goal: kill ASCII shimmer.*
 
 - [ ] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
-- [ ] **M2. Optical flow on working luminance.** DoD: `src/optical_flow.{hpp,cpp}` block-matching produces vec2 displacements per coarse block; correct on synthetic translations; ~0 on static frames. Reference: PHASE_M §Flow.
+- [x] **M2. Optical flow on working luminance.** DoD: `src/optical_flow.{hpp,cpp}` block-matching produces vec2 displacements per coarse block; correct on synthetic translations; ~0 on static frames. Reference: PHASE_M §Flow.
 - [ ] **M3. Flow-warped history.** DoD: `warp-history` Pass warps previous-frame glyph/shape-vector buffers by flow; pan-induced flicker drops below the §Hysteresis-only baseline. Reference: PHASE_M §Flow.
 - [ ] **M4. Temporal supersampling.** DoD: `--temporal-supersample N` decodes at N× source fps when source <30 fps; emits at source fps; cleaner orientations recorded on cube clip at the cost of ~1.5× decode CPU. Reference: PHASE_M §Supersample.
 - [ ] **M5. OKLab Δ diff threshold.** DoD: `--diff-oklab-eps` filters sub-perceptual SGR re-emits; bytes-per-frame on the pan clip drops 20–40% vs v0.5 with visuals unchanged within tolerance. Reference: PHASE_M §EmitDeltaOklab.
