@@ -1236,6 +1236,10 @@ class SceneOverlaySource {
     if (!options.overlay.has_value()) {
       return;
     }
+    options_ = DepthOverlayOptions{
+      .alpha = options.overlay_alpha,
+      .depth_threshold = options.overlay_depth_threshold,
+    };
     const std::string& overlay = *options.overlay;
     std::optional<std::filesystem::path> path = resolveBundledScene(overlay);
     if (!path.has_value()) {
@@ -1261,12 +1265,13 @@ class SceneOverlaySource {
       return base;
     }
     const SceneGBuffer overlay = renderSceneGBuffer(*mesh_, SceneRenderOptions{.width = base.w, .height = base.h, .time_seconds = time_seconds});
-    return composeDepthOverlay(base, overlay);
+    return composeDepthOverlay(base, overlay, options_);
   }
 
  private:
   std::optional<SceneMesh> mesh_;
   std::string path_;
+  DepthOverlayOptions options_;
 };
 
 const Frame& frameWithOverlay(const Frame& base, const SceneOverlaySource& overlay_source, double time_seconds, std::optional<Frame>* storage) {

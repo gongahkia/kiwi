@@ -302,6 +302,20 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--overlay-alpha", "0.25", "--overlay-depth-threshold", "4.5"};
+    const auto parsed = contourtty::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "overlay controls parse");
+    expect(parsed.options.overlay_alpha == 0.25, "overlay alpha stored");
+    expect(parsed.options.overlay_depth_threshold == 4.5, "overlay depth threshold stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--overlay-alpha", "1.5"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "overlay alpha rejects above one");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--overlay", ""};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "overlay rejects empty");

@@ -121,6 +121,15 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--line-ligatures`, `--no-line-ligatures` | Use box-drawing joins for structure edges, or disable config-default joins. |
 | `--debug-stats`, `--no-debug-stats` | Show or hide live FPS, CPU, and RSS diagnostics during playback; samples are also written when `--log` is set. |
 | `--graph dump\|FILE.yaml` | Print the resolved render graph or load a graph file. |
+| `--grid CxR` | Render matched image inputs as a contact sheet. |
+| `--plot waveform\|spectrum\|heatmap` | Render numeric stdin as a data plot. |
+| `--overlay PATH\|SOURCE` | Overlay a scene source over the primary input. |
+| `--overlay-alpha N` | Scene overlay opacity, `0..1`. |
+| `--overlay-depth-threshold N` | Maximum scene depth blended over the primary input. |
+| `--captions FILE.srt` | Write deterministic frame-summary SubRip captions. |
+| `--plot-window N` | Rolling sample count for stdin plots. |
+| `--plot-rate N` | Refresh rate for stdin plots. |
+| `--scene-camera turntable\|orbit\|fly` | Select scene camera preset. |
 | `--caps dump\|SPEC` | Print or override terminal capability detection. |
 | `--export FILE` | Offline export to `.mp4`, `.ansi`, or `.cast`. |
 | `--still FILE.png` | Write one rendered PNG snapshot. |

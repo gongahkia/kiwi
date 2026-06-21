@@ -55,6 +55,8 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--grid CxR", "image contact sheet columns x rows"},
   {"--plot {waveform|spectrum|heatmap}", ""},
   {"--overlay PATH|SOURCE", "overlay a second source over input"},
+  {"--overlay-alpha N", "scene overlay opacity, 0..1"},
+  {"--overlay-depth-threshold N", "max scene depth blended over input"},
   {"--captions FILE.srt", "write deterministic sidecar captions"},
   {"--plot-window N", "stdin plot rolling sample count"},
   {"--plot-rate N", "stdin plot refresh rate in Hz"},

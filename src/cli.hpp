@@ -58,6 +58,8 @@ struct CliOptions {
   std::optional<std::string> grid;
   std::optional<std::string> plot;
   std::optional<std::string> overlay;
+  double overlay_alpha = 0.65;
+  double overlay_depth_threshold = 1.0e9;
   std::optional<std::string> captions_file;
   int plot_window = 256;
   double plot_rate_hz = 30.0;

@@ -7,6 +7,7 @@
 #include "stdin_data.hpp"
 
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -418,6 +419,8 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--grid",
           "--plot",
           "--overlay",
+          "--overlay-alpha",
+          "--overlay-depth-threshold",
           "--captions",
           "--plot-window",
           "--plot-rate",
@@ -657,6 +660,20 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.overlay = std::string(*value);
+    } else if (flag == "--overlay-alpha") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value() || !std::isfinite(*parsed) || *parsed > 1.0) {
+        result.error = "invalid value for --overlay-alpha: " + std::string(*value);
+        return result;
+      }
+      result.options.overlay_alpha = *parsed;
+    } else if (flag == "--overlay-depth-threshold") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value() || !std::isfinite(*parsed)) {
+        result.error = "invalid value for --overlay-depth-threshold: " + std::string(*value);
+        return result;
+      }
+      result.options.overlay_depth_threshold = *parsed;
     } else if (flag == "--captions") {
       if (value->empty()) {
         result.error = "invalid value for --captions: expected output path";
