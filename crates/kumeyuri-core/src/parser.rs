@@ -1,3 +1,5 @@
+//! Mermaid parser entry points and parse diagnostics.
+
 use crate::ast::{
     ArchitectureAlignAxis, ArchitectureAlignment, ArchitectureAst, ArchitectureEdge,
     ArchitectureEndpoint, ArchitectureGroup, ArchitectureHeader, ArchitectureJunction,
@@ -44,306 +46,502 @@ use crate::ast::{
     ZenUmlHeader, ZenUmlMessage, ZenUmlMessageKind, ZenUmlParticipant, ZenUmlStatement,
 };
 
+/// Stateless facade for parsing supported Mermaid diagram roots and fragments.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parser;
 
+/// Token category produced by the flowchart header lexer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlowchartHeaderTokenKind {
+    /// Flowchart or graph directive token.
     Directive(FlowchartDirective),
+    /// Direction token.
     Direction(Direction),
 }
 
+/// Token emitted by the flowchart header lexer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FlowchartHeaderToken {
+    /// Token kind.
     pub kind: FlowchartHeaderTokenKind,
+    /// Source span for the token.
     pub span: Span,
 }
 
+/// Machine-readable parse error category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseErrorKind {
+    /// Expected diagram header.
     ExpectedDiagramHeader,
+    /// Expected flowchart directive.
     ExpectedFlowchartDirective,
+    /// Expected flowchart direction.
     ExpectedFlowchartDirection,
+    /// Unknown flowchart directive.
     UnknownFlowchartDirective,
+    /// Unknown flowchart direction.
     UnknownFlowchartDirection,
+    /// Expected flow node id.
     ExpectedFlowNodeId,
+    /// Missing flow node shape.
     MissingFlowNodeShape,
+    /// Unknown flow node shape.
     UnknownFlowNodeShape,
+    /// Reserved flow node label.
     ReservedFlowNodeLabel,
+    /// Unterminated flow node shape.
     UnterminatedFlowNodeShape,
+    /// Expected flow edge.
     ExpectedFlowEdge,
+    /// Expected subgraph header.
     ExpectedSubgraphHeader,
+    /// Expected subgraph id.
     ExpectedSubgraphId,
+    /// Unterminated subgraph.
     UnterminatedSubgraph,
+    /// Unknown flow statement.
     UnknownFlowStatement,
+    /// Expected class def.
     ExpectedClassDef,
+    /// Expected class name.
     ExpectedClassName,
+    /// Expected style declaration.
     ExpectedStyleDeclaration,
+    /// Expected class statement.
     ExpectedClassStatement,
+    /// Expected class node.
     ExpectedClassNode,
+    /// Expected comment.
     ExpectedComment,
+    /// Expected directive.
     ExpectedDirective,
+    /// Unterminated directive.
     UnterminatedDirective,
+    /// Expected sequence header.
     ExpectedSequenceHeader,
+    /// Unknown sequence statement.
     UnknownSequenceStatement,
+    /// Expected sequence participant.
     ExpectedSequenceParticipant,
+    /// Expected sequence message.
     ExpectedSequenceMessage,
+    /// Expected state header.
     ExpectedStateHeader,
+    /// Unknown state statement.
     UnknownStateStatement,
+    /// Expected state id.
     ExpectedStateId,
+    /// Expected state transition.
     ExpectedStateTransition,
+    /// Expected class header.
     ExpectedClassHeader,
+    /// Unknown class statement.
     UnknownClassStatement,
+    /// Expected class member.
     ExpectedClassMember,
+    /// Expected class relationship.
     ExpectedClassRelationship,
+    /// Expected ER header.
     ExpectedErHeader,
+    /// Unknown ER statement.
     UnknownErStatement,
+    /// Expected ER entity.
     ExpectedErEntity,
+    /// Expected ER attribute.
     ExpectedErAttribute,
+    /// Expected ER relationship.
     ExpectedErRelationship,
+    /// Expected gantt header.
     ExpectedGanttHeader,
+    /// Unknown gantt statement.
     UnknownGanttStatement,
+    /// Expected gantt task.
     ExpectedGanttTask,
+    /// Expected gantt metadata.
     ExpectedGanttMetadata,
+    /// Expected pie header.
     ExpectedPieHeader,
+    /// Unknown pie statement.
     UnknownPieStatement,
+    /// Expected pie slice.
     ExpectedPieSlice,
+    /// Expected pie value.
     ExpectedPieValue,
+    /// Expected quadrant header.
     ExpectedQuadrantHeader,
+    /// Unknown quadrant statement.
     UnknownQuadrantStatement,
+    /// Expected quadrant axis.
     ExpectedQuadrantAxis,
+    /// Expected quadrant point.
     ExpectedQuadrantPoint,
+    /// Expected quadrant value.
     ExpectedQuadrantValue,
+    /// Expected ZenUML header.
     ExpectedZenUmlHeader,
+    /// Unknown ZenUML statement.
     UnknownZenUmlStatement,
+    /// Expected ZenUML participant.
     ExpectedZenUmlParticipant,
+    /// Expected ZenUML message.
     ExpectedZenUmlMessage,
+    /// Expected sankey header.
     ExpectedSankeyHeader,
+    /// Unknown sankey statement.
     UnknownSankeyStatement,
+    /// Expected sankey link.
     ExpectedSankeyLink,
+    /// Expected sankey value.
     ExpectedSankeyValue,
+    /// Expected XY chart header.
     ExpectedXyChartHeader,
+    /// Unknown XY chart statement.
     UnknownXyChartStatement,
+    /// Expected XY chart axis.
     ExpectedXyChartAxis,
+    /// Expected XY chart series.
     ExpectedXyChartSeries,
+    /// Expected XY chart value.
     ExpectedXyChartValue,
+    /// Expected block header.
     ExpectedBlockHeader,
+    /// Unknown block statement.
     UnknownBlockStatement,
+    /// Expected block node.
     ExpectedBlockNode,
+    /// Expected block edge.
     ExpectedBlockEdge,
+    /// Expected packet header.
     ExpectedPacketHeader,
+    /// Unknown packet statement.
     UnknownPacketStatement,
+    /// Expected packet field.
     ExpectedPacketField,
+    /// Expected packet range.
     ExpectedPacketRange,
+    /// Expected kanban header.
     ExpectedKanbanHeader,
+    /// Unknown kanban statement.
     UnknownKanbanStatement,
+    /// Expected kanban item.
     ExpectedKanbanItem,
+    /// Expected kanban metadata.
     ExpectedKanbanMetadata,
+    /// Expected architecture header.
     ExpectedArchitectureHeader,
+    /// Unknown architecture statement.
     UnknownArchitectureStatement,
+    /// Expected architecture node.
     ExpectedArchitectureNode,
+    /// Expected architecture edge.
     ExpectedArchitectureEdge,
+    /// Expected architecture side.
     ExpectedArchitectureSide,
+    /// Expected architecture alignment.
     ExpectedArchitectureAlignment,
+    /// Expected radar header.
     ExpectedRadarHeader,
+    /// Unknown radar statement.
     UnknownRadarStatement,
+    /// Expected radar axis.
     ExpectedRadarAxis,
+    /// Expected radar curve.
     ExpectedRadarCurve,
+    /// Expected radar value.
     ExpectedRadarValue,
+    /// Expected radar option.
     ExpectedRadarOption,
+    /// Expected event modeling header.
     ExpectedEventModelingHeader,
+    /// Unknown event modeling statement.
     UnknownEventModelingStatement,
+    /// Expected event modeling frame.
     ExpectedEventModelingFrame,
+    /// Expected event modeling entity type.
     ExpectedEventModelingEntityType,
+    /// Expected event modeling data.
     ExpectedEventModelingData,
+    /// Expected treemap header.
     ExpectedTreemapHeader,
+    /// Unknown treemap statement.
     UnknownTreemapStatement,
+    /// Expected treemap node.
     ExpectedTreemapNode,
+    /// Expected treemap value.
     ExpectedTreemapValue,
+    /// Expected venn header.
     ExpectedVennHeader,
+    /// Unknown venn statement.
     UnknownVennStatement,
+    /// Expected venn set.
     ExpectedVennSet,
+    /// Expected venn union.
     ExpectedVennUnion,
+    /// Expected venn text.
     ExpectedVennText,
+    /// Expected venn style.
     ExpectedVennStyle,
+    /// Expected venn value.
     ExpectedVennValue,
+    /// Expected ishikawa header.
     ExpectedIshikawaHeader,
+    /// Unknown ishikawa statement.
     UnknownIshikawaStatement,
+    /// Expected ishikawa event.
     ExpectedIshikawaEvent,
+    /// Expected ishikawa cause.
     ExpectedIshikawaCause,
+    /// Expected wardley header.
     ExpectedWardleyHeader,
+    /// Unknown wardley statement.
     UnknownWardleyStatement,
+    /// Expected wardley name.
     ExpectedWardleyName,
+    /// Expected wardley coord.
     ExpectedWardleyCoord,
+    /// Expected wardley value.
     ExpectedWardleyValue,
+    /// Expected wardley decorator.
     ExpectedWardleyDecorator,
+    /// Expected wardley link.
     ExpectedWardleyLink,
+    /// Expected tree view header.
     ExpectedTreeViewHeader,
+    /// Unknown tree view statement.
     UnknownTreeViewStatement,
+    /// Expected tree view node.
     ExpectedTreeViewNode,
+    /// Expected tree view annotation.
     ExpectedTreeViewAnnotation,
+    /// Expected mindmap header.
     ExpectedMindmapHeader,
+    /// Unknown mindmap statement.
     UnknownMindmapStatement,
+    /// Expected mindmap node.
     ExpectedMindmapNode,
+    /// Expected journey header.
     ExpectedJourneyHeader,
+    /// Unknown journey statement.
     UnknownJourneyStatement,
+    /// Expected journey task.
     ExpectedJourneyTask,
+    /// Expected journey score.
     ExpectedJourneyScore,
+    /// Expected git graph header.
     ExpectedGitGraphHeader,
+    /// Unknown git graph statement.
     UnknownGitGraphStatement,
+    /// Expected git graph name.
     ExpectedGitGraphName,
+    /// Expected git graph attribute.
     ExpectedGitGraphAttribute,
+    /// Expected git graph commit kind.
     ExpectedGitGraphCommitKind,
+    /// Expected timeline header.
     ExpectedTimelineHeader,
+    /// Unknown timeline statement.
     UnknownTimelineStatement,
+    /// Expected timeline period.
     ExpectedTimelinePeriod,
+    /// Expected timeline event.
     ExpectedTimelineEvent,
+    /// Expected requirement header.
     ExpectedRequirementHeader,
+    /// Unknown requirement statement.
     UnknownRequirementStatement,
+    /// Expected requirement name.
     ExpectedRequirementName,
+    /// Expected requirement field.
     ExpectedRequirementField,
+    /// Expected requirement relationship.
     ExpectedRequirementRelationship,
+    /// Expected requirement kind.
     ExpectedRequirementKind,
+    /// Expected requirement risk.
     ExpectedRequirementRisk,
+    /// Expected requirement verify method.
     ExpectedRequirementVerifyMethod,
+    /// Expected C4 header.
     ExpectedC4Header,
+    /// Unknown C4 statement.
     UnknownC4Statement,
+    /// Expected C4 call.
     ExpectedC4Call,
+    /// Expected C4 argument.
     ExpectedC4Argument,
+    /// Expected C4 name.
     ExpectedC4Name,
+    /// Expected C4 relationship.
     ExpectedC4Relationship,
+    /// Unterminated accessibility description.
     UnterminatedAccessibilityDescription,
+    /// Unsupported mermaid config.
     UnsupportedMermaidConfig,
+    /// Input remained after a complete parse.
     TrailingInput,
 }
 
+/// Parse error with category and source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
+    /// Error category.
     pub kind: ParseErrorKind,
+    /// Span where the error was detected.
     pub span: Span,
 }
 
 impl Parser {
+    /// Parse any supported Mermaid diagram.
     pub fn parse_diagram(source: &str) -> Result<Diagram, ParseError> {
         DiagramParser::new(source).parse()
     }
 
+    /// Parse a flowchart.
     pub fn parse_flowchart(source: &str) -> Result<FlowchartAst, ParseError> {
         DiagramParser::new(source).parse_flowchart_only()
     }
 
+    /// Parse a sequence.
     pub fn parse_sequence(source: &str) -> Result<SequenceAst, ParseError> {
         DiagramParser::new(source).parse_sequence_only()
     }
 
+    /// Parse a state.
     pub fn parse_state(source: &str) -> Result<StateAst, ParseError> {
         DiagramParser::new(source).parse_state_only()
     }
 
+    /// Parse a class.
     pub fn parse_class(source: &str) -> Result<ClassAst, ParseError> {
         DiagramParser::new(source).parse_class_only()
     }
 
+    /// Parse an ER diagram.
     pub fn parse_er(source: &str) -> Result<ErAst, ParseError> {
         DiagramParser::new(source).parse_er_only()
     }
 
+    /// Parse a gantt.
     pub fn parse_gantt(source: &str) -> Result<GanttAst, ParseError> {
         DiagramParser::new(source).parse_gantt_only()
     }
 
+    /// Parse a pie.
     pub fn parse_pie(source: &str) -> Result<PieAst, ParseError> {
         DiagramParser::new(source).parse_pie_only()
     }
 
+    /// Parse a quadrant.
     pub fn parse_quadrant(source: &str) -> Result<QuadrantAst, ParseError> {
         DiagramParser::new(source).parse_quadrant_only()
     }
 
+    /// Parse a ZenUML diagram.
     pub fn parse_zenuml(source: &str) -> Result<ZenUmlAst, ParseError> {
         DiagramParser::new(source).parse_zenuml_only()
     }
 
+    /// Parse a sankey.
     pub fn parse_sankey(source: &str) -> Result<SankeyAst, ParseError> {
         DiagramParser::new(source).parse_sankey_only()
     }
 
+    /// Parse an XY chart.
     pub fn parse_xy_chart(source: &str) -> Result<XyChartAst, ParseError> {
         DiagramParser::new(source).parse_xy_chart_only()
     }
 
+    /// Parse a block diagram.
     pub fn parse_block_diagram(source: &str) -> Result<BlockDiagramAst, ParseError> {
         DiagramParser::new(source).parse_block_only()
     }
 
+    /// Parse a packet.
     pub fn parse_packet(source: &str) -> Result<PacketAst, ParseError> {
         DiagramParser::new(source).parse_packet_only()
     }
 
+    /// Parse a kanban.
     pub fn parse_kanban(source: &str) -> Result<KanbanAst, ParseError> {
         DiagramParser::new(source).parse_kanban_only()
     }
 
+    /// Parse an architecture diagram.
     pub fn parse_architecture(source: &str) -> Result<ArchitectureAst, ParseError> {
         DiagramParser::new(source).parse_architecture_only()
     }
 
+    /// Parse a radar.
     pub fn parse_radar(source: &str) -> Result<RadarAst, ParseError> {
         DiagramParser::new(source).parse_radar_only()
     }
 
+    /// Parse an event modeling diagram.
     pub fn parse_event_modeling(source: &str) -> Result<EventModelingAst, ParseError> {
         DiagramParser::new(source).parse_event_modeling_only()
     }
 
+    /// Parse a treemap.
     pub fn parse_treemap(source: &str) -> Result<TreemapAst, ParseError> {
         DiagramParser::new(source).parse_treemap_only()
     }
 
+    /// Parse a Venn diagram.
     pub fn parse_venn(source: &str) -> Result<VennAst, ParseError> {
         DiagramParser::new(source).parse_venn_only()
     }
 
+    /// Parse an Ishikawa diagram.
     pub fn parse_ishikawa(source: &str) -> Result<IshikawaAst, ParseError> {
         DiagramParser::new(source).parse_ishikawa_only()
     }
 
+    /// Parse a Wardley map.
     pub fn parse_wardley(source: &str) -> Result<WardleyAst, ParseError> {
         DiagramParser::new(source).parse_wardley_only()
     }
 
+    /// Parse a tree view.
     pub fn parse_tree_view(source: &str) -> Result<TreeViewAst, ParseError> {
         DiagramParser::new(source).parse_tree_view_only()
     }
 
+    /// Parse a mindmap.
     pub fn parse_mindmap(source: &str) -> Result<MindmapAst, ParseError> {
         DiagramParser::new(source).parse_mindmap_only()
     }
 
+    /// Parse a journey.
     pub fn parse_journey(source: &str) -> Result<JourneyAst, ParseError> {
         DiagramParser::new(source).parse_journey_only()
     }
 
+    /// Parse a gitgraph.
     pub fn parse_gitgraph(source: &str) -> Result<GitGraphAst, ParseError> {
         DiagramParser::new(source).parse_gitgraph_only()
     }
 
+    /// Parse a timeline.
     pub fn parse_timeline(source: &str) -> Result<TimelineAst, ParseError> {
         DiagramParser::new(source).parse_timeline_only()
     }
 
+    /// Parse a requirement diagram.
     pub fn parse_requirement(source: &str) -> Result<RequirementAst, ParseError> {
         DiagramParser::new(source).parse_requirement_only()
     }
 
+    /// Parse a C4 diagram.
     pub fn parse_c4(source: &str) -> Result<C4Ast, ParseError> {
         DiagramParser::new(source).parse_c4_only()
     }
 
+    /// Lex a flowchart header into directive and direction tokens.
     pub fn lex_flowchart_header(source: &str) -> Result<Vec<FlowchartHeaderToken>, ParseError> {
         FlowchartHeaderLexer::new(source).lex()
     }
 
+    /// Parse a flowchart header.
     pub fn parse_flowchart_header(source: &str) -> Result<FlowchartHeader, ParseError> {
         let tokens = Self::lex_flowchart_header(source)?;
         let [directive, direction] = tokens.as_slice() else {
@@ -363,236 +561,294 @@ impl Parser {
         })
     }
 
+    /// Parse a flow node.
     pub fn parse_flow_node(source: &str) -> Result<FlowNode, ParseError> {
         FlowNodeParser::new(source).parse()
     }
 
+    /// Parse a flow edge.
     pub fn parse_flow_edge(source: &str) -> Result<FlowEdge, ParseError> {
         FlowEdgeParser::new(source).parse()
     }
 
+    /// Parse a flow subgraph.
     pub fn parse_flow_subgraph(source: &str) -> Result<FlowSubgraph, ParseError> {
         FlowSubgraphParser::new(source).parse()
     }
 
+    /// Parse a flow class def.
     pub fn parse_flow_class_def(source: &str) -> Result<FlowClassDef, ParseError> {
         FlowClassDefParser::new(source).parse()
     }
 
+    /// Parse a flow class apply.
     pub fn parse_flow_class_apply(source: &str) -> Result<FlowClassApply, ParseError> {
         FlowClassApplyParser::new(source).parse()
     }
 
+    /// Parse a mermaid comment.
     pub fn parse_mermaid_comment(source: &str) -> Result<MermaidComment, ParseError> {
         MermaidCommentParser::new(source).parse()
     }
 
+    /// Parse a mermaid directive.
     pub fn parse_mermaid_directive(source: &str) -> Result<MermaidDirective, ParseError> {
         MermaidDirectiveParser::new(source).parse()
     }
 
+    /// Parse a sequence header.
     pub fn parse_sequence_header(source: &str) -> Result<SequenceHeader, ParseError> {
         SequenceHeaderParser::new(source).parse()
     }
 
+    /// Parse a sequence statement.
     pub fn parse_sequence_statement(source: &str) -> Result<SequenceStatement, ParseError> {
         SequenceStatementParser::new(source).parse()
     }
 
+    /// Parse a state header.
     pub fn parse_state_header(source: &str) -> Result<StateHeader, ParseError> {
         StateHeaderParser::new(source).parse()
     }
 
+    /// Parse a state statement.
     pub fn parse_state_statement(source: &str) -> Result<StateStatement, ParseError> {
         StateStatementParser::new(source).parse()
     }
 
+    /// Parse a class header.
     pub fn parse_class_header(source: &str) -> Result<ClassHeader, ParseError> {
         ClassHeaderParser::new(source).parse()
     }
 
+    /// Parse a class statement.
     pub fn parse_class_statement(source: &str) -> Result<ClassStatement, ParseError> {
         ClassStatementParser::new(source).parse()
     }
 
+    /// Parse an ER header.
     pub fn parse_er_header(source: &str) -> Result<ErHeader, ParseError> {
         ErHeaderParser::new(source).parse()
     }
 
+    /// Parse an ER statement.
     pub fn parse_er_statement(source: &str) -> Result<ErStatement, ParseError> {
         ErStatementParser::new(source).parse()
     }
 
+    /// Parse a gantt header.
     pub fn parse_gantt_header(source: &str) -> Result<GanttHeader, ParseError> {
         GanttHeaderParser::new(source).parse()
     }
 
+    /// Parse a gantt statement.
     pub fn parse_gantt_statement(source: &str) -> Result<GanttStatement, ParseError> {
         GanttStatementParser::new(source).parse()
     }
 
+    /// Parse a pie header.
     pub fn parse_pie_header(source: &str) -> Result<PieHeader, ParseError> {
         PieHeaderParser::new(source).parse()
     }
 
+    /// Parse a pie statement.
     pub fn parse_pie_statement(source: &str) -> Result<PieStatement, ParseError> {
         PieStatementParser::new(source).parse()
     }
 
+    /// Parse a quadrant header.
     pub fn parse_quadrant_header(source: &str) -> Result<QuadrantHeader, ParseError> {
         QuadrantHeaderParser::new(source).parse()
     }
 
+    /// Parse a quadrant statement.
     pub fn parse_quadrant_statement(source: &str) -> Result<QuadrantStatement, ParseError> {
         QuadrantStatementParser::new(source).parse()
     }
 
+    /// Parse a zenuml header.
     pub fn parse_zenuml_header(source: &str) -> Result<ZenUmlHeader, ParseError> {
         ZenUmlHeaderParser::new(source).parse()
     }
 
+    /// Parse a zenuml statement.
     pub fn parse_zenuml_statement(source: &str) -> Result<ZenUmlStatement, ParseError> {
         ZenUmlStatementParser::new(source, 0).parse()
     }
 
+    /// Parse a sankey header.
     pub fn parse_sankey_header(source: &str) -> Result<SankeyHeader, ParseError> {
         SankeyHeaderParser::new(source).parse()
     }
 
+    /// Parse a sankey statement.
     pub fn parse_sankey_statement(source: &str) -> Result<SankeyStatement, ParseError> {
         SankeyStatementParser::new(source).parse()
     }
 
+    /// Parse a xy chart header.
     pub fn parse_xy_chart_header(source: &str) -> Result<XyChartHeader, ParseError> {
         XyChartHeaderParser::new(source).parse()
     }
 
+    /// Parse a xy chart statement.
     pub fn parse_xy_chart_statement(source: &str) -> Result<XyChartStatement, ParseError> {
         XyChartStatementParser::new(source).parse()
     }
 
+    /// Parse a block header.
     pub fn parse_block_header(source: &str) -> Result<BlockDiagramHeader, ParseError> {
         BlockHeaderParser::new(source).parse()
     }
 
+    /// Parse a packet header.
     pub fn parse_packet_header(source: &str) -> Result<PacketHeader, ParseError> {
         PacketHeaderParser::new(source).parse()
     }
 
+    /// Parse a packet statement.
     pub fn parse_packet_statement(source: &str) -> Result<PacketStatement, ParseError> {
         PacketStatementParser::new(source, 0).parse()
     }
 
+    /// Parse a kanban header.
     pub fn parse_kanban_header(source: &str) -> Result<KanbanHeader, ParseError> {
         KanbanHeaderParser::new(source).parse()
     }
 
+    /// Parse a architecture header.
     pub fn parse_architecture_header(source: &str) -> Result<ArchitectureHeader, ParseError> {
         ArchitectureHeaderParser::new(source).parse()
     }
 
+    /// Parse a architecture statement.
     pub fn parse_architecture_statement(source: &str) -> Result<ArchitectureStatement, ParseError> {
         ArchitectureStatementParser::new(source).parse()
     }
 
+    /// Parse a radar header.
     pub fn parse_radar_header(source: &str) -> Result<RadarHeader, ParseError> {
         RadarHeaderParser::new(source).parse()
     }
 
+    /// Parse a radar statements.
     pub fn parse_radar_statements(source: &str) -> Result<Vec<RadarStatement>, ParseError> {
         RadarStatementParser::new(source).parse()
     }
 
+    /// Parse a event modeling header.
     pub fn parse_event_modeling_header(source: &str) -> Result<EventModelingHeader, ParseError> {
         EventModelingHeaderParser::new(source).parse()
     }
 
+    /// Parse a event modeling statement.
     pub fn parse_event_modeling_statement(
         source: &str,
     ) -> Result<EventModelingStatement, ParseError> {
         EventModelingStatementParser::new(source).parse()
     }
 
+    /// Parse a treemap header.
     pub fn parse_treemap_header(source: &str) -> Result<TreemapHeader, ParseError> {
         TreemapHeaderParser::new(source).parse()
     }
 
+    /// Parse a treemap statement.
     pub fn parse_treemap_statement(source: &str) -> Result<TreemapStatement, ParseError> {
         TreemapStatementParser::new(source).parse()
     }
 
+    /// Parse a venn header.
     pub fn parse_venn_header(source: &str) -> Result<VennHeader, ParseError> {
         VennHeaderParser::new(source).parse()
     }
 
+    /// Parse a venn statement.
     pub fn parse_venn_statement(source: &str) -> Result<VennStatement, ParseError> {
         VennStatementParser::new(source).parse()
     }
 
+    /// Parse a ishikawa header.
     pub fn parse_ishikawa_header(source: &str) -> Result<IshikawaHeader, ParseError> {
         IshikawaHeaderParser::new(source).parse()
     }
 
+    /// Parse a ishikawa statement.
     pub fn parse_ishikawa_statement(source: &str) -> Result<IshikawaStatement, ParseError> {
         IshikawaStatementParser::new(source).parse()
     }
 
+    /// Parse a wardley header.
     pub fn parse_wardley_header(source: &str) -> Result<WardleyHeader, ParseError> {
         WardleyHeaderParser::new(source).parse()
     }
 
+    /// Parse a wardley statement.
     pub fn parse_wardley_statement(source: &str) -> Result<WardleyStatement, ParseError> {
         WardleyStatementParser::new(source).parse()
     }
 
+    /// Parse a tree view header.
     pub fn parse_tree_view_header(source: &str) -> Result<TreeViewHeader, ParseError> {
         TreeViewHeaderParser::new(source).parse()
     }
 
+    /// Parse a tree view statement.
     pub fn parse_tree_view_statement(source: &str) -> Result<TreeViewStatement, ParseError> {
         TreeViewStatementParser::new(source).parse()
     }
 
+    /// Parse a mindmap header.
     pub fn parse_mindmap_header(source: &str) -> Result<MindmapHeader, ParseError> {
         MindmapHeaderParser::new(source).parse()
     }
 
+    /// Parse a journey header.
     pub fn parse_journey_header(source: &str) -> Result<JourneyHeader, ParseError> {
         JourneyHeaderParser::new(source).parse()
     }
 
+    /// Parse a journey statement.
     pub fn parse_journey_statement(source: &str) -> Result<JourneyStatement, ParseError> {
         JourneyStatementParser::new(source).parse()
     }
 
+    /// Parse a gitgraph header.
     pub fn parse_gitgraph_header(source: &str) -> Result<GitGraphHeader, ParseError> {
         GitGraphHeaderParser::new(source).parse()
     }
 
+    /// Parse a gitgraph statement.
     pub fn parse_gitgraph_statement(source: &str) -> Result<GitGraphStatement, ParseError> {
         GitGraphStatementParser::new(source).parse()
     }
 
+    /// Parse a timeline header.
     pub fn parse_timeline_header(source: &str) -> Result<TimelineHeader, ParseError> {
         TimelineHeaderParser::new(source).parse()
     }
 
+    /// Parse a timeline statement.
     pub fn parse_timeline_statement(source: &str) -> Result<TimelineStatement, ParseError> {
         TimelineStatementParser::new(source).parse()
     }
 
+    /// Parse a requirement header.
     pub fn parse_requirement_header(source: &str) -> Result<RequirementHeader, ParseError> {
         RequirementHeaderParser::new(source).parse()
     }
 
+    /// Parse a requirement statement.
     pub fn parse_requirement_statement(source: &str) -> Result<RequirementStatement, ParseError> {
         RequirementStatementParser::new(source).parse()
     }
 
+    /// Parse a C4 header.
     pub fn parse_c4_header(source: &str) -> Result<C4Header, ParseError> {
         C4HeaderParser::new(source).parse()
     }
 
+    /// Parse a C4 statement.
     pub fn parse_c4_statement(source: &str) -> Result<C4Statement, ParseError> {
         C4StatementParser::new(source).parse()
     }
