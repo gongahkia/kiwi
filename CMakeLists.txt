@@ -946,6 +946,7 @@ add_executable(lic_tests
   tests/lic_tests.cpp
   src/lic.cpp
   src/luminance.cpp
+  src/optical_flow.cpp
   src/structure_edges.cpp
   src/structure_sampling.cpp
 )

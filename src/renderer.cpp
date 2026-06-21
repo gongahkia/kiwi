@@ -227,7 +227,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .outputs = {renderPort("edge-field", BufferKind::EdgeField)},
       .supports = {Backend::Cpu},
     });
-    if (glyph_temporal_enabled && !hatch_enabled && !flow_enabled) {
+    if ((glyph_temporal_enabled && !hatch_enabled && !flow_enabled) || (flow_enabled && !hatch_enabled)) {
       passes->push_back(Pass{
         .id = "optical-flow",
         .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
@@ -249,7 +249,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     if (flow_enabled) {
       passes->push_back(Pass{
         .id = "lic",
-        .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+        .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)},
         .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
         .supports = {Backend::Cpu},
       });
@@ -418,6 +418,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromCli(options);
   const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
+  const bool motion_flow_enabled = flow_enabled && temporal_state != nullptr;
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
@@ -653,7 +654,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         }
       },
     });
-    if (glyph_hysteresis_enabled) {
+    if (glyph_hysteresis_enabled || motion_flow_enabled) {
       passes->push_back(Pass{
         .id = "optical-flow",
         .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
@@ -823,11 +824,15 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const auto lic_pass = [&](const std::string& base_input) {
     return Pass{
       .id = "lic",
-      .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+      .inputs = motion_flow_enabled
+                  ? std::vector<PassPort>{renderPort("gradients", BufferKind::GradientField), renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)}
+                  : std::vector<PassPort>{renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        if (structure_gradients.has_value()) {
+        if (flow_field.has_value()) {
+          applyLicMotionFlow(cells, *flow_field, size.cols, size.rows, licLengthFromCli(options), edge_threshold);
+        } else if (structure_gradients.has_value()) {
           applyLicFlow(cells, *structure_gradients, size.cols, size.rows, licLengthFromCli(options), edge_threshold);
         }
       },

@@ -83,6 +83,39 @@ const CellGradient& sampledCellGradient(const std::vector<CellGradient>& gradien
   return gradients[static_cast<std::size_t>(y) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(x)];
 }
 
+std::vector<CellGradient> makeMotionCellGradients(const FlowField& flow, int cols, int rows) {
+  if (cols <= 0 || rows <= 0) {
+    throw std::invalid_argument("cell grid dimensions must be positive");
+  }
+  if (flow.width <= 0 || flow.height <= 0 || flow.block_size <= 0 ||
+      flow.blocks_x <= 0 || flow.blocks_y <= 0 ||
+      flow.vectors.size() != static_cast<std::size_t>(flow.blocks_x) * static_cast<std::size_t>(flow.blocks_y)) {
+    throw std::invalid_argument("invalid flow field");
+  }
+  std::vector<CellGradient> gradients;
+  gradients.reserve(static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows));
+  const double cell_width = static_cast<double>(flow.width) / static_cast<double>(cols);
+  const double cell_height = static_cast<double>(flow.height) / static_cast<double>(rows);
+  for (int row = 0; row < rows; ++row) {
+    for (int col = 0; col < cols; ++col) {
+      const double pixel_x = (static_cast<double>(col) + 0.5) * cell_width;
+      const double pixel_y = (static_cast<double>(row) + 0.5) * cell_height;
+      const int block_x = std::clamp(static_cast<int>(pixel_x / static_cast<double>(flow.block_size)), 0, flow.blocks_x - 1);
+      const int block_y = std::clamp(static_cast<int>(pixel_y / static_cast<double>(flow.block_size)), 0, flow.blocks_y - 1);
+      const FlowVector vector = flow.at(block_x, block_y);
+      const double magnitude = std::hypot(vector.dx, vector.dy);
+      if (magnitude <= 1.0e-9) {
+        gradients.push_back(CellGradient{});
+        continue;
+      }
+      const double gx = -vector.dy;
+      const double gy = vector.dx;
+      gradients.push_back(CellGradient{.gx = gx, .gy = gy, .magnitude = magnitude, .orientation = std::atan2(gy, gx)});
+    }
+  }
+  return gradients;
+}
+
 double traceLicValue(const std::vector<CellGradient>& gradients, int cols, int rows, int col, int row, int length, uint32_t seed) {
   if (length <= 0) {
     throw std::invalid_argument("LIC length must be positive");
@@ -145,14 +178,16 @@ char32_t licGlyphForCell(const CellGradient& gradient, double threshold, double 
   return flowGlyphForGradient(gradient);
 }
 
-void applyLicFlow(CellBuffer* cells, const GradientField& gradients, int cols, int rows, int length, double threshold, uint32_t seed) {
+void applyLicCellGradients(CellBuffer* cells, const std::vector<CellGradient>& cell_gradients, int cols, int rows, int length, double threshold, uint32_t seed) {
   if (cells == nullptr) {
     throw std::invalid_argument("cells must not be null");
   }
   if (cols != cells->cols() || rows != cells->rows()) {
     throw std::invalid_argument("cell grid mismatch");
   }
-  const std::vector<CellGradient> cell_gradients = makeCellGradients(gradients, cols, rows);
+  if (cell_gradients.size() != static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows)) {
+    throw std::invalid_argument("LIC cell gradient count mismatch");
+  }
   for (int row = 0; row < rows; ++row) {
     for (int col = 0; col < cols; ++col) {
       const std::size_t index = static_cast<std::size_t>(row) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(col);
@@ -161,6 +196,14 @@ void applyLicFlow(CellBuffer* cells, const GradientField& gradients, int cols, i
       cell.glyph = licGlyphForCell(cell_gradients[index], threshold, relativeLuminance(cell.fg), value);
     }
   }
+}
+
+void applyLicFlow(CellBuffer* cells, const GradientField& gradients, int cols, int rows, int length, double threshold, uint32_t seed) {
+  applyLicCellGradients(cells, makeCellGradients(gradients, cols, rows), cols, rows, length, threshold, seed);
+}
+
+void applyLicMotionFlow(CellBuffer* cells, const FlowField& flow, int cols, int rows, int length, double threshold, uint32_t seed) {
+  applyLicCellGradients(cells, makeMotionCellGradients(flow, cols, rows), cols, rows, length, threshold, seed);
 }
 
 }  // namespace contourtty

@@ -628,11 +628,12 @@ int main() {
                 "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
                 "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
                 "sobel(cpu)  structure-luminance:LuminanceField -> raw-gradients:GradientField\n"
+                "optical-flow(cpu)  structure-luminance:LuminanceField -> flow:OpticalFlow\n"
                 "etf(cpu)  raw-gradients:GradientField -> gradients:GradientField\n"
                 "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
                 "cell-average(cpu)  frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
-                "lic(cpu)  gradients:GradientField, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "lic(cpu)  gradients:GradientField, flow:OpticalFlow, base-cells:CellGlyphs -> cells:CellGlyphs\n"
                 "emit(cpu)  cells:CellGlyphs -> \n",
                 "flow graph dump golden");
   }

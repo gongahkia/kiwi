@@ -56,4 +56,14 @@ int main() {
   contourtty::applyLicFlow(&cells, field, 4, 4, 4, 0.1, 17);
   expect(cells.at(1, 1).glyph == U'│', "applyLicFlow writes flow-oriented glyph");
   expect(throwsInvalidLength(), "LIC rejects non-positive length");
+
+  contourtty::FlowField flow;
+  flow.block_size = 1;
+  flow.width = 4;
+  flow.height = 4;
+  flow.blocks_x = 4;
+  flow.blocks_y = 4;
+  flow.vectors.assign(16, contourtty::FlowVector{.dx = 1.0, .dy = 0.0, .error = 0.0});
+  contourtty::applyLicMotionFlow(&cells, flow, 4, 4, 4, 0.1, 17);
+  expect(cells.at(1, 1).glyph == U'─', "motion flow writes motion-oriented glyph");
 }

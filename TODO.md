@@ -131,8 +131,8 @@
 
 - [~] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
   - `--style stipple` ships with a deterministic 64x64 rank tile and dot glyph pass. Open: replace generated hash-rank tile with checked-in void-and-cluster tile; add braille/octant sub-cell carriers.
-- [~] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
-  - `--style flow` ships ETF-guided spatial LIC strokes with `--lic-length`. Open: align with motion gradients after optical flow lands in Phase M.
+- [x] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
+  - `--style flow` ships ETF-guided spatial LIC strokes with `--lic-length`; when temporal state is available it reuses optical flow and maps motion vectors into LIC stroke directions, with a gradient fallback on the first frame. `lic_tests` cover horizontal motion producing horizontal strokes; graph/runtime proof shows `optical-flow` feeding `lic`, and `--style none` has no LIC/flow passes.
 - [x] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.
 - [x] **K7. Style → Pass composition.** DoD: `--graph dump` for each `--style` shows the documented Pass insertion; `--style` is single-valued; multiple styles via `--graph file.yaml`. Reference: PHASE_K §StyleComposition.
 - [x] **K8. NPR tests + bench.** DoD: per-style golden frames; 720p/1080p fps recorded per style, CPU vs GPU. Reference: PHASE_K §Tests / §Bench.
