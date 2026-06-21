@@ -3017,7 +3017,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
     reset_render_state();
-    CONTOURTTY_LOG_INFO(logger, "seek target_us=" + std::to_string(clamped_us));
+    CONTOURTTY_LOG_INFO(logger, "seek reset render state target_us=" + std::to_string(clamped_us));
   };
 
   const auto apply_command = [&](PlaybackCommand command) {
@@ -3220,6 +3220,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
       reset_render_state();
+      CONTOURTTY_LOG_INFO(logger, "resize reset render state terminal=" + std::to_string(terminal.cols) + "x" + std::to_string(terminal.rows));
     }
 
     const TerminalSize render_terminal = liveRenderTerminal(terminal, live_options, osd_active);

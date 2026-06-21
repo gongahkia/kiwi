@@ -32,6 +32,11 @@ int main() {
   auto after_resize = state.choose(1, contourtty::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 1.0, 0.05);
   expect(after_resize.glyph == U'\\' && !after_resize.kept_previous, "resize clears glyph history");
 
+  state.reset();
+  state.resize(1, 1);
+  auto after_reset = state.choose(0, contourtty::GlyphShapeMatch{.glyph = U'-', .score = 1.0}, 1.0, 0.05);
+  expect(after_reset.glyph == U'-' && !after_reset.kept_previous, "reset clears glyph history");
+
   bool out_of_range = false;
   try {
     (void)state.choose(2, contourtty::GlyphShapeMatch{.glyph = U'-', .score = 1.0}, 1.0, 0.05);
