@@ -204,8 +204,8 @@
 ## PHASE O — New content paths
 *Doc: `PHASE_O.md`. Goal: image grids, stdin data, asciinema in, scene polish, captions.*
 
-- [~] **O1. Image grid / contact sheet.** DoD: `--input "*.png" --grid 4x3` renders a fitted grid; resize reflows; per-tile fps independent for GIF tiles. Reference: PHASE_O §ImageGrid.
-  - `--grid CxR` parses; `image_grid_tests` cover in-process glob expansion, tile-slot layout, and fitted contact-sheet frame composition; grid inputs load sorted first frames from matched tiles and route through playback, ANSI/cast/MP4 export, and PNG still snapshots with resize reflow for static grids. Open: time-aware GIF tile pacing.
+- [x] **O1. Image grid / contact sheet.** DoD: `--input "*.png" --grid 4x3` renders a fitted grid; resize reflows; per-tile fps independent for GIF tiles. Reference: PHASE_O §ImageGrid.
+  - `--grid CxR` parses; `image_grid_tests` cover in-process glob expansion, tile-slot layout, and fitted contact-sheet frame composition; grid inputs load sorted frames from GIF tiles and route through playback, ANSI/cast/MP4 export, and PNG still snapshots with resize reflow; proof used two GIF tiles with 0.5s and 0.25s frame delays, distinct `--still-at` hashes, and cast events at 0.25s/0.5s/0.75s.
 - [x] **O2. Stdin data plots.** DoD: `seq 1 1000 | awk '{print sin($1/10)}' | contourtty --input stdin --plot waveform` renders a smooth sine; `spectrum` runs a small in-tree FFT; `heatmap` slides a 2D window. Reference: PHASE_O §StdinData.
   - `--plot`, `--plot-window`, and `--plot-rate` parse; `stdin_data_tests` cover numeric parsing, in-tree FFT magnitudes, waveform/spectrum/heatmap plot rasterisation, and plot-raster frame conversion; `--input stdin` token-streams numeric samples through plot frames at `--plot-rate`, with output verified before producer EOF.
 - [x] **O3. Asciinema re-stylise.** DoD: `--input recording.cast` replays through the render graph at original pacing; minimal VTE-lite handles SGR + cursor + scroll + clear; structure mode on a `htop` cast yields a stylised but readable version. Reference: PHASE_O §Asciinema.

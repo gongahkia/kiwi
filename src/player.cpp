@@ -1283,9 +1283,16 @@ const Frame& frameWithOverlay(const Frame& base, const SceneOverlaySource& overl
   return **storage;
 }
 
+struct LoadedImageGridTile {
+  std::vector<Frame> frames;
+  int64_t duration_us = 0;
+};
+
 struct LoadedImageGrid {
   ImageGridSpec spec;
-  std::vector<Frame> frames;
+  std::vector<LoadedImageGridTile> tiles;
+  bool animated = false;
+  int64_t duration_us = 0;
 };
 
 ImageGridSpec requireImageGridSpec(const CliOptions& options) {
@@ -1299,7 +1306,44 @@ ImageGridSpec requireImageGridSpec(const CliOptions& options) {
   return *spec;
 }
 
-LoadedImageGrid loadImageGridFirstFrames(const CliOptions& options, Logger& logger) {
+int64_t inferImageGridFrameStepUs(const std::vector<Frame>& frames) {
+  for (std::size_t i = 1; i < frames.size(); ++i) {
+    const int64_t delta = frames[i].pts_us - frames[i - 1U].pts_us;
+    if (delta > 0) {
+      return delta;
+    }
+  }
+  return 33333;
+}
+
+LoadedImageGridTile loadImageGridTile(const ImageGridTile& tile) {
+  VideoDecoder decoder(tile.path);
+  std::vector<Frame> frames;
+  std::optional<Frame> frame = decoder.nextFrame();
+  if (!frame.has_value()) {
+    throw std::runtime_error("image grid tile contains no video frames: " + tile.path.string());
+  }
+  frames.push_back(std::move(*frame));
+  if (decoder.isAnimatedImage()) {
+    while ((frame = decoder.nextFrame()).has_value()) {
+      frames.push_back(std::move(*frame));
+    }
+  }
+  const int64_t first_pts_us = frames.front().pts_us;
+  for (Frame& decoded_frame : frames) {
+    decoded_frame.pts_us = std::max<int64_t>(0, decoded_frame.pts_us - first_pts_us);
+  }
+  int64_t duration_us = 0;
+  if (frames.size() > 1U) {
+    duration_us = frames.back().pts_us + inferImageGridFrameStepUs(frames);
+  }
+  return LoadedImageGridTile{
+    .frames = std::move(frames),
+    .duration_us = duration_us,
+  };
+}
+
+LoadedImageGrid loadImageGridTiles(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
   }
@@ -1309,18 +1353,64 @@ LoadedImageGrid loadImageGridFirstFrames(const CliOptions& options, Logger& logg
   if (tiles.empty()) {
     throw std::runtime_error("image grid input matched no files: " + *options.input);
   }
-  grid.frames.reserve(tiles.size());
+  grid.tiles.reserve(tiles.size());
   for (const ImageGridTile& tile : tiles) {
-    VideoDecoder decoder(tile.path);
-    std::optional<Frame> frame = decoder.nextFrame();
-    if (!frame.has_value()) {
-      throw std::runtime_error("image grid tile contains no video frames: " + tile.path.string());
+    LoadedImageGridTile loaded_tile = loadImageGridTile(tile);
+    if (loaded_tile.duration_us > 0) {
+      grid.animated = true;
+      grid.duration_us = std::max(grid.duration_us, loaded_tile.duration_us);
     }
-    grid.frames.push_back(std::move(*frame));
+    grid.tiles.push_back(std::move(loaded_tile));
   }
-  CONTOURTTY_LOG_INFO(logger, "image grid tiles=" + std::to_string(grid.frames.size()) +
-                                " grid=" + std::to_string(grid.spec.cols) + "x" + std::to_string(grid.spec.rows));
+  CONTOURTTY_LOG_INFO(logger, "image grid tiles=" + std::to_string(grid.tiles.size()) +
+                                " grid=" + std::to_string(grid.spec.cols) + "x" + std::to_string(grid.spec.rows) +
+                                (grid.animated ? " animated duration_us=" + std::to_string(grid.duration_us) : ""));
   return grid;
+}
+
+const Frame& selectImageGridTileFrame(const LoadedImageGridTile& tile, int64_t pts_us) {
+  if (tile.frames.empty()) {
+    throw std::runtime_error("image grid tile has no decoded frames");
+  }
+  if (tile.frames.size() == 1U || tile.duration_us <= 0) {
+    return tile.frames.front();
+  }
+  const int64_t local_pts_us = std::max<int64_t>(0, pts_us) % tile.duration_us;
+  std::size_t selected = 0;
+  for (std::size_t i = 1; i < tile.frames.size(); ++i) {
+    if (tile.frames[i].pts_us > local_pts_us) {
+      break;
+    }
+    selected = i;
+  }
+  return tile.frames[selected];
+}
+
+std::vector<Frame> imageGridFramesAt(const LoadedImageGrid& grid, int64_t pts_us) {
+  std::vector<Frame> frames;
+  frames.reserve(grid.tiles.size());
+  for (const LoadedImageGridTile& tile : grid.tiles) {
+    frames.push_back(selectImageGridTileFrame(tile, pts_us));
+  }
+  return frames;
+}
+
+double imageGridTimelineFps(const CliOptions& options) {
+  return options.fps.value_or(options.max_fps.value_or(30.0));
+}
+
+int64_t imageGridTimelineFrameUs(const CliOptions& options) {
+  const double fps = std::clamp(imageGridTimelineFps(options), 1.0, 240.0);
+  return std::max<int64_t>(1000, static_cast<int64_t>(std::llround(1000000.0 / fps)));
+}
+
+int64_t imageGridTimelineFrameCount(const LoadedImageGrid& grid, const CliOptions& options) {
+  if (!grid.animated || grid.duration_us <= 0) {
+    return 1;
+  }
+  const int64_t frame_us = imageGridTimelineFrameUs(options);
+  const int64_t duration_us = std::max(grid.duration_us, frame_us);
+  return std::max<int64_t>(1, (duration_us + frame_us - 1) / frame_us);
 }
 
 Frame composeImageGridForTerminal(const LoadedImageGrid& grid, const CliOptions& options, TerminalSize terminal, int64_t pts_us = 0) {
@@ -1328,7 +1418,7 @@ Frame composeImageGridForTerminal(const LoadedImageGrid& grid, const CliOptions&
   const int target_pixel_rows = std::max(grid.spec.rows, static_cast<int>(std::llround(static_cast<double>(options.height.value_or(terminal.rows)) / options.cell_aspect)));
   const int tile_width = std::max(1, (target_cols + grid.spec.cols - 1) / grid.spec.cols);
   const int tile_height = std::max(1, (target_pixel_rows + grid.spec.rows - 1) / grid.spec.rows);
-  return composeImageGridFrame(grid.frames, grid.spec, tile_width, tile_height, pts_us);
+  return composeImageGridFrame(imageGridFramesAt(grid, pts_us), grid.spec, tile_width, tile_height, pts_us);
 }
 
 int exportImageGridMedia(const CliOptions& options, Logger& logger) {
@@ -1338,7 +1428,7 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
   logGpuRequest(options, logger);
   const std::filesystem::path output_path = *options.export_file;
   const ExportKind kind = exportKindForPath(output_path);
-  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+  const LoadedImageGrid grid = loadImageGridTiles(options, logger);
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
@@ -1352,20 +1442,34 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
   RenderStats render_stats;
   RenderTemporalState temporal_state;
   SceneOverlaySource overlay_source(options);
-  std::optional<Frame> overlay_frame;
-  const Frame grid_frame = composeImageGridForTerminal(grid, options, terminal);
-  const Frame& render_input = frameWithOverlay(grid_frame, overlay_source, 0.0, &overlay_frame);
-  renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   CaptionSidecarWriter caption_writer(options.captions_file, defaultCaptionDurationUs(options));
-  caption_writer.recordFrame(grid_frame, 0);
+  const int64_t frame_us = imageGridTimelineFrameUs(options);
+  const int64_t total_frames = imageGridTimelineFrameCount(grid, options);
+  const auto frame_pts_us = [&](int64_t frame_index) {
+    return grid.animated ? frame_index * frame_us : 0;
+  };
+  const auto render_grid_frame = [&](int64_t pts_us) {
+    std::optional<Frame> overlay_frame;
+    const Frame grid_frame = composeImageGridForTerminal(grid, options, terminal, pts_us);
+    const Frame& render_input = frameWithOverlay(grid_frame, overlay_source, static_cast<double>(pts_us) / 1000000.0, &overlay_frame);
+    renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    caption_writer.recordFrame(grid_frame, pts_us);
+  };
 
   if (kind == ExportKind::Mp4) {
+    render_grid_frame(0);
     RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
-    Mp4VideoWriter writer(output_path, raster.width, raster.height, options.fps.value_or(30.0), nullptr);
+    Mp4VideoWriter writer(output_path, raster.width, raster.height, imageGridTimelineFps(options), nullptr);
     writer.writeFrame(raster.rgb);
+    int64_t exported_frames = 1;
+    for (int64_t frame_index = 1; frame_index < total_frames; ++frame_index) {
+      render_grid_frame(frame_pts_us(frame_index));
+      writer.writeFrame(rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr).rgb);
+      ++exported_frames;
+    }
     writer.finish();
     caption_writer.finish();
-    CONTOURTTY_LOG_INFO(logger, "exported frames=1 path=" + output_path.string());
+    CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
     return 0;
   }
 
@@ -1377,36 +1481,70 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
   if (options.render_mode != "text") {
     graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
   }
-  std::optional<EmissionResult> emission;
+  std::optional<BandwidthGuard> graphics_bandwidth;
   if (graphics_options.has_value()) {
-    emission = EmissionResult{
-      .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal),
-      .changed_cells = cells.size(),
-    };
-  } else {
-    DiffEmitter emitter;
-    emission = emitter.emit(cells, emission_options);
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  DiffEmitter emitter;
+  double last_timestamp = 0.0;
+  int64_t exported_frames = 0;
+  const auto emit_cells = [&](double timestamp) -> std::optional<EmissionResult> {
+    if (graphics_options.has_value()) {
+      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal);
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
+      if (!decision.send) {
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        return std::nullopt;
+      }
+      return EmissionResult{.bytes = bytes, .changed_cells = cells.size()};
+    }
+    return emitter.emit(cells, emission_options);
+  };
+  const auto write_emission = [&](double timestamp, std::string_view bytes) {
+    if (bytes.empty()) {
+      return;
+    }
+    last_timestamp = timestamp;
+    if (kind == ExportKind::Ansi) {
+      output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    } else {
+      writeCastEvent(output, timestamp, bytes);
+    }
+  };
 
+  render_grid_frame(0);
   if (kind == ExportKind::Ansi) {
     output << "\x1b[2J\x1b[H\x1b[?25l";
-    if (emission.has_value()) {
-      output.write(emission->bytes.data(), static_cast<std::streamsize>(emission->bytes.size()));
-    }
-    output << "\x1b[0m\x1b[?25h\n";
   } else {
     output << "{\"version\":2,\"width\":" << cells.cols() << ",\"height\":" << cells.rows() << "}\n";
     writeCastEvent(output, 0.0, "\x1b[2J\x1b[H\x1b[?25l");
-    if (emission.has_value()) {
-      writeCastEvent(output, 0.0, emission->bytes);
+  }
+  if (const std::optional<EmissionResult> emission = emit_cells(0.0); emission.has_value()) {
+    write_emission(0.0, emission->bytes);
+    ++exported_frames;
+  }
+  for (int64_t frame_index = 1; frame_index < total_frames; ++frame_index) {
+    const int64_t pts_us = frame_pts_us(frame_index);
+    const double timestamp = static_cast<double>(pts_us) / 1000000.0;
+    render_grid_frame(pts_us);
+    if (const std::optional<EmissionResult> emission = emit_cells(timestamp); emission.has_value()) {
+      write_emission(timestamp, emission->bytes);
     }
-    writeCastEvent(output, 0.0, "\x1b[0m\x1b[?25h\n");
+    ++exported_frames;
+  }
+  const std::string reset = "\x1b[0m\x1b[?25h\n";
+  if (kind == ExportKind::Ansi) {
+    output.write(reset.data(), static_cast<std::streamsize>(reset.size()));
+  } else {
+    writeCastEvent(output, last_timestamp, reset);
   }
   if (!output) {
     throw std::runtime_error("failed to write export file: " + output_path.string());
   }
   caption_writer.finish();
-  CONTOURTTY_LOG_INFO(logger, "exported frames=1 path=" + output_path.string());
+  CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
   if (logger.enabled()) {
     CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
@@ -1420,7 +1558,7 @@ int writeImageGridStillSnapshot(const CliOptions& options, Logger& logger) {
     throw std::runtime_error("missing still output file");
   }
   logGpuRequest(options, logger);
-  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+  const LoadedImageGrid grid = loadImageGridTiles(options, logger);
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
@@ -1455,10 +1593,11 @@ bool renderImageGridStill(const LoadedImageGrid& grid,
                           std::optional<BandwidthGuard>* graphics_bandwidth,
                           const GlyphFont* glyph_font,
                           RenderStats* render_stats,
-                          RuntimeDebugStats* debug_stats) {
+                          RuntimeDebugStats* debug_stats,
+                          int64_t pts_us = 0) {
   const TerminalSize render_terminal = debugRenderTerminal(*terminal, options);
   const CliOptions render_options = debugRenderOptions(options, *terminal);
-  const Frame frame = composeImageGridForTerminal(grid, options, render_terminal);
+  const Frame frame = composeImageGridForTerminal(grid, options, render_terminal, pts_us);
   renderFrame(frame, ramp, render_options, render_terminal, shape_table, cells, render_stats);
   EmissionResult emission;
   if (graphics_options.has_value()) {
@@ -1489,7 +1628,7 @@ bool renderImageGridStill(const LoadedImageGrid& grid,
 
 int playImageGrid(const CliOptions& options, Logger& logger) {
   logGpuRequest(options, logger);
-  const LoadedImageGrid grid = loadImageGridFirstFrames(options, logger);
+  const LoadedImageGrid grid = loadImageGridTiles(options, logger);
   resetQuitFlag();
   g_pending_commands.clear();
   installQuitSignalHandlers();
@@ -1518,37 +1657,94 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
   RenderStats render_stats;
   RuntimeDebugStats debug_stats(options, &logger);
   bool quit = false;
+  bool paused = false;
+  FramePacer pacer(options);
+  const int64_t frame_us = imageGridTimelineFrameUs(options);
+  const int64_t seek_frames = std::max<int64_t>(1, static_cast<int64_t>(std::llround(5000000.0 / static_cast<double>(frame_us))));
+  const auto reset_render_state = [&] {
+    emitter.reset();
+    if (graphics_bandwidth.has_value()) {
+      graphics_bandwidth->reset();
+    }
+  };
+  const auto render_grid = [&](int64_t pts_us) {
+    return renderImageGridStill(grid,
+                                ramp,
+                                options,
+                                &terminal,
+                                shape_vectors.has_value() ? &*shape_vectors : nullptr,
+                                &cells,
+                                &emitter,
+                                emission_options,
+                                graphics_options,
+                                &graphics_bandwidth,
+                                glyph_font_ptr,
+                                logger.enabled() ? &render_stats : nullptr,
+                                &debug_stats,
+                                pts_us);
+  };
 
   std::string clear = "\x1b[2J";
   writeAll(STDOUT_FILENO, clear);
   consumeResizeFlag();
-  if (!renderImageGridStill(grid, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, graphics_options, &graphics_bandwidth, glyph_font_ptr, logger.enabled() ? &render_stats : nullptr, &debug_stats)) {
+  if (!grid.animated && !render_grid(0)) {
     quit = true;
   }
+  int64_t frame_index = 0;
   while (!quit && !shouldQuit()) {
     const PlaybackCommand command = pollKeyboardCommand();
     if (command == PlaybackCommand::Quit) {
       quit = true;
       break;
     }
-    if (consumeResizeFlag()) {
-      terminal = queryTerminalSize();
-      emitter.reset();
-      if (graphics_bandwidth.has_value()) {
-        graphics_bandwidth->reset();
-      }
-      std::string clear_resize = "\x1b[2J";
-      writeAll(STDOUT_FILENO, clear_resize);
-      if (!renderImageGridStill(grid, ramp, options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, graphics_options, &graphics_bandwidth, glyph_font_ptr, logger.enabled() ? &render_stats : nullptr, &debug_stats)) {
+    if (command == PlaybackCommand::TogglePause) {
+      paused = !paused;
+      CONTOURTTY_LOG_INFO(logger, paused ? "image grid playback paused" : "image grid playback resumed");
+    } else if (command == PlaybackCommand::SeekBackward && grid.animated) {
+      frame_index = std::max<int64_t>(0, frame_index - seek_frames);
+      pacer.reset();
+      reset_render_state();
+    } else if (command == PlaybackCommand::SeekForward && grid.animated) {
+      frame_index += seek_frames;
+      pacer.reset();
+      reset_render_state();
+    }
+    if (paused) {
+      if (!debug_stats.maybeReport(terminal)) {
         quit = true;
         break;
       }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+    if (consumeResizeFlag()) {
+      terminal = queryTerminalSize();
+      reset_render_state();
+      std::string clear_resize = "\x1b[2J";
+      writeAll(STDOUT_FILENO, clear_resize);
+      if (!grid.animated && !render_grid(0)) {
+        quit = true;
+        break;
+      }
+    }
+    if (grid.animated) {
+      const int64_t pts_us = frame_index * frame_us;
+      Frame pace_frame;
+      pace_frame.pts_us = pts_us;
+      pacer.waitForFrame(pace_frame);
+      if (!render_grid(pts_us)) {
+        quit = true;
+        break;
+      }
+      ++frame_index;
     }
     if (!debug_stats.maybeReport(terminal)) {
       quit = true;
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if (!grid.animated) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   }
   if (render_stats.frames > 0) {
     CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
