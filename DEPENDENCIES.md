@@ -114,7 +114,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 | `share/contourtty/charsets/*.json` | in-tree authored | MIT (`LICENSE`) | Evolved/curated glyph presets. |
 | `share/contourtty/scenes/cube.obj` | in-tree authored | MIT (`LICENSE`) | Simple bundled OBJ smoke asset. |
 
-Asset-level provenance is tracked here for now; `share/contourtty/LICENSES.md` remains the Phase X5 destination for a standalone asset audit.
+The standalone asset audit is tracked in `share/contourtty/LICENSES.md`.
 
 ## Install prerequisites
 
