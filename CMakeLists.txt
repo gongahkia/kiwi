@@ -1109,6 +1109,8 @@ add_executable(diff_emitter_tests
   src/color_mode.cpp
   src/color_quantization.cpp
   src/diff_emitter.cpp
+  src/luminance.cpp
+  src/posterize.cpp
 )
 target_include_directories(diff_emitter_tests PRIVATE src)
 target_compile_features(diff_emitter_tests PRIVATE cxx_std_20)

@@ -18,6 +18,7 @@ struct EmissionResult {
 struct EmissionOptions {
   ColorMode color_mode = ColorMode::Truecolor;
   DitherMode dither_mode = DitherMode::None;
+  double diff_oklab_eps = 0.0;
   int origin_row = 1;
   int origin_col = 1;
 };

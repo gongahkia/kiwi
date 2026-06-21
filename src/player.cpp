@@ -1288,7 +1288,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .origin_row = 1, .origin_col = 1};
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0), .origin_row = 1, .origin_col = 1};
   CellBuffer cells;
   DiffEmitter emitter;
   RenderStats render_stats;
@@ -1460,7 +1460,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
-  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither)};
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;

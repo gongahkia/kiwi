@@ -40,6 +40,7 @@ struct CliOptions {
   std::optional<int> posterize;
   std::optional<double> contrast;
   std::string dither = "none";
+  std::optional<double> diff_oklab_eps;
   bool fit = false;
   bool loop = false;
   bool mirror = true;

@@ -353,6 +353,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--posterize",
           "--contrast",
           "--dither",
+          "--diff-oklab-eps",
           "--log",
           "--export",
           "--graph",
@@ -529,6 +530,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.dither = std::string(*value);
+    } else if (flag == "--diff-oklab-eps") {
+      const auto parsed = parsePositiveDouble(*value, true);
+      if (!parsed.has_value()) {
+        result.error = "invalid value for --diff-oklab-eps: " + std::string(*value);
+        return result;
+      }
+      result.options.diff_oklab_eps = *parsed;
     } else if (flag == "--log") {
       result.options.log_file = std::string(*value);
     } else if (flag == "--export") {
@@ -658,6 +666,7 @@ std::string helpText(std::string_view program_name) {
       << "  --posterize N                  OKLab L posterize levels, 2..64\n"
       << "  --contrast N                   structure contrast adjustment\n"
       << "  --dither {none|ordered|fs}     color dithering mode\n"
+      << "  --diff-oklab-eps N             suppress sub-perceptual color diff emits\n"
       << "  --loop                         loop input\n"
       << "  --no-loop                      disable config-default looping\n"
       << "  --mirror                       mirror camera input horizontally\n"

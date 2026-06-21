@@ -2,7 +2,9 @@
 
 #include "ansi.hpp"
 #include "color_dither.hpp"
+#include "posterize.hpp"
 
+#include <cmath>
 #include <optional>
 
 namespace contourtty {
@@ -12,15 +14,34 @@ bool sameColor(Rgb lhs, Rgb rhs) noexcept {
   return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b;
 }
 
-bool sameCell(const Cell& lhs, const Cell& rhs, bool mono) noexcept {
+double oklabDistance(Rgb lhs, Rgb rhs) noexcept {
+  const Oklab a = rgbToOklab(lhs);
+  const Oklab b = rgbToOklab(rhs);
+  const double dl = a.l - b.l;
+  const double da = a.a - b.a;
+  const double db = a.b - b.b;
+  return std::sqrt(dl * dl + da * da + db * db);
+}
+
+bool equivalentColor(Rgb lhs, Rgb rhs, double eps) noexcept {
+  if (sameColor(lhs, rhs)) {
+    return true;
+  }
+  return eps > 0.0 && oklabDistance(lhs, rhs) <= eps;
+}
+
+bool sameCell(const Cell& lhs, const Cell& rhs, bool mono, double diff_oklab_eps) noexcept {
   if (mono) {
     return lhs.glyph == rhs.glyph;
   }
-  return lhs.glyph == rhs.glyph && sameColor(lhs.fg, rhs.fg) && sameColor(lhs.bg, rhs.bg);
+  return lhs.glyph == rhs.glyph &&
+         equivalentColor(lhs.fg, rhs.fg, diff_oklab_eps) &&
+         equivalentColor(lhs.bg, rhs.bg, diff_oklab_eps);
 }
 
 bool sameOptions(EmissionOptions lhs, EmissionOptions rhs) noexcept {
   return lhs.color_mode == rhs.color_mode && lhs.dither_mode == rhs.dither_mode &&
+         lhs.diff_oklab_eps == rhs.diff_oklab_eps &&
          lhs.origin_row == rhs.origin_row && lhs.origin_col == rhs.origin_col;
 }
 
@@ -92,7 +113,7 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
   for (int row = 0; row < current_frame->rows(); ++row) {
     for (int col = 0; col < current_frame->cols(); ++col) {
       const Cell& cell = current_frame->at(col, row);
-      if (!full_repaint && sameCell(cell, previous_.at(col, row), mono)) {
+      if (!full_repaint && sameCell(cell, previous_.at(col, row), mono, options.diff_oklab_eps)) {
         continue;
       }
 
@@ -109,10 +130,15 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
       }
       appendUtf8(result.bytes, cell.glyph);
       ++result.changed_cells;
+      if (!full_repaint) {
+        previous_.at(col, row) = cell;
+      }
     }
   }
 
-  previous_ = *current_frame;
+  if (full_repaint) {
+    previous_ = *current_frame;
+  }
   previous_options_ = options;
   has_previous_ = true;
   return result;

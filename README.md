@@ -59,7 +59,7 @@ Camera inputs: use `--input cam` for the platform default (`avfoundation` on mac
 
 Capability detection uses environment variables, an allowlist, and optional FreeType font cmap checks only; it does not issue terminal query escapes. `--caps dump` prints the resolved capability set; override specs are comma-separated, for example `--caps unicode=16,octant,truecolor`.
 
-Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized.
+Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized. `--diff-oklab-eps N` suppresses truecolor SGR re-emits when only sub-perceptual OKLab color deltas changed.
 
 `--mode halfblock` renders with upper-half block cells: foreground is sampled from the top half, background from the bottom half, doubling vertical color resolution in truecolor/256-color terminals. `--mode blocks` uses SAD over shade and quadrant block glyph bitmaps for 2x2 subcell luminance detail. `--mode braille` packs a 2x4 luminance grid into Unicode braille cells with truecolor fg/bg averages. `--mode octant` packs a 2x4 luminance grid into Unicode 16 octant block glyphs with separate foreground/background averages; `--mode sextant` uses the Unicode 13 2x3 fallback set.
 
@@ -103,6 +103,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--posterize N` | Quantize OKLab L before glyph and terminal color quantization, 2..64. |
 | `--contrast N` | Structure analysis contrast boost. |
 | `--dither none\|ordered\|fs` | Palette dithering mode. |
+| `--diff-oklab-eps N` | Suppress color-only diff emits below an OKLab distance threshold. |
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
 | `--mirror`, `--no-mirror` | Enable or disable horizontal mirroring for camera playback. |
 | `--log FILE` | Write diagnostics. |

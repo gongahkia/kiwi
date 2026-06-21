@@ -93,4 +93,15 @@ int main() {
   expect(fs_first.changed_cells == 2, "fs emits full frame");
   expect(fs_first.bytes.find("\x1b[90m") != std::string::npos, "fs emits dark gray first");
   expect(fs_first.bytes.find("\x1b[37m") != std::string::npos, "fs emits diffused light gray");
+
+  contourtty::DiffEmitter perceptual_emitter;
+  contourtty::CellBuffer subtle(1, 1);
+  subtle.at(0, 0) = cell(U'P', 100, 100, 100);
+  (void)perceptual_emitter.emit(subtle, contourtty::EmissionOptions{.diff_oklab_eps = 0.01});
+  subtle.at(0, 0) = cell(U'P', 101, 101, 101);
+  const auto subthreshold = perceptual_emitter.emit(subtle, contourtty::EmissionOptions{.diff_oklab_eps = 0.01});
+  expect(subthreshold.changed_cells == 0, "OKLab diff suppresses subthreshold color-only change");
+  subtle.at(0, 0) = cell(U'P', 160, 160, 160);
+  const auto above_threshold = perceptual_emitter.emit(subtle, contourtty::EmissionOptions{.diff_oklab_eps = 0.01});
+  expect(above_threshold.changed_cells == 1, "OKLab diff emits accumulated visible color change");
 }

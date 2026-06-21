@@ -385,6 +385,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--diff-oklab-eps", "0.01"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "diff OKLab epsilon parses");
+    expect(parsed.options.diff_oklab_eps.has_value() && *parsed.options.diff_oklab_eps == 0.01, "diff OKLab epsilon stored");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"contourtty", "movie.mp4"};
     const auto parsed = contourtty::parseArgs(2, const_cast<char**>(argv));
