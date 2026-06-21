@@ -9,6 +9,7 @@
 #include "glyph_sdf.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
+#include "kuwahara.hpp"
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
 #include "octant_renderer.hpp"
@@ -78,6 +79,10 @@ int etfIterationsFromCli(const CliOptions& options) {
   return options.etf_iters.value_or(0);
 }
 
+bool painterlyStyleEnabled(const CliOptions& options) {
+  return options.style == "painterly";
+}
+
 int renderWorkerCount(int cols, int rows) {
   if (rows < 2 || cols * rows < 1024) {
     return 1;
@@ -112,6 +117,8 @@ std::optional<std::string> directBlitterMode(const CliOptions& options) {
 std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
+  const bool painterly_enabled = painterlyStyleEnabled(options);
+  const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   const auto decode_pass = [] {
     return Pass{
       .id = "decode",
@@ -126,10 +133,10 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     };
   };
-  const auto luminance_pass = [] {
+  const auto luminance_pass = [&] {
     return Pass{
       .id = "luminance",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
       .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
     };
@@ -197,11 +204,19 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   };
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
+  if (painterly_enabled) {
+    passes.push_back(Pass{
+      .id = "kuwahara",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("styled-frame", BufferKind::RgbFrame)},
+      .supports = {Backend::Cpu},
+    });
+  }
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
     passes.push_back(Pass{
       .id = *blitter,
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
       .outputs = {renderPort(blitter_output, BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
     });
@@ -218,7 +233,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     append_structure_analysis(&passes);
     passes.push_back(Pass{
       .id = "cell-average",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)},
+      .inputs = {renderPort(frame_input, BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)},
       .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
       .supports = {Backend::Cpu, Backend::Metal},
     });
@@ -234,7 +249,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   }
   passes.push_back(Pass{
     .id = "cell-average",
-    .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+    .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
     .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
     .supports = {Backend::Cpu, Backend::Metal},
   });
@@ -272,6 +287,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
+  const bool painterly_enabled = painterlyStyleEnabled(options);
+  const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
+  Frame styled_frame;
+  const Frame* render_frame = &frame;
+  const auto active_frame = [&]() -> const Frame& {
+    return *render_frame;
+  };
   std::vector<ShapeMatchStats> worker_stats;
 
   const auto finish_stats = [&] {
@@ -298,6 +320,19 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto kuwahara_pass = [&] {
+    return Pass{
+      .id = "kuwahara",
+      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .outputs = {renderPort("styled-frame", BufferKind::RgbFrame)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        styled_frame = applyKuwaharaFilter(frame, 2);
+        render_frame = &styled_frame;
+      },
+    };
+  };
+
   const auto emit_pass = [&](std::string input) {
     return Pass{
       .id = "emit",
@@ -309,11 +344,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const auto luminance_pass = [&] {
     return Pass{
       .id = "luminance",
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
       .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        analysis_luminance = makeLuminanceField(frame);
+        analysis_luminance = makeLuminanceField(active_frame());
       },
     };
   };
@@ -321,20 +356,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const auto append_blitter_pass = [&](std::vector<Pass>* passes, const std::string& blitter, const std::string& output) {
     passes->push_back(Pass{
       .id = blitter,
-      .inputs = {renderPort("frame", BufferKind::RgbFrame)},
+      .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
       .outputs = {renderPort(output, BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
       .run = [&, blitter](PassContext&) {
         if (blitter == "halfblock") {
-          renderHalfBlockFrame(frame, size.cols, size.rows, cells);
+          renderHalfBlockFrame(active_frame(), size.cols, size.rows, cells);
         } else if (blitter == "blocks") {
-          renderBlockSadFrame(frame, size.cols, size.rows, cells);
+          renderBlockSadFrame(active_frame(), size.cols, size.rows, cells);
         } else if (blitter == "octant") {
-          renderOctantFrame(frame, size.cols, size.rows, cells);
+          renderOctantFrame(active_frame(), size.cols, size.rows, cells);
         } else if (blitter == "sextant") {
-          renderSextantFrame(frame, size.cols, size.rows, cells);
+          renderSextantFrame(active_frame(), size.cols, size.rows, cells);
         } else if (blitter == "braille") {
-          renderBrailleFrame(frame, size.cols, size.rows, cells);
+          renderBrailleFrame(active_frame(), size.cols, size.rows, cells);
         }
       },
     });
@@ -355,7 +390,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
           for (int row = row_begin; row < row_end; ++row) {
             for (int col = 0; col < size.cols; ++col) {
               const std::size_t cell_index = static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col);
-              average_colors[cell_index] = has_gpu_average ? gpu_structure_glyphs->average_colors[cell_index] : averageRegion(frame, size.cols, size.rows, col, row);
+              average_colors[cell_index] = has_gpu_average ? gpu_structure_glyphs->average_colors[cell_index] : averageRegion(active_frame(), size.cols, size.rows, col, row);
             }
           }
         };
@@ -433,7 +468,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
         if (!etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
-          gpu_structure_glyphs = computeStructureGlyphsGpu(frame, *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
+          gpu_structure_glyphs = computeStructureGlyphsGpu(active_frame(), *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             if (stats != nullptr) {
               stats->shape_match_cells += gpu_structure_glyphs->shape_match_cells;
@@ -599,6 +634,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     std::vector<Pass> passes;
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
     passes.push_back(decode_pass());
+    if (painterly_enabled) {
+      passes.push_back(kuwahara_pass());
+    }
     append_blitter_pass(&passes, *blitter, blitter_output);
     if (overlay_enabled) {
       passes.push_back(luminance_pass());
@@ -616,17 +654,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
 
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
+  if (painterly_enabled) {
+    passes.push_back(kuwahara_pass());
+  }
   passes.push_back(luminance_pass());
 
   if (overlay_enabled) {
     append_structure_analysis(&passes);
-    passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)}));
+    passes.push_back(cell_average_pass({renderPort(frame_input, BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)}));
     passes.push_back(ramp_pick_pass("base-cells"));
     passes.push_back(cell_shape_pass("base-cells"));
     passes.push_back(overlay_structure_pass("base-cells"));
     append_emit_after_overlay(&passes);
   } else {
-    passes.push_back(cell_average_pass({renderPort("frame", BufferKind::RgbFrame)}));
+    passes.push_back(cell_average_pass({renderPort(frame_input, BufferKind::RgbFrame)}));
     passes.push_back(ramp_pick_pass("cells"));
     passes.push_back(emit_pass("cells"));
   }

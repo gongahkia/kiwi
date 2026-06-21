@@ -272,6 +272,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "painterly"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "painterly style parses");
+    expect(parsed.options.style == "painterly", "painterly style stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--style", "invalid"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "style rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--charset", ""};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "charset rejects empty value");

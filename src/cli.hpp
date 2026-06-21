@@ -21,6 +21,7 @@ struct CliOptions {
   std::optional<double> fps;
   std::optional<double> max_fps;
   std::string mode = "luminance";
+  std::string style = "none";
   std::string render_mode = "text";
   std::string structure_overlay = "auto";
   std::optional<std::string> pipeline;

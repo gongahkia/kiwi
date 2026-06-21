@@ -437,6 +437,26 @@ int main() {
   {
     contourtty::CliOptions options;
     options.mode = "structure";
+    options.style = "painterly";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "kuwahara(cpu)  frame:RgbFrame -> styled-frame:RgbFrame\n"
+                "luminance(cpu)  styled-frame:RgbFrame -> luminance:LuminanceField\n"
+                "contrast(cpu)  luminance:LuminanceField -> contrast-luminance:LuminanceField\n"
+                "dog(cpu)  contrast-luminance:LuminanceField -> structure-luminance:LuminanceField\n"
+                "sobel(cpu)  structure-luminance:LuminanceField -> gradients:GradientField\n"
+                "edge-field(cpu)  gradients:GradientField -> edge-field:EdgeField\n"
+                "cell-average(cpu)  styled-frame:RgbFrame, gradients:GradientField -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> base-cells:CellGlyphs\n"
+                "cell-shape(cpu)  edge-field:EdgeField, base-cells:CellGlyphs -> cell-shapes:CellShapeVectors\n"
+                "overlay-structure(cpu)  edge-field:EdgeField, cell-shapes:CellShapeVectors, base-cells:CellGlyphs -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "painterly graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
+    options.mode = "structure";
     options.etf_iters = 2;
     expectEqual(contourtty::dumpRenderGraph(options),
                 "decode(cpu)   -> frame:RgbFrame\n"
