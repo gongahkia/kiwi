@@ -6,6 +6,7 @@ minimal setup needed by each host.
 | Integration | Page | Source |
 | --- | --- | --- |
 | Browser package and custom element | [Web component](web-component.md) | `packages/kumeyuri` |
+| React | [React](react.md) | `packages/kumeyuri` |
 | GitHub Actions | [Render action](render-action.md) | `render-action` |
 | mdBook | [mdBook](mdbook.md) | `crates/mdbook-kumeyuri` |
 | Hugo | [Hugo](hugo.md) | `integrations/hugo` |

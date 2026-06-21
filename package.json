@@ -67,7 +67,7 @@
     "@mermaid-js/mermaid-cli": "11.15.0",
     "axe-core": "^4.12.1",
     "beautiful-mermaid": "1.1.3",
-    "dompurify": "3.4.10",
+    "dompurify": "3.4.11",
     "jsdom": "29.1.1",
     "mermaid2term": "0.1.0",
     "pa11y": "^9.1.1",

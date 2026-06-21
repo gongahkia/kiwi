@@ -73,6 +73,34 @@ const { svg, frames } = render("graph TD\nA --> B", {
 });
 ```
 
+## React
+
+`kumeyuri/react` provides a client-side provider and typed component around the
+same custom element.
+
+```tsx
+import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
+
+const kumeyuriModule = { ...wasm, default: initWasm };
+
+export function Diagram() {
+  return (
+    <KumeyuriProvider moduleOrLoader={kumeyuriModule}>
+      <KumeyuriDiagram
+        src="/diagrams/flow.mmd"
+        animate="trace"
+        theme="github"
+        darkTheme="tokyo-night"
+        speed={1.25}
+        autoplay
+        controls
+      />
+    </KumeyuriProvider>
+  );
+}
+```
+
 ## Custom element attributes
 
 | Attribute | Purpose |

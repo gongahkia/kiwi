@@ -130,6 +130,38 @@ Supported attributes:
 If `src` and `inline` are both absent, the element uses its initial text
 content as Mermaid source.
 
+## React
+
+React apps can use the `kumeyuri/react` subpath. `KumeyuriProvider` initializes
+the WASM module and defines the custom element on the client; `KumeyuriDiagram`
+renders the element with typed props.
+
+```tsx
+import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
+
+const kumeyuriModule = { ...wasm, default: initWasm };
+
+export function App() {
+  return (
+    <KumeyuriProvider moduleOrLoader={kumeyuriModule}>
+      <KumeyuriDiagram
+        src="/diagrams/flow.mmd"
+        animate="trace"
+        theme="github"
+        darkTheme="tokyo-night"
+        speed={1.25}
+        autoplay
+        controls
+      />
+    </KumeyuriProvider>
+  );
+}
+```
+
+The component maps `darkTheme` to `dark-theme` and omits false boolean
+attributes, so it works across React 18/19 custom-element behavior.
+
 ## Error behavior
 
 Parse, option, fetch, and render failures surface as thrown errors from the

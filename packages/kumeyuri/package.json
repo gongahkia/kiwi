@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gongahkia/kumeyuri.git",
+    "url": "git+https://github.com/gongahkia/kumeyuri.git",
     "directory": "packages/kumeyuri"
   },
   "type": "module",
@@ -16,6 +16,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
     }
   },
   "files": [
@@ -25,6 +29,20 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
-    "test": "npm run build && node test/wrapper.test.mjs"
+    "test": "npm run build && node test/wrapper.test.mjs && node test/react.test.mjs"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

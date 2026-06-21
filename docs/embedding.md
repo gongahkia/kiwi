@@ -115,6 +115,35 @@ export function KumeyuriSetup() {
 />
 ```
 
+## React
+
+Install the browser package and initialize it in a client-rendered component.
+The React subpath renders the same `<kumeyuri-diagram>` element and maps
+`darkTheme` to `dark-theme` plus boolean props to omitted/present attributes.
+
+```tsx
+import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
+
+const kumeyuriModule = { ...wasm, default: initWasm };
+
+export function Diagram() {
+  return (
+    <KumeyuriProvider moduleOrLoader={kumeyuriModule}>
+      <KumeyuriDiagram
+        src="/diagrams/flow.mmd"
+        animate="trace"
+        theme="github"
+        darkTheme="tokyo-night"
+        speed={1.25}
+        autoplay
+        controls
+      />
+    </KumeyuriProvider>
+  );
+}
+```
+
 ## mdBook
 
 Put generated assets next to the chapter or under `src/diagrams/`.
