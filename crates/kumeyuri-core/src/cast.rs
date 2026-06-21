@@ -1,3 +1,5 @@
+//! `.kumecast` v1 serialization and validation.
+
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -9,22 +11,30 @@ use crate::{
     theme::{RgbColor, Theme},
 };
 
+/// Current `.kumecast` schema version.
 pub const KUMECAST_VERSION: u32 = 1;
 
+/// Top-level `.kumecast` document.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Kumecast {
+    /// Schema version.
     pub version: u32,
+    /// Original Mermaid source metadata.
     pub source: KumecastSource,
+    /// Theme metadata used to render the timeline.
     pub theme: KumecastTheme,
+    /// Serialized animation timeline.
     pub timeline: KumecastTimeline,
+    /// Optional extension metadata.
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, serde_json::Value>,
 }
 
 impl Kumecast {
+    /// Build a cast document from source metadata, theme, and timeline.
     #[must_use]
     pub fn from_timeline(
         diagram_type: impl Into<String>,
@@ -45,18 +55,21 @@ impl Kumecast {
         }
     }
 
+    /// Serialize this cast as pretty JSON with a final newline.
     pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
         let mut json = serde_json::to_string_pretty(self)?;
         json.push('\n');
         Ok(json)
     }
 
+    /// Parse and validate a cast JSON document.
     pub fn from_json_str(source: &str) -> Result<Self, KumecastError> {
         let cast: Self = serde_json::from_str(source).map_err(KumecastError::Json)?;
         cast.validate()?;
         Ok(cast)
     }
 
+    /// Validate schema version, source, theme, timeline, cells, and styles.
     pub fn validate(&self) -> Result<(), KumecastError> {
         if self.version != KUMECAST_VERSION {
             return Err(KumecastError::UnsupportedVersion(self.version));
@@ -99,6 +112,7 @@ impl Kumecast {
         Ok(())
     }
 
+    /// Convert this cast document back into a runtime timeline.
     pub fn to_timeline(&self) -> Result<Timeline, KumecastError> {
         self.validate()?;
         Ok(self
@@ -108,24 +122,32 @@ impl Kumecast {
     }
 }
 
+/// Source metadata for a `.kumecast` document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct KumecastSource {
+    /// Mermaid diagram root/type name.
     pub diagram_type: String,
+    /// Original Mermaid source.
     pub mermaid: String,
+    /// Optional lowercase hexadecimal SHA-256 for the source.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
 }
 
+/// Theme metadata for a `.kumecast` document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastTheme {
+    /// Theme name.
     pub name: String,
+    /// Serialized charset name.
     pub charset: String,
 }
 
 impl KumecastTheme {
+    /// Build theme metadata from a runtime theme.
     #[must_use]
     pub fn from_theme(theme: Theme) -> Self {
         Self {
@@ -139,14 +161,18 @@ impl KumecastTheme {
     }
 }
 
+/// Serialized animation timeline.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastTimeline {
+    /// Whether playback repeats.
     pub repeat: bool,
+    /// Serialized keyframes.
     pub frames: Vec<KumecastFrame>,
 }
 
 impl KumecastTimeline {
+    /// Build a serialized timeline from a runtime timeline.
     #[must_use]
     pub fn from_timeline(timeline: &Timeline) -> Self {
         Self {
@@ -159,6 +185,7 @@ impl KumecastTimeline {
         }
     }
 
+    /// Convert this serialized timeline back into runtime frames.
     pub fn to_timeline(&self) -> Result<Timeline, KumecastError> {
         let mut timeline = Timeline::new();
         for frame in &self.frames {
@@ -168,20 +195,27 @@ impl KumecastTimeline {
     }
 }
 
+/// Serialized timeline frame.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct KumecastFrame {
+    /// Frame duration in milliseconds.
     pub duration_ms: u64,
+    /// Frame width in cells.
     pub width: usize,
+    /// Frame height in cells.
     pub height: usize,
+    /// Row-major serialized cells.
     pub cells: Vec<KumecastCell>,
+    /// Optional keyframe markers.
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub markers: Vec<KumecastMarker>,
 }
 
 impl KumecastFrame {
+    /// Build a serialized frame from a runtime frame and duration.
     #[must_use]
     pub fn from_frame(frame: &Frame, duration: std::time::Duration) -> Self {
         Self {
@@ -193,6 +227,7 @@ impl KumecastFrame {
         }
     }
 
+    /// Convert this frame into a runtime keyframe.
     pub fn to_keyframe(&self) -> Result<KeyFrame, KumecastError> {
         let expected = self.width.saturating_mul(self.height);
         if self.cells.len() != expected {
@@ -232,12 +267,16 @@ impl KumecastFrame {
     }
 }
 
+/// Serialized frame cell.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastCell {
+    /// Single-character glyph.
     pub glyph: String,
+    /// Optional style override.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<KumecastStyle>,
+    /// Optional marker id attached to this cell.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub marker: Option<String>,
 }
@@ -253,6 +292,7 @@ impl From<&crate::frame::GlyphCell> for KumecastCell {
 }
 
 impl KumecastCell {
+    /// Convert this serialized cell into a runtime glyph cell.
     pub fn to_glyph_cell(&self) -> Result<GlyphCell, KumecastError> {
         let mut chars = self.glyph.chars();
         let Some(glyph) = chars.next() else {
@@ -274,25 +314,32 @@ impl KumecastCell {
     }
 }
 
+/// Serialized cell style.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastStyle {
+    /// Optional foreground `#rrggbb` color.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foreground: Option<String>,
+    /// Optional background `#rrggbb` color.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub background: Option<String>,
+    /// Whether text is bold.
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
     pub bold: bool,
+    /// Whether text is italic.
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
     pub italic: bool,
+    /// Whether text is underlined.
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
     pub underline: bool,
 }
 
 impl KumecastStyle {
+    /// Encode a runtime cell style, returning `None` for the default style.
     #[must_use]
     pub fn from_style(style: &CellStyle) -> Option<Self> {
         let encoded = Self {
@@ -328,11 +375,15 @@ impl KumecastStyle {
     }
 }
 
+/// Serialized keyframe marker.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastMarker {
+    /// Marker id.
     pub id: String,
+    /// Marker kind name.
     pub kind: String,
+    /// Marker region.
     pub region: KumecastRegion,
 }
 
@@ -361,12 +412,17 @@ impl KumecastMarker {
     }
 }
 
+/// Serialized rectangular region.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KumecastRegion {
+    /// Left cell coordinate.
     pub x: usize,
+    /// Top cell coordinate.
     pub y: usize,
+    /// Region width in cells.
     pub width: usize,
+    /// Region height in cells.
     pub height: usize,
 }
 
@@ -444,22 +500,37 @@ const fn is_lower_hex_digit(byte: u8) -> bool {
     byte.is_ascii_digit() || matches!(byte, b'a'..=b'f')
 }
 
+/// Error returned while decoding, validating, or rebuilding `.kumecast` data.
 #[derive(Debug)]
 pub enum KumecastError {
+    /// JSON parsing or shape validation failed.
     Json(serde_json::Error),
+    /// The document version is not supported.
     UnsupportedVersion(u32),
+    /// `source.diagramType` is empty.
     EmptySourceDiagramType,
+    /// `source.sha256` is not lowercase hexadecimal SHA-256.
     InvalidSha256(String),
+    /// `theme.name` is empty.
     EmptyThemeName,
+    /// `theme.charset` is not supported.
     InvalidCharset(String),
+    /// The timeline has no frames.
     EmptyTimeline,
+    /// Frame cell count does not equal width times height.
     InvalidCellCount {
+        /// Frame index.
         frame: usize,
+        /// Expected cell count.
         expected: usize,
+        /// Actual cell count.
         actual: usize,
     },
+    /// Cell glyph is empty or has more than one scalar value.
     InvalidGlyph(String),
+    /// Color value is not lowercase `#rrggbb`.
     InvalidColor(String),
+    /// Marker kind string is not supported.
     InvalidMarkerKind(String),
 }
 
