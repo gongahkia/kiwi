@@ -279,6 +279,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "hatch"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "hatch style parses");
+    expect(parsed.options.style == "hatch", "hatch style stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--style", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "style rejects invalid value");

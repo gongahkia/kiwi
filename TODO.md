@@ -130,7 +130,6 @@
 ## PHASE K — Stylized NPR modes
 *Doc: `PHASE_K.md`. Goal: painterly / hatch / stipple / flow styles.*
 
-- [ ] **K3. Cross-hatch mode.** DoD: `--style hatch` renders a portrait recognisably as an ink-style cross-hatch drawing at 160×45. Reference: PHASE_K §Hatch.
 - [ ] **K4. Blue-noise stippling.** DoD: `--style stipple` uses void-and-cluster blue noise tile; optional sub-cell precision via braille/octant carriers. Reference: PHASE_K §Stipple.
 - [ ] **K5. Line Integral Convolution.** DoD: `--style flow` ink strokes align with motion gradients; turns off cleanly. Reference: PHASE_K §Flow.
 - [ ] **K6. OKLab posterise.** DoD: `--posterize N` quantises OKLab L (and optionally a/b) before any quantizer Pass; pairs naturally with hatch + stipple. Reference: PHASE_K §Posterize.

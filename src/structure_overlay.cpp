@@ -4,6 +4,7 @@ namespace contourtty {
 
 bool structureOverlayImplied(const CliOptions& options) {
   return options.mode == "structure" ||
+         options.style == "hatch" ||
          options.edge_threshold.has_value() ||
          options.edge_strength.has_value() ||
          options.dog_sigma.has_value() ||

@@ -81,6 +81,7 @@ add_executable(contourtty
   src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
+  src/crosshatch.cpp
   src/diff_emitter.cpp
   src/etf.cpp
   src/frame_sampling.cpp
@@ -731,6 +732,7 @@ add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/crosshatch.cpp
   src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
@@ -820,6 +822,33 @@ else()
   endif()
 endif()
 add_test(NAME kuwahara COMMAND kuwahara_tests)
+
+add_executable(crosshatch_tests
+  tests/crosshatch_tests.cpp
+  src/crosshatch.cpp
+  src/luminance.cpp
+  src/structure_edges.cpp
+  src/structure_sampling.cpp
+)
+target_include_directories(crosshatch_tests PRIVATE src)
+target_compile_features(crosshatch_tests PRIVATE cxx_std_20)
+set_target_properties(crosshatch_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(crosshatch_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(crosshatch_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(crosshatch_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(crosshatch_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME crosshatch COMMAND crosshatch_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

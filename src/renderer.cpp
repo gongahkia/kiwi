@@ -2,6 +2,7 @@
 
 #include "block_sad.hpp"
 #include "braille_renderer.hpp"
+#include "crosshatch.hpp"
 #include "etf.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_hog.hpp"
@@ -76,11 +77,15 @@ double effectiveEdgeThresholdFromCli(const CliOptions& options) {
 }
 
 int etfIterationsFromCli(const CliOptions& options) {
-  return options.etf_iters.value_or(0);
+  return options.etf_iters.value_or(options.style == "hatch" ? 2 : 0);
 }
 
 bool painterlyStyleEnabled(const CliOptions& options) {
   return options.style == "painterly";
+}
+
+bool hatchStyleEnabled(const CliOptions& options) {
+  return options.style == "hatch";
 }
 
 int renderWorkerCount(int cols, int rows) {
@@ -118,6 +123,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const bool painterly_enabled = painterlyStyleEnabled(options);
+  const bool hatch_enabled = hatchStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   const auto decode_pass = [] {
     return Pass{
@@ -176,7 +182,16 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     });
   };
-  const auto append_structure_overlay = [](std::vector<Pass>* passes, const std::string& base_input) {
+  const auto append_structure_overlay = [&](std::vector<Pass>* passes, const std::string& base_input) {
+    if (hatch_enabled) {
+      passes->push_back(Pass{
+        .id = "crosshatch",
+        .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+        .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+        .supports = {Backend::Cpu},
+      });
+      return;
+    }
     passes->push_back(Pass{
       .id = "cell-shape",
       .inputs = {renderPort("edge-field", BufferKind::EdgeField), renderPort(base_input, BufferKind::CellGlyphs)},
@@ -288,6 +303,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool overlay_enabled = structureOverlayEnabled(options);
   const bool etf_enabled = etfIterationsFromCli(options) > 0;
   const bool painterly_enabled = painterlyStyleEnabled(options);
+  const bool hatch_enabled = hatchStyleEnabled(options);
   const std::string frame_input = painterly_enabled ? "styled-frame" : "frame";
   Frame styled_frame;
   const Frame* render_frame = &frame;
@@ -609,6 +625,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto crosshatch_pass = [&](const std::string& base_input) {
+    return Pass{
+      .id = "crosshatch",
+      .inputs = {renderPort("gradients", BufferKind::GradientField), renderPort(base_input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        if (structure_gradients.has_value()) {
+          applyCrosshatch(cells, *structure_gradients, size.cols, size.rows, edge_threshold);
+        }
+      },
+    };
+  };
+
   const auto line_ligatures_pass = [&] {
     return Pass{
       .id = "line-ligatures",
@@ -641,8 +671,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     if (overlay_enabled) {
       passes.push_back(luminance_pass());
       append_structure_analysis(&passes);
-      passes.push_back(cell_shape_pass(blitter_output));
-      passes.push_back(overlay_structure_pass(blitter_output));
+      if (hatch_enabled) {
+        passes.push_back(crosshatch_pass(blitter_output));
+      } else {
+        passes.push_back(cell_shape_pass(blitter_output));
+        passes.push_back(overlay_structure_pass(blitter_output));
+      }
       append_emit_after_overlay(&passes);
     } else {
       passes.push_back(emit_pass("cells"));
@@ -663,8 +697,12 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     append_structure_analysis(&passes);
     passes.push_back(cell_average_pass({renderPort(frame_input, BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)}));
     passes.push_back(ramp_pick_pass("base-cells"));
-    passes.push_back(cell_shape_pass("base-cells"));
-    passes.push_back(overlay_structure_pass("base-cells"));
+    if (hatch_enabled) {
+      passes.push_back(crosshatch_pass("base-cells"));
+    } else {
+      passes.push_back(cell_shape_pass("base-cells"));
+      passes.push_back(overlay_structure_pass("base-cells"));
+    }
     append_emit_after_overlay(&passes);
   } else {
     passes.push_back(cell_average_pass({renderPort(frame_input, BufferKind::RgbFrame)}));
