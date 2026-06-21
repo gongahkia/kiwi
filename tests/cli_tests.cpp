@@ -86,6 +86,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--font", "/tmp/font.ttf"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "font parses");
+    expect(parsed.options.font_path.has_value() && *parsed.options.font_path == "/tmp/font.ttf", "font stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--font", ""};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "font rejects empty value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--input", "cam"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "input flag parses");

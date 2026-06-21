@@ -9,6 +9,7 @@
 #include "color_mode.hpp"
 #include "diff_emitter.hpp"
 #include "frame_sampling.hpp"
+#include "glyph_font.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "gpu_sobel.hpp"
@@ -1027,7 +1028,20 @@ Rgb exportBackgroundColor(const Cell& cell, ColorMode color_mode) {
   return cell.bg;
 }
 
-std::vector<uint8_t> rasterizeCells(const CellBuffer& cells, ColorMode color_mode, DitherMode dither_mode) {
+Rgb blendRgb(Rgb bg, Rgb fg, double alpha) {
+  const double clamped = std::clamp(alpha, 0.0, 1.0);
+  return Rgb{
+    .r = static_cast<uint8_t>(std::lround(static_cast<double>(bg.r) + (static_cast<double>(fg.r) - static_cast<double>(bg.r)) * clamped)),
+    .g = static_cast<uint8_t>(std::lround(static_cast<double>(bg.g) + (static_cast<double>(fg.g) - static_cast<double>(bg.g)) * clamped)),
+    .b = static_cast<uint8_t>(std::lround(static_cast<double>(bg.b) + (static_cast<double>(fg.b) - static_cast<double>(bg.b)) * clamped)),
+  };
+}
+
+bool isSpecialRasterGlyph(char32_t glyph) {
+  return glyph == U'▀' || glyph == U'▄' || glyph == U'█' || (glyph >= 0x2800U && glyph <= 0x28ffU);
+}
+
+std::vector<uint8_t> rasterizeCells(const CellBuffer& cells, ColorMode color_mode, DitherMode dither_mode, const GlyphFont* glyph_font) {
   CellBuffer quantized;
   const CellBuffer* source = &cells;
   if (supportsPaletteDither(color_mode)) {
@@ -1043,6 +1057,10 @@ std::vector<uint8_t> rasterizeCells(const CellBuffer& cells, ColorMode color_mod
       const Rgb fg = exportForegroundColor(cell, color_mode);
       const Rgb bg = exportBackgroundColor(cell, color_mode);
       const auto pattern = asciiGlyphPattern(cell.glyph);
+      const GlyphRaster* glyph_raster = nullptr;
+      if (glyph_font != nullptr && !isSpecialRasterGlyph(cell.glyph)) {
+        glyph_raster = &glyph_font->raster(cell.glyph, kExportCellPixelWidth, kExportCellPixelHeight);
+      }
       for (int y = 0; y < kExportCellPixelHeight; ++y) {
         for (int x = 0; x < kExportCellPixelWidth; ++x) {
           Rgb color = bg;
@@ -1054,6 +1072,9 @@ std::vector<uint8_t> rasterizeCells(const CellBuffer& cells, ColorMode color_mod
             color = fg;
           } else if (cell.glyph >= 0x2800U && cell.glyph <= 0x28ffU) {
             color = brailleGlyphPixel(cell.glyph, x, y) ? fg : bg;
+          } else if (glyph_raster != nullptr) {
+            const double alpha = glyph_raster->alpha[static_cast<std::size_t>(y) * static_cast<std::size_t>(kExportCellPixelWidth) + static_cast<std::size_t>(x)];
+            color = blendRgb(bg, fg, alpha);
           } else if (asciiGlyphPixel(pattern, x, y)) {
             color = fg;
           }
@@ -1114,11 +1135,24 @@ std::u32string exportRampFromOptions(const CliOptions& options) {
   return kDefaultGlyphRamp.data();
 }
 
-std::optional<GlyphShapeTable> exportShapeTableFromOptions(const CliOptions& options) {
-  if (options.mode == "structure" && !(options.charset.has_value() && isBrailleCharset(*options.charset))) {
-    return buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
+  if (options.mode != "structure" || (options.charset.has_value() && isBrailleCharset(*options.charset))) {
+    return std::nullopt;
   }
-  return std::nullopt;
+  if (glyph_font != nullptr) {
+    return buildGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+  }
+  return buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+}
+
+std::optional<GlyphFont> glyphFontFromOptions(const CliOptions& options, Logger& logger) {
+  if (!options.font_path.has_value()) {
+    return std::nullopt;
+  }
+  std::optional<GlyphFont> font;
+  font.emplace(*options.font_path);
+  CONTOURTTY_LOG_INFO(logger, "font loaded path=" + font->path().string());
+  return font;
 }
 
 std::string jsonEscape(std::string_view value) {
@@ -1199,8 +1233,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     throw std::runtime_error("input contains no video frames");
   }
 
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = exportRampFromOptions(options);
-  std::optional<GlyphShapeTable> shape_vectors = exportShapeTableFromOptions(options);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = ditherModeFromString(options.dither), .origin_row = 1, .origin_col = 1};
@@ -1237,12 +1273,12 @@ int exportMedia(const CliOptions& options, Logger& logger) {
                           cells.rows() * kExportCellPixelHeight,
                           mp4ExportFps(options, *frame, second_frame),
                           export_audio.has_value() ? &*export_audio : nullptr);
-    writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode));
+    writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr));
     ++exported_frames;
 
     const auto write_mp4_frame = [&](const Frame& current_frame) {
       renderFrame(current_frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr);
-      writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode));
+      writer.writeFrame(rasterizeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr));
     };
     if (second_frame.has_value()) {
       write_mp4_frame(*second_frame);
@@ -1350,9 +1386,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
       ramp = resolveCharsetRamp(*options.charset);
     }
   }
-  std::optional<GlyphShapeTable> shape_vectors;
-  if (options.mode == "structure" && !(options.charset.has_value() && isBrailleCharset(*options.charset))) {
-    shape_vectors = buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14);
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  if (shape_vectors.has_value()) {
     CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }

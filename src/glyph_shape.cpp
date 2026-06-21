@@ -1,8 +1,11 @@
 #include "glyph_shape.hpp"
 
+#include "glyph_font.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -257,6 +260,24 @@ GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width,
     table.entries.push_back(GlyphShapeVector{
       .glyph = glyph,
       .features = shapeFeatures(bitmap, cell_width, cell_height),
+    });
+  }
+  normalizeFeatures(&table);
+  return table;
+}
+
+GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view glyphs, int cell_width, int cell_height) {
+  if (cell_width <= 0 || cell_height <= 0) {
+    throw std::invalid_argument("shape table dimensions must be positive");
+  }
+  GlyphShapeTable table;
+  table.cell_width = cell_width;
+  table.cell_height = cell_height;
+  for (const char32_t glyph : uniqueGlyphs(glyphs)) {
+    const GlyphRaster& raster = font.raster(glyph, cell_width, cell_height);
+    table.entries.push_back(GlyphShapeVector{
+      .glyph = glyph,
+      .features = shapeFeatures(raster.alpha, raster.width, raster.height),
     });
   }
   normalizeFeatures(&table);

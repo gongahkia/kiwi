@@ -9,6 +9,8 @@
 
 namespace contourtty {
 
+class GlyphFont;
+
 constexpr std::u32string_view kDefaultShapeGlyphs = U" .:-=+*#%@|/_\\";
 constexpr std::u32string_view kDefaultStructureShapeGlyphs = U" |/_\\-+";
 constexpr std::size_t kShapeRegionCount = 9;
@@ -40,6 +42,7 @@ std::vector<double> renderPrecomputedGlyphBitmap(char32_t glyph, int cell_width,
 std::vector<double> shapeVectorForValues(std::span<const double> values, int width, int height);
 std::vector<double> shapeVectorForCell(const CellLuminanceRegion& region);
 GlyphShapeTable buildGlyphShapeTable(std::u32string_view glyphs, int cell_width, int cell_height);
+GlyphShapeTable buildGlyphShapeTable(const GlyphFont& font, std::u32string_view glyphs, int cell_width, int cell_height);
 char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table);
 
 }  // namespace contourtty

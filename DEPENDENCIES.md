@@ -10,6 +10,7 @@ contourtty keeps runtime dependencies explicit and avoids hidden package-manager
 | C++ compiler | C++20 | system | AppleClang, Clang, or GCC with C++20 support. |
 | pkg-config | any current | system | Used to discover FFmpeg libraries. |
 | zlib | any current | system/find-package | PNG dump compression for decode verification. |
+| FreeType | 2.12 | `pkg-config` | Font-backed glyph rasterization for structure matching and MP4 export. |
 
 ## Media decode and conversion
 
@@ -33,6 +34,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libswscale
   libswresample
 )
+pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 ```
 
 ## Audio
@@ -74,7 +76,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 macOS:
 
 ```sh
-brew install cmake pkg-config ffmpeg
+brew install cmake pkg-config ffmpeg freetype
 ```
 
 Ubuntu/Debian:
@@ -82,5 +84,6 @@ Ubuntu/Debian:
 ```sh
 sudo apt-get update
 sudo apt-get install -y build-essential cmake pkg-config \
-  libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev zlib1g-dev
+  libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev \
+  zlib1g-dev libfreetype-dev
 ```

@@ -45,7 +45,7 @@ With audio present in local files, video is paced from the audio playback clock.
 
 Structure mode overlays shape-matched edge glyphs over the luminance fill. `--edge-strength 0` disables the overlay, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
-Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, and `braille`; `braille` packs a 2x4 luminance grid into each Unicode braille cell. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
+Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--contrast N` boosts structure separation, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, and `braille`; `braille` packs a 2x4 luminance grid into each Unicode braille cell. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
 
@@ -80,6 +80,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
 | `--mode luminance\|structure\|halfblock` | Select renderer. |
 | `--pipeline luminance\|structure\|halfblock` | Select a render-graph preset; overrides config `pipeline`. |
+| `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
 | `--color-mode auto\|truecolor\|256\|16\|mono` | Select color tier. |
 | `--color auto\|truecolor\|256\|16\|mono` | Alias for `--color-mode`. |
 | `--mono`, `--no-mono` | Force mono, or restore automatic color detection. |

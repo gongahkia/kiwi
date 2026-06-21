@@ -292,6 +292,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--max-fps",
           "--mode",
           "--pipeline",
+          "--font",
           "--color-mode",
           "--color",
           "--charset",
@@ -369,6 +370,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       applyPipeline(*value, &result.options);
+    } else if (flag == "--font") {
+      if (value->empty()) {
+        result.error = "invalid value for --font: expected path";
+        return result;
+      }
+      result.options.font_path = std::string(*value);
     } else if (flag == "--color-mode" || flag == "--color") {
       if (!isOneOf(*value, {"auto", "truecolor", "256", "16", "mono"})) {
         result.error = "invalid value for " + std::string(flag) + ": " + std::string(*value);
@@ -522,6 +529,7 @@ std::string helpText(std::string_view program_name) {
       << "  --max-fps N                    cap render fps\n"
       << "  --mode {luminance|structure|halfblock}\n"
       << "  --pipeline {luminance|structure|halfblock}\n"
+      << "  --font PATH                    use FreeType font for glyph analysis/export\n"
       << "  --color-mode {auto|truecolor|256|16|mono}\n"
       << "  --color {auto|truecolor|256|16|mono}\n"
       << "  --mono                         disable color output\n"

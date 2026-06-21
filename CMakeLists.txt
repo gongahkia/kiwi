@@ -28,6 +28,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
   libswscale
   libswresample
 )
+pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 
 add_library(contourtty_audio STATIC
   src/audio_backend.cpp
@@ -76,6 +77,7 @@ add_executable(contourtty
   src/color_quantization.cpp
   src/diff_emitter.cpp
   src/frame_sampling.cpp
+  src/glyph_font.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
@@ -103,7 +105,7 @@ set_target_properties(contourtty PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(contourtty PRIVATE CONTOURTTY_VERSION="${PROJECT_VERSION}")
-target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG ZLIB::ZLIB contourtty_audio contourtty_audio_decode ${CONTOURTTY_GPU_LIBS})
+target_link_libraries(contourtty PRIVATE PkgConfig::FFMPEG PkgConfig::FREETYPE ZLIB::ZLIB contourtty_audio contourtty_audio_decode ${CONTOURTTY_GPU_LIBS})
 
 install(TARGETS contourtty
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -275,6 +277,7 @@ add_test(NAME glyph_ramp COMMAND glyph_ramp_tests)
 
 add_executable(glyph_shape_tests
   tests/glyph_shape_tests.cpp
+  src/glyph_font.cpp
   src/glyph_shape.cpp
 )
 target_include_directories(glyph_shape_tests PRIVATE src)
@@ -295,7 +298,34 @@ else()
     target_compile_options(glyph_shape_tests PRIVATE -Werror)
   endif()
 endif()
+target_link_libraries(glyph_shape_tests PRIVATE PkgConfig::FREETYPE)
 add_test(NAME glyph_shape COMMAND glyph_shape_tests)
+
+add_executable(glyph_font_tests
+  tests/glyph_font_tests.cpp
+  src/glyph_font.cpp
+  src/glyph_shape.cpp
+)
+target_include_directories(glyph_font_tests PRIVATE src)
+target_compile_features(glyph_font_tests PRIVATE cxx_std_20)
+set_target_properties(glyph_font_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(glyph_font_tests PRIVATE PkgConfig::FREETYPE)
+if(MSVC)
+  target_compile_options(glyph_font_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(glyph_font_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(glyph_font_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(glyph_font_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME glyph_font COMMAND glyph_font_tests)
 
 add_executable(cli_tests
   tests/cli_tests.cpp
@@ -498,6 +528,7 @@ add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
   src/braille_renderer.cpp
   src/frame_sampling.cpp
+  src/glyph_font.cpp
   src/glyph_ramp.cpp
   src/glyph_shape.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
@@ -516,7 +547,7 @@ set_target_properties(golden_frame_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(golden_frame_tests PRIVATE Threads::Threads ${CONTOURTTY_GPU_LIBS})
+target_link_libraries(golden_frame_tests PRIVATE Threads::Threads PkgConfig::FREETYPE ${CONTOURTTY_GPU_LIBS})
 if(MSVC)
   target_compile_options(golden_frame_tests PRIVATE /W4)
   if(CONTOURTTY_WARNINGS_AS_ERRORS)
@@ -681,6 +712,7 @@ add_test(NAME structure_sampling COMMAND structure_sampling_tests)
 add_executable(structure_edges_tests
   tests/structure_edges_tests.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
+  src/glyph_font.cpp
   src/glyph_shape.cpp
   src/luminance.cpp
   src/structure_edges.cpp
@@ -707,6 +739,7 @@ endif()
 if(CONTOURTTY_GPU_LIBS)
   target_link_libraries(structure_edges_tests PRIVATE ${CONTOURTTY_GPU_LIBS})
 endif()
+target_link_libraries(structure_edges_tests PRIVATE PkgConfig::FREETYPE)
 add_test(NAME structure_edges COMMAND structure_edges_tests)
 
 add_executable(terminal_tests
