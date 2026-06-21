@@ -659,6 +659,19 @@ int main() {
 
   {
     contourtty::CliOptions options;
+    options.style = "cell-shade";
+    expectEqual(contourtty::dumpRenderGraph(options),
+                "decode(cpu)   -> frame:RgbFrame\n"
+                "posterize(cpu)  frame:RgbFrame -> posterized-frame:RgbFrame\n"
+                "luminance(cpu)  posterized-frame:RgbFrame -> luminance:LuminanceField\n"
+                "cell-average(cpu)  posterized-frame:RgbFrame -> cell-colors:CellColors\n"
+                "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
+                "emit(cpu)  cells:CellGlyphs -> \n",
+                "cell-shade graph dump golden");
+  }
+
+  {
+    contourtty::CliOptions options;
     options.mode = "structure";
     options.etf_iters = 2;
     expectEqual(contourtty::dumpRenderGraph(options),

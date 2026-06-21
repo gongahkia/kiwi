@@ -15,7 +15,7 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--fps N", "override source fps"},
   {"--max-fps N", "cap render fps"},
   {"--mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}", ""},
-  {"--style {none|painterly|hatch|stipple|flow}", ""},
+  {"--style {none|painterly|hatch|stipple|flow|cell-shade}", ""},
   {"--render-mode {auto|text|pixel|hybrid}", ""},
   {"--structure-overlay {auto|on|off}", ""},
   {"--pipeline {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}", ""},

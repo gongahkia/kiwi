@@ -395,6 +395,13 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--style", "cell-shade"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "cell shade style parses");
+    expect(parsed.options.style == "cell-shade", "cell shade style stored");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--style", "invalid"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(!parsed.error.empty(), "style rejects invalid value");

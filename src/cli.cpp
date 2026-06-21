@@ -487,7 +487,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         result.error = "duplicate flag: --style";
         return result;
       }
-      if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple", "flow"})) {
+      if (!isOneOf(*value, {"none", "painterly", "hatch", "stipple", "flow", "cell-shade"})) {
         result.error = "invalid value for --style: " + std::string(*value);
         return result;
       }

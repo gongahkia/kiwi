@@ -118,6 +118,16 @@ bool flowStyleEnabled(const CliOptions& options) {
          std::find(options.graph_passes.begin(), options.graph_passes.end(), "lic") != options.graph_passes.end();
 }
 
+std::optional<int> posterizeLevelsFromCli(const CliOptions& options) {
+  if (options.posterize.has_value()) {
+    return options.posterize;
+  }
+  if (options.style == "cell-shade") {
+    return 4;
+  }
+  return std::nullopt;
+}
+
 int renderWorkerCount(int cols, int rows) {
   if (rows < 2 || cols * rows < 1024) {
     return 1;
@@ -156,7 +166,8 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
-  const bool posterize_enabled = options.posterize.has_value();
+  const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
+  const bool posterize_enabled = posterize_levels.has_value();
   const bool glyph_temporal_enabled = glyphTemporalEnabledFromCli(options);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
@@ -403,7 +414,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
-  const bool posterize_enabled = options.posterize.has_value();
+  const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
+  const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromCli(options);
   const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
@@ -460,7 +472,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("posterized-frame", BufferKind::RgbFrame)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        posterized_frame = posterizeFrameOklab(active_frame(), *options.posterize);
+        posterized_frame = posterizeFrameOklab(active_frame(), *posterize_levels);
         render_frame = &posterized_frame;
       },
     };
