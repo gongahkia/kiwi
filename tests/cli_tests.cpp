@@ -266,6 +266,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--grid", "4x3"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "grid parses");
+    expect(parsed.options.grid.has_value() && *parsed.options.grid == "4x3", "grid stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--grid", "4"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "grid rejects invalid value");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--caps", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "caps dump parses");

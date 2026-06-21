@@ -96,6 +96,7 @@ add_executable(contourtty
   src/graphics_alignment.cpp
   src/graphics_emitter.cpp
   src/graph_yaml.cpp
+  src/image_grid.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
@@ -472,6 +473,7 @@ add_executable(cli_tests
   tests/cli_tests.cpp
   src/cli.cpp
   src/glyph_ramp.cpp
+  src/image_grid.cpp
 )
 target_include_directories(cli_tests PRIVATE src)
 target_compile_features(cli_tests PRIVATE cxx_std_20)
@@ -1258,6 +1260,30 @@ else()
   endif()
 endif()
 add_test(NAME graphics_emitter COMMAND graphics_emitter_tests)
+
+add_executable(image_grid_tests
+  tests/image_grid_tests.cpp
+  src/image_grid.cpp
+)
+target_include_directories(image_grid_tests PRIVATE src)
+target_compile_features(image_grid_tests PRIVATE cxx_std_20)
+set_target_properties(image_grid_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(image_grid_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(image_grid_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(image_grid_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(image_grid_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME image_grid COMMAND image_grid_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp

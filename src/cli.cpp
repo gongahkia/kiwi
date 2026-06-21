@@ -1,6 +1,7 @@
 #include "cli.hpp"
 
 #include "glyph_ramp.hpp"
+#include "image_grid.hpp"
 
 #include <charconv>
 #include <cstdlib>
@@ -359,6 +360,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--log",
           "--export",
           "--graph",
+          "--grid",
           "--caps",
           "--dump-frame",
           "--dump-png",
@@ -563,6 +565,12 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.graph = std::string(*value);
+    } else if (flag == "--grid") {
+      if (!parseImageGridSpec(*value).has_value()) {
+        result.error = "invalid value for --grid: expected CxR";
+        return result;
+      }
+      result.options.grid = std::string(*value);
     } else if (flag == "--caps") {
       if (value->empty()) {
         result.error = "invalid value for --caps: expected dump or override spec";
@@ -697,6 +705,7 @@ std::string helpText(std::string_view program_name) {
       << "  --debug-stats                  show live fps/cpu/rss diagnostics\n"
       << "  --no-debug-stats               disable config-default debug stats\n"
       << "  --graph dump|FILE.yaml         print resolved graph or load graph file\n"
+      << "  --grid CxR                     image contact sheet columns x rows\n"
       << "  --caps dump|SPEC               print or override terminal capability detection\n"
       << "  --export FILE                  render to output file\n"
       << "  --dump-frame N                 dump decoded frame N for diagnostics\n"
