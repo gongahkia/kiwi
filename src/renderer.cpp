@@ -19,6 +19,7 @@
 #include "posterize.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
+#include "scene_source.hpp"
 #include "sextant_renderer.hpp"
 #include "stipple.hpp"
 #include "structure_edges.hpp"
@@ -43,10 +44,22 @@ namespace {
 constexpr double kDefaultDogThreshold = 0.02;
 constexpr double kDefaultEdgeThreshold = 0.35;
 constexpr double kDefaultEdgeStrength = 1.0;
+constexpr double kPi = 3.14159265358979323846;
 
 struct ShapeMatchStats {
   int64_t cells = 0;
   int64_t ns = 0;
+};
+
+struct SceneCellSample {
+  Rgb color;
+  SceneVec3 normal;
+  double depth = 0.0;
+};
+
+struct SceneDepthRange {
+  double near = 0.0;
+  double far = 0.0;
 };
 
 PassPort renderPort(std::string name, BufferKind kind) {
@@ -54,6 +67,183 @@ PassPort renderPort(std::string name, BufferKind kind) {
     .name = std::move(name),
     .desc = BufferDesc{.kind = kind},
   };
+}
+
+SceneVec3 normalizeSceneVec(SceneVec3 value) {
+  const double length = std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
+  if (length <= 1.0e-12) {
+    return SceneVec3{.z = 1.0};
+  }
+  return SceneVec3{.x = value.x / length, .y = value.y / length, .z = value.z / length};
+}
+
+bool sceneGBufferUsable(const SceneGBuffer& gbuffer) {
+  const std::size_t pixels = static_cast<std::size_t>(gbuffer.albedo.w) * static_cast<std::size_t>(gbuffer.albedo.h);
+  return gbuffer.albedo.w > 0 &&
+         gbuffer.albedo.h > 0 &&
+         gbuffer.albedo.rgb.size() == pixels * 3U &&
+         gbuffer.depth.size() == pixels &&
+         gbuffer.normals.size() == pixels;
+}
+
+std::optional<SceneDepthRange> sceneDepthRange(const SceneGBuffer& gbuffer) {
+  std::optional<SceneDepthRange> range;
+  for (const double depth : gbuffer.depth) {
+    if (!std::isfinite(depth)) {
+      continue;
+    }
+    if (!range.has_value()) {
+      range = SceneDepthRange{.near = depth, .far = depth};
+      continue;
+    }
+    range->near = std::min(range->near, depth);
+    range->far = std::max(range->far, depth);
+  }
+  return range;
+}
+
+std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int cols, int rows, int col, int row) {
+  if (!sceneGBufferUsable(gbuffer) || cols <= 0 || rows <= 0) {
+    return std::nullopt;
+  }
+  const int x0 = (col * gbuffer.albedo.w) / cols;
+  const int x1 = std::max(x0 + 1, ((col + 1) * gbuffer.albedo.w) / cols);
+  const int y0 = (row * gbuffer.albedo.h) / rows;
+  const int y1 = std::max(y0 + 1, ((row + 1) * gbuffer.albedo.h) / rows);
+  uint64_t r = 0;
+  uint64_t g = 0;
+  uint64_t b = 0;
+  double nx = 0.0;
+  double ny = 0.0;
+  double nz = 0.0;
+  double depth_sum = 0.0;
+  uint64_t count = 0;
+  for (int y = y0; y < y1; ++y) {
+    for (int x = x0; x < x1; ++x) {
+      const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(gbuffer.albedo.w) + static_cast<std::size_t>(x);
+      const double depth = gbuffer.depth[index];
+      if (!std::isfinite(depth)) {
+        continue;
+      }
+      r += gbuffer.albedo.rgb[index * 3U];
+      g += gbuffer.albedo.rgb[index * 3U + 1U];
+      b += gbuffer.albedo.rgb[index * 3U + 2U];
+      nx += gbuffer.normals[index].x;
+      ny += gbuffer.normals[index].y;
+      nz += gbuffer.normals[index].z;
+      depth_sum += depth;
+      ++count;
+    }
+  }
+  if (count == 0) {
+    return std::nullopt;
+  }
+  return SceneCellSample{
+    .color = Rgb{
+      .r = static_cast<uint8_t>(r / count),
+      .g = static_cast<uint8_t>(g / count),
+      .b = static_cast<uint8_t>(b / count),
+    },
+    .normal = normalizeSceneVec(SceneVec3{.x = nx, .y = ny, .z = nz}),
+    .depth = depth_sum / static_cast<double>(count),
+  };
+}
+
+double angularDistance(double a, double b) {
+  double delta = std::fmod(std::abs(a - b), 2.0 * kPi);
+  if (delta > kPi) {
+    delta = 2.0 * kPi - delta;
+  }
+  return delta;
+}
+
+char32_t sceneOrientationGlyph(double orientation) {
+  struct Candidate {
+    double angle;
+    char32_t glyph;
+  };
+  const Candidate candidates[] = {
+    Candidate{.angle = 0.0, .glyph = U'│'},
+    Candidate{.angle = kPi, .glyph = U'│'},
+    Candidate{.angle = -kPi, .glyph = U'│'},
+    Candidate{.angle = kPi / 2.0, .glyph = U'─'},
+    Candidate{.angle = -kPi / 2.0, .glyph = U'─'},
+    Candidate{.angle = kPi / 4.0, .glyph = U'╱'},
+    Candidate{.angle = -3.0 * kPi / 4.0, .glyph = U'╱'},
+    Candidate{.angle = -kPi / 4.0, .glyph = U'╲'},
+    Candidate{.angle = 3.0 * kPi / 4.0, .glyph = U'╲'},
+  };
+  const Candidate* best = &candidates[0];
+  double best_distance = angularDistance(orientation, best->angle);
+  for (const Candidate& candidate : candidates) {
+    const double distance = angularDistance(orientation, candidate.angle);
+    if (distance < best_distance) {
+      best = &candidate;
+      best_distance = distance;
+    }
+  }
+  return best->glyph;
+}
+
+bool isSceneOrientationGlyph(char32_t glyph) {
+  return glyph == U'│' || glyph == U'─' || glyph == U'╱' || glyph == U'╲';
+}
+
+Rgb scaleRgb(Rgb color, double factor) {
+  factor = std::clamp(factor, 0.0, 1.0);
+  return Rgb{
+    .r = static_cast<uint8_t>(std::lround(static_cast<double>(color.r) * factor)),
+    .g = static_cast<uint8_t>(std::lround(static_cast<double>(color.g) * factor)),
+    .b = static_cast<uint8_t>(std::lround(static_cast<double>(color.b) * factor)),
+  };
+}
+
+void applySceneNormalOrient(CellBuffer* cells, const SceneGBuffer& gbuffer, int cols, int rows) {
+  if (cells == nullptr || cells->cols() != cols || cells->rows() != rows) {
+    return;
+  }
+  for (int row = 0; row < rows; ++row) {
+    for (int col = 0; col < cols; ++col) {
+      const std::optional<SceneCellSample> sample = sampleSceneCell(gbuffer, cols, rows, col, row);
+      if (!sample.has_value()) {
+        continue;
+      }
+      if (std::hypot(sample->normal.x, sample->normal.y) <= 0.08) {
+        continue;
+      }
+      const double tangent = std::atan2(sample->normal.y, sample->normal.x) + kPi / 2.0;
+      cells->at(col, row).glyph = sceneOrientationGlyph(tangent);
+    }
+  }
+}
+
+void applySceneDepthShade(CellBuffer* cells, const SceneGBuffer& gbuffer, std::u32string_view ramp, int cols, int rows) {
+  if (cells == nullptr || cells->cols() != cols || cells->rows() != rows) {
+    return;
+  }
+  const std::optional<SceneDepthRange> range = sceneDepthRange(gbuffer);
+  if (!range.has_value()) {
+    return;
+  }
+  const double span = std::max(range->far - range->near, 1.0e-9);
+  for (int row = 0; row < rows; ++row) {
+    for (int col = 0; col < cols; ++col) {
+      const std::optional<SceneCellSample> sample = sampleSceneCell(gbuffer, cols, rows, col, row);
+      Cell& cell = cells->at(col, row);
+      if (!sample.has_value()) {
+        cell = Cell{};
+        continue;
+      }
+      const double depth_t = std::clamp((sample->depth - range->near) / span, 0.0, 1.0);
+      const double facing = std::clamp(sample->normal.z * 0.5 + 0.5, 0.0, 1.0);
+      const double factor = (0.55 + facing * 0.45) * (1.0 - depth_t * 0.45);
+      cell.fg = scaleRgb(sample->color, factor);
+      cell.bg = Rgb{};
+      if (!isSceneOrientationGlyph(cell.glyph)) {
+        cell.glyph = glyphForLuminance(relativeLuminance(cell.fg), ramp);
+      }
+    }
+  }
 }
 
 DogOptions dogOptionsFromCli(const CliOptions& options) {
@@ -139,6 +329,9 @@ int renderWorkerCount(int cols, int rows) {
 
 GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
   GraphBuildOptions graph_options;
+  if (options.style == "cell-shade") {
+    graph_options.external_inputs = {"scene-depth", "scene-normals"};
+  }
   graph_options.backend_preference = options.gpu
                                        ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
                                        : std::vector<Backend>{Backend::Cpu};
@@ -166,6 +359,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
+  const bool scene_cell_shade_enabled = options.style == "cell-shade";
   const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
   const bool posterize_enabled = posterize_levels.has_value();
   const bool glyph_temporal_enabled = glyphTemporalEnabledFromCli(options);
@@ -302,8 +496,26 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     });
     return std::string("stipple-cells");
   };
+  const auto append_scene_cell_shade = [&](std::vector<Pass>* passes, const std::string& input) {
+    if (!scene_cell_shade_enabled) {
+      return input;
+    }
+    passes->push_back(Pass{
+      .id = "normal-orient",
+      .inputs = {renderPort("scene-normals", BufferKind::NormalBuffer), renderPort(input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    passes->push_back(Pass{
+      .id = "depth-shade",
+      .inputs = {renderPort("scene-depth", BufferKind::DepthBuffer), renderPort("scene-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("scene-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+    });
+    return std::string("scene-cells");
+  };
   const auto emit_styled = [&](std::vector<Pass>* passes, const std::string& input) {
-    passes->push_back(emit_pass(append_stipple(passes, input)));
+    passes->push_back(emit_pass(append_stipple(passes, append_scene_cell_shade(passes, input))));
   };
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
@@ -380,7 +592,7 @@ std::string dumpRenderGraph(const CliOptions& options) {
   return buildGraph(renderGraphSkeleton(options), renderGraphBuildOptions(options)).dump();
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   const RenderSize size = fitRenderSize(frame, options, terminal);
   cells->resize(size.cols, size.rows);
@@ -414,6 +626,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool hatch_enabled = hatchStyleEnabled(options);
   const bool stipple_enabled = stippleStyleEnabled(options);
   const bool flow_enabled = flowStyleEnabled(options);
+  const bool scene_cell_shade_enabled = options.style == "cell-shade";
   const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
   const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromCli(options);
@@ -839,6 +1052,43 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     };
   };
 
+  const auto normal_orient_pass = [&](const std::string& input) {
+    return Pass{
+      .id = "normal-orient",
+      .inputs = {renderPort("scene-normals", BufferKind::NormalBuffer), renderPort(input, BufferKind::CellGlyphs)},
+      .outputs = {renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        if (scene_gbuffer != nullptr) {
+          applySceneNormalOrient(cells, *scene_gbuffer, size.cols, size.rows);
+        }
+      },
+    };
+  };
+
+  const auto depth_shade_pass = [&] {
+    return Pass{
+      .id = "depth-shade",
+      .inputs = {renderPort("scene-depth", BufferKind::DepthBuffer), renderPort("scene-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("scene-cells", BufferKind::CellGlyphs)},
+      .supports = {Backend::Cpu},
+      .run = [&](PassContext&) {
+        if (scene_gbuffer != nullptr) {
+          applySceneDepthShade(cells, *scene_gbuffer, ramp, size.cols, size.rows);
+        }
+      },
+    };
+  };
+
+  const auto append_scene_cell_shade_passes = [&](std::vector<Pass>* passes, const std::string& input) {
+    if (!scene_cell_shade_enabled) {
+      return input;
+    }
+    passes->push_back(normal_orient_pass(input));
+    passes->push_back(depth_shade_pass());
+    return std::string("scene-cells");
+  };
+
   const auto line_ligatures_pass = [&] {
     return Pass{
       .id = "line-ligatures",
@@ -872,7 +1122,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       passes->push_back(line_ligatures_pass());
       output = "ligature-cells";
     }
-    passes->push_back(emit_pass(append_stipple_pass(output)));
+    passes->push_back(emit_pass(append_stipple_pass(append_scene_cell_shade_passes(passes, output))));
   };
 
   if (const std::optional<std::string> blitter = directBlitterMode(options)) {

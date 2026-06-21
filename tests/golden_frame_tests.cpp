@@ -4,6 +4,7 @@
 #include "gpu_sobel.hpp"
 #include "graph_yaml.hpp"
 #include "renderer.hpp"
+#include "scene_source.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -12,6 +13,13 @@
 #include <vector>
 
 namespace {
+
+void expect(bool condition, const char* label) {
+  if (!condition) {
+    std::cerr << label << '\n';
+    std::exit(1);
+  }
+}
 
 void expectEqual(const std::string& actual, const std::string& expected, const char* label) {
   if (actual != expected) {
@@ -426,6 +434,50 @@ int main() {
   }
 
   {
+    contourtty::SceneGBuffer gbuffer;
+    gbuffer.albedo = frameFromPixels(4, 2, {
+      gray(220), gray(220), gray(220), gray(220),
+      gray(220), gray(220), gray(220), gray(220),
+    });
+    gbuffer.depth.assign(8, 0.0);
+    gbuffer.normals = {
+      contourtty::SceneVec3{.x = 1.0}, contourtty::SceneVec3{.x = 1.0}, contourtty::SceneVec3{.y = 1.0}, contourtty::SceneVec3{.y = 1.0},
+      contourtty::SceneVec3{.x = 1.0}, contourtty::SceneVec3{.x = 1.0}, contourtty::SceneVec3{.y = 1.0}, contourtty::SceneVec3{.y = 1.0},
+    };
+    contourtty::CliOptions options;
+    options.style = "cell-shade";
+    options.width = 2;
+    options.height = 1;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(gbuffer.albedo, contourtty::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    expect(cells.at(0, 0).glyph == U'─', "scene normal-orient uses x normal");
+    expect(cells.at(1, 0).glyph == U'│', "scene normal-orient uses y normal");
+  }
+
+  {
+    contourtty::SceneGBuffer gbuffer;
+    gbuffer.albedo = frameFromPixels(4, 2, {
+      gray(255), gray(255), gray(255), gray(255),
+      gray(255), gray(255), gray(255), gray(255),
+    });
+    gbuffer.depth = {
+      0.0, 0.0, 1.0, 1.0,
+      0.0, 0.0, 1.0, 1.0,
+    };
+    gbuffer.normals.assign(8, contourtty::SceneVec3{.z = 1.0});
+    contourtty::CliOptions options;
+    options.style = "cell-shade";
+    options.width = 2;
+    options.height = 1;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer cells;
+    contourtty::renderFrame(gbuffer.albedo, contourtty::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    expect(cells.at(0, 0).fg.r > cells.at(1, 0).fg.r, "scene depth-shade darkens far cell");
+    expect(cells.at(0, 0).glyph != cells.at(1, 0).glyph, "scene depth-shade shifts ramp glyph");
+  }
+
+  {
     const contourtty::Frame frame = frameFromPixels(8, 8, {
       gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255), gray(255),
       gray(0), gray(0), gray(0), gray(0), gray(255), gray(255), gray(255), gray(255),
@@ -667,7 +719,9 @@ int main() {
                 "luminance(cpu)  posterized-frame:RgbFrame -> luminance:LuminanceField\n"
                 "cell-average(cpu)  posterized-frame:RgbFrame -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
-                "emit(cpu)  cells:CellGlyphs -> \n",
+                "normal-orient(cpu)  scene-normals:NormalBuffer, cells:CellGlyphs -> normal-cells:CellGlyphs\n"
+                "depth-shade(cpu)  scene-depth:DepthBuffer, scene-normals:NormalBuffer, normal-cells:CellGlyphs -> scene-cells:CellGlyphs\n"
+                "emit(cpu)  scene-cells:CellGlyphs -> \n",
                 "cell-shade graph dump golden");
   }
 

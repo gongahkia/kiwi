@@ -20,6 +20,8 @@ enum class BufferKind {
   CellColors,
   CellShapeVectors,
   OpticalFlow,
+  DepthBuffer,
+  NormalBuffer,
   Custom,
 };
 

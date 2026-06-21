@@ -228,6 +228,10 @@ std::string_view bufferKindName(BufferKind kind) noexcept {
       return "CellShapeVectors";
     case BufferKind::OpticalFlow:
       return "OpticalFlow";
+    case BufferKind::DepthBuffer:
+      return "DepthBuffer";
+    case BufferKind::NormalBuffer:
+      return "NormalBuffer";
     case BufferKind::Custom:
       return "Custom";
   }

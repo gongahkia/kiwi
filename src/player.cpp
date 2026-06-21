@@ -2056,7 +2056,7 @@ double sceneCameraTime(const CliOptions& options, double time_seconds) {
   return time_seconds;
 }
 
-Frame renderSceneFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us) {
+SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us) {
   const int cols = std::max(1, options.width.value_or(terminal.cols));
   const int rows = std::max(1, options.height.value_or(terminal.rows));
   const int pixel_rows = std::max(1, static_cast<int>(std::llround(static_cast<double>(rows) / options.cell_aspect)));
@@ -2066,7 +2066,7 @@ Frame renderSceneFrame(const SceneMesh& mesh, const CliOptions& options, Termina
                                                     .time_seconds = sceneCameraTime(options, static_cast<double>(pts_us) / 1000000.0),
                                                   });
   gbuffer.albedo.pts_us = pts_us;
-  return std::move(gbuffer.albedo);
+  return gbuffer;
 }
 
 bool isStdinInput(std::string_view input) noexcept {
@@ -2376,7 +2376,8 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
     }
 
     const int64_t pts_us = frame_index * frame_us;
-    Frame frame = renderSceneFrame(mesh, options, debugRenderTerminal(terminal, options), pts_us);
+    SceneGBuffer gbuffer = renderSceneGBufferFrame(mesh, options, debugRenderTerminal(terminal, options), pts_us);
+    Frame& frame = gbuffer.albedo;
     ++frame_index;
     debug_stats.recordInputFrame();
     pacer.waitForFrame(frame);
@@ -2397,7 +2398,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
 
     const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
     const CliOptions render_options = debugRenderOptions(options, terminal);
-    renderFrame(frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    renderFrame(frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state, &gbuffer);
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
