@@ -80,6 +80,12 @@ Audio clock smoke samples the miniaudio callback-backed playback clock while the
 
 The Phase A parser is hand-rolled and in-tree to avoid an early external dependency. Revisit CLI11 only if flag complexity grows enough to justify vendoring it.
 
+## Optional external tools
+
+| Tool | Minimum | Strategy | License posture | Used for |
+|---|---:|---|---|---|
+| yt-dlp | any current release with `-g` | user-installed executable on `PATH`, overridable with `CONTOURTTY_YTDLP` | Unlicense/public-domain equivalent | Resolving YouTube URLs to direct FFmpeg-readable media URLs. |
+
 ## Glyph lookup
 
 | Library | Minimum | Strategy | License posture | Used for |

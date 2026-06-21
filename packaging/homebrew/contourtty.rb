@@ -7,6 +7,7 @@ class Contourtty < Formula
   depends_on "cmake" => :build
   depends_on "pkgconf" => :build
   depends_on "ffmpeg"
+  depends_on "freetype"
   depends_on "zlib"
 
   def install

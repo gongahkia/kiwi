@@ -246,7 +246,8 @@
 
 - [~] **X1. Memory safety.** Local clean; hosted Linux ASan/UBSan blocked by billing (carried into PHASE_P §CI).
 - [~] **X2. No leaks on shutdown.** Local macOS clean across normal/seek/Ctrl-C; hosted Linux Valgrind blocked.
-- [~] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / libsixel / nanoflann / stb_image_write.
+- [x] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / libsixel / nanoflann / stb_image_write.
+  - `DEPENDENCIES.md` covers build tools, FFmpeg, zlib, FreeType, miniaudio, Apple frameworks, nanoflann, Metal, future Vulkan/glslang/SPIRV-Cross, graphics protocols, libsixel/stb posture, shipped assets, install prerequisites, and optional yt-dlp. Homebrew formula includes the required FFmpeg/FreeType/zlib deps.
   - `DEPENDENCIES.md` now lists current system/vendored libraries, license posture, platform frameworks, protocol-only encoders, planned blocked Vulkan/glslang/SPIRV-Cross/libsixel deps, and shipped data assets. Open: finalize after Vulkan/Sixel/shader deps are actually added.
 - [x] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
   - `CONTOURTTY_LIGHT` configures a CPU-only build that skips optional Apple Metal linkage; `build/light/contourtty` built locally and omits Metal/Foundation in `otool -L`. `DEPENDENCIES.md` records the local Release size delta: 1,496,856 bytes default vs 1,460,120 bytes light.
