@@ -93,6 +93,7 @@ add_executable(contourtty
   src/glyph_ramp.cpp
   src/glyph_sdf.cpp
   src/glyph_shape.cpp
+  src/graphics_alignment.cpp
   src/graph_yaml.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
@@ -1196,6 +1197,30 @@ else()
   endif()
 endif()
 add_test(NAME bandwidth_guard COMMAND bandwidth_guard_tests)
+
+add_executable(graphics_alignment_tests
+  tests/graphics_alignment_tests.cpp
+  src/graphics_alignment.cpp
+)
+target_include_directories(graphics_alignment_tests PRIVATE src)
+target_compile_features(graphics_alignment_tests PRIVATE cxx_std_20)
+set_target_properties(graphics_alignment_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(graphics_alignment_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(graphics_alignment_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(graphics_alignment_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(graphics_alignment_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME graphics_alignment COMMAND graphics_alignment_tests)
 
 add_executable(media_input_tests
   tests/media_input_tests.cpp
