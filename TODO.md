@@ -175,7 +175,7 @@
 - [x] **M6. Seek/resize history clear.** DoD: seeking forward then back, or resizing, doesn't carry ghost glyph choices. Reference: PHASE_M §Seek.
   - Playback seek, loop restart, split seam moves, live render-option changes, and resize reset glyph hysteresis state alongside the diff emitter and graphics bandwidth guard. `hysteresis_tests` now asserts explicit reset clears prior glyph choices. PTY proof: generated a 160x90@12, 12s clip, scripted seek forward, seek back, and PTY resize under `--glyph-stickiness 0.05`; log recorded `seek reset render state target_us=5000000`, `resize reset render state terminal=100x30`, and `seek reset render state target_us=0`, with transcript full clears after reset points.
 - [~] **M7. Temporal tests + bench.** DoD: `optical_flow_tests`, `hysteresis_tests`, golden flicker metric below threshold for default stickiness; BENCHMARKS.md records per-Pass cost. Reference: PHASE_M §Tests / §Bench.
-  - `optical_flow_tests`, `hysteresis_tests`, `warp_history_tests`, graph goldens, and BENCHMARKS temporal pass cost rows are in place. Open: golden flicker metric threshold and supersample cost row.
+  - `optical_flow_tests`, `hysteresis_tests`, `warp_history_tests`, graph goldens, and BENCHMARKS temporal pass cost rows are in place. `hysteresis_tests` now includes a deterministic alternating-glyph flicker metric and asserts default stickiness stays below 40% of the unstuck baseline. Open: supersample cost row.
 - [ ] **Phase M exit criteria.** DoD: per-cell glyph-change rate on the pan-clip baseline drops by ≥60%; A/V drift unchanged within ±2 ms; no fidelity regression on real motion.
 
 ---
