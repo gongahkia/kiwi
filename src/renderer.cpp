@@ -466,15 +466,15 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     if (glyph_temporal_enabled) {
       passes->push_back(Pass{
         .id = "warp-history",
-        .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)},
-        .outputs = {renderPort("warped-history", BufferKind::CellGlyphs)},
+        .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs), renderPort("cell-shapes", BufferKind::CellShapeVectors)},
+        .outputs = {renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors)},
         .supports = {Backend::Cpu},
       });
     }
     passes->push_back(Pass{
       .id = "overlay-structure",
       .inputs = glyph_temporal_enabled
-                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort(base_input, BufferKind::CellGlyphs)}
+                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)}
                   : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu, Backend::Metal},
@@ -609,11 +609,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     temporal_state->orientation_hysteresis.resize(size.cols, size.rows);
   }
   std::vector<char32_t> previous_glyphs;
+  std::vector<CellLuminanceRegion> previous_shape_regions;
   if (temporal_state != nullptr) {
     previous_glyphs.reserve(cells->cells().size());
     for (const Cell& cell : cells->cells()) {
       previous_glyphs.push_back(cell.glyph);
     }
+    previous_shape_regions = temporal_state->previous_shape_regions;
   }
   if (stats != nullptr) {
     ++stats->frames;
@@ -628,6 +630,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<Rgb> average_colors;
   std::vector<CellLuminanceRegion> cell_shape_regions;
   std::vector<char32_t> warped_previous_glyphs;
+  std::vector<CellLuminanceRegion> warped_previous_shape_regions;
   const double edge_threshold = effectiveEdgeThresholdFromCli(options);
   const double orient_stickiness = orientationStickinessFromCli(options);
   const bool overlay_enabled = structureOverlayEnabled(options);
@@ -655,6 +658,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<ShapeMatchStats> worker_stats;
 
   const auto finish_stats = [&] {
+    if (temporal_state != nullptr) {
+      temporal_state->previous_shape_regions = cell_shape_regions;
+    }
     if (stats != nullptr) {
       for (const ShapeMatchStats& local_stats : worker_stats) {
         stats->shape_match_cells += local_stats.cells;
@@ -929,16 +935,20 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const auto warp_history_pass = [&](const std::string& base_input) {
     return Pass{
       .id = "warp-history",
-      .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs)},
-      .outputs = {renderPort("warped-history", BufferKind::CellGlyphs)},
+      .inputs = {renderPort("flow", BufferKind::OpticalFlow), renderPort(base_input, BufferKind::CellGlyphs), renderPort("cell-shapes", BufferKind::CellShapeVectors)},
+      .outputs = {renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         warped_previous_glyphs.clear();
+        warped_previous_shape_regions.clear();
         if (flow_field.has_value() && !previous_glyphs.empty()) {
           const auto warp_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
           warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *flow_field);
+          if (previous_shape_regions.size() == cell_shape_regions.size()) {
+            warped_previous_shape_regions = warpCellShapeHistory(previous_shape_regions, size.cols, size.rows, *flow_field);
+          }
           if (stats != nullptr) {
-            stats->warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size());
+            stats->warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size());
             stats->warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();
           }
         }
@@ -950,7 +960,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
     return Pass{
       .id = "overlay-structure",
       .inputs = glyph_hysteresis_enabled
-                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort(base_input, BufferKind::CellGlyphs)}
+                  ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)}
                   : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu, Backend::Metal},
@@ -998,7 +1008,10 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                   const GlyphShapeMatch best = matchGlyphShapeWithScore(features, *shape_table);
                   const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
                   const char32_t previous_glyph = history_glyphs.empty() ? cell.glyph : history_glyphs[cell_index];
-                  const double previous_score = scoreGlyphShape(features, *shape_table, previous_glyph);
+                  const std::vector<double> previous_features = warped_previous_shape_regions.empty()
+                                                                  ? features
+                                                                  : match_region(warped_previous_shape_regions[cell_index]);
+                  const double previous_score = scoreGlyphShape(previous_features, *shape_table, previous_glyph);
                   cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness).glyph;
                 } else {
                   cell.glyph = matchGlyphShape(features, *shape_table);

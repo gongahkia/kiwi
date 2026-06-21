@@ -6,12 +6,14 @@
 #include "glyph_shape.hpp"
 #include "hysteresis.hpp"
 #include "luminance.hpp"
+#include "structure_sampling.hpp"
 #include "terminal.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace contourtty {
 
@@ -33,11 +35,13 @@ struct RenderTemporalState {
   GlyphHysteresisState glyph_hysteresis;
   OrientationHysteresisState orientation_hysteresis;
   std::optional<LuminanceField> previous_luminance;
+  std::vector<CellLuminanceRegion> previous_shape_regions;
 
   void reset() {
     glyph_hysteresis.reset();
     orientation_hysteresis.reset();
     previous_luminance.reset();
+    previous_shape_regions.clear();
   }
 };
 
