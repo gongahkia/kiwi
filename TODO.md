@@ -94,8 +94,8 @@
   - Local goldens exist for luminance, structure, halfblock, braille, blocks, octant, and sextant. Open: extend to every Phase I–O mode/style; gate CI on them once billing unblocks.
 - [~] **G7. Packaging.** DoD: a user on a fresh machine can install and run with documented steps. Reference: PHASE_G §Packaging.
   - CPack TGZ + Linux DEB + tag-driven release workflow + head-only Homebrew formula present locally. Open: hosted artifact build (Actions billing blocks); Homebrew versioned bottle; static-FFmpeg link for self-contained releases (moves into PHASE_P §Packaging).
-- [ ] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
-  - README + CONTRIBUTING + man page exist; v2 features will land their own README updates in Phase P. Open: refresh hero GIF after Phase P.
+- [x] **G8. Docs (README hero, contributing, man page, --help parity).** DoD: a newcomer can install, run, and understand the differentiator from the README alone. Reference: PHASE_G §Docs.
+  - README now covers current install deps, first run, structure-vs-luminance differentiator, mode/style/render-mode knobs, new content paths, export/still/caption outputs, and graph inspection. CONTRIBUTING documents local build/test/package flow; `help_manpage_parity_tests` keeps `--help` and `docs/contourtty.1` in sync from `src/cli_spec.cpp`. P5 still owns the v1.0 split hero/demo refresh.
 - [ ] **G10. Publish honest benchmark numbers.** DoD: numbers reproducible from documented commands; linked from README. Reference: PHASE_G §Bench.
   - BENCHMARKS.md scaffolded with current numbers. Open: full sweep across all modes/styles/backends in PHASE_P §Bench.
 - [ ] **Phase G exit criteria → tag `v1.0`.** Deferred — `v1.0` now gates on PHASE_P exit. PHASE_G exit is partial: full golden coverage, hosted release artifacts, final docs/demo refresh, final benchmark sweep, and hosted CI remain.

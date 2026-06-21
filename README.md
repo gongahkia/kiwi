@@ -11,7 +11,7 @@ Demo source: public-domain Wikimedia Commons footage; luminance is left, structu
 
 ## Status
 
-Pre-alpha. Local video, images, GIFs, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI and asciinema export work. Webcam capture and published release artifacts are still pending.
+Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm pixel emitters are implemented and covered by local tests. Published release artifacts are still pending.
 
 ## Build and run
 
@@ -20,6 +20,8 @@ cmake --preset ci
 cmake --build --preset ci
 ./build/ci/contourtty <video-file>
 ```
+
+One-line dependency setup: macOS uses `brew install cmake pkg-config ffmpeg freetype zlib`; Debian/Ubuntu uses `sudo apt-get install cmake pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev`.
 
 Minimal CPU-only build:
 
@@ -30,7 +32,7 @@ cmake --build build/light --target contourtty --parallel
 
 `CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan, shader cross-compilation, and Sixel are not linked in the current tree.
 
-Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`) plus zlib. On macOS, install them with `brew install ffmpeg zlib`; on Debian/Ubuntu, install the matching `libav*-dev` packages for builds and the corresponding shared runtime packages for packaged binaries.
+Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`), FreeType, and zlib. On macOS, install them with `brew install ffmpeg freetype zlib`; on Debian/Ubuntu, install the matching `libav*-dev`, `libfreetype-dev`, and shared runtime packages for packaged binaries.
 
 Install from source:
 
@@ -54,11 +56,15 @@ With audio present in local files, video is paced from the audio playback clock.
 
 Structure overlay replaces high-edge cell glyphs while preserving the active blitter colors. `--structure-overlay auto` enables it for `--mode structure` or structure-tuning flags, `on` forces it for modes such as octant/sextant/braille/halfblock/blocks, and `off` disables it. `--line-ligatures` post-processes structure edges into box-drawing joins. `--edge-strength 0` disables edge picks, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
-Styles insert NPR pre/post passes into the render graph. `--style painterly` runs a directional Kuwahara pre-pass before luminance and structure analysis to flatten local color regions while preserving hard contours. `--style hatch` replaces structure overlay with ETF-smoothed crosshatch glyphs driven by edge orientation and shade density. `--style stipple` replaces cell glyphs with blue-noise-thresholded dot glyphs. `--style flow` replaces structure overlay with ETF-guided LIC strokes; `--lic-length N` controls the trace length. `--posterize N` quantizes OKLab L into perceptual shade buckets before glyph and terminal color quantization.
+Styles insert NPR pre/post passes into the render graph. `--style painterly` runs a directional Kuwahara pre-pass before luminance and structure analysis to flatten local color regions while preserving hard contours. `--style hatch` replaces structure overlay with ETF-smoothed crosshatch glyphs driven by edge orientation and shade density. `--style stipple` replaces cell glyphs with blue-noise-thresholded dot glyphs. `--style flow` replaces structure overlay with ETF-guided LIC strokes; `--lic-length N` controls the trace length. `--style cell-shade` is for scene inputs: it uses the OBJ G-buffer's normals and depth for orientation hatching and shade shifts. `--posterize N` quantizes OKLab L into perceptual shade buckets before glyph and terminal color quantization.
 
 Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure` enables shape-aware edge glyphs, `--edge-threshold N` sets the minimum edge magnitude, `--dog-sigma N[,M]` enables DoG line isolation (`0` disables it), `--etf-iters N` smooths the Sobel orientation field and applies a CLD edge field, `--posterize N` buckets OKLab L before glyph selection, `--contrast N` boosts structure separation, `--glyph-stickiness N` keeps near-tied structure glyphs stable across frames, and `--charset NAME|string` replaces the luminance ramp. Presets: `standard`, `blocks`, `detailed`, `binary`, `portrait-30`, `lineart-40`, `blueprint-24`, and `braille`; `portrait-30` is density-rich for faces/figures, `lineart-40` emphasizes strokes/corners, and `blueprint-24` keeps thin technical geometry. `--mode braille` packs a 2x4 luminance grid into each Unicode braille cell with separate foreground/background averages; `--charset braille` remains accepted as a packed-renderer alias. `--font PATH` uses FreeType rasterization for structure glyph analysis and MP4 glyph rasterization. `--ramp-sort` sorts the active ramp by FreeType ink density, so it requires `--font` unless the active charset is `braille`. `--glyph-features hog` swaps shape matching from the legacy 9-region overlap vector to a 32-D HoG vector; `--glyph-features sdf` uses signed-distance overlap features. `--gpu` uses the optional Metal structure-analysis backend for DoG, Sobel, glyph choice, and per-cell averages on macOS when available, and falls back to CPU elsewhere.
 
-Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing.
+Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing. `--grid CxR` treats a globbed image input as a fitted contact sheet and keeps animated GIF tiles on their own timelines.
+
+Scene inputs: `.obj` files and bundled aliases such as `contourtty:scene:cube` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
+
+Data and terminal-recording inputs: `--input stdin --plot waveform|spectrum|heatmap` renders numeric streams, and `.cast` inputs replay asciinema v2 recordings through the same renderer.
 
 Layout: `--width` and `--height` set render bounds, `--fit` clamps those bounds to the current terminal, output is centered, resize recomputes the fit and repaints, and `--loop` restarts video input at EOF.
 
@@ -74,7 +80,7 @@ Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color whe
 
 Controls: `space` pauses/resumes audio and video together, left/right arrows seek -/+5s, and `q` quits.
 
-Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. `--still hero.png` writes one rasterized PNG snapshot, optionally seeking first with `--still-at HH:MM:SS`. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
+Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. `--still hero.png` writes one rasterized PNG snapshot, optionally seeking first with `--still-at HH:MM:SS`. `--captions out.srt` writes deterministic frame-summary captions. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
 Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/contourtty/graphs/`.
 
@@ -92,8 +98,8 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
 | `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select renderer. |
-| `--style none\|painterly\|hatch\|stipple\|flow` | Insert a stylized render-graph pre/pass set. |
-| `--render-mode auto\|text\|pixel\|hybrid` | Select text/pixel ladder intent; pixel transport lands in Phase N. |
+| `--style none\|painterly\|hatch\|stipple\|flow\|cell-shade` | Insert a stylized render-graph pre/pass set. |
+| `--render-mode auto\|text\|pixel\|hybrid` | Select text, graphics-protocol pixel, or hybrid output; `auto` falls back to text when unsupported. |
 | `--structure-overlay auto\|on\|off` | Overlay structure contours over the active blitter. |
 | `--pipeline auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select a render-graph preset; overrides config `pipeline`. |
 | `--font PATH` | Use a FreeType font for structure glyph analysis and MP4 export glyph rasterization. |
@@ -114,6 +120,7 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 | `--glyph-stickiness N` | Retain near-tied structure glyphs across frames, `0..1`. |
 | `--dither none\|ordered\|fs` | Palette dithering mode. |
 | `--diff-oklab-eps N` | Suppress color-only diff emits below an OKLab distance threshold. |
+| `--bandwidth-cap N` | Graphics protocol cap in MB/s, default `50`. |
 | `--loop`, `--no-loop` | Loop video input, or disable config-default looping. |
 | `--mirror`, `--no-mirror` | Enable or disable horizontal mirroring for camera playback. |
 | `--log FILE` | Write diagnostics. |
@@ -139,12 +146,13 @@ Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.conf
 
 ## How structure mode works
 
-Structure mode still starts from the same decoded RGB frame and terminal layout as luminance mode, but it adds an analysis pass before glyph selection:
+Structure mode still starts from the same decoded RGB frame and terminal layout as luminance mode, but it adds analysis passes before glyph selection:
 
 ```text
-RGB frame -> luminance field -> optional contrast/DoG -> Sobel gradients
-          -> per-cell edge orientation + magnitude -> optional temporal history
-          -> glyph choice -> CellBuffer
+RGB frame -> optional style pre-pass -> luminance -> contrast/DoG -> Sobel
+          -> optional ETF/optical-flow/temporal history
+          -> cell colors + edge field -> glyph choice -> optional style overlay
+          -> CellBuffer -> text/pixel/hybrid emitter
 ```
 
 The luminance renderer picks a glyph from the brightness ramp for every cell. Structure mode keeps that brightness glyph as a fallback, then detects directional edges in the cell. Strong vertical, horizontal, and diagonal gradients map to structure glyphs such as `|`, `_`, `/`, `\`, and `+`.
