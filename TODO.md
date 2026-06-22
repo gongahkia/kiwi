@@ -186,7 +186,7 @@
 - [~] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
   - `src/raster_compose.{hpp,cpp}` now owns the cell-to-RGB raster path; MP4 export, pixel-mode export/playback, `graphics_emitter`, and `--still` consume it. Open: visual terminal-vs-raster proof.
 - [~] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
-  - Direct RGB24 Kitty encoder, base64 chunking, placement ids, delete escapes, cell-raster graphics-frame emission, and pixel-mode export/playback dispatch are in place. Open: persistent delta uploads and live Kitty/Ghostty/WezTerm proof.
+  - Direct RGB24 Kitty encoder, base64 chunking, placement ids, delete escapes, cell-raster graphics-frame emission, pixel-mode export/playback dispatch, and persistent Kitty animation-frame delta uploads are in place. Open: live Kitty/Ghostty/WezTerm proof.
 - [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
   - Blocked locally: `libsixel`, `img2sixel`, and `sixel2png` are absent.
 - [~] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.
@@ -198,7 +198,7 @@
 - [~] **N7. Hybrid pixel/text alignment.** DoD: vertical overlay `|` on uniform region produces a line aligned to within ±1 px of the cell-column boundary in screen captures. Reference: PHASE_N §Hybrid.
   - `graphics_alignment_tests` lock raster-to-cell boundary math and ±1 px tolerance checks. Open: live hybrid screen-capture proof after player dispatch exists.
 - [~] **N8. Graphics-protocol tests + bench.** DoD: `kitty_graphics_tests`, `sixel_tests`, `iterm_inline_tests`, `render_mode_tests` all pass; bytes/frame and fps recorded per protocol in BENCHMARKS.md. Reference: PHASE_N §Tests / §Bench.
-  - `kitty_graphics_tests`, `iterm_inline_tests`, `render_mode_tests`, and `graphics_emitter_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, inline PNG payloads, caps-to-mode resolution, and cell-raster graphics emission. BENCHMARKS.md records Kitty pixel, iTerm pixel, and Kitty hybrid bytes/frame + fps rows. Open: Sixel tests and Sixel bench blocked by absent libsixel tooling.
+  - `kitty_graphics_tests`, `iterm_inline_tests`, `render_mode_tests`, and `graphics_emitter_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, animation-frame deltas, inline PNG payloads, caps-to-mode resolution, and cell-raster graphics emission. BENCHMARKS.md records Kitty pixel/delta, iTerm pixel, and Kitty hybrid bytes/frame + fps rows. Open: Sixel tests and Sixel bench blocked by absent libsixel tooling.
 - [ ] **Phase N exit criteria → tag `v0.95`.** DoD: `pixel` mode on Kitty runs at full source resolution; `hybrid` shows contour sharpness vs pixel-only; `text` default unchanged.
 
 ---
