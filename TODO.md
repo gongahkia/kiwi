@@ -257,6 +257,8 @@
   - `CONTOURTTY_LIGHT` configures a CPU-only build that skips optional Apple Metal linkage; `build/light/contourtty` built locally and omits Metal/Foundation in `otool -L`. `DEPENDENCIES.md` records the local Release size delta: 1,496,856 bytes default vs 1,460,120 bytes light.
 - [x] **X5. Licence audit on shipped charsets/fonts/noise tiles.** DoD: every binary asset in `share/contourtty/` is documented with origin + licence in `share/contourtty/LICENSES.md`.
   - `share/contourtty/LICENSES.md` lists current charsets, graph presets, blue-noise tile, and bundled OBJ scene; it records that no fonts, shader files, or third-party binary assets are currently shipped there.
+- [x] **X6. Web embed surface.** DoD: JS-enabled sites can embed exported contourtty `.cast`/`.ansi` output as a package, element, or React component; static Markdown fallback is documented.
+  - `packages/contourtty-embed` contains unpublished package `@contourtty/embed` with a Web Component, parser/render helpers, React wrapper, TypeScript declarations, package README, and Node/browser smoke tests. Root README documents static Markdown media embeds vs JS-enabled component embeds.
 
 ---
 

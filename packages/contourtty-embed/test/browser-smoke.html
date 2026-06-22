@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>contourtty embed smoke</title>
+<script type="module">
+  import {
+    defineContourttyPlayer,
+    parseCast,
+    recordingToHtml,
+  } from "../dist/contourtty-embed.js";
+
+  defineContourttyPlayer();
+  const cast = [
+    "{\"version\":2,\"width\":4,\"height\":2}",
+    "[0,\"o\",\"A\"]",
+    "[0.25,\"o\",\"B\"]",
+  ].join("\n");
+  document.querySelector("#helper").innerHTML = recordingToHtml(parseCast(cast), 0.25);
+  window.contourttySmokeReady = true;
+</script>
+<contourtty-player id="player" format="cast" cols="4" rows="2" controls>
+{"version":2,"width":4,"height":2}
+[0,"o","A"]
+[0.25,"o","B"]
+</contourtty-player>
+<output id="helper"></output>

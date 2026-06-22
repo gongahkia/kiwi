@@ -1,0 +1,42 @@
+{
+  "name": "@contourtty/embed",
+  "version": "0.0.0",
+  "description": "Embeddable contourtty ANSI/asciinema player as a Web Component with a React wrapper.",
+  "type": "module",
+  "sideEffects": [
+    "./dist/contourtty-embed.js"
+  ],
+  "main": "./dist/contourtty-embed.js",
+  "module": "./dist/contourtty-embed.js",
+  "types": "./dist/contourtty-embed.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/contourtty-embed.d.ts",
+      "import": "./dist/contourtty-embed.js",
+      "default": "./dist/contourtty-embed.js"
+    },
+    "./react": {
+      "types": "./react/index.d.ts",
+      "import": "./react/index.js",
+      "default": "./react/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "react",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "license": "MIT"
+}

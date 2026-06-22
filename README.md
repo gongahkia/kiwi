@@ -82,6 +82,16 @@ Controls: `space` pauses/resumes audio and video together, left/right arrows see
 
 Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. `--still hero.png` writes one rasterized PNG snapshot, optionally seeking first with `--still-at HH:MM:SS`. `--captions out.srt` writes deterministic frame-summary captions. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
+Web embeds: `packages/contourtty-embed` contains the unpublished `@contourtty/embed` package, a zero-build Web Component plus React wrapper for replaying exported `.cast` and `.ansi` files in JS-enabled HTML/docs sites. Static Markdown can embed exported GIF/PNG/MP4, but GitHub Markdown does not execute custom elements or scripts. Example:
+
+```html
+<script type="module">
+  import { defineContourttyPlayer } from "@contourtty/embed";
+  defineContourttyPlayer();
+</script>
+<contourtty-player src="/demo.cast" controls autoplay loop></contourtty-player>
+```
+
 Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/contourtty/graphs/`.
 
 ## Flag reference
