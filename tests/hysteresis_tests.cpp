@@ -55,6 +55,9 @@ int main() {
   auto clear_winner = state.choose(0, contourtty::GlyphShapeMatch{.glyph = U'/', .score = 1.0}, 0.90, 0.05);
   expect(clear_winner.glyph == U'/' && !clear_winner.kept_previous, "clear winner switches glyph");
 
+  auto warped_tie = state.choose(0, contourtty::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 0.98, 0.05, U'-');
+  expect(warped_tie.glyph == U'-' && warped_tie.kept_previous, "warped near-tied glyph keeps motion-compensated history");
+
   state.resize(2, 1);
   auto after_resize = state.choose(1, contourtty::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 1.0, 0.05);
   expect(after_resize.glyph == U'\\' && !after_resize.kept_previous, "resize clears glyph history");

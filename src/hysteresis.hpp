@@ -3,6 +3,7 @@
 #include "glyph_shape.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 namespace contourtty {
@@ -23,7 +24,7 @@ class GlyphHysteresisState {
  public:
   void reset();
   void resize(int cols, int rows);
-  GlyphHysteresisDecision choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness);
+  GlyphHysteresisDecision choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph = std::nullopt);
 
  private:
   struct Entry {

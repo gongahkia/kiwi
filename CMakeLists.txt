@@ -1129,6 +1129,7 @@ add_test(NAME hysteresis COMMAND hysteresis_tests)
 
 add_executable(warp_history_tests
   tests/warp_history_tests.cpp
+  src/hysteresis.cpp
   src/optical_flow.cpp
   src/warp_history.cpp
 )

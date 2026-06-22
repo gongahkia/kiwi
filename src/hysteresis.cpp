@@ -37,16 +37,17 @@ void GlyphHysteresisState::resize(int cols, int rows) {
   entries_.assign(static_cast<std::size_t>(cols_) * static_cast<std::size_t>(rows_), Entry{});
 }
 
-GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness) {
+GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph) {
   if (index >= entries_.size()) {
     throw std::out_of_range("hysteresis cell index out of range");
   }
   const Entry previous = entries_[index];
+  const char32_t candidate_glyph = history_glyph.value_or(previous.glyph);
   GlyphHysteresisDecision decision{.glyph = best.glyph, .score = best.score, .kept_previous = false};
-  if (previous.valid && previous.glyph != best.glyph && stickiness > 0.0) {
+  if (previous.valid && candidate_glyph != best.glyph && stickiness > 0.0) {
     const double margin = std::clamp(stickiness, 0.0, 1.0);
     if (previous_score >= best.score * (1.0 - margin)) {
-      decision = GlyphHysteresisDecision{.glyph = previous.glyph, .score = previous_score, .kept_previous = true};
+      decision = GlyphHysteresisDecision{.glyph = candidate_glyph, .score = previous_score, .kept_previous = true};
     }
   }
   entries_[index] = Entry{.glyph = decision.glyph, .score = decision.score, .valid = true};

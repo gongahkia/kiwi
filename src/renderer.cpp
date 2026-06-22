@@ -1007,12 +1007,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
                 if (glyph_hysteresis_enabled) {
                   const GlyphShapeMatch best = matchGlyphShapeWithScore(features, *shape_table);
                   const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
-                  const char32_t previous_glyph = history_glyphs.empty() ? cell.glyph : history_glyphs[cell_index];
+                  const std::optional<char32_t> history_glyph = history_glyphs.empty() ? std::nullopt : std::optional<char32_t>(history_glyphs[cell_index]);
+                  const char32_t previous_glyph = history_glyph.value_or(cell.glyph);
                   const std::vector<double> previous_features = warped_previous_shape_regions.empty()
                                                                   ? features
                                                                   : match_region(warped_previous_shape_regions[cell_index]);
                   const double previous_score = scoreGlyphShape(previous_features, *shape_table, previous_glyph);
-                  cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness).glyph;
+                  cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, history_glyph).glyph;
                 } else {
                   cell.glyph = matchGlyphShape(features, *shape_table);
                 }

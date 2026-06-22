@@ -1,5 +1,7 @@
 #include "warp_history.hpp"
 
+#include "hysteresis.hpp"
+
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -33,6 +35,28 @@ contourtty::CellLuminanceRegion shapeRegion(double value) {
   };
 }
 
+double panClipMismatchRate(bool pass_warped_history) {
+  constexpr int kCols = 8;
+  const std::vector<char32_t> previous{U'|', U'/', U'\\', U'-', U'+', U'|', U'/', U'\\'};
+  const contourtty::FlowField flow = uniformFlow(kCols * 10, 10, 10, 10.0, 0.0);
+  const std::vector<char32_t> warped = contourtty::warpGlyphHistory(previous, kCols, 1, flow);
+  const std::vector<char32_t>& history = pass_warped_history ? warped : previous;
+
+  contourtty::GlyphHysteresisState state;
+  state.resize(kCols, 1);
+  for (int col = 0; col < kCols; ++col) {
+    (void)state.choose(static_cast<std::size_t>(col), contourtty::GlyphShapeMatch{.glyph = previous[static_cast<std::size_t>(col)], .score = 1.0}, 0.0, 0.05);
+  }
+
+  int mismatches = 0;
+  for (int col = 0; col < kCols; ++col) {
+    const char32_t history_glyph = history[static_cast<std::size_t>(col)];
+    const auto decision = state.choose(static_cast<std::size_t>(col), contourtty::GlyphShapeMatch{.glyph = U'.', .score = 1.0}, 0.98, 0.05, history_glyph);
+    mismatches += decision.glyph == warped[static_cast<std::size_t>(col)] ? 0 : 1;
+  }
+  return static_cast<double>(mismatches) / static_cast<double>(kCols);
+}
+
 }  // namespace
 
 int main() {
@@ -50,6 +74,11 @@ int main() {
   expect(shifted_shapes[0].values == shapes[0].values, "shape warp first cell clamps left");
   expect(shifted_shapes[1].values == shapes[0].values, "shape warp second samples previous left cell");
   expect(shifted_shapes[2].values == shapes[1].values, "shape warp third samples previous middle cell");
+
+  const double hysteresis_only_mismatch = panClipMismatchRate(false);
+  const double warped_mismatch = panClipMismatchRate(true);
+  expect(hysteresis_only_mismatch >= 0.60, "pan clip baseline keeps stale same-cell history");
+  expect(warped_mismatch <= 0.40 * hysteresis_only_mismatch, "pan clip warped history reduces compensated flicker metric");
 
   bool mismatch = false;
   try {
