@@ -1357,15 +1357,15 @@ TerminalCaps detectGraphicsCaps(const CliOptions& options) {
   return detectTerminalCapsFromEnvironment(options.font_path, capsOverrideFromOptions(options));
 }
 
-std::string graphicsFrameBytes(const CellBuffer& cells, const GraphicsFrameOptions& graphics_options, TerminalSize terminal) {
+std::string graphicsFrameBytes(const CellBuffer& cells, const GraphicsFrameOptions& graphics_options, TerminalSize terminal, GraphicsFrameState* graphics_state = nullptr) {
   const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, terminal);
   std::string bytes;
   appendCursorMove(bytes, origin.row, origin.col);
-  bytes += emitGraphicsFrame(cells, graphics_options).bytes;
+  bytes += emitGraphicsFrame(cells, graphics_options, graphics_state).bytes;
   return bytes;
 }
 
-std::string renderedGraphicsFrameBytes(const CellBuffer& cells, const CliOptions& options, const GraphicsFrameOptions& graphics_options, EmissionOptions emission_options, TerminalSize terminal) {
+std::string renderedGraphicsFrameBytes(const CellBuffer& cells, const CliOptions& options, const GraphicsFrameOptions& graphics_options, EmissionOptions emission_options, TerminalSize terminal, GraphicsFrameState* graphics_state = nullptr) {
   if (options.render_mode == "hybrid") {
     return emitHybridFrame(cells, HybridFrameOptions{
                               .graphics = graphics_options,
@@ -1374,7 +1374,7 @@ std::string renderedGraphicsFrameBytes(const CellBuffer& cells, const CliOptions
                             })
       .bytes;
   }
-  return graphicsFrameBytes(cells, graphics_options, terminal);
+  return graphicsFrameBytes(cells, graphics_options, terminal, graphics_state);
 }
 
 std::chrono::steady_clock::time_point exportTimepoint(double timestamp) {
@@ -1705,12 +1705,13 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   DiffEmitter emitter;
   double last_timestamp = 0.0;
   int64_t exported_frames = 0;
   const auto emit_cells = [&](double timestamp) -> std::optional<EmissionResult> {
     if (graphics_options.has_value()) {
-      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal);
+      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal, &graphics_state);
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
       if (!decision.send) {
         if (decision.warn) {
@@ -1811,6 +1812,7 @@ bool renderImageGridStill(const LoadedImageGrid& grid,
                           const EmissionOptions& emission_options,
                           const std::optional<GraphicsFrameOptions>& graphics_options,
                           std::optional<BandwidthGuard>* graphics_bandwidth,
+                          GraphicsFrameState* graphics_state,
                           const GlyphFont* glyph_font,
                           RenderStats* render_stats,
                           RuntimeDebugStats* debug_stats,
@@ -1822,7 +1824,7 @@ bool renderImageGridStill(const LoadedImageGrid& grid,
   EmissionResult emission;
   if (graphics_options.has_value()) {
     emission = EmissionResult{
-      .bytes = renderedGraphicsFrameBytes(*cells, options, *graphics_options, emission_options, render_terminal),
+      .bytes = renderedGraphicsFrameBytes(*cells, options, *graphics_options, emission_options, render_terminal, graphics_state),
       .changed_cells = cells->size(),
     };
     BandwidthDecision decision = (*graphics_bandwidth)->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -1875,6 +1877,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   RenderStats render_stats;
   RuntimeDebugStats debug_stats(options, &logger);
   bool quit = false;
@@ -1887,6 +1890,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
     if (graphics_bandwidth.has_value()) {
       graphics_bandwidth->reset();
     }
+    graphics_state.reset();
   };
   const auto render_grid = [&](int64_t pts_us) {
     return renderImageGridStill(grid,
@@ -1899,6 +1903,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
                                 emission_options,
                                 graphics_options,
                                 &graphics_bandwidth,
+                                &graphics_state,
                                 glyph_font_ptr,
                                 logger.enabled() ? &render_stats : nullptr,
                                 &debug_stats,
@@ -2013,6 +2018,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   SceneOverlaySource overlay_source(options);
   if (overlay_source.enabled()) {
     CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
@@ -2114,7 +2120,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   const auto emit_cells = [&](double timestamp) -> std::optional<EmissionResult> {
     if (graphics_options.has_value()) {
-      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal);
+      const std::string bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, terminal, &graphics_state);
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
       if (!decision.send) {
         if (decision.warn) {
@@ -2367,6 +2373,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
   RuntimeDebugStats debug_stats(options, &logger);
@@ -2425,6 +2432,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
         if (graphics_bandwidth.has_value()) {
           graphics_bandwidth->reset();
         }
+        graphics_state.reset();
         temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
@@ -2446,6 +2454,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
       if (graphics_bandwidth.has_value()) {
         graphics_bandwidth->reset();
       }
+      graphics_state.reset();
       temporal_state.reset();
       std::string clear_resize = "\x1b[2J";
       writeAll(STDOUT_FILENO, clear_resize);
@@ -2457,7 +2466,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal, &graphics_state),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -2554,6 +2563,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
   RuntimeDebugStats debug_stats(options, &logger);
@@ -2580,12 +2590,14 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
         frame_index = std::max<int64_t>(0, frame_index - static_cast<int64_t>(5.0 * fps));
         pacer.reset();
         emitter.reset();
+        graphics_state.reset();
         temporal_state.reset();
         break;
       case PlaybackCommand::SeekForward:
         frame_index += static_cast<int64_t>(5.0 * fps);
         pacer.reset();
         emitter.reset();
+        graphics_state.reset();
         temporal_state.reset();
         break;
       case PlaybackCommand::ToggleOsd:
@@ -2630,6 +2642,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
       if (graphics_bandwidth.has_value()) {
         graphics_bandwidth->reset();
       }
+      graphics_state.reset();
       temporal_state.reset();
       std::string clear_resize = "\x1b[2J";
       writeAll(STDOUT_FILENO, clear_resize);
@@ -2641,7 +2654,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal, &graphics_state),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -2748,6 +2761,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
   RuntimeDebugStats debug_stats(options, &logger);
@@ -2817,6 +2831,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
       if (graphics_bandwidth.has_value()) {
         graphics_bandwidth->reset();
       }
+      graphics_state.reset();
       temporal_state.reset();
       std::string clear_resize = "\x1b[2J";
       writeAll(STDOUT_FILENO, clear_resize);
@@ -2834,7 +2849,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal, &graphics_state),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
@@ -2980,6 +2995,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   if (graphics_options.has_value()) {
     graphics_bandwidth.emplace(live_options.bandwidth_cap_mb_s);
   }
+  GraphicsFrameState graphics_state;
   SceneOverlaySource overlay_source(live_options);
   if (overlay_source.enabled()) {
     CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
@@ -3006,6 +3022,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (graphics_bandwidth.has_value()) {
       graphics_bandwidth->reset();
     }
+    graphics_state.reset();
     temporal_state.reset();
     split_left_temporal_state.reset();
     split_right_temporal_state.reset();
@@ -3262,7 +3279,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{
-        .bytes = renderedGraphicsFrameBytes(cells, live_options, *graphics_options, emission_options, render_terminal),
+        .bytes = renderedGraphicsFrameBytes(cells, live_options, *graphics_options, emission_options, render_terminal, &graphics_state),
         .changed_cells = cells.size(),
       };
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());

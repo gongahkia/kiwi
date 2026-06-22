@@ -50,6 +50,19 @@ int main() {
   }
 
   {
+    const std::string escape = contourtty::encodeKittyAnimationFrameRgb24(std::vector<uint8_t>{1, 2, 3}, contourtty::KittyAnimationFrameOptions{
+                                                                                                      .image_id = 7,
+                                                                                                      .frame_number = 1,
+                                                                                                      .x = 2,
+                                                                                                      .y = 3,
+                                                                                                      .width = 1,
+                                                                                                      .height = 1,
+                                                                                                    });
+    expect(escape == "\x1b_Ga=f,t=d,f=24,i=7,r=1,x=2,y=3,s=1,v=1,X=1,q=2,m=0;AQID\x1b\\", "animation delta frame escape");
+    expect(contourtty::controlKittyAnimationFrame(7, 1) == "\x1b_Ga=a,i=7,c=1,q=2;\x1b\\", "animation current-frame control escape");
+  }
+
+  {
     bool threw = false;
     try {
       (void)contourtty::encodeKittyRgb24(std::vector<uint8_t>{255, 0}, 1, 1);

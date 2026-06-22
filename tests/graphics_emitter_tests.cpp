@@ -52,6 +52,21 @@ contourtty::CellBuffer oneCell() {
   return cells;
 }
 
+contourtty::CellBuffer twoCells(contourtty::Rgb right) {
+  contourtty::CellBuffer cells(2, 1);
+  cells.at(0, 0) = contourtty::Cell{
+    .glyph = U'█',
+    .fg = contourtty::Rgb{.r = 255, .g = 0, .b = 0},
+    .bg = contourtty::Rgb{},
+  };
+  cells.at(1, 0) = contourtty::Cell{
+    .glyph = U'█',
+    .fg = right,
+    .bg = contourtty::Rgb{},
+  };
+  return cells;
+}
+
 }  // namespace
 
 int main() {
@@ -69,6 +84,33 @@ int main() {
     expectEqual(hexBytes(frame.bytes),
                 expected_hex,
                 "kitty graphics frame golden bytes");
+  }
+
+  {
+    contourtty::GraphicsFrameState state;
+    const auto first = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 0, .b = 255}), contourtty::GraphicsFrameOptions{
+                                                                                                       .protocol = contourtty::GraphicsProtocol::Kitty,
+                                                                                                       .image_id = 8,
+                                                                                                       .placement_id = 9,
+                                                                                                     },
+                                                     &state);
+    const auto second = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 255, .b = 0}), contourtty::GraphicsFrameOptions{
+                                                                                                        .protocol = contourtty::GraphicsProtocol::Kitty,
+                                                                                                        .image_id = 8,
+                                                                                                        .placement_id = 9,
+                                                                                                      },
+                                                      &state);
+    const auto third = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 255, .b = 0}), contourtty::GraphicsFrameOptions{
+                                                                                                       .protocol = contourtty::GraphicsProtocol::Kitty,
+                                                                                                       .image_id = 8,
+                                                                                                       .placement_id = 9,
+                                                                                                     },
+                                                     &state);
+    expect(first.bytes.find("\x1b_Ga=T,t=d,f=24,s=16,v=12,i=8,p=9") == 0, "stateful kitty first frame is full upload");
+    expect(second.bytes.find("\x1b_Ga=f,t=d,f=24,i=8,r=1,x=8,y=0,s=8,v=12") == 0, "stateful kitty second frame is cropped delta");
+    expect(second.bytes.find("\x1b_Ga=a,i=8,c=1,q=2;") != std::string::npos, "stateful kitty delta selects root frame");
+    expect(second.bytes.size() < first.bytes.size(), "stateful kitty delta is smaller than full upload");
+    expect(third.bytes.empty(), "stateful kitty unchanged frame emits nothing");
   }
 
   {
