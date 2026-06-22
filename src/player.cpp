@@ -2051,7 +2051,9 @@ int exportMedia(const CliOptions& options, Logger& logger) {
                                     " optical_flow_blocks=" + std::to_string(render_stats.optical_flow_blocks) +
                                     " optical_flow_us=" + std::to_string(render_stats.optical_flow_ns / 1000) +
                                     " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
-                                    " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
+                                    " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000) +
+                                    " temporal_supersample_frames=" + std::to_string(render_stats.temporal_supersample_frames) +
+                                    " temporal_supersample_us=" + std::to_string(render_stats.temporal_supersample_ns / 1000));
     }
   };
 
@@ -2209,6 +2211,10 @@ int writeCaptionSidecar(const CliOptions& options, Logger& logger) {
   return 0;
 }
 
+bool isSceneInputSource(std::string_view input);
+SceneMesh loadSceneInputMesh(std::string_view input);
+SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us);
+
 int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
     throw std::runtime_error("missing input");
@@ -2220,6 +2226,28 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
     return writeImageGridStillSnapshot(options, logger);
   }
   logGpuRequest(options, logger);
+
+  if (isSceneInputSource(*options.input)) {
+    std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+    const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+    const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+    std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+    const TerminalSize terminal = exportTerminalSize(options);
+    const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+    const DitherMode dither_mode = ditherModeFromString(options.dither);
+    SceneMesh mesh = loadSceneInputMesh(*options.input);
+    SceneGBuffer gbuffer = renderSceneGBufferFrame(mesh, options, terminal, options.still_at_us.value_or(0));
+    CellBuffer cells;
+    RenderTemporalState temporal_state;
+    RenderStats render_stats;
+    renderFrame(gbuffer.albedo, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state, &gbuffer);
+    const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
+    writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
+    CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+                                  " width=" + std::to_string(raster.width) +
+                                  " height=" + std::to_string(raster.height));
+    return 0;
+  }
 
   VideoDecoder video_decoder(*options.input);
   if (options.still_at_us.has_value()) {

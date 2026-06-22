@@ -296,6 +296,32 @@ bool orientationTemporalEnabledFromCli(const CliOptions& options) {
   return orientationStickinessFromCli(options) > 0.0;
 }
 
+int temporalSupersampleFromCli(const CliOptions& options) {
+  return std::clamp(options.temporal_supersample, 1, 8);
+}
+
+LuminanceField blendTemporalSupersample(const LuminanceField& previous, const LuminanceField& current, int samples) {
+  if (samples <= 1 || previous.width != current.width || previous.height != current.height || previous.values.size() != current.values.size()) {
+    return current;
+  }
+  LuminanceField blended;
+  blended.width = current.width;
+  blended.height = current.height;
+  blended.values.assign(current.values.size(), 0.0);
+  for (int sample = 1; sample <= samples; ++sample) {
+    const double t = static_cast<double>(sample) / static_cast<double>(samples);
+    const double prev_weight = 1.0 - t;
+    for (std::size_t index = 0; index < current.values.size(); ++index) {
+      blended.values[index] += (previous.values[index] * prev_weight) + (current.values[index] * t);
+    }
+  }
+  const double scale = 1.0 / static_cast<double>(samples);
+  for (double& value : blended.values) {
+    value *= scale;
+  }
+  return blended;
+}
+
 bool painterlyStyleEnabled(const CliOptions& options) {
   return options.style == "painterly" ||
          std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
@@ -647,6 +673,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
   const bool orientation_hysteresis_enabled = temporal_state != nullptr && orientationTemporalEnabledFromCli(options);
   const bool motion_flow_enabled = flow_enabled && temporal_state != nullptr;
+  const int temporal_supersample = temporalSupersampleFromCli(options);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
@@ -725,7 +752,22 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        analysis_luminance = makeLuminanceField(active_frame());
+        LuminanceField current_luminance = makeLuminanceField(active_frame());
+        if (temporal_state != nullptr && temporal_supersample > 1) {
+          const auto supersample_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+          if (temporal_state->previous_supersample_luminance.has_value()) {
+            analysis_luminance = blendTemporalSupersample(*temporal_state->previous_supersample_luminance, current_luminance, temporal_supersample);
+            if (stats != nullptr) {
+              stats->temporal_supersample_frames += temporal_supersample - 1;
+              stats->temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
+            }
+          } else {
+            analysis_luminance = current_luminance;
+          }
+          temporal_state->previous_supersample_luminance = std::move(current_luminance);
+        } else {
+          analysis_luminance = std::move(current_luminance);
+        }
       },
     };
   };

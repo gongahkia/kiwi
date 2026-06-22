@@ -29,18 +29,22 @@ struct RenderStats {
   int64_t optical_flow_ns = 0;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
+  int64_t temporal_supersample_frames = 0;
+  int64_t temporal_supersample_ns = 0;
 };
 
 struct RenderTemporalState {
   GlyphHysteresisState glyph_hysteresis;
   OrientationHysteresisState orientation_hysteresis;
   std::optional<LuminanceField> previous_luminance;
+  std::optional<LuminanceField> previous_supersample_luminance;
   std::vector<CellLuminanceRegion> previous_shape_regions;
 
   void reset() {
     glyph_hysteresis.reset();
     orientation_hysteresis.reset();
     previous_luminance.reset();
+    previous_supersample_luminance.reset();
     previous_shape_regions.clear();
   }
 };

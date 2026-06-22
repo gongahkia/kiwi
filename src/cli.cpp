@@ -410,6 +410,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--contrast",
           "--glyph-stickiness",
           "--orient-stickiness",
+          "--temporal-supersample",
           "--dither",
           "--diff-oklab-eps",
           "--bandwidth-cap",
@@ -610,6 +611,13 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.orient_stickiness = *parsed;
+    } else if (flag == "--temporal-supersample") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value() || *parsed > 8) {
+        result.error = "invalid value for --temporal-supersample: " + std::string(*value);
+        return result;
+      }
+      result.options.temporal_supersample = *parsed;
     } else if (flag == "--dither") {
       if (!isOneOf(*value, {"none", "ordered", "fs"})) {
         result.error = "invalid value for --dither: " + std::string(*value);

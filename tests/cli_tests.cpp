@@ -253,6 +253,19 @@ int main() {
   }
 
   {
+    const char* argv[] = {"contourtty", "--temporal-supersample", "2"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "temporal supersample parses");
+    expect(parsed.options.temporal_supersample == 2, "temporal supersample stored");
+  }
+
+  {
+    const char* argv[] = {"contourtty", "--temporal-supersample", "0"};
+    const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "temporal supersample rejects zero");
+  }
+
+  {
     const char* argv[] = {"contourtty", "--graph", "dump"};
     const auto parsed = contourtty::parseArgs(3, const_cast<char**>(argv));
     expect(parsed.error.empty(), "graph dump parses");

@@ -307,6 +307,35 @@ int main() {
   }
 
   {
+    const contourtty::Frame first = frameFromPixels(4, 4, {
+      gray(0), gray(0), gray(0), gray(0),
+      gray(0), gray(0), gray(0), gray(0),
+      gray(255), gray(255), gray(255), gray(255),
+      gray(255), gray(255), gray(255), gray(255),
+    });
+    const contourtty::Frame second = frameFromPixels(4, 4, {
+      gray(255), gray(255), gray(255), gray(255),
+      gray(255), gray(255), gray(255), gray(255),
+      gray(0), gray(0), gray(0), gray(0),
+      gray(0), gray(0), gray(0), gray(0),
+    });
+    contourtty::CliOptions options;
+    options.mode = "structure";
+    options.width = 2;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    options.edge_threshold = 0.01;
+    options.temporal_supersample = 2;
+    contourtty::CellBuffer cells;
+    contourtty::RenderTemporalState temporal_state;
+    contourtty::RenderStats stats;
+    contourtty::renderFrame(first, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
+    expect(stats.temporal_supersample_frames == 0, "temporal supersample first frame has no adjacent blend");
+    contourtty::renderFrame(second, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
+    expect(stats.temporal_supersample_frames == 1, "temporal supersample counts analysis-only blended frame");
+  }
+
+  {
     const contourtty::Frame frame = frameFromPixels(4, 4, {
       gray(0), gray(0), gray(255), gray(255),
       gray(0), gray(0), gray(255), gray(255),

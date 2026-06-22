@@ -14,6 +14,31 @@ trap cleanup EXIT
 
 cd "$root"
 
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "missing required command: $1" >&2
+    exit 1
+  fi
+}
+
+require_pkg() {
+  if ! pkg-config --exists "$1"; then
+    echo "missing pkg-config package: $1" >&2
+    exit 1
+  fi
+}
+
+require_cmd cmake
+require_cmd cpack
+require_cmd pkg-config
+require_pkg libavformat
+require_pkg libavcodec
+require_pkg libavdevice
+require_pkg libavutil
+require_pkg libswscale
+require_pkg libswresample
+require_pkg freetype2
+
 cmake -S "$root" -B "$build_dir" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCONTOURTTY_WARNINGS_AS_ERRORS=ON
