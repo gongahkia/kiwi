@@ -40,6 +40,31 @@ double alternatingGlyphChangeRate(double stickiness) {
   return static_cast<double>(changes) / static_cast<double>(comparisons);
 }
 
+double decisiveMotionChangeRate(double stickiness) {
+  constexpr std::size_t kCells = 8;
+  constexpr int kFrames = 12;
+  contourtty::GlyphHysteresisState state;
+  state.resize(static_cast<int>(kCells), 1);
+  std::vector<char32_t> previous(kCells, U'\0');
+  int changes = 0;
+  int comparisons = 0;
+  for (int frame = 0; frame < kFrames; ++frame) {
+    for (std::size_t index = 0; index < kCells; ++index) {
+      const char32_t best_glyph = ((frame + static_cast<int>(index)) % 2 == 0) ? U'|' : U'/';
+      const auto decision = state.choose(index,
+                                         contourtty::GlyphShapeMatch{.glyph = best_glyph, .score = 1.0},
+                                         0.50,
+                                         stickiness);
+      if (previous[index] != U'\0') {
+        changes += decision.glyph != previous[index] ? 1 : 0;
+        ++comparisons;
+      }
+      previous[index] = decision.glyph;
+    }
+  }
+  return static_cast<double>(changes) / static_cast<double>(comparisons);
+}
+
 }  // namespace
 
 int main() {
@@ -79,6 +104,7 @@ int main() {
   const double default_rate = alternatingGlyphChangeRate(0.05);
   expect(std::abs(unstuck_rate - 1.0) < 0.001, "flicker metric baseline changes every frame");
   expect(default_rate <= 0.40 * unstuck_rate, "default stickiness keeps flicker metric below threshold");
+  expect(std::abs(decisiveMotionChangeRate(0.05) - decisiveMotionChangeRate(0.0)) < 0.001, "default stickiness preserves decisive motion switches");
 
   contourtty::OrientationHysteresisState orientation_state;
   orientation_state.resize(1, 1);

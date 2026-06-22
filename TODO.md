@@ -164,8 +164,8 @@
 ## PHASE M — Temporal coherence
 *Doc: `PHASE_M.md`. Goal: kill ASCII shimmer.*
 
-- [~] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
-  - Score-returning glyph matcher, temporal glyph state, `--glyph-stickiness`, and `--orient-stickiness` shipped; unit flicker, orientation-bucket stickiness, and fixed pan-clip compensated-flicker tests pass. Open: real-motion tolerance proof.
+- [x] **M1. Glyph hysteresis.** DoD: `--glyph-stickiness eps` reduces per-cell glyph-change rate on near-static regions by ≥60% on a fixed pan clip; structure quality on real motion unchanged within tolerance; full-repaint paths clear history. Reference: PHASE_M §Hysteresis.
+  - Score-returning glyph matcher, temporal glyph state, `--glyph-stickiness`, and `--orient-stickiness` shipped; unit flicker, orientation-bucket stickiness, fixed pan-clip compensated-flicker, decisive real-motion switch, and reset/resize tests pass.
 - [x] **M2. Optical flow on working luminance.** DoD: `src/optical_flow.{hpp,cpp}` block-matching produces vec2 displacements per coarse block; correct on synthetic translations; ~0 on static frames. Reference: PHASE_M §Flow.
 - [x] **M3. Flow-warped history.** DoD: `warp-history` Pass warps previous-frame glyph/shape-vector buffers by flow; pan-induced flicker drops below the §Hysteresis-only baseline. Reference: PHASE_M §Flow.
   - `optical-flow` + `warp-history` passes now motion-compensate previous glyphs and shape regions before hysteresis scoring, and glyph hysteresis keeps the warped previous glyph rather than the stale same-cell glyph. `warp_history_tests` covers glyph/shape-region warps plus a fixed pan-clip compensated-flicker metric below 40% of the hysteresis-only baseline.
