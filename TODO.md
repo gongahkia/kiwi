@@ -201,7 +201,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ### P0 — Security and privacy blockers before private team data
 - [ ] Add CSRF protection or strict same-origin handling for cookie-authenticated mutations — done when web form/API mutations cannot be triggered cross-site by an attacker.
-- [ ] Add Slack request signature verification — done when `/slack/events` rejects unsigned or replayed Slack requests.
 - [ ] Encrypt OAuth tokens and bot tokens at rest — done when Slack/Google/other OAuth tokens use envelope encryption or `SLACK_TOKEN_ENCRYPTION_KEY` equivalent with rotation docs.
 - [ ] Add audit entries for API key and integration changes — done when key creation/revocation, Slack install, extension token creation, imports, and member role changes are audited.
 - [ ] Add private-data-safe logging policy enforcement — done when logs never include raw private definitions, raw queries for authenticated teams, API keys, cookies, OAuth tokens, or magic links.

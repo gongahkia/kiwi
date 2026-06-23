@@ -11,7 +11,7 @@ pnpm install
 pnpm --filter @wat/slack build
 ```
 
-Target local development uses Slack socket mode for commands and shortcuts, plus an HTTP endpoint for OAuth install callbacks.
+Target local development uses Slack socket mode for commands and shortcuts, plus an HTTP endpoint for OAuth install callbacks. Slack HTTP endpoints require signed requests and reject missing or replayed signatures.
 
 Required environment:
 

@@ -1,9 +1,11 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 export interface SlackRuntimeConfig {
   appToken?: string;
   httpMode: boolean;
   port: number;
+  signingSecret?: string;
   socketMode: boolean;
   watApiBaseUrl: string;
 }
@@ -13,6 +15,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): SlackRuntim
     appToken: env.SLACK_APP_TOKEN,
     httpMode: env.SLACK_HTTP_MODE !== "false",
     port: Number(env.PORT ?? 3001),
+    signingSecret: env.SLACK_SIGNING_SECRET,
     socketMode: env.SLACK_SOCKET_MODE === "true",
     watApiBaseUrl: env.WAT_API_BASE_URL ?? "http://localhost:3000"
   };
@@ -24,6 +27,9 @@ export function validateConfig(config: SlackRuntimeConfig): void {
   }
   if (config.socketMode && !config.appToken) {
     throw new Error("SLACK_APP_TOKEN is required when SLACK_SOCKET_MODE=true");
+  }
+  if (config.httpMode && !config.signingSecret) {
+    throw new Error("SLACK_SIGNING_SECRET is required when Slack HTTP mode is enabled");
   }
 }
 
@@ -43,7 +49,13 @@ export function createSlackHttpHandler(config: SlackRuntimeConfig) {
     }
 
     if (request.method === "POST" && request.url === "/slack/events") {
-      const payload = await readJson(request);
+      const rawBody = await readRawBody(request);
+      if (!verifySlackRequest(config, request, rawBody)) {
+        writeJson(response, 401, { error: "invalid_slack_signature" });
+        return;
+      }
+
+      const payload = parseJsonBody(rawBody);
       if (payload?.type === "url_verification" && typeof payload.challenge === "string") {
         writeJson(response, 200, { challenge: payload.challenge });
         return;
@@ -82,13 +94,52 @@ function startSocketModeLoop(): void {
   setInterval(() => undefined, 30_000);
 }
 
-async function readJson(request: IncomingMessage): Promise<Record<string, unknown> | null> {
+async function readRawBody(request: IncomingMessage): Promise<Buffer> {
   const chunks = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  if (chunks.length === 0) return null;
-  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  return Buffer.concat(chunks);
+}
+
+function parseJsonBody(rawBody: Buffer): Record<string, unknown> | null {
+  if (rawBody.length === 0) return null;
+  return JSON.parse(rawBody.toString("utf8")) as Record<string, unknown>;
+}
+
+function verifySlackRequest(
+  config: SlackRuntimeConfig,
+  request: IncomingMessage,
+  rawBody: Buffer
+): boolean {
+  if (!config.signingSecret) return false;
+
+  const timestamp = headerValue(request, "x-slack-request-timestamp");
+  const signature = headerValue(request, "x-slack-signature");
+  if (!timestamp || !signature) return false;
+
+  const timestampSeconds = Number(timestamp);
+  if (!Number.isInteger(timestampSeconds)) return false;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSeconds - timestampSeconds) > 60 * 5) return false;
+
+  const baseString = `v0:${timestamp}:${rawBody.toString("utf8")}`;
+  const expected = `v0=${createHmac("sha256", config.signingSecret)
+    .update(baseString, "utf8")
+    .digest("hex")}`;
+  return timingSafeStringEqual(expected, signature);
+}
+
+function headerValue(request: IncomingMessage, header: string): string | undefined {
+  const value = request.headers[header];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function timingSafeStringEqual(left: string, right: string): boolean {
+  const leftBytes = Buffer.from(left, "utf8");
+  const rightBytes = Buffer.from(right, "utf8");
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
 }
 
 function writeJson(response: ServerResponse, status: number, body: unknown): void {
