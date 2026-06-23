@@ -508,13 +508,11 @@ jobs:
 
 ### P2-22 — AGENTS.md for cross-agent friendliness
 
-- [ ] Add `AGENTS.md` at repo root teaching other agents (Claude Code, Codex via MCP) to read `pie_config` first.
+- [ ] Blocked on `.gitignore`: file `AGENTS.md` is already drafted at repo root locally (full content covers project purpose, `pie_config` tool actions, scopes/trust, slash commands, constants, coexistence pointers, behaviors to avoid). `.gitignore` lists `AGENTS.md` so `git add` refuses without `-f`. Decision needed from repo owner: (a) remove `AGENTS.md` from `.gitignore` and commit (recommended — Pi catalog and Claude marketplaces auto-index AGENTS.md and the file is generic, not personal), or (b) keep ignored if there is a personal/local reason. If (a), run `sed -i '' '/^AGENTS\.md$/d' .gitignore && git add AGENTS.md .gitignore && git commit`.
 
-**Files:** new `AGENTS.md`.
+**Files:** `AGENTS.md` (already written, untracked).
 
-**Sketch:** 1-page summary: project purpose, `pie_config` tool actions, common workflows ("switch preset", "patch footer segments", "validate"), pointers to schema and SKILL.md.
-
-**Acceptance:** file exists; Pi catalog and Claude Code marketplaces auto-index it.
+**Acceptance unmet:** file exists locally but not in tracked tree.
 
 ---
 
