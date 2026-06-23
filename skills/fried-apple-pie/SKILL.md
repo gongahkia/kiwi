@@ -24,6 +24,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Tool display: set `/tools/expanded`.
 - Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`.
 - Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and initial working message.
+- Use `/pie gallery` to live-preview every preset without writing to config. j/k or h/l cycles, enter keeps current preview, q/esc restores previous config.
 - Use `/pie edit` for interactive changes and `/pie export` to inspect final merged config.
 - Prefer `pie_config` actions `set_preset`, `set_footer_segments`, `toggle_compact`, and `set_theme` over raw patching for common edits.
 

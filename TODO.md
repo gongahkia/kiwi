@@ -124,29 +124,6 @@ Doctor must check `vhs`, `ttyd`, `ffmpeg` on PATH; warn if missing.
 
 ---
 
-### P0-03 — `/pie gallery` live cycle overlay
-
-- [ ] Add overlay component that cycles every preset live, restoring original on exit.
-
-**Why:** the 30-second video — scroll through every preset in sequence. Drives screenshot threads.
-
-**Files:** `extensions/pie-ui/render.ts` (new `GalleryCycle` component), `extensions/pie-ui/index.ts` (new `gallery` subcommand).
-
-**Sketch:**
-- Model `GalleryCycle` after `PresetPicker` at `render.ts:138-175`.
-- On open: snapshot current preset.
-- `j`/`k`/`l`/`h`/arrows advance index; on each change call `applyPresetConfig(current, PRESET_NAMES[i], "clean")` → `writeConfigFile` to a transient path OR call `applyPie(ctx, pi, state)` with an in-memory override.
-- `q` / `esc` restores snapshot.
-- Show `<i+1>/<N> · <name>` and a one-line description per preset.
-
-Prefer in-memory override (do not write to user config during cycle). Add `applyPieOverride(ctx, pi, state, override: PieConfig)` helper that bypasses `loadConfig` and passes the override directly through the same setTheme/setFooter/… pipeline used by `applyPie` (`index.ts:130-171`).
-
-**Refs:** `PresetPicker` at `render.ts:138`; `applyPie` at `index.ts:130`.
-
-**Acceptance:** `/pie gallery` opens, arrow keys live-swap, `q` restores. No write to `pie-ui.json` during cycle. Works at terminal widths ≥40 columns.
-
----
-
 ### P0-04 follow-ups (remaining additions)
 
 P0-04 main goal hit (12 presets shipped: 7 cross-agent + 5 theme-only). Remaining optional presets if needed later: `cursor-inspired`, `amp-inspired`, `catppuccin-latte`, `gruvbox-light`. Same shape and acceptance as P0-04; bundle if/when there's demand.
@@ -707,7 +684,7 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 
 1. ~~P0-04 (12+ presets)~~ — done.
 2. P0-02 (`/pie capture` + vhs) — produces deterministic GIFs for the 12 presets.
-3. P0-03 (`/pie gallery`) — uses the 12 presets. The 30-second video.
+3. ~~P0-03 (`/pie gallery`)~~ — done.
 4. P0-01 (README rewrite) — uses outputs from P0-02+03.
 5. ~~P0-05 (personas)~~ — done.
 6. P0-06 (boot ASCII) — needs `registerMessageRenderer`; lower complexity.

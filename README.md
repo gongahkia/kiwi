@@ -55,6 +55,7 @@ These are inspired presets, not exact clones.
 /pie preset codex-inspired merge
 /pie mode theme-only
 /pie persona startrek
+/pie gallery
 /pie edit
 /pie welcome
 /pie export

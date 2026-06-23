@@ -99,6 +99,28 @@ export async function pickEditAction(ctx: ExtensionContext, config: PieConfig): 
 	);
 }
 
+export async function pickGallery(
+	ctx: ExtensionContext,
+	activePreset: PresetName | undefined,
+	apply: (preset: PresetName) => void,
+	restore: () => void,
+): Promise<void> {
+	if (ctx.mode !== "tui") return;
+	await ctx.ui.custom<void>(
+		(_tui, theme, _keybindings, done) => new GalleryCycle(theme as ThemeLike, activePreset, apply, restore, done),
+		{
+			overlay: true,
+			overlayOptions: {
+				anchor: "center",
+				width: "60%",
+				minWidth: 44,
+				maxHeight: "70%",
+				margin: 1,
+			},
+		},
+	);
+}
+
 export async function pickFooterSegments(ctx: ExtensionContext, active: FooterSegment[] | undefined): Promise<FooterSegment[] | undefined> {
 	if (ctx.mode !== "tui") return undefined;
 	return ctx.ui.custom<FooterSegment[] | undefined>(
@@ -169,6 +191,76 @@ class PresetPicker implements Component {
 		if (data === "j") this.index = Math.min(PRESET_NAMES.length - 1, this.index + 1);
 		if (data === "k") this.index = Math.max(0, this.index - 1);
 		if (data === "\r" || data === "\n") this.done(PRESET_NAMES[this.index]);
+	}
+
+	invalidate(): void {}
+}
+
+const PRESET_DESCRIPTIONS: Record<PresetName, string> = {
+	minimal: "single footer line, no header, terse spinner",
+	"claude-inspired": "header + thinking segment, dots spinner",
+	"opencode-inspired": "pipe-separated footer, widget hint, expanded tools",
+	"codex-inspired": "dense footer with tokens, arc spinner",
+	"gemini-inspired": "bright header, below-editor widget, expanded tools",
+	"aider-inspired": "no header, terse 3-segment footer",
+	"copilot-inspired": "dense GitHub-style, full footer with thinking",
+	dracula: "purple+cyan, minimal layout",
+	"tokyo-night": "blue+magenta, minimal layout",
+	"catppuccin-mocha": "mauve+sky pastel, minimal layout",
+	nord: "frost blue, minimal layout",
+	"gruvbox-dark": "warm yellow+green, minimal layout",
+};
+
+class GalleryCycle implements Component {
+	private index: number;
+	private exited = false;
+
+	constructor(
+		private theme: ThemeLike,
+		activePreset: PresetName | undefined,
+		private apply: (preset: PresetName) => void,
+		private restore: () => void,
+		private done: () => void,
+	) {
+		const i = PRESET_NAMES.findIndex((name) => name === activePreset);
+		this.index = i >= 0 ? i : 0;
+		this.apply(PRESET_NAMES[this.index]);
+	}
+
+	render(width: number): string[] {
+		const w = Math.max(44, width);
+		const name = PRESET_NAMES[this.index];
+		const description = PRESET_DESCRIPTIONS[name] ?? "";
+		return [
+			pad(this.theme.bg("toolPendingBg", this.theme.bold(" Fried Apple Pie gallery ") + this.theme.fg("muted", "j/k or h/l cycle · enter keep · q restore")), w),
+			pad(this.theme.fg("muted", ` ${this.index + 1}/${PRESET_NAMES.length}`), w),
+			pad("", w),
+			pad(this.theme.bg("selectedBg", this.theme.fg("accent", `  ${this.theme.bold(name)}  `)), w),
+			pad(this.theme.fg("muted", `  ${description}`), w),
+			pad("", w),
+			pad(this.theme.fg("dim", " preview applied live. enter exits keeping current preview · q exits restoring previous config."), w),
+		];
+	}
+
+	handleInput(data: string): void {
+		if (this.exited) return;
+		if (data === "q" || data === "\u001b") {
+			this.exited = true;
+			this.restore();
+			this.done();
+			return;
+		}
+		if (data === "\r" || data === "\n") {
+			this.exited = true;
+			this.done();
+			return;
+		}
+		let next = this.index;
+		if (data === "j" || data === "l") next = (this.index + 1) % PRESET_NAMES.length;
+		else if (data === "k" || data === "h") next = (this.index - 1 + PRESET_NAMES.length) % PRESET_NAMES.length;
+		else return;
+		this.index = next;
+		this.apply(PRESET_NAMES[this.index]);
 	}
 
 	invalidate(): void {}

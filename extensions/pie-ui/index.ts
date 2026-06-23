@@ -22,7 +22,7 @@ import {
 } from "./config.ts";
 import { defaultWritePath, loadConfig, readConfigFile, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
-import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
+import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const themeDir = resolve(__dirname, "../../themes");
@@ -88,7 +88,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -131,7 +131,11 @@ type PieToolParams = {
 
 export function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): PieConfig {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
-	const config = loaded.effective;
+	return applyEffectiveConfig(ctx, pi, state, loaded.effective);
+}
+
+// applies an already-materialized config directly. used by applyPie (live config) and /pie gallery (transient cycle).
+export function applyEffectiveConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, config: PieConfig): PieConfig {
 	const validation = validateConfig(config);
 	if (!validation.valid) {
 		ctx.ui.notify(`Fried Apple Pie config invalid: ${validation.errors[0]}`, "error");
@@ -212,6 +216,10 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await writePersona(persona, ctx, pi, state);
 		return;
 	}
+	if (command === "gallery") {
+		await runGallery(ctx, pi, state, loaded.effective);
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -265,6 +273,21 @@ async function writePersona(persona: string, ctx: ExtensionContext, pi: Extensio
 	writeConfigFile(path, { ...current, persona });
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie persona applied: ${persona}`, "info");
+}
+
+// /pie gallery: live-cycle every preset in-memory without writing to disk. on q/esc restores snapshot.
+// returns immediately on non-tui modes.
+async function runGallery(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, snapshot: PieConfig): Promise<void> {
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("Fried Apple Pie gallery requires TUI mode", "warning");
+		return;
+	}
+	const apply = (preset: PresetName) => {
+		const transient = materializeConfig(applyPresetConfig(snapshot, preset, "clean"));
+		applyEffectiveConfig(ctx, pi, state, transient);
+	};
+	const restore = () => applyEffectiveConfig(ctx, pi, state, snapshot);
+	await pickGallery(ctx, snapshot.preset, apply, restore);
 }
 
 export async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState) {
