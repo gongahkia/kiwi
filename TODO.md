@@ -67,25 +67,9 @@ Each task is self-contained. Dependencies noted explicitly.
 
 ---
 
-### P0-01 — README rewrite for discoverability
+### P0-01 follow-ups (per-preset screenshots)
 
-- [ ] Rewrite first screen, add comparison table, add migration block, add per-preset gallery.
-
-**Why:** Pi catalog rewards screenshot-rich READMEs. Current `README.md` has one image, no comparison, no migration hook. Highest ROI single change.
-
-**Files:** `README.md`, `assets/` (add per-preset screenshots after P0-02 lands).
-
-**Sketch:**
-- First screen: animated GIF + 1-line hook + install command (`pi install npm:fried-apple-pie`).
-- Section "Migrating from Claude Code / Codex / Gemini / OpenCode / Aider": one-line `pi install … && pi /pie preset <name>`.
-- Comparison table vs `tweakcc`, `pi-powerline-footer`, `amp-themes`, `ccstatusline`, `lualine`, `opencode`. Columns: multi-preset, tool rendering, spinners, thinking verbs, boot ASCII, keybinds registered, conditional segments, persona, capture/share, agent-readable config, trust scope, tests.
-- Per-preset screenshot grid (filled after P0-02).
-- "Why fried-apple-pie": agent-editable config, JSON Patch tool, doctor, compat-mode, trust scope.
-- "Compat": list known footer/widget owners + recommended `mode`.
-
-**Refs:** existing README `README.md:1-117`. Comparison table data lives in TODO §3.
-
-**Acceptance:** Renders all four blocks. Install is ≤3 lines.
+README rewrite landed (comparison table, migration block, persona section, agent tool section, compat list with known co-existence pairings). Still pending: per-preset screenshot grid — depends on P0-02 (`/pie capture` via vhs) producing assets/preview-<preset>.gif|png for each of the 12 presets. Once P0-02 lands, add a "Gallery" section with a grid of preview images and update the first-screen hero from the current static GIF.
 
 ---
 
@@ -685,7 +669,7 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 1. ~~P0-04 (12+ presets)~~ — done.
 2. P0-02 (`/pie capture` + vhs) — produces deterministic GIFs for the 12 presets.
 3. ~~P0-03 (`/pie gallery`)~~ — done.
-4. P0-01 (README rewrite) — uses outputs from P0-02+03.
+4. ~~P0-01 (README rewrite)~~ — done. Per-preset screenshot grid still pending P0-02.
 5. ~~P0-05 (personas)~~ — done.
 6. P0-06 (boot ASCII) — needs `registerMessageRenderer`; lower complexity.
 7. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
