@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const optionsStorageKey = "watOptions";
+const sidePanelCustomEntryStorageKey = "watSidePanelCustomEntry";
 const sidePanelQueryStorageKey = "watSidePanelQuery";
 const extensionPath = path.resolve(process.cwd(), "extensions/browser/.output/chrome-mv3");
 
@@ -153,6 +154,40 @@ test("side panel consumes queued lookup and renders results", async () => {
     await page.getByRole("button", { name: "SSL" }).click();
     await expect(page.locator("#query")).toHaveValue("SSL");
     await expect(page.getByText("SSL - Secure Sockets Layer")).toBeVisible();
+  } finally {
+    await closeExtension(session);
+  }
+});
+
+test("side panel previews queued custom entry source before saving", async () => {
+  const session = await launchExtension();
+  try {
+    await setExtensionStorage(session.worker, {
+      [optionsStorageKey]: {
+        accountEmail: "",
+        apiBaseUrl: baseUrl,
+        apiToken: "",
+        domainFilters: [],
+        highlightMode: false,
+        hoverMode: false
+      },
+      [sidePanelCustomEntryStorageKey]: {
+        context: "docs.example.test",
+        createdAt: new Date().toISOString(),
+        sourceTitle: "TLS handbook",
+        sourceUrl: "https://docs.example.test/tls",
+        term: "TLS"
+      }
+    });
+
+    const page = await session.context.newPage();
+    await page.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+
+    await expect(page.locator("#save-term")).toHaveValue("TLS");
+    await expect(page.locator("#save-source-preview")).toHaveText(
+      "Source: TLS handbook - https://docs.example.test/tls"
+    );
+    await expect(page.locator("#save-status")).toHaveText("Ready to save from docs.example.test.");
   } finally {
     await closeExtension(session);
   }

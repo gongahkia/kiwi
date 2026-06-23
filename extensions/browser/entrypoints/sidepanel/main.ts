@@ -53,9 +53,21 @@ function sourceUrlFromContext(context: string): string | undefined {
   return currentDraft?.sourceUrl;
 }
 
+function sourcePreviewText(draft: SidePanelCustomEntryDraft): string | null {
+  const title = draft.sourceTitle?.trim();
+  const url = draft.sourceUrl?.trim();
+  if (title && url) return `Source: ${title} - ${url}`;
+  if (title) return `Source: ${title}`;
+  if (url) return `Source: ${url}`;
+  return null;
+}
+
 function fillSaveDraft(draft: SidePanelCustomEntryDraft) {
   currentDraft = draft;
   saveTerm.value = draft.term;
+  const preview = sourcePreviewText(draft);
+  saveSourcePreview.hidden = !preview;
+  saveSourcePreview.textContent = preview ?? "";
   saveStatus.textContent = `Ready to save from ${draft.context || "this page"}.`;
 }
 
@@ -68,6 +80,7 @@ const saveTerm = byId<HTMLInputElement>("save-term");
 const saveExpansion = byId<HTMLInputElement>("save-expansion");
 const saveMeaning = byId<HTMLTextAreaElement>("save-meaning");
 const saveScope = byId<HTMLSelectElement>("save-scope");
+const saveSourcePreview = byId<HTMLParagraphElement>("save-source-preview");
 const saveStatus = byId<HTMLParagraphElement>("save-status");
 let currentDraft: SidePanelCustomEntryDraft | null = null;
 
