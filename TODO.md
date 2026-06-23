@@ -228,7 +228,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add extension custom-entry save E2E test — done when selecting page text, saving a custom acronym, and finding it in later lookup is covered headlessly.
 - [ ] Add extension conflict handling for saved acronyms — done when saving an existing term shows update/keep both/cancel choices instead of a raw 409.
 - [ ] Add extension save-source preview — done when users see the page URL/title that will be attached before saving.
-- [ ] Add extension privacy mode review — done when hover/highlight behavior is documented and verified to send only tokens/context, not full page contents by default.
 - [ ] Add extension release assets — done when required icons, screenshots, short/long descriptions, and privacy copy are committed.
 - [ ] Publish signed browser extension builds — done when Chrome, Firefox, and Edge users can install without developer mode.
 - [ ] Add enterprise extension deployment docs — done when a team admin can deploy via Chrome Enterprise/Edge policy with preconfigured API URL.

@@ -31,7 +31,9 @@ The options page stores API base URL, account email/token, hover mode, auto-high
 
 Fresh installs should not send page content automatically. Lookups should happen after explicit user action or after enabling hover/highlight modes.
 
-The extension should send only the selected token, hover token, or necessary page context for lookup. It should not collect full-page text by default.
+Hover and highlight lookups send only the acronym token, lookup limit, and a bounded context string to the background worker. API requests use `q`, `limit`, and optional `context` query parameters.
+
+The hover/highlight context is limited to the current hostname, document title, and up to 12 heading texts, truncated to 1200 characters. It does not include paragraph text, form fields, inputs, or full-page body text.
 
 Local cache data should stay in browser storage and be bounded by an LRU limit. Telemetry should be off by default.
 

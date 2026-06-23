@@ -27,6 +27,7 @@ interface ExtensionSession {
 
 let server: Server;
 let baseUrl: string;
+let searchRequests: Array<{ context: string; limit: string; q: string }> = [];
 
 test.beforeAll(async () => {
   server = createServer(handleRequest);
@@ -41,6 +42,10 @@ test.afterAll(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+});
+
+test.beforeEach(() => {
+  searchRequests = [];
 });
 
 test("hover mode renders a sourced lookup tooltip", async () => {
@@ -65,6 +70,53 @@ test("hover mode renders a sourced lookup tooltip", async () => {
     await expect(page.getByText("A protocol for encrypted transport.")).toBeVisible();
     await expect(page.getByText("Alt: SSL, DTLS, HTTPS, +1 more")).toBeVisible();
     await expect(page.getByText("Mock TLS Source")).toBeVisible();
+  } finally {
+    await closeExtension(session);
+  }
+});
+
+test("fresh install does not send hover or highlight lookups before opt-in", async () => {
+  const session = await launchExtension();
+  try {
+    const page = await session.context.newPage();
+    await page.goto(`${baseUrl}/privacy-fixture`);
+    await page.locator("#tls").hover();
+    await page.waitForTimeout(350);
+
+    expect(searchRequests).toEqual([]);
+  } finally {
+    await closeExtension(session);
+  }
+});
+
+test("hover lookup sends token and bounded context without page body text", async () => {
+  const session = await launchExtension();
+  try {
+    await setExtensionStorage(session.worker, {
+      [optionsStorageKey]: {
+        accountEmail: "",
+        apiBaseUrl: baseUrl,
+        apiToken: "",
+        domainFilters: [],
+        highlightMode: false,
+        hoverMode: true
+      }
+    });
+
+    const page = await session.context.newPage();
+    await page.goto(`${baseUrl}/privacy-fixture`);
+    await page.locator("#tls").hover();
+
+    await expect(page.getByText("TLS: Transport Layer Security")).toBeVisible();
+    await expect.poll(() => searchRequests.length).toBe(1);
+
+    const request = searchRequests[0]!;
+    expect(request).toMatchObject({ limit: "1", q: "TLS" });
+    expect(request.context).toContain("127.0.0.1");
+    expect(request.context).toContain("Private Ticket WAT");
+    expect(request.context).toContain("Deployment Notes");
+    expect(request.context).not.toContain("SECRET_FULL_PAGE_BODY");
+    expect(request.context).not.toContain("Never send this paragraph");
   } finally {
     await closeExtension(session);
   }
@@ -206,7 +258,23 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (url.pathname === "/privacy-fixture") {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(`<!doctype html>
+      <title>Private Ticket WAT</title>
+      <h1>Deployment Notes</h1>
+      <p><span id="tls">TLS</span> protects traffic.</p>
+      <p>Never send this paragraph SECRET_FULL_PAGE_BODY to the lookup API.</p>`);
+    return;
+  }
+
   if (url.pathname === "/api/v1/search") {
+    searchRequests.push({
+      context: url.searchParams.get("context") ?? "",
+      limit: url.searchParams.get("limit") ?? "",
+      q: url.searchParams.get("q") ?? ""
+    });
+
     if (request.headers.authorization === "Bearer bad-token") {
       response.writeHead(401, { "content-type": "application/json; charset=utf-8" });
       response.end(JSON.stringify({ error: "invalid_api_key" }));
