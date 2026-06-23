@@ -4,10 +4,16 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	applyJsonPatch,
+	applyPresetConfig,
 	cloneConfig,
+	type FooterSegment,
 	type JsonPatchOperation,
 	materializeConfig,
+	MODE_NAMES,
 	type PieConfig,
+	type PieMode,
+	type PresetName,
+	type PresetApplyMode,
 	FOOTER_SEGMENTS,
 	PRESET_NAMES,
 	PRESET_THEMES,
@@ -15,7 +21,7 @@ import {
 	validateConfig,
 } from "./config.ts";
 import { defaultWritePath, loadConfig, readConfigFile, resolveWriteTarget, writeConfigFile } from "./paths.ts";
-import { createFooter, createHeader, pickEditAction, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
+import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const themeDir = resolve(__dirname, "../../themes");
@@ -27,9 +33,18 @@ const configToolSchema = Type.Object({
 		Type.Literal("validate"),
 		Type.Literal("patch"),
 		Type.Literal("apply"),
+		Type.Literal("set_preset"),
+		Type.Literal("set_footer_segments"),
+		Type.Literal("toggle_compact"),
+		Type.Literal("set_theme"),
 	]),
 	scope: Type.Optional(Type.Union([Type.Literal("global"), Type.Literal("project"), Type.Literal("effective")])),
 	config: Type.Optional(Type.Any()),
+	preset: Type.Optional(Type.Union(PRESET_NAMES.map((name) => Type.Literal(name)))),
+	theme: Type.Optional(Type.String()),
+	footerSegments: Type.Optional(Type.Array(Type.Union(FOOTER_SEGMENTS.map((name) => Type.Literal(name))))),
+	applyMode: Type.Optional(Type.Union([Type.Literal("clean"), Type.Literal("merge")])),
+	strict: Type.Optional(Type.Boolean()),
 	patch: Type.Optional(
 		Type.Array(
 			Type.Object({
@@ -72,8 +87,9 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
+			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			return [];
 		},
 		handler: async (args, ctx) => {
@@ -99,14 +115,19 @@ export default function (pi: ExtensionAPI) {
 }
 
 type PieToolParams = {
-	action: "read" | "list_presets" | "validate" | "patch" | "apply";
+	action: "read" | "list_presets" | "validate" | "patch" | "apply" | "set_preset" | "set_footer_segments" | "toggle_compact" | "set_theme";
 	scope?: "global" | "project" | "effective";
 	config?: unknown;
+	preset?: PresetName;
+	theme?: string;
+	footerSegments?: FooterSegment[];
+	applyMode?: PresetApplyMode;
+	strict?: boolean;
 	patch?: JsonPatchOperation[];
 	dryRun?: boolean;
 };
 
-function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): PieConfig {
+export function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): PieConfig {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
 	const config = loaded.effective;
 	const validation = validateConfig(config);
@@ -118,22 +139,32 @@ function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): 
 		const result = ctx.ui.setTheme(config.theme);
 		if (!result.success) ctx.ui.notify(`Fried Apple Pie theme failed: ${result.error ?? config.theme}`, "warning");
 	}
-	ctx.ui.setToolsExpanded(Boolean(config.tools?.expanded));
-	ctx.ui.setHiddenThinkingLabel(config.thinking?.hiddenLabel);
-	ctx.ui.setWorkingVisible(config.working?.visible !== false);
-	ctx.ui.setWorkingMessage(config.working?.message);
-	ctx.ui.setWorkingIndicator(config.working?.frames ? { frames: config.working.frames, intervalMs: config.working.intervalMs } : undefined);
-	const lines = widgetLines(config);
+	const mode = config.mode ?? "full";
+	if (mode === "full") {
+		ctx.ui.setToolsExpanded(Boolean(config.tools?.expanded));
+		ctx.ui.setHiddenThinkingLabel(config.thinking?.hiddenLabel);
+		ctx.ui.setWorkingVisible(config.working?.visible !== false);
+		ctx.ui.setWorkingMessage(config.working?.message);
+		ctx.ui.setWorkingIndicator(config.working?.frames ? { frames: config.working.frames, intervalMs: config.working.intervalMs } : undefined);
+	} else {
+		ctx.ui.setToolsExpanded(false);
+		ctx.ui.setHiddenThinkingLabel();
+		ctx.ui.setWorkingMessage();
+		ctx.ui.setWorkingIndicator();
+		ctx.ui.setWorkingVisible(true);
+	}
+	const ownsWidgets = mode === "full" || mode === "widgets-only";
+	const lines = ownsWidgets ? widgetLines(config) : undefined;
 	ctx.ui.setWidget("fried-apple-pie", lines, { placement: config.widget?.placement ?? "aboveEditor" });
 	if (ctx.mode === "tui") {
-		ctx.ui.setHeader(config.header?.enabled === false ? undefined : (_tui, theme) => createHeader(config, theme));
+		ctx.ui.setHeader(ownsWidgets ? (config.header?.enabled === false ? undefined : (_tui, theme) => createHeader(config, theme)) : undefined);
 		ctx.ui.setFooter(
-			config.footer?.enabled === false
-				? undefined
-				: (tui, theme, footerData) => {
+			(mode === "full" || mode === "footer-only") && config.footer?.enabled !== false
+				? (tui, theme, footerData) => {
 						state.requestRender = () => tui.requestRender();
 						return createFooter(config, ctx, pi, state, theme, footerData);
-					},
+					}
+				: undefined,
 		);
 	}
 	return config;
@@ -144,7 +175,7 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
 	if (!command) {
 		const selected = await pickPreset(ctx, loaded.effective.preset);
-		if (selected) await writePreset(selected, ctx, pi, state);
+		if (selected) await writePreset(selected, ctx, pi, state, "clean");
 		return;
 	}
 	if (command === "preset") {
@@ -153,7 +184,16 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 			ctx.ui.notify(`Unknown preset: ${preset ?? ""}`, "error");
 			return;
 		}
-		await writePreset(preset as (typeof PRESET_NAMES)[number], ctx, pi, state);
+		await writePreset(preset as (typeof PRESET_NAMES)[number], ctx, pi, state, rest[1] === "merge" ? "merge" : "clean");
+		return;
+	}
+	if (command === "mode") {
+		const mode = rest[0];
+		if (!MODE_NAMES.includes(mode as PieMode)) {
+			ctx.ui.notify(`Unknown mode: ${mode ?? ""}`, "error");
+			return;
+		}
+		await writeMode(mode as PieMode, ctx, pi, state);
 		return;
 	}
 	if (command === "show") {
@@ -173,7 +213,7 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		return;
 	}
 	if (command === "doctor") {
-		await showPanel(ctx, "Fried Apple Pie doctor", doctorLines(loaded, ctx, pi));
+		await showPanel(ctx, "Fried Apple Pie doctor", doctorLines(loaded, ctx, pi, rest[0] === "strict"));
 		return;
 	}
 	if (command === "reset") {
@@ -186,22 +226,30 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 	ctx.ui.notify(`Unknown /pie command: ${command}`, "error");
 }
 
-async function writePreset(preset: (typeof PRESET_NAMES)[number], ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+async function writePreset(preset: PresetName, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, applyMode: PresetApplyMode): Promise<void> {
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
 	const current = readConfigFile(path) ?? {};
-	const next = { ...current, preset, theme: PRESET_THEMES[preset] };
+	const next = applyPresetConfig(current, preset, applyMode);
 	writeConfigFile(path, next);
 	applyPie(ctx, pi, state);
-	ctx.ui.notify(`Fried Apple Pie preset applied: ${preset}`, "info");
+	ctx.ui.notify(`Fried Apple Pie preset applied: ${preset} (${applyMode})`, "info");
 }
 
-async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState) {
+async function writeMode(mode: PieMode, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
+	const current = readConfigFile(path) ?? {};
+	writeConfigFile(path, { ...current, mode });
+	applyPie(ctx, pi, state);
+	ctx.ui.notify(`Fried Apple Pie mode applied: ${mode}`, "info");
+}
+
+export async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState) {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
 	if (params.action === "read") return toolResult("read", loaded);
 	if (params.action === "list_presets") return toolResult("presets", presetDetails());
 	if (params.action === "validate") {
 		const target = params.config ?? loaded.effective;
-		return toolResult("validate", validateConfig(target));
+		return toolResult("validate", validateConfig(target, { strict: params.strict }));
 	}
 	if (params.action === "patch") {
 		if (!params.patch) throw new Error("patch action requires patch");
@@ -218,6 +266,19 @@ async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi
 		}
 		return toolResult("patch", { path: target?.path, scope: params.scope ?? target?.scope ?? "effective", writable: Boolean(target), dryRun: Boolean(params.dryRun || !target), config: next, validation });
 	}
+	if (params.action === "set_preset") return updateConfigTool(params, ctx, pi, state, (current) => {
+		if (!params.preset) throw new Error("set_preset requires preset");
+		return applyPresetConfig(current, params.preset, params.applyMode ?? "merge");
+	});
+	if (params.action === "set_footer_segments") return updateConfigTool(params, ctx, pi, state, (current) => {
+		if (!params.footerSegments) throw new Error("set_footer_segments requires footerSegments");
+		return { ...current, footer: { ...current.footer, enabled: true, segments: params.footerSegments } };
+	});
+	if (params.action === "toggle_compact") return updateConfigTool(params, ctx, pi, state, (current) => ({ ...current, compact: !Boolean(materializeConfig(current).compact) }));
+	if (params.action === "set_theme") return updateConfigTool(params, ctx, pi, state, (current) => {
+		if (!params.theme) throw new Error("set_theme requires theme");
+		return { ...current, theme: params.theme };
+	});
 	if (params.action === "apply") {
 		if (!params.config) {
 			const config = applyPie(ctx, pi, state);
@@ -238,6 +299,22 @@ async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi
 	throw new Error(`unknown action: ${(params as { action: string }).action}`);
 }
 
+async function updateConfigTool(params: PieToolParams, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, update: (current: PieConfig) => PieConfig) {
+	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
+	if (params.scope === "effective" && !params.dryRun) return toolResult(`${params.action} rejected`, { error: "effective scope is read-only; set dryRun true or choose global/project" }, true);
+	const target = params.scope === "effective" ? undefined : resolveToolWriteTarget(ctx, params.scope);
+	if (target && "error" in target) return toolResult(`${params.action} rejected`, target, true);
+	const current = target ? (readConfigFile(target.path) ?? {}) : loaded.effective;
+	const next = update(current);
+	const validation = validateConfig(materializeConfig(next), { strict: params.strict });
+	if (!validation.valid) return toolResult(`${params.action} rejected`, validation, true);
+	if (!params.dryRun && target) {
+		writeConfigFile(target.path, next);
+		applyPie(ctx, pi, state);
+	}
+	return toolResult(params.action, { path: target?.path, scope: params.scope ?? target?.scope ?? "effective", writable: Boolean(target), dryRun: Boolean(params.dryRun || !target), config: next, validation });
+}
+
 async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
 	const action = await pickEditAction(ctx, loaded.effective);
@@ -248,8 +325,7 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 	if (action === "preset") {
 		const preset = await pickPreset(ctx, loaded.effective.preset);
 		if (!preset) return;
-		next.preset = preset;
-		next.theme = PRESET_THEMES[preset];
+		Object.assign(next, applyPresetConfig(next, preset, "clean"));
 	}
 	if (action === "theme") {
 		const names = ctx.ui.getAllThemes().map((theme) => theme.name).sort();
@@ -257,17 +333,16 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 		if (!selected) return;
 		next.theme = selected;
 	}
+	if (action === "mode") {
+		const selected = await ctx.ui.select("Fried Apple Pie mode", [...MODE_NAMES]);
+		if (!selected) return;
+		next.mode = selected as PieMode;
+	}
 	if (action === "compact") next.compact = !Boolean(loaded.effective.compact);
 	if (action === "footer") {
-		const value = await ctx.ui.input("Footer segments", loaded.effective.footer?.segments?.join(",") ?? "");
-		if (value === undefined) return;
-		const segments = value.split(",").map((segment) => segment.trim()).filter(Boolean);
-		const invalid = segments.filter((segment) => !FOOTER_SEGMENTS.includes(segment as (typeof FOOTER_SEGMENTS)[number]));
-		if (invalid.length > 0) {
-			ctx.ui.notify(`Invalid footer segment: ${invalid[0]}`, "error");
-			return;
-		}
-		next.footer = { ...next.footer, enabled: true, segments: segments as PieConfig["footer"]["segments"] };
+		const segments = await pickFooterSegments(ctx, loaded.effective.footer?.segments);
+		if (!segments) return;
+		next.footer = { ...next.footer, enabled: true, segments };
 	}
 	if (action === "header") next.header = { ...next.header, enabled: loaded.effective.header?.enabled === false };
 	if (action === "widget") {
@@ -282,9 +357,35 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 		ctx.ui.notify(`Invalid config: ${validation.errors[0]}`, "error");
 		return;
 	}
-	writeConfigFile(path, next);
+	const target = await chooseWriteTarget(ctx);
+	if (!target) return;
+	const summary = summarizeChange(loaded.effective, materializeConfig(next));
+	const confirmed = await ctx.ui.confirm("Apply Fried Apple Pie config?", `target: ${target.path}\nchange: ${summary}`);
+	if (!confirmed) return;
+	writeConfigFile(target.path, next);
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie updated: ${action}`, "info");
+}
+
+async function chooseWriteTarget(ctx: ExtensionContext): Promise<{ path: string; scope: "global" | "project" } | undefined> {
+	if (!ctx.hasUI) return resolveWriteTarget(ctx.cwd, ctx.isProjectTrusted());
+	const globalTarget = resolveWriteTarget(ctx.cwd, ctx.isProjectTrusted(), "global");
+	const options = [`global: ${globalTarget.path}`];
+	if (ctx.isProjectTrusted()) {
+		const projectTarget = resolveWriteTarget(ctx.cwd, true, "project");
+		options.unshift(`project: ${projectTarget.path}`);
+	}
+	const selected = await ctx.ui.select("Write Fried Apple Pie config", options);
+	if (!selected) return undefined;
+	return selected.startsWith("project: ") ? resolveWriteTarget(ctx.cwd, true, "project") : globalTarget;
+}
+
+function summarizeChange(before: PieConfig, after: PieConfig): string {
+	const changed: string[] = [];
+	for (const key of ["preset", "theme", "mode", "compact", "header", "footer", "widget", "tools"] as const) {
+		if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(key);
+	}
+	return changed.length ? changed.join(", ") : "no effective change";
 }
 
 function resolveToolWriteTarget(ctx: ExtensionContext, scope: PieToolParams["scope"]): ReturnType<typeof resolveWriteTarget> | { error: string } {
@@ -322,7 +423,7 @@ function welcomeLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionConte
 	];
 }
 
-function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContext, pi: ExtensionAPI): string[] {
+function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContext, pi: ExtensionAPI, strict = false): string[] {
 	const lines: string[] = [];
 	lines.push(`global: ${loaded.paths.globalPath}`);
 	lines.push(`project: ${loaded.paths.projectPath}`);
@@ -330,13 +431,15 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	lines.push(`active preset: ${loaded.effective.preset ?? "custom"}`);
 	lines.push(`active theme: ${loaded.effective.theme ?? "default"}`);
 	for (const error of loaded.readErrors) lines.push(`read error: ${error}`);
-	for (const error of loaded.validation.errors) lines.push(`config error: ${error}`);
-	for (const warning of loaded.validation.warnings) lines.push(`config warning: ${warning}`);
+	const validation = strict ? validateConfig(loaded.effective, { strict: true }) : loaded.validation;
+	for (const error of validation.errors) lines.push(`config error: ${error}`);
+	for (const warning of validation.warnings) lines.push(`config warning: ${warning}`);
 	const themes = new Set(ctx.ui.getAllThemes().map((theme) => theme.name));
 	if (loaded.effective.theme && !themes.has(loaded.effective.theme)) lines.push(`theme unavailable: ${loaded.effective.theme}`);
 	const commands = pi.getCommands().map((command) => command.name);
 	const conflicts = commands.filter((name) => ["footer", "powerline-footer", "tool-display"].includes(name));
 	for (const conflict of conflicts) lines.push(`possible UI conflict: /${conflict}`);
+	if (conflicts.length > 0 && loaded.effective.mode === "full") lines.push("recommendation: set /pie mode theme-only or footer-only if another UI package owns a surface");
 	if (lines.length === 5) lines.push("ok");
 	return lines;
 }

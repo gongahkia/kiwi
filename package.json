@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Pi UI presets, themes, and agent-editable config.",
   "type": "module",
+  "author": "gongahkia",
   "keywords": [
     "pi-package",
     "pi-extension",
@@ -11,15 +12,26 @@
     "tui"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gongahkia/fried-apple-pie.git"
+  },
+  "homepage": "https://github.com/gongahkia/fried-apple-pie#readme",
+  "bugs": {
+    "url": "https://github.com/gongahkia/fried-apple-pie/issues"
+  },
   "files": [
     "assets",
     "extensions",
+    "LICENSE",
     "schema",
     "themes",
     "skills",
     "README.md"
   ],
   "scripts": {
+    "assets:build": "sips -s format png assets/fried-apple-pie-gallery.svg --out assets/fried-apple-pie-gallery.png >/dev/null && magick -delay 140 assets/fried-apple-pie-gallery.png -delay 140 assets/fried-apple-pie-gallery.png -loop 0 assets/fried-apple-pie-demo.gif",
+    "smoke:pi": "pi -e . --offline --no-context-files --list-models >/dev/null",
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm test"
@@ -34,7 +46,7 @@
     "themes": [
       "./themes"
     ],
-    "image": "./assets/fried-apple-pie-gallery.png"
+    "image": "https://raw.githubusercontent.com/gongahkia/fried-apple-pie/main/assets/fried-apple-pie-gallery.png"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

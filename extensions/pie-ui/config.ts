@@ -1,14 +1,19 @@
 export const PRESET_NAMES = ["minimal", "claude-inspired", "opencode-inspired", "codex-inspired", "gemini-inspired"] as const;
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
+export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only"] as const;
 
 export type PresetName = (typeof PRESET_NAMES)[number];
 export type FooterSegment = (typeof FOOTER_SEGMENTS)[number];
+export type PieMode = (typeof MODE_NAMES)[number];
+export type PresetApplyMode = "clean" | "merge";
 export type WidgetPlacement = "aboveEditor" | "belowEditor";
 
 export type PieConfig = {
 	preset?: PresetName;
 	theme?: string;
+	mode?: PieMode;
 	compact?: boolean;
+	strict?: boolean;
 	header?: {
 		enabled?: boolean;
 		title?: string;
@@ -55,7 +60,9 @@ export const PRESET_THEMES: Record<PresetName, string> = {
 export const DEFAULT_CONFIG: PieConfig = {
 	preset: "minimal",
 	theme: PRESET_THEMES.minimal,
+	mode: "full",
 	compact: true,
+	strict: false,
 	header: {
 		enabled: false,
 		title: "Fried Apple Pie",
@@ -179,8 +186,10 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 };
 
 const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "header", "footer", "widget", "tools", "thinking", "working"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
+const modeNames = new Set<string>(MODE_NAMES);
 
 export function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -215,21 +224,35 @@ export function effectiveConfig(globalConfig?: PieConfig, projectConfig?: PieCon
 	return materializeConfig(mergeConfig(globalConfig ?? {}, projectConfig));
 }
 
-export function validateConfig(config: unknown): ValidationResult {
+export function applyPresetConfig(config: PieConfig, preset: PresetName, applyMode: PresetApplyMode = "merge"): PieConfig {
+	if (applyMode === "clean") {
+		const preserved: PieConfig = {};
+		if (config.mode !== undefined) preserved.mode = config.mode;
+		if (config.strict !== undefined) preserved.strict = config.strict;
+		return { ...preserved, preset, theme: PRESET_THEMES[preset] };
+	}
+	return { ...cloneConfig(config), preset, theme: PRESET_THEMES[preset] };
+}
+
+export function validateConfig(config: unknown, options: { strict?: boolean } = {}): ValidationResult {
 	const errors: string[] = [];
 	const warnings: string[] = [];
 	if (!isObject(config)) {
 		return { valid: false, errors: ["config must be an object"], warnings };
 	}
+	const strict = Boolean(options.strict || (config as PieConfig).strict);
 	for (const key of Object.keys(config)) {
-		if (!["preset", "theme", "compact", "header", "footer", "widget", "tools", "thinking", "working"].includes(key)) {
-			warnings.push(`unknown key: ${key}`);
+		if (!knownKeys.has(key)) {
+			if (strict) errors.push(`unknown key: ${key}`);
+			else warnings.push(`unknown key: ${key}`);
 		}
 	}
 	const cfg = config as PieConfig;
 	if (cfg.preset !== undefined && !presetNames.has(cfg.preset)) errors.push(`unknown preset: ${String(cfg.preset)}`);
 	if (cfg.theme !== undefined && typeof cfg.theme !== "string") errors.push("theme must be a string");
+	if (cfg.mode !== undefined && !modeNames.has(cfg.mode)) errors.push(`unknown mode: ${String(cfg.mode)}`);
 	if (cfg.compact !== undefined && typeof cfg.compact !== "boolean") errors.push("compact must be a boolean");
+	if (cfg.strict !== undefined && typeof cfg.strict !== "boolean") errors.push("strict must be a boolean");
 	validateSection("header", cfg.header, errors, {
 		enabled: "boolean",
 		title: "string",

@@ -12,7 +12,14 @@
     "theme": {
       "type": "string"
     },
+    "mode": {
+      "type": "string",
+      "enum": ["full", "theme-only", "footer-only", "widgets-only"]
+    },
     "compact": {
+      "type": "boolean"
+    },
+    "strict": {
       "type": "boolean"
     },
     "header": {

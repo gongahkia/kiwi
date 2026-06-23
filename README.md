@@ -9,13 +9,19 @@ Agent-editable Pi UI presets, themes, and config.
 ## Install
 
 ```sh
-pi install ./fried-apple-pie
+pi install .
 ```
 
-For one run:
+After npm publish:
 
 ```sh
-pi -e ./fried-apple-pie
+pi install npm:fried-apple-pie
+```
+
+For one local run:
+
+```sh
+pi -e .
 ```
 
 ## Presets
@@ -33,18 +39,24 @@ These are inspired presets, not exact clones.
 ```txt
 /pie
 /pie preset minimal
+/pie preset codex-inspired clean
+/pie preset codex-inspired merge
+/pie mode theme-only
 /pie edit
 /pie welcome
 /pie export
 /pie preset claude-inspired
 /pie show
 /pie doctor
+/pie doctor strict
 /pie reset
 ```
 
 ## Agent Tool
 
 The package registers `pie_config` so Pi can read, validate, patch, and apply UI config without guessing file format. It supports a JSON Patch subset: `add`, `replace`, `remove`.
+
+Convenience actions: `set_preset`, `set_footer_segments`, `toggle_compact`, `set_theme`.
 
 Config paths:
 
@@ -65,8 +77,10 @@ schema/pie-ui.schema.json
 
 ```json
 {
+  "$schema": "./schema/pie-ui.schema.json",
   "preset": "codex-inspired",
   "theme": "fried-apple-pie-codex",
+  "mode": "full",
   "footer": {
     "enabled": true,
     "segments": ["model", "thinking", "cwd", "branch", "status", "context"]
@@ -84,9 +98,15 @@ schema/pie-ui.schema.json
 
 Footer segments: `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`.
 
+Modes: `full`, `theme-only`, `footer-only`, `widgets-only`.
+
+Preset apply modes: `clean` resets preset-owned config; `merge` preserves overrides.
+
 ## Compatibility
 
 Fried Apple Pie owns the header/footer/widget surfaces while enabled. If another package also controls those surfaces, use `/pie doctor` to spot likely conflicts and disable one side.
+
+The package metadata points to the expected hosted GitHub gallery image. The checked-in gallery image is a generated preview; replace it with captured terminal screenshots before a public launch.
 
 ## Verify
 

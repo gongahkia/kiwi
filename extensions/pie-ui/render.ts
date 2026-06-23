@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import type { FooterSegment, PieConfig, PresetName } from "./config.ts";
-import { PRESET_NAMES } from "./config.ts";
+import { FOOTER_SEGMENTS, PRESET_NAMES } from "./config.ts";
 
 type ThemeLike = {
 	fg(name: string, text: string): string;
@@ -20,7 +20,7 @@ export type RenderState = {
 	requestRender?: () => void;
 };
 
-export type EditAction = "preset" | "theme" | "compact" | "footer" | "header" | "widget" | "tools" | "cancel";
+export type EditAction = "preset" | "theme" | "mode" | "compact" | "footer" | "header" | "widget" | "tools" | "cancel";
 
 export function createFooter(config: PieConfig, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, theme: ThemeLike, footerData: FooterData): Component & { dispose(): void } {
 	let disposed = false;
@@ -99,6 +99,23 @@ export async function pickEditAction(ctx: ExtensionContext, config: PieConfig): 
 	);
 }
 
+export async function pickFooterSegments(ctx: ExtensionContext, active: FooterSegment[] | undefined): Promise<FooterSegment[] | undefined> {
+	if (ctx.mode !== "tui") return undefined;
+	return ctx.ui.custom<FooterSegment[] | undefined>(
+		(_tui, theme, _keybindings, done) => new FooterSegmentPicker(theme as ThemeLike, active, done),
+		{
+			overlay: true,
+			overlayOptions: {
+				anchor: "center",
+				width: "64%",
+				minWidth: 54,
+				maxHeight: "80%",
+				margin: 1,
+			},
+		},
+	);
+}
+
 export async function showPanel(ctx: ExtensionContext, title: string, lines: string[]): Promise<void> {
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(lines.slice(0, 3).join(" · ") || title, "info");
@@ -162,6 +179,7 @@ class EditPicker implements Component {
 	private readonly actions: Array<{ id: EditAction; label: string }> = [
 		{ id: "preset", label: "preset" },
 		{ id: "theme", label: "theme" },
+		{ id: "mode", label: "compatibility mode" },
 		{ id: "compact", label: "compact mode" },
 		{ id: "footer", label: "footer segments" },
 		{ id: "header", label: "header toggle" },
@@ -205,12 +223,62 @@ class EditPicker implements Component {
 
 	private suffix(action: EditAction): string {
 		if (action === "compact") return `: ${this.config.compact ? "on" : "off"}`;
+		if (action === "mode") return `: ${this.config.mode ?? "full"}`;
 		if (action === "header") return `: ${this.config.header?.enabled === false ? "off" : "on"}`;
 		if (action === "widget") return `: ${this.config.widget?.enabled ? "on" : "off"}`;
 		if (action === "tools") return `: ${this.config.tools?.expanded ? "expanded" : "compact"}`;
 		if (action === "footer") return `: ${(this.config.footer?.segments ?? []).join(",")}`;
 		return "";
 	}
+}
+
+class FooterSegmentPicker implements Component {
+	private index = 0;
+	private selected: Set<FooterSegment>;
+
+	constructor(
+		private theme: ThemeLike,
+		active: FooterSegment[] | undefined,
+		private done: (result: FooterSegment[] | undefined) => void,
+	) {
+		this.selected = new Set(active?.length ? active : ["model", "cwd", "branch", "status", "context"]);
+	}
+
+	render(width: number): string[] {
+		const w = Math.max(54, width);
+		const lines = [
+			pad(this.theme.bg("toolPendingBg", this.theme.bold(" Footer segments ") + this.theme.fg("muted", "j/k space enter c/f/a q")), w),
+			pad(this.theme.fg("muted", "space toggles · c compact order · f full order · a all"), w),
+		];
+		for (let i = 0; i < FOOTER_SEGMENTS.length; i++) {
+			const segment = FOOTER_SEGMENTS[i];
+			const selected = i === this.index;
+			const checked = this.selected.has(segment) ? "[x]" : "[ ]";
+			const row = `${selected ? ">" : " "} ${checked} ${segment}`;
+			lines.push(selected ? this.theme.bg("selectedBg", pad(this.theme.fg("accent", row), w)) : pad(row, w));
+		}
+		return lines;
+	}
+
+	handleInput(data: string): void {
+		if (data === "q" || data === "\u001b") {
+			this.done(undefined);
+			return;
+		}
+		if (data === "j") this.index = Math.min(FOOTER_SEGMENTS.length - 1, this.index + 1);
+		if (data === "k") this.index = Math.max(0, this.index - 1);
+		if (data === " ") {
+			const segment = FOOTER_SEGMENTS[this.index];
+			if (this.selected.has(segment)) this.selected.delete(segment);
+			else this.selected.add(segment);
+		}
+		if (data === "c") this.selected = new Set(["model", "cwd", "branch", "status", "context"]);
+		if (data === "f") this.selected = new Set(["model", "thinking", "cwd", "branch", "status", "context", "tokens"]);
+		if (data === "a") this.selected = new Set(FOOTER_SEGMENTS);
+		if (data === "\r" || data === "\n") this.done(FOOTER_SEGMENTS.filter((segment) => this.selected.has(segment)));
+	}
+
+	invalidate(): void {}
 }
 
 class TextPanel implements Component {
