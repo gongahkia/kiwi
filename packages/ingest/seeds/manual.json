@@ -374,7 +374,7 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["SPA", "CSR", "SSG"],
-      "contemporaries": []
+      "contemporaries": ["CSR"]
     },
     {
       "id": "seed-uri-uniform-resource-identifier",
@@ -1638,7 +1638,7 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["SSR", "SPA", "DOM"],
-      "contemporaries": ["SSR", "MPA"]
+      "contemporaries": ["SSR"]
     },
     {
       "id": "seed-ast-abstract-syntax-tree",

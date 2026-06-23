@@ -100,7 +100,7 @@ describe("wat mcp server", () => {
         term: "CSR"
       },
       team_id: "team_example",
-      unresolved_terms: ["MPA"]
+      unresolved_terms: []
     });
   });
 

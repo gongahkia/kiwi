@@ -55,6 +55,7 @@ jobs:
           delta_path=$(pnpm --filter @wat/ingest ingest run "${{ steps.vars.outputs.source }}" | tail -n 1)
           echo "delta_path=$delta_path" >> "$GITHUB_OUTPUT"
       - run: pnpm --filter @wat/ingest ingest lint
+      - run: pnpm --filter @wat/ingest contemporaries:lint "${{ steps.ingest.outputs.delta_path }}"
       - run: pnpm --filter @wat/search test
       - run: pnpm --filter @wat/ingest summarize:delta "${{ steps.ingest.outputs.delta_path }}" reports/corpus-refresh-pr.md
       - uses: peter-evans/create-pull-request@v7
