@@ -1,4 +1,5 @@
 import { type SaveCustomEntryMessage, type SaveCustomEntryResponse } from "./messages.js";
+import { apiErrorFromResponse, apiErrorResult, offlineApiError } from "./api-errors.js";
 import { authHeaders } from "./lookup-service.js";
 import { loadWatOptions, type WatOptions } from "./options.js";
 
@@ -33,21 +34,19 @@ export async function fetchSaveCustomEntry(
   const headers = authHeaders(options);
   headers.set("content-type", "application/json");
 
-  const response = await fetch(url, {
-    body: JSON.stringify(saveCustomEntryPayload(message)),
-    credentials: "include",
-    headers,
-    method: "POST"
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      body: JSON.stringify(saveCustomEntryPayload(message)),
+      credentials: "include",
+      headers,
+      method: "POST"
+    });
+  } catch {
+    throw offlineApiError("save");
+  }
   if (!response.ok) {
-    let detail: string;
-    try {
-      const body = (await response.json()) as { error?: unknown };
-      detail = typeof body.error === "string" ? `: ${body.error}` : "";
-    } catch {
-      detail = "";
-    }
-    throw new Error(`save failed: ${response.status}${detail}`);
+    throw await apiErrorFromResponse("save", response);
   }
 
   return response.json() as Promise<unknown>;
@@ -68,9 +67,6 @@ export async function handleSaveCustomEntry(
     const body = await requestSave(message, await load());
     return { body, ok: true };
   } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : "save failed",
-      ok: false
-    };
+    return apiErrorResult(error, "save failed") as SaveCustomEntryResponse;
   }
 }

@@ -4,6 +4,7 @@ import {
   putCachedLookup,
   type LookupCacheEntry
 } from "./lookup-cache.js";
+import { apiErrorFromResponse, apiErrorResult, offlineApiError } from "./api-errors.js";
 import { type LookupMessage, type LookupResponse } from "./messages.js";
 import { loadWatOptions, type WatOptions } from "./options.js";
 
@@ -42,9 +43,14 @@ export async function fetchLookup(message: LookupMessage, options: WatOptions): 
     url.searchParams.set("context", message.context.trim());
   }
 
-  const response = await fetch(url, { headers: authHeaders(options) });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: authHeaders(options) });
+  } catch {
+    throw offlineApiError("lookup");
+  }
   if (!response.ok) {
-    throw new Error(`lookup failed: ${response.status}`);
+    throw await apiErrorFromResponse("lookup", response);
   }
 
   return response.json() as Promise<unknown>;
@@ -82,9 +88,6 @@ export async function handleLookup(
       return { body: cached.body, cached: true, ok: true };
     }
 
-    return {
-      error: error instanceof Error ? error.message : "lookup failed",
-      ok: false
-    };
+    return apiErrorResult(error, "lookup failed") as LookupResponse;
   }
 }
