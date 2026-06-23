@@ -399,10 +399,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 - [ ] Append "Alternatives: X, Y, Z" line to `/wat <term>` ephemeral response when contemporaries are populated — done when `/wat kafka` returns the alternatives line below the meaning. File: `apps/slack/src/...` (locate via existing command handler).
 - [ ] Add `/wat-alt <term>` command — done when command returns ephemeral list of alternatives w/ short meanings when resolved.
 
-### P3 — MCP server: contemporaries in lookup response
-- [ ] Include `contemporaries: string[]` in `lookup(term, context?)` response payload — done when MCP clients receive the field and the tool description JSON schema lists it. File: `apps/mcp/src/...`.
-- [ ] Add `list_alternatives(term)` MCP tool — done when tool returns resolved contemporary entries w/ meanings; intended for coding agents asking "what else competes w/ X". Read-only, identical auth model as `lookup`.
-
 ### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
 - [ ] ≥ 60% of public entries in cloud/devops/observability/storage domains have ≥ 1 contemporary populated — verified by `pnpm --filter @wat/ingest contemporaries:coverage`.
 - [ ] Search benchmark expanded from 500 acronyms to 1000 mixed entries (500 acronyms + 300 concepts + 200 systems) — verified by `pnpm bench`.

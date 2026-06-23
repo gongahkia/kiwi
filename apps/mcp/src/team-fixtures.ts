@@ -4,6 +4,7 @@ export const devTeamEntries: WatEntry[] = [
   {
     aliases: ["change review"],
     confidence_tier: "T2",
+    contemporaries: [],
     domains: ["example.com", "platform"],
     expansions: ["Change Approval Process"],
     id: "team-example-cap",
@@ -27,6 +28,7 @@ export const devTeamEntries: WatEntry[] = [
   {
     aliases: ["deploy lock"],
     confidence_tier: "T2",
+    contemporaries: [],
     domains: ["example.com", "ops"],
     expansions: ["Deployment Freeze"],
     id: "team-example-df",

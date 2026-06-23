@@ -40,10 +40,22 @@ describe("wat mcp server", () => {
     const tools = await client.listTools();
 
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+      "list_alternatives",
       "list_team_acronyms",
       "lookup",
       "suggest_definition"
     ]);
+    expect(tools.tools.find((tool) => tool.name === "lookup")?.outputSchema).toMatchObject({
+      properties: {
+        matches: {
+          items: {
+            properties: {
+              contemporaries: { type: "array" }
+            }
+          }
+        }
+      }
+    });
   });
 
   it("returns typed lookup results with citations", async () => {
@@ -58,11 +70,37 @@ describe("wat mcp server", () => {
       matches: expect.arrayContaining([
         expect.objectContaining({
           citations: expect.arrayContaining([expect.objectContaining({ url: expect.any(String) })]),
+          contemporaries: expect.any(Array),
           expansion: expect.any(String),
           term: "CAP"
         })
       ]),
       team_id: "team_example"
+    });
+  });
+
+  it("returns resolved alternatives for a term", async () => {
+    const client = await connectClient();
+    const result = await client.callTool({
+      arguments: { api_key: "test-key", term: "CSR" },
+      name: "list_alternatives"
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      alternatives: [
+        {
+          entry_id: "seed-ssr-server-side-rendering",
+          meaning: "Rendering UI markup on the server before sending it to the client.",
+          term: "SSR"
+        }
+      ],
+      entry: {
+        entry_id: "seed-csr-client-side-rendering",
+        term: "CSR"
+      },
+      team_id: "team_example",
+      unresolved_terms: ["MPA"]
     });
   });
 

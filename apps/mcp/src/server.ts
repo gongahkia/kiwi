@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 
 import { requireApiKey } from "./auth.js";
-import { listTeamEntries, lookupEntries, resultText } from "./search.js";
+import { listAlternatives, listTeamEntries, lookupEntries, resultText } from "./search.js";
 import { writeSuggestion } from "./suggestions.js";
 
 const confidenceSchema = z.enum(["T1", "T2", "T3", "T4"]);
@@ -20,6 +20,7 @@ const resultSourceSchema = z.object({
 const resultSchema = z.object({
   citations: z.array(resultSourceSchema),
   confidence_tier: confidenceSchema,
+  contemporaries: z.array(z.string()),
   domains: z.array(z.string()),
   entry_id: z.string(),
   expansion: z.string(),
@@ -27,6 +28,13 @@ const resultSchema = z.object({
   meaning: z.string(),
   score: z.number(),
   term: z.string()
+});
+
+const alternativesSchema = z.object({
+  alternatives: z.array(resultSchema),
+  entry: resultSchema.nullable(),
+  team_id: z.string(),
+  unresolved_terms: z.array(z.string())
 });
 
 const suggestionSchema = z.object({
@@ -102,6 +110,34 @@ export function createWatMcpServer(): McpServer {
         content: [{ type: "text", text: resultText(page.entries) }],
         structuredContent: {
           ...page,
+          team_id: auth.team_id
+        }
+      };
+    }
+  );
+
+  server.registerTool(
+    "list_alternatives",
+    {
+      annotations: {
+        readOnlyHint: true
+      },
+      description:
+        "List resolved peer alternatives for a wat term using the same auth model as lookup.",
+      inputSchema: z.object({
+        api_key: z.string().min(1),
+        term: z.string().min(1)
+      }),
+      outputSchema: alternativesSchema
+    },
+    async ({ api_key, term }) => {
+      const auth = requireApiKey(api_key, undefined);
+      const result = await listAlternatives({ auth, term });
+
+      return {
+        content: [{ type: "text", text: resultText(result.alternatives) }],
+        structuredContent: {
+          ...result,
           team_id: auth.team_id
         }
       };

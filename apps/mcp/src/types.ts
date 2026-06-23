@@ -15,6 +15,7 @@ export interface WatSource {
 export interface WatEntry {
   aliases: string[];
   confidence_tier: ConfidenceTier;
+  contemporaries: string[];
   domains: string[];
   expansions: string[];
   id: string;
@@ -29,6 +30,7 @@ export interface WatEntry {
 export interface WatResult {
   citations: WatSource[];
   confidence_tier: ConfidenceTier;
+  contemporaries: string[];
   domains: string[];
   entry_id: string;
   expansion: string;
@@ -36,6 +38,12 @@ export interface WatResult {
   meaning: string;
   score: number;
   term: string;
+}
+
+export interface WatAlternativesResult {
+  alternatives: WatResult[];
+  entry: WatResult | null;
+  unresolved_terms: string[];
 }
 
 export interface AuthContext {

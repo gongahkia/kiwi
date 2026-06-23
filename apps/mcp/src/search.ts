@@ -3,7 +3,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { devTeamEntries } from "./team-fixtures.js";
-import type { AuthContext, ConfidenceTier, EntryLayer, WatEntry, WatResult } from "./types.js";
+import type {
+  AuthContext,
+  ConfidenceTier,
+  EntryLayer,
+  WatAlternativesResult,
+  WatEntry,
+  WatResult
+} from "./types.js";
 
 const confidenceRank: Record<ConfidenceTier, number> = {
   T1: 1,
@@ -49,6 +56,7 @@ function toResult(entry: WatEntry, score: number): WatResult {
   return {
     citations: entry.sources,
     confidence_tier: entry.confidence_tier,
+    contemporaries: entry.contemporaries,
     domains: entry.domains,
     entry_id: entry.id,
     expansion: entry.expansions[0] ?? entry.term,
@@ -66,6 +74,7 @@ function scoreEntry(query: string, context: string | undefined, entry: WatEntry)
     entry.term,
     entry.term_normalized,
     ...entry.expansions,
+    ...entry.contemporaries,
     ...entry.domains,
     ...entry.aliases,
     entry.meaning_short
@@ -81,13 +90,28 @@ function scoreEntry(query: string, context: string | undefined, entry: WatEntry)
   const expansion = entry.expansions.some((value) => value.toLowerCase().includes(normalized))
     ? 0.8
     : 0;
+  const contemporary = entry.contemporaries.some((value) =>
+    value.toLowerCase().includes(normalized)
+  )
+    ? 0.35
+    : 0;
   const domain = entry.domains.some((value) => value.toLowerCase().includes(normalized)) ? 0.4 : 0;
   const body = entry.meaning_short.toLowerCase().includes(normalized) ? 0.25 : 0;
   const contextBoost = entry.domains.some((value) => contextText.includes(value.toLowerCase()))
     ? 0.3
     : 0;
 
-  return toResult(entry, exact + expansion + domain + body + contextBoost);
+  return toResult(entry, exact + expansion + contemporary + domain + body + contextBoost);
+}
+
+async function visibleEntries(auth: AuthContext): Promise<WatEntry[]> {
+  return [...devTeamEntries, ...(await publicEntries())].filter((entry) => {
+    if (entry.layer === "team") {
+      return entry.team_id === auth.team_id;
+    }
+
+    return true;
+  });
 }
 
 export async function lookupEntries(input: {
@@ -98,12 +122,9 @@ export async function lookupEntries(input: {
   term: string;
 }): Promise<WatResult[]> {
   const minConfidence = input.min_confidence ?? "T4";
-  const entries = [...devTeamEntries, ...(await publicEntries())].filter((entry) => {
+  const entries = (await visibleEntries(input.auth)).filter((entry) => {
     if (confidenceRank[entry.confidence_tier] > confidenceRank[minConfidence]) {
       return false;
-    }
-    if (entry.layer === "team") {
-      return entry.team_id === input.auth.team_id;
     }
 
     return true;
@@ -119,6 +140,56 @@ export async function lookupEntries(input: {
         left.entry_id.localeCompare(right.entry_id)
     )
     .slice(0, Number.isFinite(input.limit) && input.limit && input.limit > 0 ? input.limit : 5);
+}
+
+function normalizeLookupKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findEntry(term: string, entries: WatEntry[]): WatEntry | null {
+  const key = normalizeLookupKey(term);
+  const matches = entries.filter(
+    (entry) =>
+      entry.id === term ||
+      normalizeLookupKey(entry.term) === key ||
+      normalizeLookupKey(entry.term_normalized) === key ||
+      entry.aliases.some((alias) => normalizeLookupKey(alias) === key)
+  );
+
+  return matches.find((entry) => entry.contemporaries.length > 0) ?? matches[0] ?? null;
+}
+
+export async function listAlternatives(input: {
+  auth: AuthContext;
+  term: string;
+}): Promise<WatAlternativesResult> {
+  const entries = await visibleEntries(input.auth);
+  const entry = findEntry(input.term, entries);
+  if (!entry) {
+    return { alternatives: [], entry: null, unresolved_terms: [] };
+  }
+
+  const alternatives: WatResult[] = [];
+  const unresolvedTerms: string[] = [];
+
+  for (const contemporary of entry.contemporaries) {
+    const alternative = findEntry(contemporary, entries);
+    if (alternative) {
+      alternatives.push(toResult(alternative, 1));
+    } else {
+      unresolvedTerms.push(contemporary);
+    }
+  }
+
+  return {
+    alternatives,
+    entry: toResult(entry, 1),
+    unresolved_terms: unresolvedTerms
+  };
 }
 
 export function listTeamEntries(input: {
@@ -152,7 +223,10 @@ export function resultText(results: WatResult[]): string {
   return results
     .map((result) => {
       const citations = result.citations.map((source) => source.url).join(", ");
-      return `${result.term}: ${result.expansion} (${result.confidence_tier}, ${result.layer})\n${result.meaning}\nSources: ${citations}`;
+      const alternatives = result.contemporaries.length
+        ? `\nAlternatives: ${result.contemporaries.join(", ")}`
+        : "";
+      return `${result.term}: ${result.expansion} (${result.confidence_tier}, ${result.layer})\n${result.meaning}${alternatives}\nSources: ${citations}`;
     })
     .join("\n\n");
 }
