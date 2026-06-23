@@ -272,7 +272,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add corpus quality sampling workflow — done when each refresh PR includes random sample entries for human review.
 
 ### P1 — API readiness for teams and integrations
-- [ ] Document `POST /api/v1/custom-entries` — done when API docs include request/response schemas, auth, scopes, CORS behavior, errors, and examples.
 - [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.
 - [ ] Standardize REST error shapes — done when all APIs return consistent `{ error, code, message, request_id }` style responses.
 - [ ] Add pagination to list/export APIs where needed — done when large teams can list entries, audit logs, and suggestions without loading all rows.

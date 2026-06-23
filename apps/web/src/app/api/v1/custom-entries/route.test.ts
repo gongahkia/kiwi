@@ -8,14 +8,19 @@ import { POST } from "./route";
 const previousApiKey = process.env.WAT_API_KEY;
 
 function request(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  const mergedHeaders: Record<string, string> = {
+    authorization: "Bearer test-key",
+    "content-type": "application/json",
+    "x-wat-user-id": "user_1",
+    ...headers
+  };
+  if (headers["x-wat-user-id"] === "") {
+    delete mergedHeaders["x-wat-user-id"];
+  }
+
   return new NextRequest("http://localhost/api/v1/custom-entries", {
     body: JSON.stringify(body),
-    headers: {
-      authorization: "Bearer test-key",
-      "content-type": "application/json",
-      "x-wat-user-id": "user_1",
-      ...headers
-    },
+    headers: mergedHeaders,
     method: "POST"
   });
 }
@@ -81,5 +86,23 @@ describe("POST /api/v1/custom-entries", () => {
     expect(body.entry.sources[0]?.license).toBe("proprietary-team");
     expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
     expect(getTeamEntries().at(-1)?.sources[0]?.license).toBe("proprietary-team");
+  });
+
+  it("rejects writes without user scope", async () => {
+    const response = await POST(
+      request(
+        {
+          expansion: "Change Approval Process",
+          scope: "personal",
+          term: "CAP"
+        },
+        { "x-wat-user-id": "" }
+      )
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: "api token and x-wat-user-id are required"
+    });
   });
 });

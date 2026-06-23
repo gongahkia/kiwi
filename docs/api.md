@@ -129,6 +129,114 @@ Response:
 ]
 ```
 
+### `POST /custom-entries`
+
+Create a browser/API-saved glossary entry in a personal or team layer. Anonymous requests are rejected.
+
+Auth:
+
+- `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
+- `X-Wat-User-Id` is required for writes.
+- `X-Wat-Team-Id` is required when `scope` is `team`.
+
+Request body:
+
+| Name | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `term` | string | yes | Acronym or term to save. Trimmed; empty values are rejected. |
+| `expansion` | string | yes | Expansion to save. Trimmed; empty values are rejected. |
+| `meaning` | string | no | Defaults to `Custom definition for <term>.` |
+| `scope` | `personal` \| `team` | no | Defaults to `personal`. Team scope writes to the caller's team layer. |
+| `domains` | string[] | no | Trimmed, lowercased, deduplicated, capped at 12. |
+| `sourceUrl` | string | no | Valid URLs are preserved. Missing or invalid values become `https://wat.local/custom/<id>`. |
+| `sourceTitle` | string | no | Defaults to the source hostname or `Browser custom entry`. |
+
+Stored source behavior:
+
+- Personal entries use `proprietary-personal`.
+- Team entries use `proprietary-team`.
+- `publisher` is `wat browser extension`.
+- `retrieved_at` is generated at write time.
+
+Personal example:
+
+```sh
+curl \
+  -X POST 'http://localhost:3000/api/v1/custom-entries' \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-User-Id: user_123" \
+  --data '{
+    "scope": "personal",
+    "term": "CAP",
+    "expansion": "Change Approval Process",
+    "meaning": "Private release-review shorthand.",
+    "domains": ["deploys", "ops"],
+    "sourceUrl": "https://docs.example.test/releases/cap",
+    "sourceTitle": "Release process"
+  }'
+```
+
+Team example:
+
+```sh
+curl \
+  -X POST 'http://localhost:3000/api/v1/custom-entries' \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-User-Id: user_123" \
+  -H "X-Wat-Team-Id: team_123" \
+  --data '{
+    "scope": "team",
+    "term": "RTO",
+    "expansion": "Recovery Time Objective",
+    "domains": ["incident", "sre"],
+    "sourceUrl": "https://runbook.example.test/rto"
+  }'
+```
+
+Response:
+
+```json
+{
+  "scope": "team",
+  "entry": {
+    "id": "custom-team-550e8400-e29b-41d4-a716-446655440000",
+    "term": "RTO",
+    "expansion": "Recovery Time Objective",
+    "meaning": "Custom definition for RTO.",
+    "domains": ["incident", "sre", "runbook.example.test"],
+    "sources": [
+      {
+        "license": "proprietary-team",
+        "publisher": "wat browser extension",
+        "retrieved_at": "2026-06-23T00:00:00.000Z",
+        "snippet": "RTO was saved as Recovery Time Objective from the browser extension.",
+        "title": "runbook.example.test",
+        "url": "https://runbook.example.test/rto"
+      }
+    ]
+  }
+}
+```
+
+CORS:
+
+- `OPTIONS /custom-entries` returns `204`.
+- Allowed methods are `POST, OPTIONS`.
+- Allowed request headers are `authorization, content-type, x-api-key, x-wat-team-id, x-wat-user-id`.
+- Origins are deny-by-default. Configure `WAT_ALLOWED_ORIGINS` and `WAT_EXTENSION_ORIGINS` as described under `GET /search`.
+
+Errors:
+
+| Status | Error | Cause |
+| --- | --- | --- |
+| `400` | `term and expansion are required` | Missing or empty `term`/`expansion`. |
+| `401` | `invalid_api_key` | Supplied token does not match `WAT_API_KEY`. |
+| `401` | `api token and x-wat-user-id are required` | Anonymous write or missing user scope. |
+| `403` | `x-wat-team-id is required for team entries` | Team-scope write without team scope. |
+| `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer. |
+
 ## Shared Types
 
 Confidence tiers:

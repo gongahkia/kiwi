@@ -120,7 +120,8 @@ export async function POST(request: NextRequest) {
   if (!identity.ok) {
     return json(request, { error: identity.error }, { status: identity.status });
   }
-  if (identity.identity.type !== "api" || !identity.identity.userId) {
+  const userId = request.headers.get("x-wat-user-id")?.trim();
+  if (identity.identity.type !== "api" || !userId) {
     return json(request, { error: "api token and x-wat-user-id are required" }, { status: 401 });
   }
 
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
     const entry =
       parsed.scope === "team"
         ? createTeamEntry(parsed.entry)
-        : createPersonalEntry(identity.identity.userId, parsed.entry);
+        : createPersonalEntry(userId, parsed.entry);
 
     return json(request, { entry, scope: parsed.scope }, { status: 201 });
   } catch (error) {
