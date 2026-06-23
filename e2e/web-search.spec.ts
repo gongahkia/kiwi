@@ -94,7 +94,7 @@ test("opens create and suggest flows from unmatched queries", async ({ context, 
 
   await expect(page).toHaveURL(/\/personal\?term=zzzz-no-match$/);
   await expect(page.getByPlaceholder("term")).toHaveValue("zzzz-no-match");
-  await expect(page.getByPlaceholder("id")).toHaveValue("personal-zzzz-no-match");
+  await expect(page.getByText("Generated ID: personal-zzzz-no-match")).toBeVisible();
 
   await gotoHome(page);
   await fillSearch(page, "zzzz-no-match");
@@ -102,6 +102,31 @@ test("opens create and suggest flows from unmatched queries", async ({ context, 
 
   await expect(page).toHaveURL(/\/suggest\?term=zzzz-no-match$/);
   await expect(page.getByPlaceholder("term")).toHaveValue("zzzz-no-match");
+});
+
+test("creates a personal entry without requiring a manual id", async ({ context, page }) => {
+  await context.addCookies([
+    {
+      name: "wat_session",
+      url: "http://127.0.0.1:3100",
+      value: "user_generated_id"
+    }
+  ]);
+  await page.goto("/personal");
+
+  await expect(page.getByPlaceholder("id")).toHaveCount(0);
+  await page.getByPlaceholder("term").fill("Queue Depth");
+  await page.getByPlaceholder("expansion").fill("Quality of Service");
+  await page.getByPlaceholder("meaning").fill("Internal queue health shorthand.");
+
+  await expect(
+    page.getByText("Generated ID: personal-queue-depth-quality-of-service")
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Create entry" }).click();
+
+  await expect(page.locator("article").filter({ hasText: "Queue Depth" })).toContainText(
+    "Quality of Service"
+  );
 });
 
 test("filters search results by domain", async ({ page }) => {

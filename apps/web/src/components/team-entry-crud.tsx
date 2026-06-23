@@ -24,13 +24,11 @@ function idFromTerm(term: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function emptyFormFor(defaultDomains: string, initialTerm = "", sourceLabel = "team") {
+function emptyFormFor(defaultDomains: string, initialTerm = "") {
   const term = initialTerm.trim();
-  const termId = idFromTerm(term);
   return {
     domains: defaultDomains,
     expansion: "",
-    id: termId ? `${sourceLabel}-${termId}` : "",
     meaning: "",
     source_url: "",
     term
@@ -39,8 +37,36 @@ function emptyFormFor(defaultDomains: string, initialTerm = "", sourceLabel = "t
 
 type EntryForm = ReturnType<typeof emptyFormFor>;
 
-function entryFromForm(form: EntryForm, sourceLabel: string, sourceLicense: string): TeamEntry {
-  const id = form.id.trim();
+function generatedIdFor(
+  sourceLabel: string,
+  form: EntryForm,
+  entries: TeamEntry[],
+  editingId: string
+): string {
+  if (editingId) return editingId;
+
+  const termId = idFromTerm(form.term);
+  if (!termId) return "";
+
+  const expansionId = idFromTerm(form.expansion);
+  const baseId = [sourceLabel, termId, expansionId].filter(Boolean).join("-");
+  const existingIds = new Set(entries.map((entry) => entry.id));
+  if (!existingIds.has(baseId)) return baseId;
+
+  let suffix = 2;
+  while (existingIds.has(`${baseId}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${baseId}-${suffix}`;
+}
+
+function entryFromForm(
+  form: EntryForm,
+  id: string,
+  sourceLabel: string,
+  sourceLicense: string
+): TeamEntry {
   const sourceUrl = form.source_url.trim() || `https://wat.local/${sourceLabel}/${id || "draft"}`;
   return {
     domains: form.domains
@@ -48,7 +74,7 @@ function entryFromForm(form: EntryForm, sourceLabel: string, sourceLicense: stri
       .map((domain) => domain.trim())
       .filter(Boolean),
     expansion: form.expansion,
-    id: form.id,
+    id,
     meaning: form.meaning,
     sources: [
       {
@@ -73,20 +99,21 @@ export function TeamEntryCrud({
   sourceLicense = "proprietary-team",
   sourceLabel = "team"
 }: TeamEntryCrudProps) {
-  const blankForm = useMemo(
-    () => emptyFormFor(defaultDomains, "", sourceLabel),
-    [defaultDomains, sourceLabel]
-  );
+  const blankForm = useMemo(() => emptyFormFor(defaultDomains, ""), [defaultDomains]);
   const initialForm = useMemo(
-    () => emptyFormFor(defaultDomains, initialTerm, sourceLabel),
-    [defaultDomains, initialTerm, sourceLabel]
+    () => emptyFormFor(defaultDomains, initialTerm),
+    [defaultDomains, initialTerm]
   );
   const [entries, setEntries] = useState(initialEntries);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(initialForm);
+  const generatedId = useMemo(
+    () => generatedIdFor(sourceLabel, form, entries, editingId),
+    [editingId, entries, form, sourceLabel]
+  );
   const preview = useMemo(
-    () => entryFromForm(form, sourceLabel, sourceLicense),
-    [form, sourceLabel, sourceLicense]
+    () => entryFromForm(form, generatedId, sourceLabel, sourceLicense),
+    [form, generatedId, sourceLabel, sourceLicense]
   );
   const hasDraft = Boolean(preview.id.trim());
   const mergedEntries = useMemo(() => {
@@ -120,7 +147,6 @@ export function TeamEntryCrud({
     setForm({
       domains: entry.domains.join(", "),
       expansion: entry.expansion,
-      id: entry.id,
       meaning: entry.meaning,
       source_url: entry.sources[0]?.url ?? "",
       term: entry.term
@@ -128,7 +154,7 @@ export function TeamEntryCrud({
   }
 
   async function save() {
-    const entry = entryFromForm(form, sourceLabel, sourceLicense);
+    const entry = entryFromForm(form, generatedId, sourceLabel, sourceLicense);
     const response = await fetch(apiPath, {
       body: JSON.stringify(editingId ? { id: editingId, patch: entry } : entry),
       headers: { "content-type": "application/json" },
@@ -158,7 +184,7 @@ export function TeamEntryCrud({
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       <section className="grid gap-3">
         <div className="grid gap-2 sm:grid-cols-2">
-          {(["id", "term", "expansion", "domains", "source_url"] as const).map((field) => (
+          {(["term", "expansion", "domains", "source_url"] as const).map((field) => (
             <input
               className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               key={field}
@@ -174,6 +200,7 @@ export function TeamEntryCrud({
             value={form.meaning}
           />
         </div>
+        <p className="text-xs text-foreground/55">Generated ID: {preview.id || "term required"}</p>
         <Button onClick={save} type="button">
           {editingId ? <Save /> : <Plus />}
           {editingId ? "Save entry" : "Create entry"}
