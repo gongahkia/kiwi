@@ -4,6 +4,7 @@ import { renderDeltaSummary, summarizeDelta, type DeltaFile } from "./delta-summ
 
 const baseEntry = {
   dedup_key: "api:application programming interface",
+  contemporaries: [],
   domains: ["web"],
   examples: [],
   expansion_normalized: "application programming interface",

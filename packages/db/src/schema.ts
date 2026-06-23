@@ -67,13 +67,18 @@ export const entries = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
+    contemporaries: text("contemporaries")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
       sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
-          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("contemporaries"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },
@@ -240,13 +245,18 @@ export const teamEntries = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
+    contemporaries: text("contemporaries")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
       sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
-          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("contemporaries"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },
@@ -295,13 +305,18 @@ export const personalEntries = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
+    contemporaries: text("contemporaries")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     tsvector: tsvector("tsvector").generatedAlwaysAs(
       sql`setweight(to_tsvector('english'::regconfig, coalesce("term", '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("expansions"), '')), 'A') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_short", '')), 'B') ||
           setweight(to_tsvector('english'::regconfig, coalesce("meaning_long", '')), 'C') ||
           setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("aliases"), '')), 'B') ||
-          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D')`
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("related_terms"), '')), 'D') ||
+          setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("contemporaries"), '')), 'D')`
     ),
     embedding: vector384("embedding")
   },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeTerm } from "./normalize.js";
+import { normalizeDisplayTermList, normalizeTerm } from "./normalize.js";
 
 const cases: Array<[string, string]> = [
   ["CAP", "cap"],
@@ -28,5 +28,11 @@ const cases: Array<[string, string]> = [
 describe("normalizeTerm", () => {
   it.each(cases)("%s -> %s", (input, expected) => {
     expect(normalizeTerm(input)).toBe(expected);
+  });
+});
+
+describe("normalizeDisplayTermList", () => {
+  it("trims, drops empties, and dedupes by lowercase key", () => {
+    expect(normalizeDisplayTermList([" Kafka ", "", "kafka", "NATS"])).toEqual(["Kafka", "NATS"]);
   });
 });

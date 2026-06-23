@@ -52,4 +52,39 @@ describe("transformRawEntry", () => {
       }
     ]);
   });
+
+  it("normalizes optional contemporaries", () => {
+    const entry = transformRawEntry({
+      contemporaries: [" Kafka ", "", "kafka", "NATS"],
+      expansion: "Cloud Events",
+      sources: [
+        {
+          license: "MIT",
+          publisher: "Example",
+          retrieved_at: "2026-01-01T00:00:00.000Z",
+          url: "https://example.com/cloud-events"
+        }
+      ],
+      term: "CloudEvents"
+    });
+
+    expect(entry.contemporaries).toEqual(["Kafka", "NATS"]);
+  });
+
+  it("defaults missing contemporaries to an empty array", () => {
+    const entry = transformRawEntry({
+      expansion: "Representational State Transfer",
+      sources: [
+        {
+          license: "MIT",
+          publisher: "Example",
+          retrieved_at: "2026-01-01T00:00:00.000Z",
+          url: "https://example.com/rest"
+        }
+      ],
+      term: "REST"
+    });
+
+    expect(entry.contemporaries).toEqual([]);
+  });
 });

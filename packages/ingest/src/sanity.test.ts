@@ -52,4 +52,22 @@ describe("lintEntries", () => {
       ])
     ).toEqual([{ code: "t1_without_canonical_source", entry_id: "API" }]);
   });
+
+  it("reports contemporary self-references", () => {
+    expect(lintEntries([{ contemporaries: ["Kafka"], layer: "team", term: "Kafka" }])).toEqual([
+      { code: "contemporary_self_reference", entry_id: "Kafka" }
+    ]);
+  });
+
+  it("reports duplicate contemporaries", () => {
+    expect(
+      lintEntries([{ contemporaries: ["Kafka", " kafka "], layer: "team", term: "NATS" }])
+    ).toEqual([{ code: "contemporary_duplicate", entry_id: "NATS" }]);
+  });
+
+  it("reports empty contemporaries", () => {
+    expect(lintEntries([{ contemporaries: [" "], layer: "team", term: "NATS" }])).toEqual([
+      { code: "contemporary_empty", entry_id: "NATS" }
+    ]);
+  });
 });

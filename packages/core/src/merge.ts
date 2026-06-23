@@ -1,4 +1,5 @@
 import type { EntryLayer, GlossaryEntry, SourceCitation } from "./schema.js";
+import { normalizeDisplayTermKey, normalizeDisplayTermList } from "./normalize.js";
 
 const priority: EntryLayer[] = ["personal", "team", "public"];
 
@@ -39,11 +40,38 @@ export function mergeLayeredEntry(input: LayeredEntryInput): MergedLayeredEntry 
   });
 
   return {
-    entry: structuredClone(selectedEntry),
+    entry: {
+      ...structuredClone(selectedEntry),
+      contemporaries: mergeContemporaries(input)
+    },
     overriddenLayers: provenance
       .filter((item) => item.layer !== selectedLayer)
       .map((item) => item.layer),
     provenance,
     winningLayer: selectedLayer
   };
+}
+
+function mergeContemporaries(input: LayeredEntryInput): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const layer of priority) {
+    const entry = input[layer];
+    if (!entry) {
+      continue;
+    }
+
+    for (const value of normalizeDisplayTermList(entry.contemporaries)) {
+      const key = normalizeDisplayTermKey(value);
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      output.push(value);
+    }
+  }
+
+  return output;
 }

@@ -1,5 +1,6 @@
 import type { RawEntry, RawSourceCitation } from "./scraper.js";
 import { assertCompatibleSourceLicense } from "./license.js";
+import { normalizeDisplayTermList } from "./normalize.js";
 
 export interface CanonicalSourceCitation {
   license: string;
@@ -15,6 +16,7 @@ export interface CanonicalEntry {
   dedup_key: string;
   domains: string[];
   examples: string[];
+  contemporaries: string[];
   expansion_normalized: string;
   expansions: string[];
   meaning_short: string;
@@ -54,6 +56,7 @@ export function transformRawEntry(raw: RawEntry): CanonicalEntry {
 
   return {
     dedup_key: `${termNormalized}:${expansionNormalized}`,
+    contemporaries: normalizeDisplayTermList(raw.contemporaries ?? []),
     domains: raw.domains ?? [],
     examples: raw.examples ?? [],
     expansion_normalized: expansionNormalized,

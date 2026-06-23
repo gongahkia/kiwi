@@ -40,6 +40,7 @@ erDiagram
     text deprecated_reason
     text_array aliases
     text_array related_terms
+    text_array contemporaries
     tsvector tsvector
     vector_384 embedding
   }
@@ -92,6 +93,7 @@ erDiagram
     text deprecated_reason
     text_array aliases
     text_array related_terms
+    text_array contemporaries
     tsvector tsvector
     vector_384 embedding
   }
@@ -116,6 +118,7 @@ erDiagram
     text deprecated_reason
     text_array aliases
     text_array related_terms
+    text_array contemporaries
     tsvector tsvector
     vector_384 embedding
   }
@@ -162,7 +165,7 @@ erDiagram
 
 ## Generated columns
 
-- `entries.tsvector`, `team_entries.tsvector`, and `personal_entries.tsvector` are generated from term, expansions, meanings, aliases, and related terms.
+- `entries.tsvector`, `team_entries.tsvector`, and `personal_entries.tsvector` are generated from term, expansions, meanings, aliases, related terms, and contemporaries.
 - `entries.embedding`, `team_entries.embedding`, and `personal_entries.embedding` are `vector(384)` columns for semantic search.
 - `sources.entry_id` cascades on entry delete.
 - `examples.entry_id` cascades on entry delete.

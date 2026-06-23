@@ -90,6 +90,43 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
     expect(rows[0]?.matches).toBe(true);
   });
 
+  it("round-trips contemporaries and includes them in public entry tsvectors", async () => {
+    await insertEntry(
+      "entry_contemporary_public",
+      "Event Stream",
+      "event stream",
+      ["Event Stream"],
+      false,
+      ["Kafka"]
+    );
+
+    const { rows } = await client.query<{ contemporaries: string[]; matches: boolean }>(
+      "select contemporaries, tsvector @@ plainto_tsquery('english', 'kafka') as matches from entries where id = 'entry_contemporary_public'"
+    );
+    expect(rows[0]).toEqual({ contemporaries: ["Kafka"], matches: true });
+  });
+
+  it("round-trips contemporaries and includes them in team entry tsvectors", async () => {
+    await insertTeam("team_contemporary", "contemporary.example");
+    await insertTeamEntry("team_entry_contemporary", "team_contemporary", ["Kafka"]);
+
+    const { rows } = await client.query<{ contemporaries: string[]; matches: boolean }>(
+      "select contemporaries, tsvector @@ plainto_tsquery('english', 'kafka') as matches from team_entries where id = 'team_entry_contemporary'"
+    );
+    expect(rows[0]).toEqual({ contemporaries: ["Kafka"], matches: true });
+  });
+
+  it("round-trips contemporaries and includes them in personal entry tsvectors", async () => {
+    await insertTeam("team_personal_contemporary", "personal-contemporary.example");
+    await insertUser("user_contemporary", "team_personal_contemporary");
+    await insertPersonalEntry("personal_entry_contemporary", "user_contemporary", ["Kafka"]);
+
+    const { rows } = await client.query<{ contemporaries: string[]; matches: boolean }>(
+      "select contemporaries, tsvector @@ plainto_tsquery('english', 'kafka') as matches from personal_entries where id = 'personal_entry_contemporary'"
+    );
+    expect(rows[0]).toEqual({ contemporaries: ["Kafka"], matches: true });
+  });
+
   it("regenerates tsvector on update", async () => {
     await insertEntry("entry_tsv_update", "URI", "uri", ["Uniform Resource Identifier"]);
     await client.query(
@@ -193,15 +230,62 @@ async function insertEntry(
   term: string,
   termNormalized: string,
   expansions: string[],
-  deprecated = false
+  deprecated = false,
+  contemporaries: string[] = []
 ): Promise<void> {
   await client.query(
     `
     insert into entries (
       id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
-      confidence_tier, license, layer, deprecated, aliases, related_terms
-    ) values ($1, $2, $3, $4, $5, 'short', 'long', 'T2', 'MIT', 'public', $6, $7, $8)
+      confidence_tier, license, layer, deprecated, aliases, related_terms, contemporaries
+    ) values ($1, $2, $3, $4, $5, 'short', 'long', 'T2', 'MIT', 'public', $6, $7, $8, $9)
     `,
-    [id, term, termNormalized, expansions, ["test"], deprecated, [], []]
+    [id, term, termNormalized, expansions, ["test"], deprecated, [], [], contemporaries]
+  );
+}
+
+async function insertTeam(id: string, emailDomain: string): Promise<void> {
+  await client.query(
+    "insert into teams (id, name, email_domain) values ($1, 'Test Team', $2) on conflict do nothing",
+    [id, emailDomain]
+  );
+}
+
+async function insertUser(id: string, teamId: string): Promise<void> {
+  await client.query(
+    "insert into users (id, email, team_id, role) values ($1, $2, $3, 'admin') on conflict do nothing",
+    [id, `${id}@example.com`, teamId]
+  );
+}
+
+async function insertTeamEntry(
+  id: string,
+  teamId: string,
+  contemporaries: string[]
+): Promise<void> {
+  await client.query(
+    `
+    insert into team_entries (
+      id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+      confidence_tier, license, layer, team_id, aliases, related_terms, contemporaries
+    ) values ($1, 'Event Stream', 'event stream', $2, $3, 'short', 'long', 'T4', 'MIT', 'team', $4, $5, $6, $7)
+    `,
+    [id, ["Event Stream"], ["test"], teamId, [], [], contemporaries]
+  );
+}
+
+async function insertPersonalEntry(
+  id: string,
+  userId: string,
+  contemporaries: string[]
+): Promise<void> {
+  await client.query(
+    `
+    insert into personal_entries (
+      id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+      confidence_tier, license, layer, user_id, aliases, related_terms, contemporaries
+    ) values ($1, 'Event Stream', 'event stream', $2, $3, 'short', 'long', 'T4', 'MIT', 'personal', $4, $5, $6, $7)
+    `,
+    [id, ["Event Stream"], ["test"], userId, [], [], contemporaries]
   );
 }

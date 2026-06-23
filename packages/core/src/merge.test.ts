@@ -8,6 +8,7 @@ function entry(layer: EntryLayer, id = layer): GlossaryEntry {
     aliases: [],
     coiner: null,
     confidence_tier: layer === "public" ? "T2" : "T4",
+    contemporaries: [],
     created_at: "2026-01-01T00:00:00.000Z",
     deprecated: false,
     deprecated_reason: null,
@@ -113,5 +114,23 @@ describe("mergeLayeredEntry", () => {
 
     expect(merged?.entry).toEqual(publicEntry);
     expect(merged?.entry).not.toBe(publicEntry);
+  });
+
+  it("merges contemporaries by layer priority", () => {
+    const publicEntry = { ...entry("public"), contemporaries: ["Kafka"] };
+    const teamEntry = { ...entry("team"), contemporaries: ["NATS"] };
+
+    expect(
+      mergeLayeredEntry({ public: publicEntry, team: teamEntry })?.entry.contemporaries
+    ).toEqual(["NATS", "Kafka"]);
+  });
+
+  it("dedupes contemporaries by normalized key", () => {
+    const publicEntry = { ...entry("public"), contemporaries: ["Kafka"] };
+    const teamEntry = { ...entry("team"), contemporaries: [" kafka "] };
+
+    expect(
+      mergeLayeredEntry({ public: publicEntry, team: teamEntry })?.entry.contemporaries
+    ).toEqual(["kafka"]);
   });
 });

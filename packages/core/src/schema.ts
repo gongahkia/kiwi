@@ -38,7 +38,8 @@ export const GlossaryEntrySchema = z.object({
   deprecated: z.boolean(),
   deprecated_reason: z.string().min(1).nullable(),
   aliases: z.array(z.string().min(1)),
-  related_terms: z.array(z.string().min(1))
+  related_terms: z.array(z.string().min(1)),
+  contemporaries: z.array(z.string().min(1))
 });
 
 export type SourceQuality = z.infer<typeof SourceQualitySchema>;

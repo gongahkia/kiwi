@@ -33,7 +33,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["web api"],
-      "related_terms": ["REST", "HTTP", "JSON"]
+      "related_terms": ["REST", "HTTP", "JSON"],
+      "contemporaries": []
     },
     {
       "id": "seed-cors-cross-origin-resource-sharing",
@@ -66,7 +67,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTP", "XSS", "API"]
+      "related_terms": ["HTTP", "XSS", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-css-cascading-style-sheets",
@@ -99,7 +101,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTML", "DOM", "ARIA"]
+      "related_terms": ["HTML", "DOM", "ARIA"],
+      "contemporaries": []
     },
     {
       "id": "seed-dom-document-object-model",
@@ -132,7 +135,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTML", "CSS", "API"]
+      "related_terms": ["HTML", "CSS", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-html-hypertext-markup-language",
@@ -165,7 +169,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CSS", "DOM", "ARIA"]
+      "related_terms": ["CSS", "DOM", "ARIA"],
+      "contemporaries": []
     },
     {
       "id": "seed-http-hypertext-transfer-protocol",
@@ -198,7 +203,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTPS", "REST", "API"]
+      "related_terms": ["HTTPS", "REST", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-https-hypertext-transfer-protocol-secure",
@@ -231,7 +237,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTP", "TLS", "CA"]
+      "related_terms": ["HTTP", "TLS", "CA"],
+      "contemporaries": []
     },
     {
       "id": "seed-json-javascript-object-notation",
@@ -264,7 +271,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["API", "REST", "JWT"]
+      "related_terms": ["API", "REST", "JWT"],
+      "contemporaries": []
     },
     {
       "id": "seed-rest-representational-state-transfer",
@@ -297,7 +305,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["RESTful"],
-      "related_terms": ["HTTP", "API", "JSON"]
+      "related_terms": ["HTTP", "API", "JSON"],
+      "contemporaries": []
     },
     {
       "id": "seed-spa-single-page-application",
@@ -330,7 +339,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CSR", "SSR", "API"]
+      "related_terms": ["CSR", "SSR", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-ssr-server-side-rendering",
@@ -363,7 +373,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SPA", "CSR", "SSG"]
+      "related_terms": ["SPA", "CSR", "SSG"],
+      "contemporaries": []
     },
     {
       "id": "seed-uri-uniform-resource-identifier",
@@ -396,7 +407,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["URL", "HTTP", "REST"]
+      "related_terms": ["URL", "HTTP", "REST"],
+      "contemporaries": []
     },
     {
       "id": "seed-url-uniform-resource-locator",
@@ -429,7 +441,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["URI", "HTTP", "HTTPS"]
+      "related_terms": ["URI", "HTTP", "HTTPS"],
+      "contemporaries": []
     },
     {
       "id": "seed-xss-cross-site-scripting",
@@ -462,7 +475,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CORS", "HTML", "DOM"]
+      "related_terms": ["CORS", "HTML", "DOM"],
+      "contemporaries": []
     },
     {
       "id": "seed-jwt-json-web-token",
@@ -495,7 +509,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["JSON", "API", "HTTPS"]
+      "related_terms": ["JSON", "API", "HTTPS"],
+      "contemporaries": []
     },
     {
       "id": "seed-mime-multipurpose-internet-mail-extensions",
@@ -528,7 +543,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["media type"],
-      "related_terms": ["HTTP", "JSON", "HTML"]
+      "related_terms": ["HTTP", "JSON", "HTML"],
+      "contemporaries": []
     },
     {
       "id": "seed-dns-domain-name-system",
@@ -561,7 +577,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["URL", "HTTPS", "CDN"]
+      "related_terms": ["URL", "HTTPS", "CDN"],
+      "contemporaries": []
     },
     {
       "id": "seed-tcp-transmission-control-protocol",
@@ -594,7 +611,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTP", "TLS", "IP"]
+      "related_terms": ["HTTP", "TLS", "IP"],
+      "contemporaries": []
     },
     {
       "id": "seed-tls-transport-layer-security",
@@ -627,7 +645,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTPS", "CA", "CSR"]
+      "related_terms": ["HTTPS", "CA", "CSR"],
+      "contemporaries": []
     },
     {
       "id": "seed-cdn-content-delivery-network",
@@ -660,7 +679,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["HTTP", "DNS", "ETag"]
+      "related_terms": ["HTTP", "DNS", "ETag"],
+      "contemporaries": []
     },
     {
       "id": "seed-crud-create-read-update-delete",
@@ -693,7 +713,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["API", "REST", "SQL"]
+      "related_terms": ["API", "REST", "SQL"],
+      "contemporaries": []
     },
     {
       "id": "seed-aria-accessible-rich-internet-applications",
@@ -726,7 +747,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["WAI-ARIA"],
-      "related_terms": ["HTML", "DOM", "CSS"]
+      "related_terms": ["HTML", "DOM", "CSS"],
+      "contemporaries": []
     },
     {
       "id": "seed-k8s-kubernetes",
@@ -759,7 +781,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["Kubernetes"],
-      "related_terms": ["Pod", "CRD", "RBAC"]
+      "related_terms": ["Pod", "CRD", "RBAC"],
+      "contemporaries": []
     },
     {
       "id": "seed-crd-custom-resource-definition",
@@ -792,7 +815,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["CustomResourceDefinition"],
-      "related_terms": ["K8s", "API", "Pod"]
+      "related_terms": ["K8s", "API", "Pod"],
+      "contemporaries": []
     },
     {
       "id": "seed-cni-container-network-interface",
@@ -825,7 +849,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["K8s", "Pod", "TCP"]
+      "related_terms": ["K8s", "Pod", "TCP"],
+      "contemporaries": []
     },
     {
       "id": "seed-csi-container-storage-interface",
@@ -858,7 +883,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["PV", "PVC", "K8s"]
+      "related_terms": ["PV", "PVC", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-rbac-role-based-access-control",
@@ -891,7 +917,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["K8s", "API", "IAM"]
+      "related_terms": ["K8s", "API", "IAM"],
+      "contemporaries": []
     },
     {
       "id": "seed-pvc-persistent-volume-claim",
@@ -924,7 +951,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["PV", "CSI", "K8s"]
+      "related_terms": ["PV", "CSI", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-pv-persistent-volume",
@@ -957,7 +985,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["PVC", "CSI", "K8s"]
+      "related_terms": ["PVC", "CSI", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-hpa-horizontal-pod-autoscaler",
@@ -990,7 +1019,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["HorizontalPodAutoscaler"],
-      "related_terms": ["VPA", "Pod", "K8s"]
+      "related_terms": ["VPA", "Pod", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-vpa-vertical-pod-autoscaler",
@@ -1023,7 +1053,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["VerticalPodAutoscaler"],
-      "related_terms": ["HPA", "Pod", "K8s"]
+      "related_terms": ["HPA", "Pod", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-cap-cluster-autoscaler",
@@ -1058,7 +1089,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["CA"],
-      "related_terms": ["HPA", "VPA", "K8s"]
+      "related_terms": ["HPA", "VPA", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-qos-quality-of-service",
@@ -1091,7 +1123,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["Pod", "HPA", "VPA"]
+      "related_terms": ["Pod", "HPA", "VPA"],
+      "contemporaries": []
     },
     {
       "id": "seed-etcd",
@@ -1124,7 +1157,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["K8s", "API", "Pod"]
+      "related_terms": ["K8s", "API", "Pod"],
+      "contemporaries": []
     },
     {
       "id": "seed-pod",
@@ -1157,7 +1191,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["K8s", "HPA", "QoS"]
+      "related_terms": ["K8s", "HPA", "QoS"],
+      "contemporaries": []
     },
     {
       "id": "seed-ci-continuous-integration",
@@ -1190,7 +1225,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CD", "SRE", "IaC"]
+      "related_terms": ["CD", "SRE", "IaC"],
+      "contemporaries": []
     },
     {
       "id": "seed-cd-continuous-delivery",
@@ -1223,7 +1259,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CI", "Continuous Deployment", "SRE"]
+      "related_terms": ["CI", "Continuous Deployment", "SRE"],
+      "contemporaries": []
     },
     {
       "id": "seed-cd-continuous-deployment",
@@ -1258,7 +1295,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["CI", "Continuous Delivery", "SRE"]
+      "related_terms": ["CI", "Continuous Delivery", "SRE"],
+      "contemporaries": []
     },
     {
       "id": "seed-iac-infrastructure-as-code",
@@ -1291,7 +1329,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["IAC"],
-      "related_terms": ["CI", "CD", "K8s"]
+      "related_terms": ["CI", "CD", "K8s"],
+      "contemporaries": []
     },
     {
       "id": "seed-sre-site-reliability-engineering",
@@ -1324,7 +1363,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SLO", "SLI", "SLA"]
+      "related_terms": ["SLO", "SLI", "SLA"],
+      "contemporaries": []
     },
     {
       "id": "seed-sla-service-level-agreement",
@@ -1357,7 +1397,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["service level agreement"],
-      "related_terms": ["SLO", "SLI", "SRE"]
+      "related_terms": ["SLO", "SLI", "SRE"],
+      "contemporaries": []
     },
     {
       "id": "seed-slo-service-level-objective",
@@ -1390,7 +1431,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["service level objective"],
-      "related_terms": ["SLI", "SLA", "SRE"]
+      "related_terms": ["SLI", "SLA", "SRE"],
+      "contemporaries": []
     },
     {
       "id": "seed-sli-service-level-indicator",
@@ -1423,7 +1465,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["service level indicator"],
-      "related_terms": ["SLO", "SLA", "SRE"]
+      "related_terms": ["SLO", "SLA", "SRE"],
+      "contemporaries": []
     },
     {
       "id": "seed-cap-consistency-availability-partition-tolerance",
@@ -1458,7 +1501,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["Brewer's theorem"],
-      "related_terms": ["SLO", "CD", "IR"]
+      "related_terms": ["SLO", "CD", "IR"],
+      "contemporaries": []
     },
     {
       "id": "seed-cap-common-alerting-protocol",
@@ -1491,7 +1535,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["IR", "SLA", "SLO"]
+      "related_terms": ["IR", "SLA", "SLO"],
+      "contemporaries": []
     },
     {
       "id": "seed-tls-thread-local-storage",
@@ -1524,7 +1569,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["IR", "AST", "API"]
+      "related_terms": ["IR", "AST", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-csr-certificate-signing-request",
@@ -1557,7 +1603,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["TLS", "HTTPS", "CA"]
+      "related_terms": ["TLS", "HTTPS", "CA"],
+      "contemporaries": []
     },
     {
       "id": "seed-csr-client-side-rendering",
@@ -1590,7 +1637,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SSR", "SPA", "DOM"]
+      "related_terms": ["SSR", "SPA", "DOM"],
+      "contemporaries": []
     },
     {
       "id": "seed-ast-abstract-syntax-tree",
@@ -1623,7 +1671,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["IR", "API", "TLS"]
+      "related_terms": ["IR", "API", "TLS"],
+      "contemporaries": []
     },
     {
       "id": "seed-ir-intermediate-representation",
@@ -1656,7 +1705,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["AST", "TLS", "API"]
+      "related_terms": ["AST", "TLS", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-ir-incident-response",
@@ -1689,7 +1739,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SRE", "SLA", "CAP"]
+      "related_terms": ["SRE", "SLA", "CAP"],
+      "contemporaries": []
     },
     {
       "id": "seed-cap-change-advisory-process",
@@ -1722,7 +1773,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SRE", "CI", "CD"]
+      "related_terms": ["SRE", "CI", "CD"],
+      "contemporaries": []
     },
     {
       "id": "seed-cap-cloud-access-proxy",
@@ -1757,7 +1809,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["TLS", "RBAC", "API"]
+      "related_terms": ["TLS", "RBAC", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-csp-content-security-policy",
@@ -1790,7 +1843,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["content-security-policy"],
-      "related_terms": ["XSS", "HTTP", "CORS"]
+      "related_terms": ["XSS", "HTTP", "CORS"],
+      "contemporaries": []
     },
     {
       "id": "seed-svg-scalable-vector-graphics",
@@ -1823,7 +1877,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["XML", "CSS", "DOM"]
+      "related_terms": ["XML", "CSS", "DOM"],
+      "contemporaries": []
     },
     {
       "id": "seed-xml-extensible-markup-language",
@@ -1856,7 +1911,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": [],
-      "related_terms": ["SVG", "HTML", "XSLT"]
+      "related_terms": ["SVG", "HTML", "XSLT"],
+      "contemporaries": []
     },
     {
       "id": "seed-webrtc-web-real-time-communication",
@@ -1889,7 +1945,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["real-time communication"],
-      "related_terms": ["ICE", "TURN", "API"]
+      "related_terms": ["ICE", "TURN", "API"],
+      "contemporaries": []
     },
     {
       "id": "seed-pwa-progressive-web-application",
@@ -1922,7 +1979,8 @@
       "deprecated": false,
       "deprecated_reason": null,
       "aliases": ["progressive web app"],
-      "related_terms": ["HTML", "CSS", "API"]
+      "related_terms": ["HTML", "CSS", "API"],
+      "contemporaries": []
     }
   ]
 }

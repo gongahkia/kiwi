@@ -56,4 +56,11 @@ describe("validateEntry", () => {
       })
     ).toThrow(/public entries/);
   });
+
+  it("requires contemporaries", () => {
+    const missingContemporaries: Partial<typeof manualSeed> = { ...manualSeed };
+    delete missingContemporaries.contemporaries;
+
+    expect(() => validateEntry(missingContemporaries)).toThrow(/contemporaries/);
+  });
 });

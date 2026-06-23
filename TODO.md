@@ -371,25 +371,6 @@ Context for any coding agent picking up these tasks (read this before touching c
   - `data/deltas/<date>/*.json` (corpus deltas; existing fields shown in `data/deltas/2026-06-19/example.json`)
   - `docs/db-schema.md` (must be kept in sync w/ Drizzle schema)
 
-### P0 — Schema: add `contemporaries` to all entry tables
-- [ ] Add `contemporaries: text("contemporaries").array().notNull().default(sql\`ARRAY[]::text[]\`)` to `entries`, `team_entries`, `personal_entries` in `packages/db/src/schema.ts` — done when Drizzle schema compiles and inferred types include `contemporaries: string[]`.
-- [ ] Update generated `tsvector` expression on all three tables to include `contemporaries` at weight `D` (same weight bucket as `related_terms`) — done when full-text search matches entries by a contemporary name. SQL fragment to add to the `setweight(...)` chain: `|| setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("contemporaries"), '')), 'D')`.
-- [ ] Generate Drizzle migration (`pnpm --filter @wat/db drizzle:generate`) producing `packages/db/drizzle/0016_*.sql` — done when migration adds the column on all three tables w/ default empty array AND regenerates the `tsvector` generated column to include the new field. Verify by applying migration to a fresh DB and confirming `\d entries` shows the new column.
-- [ ] Update `packages/db/src/schema.integration.test.ts` — done when test asserts contemporaries column round-trip on each layer table AND that `tsvector` includes a contemporaries match (insert entry w/ contemporary "Kafka", search "Kafka" via FTS, expect hit).
-- [ ] Update `docs/db-schema.md` ERD blocks for `entries`, `team_entries`, `personal_entries` to list `text_array contemporaries` — done when doc matches Drizzle schema.
-
-### P0 — Core: extend Zod schema, validator, merge, normalize
-- [ ] Add `contemporaries: z.array(z.string().min(1))` to `GlossaryEntrySchema` in `packages/core/src/schema.ts` — done when type `GlossaryEntry` includes `contemporaries: string[]` and existing tests still pass (entries currently in tests will need the field added — empty array is fine).
-- [ ] Update `packages/core/src/entry-validator.ts` to require the field (empty array allowed, missing fails) — done when validator rejects entries w/o the key.
-- [ ] Update `packages/core/src/merge.ts` to merge contemporaries across overlays using set-union by normalized string, preserving overlay priority on ordering (personal first, then team, then public) — done when merge tests include a contemporaries case (entry A has `["Kafka"]` in public + `["NATS"]` in team → merged `["NATS","Kafka"]`).
-- [ ] Update `packages/core/src/normalize.ts` if needed — done when contemporaries are normalized w/ same case/trim rules as `related_terms` (lowercase, trim, drop empties).
-- [ ] Update `packages/core/src/manual-seeds.test.ts` and any other seed fixtures to include `contemporaries: []` so existing assertions still pass.
-
-### P0 — Ingestion: extend delta JSON shape
-- [ ] Extend scraper output transform in `packages/ingest/src/transform.ts` to accept optional `contemporaries: string[]` on incoming entries and default to `[]` when missing — done when transform tests cover entries w/ and w/o the field.
-- [ ] Update `data/deltas/2026-06-19/example.json` to document the field — done when file shows `"contemporaries": []` plus one concrete worked example (Kubernetes w/ contemporaries `["Docker Swarm", "Nomad", "ECS"]`).
-- [ ] Add validation in `packages/ingest/src/sanity.ts` for: (a) self-reference (entry name appears in its own contemporaries), (b) duplicate values, (c) empty strings — done when sanity test covers all three.
-
 ### P1 — Corpus expansion: tech concepts + systems sources
 Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + systems/products (cloud services, CNCF projects, Postgres extensions), not just acronyms.
 - [ ] Add Wikipedia "Outline of computer science" + "Glossary of computer science" + "Outline of computing" scraper in `packages/ingest/src/scrapers/wikipedia-outline.ts` — done when scraper produces ≥ 1000 concept entries w/ Wikipedia citation per row. License: CC-BY-SA-4.0 (verify current page footers; the older 3.0 dual-license applies to historical revisions only). Mark `source_quality: "secondary"`.

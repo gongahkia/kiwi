@@ -26,6 +26,7 @@ describe("manual seed entries", () => {
     expect(entries.every((entry) => entry.layer === "public")).toBe(true);
     expect(entries.every((entry) => entry.sources.length > 0)).toBe(true);
     expect(entries.every((entry) => entry.examples.length > 0)).toBe(true);
+    expect(entries.every((entry) => Array.isArray(entry.contemporaries))).toBe(true);
     expect(overloadedTerms.length).toBeGreaterThanOrEqual(3);
   });
 });

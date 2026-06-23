@@ -9,6 +9,7 @@ export interface RawSourceCitation {
 }
 
 export interface RawEntry {
+  contemporaries?: string[];
   domains?: string[];
   examples?: string[];
   expansion?: string;
