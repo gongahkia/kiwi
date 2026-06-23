@@ -88,10 +88,11 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
+			if (parts[0] === "diff") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `diff ${name}` }));
 			return [];
 		},
 		handler: async (args, ctx) => {
@@ -218,6 +219,17 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 	}
 	if (command === "gallery") {
 		await runGallery(ctx, pi, state, loaded.effective);
+		return;
+	}
+	if (command === "diff") {
+		const target = rest[0];
+		if (!PRESET_NAMES.includes(target as PresetName)) {
+			ctx.ui.notify(`Unknown preset: ${target ?? ""}`, "error");
+			return;
+		}
+		const before = loaded.effective;
+		const after = materializeConfig(applyPresetConfig(before, target as PresetName, rest[1] === "merge" ? "merge" : "clean"));
+		await showPanel(ctx, `Fried Apple Pie diff: ${before.preset ?? "custom"} -> ${target}`, diffLines(before, after));
 		return;
 	}
 	if (command === "show") {
@@ -433,6 +445,26 @@ function summarizeChange(before: PieConfig, after: PieConfig): string {
 		if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(key);
 	}
 	return changed.length ? changed.join(", ") : "no effective change";
+}
+
+// key-by-key diff between two configs. used by /pie diff.
+export function diffLines(before: PieConfig, after: PieConfig): string[] {
+	const keys = ["preset", "theme", "mode", "compact", "persona", "header", "footer", "widget", "tools", "thinking", "working"] as const;
+	const lines: string[] = [];
+	let changes = 0;
+	for (const key of keys) {
+		const a = JSON.stringify(before[key]);
+		const b = JSON.stringify(after[key]);
+		if (a === b) continue;
+		changes++;
+		lines.push(`${key}:`);
+		lines.push(`  before: ${a ?? "undefined"}`);
+		lines.push(`  after:  ${b ?? "undefined"}`);
+		lines.push("");
+	}
+	if (changes === 0) lines.push("no effective change");
+	else lines.push(`${changes} key${changes === 1 ? "" : "s"} changed`);
+	return lines;
 }
 
 function resolveToolWriteTarget(ctx: ExtensionContext, scope: PieToolParams["scope"]): ReturnType<typeof resolveWriteTarget> | { error: string } {

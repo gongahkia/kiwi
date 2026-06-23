@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig } from "../extensions/pie-ui/config.ts";
-import { applyEffectiveConfig, applyPie, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, diffLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
 import { resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter } from "../extensions/pie-ui/render.ts";
 
@@ -252,6 +252,17 @@ test("applyPie falls back to preset default persona when config.persona is unset
 		// codex-inspired defaults to arc persona; spinner frames must be set
 		assert.ok(calls.workingIndicator.at(-1)?.frames?.length);
 	});
+});
+
+test("diffLines reports no change for identical configs and changes for distinct presets", () => {
+	const minimal = materializeConfig({ preset: "minimal" });
+	const codex = materializeConfig(applyPresetConfig({ preset: "minimal" }, "codex-inspired", "clean"));
+	const same = diffLines(minimal, minimal);
+	const cross = diffLines(minimal, codex);
+	assert.deepEqual(same, ["no effective change"]);
+	assert.match(cross.join("\n"), /preset:/);
+	assert.match(cross.join("\n"), /theme:/);
+	assert.match(cross.join("\n"), /\d+ keys? changed/);
 });
 
 test("applyEffectiveConfig applies transient config without writing to disk (gallery contract)", () => {

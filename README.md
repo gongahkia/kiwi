@@ -93,6 +93,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 /pie mode <full|theme-only|footer-only|widgets-only>
 /pie persona <name>            swap spinner + verb pack
 /pie gallery                   live-cycle every preset (no writes)
+/pie diff <preset> [merge]     preview what a preset apply would change
 /pie edit                      interactive config editor
 /pie welcome                   show active config + command list
 /pie show                      dump loaded config (global + project + effective)

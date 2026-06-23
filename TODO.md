@@ -401,18 +401,6 @@ Verify `event.messages` field name + mutability via smoke test before relying. e
 
 ---
 
-### P2-16 — `/pie diff <preset>` preview
-
-- [ ] Show keys that would change between current effective and target preset's clean apply.
-
-**Files:** `extensions/pie-ui/index.ts` (subcommand), `extensions/pie-ui/render.ts` (reuse `showPanel` at `render.ts:119`).
-
-**Sketch:** compare current effective vs `applyPresetConfig(current, target, "clean")` and `materializeConfig(...)`. Render side-by-side keys. Use the existing `summarizeChange` helper at `index.ts:383-389` as a starting point — generalize to multi-line diff.
-
-**Acceptance:** `/pie diff codex-inspired` shows changed keys before any write.
-
----
-
 ### P2-17 — `/pie history` + `/pie undo` via `pi.appendEntry`
 
 - [ ] Persist preset changes; allow rollback to previous.
