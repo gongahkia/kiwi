@@ -5,6 +5,7 @@ import type { SearchResponse, SearchResult } from "@wat/search";
 import { applyDomainContextBoost } from "@wat/search/boost";
 
 import { resolveApiIdentity } from "@/lib/api-identity";
+import { applyCorsHeaders } from "@/lib/cors";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
 import {
   getPublicEntries,
@@ -46,29 +47,27 @@ function clientIp(request: NextRequest): string {
   );
 }
 
-function withCorsHeaders(response: NextResponse) {
-  response.headers.set(
-    "access-control-allow-headers",
-    "authorization, content-type, x-api-key, x-wat-team-id, x-wat-user-id"
-  );
-  response.headers.set("access-control-allow-methods", "GET, OPTIONS");
-  response.headers.set("access-control-allow-origin", "*");
-
+function withCorsHeaders(response: NextResponse, request: NextRequest) {
+  applyCorsHeaders(response, request, { methods: "GET, OPTIONS" });
   return response;
 }
 
-function withRateLimitHeaders(response: NextResponse, decision: ReturnType<typeof checkRateLimit>) {
+function withRateLimitHeaders(
+  response: NextResponse,
+  request: NextRequest,
+  decision: ReturnType<typeof checkRateLimit>
+) {
   response.headers.set("retry-after", String(decision.retryAfter));
   response.headers.set("x-ratelimit-limit", String(decision.limit));
   response.headers.set("x-ratelimit-remaining", String(decision.remaining));
   response.headers.set("x-ratelimit-reset", String(Math.ceil(decision.resetAt / 1000)));
   response.headers.set("x-ratelimit-scope", decision.scope);
 
-  return withCorsHeaders(response);
+  return withCorsHeaders(response, request);
 }
 
-export function OPTIONS() {
-  return withCorsHeaders(new NextResponse(null, { status: 204 }));
+export function OPTIONS(request: NextRequest) {
+  return withCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }
 
 export async function GET(request: NextRequest) {
@@ -76,7 +75,8 @@ export async function GET(request: NextRequest) {
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return withCorsHeaders(
-      NextResponse.json({ error: identity.error }, { status: identity.status })
+      NextResponse.json({ error: identity.error }, { status: identity.status }),
+      request
     );
   }
 
@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
         },
         { status: 429 }
       ),
+      request,
       rateLimit
     );
   }
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
   if (!query.trim()) {
     return withRateLimitHeaders(
       NextResponse.json<SearchResponse>({ matches: [], suggest_url: "/suggest?term=" }),
+      request,
       rateLimit
     );
   }
@@ -137,6 +139,7 @@ export async function GET(request: NextRequest) {
       matches,
       suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined
     }),
+    request,
     rateLimit
   );
 }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { corsHeadersForRequest } from "@/lib/cors";
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { createPersonalEntry } from "@/lib/personal-entries";
 import { createTeamEntry, type TeamEntry, type TeamEntrySource } from "@/lib/team-entries";
@@ -20,20 +21,11 @@ interface CustomEntryRequest {
   term?: unknown;
 }
 
-function corsHeaders() {
-  return {
-    "access-control-allow-headers":
-      "authorization, content-type, x-api-key, x-wat-team-id, x-wat-user-id",
-    "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-origin": "*"
-  };
-}
-
-function json(body: unknown, init?: ResponseInit) {
+function json(request: NextRequest, body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  for (const [key, value] of Object.entries(corsHeaders())) {
-    headers.set(key, value);
-  }
+  corsHeadersForRequest(request, { methods: "POST, OPTIONS" }).forEach((value, key) =>
+    headers.set(key, value)
+  );
 
   return NextResponse.json(body, { ...init, headers });
 }
@@ -116,26 +108,29 @@ function customEntryFromBody(
   };
 }
 
-export function OPTIONS() {
-  return new NextResponse(null, { headers: corsHeaders(), status: 204 });
+export function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+    status: 204
+  });
 }
 
 export async function POST(request: NextRequest) {
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
-    return json({ error: identity.error }, { status: identity.status });
+    return json(request, { error: identity.error }, { status: identity.status });
   }
   if (identity.identity.type !== "api" || !identity.identity.userId) {
-    return json({ error: "api token and x-wat-user-id are required" }, { status: 401 });
+    return json(request, { error: "api token and x-wat-user-id are required" }, { status: 401 });
   }
 
   const parsed = customEntryFromBody((await request.json()) as CustomEntryRequest);
   if (!parsed) {
-    return json({ error: "term and expansion are required" }, { status: 400 });
+    return json(request, { error: "term and expansion are required" }, { status: 400 });
   }
 
   if (parsed.scope === "team" && !identity.identity.teamId) {
-    return json({ error: "x-wat-team-id is required for team entries" }, { status: 403 });
+    return json(request, { error: "x-wat-team-id is required for team entries" }, { status: 403 });
   }
 
   try {
@@ -144,9 +139,10 @@ export async function POST(request: NextRequest) {
         ? createTeamEntry(parsed.entry)
         : createPersonalEntry(identity.identity.userId, parsed.entry);
 
-    return json({ entry, scope: parsed.scope }, { status: 201 });
+    return json(request, { entry, scope: parsed.scope }, { status: 201 });
   } catch (error) {
     return json(
+      request,
       { error: error instanceof Error ? error.message : "create failed" },
       { status: 409 }
     );

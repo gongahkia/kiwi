@@ -200,7 +200,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add search analytics with privacy-safe aggregation — done when query hashes, layer hits, confidence distribution, and latency are captured without raw private query logging.
 
 ### P0 — Security and privacy blockers before private team data
-- [ ] Remove wildcard CORS from production API responses — done when allowed origins are configurable per deployment/team and browser extension origins are explicitly allowed.
 - [ ] Add CSRF protection or strict same-origin handling for cookie-authenticated mutations — done when web form/API mutations cannot be triggered cross-site by an attacker.
 - [ ] Add Slack request signature verification — done when `/slack/events` rejects unsigned or replayed Slack requests.
 - [ ] Encrypt OAuth tokens and bot tokens at rest — done when Slack/Google/other OAuth tokens use envelope encryption or `SLACK_TOKEN_ENCRYPTION_KEY` equivalent with rotation docs.

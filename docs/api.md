@@ -24,6 +24,8 @@ curl 'http://localhost:3000/api/v1/search?q=CAP&limit=2'
 
 API clients can pass a configured token with either `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`. Token requests can also send `X-Wat-User-Id` and `X-Wat-Team-Id` so quotas apply per user and team.
 
+Browser/API CORS is deny-by-default. Set comma-separated `WAT_ALLOWED_ORIGINS` for web clients and `WAT_EXTENSION_ORIGINS` for installed extension origins such as `chrome-extension://<id>` or `moz-extension://<id>`.
+
 Rate-limit settings:
 
 | Env                        | Default | Scope                          |

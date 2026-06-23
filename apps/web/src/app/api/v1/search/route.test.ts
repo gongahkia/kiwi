@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { GET } from "./route";
+import { GET, OPTIONS } from "./route";
+
+const previousAllowedOrigins = process.env.WAT_ALLOWED_ORIGINS;
 
 describe("GET /api/v1/search", () => {
+  afterEach(() => {
+    if (previousAllowedOrigins === undefined) {
+      delete process.env.WAT_ALLOWED_ORIGINS;
+    } else {
+      process.env.WAT_ALLOWED_ORIGINS = previousAllowedOrigins;
+    }
+  });
+
   it("returns contemporaries on every result entry", async () => {
     const response = await GET(new NextRequest("http://localhost/api/v1/search?q=API&limit=1"));
     const body = (await response.json()) as {
@@ -12,5 +22,17 @@ describe("GET /api/v1/search", () => {
 
     expect(response.status).toBe(200);
     expect(Array.isArray(body.matches[0]?.entry.contemporaries)).toBe(true);
+  });
+
+  it("uses configured CORS origins", () => {
+    process.env.WAT_ALLOWED_ORIGINS = "https://wat.example.com";
+    const response = OPTIONS(
+      new NextRequest("http://localhost/api/v1/search", {
+        headers: { origin: "https://wat.example.com" }
+      })
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://wat.example.com");
+    expect(response.headers.get("access-control-allow-credentials")).toBe("true");
   });
 });
