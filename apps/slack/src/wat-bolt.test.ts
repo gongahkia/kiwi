@@ -14,6 +14,11 @@ interface CapturedRequest {
   path: string;
 }
 
+interface CapturedSearchRequest {
+  context: string;
+  q: string;
+}
+
 class BoltTestReceiver implements Receiver {
   private app: ProcessableBoltApp | null = null;
   readonly acked: unknown[] = [];
@@ -39,10 +44,12 @@ class BoltTestReceiver implements Receiver {
 
 let baseUrl: string;
 let captured: CapturedRequest[];
+let searchRequests: CapturedSearchRequest[];
 let server: Server;
 
 beforeEach(async () => {
   captured = [];
+  searchRequests = [];
   server = createServer(handleRequest);
   await new Promise<void>((resolve) => {
     server.listen(0, "127.0.0.1", resolve);
@@ -208,7 +215,7 @@ describe("wat Bolt handlers", () => {
     await receiver.dispatch({
       action_ts: "1700000000.000000",
       callback_id: explainAcronymsShortcutId,
-      channel: { id: "C_DOCS", name: "docs" },
+      channel: { id: "C_DOCS", name: "docs-channel-secret" },
       message: {
         text: "Rotate TLS certs before API clients fail.",
         ts: "1700000001.000000",
@@ -229,6 +236,11 @@ describe("wat Bolt handlers", () => {
     expect(response).toMatchObject({ response_type: "ephemeral" });
     expect(JSON.stringify(response)).toContain("TLS");
     expect(JSON.stringify(response)).toContain("Application Programming Interface");
+    expect(searchRequests).toEqual([
+      { context: "Rotate TLS certs before API clients fail.", q: "TLS" },
+      { context: "Rotate TLS certs before API clients fail.", q: "API" }
+    ]);
+    expect(JSON.stringify(searchRequests)).not.toContain("docs-channel-secret");
   });
 
   it("replies in-thread to app mentions", async () => {
@@ -299,6 +311,10 @@ function responsePayload(path: string): Record<string, unknown> {
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = new URL(request.url ?? "/", baseUrl || "http://127.0.0.1");
   if (url.pathname === "/api/v1/search") {
+    searchRequests.push({
+      context: url.searchParams.get("context") ?? "",
+      q: url.searchParams.get("q") ?? ""
+    });
     writeJson(response, 200, searchResponse(url.searchParams.get("q") ?? ""));
     return;
   }

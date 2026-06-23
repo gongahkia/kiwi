@@ -239,7 +239,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Implement `/wat` command in deployed Slack app — done when a real Slack workspace command returns sourced ephemeral results from the same hosted API as web.
 - [ ] Implement `/wat-define` against DB-backed team entries — done when approved Slack definitions appear in web search/admin and audit logs.
 - [ ] Implement `/wat-suggest` against DB-backed suggestion queue — done when member suggestions appear in web review queue.
-- [ ] Implement message shortcut against selected message only — done when explicit shortcuts parse acronyms from the selected payload and do not ingest channel history.
 - [ ] Add Slack workspace/channel rate limits backed by durable store — done when command bursts are throttled per workspace/channel/user.
 - [ ] Add Slack install/remove lifecycle handling — done when app uninstall revokes tokens and disables workspace integration without deleting glossary data.
 - [ ] Add Slack E2E or contract tests — done when command, shortcut, mention, install, signature verification, and rate-limit paths are tested.
