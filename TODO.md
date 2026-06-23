@@ -391,10 +391,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 - [ ] Add team-admin UI for editing contemporaries on team entries — done when team admins can add/remove via the entry edit form.
 - [ ] Add personal-entry contemporaries input — done when users can set contemporaries on personal entries.
 
-### P3 — Slack app: contemporaries in `/wat` response
-- [ ] Append "Alternatives: X, Y, Z" line to `/wat <term>` ephemeral response when contemporaries are populated — done when `/wat kafka` returns the alternatives line below the meaning. File: `apps/slack/src/...` (locate via existing command handler).
-- [ ] Add `/wat-alt <term>` command — done when command returns ephemeral list of alternatives w/ short meanings when resolved.
-
 ### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
 - [ ] ≥ 60% of public entries in cloud/devops/observability/storage domains have ≥ 1 contemporary populated — verified by `pnpm --filter @wat/ingest contemporaries:coverage`.
 - [ ] Search benchmark expanded from 500 acronyms to 1000 mixed entries (500 acronyms + 300 concepts + 200 systems) — verified by `pnpm bench`.

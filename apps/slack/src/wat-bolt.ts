@@ -64,6 +64,10 @@ export function registerWatBoltHandlers(
     await handleWatCommand(args, deps);
   });
 
+  app.command("/wat-alt", async (args) => {
+    await handleWatAltCommand(args, deps);
+  });
+
   app.command("/wat-define", async (args) => {
     await handleDefineCommand(args, deps);
   });
@@ -94,6 +98,28 @@ async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltD
 
   const result = await lookup(deps, term, args.command.channel_name);
   await args.respond(renderLookupMessage(term, result, { response_type: "ephemeral" }));
+}
+
+async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
+  await args.ack();
+  const term = args.command.text.trim();
+  if (!term) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Use `/wat-alt <term>`."
+    });
+    return;
+  }
+
+  const entries = await lookup(deps, term, args.command.channel_name);
+  const top = entries[0];
+  const alternatives = listAlternatives(top?.contemporaries);
+  const resolved = await Promise.all(
+    alternatives.map((alternative) => lookup(deps, alternative, args.command.channel_name))
+  );
+  await args.respond(
+    renderAlternativesMessage(term, top, alternatives, resolved, { response_type: "ephemeral" })
+  );
 }
 
 async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
@@ -262,6 +288,24 @@ function isAdminUser(userId: string, deps: WatBoltDeps): boolean {
   return deps.slackAdminUserIds?.includes(userId) ?? false;
 }
 
+function listAlternatives(values?: string[]): string[] {
+  const seen = new Set<string>();
+  const alternatives: string[] = [];
+  for (const value of values ?? []) {
+    const alternative = value.trim();
+    if (!alternative) continue;
+    const key = alternative.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    alternatives.push(alternative);
+  }
+  return alternatives;
+}
+
+function formatAlternativesLine(values?: string[]): string {
+  return `Alternatives: ${listAlternatives(values).join(", ")}`;
+}
+
 function slackSourceUrl(command: SlackCommandMiddlewareArgs["command"]): string {
   return `https://slack.com/app_redirect?channel=${encodeURIComponent(command.channel_id)}`;
 }
@@ -281,8 +325,12 @@ function renderLookupMessage(
   }
 
   const title = `${top.term ?? term}: ${top.expansions?.[0] ?? term}`;
-  const summary = top.meaning_short ? `\n${top.meaning_short}` : "";
-  const blocks = [section(`*${title}*${summary}`)];
+  const lines = [`*${title}*`];
+  if (top.meaning_short) lines.push(top.meaning_short);
+  if (top.contemporaries && listAlternatives(top.contemporaries).length > 0) {
+    lines.push(formatAlternativesLine(top.contemporaries));
+  }
+  const blocks = [section(lines.join("\n"))];
   const buttons = rest.slice(0, 4).map((entry) => ({
     action_id: "wat_disambiguate",
     text: { text: entry.term ?? "Result", type: "plain_text" as const },
@@ -296,6 +344,46 @@ function renderLookupMessage(
     blocks,
     text: title
   };
+}
+
+function renderAlternativesMessage(
+  term: string,
+  entry: SearchEntry | undefined,
+  alternatives: string[],
+  resolved: SearchEntry[][],
+  options: Pick<SlackMessage, "response_type"> = {}
+): SlackMessage {
+  const resolvedTerm = entry?.term ?? term;
+  if (!entry) {
+    return {
+      ...options,
+      blocks: [section(`No result for *${term}*.`)],
+      text: `No result for ${term}.`
+    };
+  }
+  if (alternatives.length === 0) {
+    return {
+      ...options,
+      blocks: [section(`No alternatives for *${resolvedTerm}*.`)],
+      text: `No alternatives for ${resolvedTerm}.`
+    };
+  }
+
+  const lines = [`Alternatives for *${resolvedTerm}*:`];
+  for (const [index, alternative] of alternatives.entries()) {
+    lines.push(renderAlternativeLine(alternative, resolved[index]?.[0]));
+  }
+  return {
+    ...options,
+    blocks: [section(lines.join("\n"))],
+    text: `Alternatives for ${resolvedTerm}: ${alternatives.join(", ")}`
+  };
+}
+
+function renderAlternativeLine(alternative: string, entry: SearchEntry | undefined): string {
+  if (!entry) return `*${alternative}*`;
+  const title = `${entry.term ?? alternative}: ${entry.expansions?.[0] ?? alternative}`;
+  return entry.meaning_short ? `*${title}* - ${entry.meaning_short}` : `*${title}*`;
 }
 
 function renderAcronymList(lookups: SearchEntry[][]): SlackMessage {

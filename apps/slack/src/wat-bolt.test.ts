@@ -84,6 +84,36 @@ describe("wat Bolt handlers", () => {
     });
     expect(JSON.stringify(response)).toContain("QUIC");
     expect(JSON.stringify(response)).toContain("wat_disambiguate");
+    expect(JSON.stringify(response)).toContain("Alternatives: SSL, DTLS");
+  });
+
+  it("responds to /wat-alt with resolved alternatives", async () => {
+    const receiver = createWatApp();
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-alt",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "TLS",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    const response = responsePayload("/response");
+    expect(response).toMatchObject({
+      response_type: "ephemeral",
+      text: "Alternatives for TLS: SSL, DTLS"
+    });
+    expect(JSON.stringify(response)).toContain("SSL: Secure Sockets Layer");
+    expect(JSON.stringify(response)).toContain("Legacy transport encryption.");
+    expect(JSON.stringify(response)).toContain("DTLS: Datagram Transport Layer Security");
   });
 
   it("lets configured admins define team entries from Slack", async () => {
@@ -309,6 +339,7 @@ function searchResponse(query: string) {
       matches: [
         {
           entry: {
+            contemporaries: ["SSL", "DTLS"],
             expansions: ["Transport Layer Security"],
             id: "seed-tls",
             meaning_short: "Encrypts transport connections.",
@@ -321,6 +352,34 @@ function searchResponse(query: string) {
             id: "seed-quic",
             meaning_short: "A transport protocol using TLS.",
             term: "QUIC"
+          }
+        }
+      ]
+    };
+  }
+  if (normalized === "SSL") {
+    return {
+      matches: [
+        {
+          entry: {
+            expansions: ["Secure Sockets Layer"],
+            id: "seed-ssl",
+            meaning_short: "Legacy transport encryption.",
+            term: "SSL"
+          }
+        }
+      ]
+    };
+  }
+  if (normalized === "DTLS") {
+    return {
+      matches: [
+        {
+          entry: {
+            expansions: ["Datagram Transport Layer Security"],
+            id: "seed-dtls",
+            meaning_short: "TLS for datagram transports.",
+            term: "DTLS"
           }
         }
       ]
