@@ -1,3 +1,5 @@
+import { PERSONAS } from "./personas.ts";
+
 export const PRESET_NAMES = [
 	"minimal",
 	"claude-inspired",
@@ -27,6 +29,7 @@ export type PieConfig = {
 	mode?: PieMode;
 	compact?: boolean;
 	strict?: boolean;
+	persona?: string;
 	header?: {
 		enabled?: boolean;
 		title?: string;
@@ -308,10 +311,11 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 };
 
 const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working"]);
-const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "header", "footer", "widget", "tools", "thinking", "working"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "header", "footer", "widget", "tools", "thinking", "working"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
+const PERSONAS_KEYSET = new Set(Object.keys(PERSONAS));
 
 export function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -375,6 +379,10 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 	if (cfg.mode !== undefined && !modeNames.has(cfg.mode)) errors.push(`unknown mode: ${String(cfg.mode)}`);
 	if (cfg.compact !== undefined && typeof cfg.compact !== "boolean") errors.push("compact must be a boolean");
 	if (cfg.strict !== undefined && typeof cfg.strict !== "boolean") errors.push("strict must be a boolean");
+	if (cfg.persona !== undefined) {
+		if (typeof cfg.persona !== "string") errors.push("persona must be a string");
+		else if (!PERSONAS_KEYSET.has(cfg.persona)) errors.push(`unknown persona: ${cfg.persona}`);
+	}
 	validateSection("header", cfg.header, errors, {
 		enabled: "boolean",
 		title: "string",

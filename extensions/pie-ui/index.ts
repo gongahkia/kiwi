@@ -21,6 +21,7 @@ import {
 	validateConfig,
 } from "./config.ts";
 import { defaultWritePath, loadConfig, readConfigFile, resolveWriteTarget, writeConfigFile } from "./paths.ts";
+import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,9 +88,10 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
+			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
 			return [];
 		},
 		handler: async (args, ctx) => {
@@ -144,8 +146,13 @@ export function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderS
 		ctx.ui.setToolsExpanded(Boolean(config.tools?.expanded));
 		ctx.ui.setHiddenThinkingLabel(config.thinking?.hiddenLabel);
 		ctx.ui.setWorkingVisible(config.working?.visible !== false);
-		ctx.ui.setWorkingMessage(config.working?.message);
-		ctx.ui.setWorkingIndicator(config.working?.frames ? { frames: config.working.frames, intervalMs: config.working.intervalMs } : undefined);
+		// persona drives spinner+verb when not explicitly overridden in working.frames / working.message
+		const persona = resolvePersona(config.persona, config.preset);
+		const frames = config.working?.frames ?? (persona ? SPINNERS[persona.spinner].frames : undefined);
+		const intervalMs = config.working?.intervalMs ?? (persona ? SPINNERS[persona.spinner].intervalMs : undefined);
+		const message = config.working?.message ?? persona?.verbs[0];
+		ctx.ui.setWorkingMessage(message);
+		ctx.ui.setWorkingIndicator(frames ? { frames, intervalMs } : undefined);
 	} else {
 		ctx.ui.setToolsExpanded(false);
 		ctx.ui.setHiddenThinkingLabel();
@@ -196,6 +203,15 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await writeMode(mode as PieMode, ctx, pi, state);
 		return;
 	}
+	if (command === "persona") {
+		const persona = rest[0];
+		if (!persona || !PERSONAS[persona]) {
+			ctx.ui.notify(`Unknown persona: ${persona ?? ""}`, "error");
+			return;
+		}
+		await writePersona(persona, ctx, pi, state);
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -241,6 +257,14 @@ async function writeMode(mode: PieMode, ctx: ExtensionContext, pi: ExtensionAPI,
 	writeConfigFile(path, { ...current, mode });
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie mode applied: ${mode}`, "info");
+}
+
+async function writePersona(persona: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
+	const current = readConfigFile(path) ?? {};
+	writeConfigFile(path, { ...current, persona });
+	applyPie(ctx, pi, state);
+	ctx.ui.notify(`Fried Apple Pie persona applied: ${persona}`, "info");
 }
 
 export async function runPieConfigTool(params: PieToolParams, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState) {
@@ -409,17 +433,20 @@ function presetDetails(): Record<string, PieConfig> {
 }
 
 function welcomeLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContext): string[] {
+	const persona = resolvePersona(loaded.effective.persona, loaded.effective.preset);
 	return [
 		`preset: ${loaded.effective.preset ?? "custom"}`,
 		`theme: ${loaded.effective.theme ?? "default"}`,
+		`persona: ${loaded.effective.persona ?? "auto"} (${persona ? `${persona.spinner} · ${persona.verbs[0]}` : "none"})`,
 		`model: ${ctx.model?.id ?? "no-model"}`,
 		`cwd: ${ctx.cwd}`,
 		`config: ${loaded.projectTrusted ? loaded.paths.projectPath : loaded.paths.globalPath}`,
 		"",
-		"/pie edit     configure preset, theme, footer, header, widget, tools",
-		"/pie export   show effective config",
-		"/pie doctor   validate config and conflicts",
-		"/pie reset    return to minimal preset",
+		"/pie edit            configure preset, theme, footer, header, widget, tools",
+		"/pie persona <name>  switch spinner+verb pack (default, terse, arc, startrek, medieval, pirate, mlengineer)",
+		"/pie export          show effective config",
+		"/pie doctor          validate config and conflicts",
+		"/pie reset           return to minimal preset",
 	];
 }
 

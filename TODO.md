@@ -153,51 +153,9 @@ P0-04 main goal hit (12 presets shipped: 7 cross-agent + 5 theme-only). Remainin
 
 ---
 
-### P0-05 — Per-preset spinner + thinking-verb library
+### P0-05 follow-ups (initial-message rotation)
 
-- [ ] Vendor ~10 spinner frame sets, ~6 verb packs. Add `persona` field. Bind a default persona per preset. Add `/pie persona` subcommand.
-
-**Why:** `tweakcc` ships 70+ spinners + custom verbs; `pi-powerline-footer` ships AI-generated "vibes". fried-apple-pie's config has `working.frames` / `working.intervalMs` but no library and no per-preset binding.
-
-**Files:**
-- new `extensions/pie-ui/personas.ts` — spinner + verb tables.
-- `extensions/pie-ui/config.ts` — add `persona?: string` top-level field; extend `PRESETS[*].working` with default persona reference.
-- `extensions/pie-ui/index.ts` — apply persona in `applyPie` (`index.ts:130-171`); subscribe `pi.on("turn_start", …)` to rotate `setWorkingMessage` from the verb pack.
-- `schema/pie-ui.schema.json` — `persona: { type: "string" }`.
-
-**Sketch:**
-```ts
-// personas.ts
-export const SPINNERS: Record<string, { frames: string[]; intervalMs: number }> = {
-  dots:  { frames: ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"], intervalMs: 80 },
-  arc:   { frames: ["◜","◠","◝","◞","◡","◟"], intervalMs: 100 },
-  line:  { frames: ["-","\\","|","/"], intervalMs: 130 },
-  arrow: { frames: ["←","↖","↑","↗","→","↘","↓","↙"], intervalMs: 100 },
-  moon:  { frames: ["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"], intervalMs: 80 },
-  // …vendor up to 10 from cli-spinners (MIT)
-};
-export const VERB_PACKS: Record<string, { verbs: string[]; systemPromptSuffix?: string }> = {
-  default:    { verbs: ["Working", "Thinking", "Processing"] },
-  terse:      { verbs: ["Working", "Done"] },
-  startrek:   { verbs: ["Engaging warp drive", "Running diagnostics", "Hailing frequencies"] },
-  medieval:   { verbs: ["Forging", "Conjuring", "Questing"] },
-  pirate:     { verbs: ["Plunderin'", "Hoistin' sails", "Searchin' the seas"] },
-  mlengineer: { verbs: ["Tuning", "Training", "Eval-ing"] },
-};
-export const PRESET_DEFAULT_PERSONA: Record<PresetName, { spinner: string; verbs: string }> = {
-  "minimal":           { spinner: "line", verbs: "terse" },
-  "claude-inspired":   { spinner: "dots", verbs: "default" },
-  "codex-inspired":    { spinner: "arc",  verbs: "terse" },
-  // …
-};
-```
-Apply: in `applyPie`, read `config.persona ?? PRESET_DEFAULT_PERSONA[preset]` → `ctx.ui.setWorkingIndicator(SPINNERS[spinnerName])` and rotate verb index per `turn_start` event.
-
-cli-spinners frames are MIT-licensed; vendor a subset to avoid runtime dep. Source: https://github.com/sindresorhus/cli-spinners/blob/main/spinners.json.
-
-**Refs:** existing `setWorkingIndicator` call at `index.ts:148`; persona system inspired by Claude Code `/output-style`.
-
-**Acceptance:** `/pie persona <name>` switches verbs+spinner without changing preset. `pie-ui.json` persists choice. Each preset declares default persona. `working.message` rotates on each new turn.
+P0-05 main goal hit: 10 vendored spinners, 7 personas (`default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`), per-preset default-persona binding, `/pie persona <name>` subcommand, persona validation, schema field, 3 new tests. Still deferred: per-turn verb rotation (cycles through `PERSONAS[name].verbs` on each `turn_start` event). Implementation note for future agent: subscribe to `pi.on("turn_start", …)`, maintain a counter in `RenderState`, call `ctx.ui.setWorkingMessage(verbs[counter % verbs.length])`. Risk: confirm `turn_start` event payload shape and rotation timing via `npm run smoke:pi` before relying.
 
 ---
 
@@ -695,8 +653,8 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 |---|---|---|---|---|---|---|---|
 | Multi-preset switch | **12** | — | — | — | scripted | themes | themes |
 | Tool rendering | expand-only | — | pills/cards | — | — | n/a | — |
-| Spinners | frames only | **70+** | — | — | — | n/a | n/a |
-| Thinking verbs | static label | **custom lib** | — | AI "vibes" | — | n/a | n/a |
+| Spinners | **10 vendored** | **70+** | — | — | — | n/a | n/a |
+| Thinking verbs | **7 personas** | **custom lib** | — | AI "vibes" | — | n/a | n/a |
 | Boot/welcome ASCII | title+subtitle | sign-in ASCII | — | **branded splash + stats** | — | winbar | — |
 | User-msg styling | theme | **per element** | compact | — | n/a | n/a | n/a |
 | Markdown styling | — | **yes** | partial | — | n/a | n/a | n/a |
@@ -751,7 +709,7 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 2. P0-02 (`/pie capture` + vhs) — produces deterministic GIFs for the 12 presets.
 3. P0-03 (`/pie gallery`) — uses the 12 presets. The 30-second video.
 4. P0-01 (README rewrite) — uses outputs from P0-02+03.
-5. P0-05 (personas) — orthogonal axis ships next.
+5. ~~P0-05 (personas)~~ — done.
 6. P0-06 (boot ASCII) — needs `registerMessageRenderer`; lower complexity.
 7. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
 8. P1-08 → P1-15 in parallel.

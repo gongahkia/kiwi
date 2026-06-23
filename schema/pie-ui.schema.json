@@ -35,6 +35,9 @@
     "strict": {
       "type": "boolean"
     },
+    "persona": {
+      "type": "string"
+    },
     "header": {
       "type": "object",
       "additionalProperties": true,

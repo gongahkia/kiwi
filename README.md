@@ -54,6 +54,7 @@ These are inspired presets, not exact clones.
 /pie preset codex-inspired clean
 /pie preset codex-inspired merge
 /pie mode theme-only
+/pie persona startrek
 /pie edit
 /pie welcome
 /pie export
@@ -63,6 +64,20 @@ These are inspired presets, not exact clones.
 /pie doctor strict
 /pie reset
 ```
+
+## Personas
+
+Persona is an orthogonal axis to preset. It controls the working spinner and verb pack without touching layout or theme.
+
+- `default` — dots spinner, "Working / Thinking / Processing"
+- `terse` — line spinner, "Working"
+- `arc` — arc spinner, "Working / Reasoning"
+- `startrek` — dots3 spinner, "Engaging warp drive / Running diagnostics / Hailing frequencies"
+- `medieval` — triangle spinner, "Forging / Conjuring / Questing"
+- `pirate` — moon spinner, "Plunderin' / Hoistin' sails / Searchin' the seas"
+- `mlengineer` — aesthetic bar spinner, "Tuning / Training / Evaluating"
+
+Each preset has a default persona; override with `/pie persona <name>` or set `persona` in `pie-ui.json`.
 
 ## Agent Tool
 

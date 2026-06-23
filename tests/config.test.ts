@@ -220,6 +220,40 @@ test("pie_config convenience actions update footer, compact, and theme", async (
 	});
 });
 
+test("persona validation accepts known and rejects unknown", () => {
+	const ok = validateConfig({ preset: "minimal", persona: "terse" });
+	const bad = validateConfig({ preset: "minimal", persona: "not-a-real-persona" });
+	const wrongType = validateConfig({ preset: "minimal", persona: 42 as unknown });
+	assert.equal(ok.valid, true);
+	assert.equal(bad.valid, false);
+	assert.match(bad.errors.join("\n"), /unknown persona/);
+	assert.equal(wrongType.valid, false);
+	assert.match(wrongType.errors.join("\n"), /persona must be a string/);
+});
+
+test("applyPie wires persona spinner and verb into setWorkingIndicator and setWorkingMessage", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "codex-inspired", persona: "startrek" });
+		const calls = makeCalls();
+		applyPie(makeCtx(cwd, calls), makePi(), { working: false });
+		const lastIndicator = calls.workingIndicator.at(-1);
+		const lastMessage = calls.workingMessage.at(-1);
+		assert.ok(lastIndicator?.frames?.length, "startrek persona must produce spinner frames");
+		assert.equal(typeof lastMessage, "string");
+		assert.match(String(lastMessage), /warp drive|diagnostics|Hailing/);
+	});
+});
+
+test("applyPie falls back to preset default persona when config.persona is unset", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "codex-inspired" });
+		const calls = makeCalls();
+		applyPie(makeCtx(cwd, calls), makePi(), { working: false });
+		// codex-inspired defaults to arc persona; spinner frames must be set
+		assert.ok(calls.workingIndicator.at(-1)?.frames?.length);
+	});
+});
+
 test("package metadata and preview assets are publish-ready", () => {
 	const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 	assert.equal(pkg.license, "MIT");
@@ -266,6 +300,8 @@ function makeCalls() {
 		header: "unset" as unknown,
 		footer: "unset" as unknown,
 		widget: undefined as { content: string[] | undefined; options: unknown } | undefined,
+		workingMessage: [] as Array<string | undefined>,
+		workingIndicator: [] as Array<{ frames?: string[]; intervalMs?: number } | undefined>,
 	};
 }
 
@@ -289,8 +325,12 @@ function makeCtx(cwd: string, calls: ReturnType<typeof makeCalls>): any {
 			},
 			setHiddenThinkingLabel() {},
 			setWorkingVisible() {},
-			setWorkingMessage() {},
-			setWorkingIndicator() {},
+			setWorkingMessage(value?: string) {
+				calls.workingMessage.push(value);
+			},
+			setWorkingIndicator(value?: { frames?: string[]; intervalMs?: number }) {
+				calls.workingIndicator.push(value);
+			},
 			setWidget(_key: string, content: string[] | undefined, options: unknown) {
 				calls.widget = { content, options };
 			},
