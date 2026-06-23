@@ -1,4 +1,17 @@
-export const PRESET_NAMES = ["minimal", "claude-inspired", "opencode-inspired", "codex-inspired", "gemini-inspired"] as const;
+export const PRESET_NAMES = [
+	"minimal",
+	"claude-inspired",
+	"opencode-inspired",
+	"codex-inspired",
+	"gemini-inspired",
+	"aider-inspired",
+	"copilot-inspired",
+	"dracula",
+	"tokyo-night",
+	"catppuccin-mocha",
+	"nord",
+	"gruvbox-dark",
+] as const;
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
 export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only"] as const;
 
@@ -55,6 +68,13 @@ export const PRESET_THEMES: Record<PresetName, string> = {
 	"opencode-inspired": "fried-apple-pie-opencode",
 	"codex-inspired": "fried-apple-pie-codex",
 	"gemini-inspired": "fried-apple-pie-gemini",
+	"aider-inspired": "fried-apple-pie-aider",
+	"copilot-inspired": "fried-apple-pie-copilot",
+	dracula: "fried-apple-pie-dracula",
+	"tokyo-night": "fried-apple-pie-tokyo-night",
+	"catppuccin-mocha": "fried-apple-pie-catppuccin-mocha",
+	nord: "fried-apple-pie-nord",
+	"gruvbox-dark": "fried-apple-pie-gruvbox-dark",
 };
 
 export const DEFAULT_CONFIG: PieConfig = {
@@ -181,6 +201,108 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			lines: ["preset: gemini-inspired · /pie preset minimal to switch back"],
 		},
 		tools: { expanded: true },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"aider-inspired": {
+		preset: "aider-inspired",
+		theme: PRESET_THEMES["aider-inspired"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "branch", "status"],
+			separator: " ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "" },
+	},
+	"copilot-inspired": {
+		preset: "copilot-inspired",
+		theme: PRESET_THEMES["copilot-inspired"],
+		compact: false,
+		header: {
+			enabled: true,
+			title: "Copilot-inspired",
+			subtitle: "dense Pi workspace",
+		},
+		footer: {
+			enabled: true,
+			segments: ["model", "thinking", "cwd", "branch", "status", "context", "tokens"],
+			separator: " | ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: true },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	dracula: {
+		preset: "dracula",
+		theme: PRESET_THEMES.dracula,
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"tokyo-night": {
+		preset: "tokyo-night",
+		theme: PRESET_THEMES["tokyo-night"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"catppuccin-mocha": {
+		preset: "catppuccin-mocha",
+		theme: PRESET_THEMES["catppuccin-mocha"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	nord: {
+		preset: "nord",
+		theme: PRESET_THEMES.nord,
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"gruvbox-dark": {
+		preset: "gruvbox-dark",
+		theme: PRESET_THEMES["gruvbox-dark"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
 		thinking: { hiddenLabel: "thinking" },
 	},
 };

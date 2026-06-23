@@ -26,11 +26,23 @@ pi -e .
 
 ## Presets
 
+Cross-agent inspired (layout + theme):
+
 - `minimal`
 - `claude-inspired`
 - `opencode-inspired`
 - `codex-inspired`
 - `gemini-inspired`
+- `aider-inspired`
+- `copilot-inspired`
+
+Theme-only (minimal layout, popular color schemes):
+
+- `dracula`
+- `tokyo-night`
+- `catppuccin-mocha`
+- `nord`
+- `gruvbox-dark`
 
 These are inspired presets, not exact clones.
 

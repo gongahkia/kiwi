@@ -7,7 +7,20 @@
   "properties": {
     "preset": {
       "type": "string",
-      "enum": ["minimal", "claude-inspired", "opencode-inspired", "codex-inspired", "gemini-inspired"]
+      "enum": [
+        "minimal",
+        "claude-inspired",
+        "opencode-inspired",
+        "codex-inspired",
+        "gemini-inspired",
+        "aider-inspired",
+        "copilot-inspired",
+        "dracula",
+        "tokyo-night",
+        "catppuccin-mocha",
+        "nord",
+        "gruvbox-dark"
+      ]
     },
     "theme": {
       "type": "string"
