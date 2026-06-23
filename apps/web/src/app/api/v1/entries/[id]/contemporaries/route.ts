@@ -7,7 +7,7 @@ import { resolveEntryContemporaries } from "@/lib/contemporaries";
 export const runtime = "nodejs";
 
 interface RouteContext {
-  params: Promise<{ id: string }> | { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function json(request: NextRequest, body: unknown, init?: ResponseInit) {

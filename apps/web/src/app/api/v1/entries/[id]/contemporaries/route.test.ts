@@ -9,7 +9,7 @@ describe("GET /api/v1/entries/:id/contemporaries", () => {
       new NextRequest(
         "http://localhost/api/v1/entries/seed-csr-client-side-rendering/contemporaries"
       ),
-      { params: { id: "seed-csr-client-side-rendering" } }
+      { params: Promise.resolve({ id: "seed-csr-client-side-rendering" }) }
     );
 
     expect(response.status).toBe(200);
