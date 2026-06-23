@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultOptions, loadWatOptions, optionsStorageKey, testWatConnection } from "./options.js";
+import {
+  defaultOptions,
+  loadWatOptions,
+  managedOptionsFromPolicy,
+  optionsStorageKey,
+  testWatConnection
+} from "./options.js";
 
 describe("options privacy defaults", () => {
-  beforeEach(() => {
+  function stubStorage(managedPolicy?: Record<string, unknown> | Error) {
     const store = new Map<string, unknown>();
     vi.stubGlobal("browser", {
       storage: {
@@ -12,9 +18,23 @@ describe("options privacy defaults", () => {
           set: async (value: Record<string, unknown>) => {
             for (const [key, item] of Object.entries(value)) store.set(key, item);
           }
-        }
+        },
+        ...(managedPolicy
+          ? {
+              managed: {
+                get: async () => {
+                  if (managedPolicy instanceof Error) throw managedPolicy;
+                  return managedPolicy;
+                }
+              }
+            }
+          : {})
       }
     });
+  }
+
+  beforeEach(() => {
+    stubStorage();
   });
 
   it("fresh install disables automatic lookup modes", async () => {
@@ -35,6 +55,63 @@ describe("options privacy defaults", () => {
     expect(await loadWatOptions()).toMatchObject({
       highlightMode: true,
       hoverMode: true
+    });
+  });
+
+  it("lets managed policy override local extension options", async () => {
+    stubStorage({
+      apiBaseUrl: "https://wat.example.test",
+      domainFilters: ["Docs.Example.test", "docs.example.test", " "],
+      highlightMode: true,
+      hoverMode: false,
+      teamId: "team_managed"
+    });
+
+    await browser.storage.local.set({
+      [optionsStorageKey]: {
+        apiBaseUrl: "https://local.example.test",
+        domainFilters: ["local.example.test"],
+        highlightMode: false,
+        hoverMode: true,
+        teamId: "team_local"
+      }
+    });
+
+    expect(await loadWatOptions()).toMatchObject({
+      apiBaseUrl: "https://wat.example.test",
+      domainFilters: ["docs.example.test"],
+      highlightMode: true,
+      hoverMode: false,
+      teamId: "team_managed"
+    });
+  });
+
+  it("ignores unavailable managed storage", async () => {
+    stubStorage(new Error("managed storage unavailable"));
+
+    await browser.storage.local.set({
+      [optionsStorageKey]: { apiBaseUrl: "https://local.example.test" }
+    });
+
+    expect(await loadWatOptions()).toMatchObject({
+      apiBaseUrl: "https://local.example.test"
+    });
+  });
+
+  it("sanitizes managed policy values", () => {
+    expect(
+      managedOptionsFromPolicy({
+        apiBaseUrl: " https://wat.example.test ",
+        domainFilters: [" Docs.Example.test ", "", 42, "docs.example.test"],
+        highlightMode: "true",
+        hoverMode: true,
+        teamId: " team_1 "
+      })
+    ).toEqual({
+      apiBaseUrl: "https://wat.example.test",
+      domainFilters: ["docs.example.test"],
+      hoverMode: true,
+      teamId: "team_1"
     });
   });
 

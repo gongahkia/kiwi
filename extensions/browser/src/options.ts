@@ -20,6 +20,58 @@ export const defaultOptions: WatOptions = {
   hoverMode: false
 };
 
+type ManagedOptionKey = "apiBaseUrl" | "domainFilters" | "highlightMode" | "hoverMode" | "teamId";
+type ManagedOptions = Pick<WatOptions, ManagedOptionKey>;
+
+interface ManagedStorageArea {
+  get: (keys?: readonly ManagedOptionKey[] | null) => Promise<Record<string, unknown>>;
+}
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function cleanDomainFilters(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const domains = value
+    .filter((domain): domain is string => typeof domain === "string")
+    .map((domain) => domain.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Array.from(new Set(domains));
+}
+
+function cleanBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+export function managedOptionsFromPolicy(policy: Record<string, unknown>): Partial<ManagedOptions> {
+  const apiBaseUrl = cleanString(policy.apiBaseUrl);
+  const domainFilters = cleanDomainFilters(policy.domainFilters);
+  const highlightMode = cleanBoolean(policy.highlightMode);
+  const hoverMode = cleanBoolean(policy.hoverMode);
+  const teamId = cleanString(policy.teamId);
+
+  return {
+    ...(apiBaseUrl ? { apiBaseUrl } : {}),
+    ...(domainFilters ? { domainFilters } : {}),
+    ...(highlightMode == null ? {} : { highlightMode }),
+    ...(hoverMode == null ? {} : { hoverMode }),
+    ...(teamId ? { teamId } : {})
+  };
+}
+
+async function loadManagedWatOptions(): Promise<Partial<ManagedOptions>> {
+  const storage = browser.storage as typeof browser.storage & { managed?: ManagedStorageArea };
+  if (!storage.managed) return {};
+
+  try {
+    return managedOptionsFromPolicy(await storage.managed.get(null));
+  } catch {
+    return {};
+  }
+}
+
 export interface WatConnectionTestResult {
   message: string;
   ok: boolean;
@@ -33,6 +85,12 @@ type FetchLike = (
 ) => Promise<Pick<Response, "json" | "ok" | "status">>;
 
 export async function loadWatOptions(): Promise<WatOptions> {
+  const local = await loadLocalWatOptions();
+  const managed = await loadManagedWatOptions();
+  return { ...local, ...managed };
+}
+
+export async function loadLocalWatOptions(): Promise<WatOptions> {
   const stored = (await browser.storage.local.get(optionsStorageKey)) as Record<
     string,
     Partial<WatOptions>

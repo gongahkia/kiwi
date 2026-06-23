@@ -2,6 +2,7 @@ import { defineBackground } from "wxt/utils/define-background";
 
 import {
   isLookupMessage,
+  isOptionsMessage,
   isSaveCustomEntryMessage,
   sidePanelCustomEntryStorageKey,
   sidePanelQueryStorageKey,
@@ -10,7 +11,7 @@ import {
 } from "../src/messages.js";
 import { handleLookup } from "../src/lookup-service.js";
 import { handleSaveCustomEntry } from "../src/save-entry-service.js";
-import { defaultOptions, optionsStorageKey } from "../src/options.js";
+import { defaultOptions, loadWatOptions, optionsStorageKey } from "../src/options.js";
 
 type BrowserTab = Awaited<ReturnType<typeof browser.tabs.query>>[number];
 interface ContextMenuClickInfo {
@@ -96,6 +97,7 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((message: unknown) => {
+    if (isOptionsMessage(message)) return loadWatOptions();
     if (isLookupMessage(message)) return handleLookup(message);
     if (isSaveCustomEntryMessage(message)) return handleSaveCustomEntry(message);
     return undefined;

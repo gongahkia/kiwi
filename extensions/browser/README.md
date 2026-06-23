@@ -20,6 +20,56 @@ pnpm --filter @wat/ext zip
 
 The options page stores API base URL, account email/token, hover mode, auto-highlight mode, and domain filters in extension storage. When hover or auto-highlight mode is enabled, the content script asks the background worker for uppercase-token lookups and renders a sourced tooltip. The action button opens a Chrome side panel that searches through the same background lookup path using the active tab hostname as context.
 
+## Enterprise Deployment
+
+Managed Chrome and Edge deployments can preconfigure shared extension settings through read-only managed storage. The extension declares `managed-schema.json` through `storage.managed_schema` and reads these policy keys over local user settings:
+
+- `apiBaseUrl`
+- `teamId`
+- `domainFilters`
+- `hoverMode`
+- `highlightMode`
+
+Use the browser extension ID assigned by Chrome Web Store, Edge Add-ons, or the self-hosted CRX. Force-install examples:
+
+```json
+{
+  "<extension-id>": {
+    "installation_mode": "force_installed",
+    "update_url": "https://clients2.google.com/service/update2/crx"
+  }
+}
+```
+
+```json
+{
+  "<extension-id>": {
+    "installation_mode": "force_installed",
+    "update_url": "https://edge.microsoft.com/extensionwebstorebase/v1/crx"
+  }
+}
+```
+
+Managed settings example:
+
+```json
+{
+  "3rdparty": {
+    "extensions": {
+      "<extension-id>": {
+        "apiBaseUrl": "https://wat.example.com",
+        "teamId": "team_123",
+        "domainFilters": ["example.com"],
+        "hoverMode": true,
+        "highlightMode": false
+      }
+    }
+  }
+}
+```
+
+Verify policy load in `chrome://policy` or `edge://policy`, then inspect `chrome.storage.managed.get(null)` from the extension service worker. Reference docs: Chrome managed storage manifest (`https://developer.chrome.com/docs/extensions/reference/manifest/storage`), Chrome `ExtensionSettings` (`https://support.google.com/chrome/a/answer/9867568`), and Edge `ExtensionSettings` (`https://learn.microsoft.com/en-us/deployedge/microsoft-edge-manage-extensions-ref-guide`).
+
 ## Target Permissions
 
 - `activeTab`: read the current tab only after user interaction

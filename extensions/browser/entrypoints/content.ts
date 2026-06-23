@@ -2,7 +2,7 @@ import { defineContentScript } from "wxt/utils/define-content-script";
 
 import { formatAlternativesLine } from "../src/alternatives.js";
 import { type LookupResponse } from "../src/messages.js";
-import { loadWatOptions } from "../src/options.js";
+import { loadLocalWatOptions, type WatOptions } from "../src/options.js";
 
 interface SearchEntry {
   contemporaries?: string[];
@@ -22,6 +22,8 @@ interface TextHit {
 }
 
 let activeToken = "";
+let behaviorInstalled = false;
+let highlightInstalled = false;
 let hoverTimer: number | undefined;
 let tooltip: HTMLDivElement | null = null;
 
@@ -30,6 +32,51 @@ function domainAllowed(filters: string[]): boolean {
   return filters.some(
     (filter) => location.hostname === filter || location.hostname.endsWith(`.${filter}`)
   );
+}
+
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error("options request timed out")), ms);
+  });
+}
+
+async function loadContentOptions(): Promise<WatOptions> {
+  try {
+    return (await Promise.race([
+      browser.runtime.sendMessage({ type: "wat.options.get" }),
+      timeout(500)
+    ])) as WatOptions;
+  } catch {
+    return loadLocalWatOptions();
+  }
+}
+
+function setLookupListeners(enabled: boolean) {
+  if (enabled && !behaviorInstalled) {
+    document.addEventListener("mousemove", scheduleLookup, { passive: true });
+    document.addEventListener("scroll", hideTooltip, { passive: true });
+    behaviorInstalled = true;
+  }
+  if (!enabled && behaviorInstalled) {
+    document.removeEventListener("mousemove", scheduleLookup);
+    document.removeEventListener("scroll", hideTooltip);
+    window.clearTimeout(hoverTimer);
+    hideTooltip();
+    behaviorInstalled = false;
+  }
+}
+
+function applyOptions(options: WatOptions) {
+  if (!domainAllowed(options.domainFilters)) {
+    setLookupListeners(false);
+    return;
+  }
+
+  if (options.highlightMode && !highlightInstalled) {
+    highlightAcronyms();
+    highlightInstalled = true;
+  }
+  setLookupListeners(options.hoverMode || options.highlightMode);
 }
 
 function ensureTooltip(): HTMLDivElement {
@@ -246,12 +293,7 @@ function scheduleLookup(event: MouseEvent) {
 export default defineContentScript({
   matches: ["<all_urls>"],
   async main() {
-    const options = await loadWatOptions();
-    if (!domainAllowed(options.domainFilters)) return;
-    if (options.highlightMode) highlightAcronyms();
-    if (!options.hoverMode && !options.highlightMode) return;
-
-    document.addEventListener("mousemove", scheduleLookup, { passive: true });
-    document.addEventListener("scroll", hideTooltip, { passive: true });
+    applyOptions(await loadLocalWatOptions());
+    void loadContentOptions().then(applyOptions);
   }
 });

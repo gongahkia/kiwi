@@ -16,6 +16,10 @@ export interface SaveCustomEntryMessage {
   type: "wat.customEntry.save";
 }
 
+export interface OptionsMessage {
+  type: "wat.options.get";
+}
+
 export type LookupResponse =
   | {
       body: unknown;
@@ -72,4 +76,9 @@ export function isSaveCustomEntryMessage(message: unknown): message is SaveCusto
     typeof candidate.term === "string" &&
     typeof candidate.expansion === "string"
   );
+}
+
+export function isOptionsMessage(message: unknown): message is OptionsMessage {
+  if (!message || typeof message !== "object") return false;
+  return (message as Partial<OptionsMessage>).type === "wat.options.get";
 }

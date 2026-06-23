@@ -230,7 +230,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add extension save-source preview — done when users see the page URL/title that will be attached before saving.
 - [ ] Add extension release assets — done when required icons, screenshots, short/long descriptions, and privacy copy are committed.
 - [ ] Publish signed browser extension builds — done when Chrome, Firefox, and Edge users can install without developer mode.
-- [ ] Add enterprise extension deployment docs — done when a team admin can deploy via Chrome Enterprise/Edge policy with preconfigured API URL.
 
 ### P1 — Slack adoption blockers
 - [ ] Replace Slack HTTP scaffold with real Bolt runtime wiring — done when the deployed Slack app receives commands/events and dispatches registered wat handlers.

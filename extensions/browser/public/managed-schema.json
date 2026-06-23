@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "apiBaseUrl": {
+      "title": "wat API base URL",
+      "description": "Base URL for the hosted wat API.",
+      "type": "string"
+    },
+    "domainFilters": {
+      "title": "Enabled domains",
+      "description": "Optional list of domains where hover and highlight behavior may run.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "highlightMode": {
+      "title": "Enable automatic acronym highlights",
+      "description": "Whether the extension should underline acronym-looking tokens on allowed pages.",
+      "type": "boolean"
+    },
+    "hoverMode": {
+      "title": "Enable hover lookup",
+      "description": "Whether hovering over acronym-looking tokens should request wat lookups on allowed pages.",
+      "type": "boolean"
+    },
+    "teamId": {
+      "title": "wat team ID",
+      "description": "Team scope sent with wat API requests.",
+      "type": "string"
+    }
+  }
+}
