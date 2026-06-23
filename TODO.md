@@ -391,10 +391,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 - [ ] Add team-admin UI for editing contemporaries on team entries — done when team admins can add/remove via the entry edit form.
 - [ ] Add personal-entry contemporaries input — done when users can set contemporaries on personal entries.
 
-### P3 — Browser extension: contemporaries in hover + sidebar
-- [ ] Show contemporaries in hover tooltip (compressed: "Alt: X, Y, Z", truncate at 3 + "+N more") — done when hovering an entry term shows alts under the short definition. File: `extensions/browser/src/...` (locate via existing hover component).
-- [ ] Show contemporaries as a labeled section in the sidebar — done when sidebar entry view has an "Alternatives" section listing alts as clickable items that re-trigger lookup w/ the new term.
-
 ### P3 — Slack app: contemporaries in `/wat` response
 - [ ] Append "Alternatives: X, Y, Z" line to `/wat <term>` ephemeral response when contemporaries are populated — done when `/wat kafka` returns the alternatives line below the meaning. File: `apps/slack/src/...` (locate via existing command handler).
 - [ ] Add `/wat-alt <term>` command — done when command returns ephemeral list of alternatives w/ short meanings when resolved.

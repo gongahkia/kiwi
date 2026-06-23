@@ -62,6 +62,8 @@ test("hover mode renders a sourced lookup tooltip", async () => {
     await page.locator("#tls").hover();
 
     await expect(page.getByText("TLS: Transport Layer Security")).toBeVisible();
+    await expect(page.getByText("A protocol for encrypted transport.")).toBeVisible();
+    await expect(page.getByText("Alt: SSL, DTLS, HTTPS, +1 more")).toBeVisible();
     await expect(page.getByText("Mock TLS Source")).toBeVisible();
   } finally {
     await closeExtension(session);
@@ -94,6 +96,10 @@ test("side panel consumes queued lookup and renders results", async () => {
     await expect(page.locator("#page-context")).toHaveText("docs.example.test");
     await expect(page.getByText("TLS - Transport Layer Security")).toBeVisible();
     await expect(page.getByText("A protocol for encrypted transport.")).toBeVisible();
+    await expect(page.getByText("Alternatives:")).toBeVisible();
+    await page.getByRole("button", { name: "SSL" }).click();
+    await expect(page.locator("#query")).toHaveValue("SSL");
+    await expect(page.getByText("SSL - Secure Sockets Layer")).toBeVisible();
   } finally {
     await closeExtension(session);
   }
@@ -177,12 +183,28 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
 }
 
 function searchResponse(query: string) {
-  if (query.trim().toUpperCase() !== "TLS") return { matches: [] };
+  const term = query.trim().toUpperCase();
+  if (term === "SSL") {
+    return {
+      matches: [
+        {
+          entry: {
+            expansions: ["Secure Sockets Layer"],
+            meaning_short: "An older transport encryption protocol.",
+            sources: [],
+            term: "SSL"
+          }
+        }
+      ]
+    };
+  }
+  if (term !== "TLS") return { matches: [] };
 
   return {
     matches: [
       {
         entry: {
+          contemporaries: ["SSL", "DTLS", "HTTPS", "QUIC"],
           expansions: ["Transport Layer Security"],
           meaning_short: "A protocol for encrypted transport.",
           sources: [

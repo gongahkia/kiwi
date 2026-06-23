@@ -129,3 +129,26 @@ label textarea {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+.alternatives {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alternatives span {
+  color: #52525b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alternative-link {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 700;
+  height: 28px;
+  padding: 0 8px;
+}

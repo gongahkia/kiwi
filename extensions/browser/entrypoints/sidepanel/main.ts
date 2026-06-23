@@ -6,6 +6,7 @@ import {
   type SidePanelCustomEntryDraft,
   type SidePanelQuery
 } from "../../src/messages.js";
+import { listAlternatives } from "../../src/alternatives.js";
 
 interface SearchEntry {
   contemporaries?: string[];
@@ -96,6 +97,30 @@ function renderEntries(entries: SearchEntry[]) {
       const meaning = document.createElement("div");
       meaning.textContent = entry.meaning_short;
       article.append(meaning);
+    }
+
+    const alternatives = listAlternatives(entry.contemporaries);
+    if (alternatives.length > 0) {
+      const section = document.createElement("div");
+      section.className = "alternatives";
+
+      const label = document.createElement("span");
+      label.textContent = "Alternatives:";
+      section.append(label);
+
+      for (const alternative of alternatives) {
+        const button = document.createElement("button");
+        button.className = "alternative-link";
+        button.type = "button";
+        button.textContent = alternative;
+        button.addEventListener("click", () => {
+          query.value = alternative;
+          void search(alternative);
+        });
+        section.append(button);
+      }
+
+      article.append(section);
     }
 
     const source = entry.sources?.[0];

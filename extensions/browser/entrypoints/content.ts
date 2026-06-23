@@ -1,11 +1,13 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 
+import { formatAlternativesLine } from "../src/alternatives.js";
 import { type LookupResponse } from "../src/messages.js";
 import { loadWatOptions } from "../src/options.js";
 
 interface SearchEntry {
   contemporaries?: string[];
   expansions?: string[];
+  meaning_short?: string;
   sources?: Array<{ title?: string; url?: string }>;
   term?: string;
 }
@@ -178,6 +180,23 @@ function renderResult(term: string, response: LookupResponse) {
   title.textContent = `${entry.term ?? term}: ${entry.expansions?.[0] ?? term}`;
   title.style.fontWeight = "700";
   element.append(title);
+
+  if (entry.meaning_short) {
+    const meaning = document.createElement("div");
+    meaning.textContent = entry.meaning_short;
+    meaning.style.color = "#e4e4e7";
+    meaning.style.marginTop = "6px";
+    element.append(meaning);
+  }
+
+  const alternatives = formatAlternativesLine(entry.contemporaries);
+  if (alternatives) {
+    const alternativesLine = document.createElement("div");
+    alternativesLine.textContent = alternatives;
+    alternativesLine.style.color = "#d4d4d8";
+    alternativesLine.style.marginTop = "6px";
+    element.append(alternativesLine);
+  }
 
   if (source?.url) {
     const sourceLine = document.createElement("div");
