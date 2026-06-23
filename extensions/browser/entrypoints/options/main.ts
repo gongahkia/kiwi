@@ -2,6 +2,7 @@ import {
   defaultOptions,
   loadWatOptions,
   optionsStorageKey,
+  testWatConnection,
   type WatOptions
 } from "../../src/options.js";
 
@@ -64,8 +65,15 @@ async function loadOptions() {
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const options = optionsFromForm();
-  void browser.storage.local.set({ [optionsStorageKey]: options }).then(() => {
-    status.textContent = "Saved";
+  status.textContent = "Testing connection...";
+  void testWatConnection(options).then(async (result) => {
+    if (!result.ok) {
+      status.textContent = result.message;
+      return;
+    }
+
+    await browser.storage.local.set({ [optionsStorageKey]: options });
+    status.textContent = result.message;
   });
 });
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultOptions, loadWatOptions, optionsStorageKey } from "./options.js";
+import { defaultOptions, loadWatOptions, optionsStorageKey, testWatConnection } from "./options.js";
 
 describe("options privacy defaults", () => {
   beforeEach(() => {
@@ -36,5 +36,81 @@ describe("options privacy defaults", () => {
       highlightMode: true,
       hoverMode: true
     });
+  });
+
+  it("fails connection testing for invalid API URLs", async () => {
+    await expect(
+      testWatConnection({ ...defaultOptions, apiBaseUrl: "not a url" })
+    ).resolves.toEqual({
+      message: "Connection failed: invalid API base URL.",
+      ok: false
+    });
+  });
+
+  it("fails connection testing for unauthorized tokens", async () => {
+    const fetchLookup = vi.fn().mockResolvedValue({
+      json: async () => ({ error: "invalid_api_key" }),
+      ok: false,
+      status: 401
+    });
+
+    await expect(
+      testWatConnection({ ...defaultOptions, apiToken: "bad-token" }, fetchLookup)
+    ).resolves.toEqual({
+      message: "Connection failed: unauthorized API token.",
+      ok: false
+    });
+  });
+
+  it("fails connection testing for unreachable APIs", async () => {
+    const fetchLookup = vi.fn().mockRejectedValue(new Error("offline"));
+
+    await expect(testWatConnection(defaultOptions, fetchLookup)).resolves.toEqual({
+      message: "Connection failed: API is unreachable.",
+      ok: false
+    });
+  });
+
+  it("fails connection testing for unexpected API responses", async () => {
+    const fetchLookup = vi.fn().mockResolvedValue({
+      json: async () => ({ ok: true }),
+      ok: true,
+      status: 200
+    });
+
+    await expect(testWatConnection(defaultOptions, fetchLookup)).resolves.toEqual({
+      message: "Connection failed: unexpected API response.",
+      ok: false
+    });
+  });
+
+  it("passes connection testing and sends configured auth headers", async () => {
+    const fetchLookup = vi.fn().mockResolvedValue({
+      json: async () => ({ matches: [] }),
+      ok: true,
+      status: 200
+    });
+
+    await expect(
+      testWatConnection(
+        {
+          ...defaultOptions,
+          accountEmail: "user@example.test",
+          apiBaseUrl: "https://wat.example.test/root",
+          apiToken: "test-token",
+          teamId: "team_1"
+        },
+        fetchLookup
+      )
+    ).resolves.toEqual({
+      message: "Connection verified. Saved.",
+      ok: true
+    });
+
+    const [url, init] = fetchLookup.mock.calls[0]!;
+    expect(url.toString()).toBe("https://wat.example.test/api/v1/search?q=API&limit=1");
+    expect(init.headers.get("authorization")).toBe("Bearer test-token");
+    expect(init.headers.get("x-wat-user-id")).toBe("user@example.test");
+    expect(init.headers.get("x-wat-team-id")).toBe("team_1");
   });
 });

@@ -106,6 +106,26 @@ test("side panel consumes queued lookup and renders results", async () => {
   }
 });
 
+test("options page tests connection before saving settings", async () => {
+  const session = await launchExtension();
+  try {
+    const page = await session.context.newPage();
+    await page.goto(`chrome-extension://${session.extensionId}/options.html`);
+
+    await page.locator("#api-base-url").fill(baseUrl);
+    await page.locator("#account-email").fill("user@example.test");
+    await page.locator("#api-token").fill("bad-token");
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByRole("status")).toHaveText("Connection failed: unauthorized API token.");
+    await expect(
+      readExtensionStorage<{ apiToken?: string }>(session.worker, optionsStorageKey)
+    ).resolves.not.toMatchObject({ apiToken: "bad-token" });
+  } finally {
+    await closeExtension(session);
+  }
+});
+
 async function launchExtension(): Promise<ExtensionSession> {
   const userDataDir = await mkdtemp(path.join(tmpdir(), "wat-ext-"));
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -138,6 +158,19 @@ async function setExtensionStorage(worker: Worker, items: Record<string, unknown
     if (!api) throw new Error("extension storage api not found");
     await api.storage.local.set(values);
   }, items);
+}
+
+async function readExtensionStorage<T>(worker: Worker, key: string): Promise<T | undefined> {
+  return worker.evaluate(async (storageKey) => {
+    const runtime = globalThis as typeof globalThis & {
+      browser?: ExtensionRuntime;
+      chrome?: ExtensionRuntime;
+    };
+    const api = runtime.browser ?? runtime.chrome;
+    if (!api) throw new Error("extension storage api not found");
+    const stored = await api.storage.local.get(storageKey);
+    return stored[storageKey] as T | undefined;
+  }, key);
 }
 
 async function waitForExtensionInstall(worker: Worker) {
@@ -174,6 +207,12 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
   }
 
   if (url.pathname === "/api/v1/search") {
+    if (request.headers.authorization === "Bearer bad-token") {
+      response.writeHead(401, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: "invalid_api_key" }));
+      return;
+    }
+
     response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
     response.end(JSON.stringify(searchResponse(url.searchParams.get("q") ?? "")));
     return;
