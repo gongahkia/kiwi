@@ -48,4 +48,26 @@ describe("resolveContemporaryTerms", () => {
       }
     ]);
   });
+
+  it("resolves aliases", () => {
+    expect(
+      resolveContemporaryTerms(
+        ["Apache Kafka"],
+        [
+          entry({
+            aliases: ["Apache Kafka"],
+            id: "kafka",
+            term: "Kafka",
+            term_normalized: "kafka"
+          })
+        ]
+      )
+    ).toEqual([
+      {
+        id: "kafka",
+        meaning_short: "short meaning",
+        term: "Apache Kafka"
+      }
+    ]);
+  });
 });

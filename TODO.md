@@ -386,8 +386,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 - [ ] Add a symmetric-pair auto-suggester in the lint — done when running w/ `--fix` adds the missing symmetric entry to a side-car review file (do NOT auto-write into seed deltas; require human approval).
 
 ### P2 — Web app: Alternatives block
-- [ ] Render an "Alternatives" block on entry pages below the definition, above sources — done when contemporaries appear as clickable chips that link to in-corpus entries or render as plain text for non-resolved names. File: `apps/web/src/app/entry/[id]/page.tsx` (or wherever entry pages live).
-- [ ] Add a compact "Alt: X, Y, Z" line to entry preview cards in search results — done when search results show alts inline w/o pushing card height past the current 1-line preview limit.
 - [ ] Update Open Graph image generator to include contemporaries when present — done when generated OG image for a Kafka entry shows "Alternatives: RabbitMQ · NATS · Redpanda" subtitle.
 - [ ] Update `/stats` page to show "% of public entries w/ ≥ 1 contemporary populated" — done when stat renders and queries DB at request time.
 - [ ] Add team-admin UI for editing contemporaries on team entries — done when team admins can add/remove via the entry edit form.

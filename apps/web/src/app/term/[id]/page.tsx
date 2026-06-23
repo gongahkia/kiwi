@@ -5,18 +5,22 @@ import { notFound } from "next/navigation";
 
 import { ShareLinkButton } from "@/components/share-link-button";
 import { SuggestEditForm } from "@/components/suggest-edit-form";
+import { resolveContemporaryTerms } from "@/lib/contemporaries";
 
 interface TermPageProps {
   params: Promise<{ id: string }>;
 }
 
 interface PublicEntry {
+  aliases: string[];
+  contemporaries: string[];
   created_at: string;
   domains: string[];
   examples: string[];
   expansions: string[];
   id: string;
   layer: string;
+  meaning_short: string;
   meaning_long: string;
   sources: {
     license: string;
@@ -26,6 +30,7 @@ interface PublicEntry {
     url: string;
   }[];
   term: string;
+  term_normalized: string;
   updated_at: string;
 }
 
@@ -63,6 +68,7 @@ export default async function TermPage({ params }: TermPageProps) {
   if (!entry) {
     notFound();
   }
+  const alternatives = resolveContemporaryTerms(entry.contemporaries, entries);
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
@@ -82,6 +88,32 @@ export default async function TermPage({ params }: TermPageProps) {
           <p className="text-xl text-foreground/75">{entry.expansions.join(" / ")}</p>
           <p className="text-base leading-7">{entry.meaning_long}</p>
         </header>
+
+        {alternatives.length > 0 ? (
+          <section className="grid gap-3">
+            <h2 className="text-lg font-semibold">Alternatives</h2>
+            <div className="flex flex-wrap gap-2">
+              {alternatives.map((alternative) =>
+                alternative.id ? (
+                  <a
+                    className="rounded-md border border-input px-2 py-1 text-sm underline-offset-4 hover:underline"
+                    href={`/term/${alternative.id}`}
+                    key={alternative.term}
+                  >
+                    {alternative.term}
+                  </a>
+                ) : (
+                  <span
+                    className="rounded-md border border-input px-2 py-1 text-sm"
+                    key={alternative.term}
+                  >
+                    {alternative.term}
+                  </span>
+                )
+              )}
+            </div>
+          </section>
+        ) : null}
 
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold">Examples</h2>

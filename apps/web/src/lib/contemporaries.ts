@@ -13,6 +13,14 @@ export interface ResolvedContemporary {
   term: string;
 }
 
+export interface ContemporaryLookupEntry {
+  aliases: string[];
+  id: string;
+  meaning_short: string;
+  term: string;
+  term_normalized: string;
+}
+
 function normalizeKey(value: string): string {
   return value
     .toLowerCase()
@@ -31,9 +39,9 @@ export async function getVisibleSearchEntries(identity: ApiIdentity): Promise<Se
 
 export function resolveContemporaryTerms(
   contemporaries: string[],
-  entries: SearchEntry[]
+  entries: ContemporaryLookupEntry[]
 ): ResolvedContemporary[] {
-  const byName = new Map<string, SearchEntry>();
+  const byName = new Map<string, ContemporaryLookupEntry>();
 
   for (const entry of entries) {
     byName.set(normalizeKey(entry.term), entry);
