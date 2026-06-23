@@ -79,6 +79,31 @@ test("shows an empty state for unmatched queries", async ({ page }) => {
   await expect(page.getByText("No results.")).toBeVisible();
 });
 
+test("opens create and suggest flows from unmatched queries", async ({ context, page }) => {
+  await context.addCookies([
+    {
+      name: "wat_session",
+      url: "http://127.0.0.1:3100",
+      value: "user_admin"
+    }
+  ]);
+  await gotoHome(page);
+  await fillSearch(page, "zzzz-no-match");
+
+  await page.getByRole("link", { name: "Save personal entry" }).click();
+
+  await expect(page).toHaveURL(/\/personal\?term=zzzz-no-match$/);
+  await expect(page.getByPlaceholder("term")).toHaveValue("zzzz-no-match");
+  await expect(page.getByPlaceholder("id")).toHaveValue("personal-zzzz-no-match");
+
+  await gotoHome(page);
+  await fillSearch(page, "zzzz-no-match");
+  await page.getByRole("link", { name: "Suggest entry" }).click();
+
+  await expect(page).toHaveURL(/\/suggest\?term=zzzz-no-match$/);
+  await expect(page.getByPlaceholder("term")).toHaveValue("zzzz-no-match");
+});
+
 test("filters search results by domain", async ({ page }) => {
   await gotoHome(page);
   await fillSearch(page, "API");
@@ -94,11 +119,13 @@ test("filters search results by domain", async ({ page }) => {
 test("can include low-confidence T3 and T4 results", async ({ page }) => {
   await gotoHome(page);
   await fillSearch(page, "Change Advisory Process");
-  await expect(page.getByText("No results.")).toBeVisible();
+  const lowConfidenceCap = resultFor(page, "CAP").filter({ hasText: "Change Advisory Process" });
+
+  await expect(lowConfidenceCap).toHaveCount(0);
 
   await page.getByLabel("Show T3/T4").check();
 
-  await expect(resultFor(page, "CAP")).toContainText("Change Advisory Process");
+  await expect(lowConfidenceCap).toContainText("Change Advisory Process");
 });
 
 test("navigates to the highlighted result with keyboard controls", async ({ page }) => {

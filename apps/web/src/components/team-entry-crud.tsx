@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Save, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { TeamEntry } from "@/lib/team-entries";
@@ -10,19 +10,30 @@ interface TeamEntryCrudProps {
   apiPath?: string;
   defaultDomains?: string;
   initialEntries: TeamEntry[];
+  initialTerm?: string;
   layerLabel?: string;
   sourceLicense?: "proprietary-personal" | "proprietary-team";
   sourceLabel?: string;
 }
 
-function emptyFormFor(defaultDomains: string) {
+function idFromTerm(term: string): string {
+  return term
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function emptyFormFor(defaultDomains: string, initialTerm = "", sourceLabel = "team") {
+  const term = initialTerm.trim();
+  const termId = idFromTerm(term);
   return {
     domains: defaultDomains,
     expansion: "",
-    id: "",
+    id: termId ? `${sourceLabel}-${termId}` : "",
     meaning: "",
     source_url: "",
-    term: ""
+    term
   };
 }
 
@@ -57,14 +68,22 @@ export function TeamEntryCrud({
   apiPath = "/team/admin/entries/api",
   defaultDomains = "example.com",
   initialEntries,
+  initialTerm = "",
   layerLabel = "team",
   sourceLicense = "proprietary-team",
   sourceLabel = "team"
 }: TeamEntryCrudProps) {
-  const emptyForm = useMemo(() => emptyFormFor(defaultDomains), [defaultDomains]);
+  const blankForm = useMemo(
+    () => emptyFormFor(defaultDomains, "", sourceLabel),
+    [defaultDomains, sourceLabel]
+  );
+  const initialForm = useMemo(
+    () => emptyFormFor(defaultDomains, initialTerm, sourceLabel),
+    [defaultDomains, initialTerm, sourceLabel]
+  );
   const [entries, setEntries] = useState(initialEntries);
   const [editingId, setEditingId] = useState("");
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(initialForm);
   const preview = useMemo(
     () => entryFromForm(form, sourceLabel, sourceLicense),
     [form, sourceLabel, sourceLicense]
@@ -86,6 +105,11 @@ export function TeamEntryCrud({
     : editingId || entries.some((entry) => entry.id === preview.id)
       ? "Update"
       : "Create";
+
+  useEffect(() => {
+    setEditingId("");
+    setForm(initialForm);
+  }, [initialForm]);
 
   function setField(field: keyof EntryForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -118,7 +142,7 @@ export function TeamEntryCrud({
         : [...current, payload.entry]
     );
     setEditingId("");
-    setForm(emptyForm);
+    setForm(blankForm);
   }
 
   async function remove(id: string) {

@@ -10,6 +10,7 @@ import {
   useState,
   useTransition
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SearchEntry } from "@wat/search";
 
@@ -55,6 +56,7 @@ export function SearchShell({
     : isLoading || isPending
       ? "loading"
       : "ready";
+  const noResultTerm = query.trim();
 
   const domainOptions = useMemo(
     () => Array.from(new Set(matches.flatMap((match) => match.entry.domains))).sort(),
@@ -193,7 +195,21 @@ export function SearchShell({
           </select>
         ) : null}
         {status === "ready" && visibleMatches.length === 0 ? (
-          <p className="text-sm text-foreground/60">No results.</p>
+          <div className="grid gap-3 rounded-md border border-input p-4">
+            <p className="text-sm text-foreground/60">No results.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link href={`/suggest?term=${encodeURIComponent(noResultTerm)}`}>
+                  Suggest entry
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/personal?term=${encodeURIComponent(noResultTerm)}`}>
+                  Save personal entry
+                </Link>
+              </Button>
+            </div>
+          </div>
         ) : null}
         {visibleMatches.map((result, index) => (
           <SearchResultCard

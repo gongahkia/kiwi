@@ -222,7 +222,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add entry validation messages in CRUD forms — done when invalid source URLs, missing fields, duplicate IDs, and duplicate term/expansion pairs show inline errors.
 - [ ] Add generated IDs for manual entries — done when users do not have to invent stable IDs while creating entries in the UI.
 - [ ] Add clear confidence/layer labels for team users — done when users understand whether a result is public, team, personal, pending, or low-confidence.
-- [ ] Add no-result CTA to create/suggest an acronym — done when failed searches can flow directly into personal save or team suggestion.
 
 ### P1 — Browser extension adoption blockers
 - [ ] Add extension login/pairing flow — done when a user can connect the extension to their wat account without manually pasting API URL, email, token, and team ID.

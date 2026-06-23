@@ -6,9 +6,14 @@ import { getPersonalEntries } from "@/lib/personal-entries";
 
 const sessionCookie = "wat_session";
 
-export default async function PersonalPage() {
+interface PersonalPageProps {
+  searchParams: Promise<{ term?: string }>;
+}
+
+export default async function PersonalPage({ searchParams }: PersonalPageProps) {
   const cookieStore = await cookies();
   const userId = cookieStore.get(sessionCookie)?.value ?? "anonymous";
+  const { term = "" } = await searchParams;
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
@@ -31,6 +36,7 @@ export default async function PersonalPage() {
           apiPath="/personal/api"
           defaultDomains="private"
           initialEntries={getPersonalEntries(userId)}
+          initialTerm={term}
           layerLabel="personal"
           sourceLicense="proprietary-personal"
           sourceLabel="personal"

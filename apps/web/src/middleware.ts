@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
 
   if (needsSession && !session) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     response = NextResponse.redirect(loginUrl);
   } else if (needsAdmin && session && !isAdminSession(session)) {
     response = new NextResponse("Forbidden", { status: 403 });
