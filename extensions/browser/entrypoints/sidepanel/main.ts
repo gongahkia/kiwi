@@ -8,6 +8,7 @@ import {
 } from "../../src/messages.js";
 
 interface SearchEntry {
+  contemporaries?: string[];
   expansions?: string[];
   meaning_short?: string;
   sources?: Array<{ title?: string; url?: string }>;

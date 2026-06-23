@@ -6,6 +6,7 @@ import { copyTextToClipboard, formatCitation } from "./copy-citation";
 const entry: SearchEntry = {
   aliases: [],
   confidence_tier: "T1",
+  contemporaries: [],
   domains: ["web"],
   expansions: ["Application Programming Interface"],
   id: "api",

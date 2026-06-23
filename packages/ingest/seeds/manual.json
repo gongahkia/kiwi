@@ -1638,7 +1638,7 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["SSR", "SPA", "DOM"],
-      "contemporaries": []
+      "contemporaries": ["SSR", "MPA"]
     },
     {
       "id": "seed-ast-abstract-syntax-tree",

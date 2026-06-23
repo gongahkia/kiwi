@@ -4,6 +4,7 @@ import { type LookupResponse } from "../src/messages.js";
 import { loadWatOptions } from "../src/options.js";
 
 interface SearchEntry {
+  contemporaries?: string[];
   expansions?: string[];
   sources?: Array<{ title?: string; url?: string }>;
   term?: string;

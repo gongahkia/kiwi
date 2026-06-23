@@ -48,6 +48,7 @@ function layeredEntryToSearchEntry(entry: TeamEntry, layer: "personal" | "team")
   return {
     aliases: [],
     confidence_tier: "T4",
+    contemporaries: [],
     domains: entry.domains,
     expansions: [entry.expansion],
     id: entry.id,

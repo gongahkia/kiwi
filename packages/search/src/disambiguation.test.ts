@@ -8,6 +8,7 @@ function result(id: string, expansion: string, domains: string[], score: number)
     entry: {
       aliases: [],
       confidence_tier: "T2",
+      contemporaries: [],
       domains,
       expansions: [expansion],
       id,

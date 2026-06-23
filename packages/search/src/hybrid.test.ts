@@ -52,6 +52,31 @@ describe("searchHybrid", () => {
     expect(top?.candidate.id).toBe("cap-theorem");
   });
 
+  it("boosts results whose contemporaries match the query", () => {
+    const matches = searchHybrid("kafka alternatives", [
+      {
+        contemporaries: ["RabbitMQ", "NATS"],
+        expansions: ["Distributed event streaming platform"],
+        id: "kafka",
+        term: "Kafka"
+      },
+      {
+        contemporaries: ["Kafka"],
+        expansions: ["Message broker"],
+        id: "nats",
+        term: "NATS"
+      },
+      {
+        expansions: ["Columnar embedded analytics database"],
+        id: "duckdb",
+        term: "DuckDB"
+      }
+    ]);
+
+    expect(matches.map((match) => match.candidate.id)).toEqual(["kafka", "nats"]);
+    expect(matches[1]?.score_breakdown.contemporary).toBeGreaterThan(0);
+  });
+
   it("meets the dev-tooling acronym benchmark gate", () => {
     const result = runBenchmark();
     const gate = evaluateBenchmarkGate(result, benchmarkReport);

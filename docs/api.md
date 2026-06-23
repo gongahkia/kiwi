@@ -62,6 +62,7 @@ Response:
         "term": "CAP",
         "term_normalized": "cap",
         "expansions": ["Common Alerting Protocol"],
+        "contemporaries": [],
         "domains": ["ops", "alerts"],
         "meaning_short": "A standardized format for exchanging emergency alerts.",
         "sources": [
@@ -82,6 +83,7 @@ Response:
       "score": 1,
       "score_breakdown": {
         "bm25": 1,
+        "contemporary": 0,
         "domain": 0
       }
     }
@@ -96,6 +98,33 @@ No-match response:
   "matches": [],
   "suggest_url": "/suggest?term=unknown"
 }
+```
+
+### `GET /entries/:id/contemporaries`
+
+Resolve an entry's `contemporaries` names against entries visible to the caller. Missing alternative names are returned as unresolved stubs instead of 404s.
+
+Example:
+
+```sh
+curl 'http://localhost:3000/api/v1/entries/seed-csr-client-side-rendering/contemporaries'
+```
+
+Response:
+
+```json
+[
+  {
+    "term": "SSR",
+    "meaning_short": "Rendering UI markup on the server before sending it to the client.",
+    "id": "seed-ssr-server-side-rendering"
+  },
+  {
+    "term": "MPA",
+    "meaning_short": null,
+    "id": null
+  }
+]
 ```
 
 ## Shared Types

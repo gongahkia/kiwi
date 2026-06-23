@@ -15,6 +15,7 @@ export interface SearchSource {
 export interface SearchEntry {
   aliases: string[];
   confidence_tier: ConfidenceTier;
+  contemporaries: string[];
   domains: string[];
   expansions: string[];
   id: string;
@@ -36,6 +37,7 @@ export interface SearchRequest {
 
 export interface SearchScoreBreakdown {
   bm25?: number;
+  contemporary?: number;
   context?: number;
   domain?: number;
   layer?: number;

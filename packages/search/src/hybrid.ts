@@ -2,6 +2,7 @@ import { trigramSimilarity } from "./trigram.js";
 
 export interface HybridSearchCandidate {
   aliases?: string[];
+  contemporaries?: string[];
   domains?: string[];
   expansions?: string[];
   id: string;
@@ -15,6 +16,7 @@ export interface HybridSearchMatch<
   candidate: TCandidate;
   score: number;
   score_breakdown: {
+    contemporary: number;
     exact: number;
     lexical: number;
     trigram: number;
@@ -52,10 +54,12 @@ function scoreCandidate<TCandidate extends HybridSearchCandidate>(
   const queryTokens = tokenize(normalizedQuery);
   const termTokens = [candidate.term, ...(candidate.aliases ?? [])].map(normalizeText);
   const expansionTokens = new Set(tokenize(candidate.expansions?.join(" ") ?? ""));
+  const contemporaryTokens = new Set(tokenize(candidate.contemporaries?.join(" ") ?? ""));
   const document = [
     candidate.term,
     ...(candidate.aliases ?? []),
     ...(candidate.expansions ?? []),
+    ...(candidate.contemporaries ?? []),
     ...(candidate.domains ?? []),
     candidate.meaning_short ?? ""
   ].join(" ");
@@ -67,16 +71,19 @@ function scoreCandidate<TCandidate extends HybridSearchCandidate>(
         ? 4
         : 0;
   const lexicalOverlap = queryTokens.filter((token) => expansionTokens.has(token)).length;
+  const contemporaryOverlap = queryTokens.filter((token) => contemporaryTokens.has(token)).length;
   const allQueryTokensMatched = queryTokens.every(
     (token) => termTokens.includes(token) || expansionTokens.has(token)
   );
   const lexical = lexicalOverlap * 3 + (allQueryTokensMatched ? 2 : 0);
+  const contemporary = contemporaryOverlap * 1.5;
   const trigram = trigramSimilarity(normalizedQuery, document) * 2;
 
   return {
     candidate,
-    score: exact + lexical + trigram,
+    score: exact + lexical + contemporary + trigram,
     score_breakdown: {
+      contemporary,
       exact,
       lexical,
       trigram

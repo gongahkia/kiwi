@@ -43,35 +43,32 @@ export function searchEntries({
 
 export function scoreEntry(query: string, entry: SearchEntry): SearchResult | null {
   const normalized = query.toLowerCase().trim();
-  const searchable = [
-    entry.term,
-    entry.term_normalized,
-    ...entry.expansions,
-    ...entry.domains,
-    ...entry.aliases,
-    entry.meaning_short
-  ]
-    .join(" ")
-    .toLowerCase();
+  const queryTokens = normalized.split(/\s+/).filter(Boolean);
 
-  if (!searchable.includes(normalized)) {
-    return null;
+  function includesQuery(value: string): boolean {
+    const lower = value.toLowerCase();
+    return lower.includes(normalized) || queryTokens.some((token) => lower.includes(token));
   }
 
-  const exact = entry.term_normalized === normalized ? 1 : 0;
-  const expansion = entry.expansions.some((value) => value.toLowerCase().includes(normalized))
-    ? 0.8
-    : 0;
-  const domain = entry.domains.some((value) => value.toLowerCase().includes(normalized)) ? 0.4 : 0;
-  const body = entry.meaning_short.toLowerCase().includes(normalized) ? 0.25 : 0;
+  const exact =
+    entry.term_normalized === normalized || queryTokens.includes(entry.term_normalized) ? 1 : 0;
+  const expansion = entry.expansions.some(includesQuery) ? 0.8 : 0;
+  const contemporary = entry.contemporaries.some(includesQuery) ? 0.35 : 0;
+  const domain = entry.domains.some(includesQuery) ? 0.4 : 0;
+  const body = includesQuery(entry.meaning_short) ? 0.25 : 0;
   const layer = entry.layer === "personal" ? 0.75 : entry.layer === "team" ? 0.5 : 0;
-  const score = exact + expansion + domain + body + layer;
+  const score = exact + expansion + contemporary + domain + body + layer;
+
+  if (exact + expansion + contemporary + domain + body === 0) {
+    return null;
+  }
 
   return {
     entry,
     score,
     score_breakdown: {
       bm25: exact + expansion + body,
+      contemporary,
       domain,
       layer
     }

@@ -38,6 +38,7 @@ interface SlackBlock {
 }
 
 interface SearchEntry {
+  contemporaries?: string[];
   expansions?: string[];
   id?: string;
   meaning_short?: string;

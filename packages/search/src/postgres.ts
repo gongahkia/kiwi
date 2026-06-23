@@ -19,6 +19,7 @@ type SearchRow = {
   aliases: string[];
   bm25_rank: number;
   confidence_tier: ConfidenceTier;
+  contemporaries: string[];
   domains: string[];
   expansions: string[];
   id: string;
@@ -61,6 +62,7 @@ export async function searchPostgresEntries(
       e.domains,
       e.meaning_short,
       e.confidence_tier,
+      e.contemporaries,
       e.layer,
       e.aliases,
       ts_rank_cd(e.tsvector, search_query.query) as bm25_rank,
@@ -110,6 +112,7 @@ function rowToResult(row: SearchRow): SearchResult {
   const entry: SearchEntry = {
     aliases: row.aliases,
     confidence_tier: row.confidence_tier,
+    contemporaries: row.contemporaries,
     domains: row.domains,
     expansions: row.expansions,
     id: row.id,

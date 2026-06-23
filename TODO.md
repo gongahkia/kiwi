@@ -385,11 +385,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 - [ ] Add `pnpm --filter @wat/ingest contemporaries:lint` script — done when CI runs the lint, fails on unresolved names, and fails on asymmetric pairs (A lists B but B doesn't list A). Implement as a Node script that loads merged corpus + delta and resolves each contemporary against `term_normalized` + `aliases`.
 - [ ] Add a symmetric-pair auto-suggester in the lint — done when running w/ `--fix` adds the missing symmetric entry to a side-car review file (do NOT auto-write into seed deltas; require human approval).
 
-### P1 — Search: expose contemporaries in API + ranking
-- [ ] Include `contemporaries: string[]` field in `/api/v1/search` response payload (`apps/web/src/app/api/v1/search/route.ts` or similar — find the existing search handler) — done when web/ext/Slack/MCP clients see the field on every result.
-- [ ] Add small ranking boost when a query term matches a contemporary name on a result — done when `packages/search` ranking tests cover the case (querying "kafka alternatives" should surface Kafka itself AND its peers) w/o regressing the existing acronym benchmark.
-- [ ] Add a resolved-contemporaries endpoint `GET /api/v1/entries/:id/contemporaries` that returns `[{term, meaning_short, id}]` for in-corpus alternatives and `[{term, meaning_short: null, id: null}]` for unresolved names — done when endpoint returns 200 w/ mixed resolved/unresolved entries and never 404s on missing names (just returns the unresolved stub).
-
 ### P2 — Web app: Alternatives block
 - [ ] Render an "Alternatives" block on entry pages below the definition, above sources — done when contemporaries appear as clickable chips that link to in-corpus entries or render as plain text for non-resolved names. File: `apps/web/src/app/entry/[id]/page.tsx` (or wherever entry pages live).
 - [ ] Add a compact "Alt: X, Y, Z" line to entry preview cards in search results — done when search results show alts inline w/o pushing card height past the current 1-line preview limit.

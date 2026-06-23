@@ -7,6 +7,7 @@ const capTheorem: SearchResult = {
   entry: {
     aliases: [],
     confidence_tier: "T2",
+    contemporaries: [],
     domains: ["distributed systems"],
     expansions: ["Consistency Availability Partition tolerance"],
     id: "cap-theorem",
@@ -24,6 +25,7 @@ const capPolicy: SearchResult = {
   entry: {
     aliases: [],
     confidence_tier: "T2",
+    contemporaries: [],
     domains: ["policy"],
     expansions: ["Common Agricultural Policy"],
     id: "cap-policy",

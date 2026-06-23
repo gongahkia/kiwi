@@ -23,10 +23,9 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
       .withWaitStrategy(Wait.forListeningPorts())
       .start();
 
-    client = new Client({
-      connectionString: `postgres://wat:wat@${container.getHost()}:${container.getMappedPort(5432)}/wat`
-    });
-    await client.connect();
+    client = await connectWithRetry(
+      `postgres://wat:wat@${container.getHost()}:${container.getMappedPort(5432)}/wat`
+    );
     await applyMigrations(client);
   }, 120_000);
 
@@ -223,6 +222,24 @@ function hasDockerRuntime(): boolean {
   } catch {
     return false;
   }
+}
+
+async function connectWithRetry(connectionString: string): Promise<Client> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const pgClient = new Client({ connectionString });
+    try {
+      await pgClient.connect();
+      return pgClient;
+    } catch (error) {
+      lastError = error;
+      await pgClient.end().catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw lastError;
 }
 
 async function insertEntry(
