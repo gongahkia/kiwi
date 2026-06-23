@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { importTeamEntries, type TeamEntry } from "@/lib/team-entries";
+import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim());
@@ -12,25 +12,20 @@ function isTeamEntry(value: unknown): value is TeamEntry {
   }
 
   const entry = value as Partial<TeamEntry>;
-  return (
-    typeof entry.id === "string" &&
-    typeof entry.term === "string" &&
-    typeof entry.expansion === "string" &&
-    typeof entry.meaning === "string" &&
-    isStringArray(entry.domains) &&
-    Array.isArray(entry.sources) &&
-    entry.sources.every(
-      (source) =>
-        source &&
-        typeof source === "object" &&
-        typeof source.license === "string" &&
-        typeof source.publisher === "string" &&
-        typeof source.retrieved_at === "string" &&
-        typeof source.snippet === "string" &&
-        typeof source.title === "string" &&
-        typeof source.url === "string"
+  if (
+    !(
+      typeof entry.id === "string" &&
+      typeof entry.term === "string" &&
+      typeof entry.expansion === "string" &&
+      typeof entry.meaning === "string" &&
+      isStringArray(entry.domains) &&
+      Array.isArray(entry.sources)
     )
-  );
+  ) {
+    return false;
+  }
+
+  return validateTeamEntry(entry as TeamEntry).length === 0;
 }
 
 export async function POST(request: NextRequest) {

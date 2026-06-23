@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getTeamEntries,
   createTeamEntry,
   deleteTeamEntry,
+  getTeamEntries,
   importTeamEntries,
   initialTeamEntries,
   resetTeamEntriesForTest,
@@ -49,6 +49,46 @@ describe("team export helpers", () => {
     expect(result.inserted).toEqual([imported]);
     expect(result.skipped).toEqual([initialTeamEntries[0]]);
     expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
+    resetTeamEntriesForTest();
+  });
+
+  it("validates custom entry source licenses", () => {
+    resetTeamEntriesForTest();
+    const entry: TeamEntry = {
+      domains: ["security"],
+      expansion: "Generated Source",
+      id: "team-generated-source",
+      meaning: "Generated source fixture.",
+      sources: [
+        {
+          license: "proprietary-team",
+          publisher: "wat dev fixture",
+          retrieved_at: "2026-06-19T00:00:00.000Z",
+          snippet: "Generated private source.",
+          title: "generated source",
+          url: "https://wat.local/team/team-generated-source"
+        }
+      ],
+      term: "GNS"
+    };
+
+    expect(createTeamEntry(entry)).toEqual(entry);
+    expect(() =>
+      createTeamEntry({
+        ...entry,
+        id: "team-generated-source-mit",
+        sources: [{ ...entry.sources[0]!, license: "MIT" }],
+        term: "GNM"
+      })
+    ).toThrow(/public-compatible source license requires an external source url/);
+    expect(
+      createTeamEntry({
+        ...entry,
+        id: "team-external-source-mit",
+        sources: [{ ...entry.sources[0]!, license: "MIT", url: "https://example.com/source" }],
+        term: "GNE"
+      })
+    ).toMatchObject({ id: "team-external-source-mit" });
     resetTeamEntriesForTest();
   });
 

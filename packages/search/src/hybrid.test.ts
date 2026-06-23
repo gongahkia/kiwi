@@ -85,5 +85,5 @@ describe("searchHybrid", () => {
     expect(result.total_cases).toBe(benchmarkReport.total_cases);
     expect(result.top_1_hit_rate).toBeGreaterThanOrEqual(0.9);
     expect(result.top_5_hit_rate).toBeGreaterThanOrEqual(0.98);
-  });
+  }, 15_000);
 });

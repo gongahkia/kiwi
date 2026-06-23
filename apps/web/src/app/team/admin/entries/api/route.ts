@@ -5,7 +5,8 @@ import {
   deleteTeamEntry,
   getTeamEntries,
   updateTeamEntry,
-  type TeamEntry
+  type TeamEntry,
+  validateTeamEntry
 } from "@/lib/team-entries";
 
 function isStringArray(value: unknown): value is string[] {
@@ -16,14 +17,20 @@ function isTeamEntry(value: unknown): value is TeamEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<TeamEntry>;
 
-  return (
-    typeof entry.id === "string" &&
-    typeof entry.term === "string" &&
-    typeof entry.expansion === "string" &&
-    typeof entry.meaning === "string" &&
-    isStringArray(entry.domains) &&
-    Array.isArray(entry.sources)
-  );
+  if (
+    !(
+      typeof entry.id === "string" &&
+      typeof entry.term === "string" &&
+      typeof entry.expansion === "string" &&
+      typeof entry.meaning === "string" &&
+      isStringArray(entry.domains) &&
+      Array.isArray(entry.sources)
+    )
+  ) {
+    return false;
+  }
+
+  return validateTeamEntry(entry as TeamEntry).length === 0;
 }
 
 export function GET() {

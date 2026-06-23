@@ -29,6 +29,8 @@ function emptyFormFor(defaultDomains: string) {
 type EntryForm = ReturnType<typeof emptyFormFor>;
 
 function entryFromForm(form: EntryForm, sourceLabel: string, sourceLicense: string): TeamEntry {
+  const id = form.id.trim();
+  const sourceUrl = form.source_url.trim() || `https://wat.local/${sourceLabel}/${id || "draft"}`;
   return {
     domains: form.domains
       .split(",")
@@ -44,7 +46,7 @@ function entryFromForm(form: EntryForm, sourceLabel: string, sourceLicense: stri
         retrieved_at: new Date().toISOString(),
         snippet: form.meaning,
         title: `${form.term} ${sourceLabel} source`,
-        url: form.source_url
+        url: sourceUrl
       }
     ],
     term: form.term
