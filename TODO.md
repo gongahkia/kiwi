@@ -4,9 +4,9 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## Non-goals reminder
 - No AI-only unsourced definitions. Every result cites or is marked unsourced.
-- No general English dictionary. Acronyms/initialisms/jargon/overloaded terms only.
+- No general English dictionary. Tech terms only — acronyms + concepts + systems (scope expanded 2026-06-23). Not words like "schedule" or "approval".
 - No required external API for lookup. Self-host == fully usable.
-- No CLI surface, no satire/shame tone, no Pi constraint.
+- No CLI surface, no satire/shame tone, no brainrot/Gen-Z slang mode, no meeting-mic "panic button" surface, no Pi constraint.
 
 ## P0 — Repo & schema foundation
 - [ ] Reserve npm scope `@wat` — done when `npm view @wat/core` returns 404 → publish placeholder.
@@ -349,6 +349,92 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Same hosted instance powers web, extension, Slack, and MCP — verified when all four surfaces read the same DB-backed public/team/personal data for a test team.
 - [ ] Private glossary legal/privacy defaults are safe — verified when private entries are not mislabeled as open-source/public and privacy docs match actual data flows.
 - [ ] Self-host clean install works — verified when `docker compose up --build` on a clean machine runs migrations, seeds corpus, and passes `/readyz` plus a search smoke test.
+
+## Scope expansion — tech terms + contemporaries (2026-06-23)
+
+Context for any coding agent picking up these tasks (read this before touching code):
+- Decision: wat repositions from "acronym glossary" to "tech term decoder" covering acronyms (RBAC), concepts (hosting, idempotency, eventual consistency), and systems/products (Azure, Kubernetes, Kafka). Not a general English dictionary. Origin: friend feedback that the project needs to cover unfamiliar concepts/systems thrown around in senior-dev meetings, not just acronyms.
+- New first-class field: `contemporaries` — peer alternatives ("this is like X but..."). Distinct from existing `related_terms` (adjacent concepts: Kubernetes→pods, kubelet). Contemporaries are competitors/substitutes (Kubernetes→Docker Swarm, Nomad, ECS). Field rendered as a one-line "Alternatives" block across all surfaces.
+- Skipped intentionally (locked decisions, do NOT re-open without explicit signal):
+  - Meeting-mic "panic button" surface. Rationale: real-time STT (Whisper) + privacy review + always-on mic UX is multi-month effort; same lookup moment is covered by the browser ext sidebar + Slack message-shortcut today.
+  - Brainrot / Gen-Z slang explainer mode. Rationale: hard conflict w/ existing non-goal "no satire/shame tone"; viral upside doesn't outweigh dilution of rigor positioning. Marketing-only Gen-Z content (separate from product) is unblocked.
+- Closest competitor surveyed: GlossaryTech (Chrome ext, recruiter-focused, closed-source, no team layer, no Slack/MCP, no contemporaries) — confirms multi-surface + contemporaries combination is differentiated.
+- Reference file paths the coding agent will edit (do not invent new ones — these exist):
+  - `packages/db/src/schema.ts` (Drizzle tables)
+  - `packages/db/drizzle/` (new SQL migration, next number is `0016_*.sql`)
+  - `packages/db/src/schema.integration.test.ts`
+  - `packages/core/src/schema.ts` (Zod `GlossaryEntrySchema`)
+  - `packages/core/src/entry-validator.ts`
+  - `packages/core/src/merge.ts`
+  - `packages/core/src/normalize.ts`
+  - `packages/ingest/src/transform.ts`, `sanity.ts`, `scrapers/`
+  - `data/deltas/<date>/*.json` (corpus deltas; existing fields shown in `data/deltas/2026-06-19/example.json`)
+  - `docs/db-schema.md` (must be kept in sync w/ Drizzle schema)
+
+### P0 — Schema: add `contemporaries` to all entry tables
+- [ ] Add `contemporaries: text("contemporaries").array().notNull().default(sql\`ARRAY[]::text[]\`)` to `entries`, `team_entries`, `personal_entries` in `packages/db/src/schema.ts` — done when Drizzle schema compiles and inferred types include `contemporaries: string[]`.
+- [ ] Update generated `tsvector` expression on all three tables to include `contemporaries` at weight `D` (same weight bucket as `related_terms`) — done when full-text search matches entries by a contemporary name. SQL fragment to add to the `setweight(...)` chain: `|| setweight(to_tsvector('english'::regconfig, coalesce(wat_text_array_to_string("contemporaries"), '')), 'D')`.
+- [ ] Generate Drizzle migration (`pnpm --filter @wat/db drizzle:generate`) producing `packages/db/drizzle/0016_*.sql` — done when migration adds the column on all three tables w/ default empty array AND regenerates the `tsvector` generated column to include the new field. Verify by applying migration to a fresh DB and confirming `\d entries` shows the new column.
+- [ ] Update `packages/db/src/schema.integration.test.ts` — done when test asserts contemporaries column round-trip on each layer table AND that `tsvector` includes a contemporaries match (insert entry w/ contemporary "Kafka", search "Kafka" via FTS, expect hit).
+- [ ] Update `docs/db-schema.md` ERD blocks for `entries`, `team_entries`, `personal_entries` to list `text_array contemporaries` — done when doc matches Drizzle schema.
+
+### P0 — Core: extend Zod schema, validator, merge, normalize
+- [ ] Add `contemporaries: z.array(z.string().min(1))` to `GlossaryEntrySchema` in `packages/core/src/schema.ts` — done when type `GlossaryEntry` includes `contemporaries: string[]` and existing tests still pass (entries currently in tests will need the field added — empty array is fine).
+- [ ] Update `packages/core/src/entry-validator.ts` to require the field (empty array allowed, missing fails) — done when validator rejects entries w/o the key.
+- [ ] Update `packages/core/src/merge.ts` to merge contemporaries across overlays using set-union by normalized string, preserving overlay priority on ordering (personal first, then team, then public) — done when merge tests include a contemporaries case (entry A has `["Kafka"]` in public + `["NATS"]` in team → merged `["NATS","Kafka"]`).
+- [ ] Update `packages/core/src/normalize.ts` if needed — done when contemporaries are normalized w/ same case/trim rules as `related_terms` (lowercase, trim, drop empties).
+- [ ] Update `packages/core/src/manual-seeds.test.ts` and any other seed fixtures to include `contemporaries: []` so existing assertions still pass.
+
+### P0 — Ingestion: extend delta JSON shape
+- [ ] Extend scraper output transform in `packages/ingest/src/transform.ts` to accept optional `contemporaries: string[]` on incoming entries and default to `[]` when missing — done when transform tests cover entries w/ and w/o the field.
+- [ ] Update `data/deltas/2026-06-19/example.json` to document the field — done when file shows `"contemporaries": []` plus one concrete worked example (Kubernetes w/ contemporaries `["Docker Swarm", "Nomad", "ECS"]`).
+- [ ] Add validation in `packages/ingest/src/sanity.ts` for: (a) self-reference (entry name appears in its own contemporaries), (b) duplicate values, (c) empty strings — done when sanity test covers all three.
+
+### P1 — Corpus expansion: tech concepts + systems sources
+Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + systems/products (cloud services, CNCF projects, Postgres extensions), not just acronyms.
+- [ ] Add Wikipedia "Outline of computer science" + "Glossary of computer science" + "Outline of computing" scraper in `packages/ingest/src/scrapers/wikipedia-outline.ts` — done when scraper produces ≥ 1000 concept entries w/ Wikipedia citation per row. License: CC-BY-SA-4.0 (verify current page footers; the older 3.0 dual-license applies to historical revisions only). Mark `source_quality: "secondary"`.
+- [ ] Extend existing `cncf-glossary` scraper (`packages/ingest/src/scrapers/cncf-glossary.ts`) to capture concept-type entries (eg "Cloud Native", "Service Mesh") in addition to terms — done when concept entries appear w/ confidence T1 and domain `cloud native`.
+- [ ] Add MDN "Web technology for developers" concept index scraper (separate from existing MDN glossary scraper) — done when entries like "REST", "WebSocket", "Service Worker" land w/ MDN citation. License: CC-BY-SA-2.5.
+- [ ] Add CNCF Landscape scraper (`packages/ingest/src/scrapers/cncf-landscape.ts`) sourcing from `cncf/landscape` repo (Apache-2.0) — done when major CNCF projects (Kubernetes, Istio, Envoy, Linkerd, Prometheus, Grafana, etcd, containerd, Helm, Argo) land as system entries. Use landscape category metadata to crosslink contemporaries within categories (eg "service mesh" category → all members are contemporaries of each other).
+- [ ] Cross-map AWS↔Azure↔GCP service catalogs into contemporaries on existing entries — done when ≥ 80% of cloud service entries have ≥ 1 contemporary populated. Source of truth: GCP's published comparison `https://docs.cloud.google.com/docs/get-started/aws-azure-gcp-service-comparison` (table mapping ~150 services). Scraper lives at `packages/ingest/src/scrapers/cloud-service-comparison.ts`; emits a delta that patches existing AWS/Azure/GCP service entries w/ contemporaries arrays.
+- [ ] Add Postgres extensions registry scraper — done when entries for `pg_trgm`, `pgvector`, `PostGIS`, `TimescaleDB`, `pg_partman`, `pg_stat_statements` land w/ contemporaries crosslinks where applicable (TimescaleDB↔Citus, PostGIS standalone).
+
+### P1 — Contemporaries seed pass (manual curation)
+- [ ] Curate contemporaries for top-200 most-likely-searched concepts/systems in a single committed JSON delta at `data/deltas/2026-06-23/contemporaries-seed.json` — done when file contains 200 entries each w/ a `contemporaries` array of 2–6 peer alternatives. Examples that MUST be seeded: Kubernetes→{Docker Swarm, Nomad, ECS}; Kafka→{RabbitMQ, NATS, Redpanda, Pulsar}; Redis→{Memcached, KeyDB, DragonflyDB}; Postgres→{MySQL, MariaDB, CockroachDB, YugabyteDB}; Terraform→{Pulumi, OpenTofu, CloudFormation}; Datadog→{New Relic, Grafana Cloud, Honeycomb, Splunk}; Sentry→{Bugsnag, Rollbar, Honeybadger}; OAuth→{SAML, OIDC}; gRPC→{REST, GraphQL, JSON-RPC, Thrift}; Docker→{Podman, containerd, CRI-O}; Nginx→{Apache HTTPD, Caddy, HAProxy, Traefik}; Webpack→{Vite, esbuild, Rollup, Parcel, Turbopack}; React→{Vue, Svelte, Solid, Angular}; Stripe→{Adyen, Braintree, Checkout.com, Lemon Squeezy}; Auth0→{Clerk, WorkOS, Okta, FusionAuth, Supertokens}. Every alternative term in the file must either already exist in the public corpus or be queued for ingestion (lint enforces).
+- [ ] Add `pnpm --filter @wat/ingest contemporaries:lint` script — done when CI runs the lint, fails on unresolved names, and fails on asymmetric pairs (A lists B but B doesn't list A). Implement as a Node script that loads merged corpus + delta and resolves each contemporary against `term_normalized` + `aliases`.
+- [ ] Add a symmetric-pair auto-suggester in the lint — done when running w/ `--fix` adds the missing symmetric entry to a side-car review file (do NOT auto-write into seed deltas; require human approval).
+
+### P1 — Search: expose contemporaries in API + ranking
+- [ ] Include `contemporaries: string[]` field in `/api/v1/search` response payload (`apps/web/src/app/api/v1/search/route.ts` or similar — find the existing search handler) — done when web/ext/Slack/MCP clients see the field on every result.
+- [ ] Add small ranking boost when a query term matches a contemporary name on a result — done when `packages/search` ranking tests cover the case (querying "kafka alternatives" should surface Kafka itself AND its peers) w/o regressing the existing acronym benchmark.
+- [ ] Add a resolved-contemporaries endpoint `GET /api/v1/entries/:id/contemporaries` that returns `[{term, meaning_short, id}]` for in-corpus alternatives and `[{term, meaning_short: null, id: null}]` for unresolved names — done when endpoint returns 200 w/ mixed resolved/unresolved entries and never 404s on missing names (just returns the unresolved stub).
+
+### P2 — Web app: Alternatives block
+- [ ] Render an "Alternatives" block on entry pages below the definition, above sources — done when contemporaries appear as clickable chips that link to in-corpus entries or render as plain text for non-resolved names. File: `apps/web/src/app/entry/[id]/page.tsx` (or wherever entry pages live).
+- [ ] Add a compact "Alt: X, Y, Z" line to entry preview cards in search results — done when search results show alts inline w/o pushing card height past the current 1-line preview limit.
+- [ ] Update Open Graph image generator to include contemporaries when present — done when generated OG image for a Kafka entry shows "Alternatives: RabbitMQ · NATS · Redpanda" subtitle.
+- [ ] Update `/stats` page to show "% of public entries w/ ≥ 1 contemporary populated" — done when stat renders and queries DB at request time.
+- [ ] Add team-admin UI for editing contemporaries on team entries — done when team admins can add/remove via the entry edit form.
+- [ ] Add personal-entry contemporaries input — done when users can set contemporaries on personal entries.
+
+### P3 — Browser extension: contemporaries in hover + sidebar
+- [ ] Show contemporaries in hover tooltip (compressed: "Alt: X, Y, Z", truncate at 3 + "+N more") — done when hovering an entry term shows alts under the short definition. File: `extensions/browser/src/...` (locate via existing hover component).
+- [ ] Show contemporaries as a labeled section in the sidebar — done when sidebar entry view has an "Alternatives" section listing alts as clickable items that re-trigger lookup w/ the new term.
+
+### P3 — Slack app: contemporaries in `/wat` response
+- [ ] Append "Alternatives: X, Y, Z" line to `/wat <term>` ephemeral response when contemporaries are populated — done when `/wat kafka` returns the alternatives line below the meaning. File: `apps/slack/src/...` (locate via existing command handler).
+- [ ] Add `/wat-alt <term>` command — done when command returns ephemeral list of alternatives w/ short meanings when resolved.
+
+### P3 — MCP server: contemporaries in lookup response
+- [ ] Include `contemporaries: string[]` in `lookup(term, context?)` response payload — done when MCP clients receive the field and the tool description JSON schema lists it. File: `apps/mcp/src/...`.
+- [ ] Add `list_alternatives(term)` MCP tool — done when tool returns resolved contemporary entries w/ meanings; intended for coding agents asking "what else competes w/ X". Read-only, identical auth model as `lookup`.
+
+### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
+- [ ] ≥ 60% of public entries in cloud/devops/observability/storage domains have ≥ 1 contemporary populated — verified by `pnpm --filter @wat/ingest contemporaries:coverage`.
+- [ ] Search benchmark expanded from 500 acronyms to 1000 mixed entries (500 acronyms + 300 concepts + 200 systems) — verified by `pnpm bench`.
+- [ ] Hit-rate target unchanged (≥ 90% top-1, ≥ 98% top-5) on the expanded benchmark — verified by `pnpm bench`.
+- [ ] Alternatives block renders correctly across web, ext, Slack, MCP for ≥ 5 reference entries (Kubernetes, Kafka, Postgres, Terraform, Datadog) — verified by E2E.
+- [ ] Contemporaries lint passes in CI (no unresolved names, no asymmetric pairs, no self-references) — verified by CI job.
 
 ## Folder/root note
 Rename folder freely; keep `idea.md` and `todo.md` at project root.
