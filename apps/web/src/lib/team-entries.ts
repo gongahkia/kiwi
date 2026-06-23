@@ -24,7 +24,7 @@ export const initialTeamEntries: TeamEntry[] = [
     meaning: "Internal release-gating process for production-impacting changes.",
     sources: [
       {
-        license: "MIT",
+        license: "proprietary-team",
         publisher: "wat dev fixture",
         retrieved_at: "2026-06-19T00:00:00.000Z",
         snippet: "CAP is the release-gating review for production-impacting changes.",
@@ -41,7 +41,7 @@ export const initialTeamEntries: TeamEntry[] = [
     meaning: "Internal freeze window where production deploys require incident-lead approval.",
     sources: [
       {
-        license: "MIT",
+        license: "proprietary-team",
         publisher: "wat dev fixture",
         retrieved_at: "2026-06-19T00:00:00.000Z",
         snippet: "DF marks a deploy freeze window for production systems.",

@@ -20,7 +20,7 @@ describe("personal entries", () => {
       meaning: "My private customer access definition.",
       sources: [
         {
-          license: "MIT",
+          license: "proprietary-personal",
           publisher: "wat dev fixture",
           retrieved_at: "2026-06-19T00:00:00.000Z",
           snippet: "CAP is a private access policy note.",

@@ -34,7 +34,7 @@ describe("team export helpers", () => {
       meaning: "Internal reliability metric.",
       sources: [
         {
-          license: "MIT",
+          license: "proprietary-team",
           publisher: "wat dev fixture",
           retrieved_at: "2026-06-19T00:00:00.000Z",
           snippet: "SLI is used by the reliability team.",
@@ -61,7 +61,7 @@ describe("team export helpers", () => {
       meaning: "Policy for customer access reviews.",
       sources: [
         {
-          license: "MIT",
+          license: "proprietary-team",
           publisher: "wat dev fixture",
           retrieved_at: "2026-06-19T00:00:00.000Z",
           snippet: "CAP policy is reviewed quarterly.",

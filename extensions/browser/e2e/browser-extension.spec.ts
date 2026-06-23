@@ -94,6 +94,7 @@ test("side panel consumes queued lookup and renders results", async () => {
 
     await expect(page.locator("#query")).toHaveValue("TLS");
     await expect(page.locator("#page-context")).toHaveText("docs.example.test");
+    await expect(page.getByText("private/proprietary")).toBeVisible();
     await expect(page.getByText("TLS - Transport Layer Security")).toBeVisible();
     await expect(page.getByText("A protocol for encrypted transport.")).toBeVisible();
     await expect(page.getByText("Alternatives:")).toBeVisible();

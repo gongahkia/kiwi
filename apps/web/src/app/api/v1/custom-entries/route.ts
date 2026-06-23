@@ -73,6 +73,7 @@ function sourceUrl(value: string | null, id: string): string {
 function makeSource(
   body: CustomEntryRequest,
   id: string,
+  scope: CustomEntryScope,
   term: string,
   expansion: string
 ): TeamEntrySource {
@@ -81,7 +82,7 @@ function makeSource(
     asNonEmptyString(body.sourceTitle) ?? hostnameFromUrl(url) ?? "Browser custom entry";
 
   return {
-    license: "MIT",
+    license: scope === "team" ? "proprietary-team" : "proprietary-personal",
     publisher: "wat browser extension",
     retrieved_at: new Date().toISOString(),
     snippet: `${term} was saved as ${expansion} from the browser extension.`,
@@ -108,7 +109,7 @@ function customEntryFromBody(
       expansion,
       id,
       meaning,
-      sources: [makeSource(body, id, term, expansion)],
+      sources: [makeSource(body, id, scope, term, expansion)],
       term
     },
     scope

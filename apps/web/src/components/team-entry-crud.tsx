@@ -11,6 +11,7 @@ interface TeamEntryCrudProps {
   defaultDomains?: string;
   initialEntries: TeamEntry[];
   layerLabel?: string;
+  sourceLicense?: "proprietary-personal" | "proprietary-team";
   sourceLabel?: string;
 }
 
@@ -27,7 +28,7 @@ function emptyFormFor(defaultDomains: string) {
 
 type EntryForm = ReturnType<typeof emptyFormFor>;
 
-function entryFromForm(form: EntryForm, sourceLabel: string): TeamEntry {
+function entryFromForm(form: EntryForm, sourceLabel: string, sourceLicense: string): TeamEntry {
   return {
     domains: form.domains
       .split(",")
@@ -38,7 +39,7 @@ function entryFromForm(form: EntryForm, sourceLabel: string): TeamEntry {
     meaning: form.meaning,
     sources: [
       {
-        license: "MIT",
+        license: sourceLicense,
         publisher: `${sourceLabel} import`,
         retrieved_at: new Date().toISOString(),
         snippet: form.meaning,
@@ -55,13 +56,17 @@ export function TeamEntryCrud({
   defaultDomains = "example.com",
   initialEntries,
   layerLabel = "team",
+  sourceLicense = "proprietary-team",
   sourceLabel = "team"
 }: TeamEntryCrudProps) {
   const emptyForm = useMemo(() => emptyFormFor(defaultDomains), [defaultDomains]);
   const [entries, setEntries] = useState(initialEntries);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(emptyForm);
-  const preview = useMemo(() => entryFromForm(form, sourceLabel), [form, sourceLabel]);
+  const preview = useMemo(
+    () => entryFromForm(form, sourceLabel, sourceLicense),
+    [form, sourceLabel, sourceLicense]
+  );
   const hasDraft = Boolean(preview.id.trim());
   const mergedEntries = useMemo(() => {
     if (!hasDraft) return entries;
@@ -97,7 +102,7 @@ export function TeamEntryCrud({
   }
 
   async function save() {
-    const entry = entryFromForm(form, sourceLabel);
+    const entry = entryFromForm(form, sourceLabel, sourceLicense);
     const response = await fetch(apiPath, {
       body: JSON.stringify(editingId ? { id: editingId, patch: entry } : entry),
       headers: { "content-type": "application/json" },
@@ -147,6 +152,10 @@ export function TeamEntryCrud({
           {editingId ? <Save /> : <Plus />}
           {editingId ? "Save entry" : "Create entry"}
         </Button>
+        <p className="text-xs text-foreground/55">
+          Created {layerLabel} entries are marked {sourceLicense}, not public open-source corpus
+          data.
+        </p>
         <div className="grid gap-3">
           {entries.map((entry) => (
             <article className="grid gap-2 rounded-md border border-input p-4" key={entry.id}>

@@ -35,7 +35,7 @@ function teamEntryFromSuggestion(suggestion: SuggestedEdit, input: SuggestedEntr
     meaning: input.meaning,
     sources: [
       {
-        license: "MIT",
+        license: "proprietary-team",
         publisher: "wat suggestion",
         retrieved_at: suggestion.created_at,
         snippet: input.meaning,

@@ -32,6 +32,7 @@ export default async function PersonalPage() {
           defaultDomains="private"
           initialEntries={getPersonalEntries(userId)}
           layerLabel="personal"
+          sourceLicense="proprietary-personal"
           sourceLabel="personal"
         />
       </div>
