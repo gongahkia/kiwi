@@ -226,7 +226,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add extension login/pairing flow — done when a user can connect the extension to their wat account without manually pasting API URL, email, token, and team ID.
 - [ ] Add extension team picker — done when users in multiple teams can choose the active team and the extension sends the right team scope.
 - [ ] Add extension custom-entry save E2E test — done when selecting page text, saving a custom acronym, and finding it in later lookup is covered headlessly.
-- [ ] Add extension conflict handling for saved acronyms — done when saving an existing term shows update/keep both/cancel choices instead of a raw 409.
 - [ ] Add extension release assets — done when required icons, screenshots, short/long descriptions, and privacy copy are committed.
 - [ ] Publish signed browser extension builds — done when Chrome, Firefox, and Edge users can install without developer mode.
 

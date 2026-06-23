@@ -29,6 +29,7 @@ interface ExtensionSession {
 let server: Server;
 let baseUrl: string;
 let searchRequests: Array<{ context: string; limit: string; q: string }> = [];
+let customEntryRequests: Array<Record<string, unknown>> = [];
 
 test.beforeAll(async () => {
   server = createServer(handleRequest);
@@ -47,6 +48,7 @@ test.afterAll(async () => {
 
 test.beforeEach(() => {
   searchRequests = [];
+  customEntryRequests = [];
 });
 
 test("hover mode renders a sourced lookup tooltip", async () => {
@@ -193,6 +195,52 @@ test("side panel previews queued custom entry source before saving", async () =>
   }
 });
 
+test("side panel handles custom entry conflicts with update choices", async () => {
+  const session = await launchExtension();
+  try {
+    await setExtensionStorage(session.worker, {
+      [optionsStorageKey]: {
+        accountEmail: "user@example.test",
+        apiBaseUrl: baseUrl,
+        apiToken: "test-token",
+        domainFilters: [],
+        highlightMode: false,
+        hoverMode: false
+      },
+      [sidePanelCustomEntryStorageKey]: {
+        context: "docs.example.test",
+        createdAt: new Date().toISOString(),
+        sourceTitle: "TLS handbook",
+        sourceUrl: "https://docs.example.test/tls",
+        term: "TLS"
+      }
+    });
+
+    const page = await session.context.newPage();
+    await page.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+    await page.locator("#save-expansion").fill("Transport Layer Security");
+    await page.getByRole("button", { name: "Save acronym" }).click();
+
+    await expect(page.locator("#save-status")).toHaveText(
+      "TLS already exists. Update it, keep both, or cancel."
+    );
+    await expect(page.getByRole("button", { name: "Update existing" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Keep both" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Update existing" }).click();
+
+    await expect(page.locator("#save-status")).toHaveText(
+      "Saved. Future searches will include this custom layer."
+    );
+    expect(customEntryRequests).toHaveLength(2);
+    expect(customEntryRequests[0]).toMatchObject({ mode: "create", term: "TLS" });
+    expect(customEntryRequests[1]).toMatchObject({ mode: "upsert", term: "TLS" });
+  } finally {
+    await closeExtension(session);
+  }
+});
+
 test("options page tests connection before saving settings", async () => {
   const session = await launchExtension();
   try {
@@ -280,7 +328,11 @@ async function waitForExtensionInstall(worker: Worker) {
 function handleRequest(request: IncomingMessage, response: ServerResponse) {
   const url = new URL(request.url ?? "/", baseUrl || "http://127.0.0.1");
   response.setHeader("access-control-allow-origin", "*");
-  response.setHeader("access-control-allow-methods", "GET, OPTIONS");
+  response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+  response.setHeader(
+    "access-control-allow-headers",
+    "authorization, content-type, x-wat-team-id, x-wat-user-id"
+  );
   if (request.method === "OPTIONS") {
     response.writeHead(204);
     response.end();
@@ -321,8 +373,32 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (url.pathname === "/api/v1/custom-entries" && request.method === "POST") {
+    void readJsonBody(request).then((body) => {
+      customEntryRequests.push(body);
+      if (body.mode === "upsert") {
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        response.end(JSON.stringify({ entry: { term: body.term }, mode: "updated" }));
+        return;
+      }
+
+      response.writeHead(409, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: "personal entry already exists" }));
+    });
+    return;
+  }
+
   response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
   response.end("not found");
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
 }
 
 function searchResponse(query: string) {

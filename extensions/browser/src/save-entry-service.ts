@@ -19,6 +19,7 @@ export function saveCustomEntryPayload(message: SaveCustomEntryMessage): Record<
     domains: cleanDomains(message.domains),
     expansion: message.expansion.trim(),
     meaning: message.meaning?.trim() || undefined,
+    mode: message.mode ?? "create",
     scope: message.scope ?? "personal",
     sourceTitle: message.sourceTitle?.trim() || undefined,
     sourceUrl: message.sourceUrl?.trim() || undefined,

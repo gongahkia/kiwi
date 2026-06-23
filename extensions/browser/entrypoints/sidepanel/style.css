@@ -162,3 +162,13 @@ label textarea {
   height: 28px;
   padding: 0 8px;
 }
+
+.conflict-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+}
+
+.conflict-actions[hidden] {
+  display: none;
+}

@@ -71,6 +71,15 @@ function fillSaveDraft(draft: SidePanelCustomEntryDraft) {
   saveStatus.textContent = `Ready to save from ${draft.context || "this page"}.`;
 }
 
+function hideConflictActions() {
+  saveConflictActions.hidden = true;
+}
+
+function showConflictActions() {
+  saveConflictActions.hidden = false;
+  saveStatus.textContent = `${saveTerm.value.trim()} already exists. Update it, keep both, or cancel.`;
+}
+
 const pageContext = byId<HTMLParagraphElement>("page-context");
 const form = byId<HTMLFormElement>("search-form");
 const query = byId<HTMLInputElement>("query");
@@ -82,6 +91,10 @@ const saveMeaning = byId<HTMLTextAreaElement>("save-meaning");
 const saveScope = byId<HTMLSelectElement>("save-scope");
 const saveSourcePreview = byId<HTMLParagraphElement>("save-source-preview");
 const saveStatus = byId<HTMLParagraphElement>("save-status");
+const saveConflictActions = byId<HTMLDivElement>("save-conflict-actions");
+const conflictUpdate = byId<HTMLButtonElement>("conflict-update");
+const conflictKeepBoth = byId<HTMLButtonElement>("conflict-keep-both");
+const conflictCancel = byId<HTMLButtonElement>("conflict-cancel");
 let currentDraft: SidePanelCustomEntryDraft | null = null;
 
 async function activeContext(): Promise<string> {
@@ -195,13 +208,15 @@ async function consumeCustomEntryDraft() {
   await browser.storage.local.remove(sidePanelCustomEntryStorageKey);
 }
 
-async function saveCustomEntry() {
+async function saveCustomEntry(mode: "create" | "upsert" = "create") {
   const context = currentDraft?.context ?? (await activeContext());
+  hideConflictActions();
   saveStatus.textContent = "Saving...";
   const response = (await browser.runtime.sendMessage({
     domains: domainFromContext(context),
     expansion: saveExpansion.value,
     meaning: saveMeaning.value,
+    mode,
     scope: saveScope.value === "team" ? "team" : "personal",
     sourceTitle: currentDraft?.sourceTitle ?? document.title,
     sourceUrl: sourceUrlFromContext(context),
@@ -210,6 +225,10 @@ async function saveCustomEntry() {
   })) as SaveCustomEntryResponse;
 
   if (!response.ok) {
+    if (response.status === 409) {
+      showConflictActions();
+      return;
+    }
     saveStatus.textContent = response.error;
     return;
   }
@@ -228,6 +247,21 @@ form.addEventListener("submit", (event) => {
 saveForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (saveTerm.value.trim() && saveExpansion.value.trim()) void saveCustomEntry();
+});
+
+conflictUpdate.addEventListener("click", () => {
+  void saveCustomEntry("upsert");
+});
+
+conflictKeepBoth.addEventListener("click", () => {
+  hideConflictActions();
+  saveStatus.textContent = "Edit the term or expansion, then save again to keep both.";
+  saveExpansion.focus();
+});
+
+conflictCancel.addEventListener("click", () => {
+  hideConflictActions();
+  saveStatus.textContent = "Save canceled.";
 });
 
 void consumeQueuedLookup().then(() => consumeCustomEntryDraft());

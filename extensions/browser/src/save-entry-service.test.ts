@@ -33,6 +33,7 @@ describe("save custom entry service", () => {
       domains: ["docs.example.test"],
       expansion: "Transport Layer Security",
       meaning: "Encrypted transport.",
+      mode: "create",
       scope: "personal",
       sourceTitle: "Docs",
       sourceUrl: "https://docs.example.test/tls",
@@ -60,6 +61,12 @@ describe("save custom entry service", () => {
         loadOptions: async () => ({ ...defaultOptions, apiBaseUrl: "https://wat.test" })
       })
     ).resolves.toEqual({ body: { entry: { term: "TLS" } }, ok: true });
+  });
+
+  it("sends upsert mode for conflict updates", () => {
+    expect(saveCustomEntryPayload({ ...message, mode: "upsert" })).toMatchObject({
+      mode: "upsert"
+    });
   });
 
   it("classifies failed save states", async () => {

@@ -9,6 +9,7 @@ export interface SaveCustomEntryMessage {
   domains?: string[];
   expansion: string;
   meaning?: string;
+  mode?: "create" | "upsert";
   scope?: "personal" | "team";
   sourceTitle?: string;
   sourceUrl?: string;
