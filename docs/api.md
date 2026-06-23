@@ -146,6 +146,7 @@ Request body:
 | `term` | string | yes | Acronym or term to save. Trimmed; empty values are rejected. |
 | `expansion` | string | yes | Expansion to save. Trimmed; empty values are rejected. |
 | `meaning` | string | no | Defaults to `Custom definition for <term>.` |
+| `mode` | `create` \| `upsert` | no | Defaults to `create`. `upsert` updates an existing entry with the same `scope`, `term`, and `expansion`; otherwise it creates one. |
 | `scope` | `personal` \| `team` | no | Defaults to `personal`. Team scope writes to the caller's team layer. |
 | `domains` | string[] | no | Trimmed, lowercased, deduplicated, capped at 12. |
 | `sourceUrl` | string | no | Valid URLs are preserved. Missing or invalid values become `https://wat.local/custom/<id>`. |
@@ -167,6 +168,7 @@ curl \
   -H "Content-Type: application/json" \
   -H "X-Wat-User-Id: user_123" \
   --data '{
+    "mode": "upsert",
     "scope": "personal",
     "term": "CAP",
     "expansion": "Change Approval Process",
@@ -197,9 +199,12 @@ curl \
 
 Response:
 
+`create` and first-time `upsert` requests return `201`. `upsert` updates return `200` and preserve the existing entry ID.
+
 ```json
 {
   "scope": "team",
+  "mode": "created",
   "entry": {
     "id": "custom-team-550e8400-e29b-41d4-a716-446655440000",
     "term": "RTO",
@@ -231,11 +236,11 @@ Errors:
 
 | Status | Error | Cause |
 | --- | --- | --- |
-| `400` | `term and expansion are required` | Missing or empty `term`/`expansion`. |
+| `400` | `term, expansion, and valid mode are required` | Missing or empty `term`/`expansion`, or `mode` is not `create`/`upsert`. |
 | `401` | `invalid_api_key` | Supplied token does not match `WAT_API_KEY`. |
 | `401` | `api token and x-wat-user-id are required` | Anonymous write or missing user scope. |
 | `403` | `x-wat-team-id is required for team entries` | Team-scope write without team scope. |
-| `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer. |
+| `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
 
 ## Shared Types
 

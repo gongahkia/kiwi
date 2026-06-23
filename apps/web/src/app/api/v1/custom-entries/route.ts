@@ -4,17 +4,29 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { corsHeadersForRequest } from "@/lib/cors";
 import { resolveApiIdentity } from "@/lib/api-identity";
-import { createPersonalEntry } from "@/lib/personal-entries";
-import { createTeamEntry, type TeamEntry, type TeamEntrySource } from "@/lib/team-entries";
+import {
+  createPersonalEntry,
+  getPersonalEntries,
+  updatePersonalEntry
+} from "@/lib/personal-entries";
+import {
+  createTeamEntry,
+  getTeamEntries,
+  updateTeamEntry,
+  type TeamEntry,
+  type TeamEntrySource
+} from "@/lib/team-entries";
 
 export const runtime = "nodejs";
 
 type CustomEntryScope = "personal" | "team";
+type CustomEntryMode = "create" | "upsert";
 
 interface CustomEntryRequest {
   domains?: unknown;
   expansion?: unknown;
   meaning?: unknown;
+  mode?: unknown;
   scope?: unknown;
   sourceTitle?: unknown;
   sourceUrl?: unknown;
@@ -85,11 +97,13 @@ function makeSource(
 
 function customEntryFromBody(
   body: CustomEntryRequest
-): { entry: TeamEntry; scope: CustomEntryScope } | null {
+): { entry: TeamEntry; mode: CustomEntryMode; scope: CustomEntryScope } | null {
   const term = asNonEmptyString(body.term);
   const expansion = asNonEmptyString(body.expansion);
   if (!term || !expansion) return null;
+  if (body.mode != null && body.mode !== "create" && body.mode !== "upsert") return null;
 
+  const mode: CustomEntryMode = body.mode === "upsert" ? "upsert" : "create";
   const scope: CustomEntryScope = body.scope === "team" ? "team" : "personal";
   const id = `custom-${scope}-${randomUUID()}`;
   const meaning = asNonEmptyString(body.meaning) ?? `Custom definition for ${term}.`;
@@ -104,7 +118,56 @@ function customEntryFromBody(
       sources: [makeSource(body, id, scope, term, expansion)],
       term
     },
+    mode,
     scope
+  };
+}
+
+function entryKey(entry: Pick<TeamEntry, "expansion" | "term">): string {
+  return `${entry.term.trim().toLowerCase()}:${entry.expansion.trim().toLowerCase()}`;
+}
+
+function withEntryId(entry: TeamEntry, id: string): TeamEntry {
+  return {
+    ...entry,
+    id,
+    sources: entry.sources.map((source) => {
+      try {
+        const url = new URL(source.url);
+        if (url.hostname !== "wat.local") return source;
+      } catch {
+        return source;
+      }
+
+      return { ...source, url: `https://wat.local/custom/${id}` };
+    })
+  };
+}
+
+function upsertTeamEntry(entry: TeamEntry): { entry: TeamEntry; status: "created" | "updated" } {
+  const existing = getTeamEntries().find((item) => entryKey(item) === entryKey(entry));
+  if (!existing) {
+    return { entry: createTeamEntry(entry), status: "created" };
+  }
+
+  return {
+    entry: updateTeamEntry(existing.id, withEntryId(entry, existing.id)),
+    status: "updated"
+  };
+}
+
+function upsertPersonalEntry(
+  userId: string,
+  entry: TeamEntry
+): { entry: TeamEntry; status: "created" | "updated" } {
+  const existing = getPersonalEntries(userId).find((item) => entryKey(item) === entryKey(entry));
+  if (!existing) {
+    return { entry: createPersonalEntry(userId, entry), status: "created" };
+  }
+
+  return {
+    entry: updatePersonalEntry(userId, existing.id, withEntryId(entry, existing.id)),
+    status: "updated"
   };
 }
 
@@ -127,7 +190,11 @@ export async function POST(request: NextRequest) {
 
   const parsed = customEntryFromBody((await request.json()) as CustomEntryRequest);
   if (!parsed) {
-    return json(request, { error: "term and expansion are required" }, { status: 400 });
+    return json(
+      request,
+      { error: "term, expansion, and valid mode are required" },
+      { status: 400 }
+    );
   }
 
   if (parsed.scope === "team" && !identity.identity.teamId) {
@@ -135,12 +202,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (parsed.mode === "upsert") {
+      const result =
+        parsed.scope === "team"
+          ? upsertTeamEntry(parsed.entry)
+          : upsertPersonalEntry(userId, parsed.entry);
+
+      return json(
+        request,
+        { entry: result.entry, mode: result.status, scope: parsed.scope },
+        { status: result.status === "created" ? 201 : 200 }
+      );
+    }
+
     const entry =
       parsed.scope === "team"
         ? createTeamEntry(parsed.entry)
         : createPersonalEntry(userId, parsed.entry);
 
-    return json(request, { entry, scope: parsed.scope }, { status: 201 });
+    return json(request, { entry, mode: "created", scope: parsed.scope }, { status: 201 });
   } catch (error) {
     return json(
       request,

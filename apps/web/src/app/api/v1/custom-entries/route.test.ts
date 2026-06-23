@@ -105,4 +105,83 @@ describe("POST /api/v1/custom-entries", () => {
       error: "api token and x-wat-user-id are required"
     });
   });
+
+  it("upserts personal custom entries by term and expansion", async () => {
+    const first = await POST(
+      request({
+        expansion: "Change Approval Process",
+        meaning: "Original meaning.",
+        mode: "upsert",
+        scope: "personal",
+        sourceUrl: "https://docs.example.test/cap",
+        term: "CAP"
+      })
+    );
+    const firstBody = (await first.json()) as { entry: { id: string }; mode: string };
+
+    const second = await POST(
+      request({
+        expansion: "Change Approval Process",
+        meaning: "Updated meaning.",
+        mode: "upsert",
+        scope: "personal",
+        sourceUrl: "https://docs.example.test/cap-v2",
+        term: "CAP"
+      })
+    );
+    const secondBody = (await second.json()) as {
+      entry: { id: string; meaning: string };
+      mode: string;
+    };
+
+    expect(first.status).toBe(201);
+    expect(firstBody.mode).toBe("created");
+    expect(second.status).toBe(200);
+    expect(secondBody.mode).toBe("updated");
+    expect(secondBody.entry.id).toBe(firstBody.entry.id);
+    expect(secondBody.entry.meaning).toBe("Updated meaning.");
+    expect(getPersonalEntries("user_1")).toHaveLength(1);
+  });
+
+  it("upserts team custom entries by term and expansion", async () => {
+    const first = await POST(
+      request(
+        {
+          expansion: "Recovery Time Objective",
+          mode: "upsert",
+          scope: "team",
+          sourceUrl: "https://docs.example.test/rto",
+          term: "RTO"
+        },
+        { "x-wat-team-id": "team_1" }
+      )
+    );
+    const firstBody = (await first.json()) as { entry: { id: string }; mode: string };
+
+    const second = await POST(
+      request(
+        {
+          expansion: "Recovery Time Objective",
+          meaning: "Updated team meaning.",
+          mode: "upsert",
+          scope: "team",
+          sourceUrl: "https://docs.example.test/rto-v2",
+          term: "RTO"
+        },
+        { "x-wat-team-id": "team_1" }
+      )
+    );
+    const secondBody = (await second.json()) as {
+      entry: { id: string; meaning: string };
+      mode: string;
+    };
+
+    expect(first.status).toBe(201);
+    expect(firstBody.mode).toBe("created");
+    expect(second.status).toBe(200);
+    expect(secondBody.mode).toBe("updated");
+    expect(secondBody.entry.id).toBe(firstBody.entry.id);
+    expect(secondBody.entry.meaning).toBe("Updated team meaning.");
+    expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
+  });
 });
