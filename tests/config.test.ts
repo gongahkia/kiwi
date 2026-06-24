@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, rotateWorkingVerb, runPieConfigTool, tapePathFor } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -152,6 +153,28 @@ test("schema enums match exported config constants", () => {
 	assert.deepEqual(objectForm?.properties?.when?.enum, [...WHEN_RULES]);
 });
 
+test("welcome config validates custom banners", () => {
+	const ok = validateConfig({ preset: "minimal", welcome: { enabled: true, banner: ["pie", "ready"] } });
+	const badEnabled = validateConfig({ preset: "minimal", welcome: { enabled: "yes" } });
+	const badBanner = validateConfig({ preset: "minimal", welcome: { banner: ["pie", 1] } });
+	assert.equal(ok.valid, true);
+	assert.equal(badEnabled.valid, false);
+	assert.match(badEnabled.errors.join("\n"), /welcome.enabled/);
+	assert.equal(badBanner.valid, false);
+	assert.match(badBanner.errors.join("\n"), /welcome.banner/);
+});
+
+test("every preset has a bundled startup banner", () => {
+	assert.deepEqual(Object.keys(BANNERS).sort(), [...PRESET_NAMES].sort());
+	for (const preset of PRESET_NAMES) {
+		assert.ok(BANNERS[preset].length > 0, preset);
+		for (const line of BANNERS[preset]) {
+			assert.equal(typeof line, "string", preset);
+			assert.equal(/^[\x20-\x7e]*$/.test(line), true, `${preset}: non-ascii banner line`);
+		}
+	}
+});
+
 test("footer render truncates and compact mode shortens labels", () => {
 	const ctx = {
 		cwd: "/Users/test/src/really/long/project/path",
@@ -274,6 +297,25 @@ test("turn_start verb rotation advances through persona verbs", () => {
 		assert.equal(rotateWorkingVerb(ctx, state), "Working");
 		assert.equal(rotateWorkingVerb(ctx, state), "Reasoning");
 	});
+});
+
+test("startup welcome message respects reason, disable flag, and custom banner", () => {
+	const custom = welcomeMessageForSession("startup", materializeConfig({ preset: "minimal", welcome: { banner: ["custom pie"] } }));
+	assert.equal(custom?.customType, PIE_WELCOME_TYPE);
+	assert.equal(custom?.display, true);
+	assert.deepEqual(custom?.details.lines, ["custom pie"]);
+	assert.equal(welcomeMessageForSession("reload", materializeConfig({ preset: "minimal" })), undefined);
+	assert.equal(welcomeMessageForSession("fork", materializeConfig({ preset: "minimal" })), undefined);
+	assert.equal(welcomeMessageForSession("startup", materializeConfig({ preset: "minimal", welcome: { enabled: false } })), undefined);
+});
+
+test("welcomeConflictLines warns only when powerline splash can overlap", () => {
+	const enabled = materializeConfig({ preset: "minimal" });
+	const disabled = materializeConfig({ preset: "minimal", welcome: { enabled: false } });
+	assert.match(welcomeConflictLines(["powerline-footer"], enabled).join("\n"), /startup splash/);
+	assert.match(welcomeConflictLines(["footer"], enabled).join("\n"), /startup splash/);
+	assert.deepEqual(welcomeConflictLines(["powerline-footer"], disabled), []);
+	assert.deepEqual(welcomeConflictLines(["tool-display"], enabled), []);
 });
 
 test("explicit working.message disables persona verb rotation", () => {

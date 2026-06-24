@@ -151,6 +151,9 @@ JSON Schema: [`schema/pie-ui.schema.json`](./schema/pie-ui.schema.json). Use `{ 
     "title": "Codex-inspired",
     "subtitle": "dense agent workspace"
   },
+  "welcome": {
+    "enabled": true
+  },
   "tools": {
     "expanded": false
   }
@@ -168,6 +171,10 @@ Modes (what surface the extension owns):
 
 Optional `notifications`:
 - `contextWarnings: false` — suppress the automatic context-usage warnings (70% info / 90% warning).
+
+Optional `welcome`:
+- `enabled: false` — suppress the startup ASCII banner.
+- `banner: ["line 1", "line 2"]` — override the bundled preset banner.
 
 ## Layers (compose decorations)
 
@@ -200,7 +207,7 @@ Preset apply modes:
 |------------------------------|-----------------|--------------|-----------------|---------------------|-------------------|----------------|----------|
 | Multi-preset switch          | **16**          | —            | —               | —                   | scripted          | themes         | themes   |
 | Spinners / personas          | **10 / 7**      | 70+ / lib    | —               | AI "vibes"          | —                 | n/a            | n/a      |
-| Boot/welcome ASCII           | header line     | sign-in art  | —               | branded splash      | —                 | winbar         | —        |
+| Boot/welcome ASCII           | startup banner  | sign-in art  | —               | branded splash      | —                 | winbar         | —        |
 | Conditional segments         | —               | n/a          | n/a             | context-warn        | flexible          | richest        | —        |
 | Capture / share              | (planned)       | —            | —               | —                   | —                 | n/a            | n/a      |
 | Doctor / conflict check      | **yes**         | —            | —               | —                   | —                 | n/a            | —        |

@@ -54,6 +54,10 @@ export type PieConfig = {
 		placement?: WidgetPlacement;
 		lines?: string[];
 	};
+	welcome?: {
+		enabled?: boolean;
+		banner?: string[];
+	};
 	tools?: {
 		expanded?: boolean;
 	};
@@ -116,6 +120,9 @@ export const DEFAULT_CONFIG: PieConfig = {
 		enabled: false,
 		placement: "aboveEditor",
 		lines: [],
+	},
+	welcome: {
+		enabled: true,
 	},
 	tools: {
 		expanded: false,
@@ -390,8 +397,8 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 	},
 };
 
-const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
-const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "layers", "header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
+const objectKeys = new Set(["header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "layers", "header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
@@ -518,6 +525,10 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 	}
 	if (cfg.widget?.lines !== undefined && (!Array.isArray(cfg.widget.lines) || cfg.widget.lines.some((line) => typeof line !== "string"))) {
 		errors.push("widget.lines must be an array of strings");
+	}
+	validateSection("welcome", cfg.welcome, errors, { enabled: "boolean" });
+	if (cfg.welcome?.banner !== undefined && (!Array.isArray(cfg.welcome.banner) || cfg.welcome.banner.some((line) => typeof line !== "string"))) {
+		errors.push("welcome.banner must be an array of strings");
 	}
 	validateSection("tools", cfg.tools, errors, { expanded: "boolean" });
 	validateSection("thinking", cfg.thinking, errors, { hiddenLabel: "string" });

@@ -73,42 +73,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P0-06 — Boot ASCII art per preset (`pi.sendMessage` + `registerMessageRenderer`)
-
-- [ ] Add ASCII banner per preset; deliver as a custom-type message at `session_start`.
-
-**Why:** branded welcome moment. pi-powerline-footer's splash is a star magnet. Original art only — no copy from claude/codex/gemini repos.
-
-**Files:**
-- new `extensions/pie-ui/banners.ts` — `BANNERS: Record<PresetName, string[]>`.
-- `extensions/pie-ui/index.ts` — register renderer; send message in `session_start` handler at `index.ts:68-70`.
-- `extensions/pie-ui/config.ts` — new `welcome?: { enabled?: boolean; banner?: string[] }` field.
-- `schema/pie-ui.schema.json` — `welcome` block.
-
-**Sketch:**
-```ts
-pi.registerMessageRenderer("pie:welcome", (message, _opts, theme) => {
-  // return a Component (use truncateToWidth + theme.fg per render.ts patterns)
-  return { invalidate() {}, render(width) { return (message.details as { lines: string[] }).lines.map(l => theme.fg("accent", l)); } };
-});
-pi.on("session_start", (event, ctx) => {
-  applyPie(ctx, pi, state);
-  if (event.reason !== "startup") return; // skip on reload/fork to avoid noise
-  const cfg = loadConfig(ctx.cwd, ctx.isProjectTrusted()).effective;
-  if (cfg.welcome?.enabled === false) return;
-  const lines = cfg.welcome?.banner ?? BANNERS[cfg.preset ?? "minimal"];
-  pi.sendMessage({ customType: "pie:welcome", content: "", display: true, details: { lines } });
-});
-```
-
-`session_start` `event.reason` values: `"startup" | "reload" | "new" | "resume" | "fork"` per extensions.md.
-
-**Refs:** `registerMessageRenderer` signature per extensions.md: `(message, opts, theme) => Component`. Banner shape similar to existing `widgetLines` at `render.ts:61-66`.
-
-**Acceptance:** banner shows at first session start; suppressed on reload/fork; config flag disables. Doctor warns if another extension owns a welcome overlay (detect `pi-powerline-footer` by command presence).
-
----
-
 ### P0-07 — Per-preset tool rendering via `renderCall`/`renderResult`
 
 - [ ] Override built-in `bash`, `edit`, `read`, `grep` renderers with preset-driven styles. Ship one style end-to-end before templating the rest.
@@ -382,7 +346,7 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 | Tool rendering | expand-only | — | pills/cards | — | — | n/a | — |
 | Spinners | **10 vendored** | **70+** | — | — | — | n/a | n/a |
 | Thinking verbs | **7 personas** | **custom lib** | — | AI "vibes" | — | n/a | n/a |
-| Boot/welcome ASCII | title+subtitle | sign-in ASCII | — | **branded splash + stats** | — | winbar | — |
+| Boot/welcome ASCII | startup banner | sign-in ASCII | — | **branded splash + stats** | — | winbar | — |
 | User-msg styling | theme | **per element** | compact | — | n/a | n/a | n/a |
 | Markdown styling | — | **yes** | partial | — | n/a | n/a | n/a |
 | Keybinds registered | — | — | — | **alt+s, ctrl+shift+b** | — | n/a | yes |
@@ -437,7 +401,7 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 3. ~~P0-03 (`/pie gallery`)~~ — done.
 4. ~~P0-01 (README rewrite)~~ — done. Per-preset screenshot grid still pending P0-02.
 5. ~~P0-05 (personas)~~ — done.
-6. P0-06 (boot ASCII) — needs `registerMessageRenderer`; lower complexity.
+6. ~~P0-06 (boot ASCII)~~ — done.
 7. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
 8. P1-08 → P1-15 in parallel.
 9. P2 / P3 as bandwidth allows.

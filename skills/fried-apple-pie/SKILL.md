@@ -24,6 +24,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Footer order: replace `/footer/segments` with any of `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`. Each entry can be a bare string or `{ id: <segment>, when: <rule> }`. Rules: `always`, `git-repo`, `trusted-project`, `context>50`, `context>70`, `context>90`, `tokens>10k`. Example: `[{ "id": "cost", "when": "context>70" }, "branch"]`.
 - Header: set `/header/enabled`, `/header/title`, and `/header/subtitle`.
 - Widget: set `/widget/enabled`, `/widget/placement`, and `/widget/lines`.
+- Welcome banner: set `/welcome/enabled` to false to suppress startup ASCII, or `/welcome/banner` to custom string lines.
 - Tool display: set `/tools/expanded`.
 - Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`, `status-only`.
 - Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and per-turn working-message rotation.

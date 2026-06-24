@@ -1,4 +1,5 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -22,6 +23,7 @@ import {
 	PRESETS,
 	validateConfig,
 } from "./config.ts";
+import { bannerForConfig } from "./banners.ts";
 import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
@@ -30,6 +32,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const themeDir = resolve(__dirname, "../../themes");
 const skillDir = resolve(__dirname, "../../skills");
 const tapesDir = resolve(__dirname, "../../assets/tapes");
+export const PIE_WELCOME_TYPE = "pie:welcome";
 const configToolSchema = Type.Object({
 	action: Type.Union([
 		Type.Literal("read"),
@@ -71,8 +74,12 @@ export default function (pi: ExtensionAPI) {
 		skillPaths: [skillDir],
 	}));
 
-	pi.on("session_start", (_event, ctx) => {
-		applyPie(ctx, pi, state);
+	pi.registerMessageRenderer<WelcomeMessageDetails>(PIE_WELCOME_TYPE, (message, _opts, theme) => createWelcomeMessage(message.details?.lines ?? [], theme));
+
+	pi.on("session_start", (event, ctx) => {
+		const config = applyPie(ctx, pi, state);
+		const message = welcomeMessageForSession(event.reason, config);
+		if (message) pi.sendMessage(message);
 	});
 
 	pi.on("agent_start", () => {
@@ -265,6 +272,39 @@ export function rotateWorkingVerb(ctx: ExtensionContext, state: RenderState): st
 
 function personaVerbKey(config: PieConfig, persona: { spinner: string; verbs: string[] }): string {
 	return [config.preset ?? "", config.persona ?? "", persona.spinner, ...persona.verbs].join("\u0000");
+}
+
+type WelcomeMessageDetails = { lines: string[] };
+
+export function welcomeMessageForSession(reason: SessionStartEvent["reason"], config: PieConfig) {
+	if (reason !== "startup" || config.welcome?.enabled === false) return undefined;
+	const lines = bannerForConfig(config);
+	return {
+		customType: PIE_WELCOME_TYPE,
+		content: "",
+		display: true,
+		details: { lines },
+	};
+}
+
+function createWelcomeMessage(lines: string[], theme: { fg(name: string, text: string): string; bold(text: string): string }): Component {
+	return {
+		invalidate() {},
+		render(width: number): string[] {
+			const w = Math.max(24, width);
+			return lines.map((line, index) => {
+				const centered = centerLine(line, w);
+				const text = index === 0 ? theme.bold(centered) : centered;
+				return theme.fg(index === 0 ? "accent" : "muted", truncateToWidth(text, w));
+			});
+		},
+	};
+}
+
+function centerLine(line: string, width: number): string {
+	const clipped = truncateToWidth(line, width);
+	const pad = Math.max(0, Math.floor((width - visibleWidth(clipped)) / 2));
+	return " ".repeat(pad) + clipped;
 }
 
 async function handlePieCommand(args: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
@@ -726,12 +766,18 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	const commands = pi.getCommands().map((command) => command.name);
 	const conflicts = commands.filter((name) => ["footer", "powerline-footer", "tool-display"].includes(name));
 	for (const conflict of conflicts) lines.push(`possible UI conflict: /${conflict}`);
+	lines.push(...welcomeConflictLines(commands, loaded.effective));
 	if (conflicts.length > 0 && loaded.effective.mode === "full") lines.push("recommendation: set /pie mode status-only (minimal surface), theme-only, or footer-only if another UI package owns a surface");
 	const hasConfigOrConflictIssue = lines.length > 5;
 	const deps = captureDependencyLines();
 	lines.push(...deps);
 	if (!hasConfigOrConflictIssue && !deps.some((line) => line.startsWith("capture unavailable:"))) lines.push("ok");
 	return lines;
+}
+
+export function welcomeConflictLines(commands: string[], config: PieConfig): string[] {
+	if (config.welcome?.enabled === false || !commands.some((name) => name === "powerline-footer" || name === "footer")) return [];
+	return ["possible welcome conflict: pi-powerline-footer owns a startup splash; set welcome.enabled false to suppress Fried Apple Pie startup banner"];
 }
 
 export function captureDependencyLines(probe: (name: string) => string | undefined = commandPath): string[] {
