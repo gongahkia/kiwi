@@ -1,51 +1,75 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { Client } from "pg";
 
-interface CorpusEntry {
-  confidence_tier: string;
-  domains: string[];
-  layer: string;
-  sources: {
-    publisher: string;
-  }[];
-}
+export const runtime = "nodejs";
 
 interface CountRow {
   count: number;
   label: string;
 }
 
-async function getEntries(): Promise<CorpusEntry[]> {
-  const seedJson = await readSeedJson();
-  const parsed = JSON.parse(seedJson) as { entries: CorpusEntry[] };
-  return parsed.entries.filter((entry) => entry.layer === "public");
+interface CorpusStats {
+  byDomain: CountRow[];
+  bySource: CountRow[];
+  byTier: CountRow[];
+  contemporariesCoveragePct: number;
+  total: number;
+  withContemporaries: number;
 }
 
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
+const databaseUrl = process.env.WAT_DATABASE_URL ?? process.env.DATABASE_URL;
+
+async function getCorpusStats(): Promise<CorpusStats> {
+  const client = new Client({
+    connectionString: databaseUrl ?? "postgres://wat:wat@localhost:5432/wat"
+  });
+  await client.connect();
+  try {
+    const [summary, bySource, byTier, byDomain] = await Promise.all([
+      client.query<{ total: number; with_contemporaries: number }>(`
+        select
+          count(*)::int as total,
+          count(*) filter (where cardinality(contemporaries) > 0)::int as with_contemporaries
+        from entries
+        where layer = 'public' and deprecated = false
+      `),
+      client.query<CountRow>(`
+        select s.publisher as label, count(distinct e.id)::int as count
+        from entries e
+        join sources s on s.entry_id = e.id
+        where e.layer = 'public' and e.deprecated = false
+        group by s.publisher
+        order by count desc, label asc
+      `),
+      client.query<CountRow>(`
+        select confidence_tier as label, count(*)::int as count
+        from entries
+        where layer = 'public' and deprecated = false
+        group by confidence_tier
+        order by count desc, label asc
+      `),
+      client.query<CountRow>(`
+        select domain as label, count(*)::int as count
+        from entries
+        cross join unnest(domains) as domain
+        where layer = 'public' and deprecated = false
+        group by domain
+        order by count desc, label asc
+      `)
+    ]);
+    const total = summary.rows[0]?.total ?? 0;
+    const withContemporaries = summary.rows[0]?.with_contemporaries ?? 0;
+
+    return {
+      byDomain: byDomain.rows,
+      bySource: bySource.rows,
+      byTier: byTier.rows,
+      contemporariesCoveragePct: total > 0 ? Math.round((withContemporaries / total) * 100) : 0,
+      total,
+      withContemporaries
+    };
+  } finally {
+    await client.end();
   }
-
-  throw new Error("manual seed file not found");
-}
-
-function countValues(values: string[]): CountRow[] {
-  const counts = new Map<string, number>();
-
-  for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-
-  return Array.from(counts, ([label, count]) => ({ label, count })).sort(
-    (left, right) => right.count - left.count || left.label.localeCompare(right.label)
-  );
 }
 
 function CountTable({ rows, title }: { rows: CountRow[]; title: string }) {
@@ -75,24 +99,28 @@ function CountTable({ rows, title }: { rows: CountRow[]; title: string }) {
 }
 
 export default async function StatsPage() {
-  const entries = await getEntries();
-  const bySource = countValues(
-    entries.flatMap((entry) => Array.from(new Set(entry.sources.map((source) => source.publisher))))
-  );
-  const byTier = countValues(entries.map((entry) => entry.confidence_tier));
-  const byDomain = countValues(entries.flatMap((entry) => entry.domains));
+  const stats = await getCorpusStats();
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <div className="mx-auto grid max-w-5xl gap-8">
         <header className="grid gap-2">
           <h1 className="text-4xl font-semibold">Corpus stats</h1>
-          <p className="text-foreground/70">{entries.length} public entries</p>
+          <p className="text-foreground/70">{stats.total} public entries</p>
         </header>
+        <section className="grid gap-2 rounded-md border border-input p-4">
+          <h2 className="text-xl font-semibold">Alternatives coverage</h2>
+          <p className="text-foreground/70">
+            {stats.contemporariesCoveragePct}% of public entries have at least one alternative.
+          </p>
+          <p className="text-sm text-foreground/55">
+            {stats.withContemporaries} / {stats.total} public entries
+          </p>
+        </section>
         <div className="grid gap-8 lg:grid-cols-3">
-          <CountTable rows={bySource} title="By source" />
-          <CountTable rows={byTier} title="By tier" />
-          <CountTable rows={byDomain} title="By domain" />
+          <CountTable rows={stats.bySource} title="By source" />
+          <CountTable rows={stats.byTier} title="By tier" />
+          <CountTable rows={stats.byDomain} title="By domain" />
         </div>
       </div>
     </main>

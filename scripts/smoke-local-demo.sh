@@ -50,6 +50,7 @@ demo_pid="$!"
 
 wait_for_http "http://127.0.0.1:${web_port}/readyz"
 curl -fsS "http://127.0.0.1:${web_port}/api/v1/search?q=API&limit=1" >/dev/null
+curl -fsS "http://127.0.0.1:${web_port}/stats" | grep -q "Alternatives coverage"
 curl -fsS "http://127.0.0.1:${mailpit_http_port}/api/v1/info" >/dev/null
 
 seed_count="$(
