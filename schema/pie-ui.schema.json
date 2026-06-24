@@ -31,7 +31,7 @@
     },
     "mode": {
       "type": "string",
-      "enum": ["full", "theme-only", "footer-only", "widgets-only"]
+      "enum": ["full", "theme-only", "footer-only", "widgets-only", "status-only"]
     },
     "compact": {
       "type": "boolean"
@@ -121,6 +121,13 @@
           "items": { "type": "string" }
         },
         "intervalMs": { "type": "number", "minimum": 25 }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "contextWarnings": { "type": "boolean" }
       }
     }
   }

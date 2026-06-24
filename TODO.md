@@ -298,54 +298,6 @@ Transient preset: skip write to `pie-ui.json`; pass as override into `applyPie` 
 
 ---
 
-### P1-13 — Coexistence `status-only` mode
-
-- [ ] New mode that skips header/footer/widget ownership and uses `ctx.ui.setStatus` instead.
-
-**Why:** doctor currently flags conflicts but offers no compromise. `setStatus` is the small non-owning surface.
-
-**Files:** `extensions/pie-ui/config.ts` (`MODE_NAMES` add `status-only`), `extensions/pie-ui/index.ts` (`applyPie` `index.ts:130-171` branch), `schema/pie-ui.schema.json`, tests.
-
-**Sketch:** in `applyPie`, if `mode === "status-only"`:
-- Skip `setHeader`/`setFooter`/`setWidget`.
-- `ctx.ui.setStatus("fried-apple-pie", \`${cfg.preset ?? "custom"} · ctx ${contextLeft(ctx, true)}\`)`.
-- Reapply on `turn_end` / `message_end`.
-- On detach: `ctx.ui.setStatus("fried-apple-pie")` (no text clears).
-
-Doctor: when `pi-powerline-footer` (or any extension owning `setFooter`) is detected, recommend `mode: status-only`.
-
-**Refs:** extensions.md `ctx.ui.setStatus`.
-
-**Acceptance:** with `pi-powerline-footer` installed and `mode: status-only`, fried-apple-pie still shows preset + ctx without conflict. Test asserts no `setHeader`/`setFooter` calls in `status-only`.
-
----
-
-### P1-14 — Context-aware notify on `turn_end`
-
-- [ ] Subscribe to `turn_end`; warn at 70% and 90% context usage; one-shot per session.
-
-**Why:** pi-powerline-footer parity.
-
-**Files:** `extensions/pie-ui/index.ts`.
-
-**Sketch:**
-```ts
-const warned: { mid: boolean; high: boolean } = { mid: false, high: false };
-pi.on("turn_end", (_event, ctx) => {
-  if (loaded.effective.notifications?.contextWarnings === false) return;
-  const usage = ctx.getContextUsage();
-  if (!usage?.percent) return;
-  if (usage.percent >= 90 && !warned.high) { ctx.ui.notify("Context >90%. Consider /compact.", "warning"); warned.high = true; }
-  else if (usage.percent >= 70 && !warned.mid) { ctx.ui.notify("Context >70%.", "info"); warned.mid = true; }
-});
-pi.on("session_compact", () => { warned.mid = false; warned.high = false; });
-```
-Add config block `notifications?: { contextWarnings?: boolean }` + schema.
-
-**Acceptance:** warnings fire once each threshold per session. Opt-out via config. Reset after `/compact`.
-
----
-
 ### P1-15 — Persona system prompt suffix (orthogonal axis)
 
 Depends on P0-05.

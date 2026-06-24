@@ -60,6 +60,8 @@ const configToolSchema = Type.Object({
 
 export default function (pi: ExtensionAPI) {
 	const state: RenderState = { working: false };
+	// context-warning latch: fire each threshold at most once per session; cleared on /compact.
+	const warned: { mid: boolean; high: boolean } = { mid: false, high: false };
 
 	pi.on("resources_discover", () => ({
 		themePaths: [themeDir],
@@ -82,7 +84,16 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("model_select", () => state.requestRender?.());
 	pi.on("thinking_level_select", () => state.requestRender?.());
-	pi.on("message_end", () => state.requestRender?.());
+	pi.on("message_end", (_event, ctx) => {
+		state.requestRender?.();
+		if (state.lastConfig?.mode === "status-only") refreshStatusFromState(ctx, state);
+		maybeWarnContext(ctx, state, warned);
+	});
+	// session_compact may not fire on every Pi build; subscription is defensive.
+	pi.on("session_compact", () => {
+		warned.mid = false;
+		warned.high = false;
+	});
 
 	pi.registerCommand("pie", {
 		description: "Switch and inspect Fried Apple Pie UI presets",
@@ -179,7 +190,48 @@ export function applyEffectiveConfig(ctx: ExtensionContext, pi: ExtensionAPI, st
 				: undefined,
 		);
 	}
+	// status-only mode: write a small secondary surface instead of owning header/footer/widget.
+	// other modes clear the key so a previous status-only session does not leak text.
+	refreshStatus(ctx, mode === "status-only" ? config : undefined);
+	state.lastConfig = config;
 	return config;
+}
+
+// computes the small status text used in status-only mode. uses contextLeft for compactness.
+export function pieStatusText(config: PieConfig, ctx: ExtensionContext): string {
+	const usage = ctx.getContextUsage();
+	const left = usage?.percent != null ? `ctx ${Math.max(0, Math.min(100, Math.round(100 - usage.percent)))}%` : "";
+	const persona = config.persona ? `${config.persona}` : "";
+	return [config.preset ?? "custom", persona, left].filter(Boolean).join(" · ");
+}
+
+// writes or clears the secondary status. ctx.ui.setStatus may be absent on older Pi builds; optional-chain guards.
+function refreshStatus(ctx: ExtensionContext, config: PieConfig | undefined): void {
+	const setStatus = (ctx.ui as unknown as { setStatus?: (key: string, text?: string) => void }).setStatus;
+	if (!setStatus) return;
+	if (config) setStatus("fried-apple-pie", pieStatusText(config, ctx));
+	else setStatus("fried-apple-pie");
+}
+
+// re-applies status text from the last-applied config without re-running the full pipeline. used on message_end.
+function refreshStatusFromState(ctx: ExtensionContext, state: RenderState): void {
+	if (!state.lastConfig) return;
+	refreshStatus(ctx, state.lastConfig);
+}
+
+// fires opt-out-able warnings when context usage crosses 70% / 90% thresholds. one-shot per session per threshold.
+export function maybeWarnContext(ctx: ExtensionContext, state: RenderState, warned: { mid: boolean; high: boolean }): void {
+	if (state.lastConfig?.notifications?.contextWarnings === false) return;
+	const usage = ctx.getContextUsage();
+	if (!usage || usage.percent == null) return;
+	const pct = usage.percent;
+	if (pct >= 90 && !warned.high) {
+		ctx.ui.notify("Fried Apple Pie: context >90%. Consider /compact.", "warning");
+		warned.high = true;
+	} else if (pct >= 70 && !warned.mid) {
+		ctx.ui.notify("Fried Apple Pie: context >70%.", "info");
+		warned.mid = true;
+	}
 }
 
 async function handlePieCommand(args: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
@@ -601,7 +653,7 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	const commands = pi.getCommands().map((command) => command.name);
 	const conflicts = commands.filter((name) => ["footer", "powerline-footer", "tool-display"].includes(name));
 	for (const conflict of conflicts) lines.push(`possible UI conflict: /${conflict}`);
-	if (conflicts.length > 0 && loaded.effective.mode === "full") lines.push("recommendation: set /pie mode theme-only or footer-only if another UI package owns a surface");
+	if (conflicts.length > 0 && loaded.effective.mode === "full") lines.push("recommendation: set /pie mode status-only (minimal surface), theme-only, or footer-only if another UI package owns a surface");
 	if (lines.length === 5) lines.push("ok");
 	return lines;
 }

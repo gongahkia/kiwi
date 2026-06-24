@@ -163,6 +163,10 @@ Modes (what surface the extension owns):
 - `theme-only` — only theme.
 - `footer-only` — footer + theme.
 - `widgets-only` — widget + theme.
+- `status-only` — theme + a small `setStatus` surface showing preset + ctx; no header/footer/widget ownership. Best for coexisting with `pi-powerline-footer` or other footer/widget owners.
+
+Optional `notifications`:
+- `contextWarnings: false` — suppress the automatic context-usage warnings (70% info / 90% warning).
 
 Preset apply modes:
 - `clean` — reset preset-owned config (header, footer, widget, tools, thinking).

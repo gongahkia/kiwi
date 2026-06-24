@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
-import { applyEffectiveConfig, applyPie, diffLines, historyLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, diffLines, historyLines, maybeWarnContext, runPieConfigTool } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -334,6 +334,60 @@ test("diffLines reports no change for identical configs and changes for distinct
 	assert.match(cross.join("\n"), /\d+ keys? changed/);
 });
 
+test("maybeWarnContext fires mid+high notifications once per session and respects opt-out", () => {
+	const notifies: Array<{ message: string; level: string }> = [];
+	const ui = { notify: (message: string, level: string) => notifies.push({ message, level }) } as any;
+	const makeWarnedCtx = (percent: number) => ({ ui, getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent }) }) as any;
+	const warned = { mid: false, high: false };
+	const state = { working: false, lastConfig: { preset: "minimal" as const } };
+	maybeWarnContext(makeWarnedCtx(40), state, warned);
+	assert.equal(notifies.length, 0, "no warnings below threshold");
+	maybeWarnContext(makeWarnedCtx(75), state, warned);
+	assert.equal(notifies.length, 1, "70% fires once");
+	maybeWarnContext(makeWarnedCtx(75), state, warned);
+	assert.equal(notifies.length, 1, "70% does not refire");
+	maybeWarnContext(makeWarnedCtx(95), state, warned);
+	assert.equal(notifies.length, 2, "90% fires once");
+	maybeWarnContext(makeWarnedCtx(95), state, warned);
+	assert.equal(notifies.length, 2, "90% does not refire");
+
+	// opt-out via config
+	const warned2 = { mid: false, high: false };
+	const state2 = { working: false, lastConfig: { preset: "minimal" as const, notifications: { contextWarnings: false } } };
+	const optedNotifies: Array<{ message: string }> = [];
+	const optedUi = { notify: (message: string) => optedNotifies.push({ message }) } as any;
+	const optedCtx = { ui: optedUi, getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent: 95 }) } as any;
+	maybeWarnContext(optedCtx, state2, warned2);
+	assert.equal(optedNotifies.length, 0, "opt-out suppresses warnings");
+});
+
+test("status-only mode releases header/footer/widget and writes setStatus with preset + ctx", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "codex-inspired", mode: "status-only" });
+		const calls = makeCalls();
+		applyPie(makeCtx(cwd, calls), makePi(), { working: false });
+		assert.equal(calls.footer, undefined, "footer should be released");
+		assert.equal(calls.header, undefined, "header should be released");
+		assert.equal(calls.widget?.content, undefined, "widget should be released");
+		assert.ok(calls.status.length >= 1, "setStatus should be called at least once");
+		const last = calls.status.at(-1);
+		assert.equal(last?.key, "fried-apple-pie");
+		assert.match(String(last?.text), /codex-inspired/);
+		assert.match(String(last?.text), /ctx \d+%/);
+	});
+});
+
+test("non-status-only modes clear the status surface (no leak)", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "minimal", mode: "full" });
+		const calls = makeCalls();
+		applyPie(makeCtx(cwd, calls), makePi(), { working: false });
+		const last = calls.status.at(-1);
+		assert.equal(last?.key, "fried-apple-pie");
+		assert.equal(last?.text, undefined);
+	});
+});
+
 test("import flow: readConfigFile parses arbitrary path and validateConfig catches malformed input", () => {
 	const dir = mkdtempSync(join(tmpdir(), "pie-import-"));
 	const valid = join(dir, "valid.json");
@@ -458,6 +512,7 @@ function makeCalls() {
 		widget: undefined as { content: string[] | undefined; options: unknown } | undefined,
 		workingMessage: [] as Array<string | undefined>,
 		workingIndicator: [] as Array<{ frames?: string[]; intervalMs?: number } | undefined>,
+		status: [] as Array<{ key: string; text?: string }>,
 	};
 }
 
@@ -497,6 +552,9 @@ function makeCtx(cwd: string, calls: ReturnType<typeof makeCalls>): any {
 				calls.footer = factory;
 			},
 			getAllThemes: () => [{ name: "fried-apple-pie-minimal" }, { name: "fried-apple-pie-codex" }],
+			setStatus(key: string, text?: string) {
+				calls.status.push({ key, text });
+			},
 		},
 	};
 }

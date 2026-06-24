@@ -19,7 +19,7 @@ export const PRESET_NAMES = [
 	"gruvbox-light",
 ] as const;
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
-export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only"] as const;
+export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only", "status-only"] as const;
 export const WHEN_RULES = ["always", "git-repo", "trusted-project", "context>50", "context>70", "context>90", "tokens>10k"] as const;
 
 export type PresetName = (typeof PRESET_NAMES)[number];
@@ -63,6 +63,9 @@ export type PieConfig = {
 		message?: string;
 		frames?: string[];
 		intervalMs?: number;
+	};
+	notifications?: {
+		contextWarnings?: boolean;
 	};
 };
 
@@ -385,8 +388,8 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 	},
 };
 
-const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working"]);
-const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "header", "footer", "widget", "tools", "thinking", "working"]);
+const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
@@ -502,6 +505,9 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 		visible: "boolean",
 		message: "string",
 		intervalMs: "number",
+	});
+	validateSection("notifications", cfg.notifications, errors, {
+		contextWarnings: "boolean",
 	});
 	if (cfg.working?.frames !== undefined && (!Array.isArray(cfg.working.frames) || cfg.working.frames.some((frame) => typeof frame !== "string"))) {
 		errors.push("working.frames must be an array of strings");

@@ -18,6 +18,7 @@ type FooterData = {
 export type RenderState = {
 	working: boolean;
 	requestRender?: () => void;
+	lastConfig?: PieConfig;
 };
 
 export type EditAction = "preset" | "theme" | "mode" | "compact" | "footer" | "header" | "widget" | "tools" | "cancel";

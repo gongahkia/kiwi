@@ -13,6 +13,8 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - `scope: "effective"` is read-only and should be used for dry-run validation only.
 - `scope: "project"` requires project trust.
 - Use `mode: "theme-only"` when another extension owns the footer or widgets.
+- Use `mode: "status-only"` when another extension owns header/footer/widget but you still want a small `setStatus` surface showing preset and context usage.
+- Opt out of automatic context warnings (70% info, 90% warning) by setting `notifications.contextWarnings: false`.
 - Use `applyMode: "clean"` to reset preset-owned config and `applyMode: "merge"` to preserve overrides.
 - Persona is an orthogonal axis controlling spinner + working-message verbs. Available personas: `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Switch with `/pie persona <name>` or set `persona` in config. Persona does not change preset, theme, footer, or layout.
 
@@ -22,7 +24,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Header: set `/header/enabled`, `/header/title`, and `/header/subtitle`.
 - Widget: set `/widget/enabled`, `/widget/placement`, and `/widget/lines`.
 - Tool display: set `/tools/expanded`.
-- Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`.
+- Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`, `status-only`.
 - Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and initial working message.
 - Use `/pie gallery` to live-preview every preset without writing to config. j/k or h/l cycles, enter keeps current preview, q/esc restores previous config.
 - Use `/pie diff <preset>` to preview what a clean preset apply would change before running `/pie preset <preset>`. Optional second arg `merge` previews merge-mode apply.
