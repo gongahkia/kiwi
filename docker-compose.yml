@@ -24,26 +24,38 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  migrate:
+    build:
+      context: .
+      dockerfile: packages/db/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      WAT_DATABASE_URL: postgres://wat:wat@postgres:5432/wat
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     cpus: 2
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://wat:wat@postgres:5432/wat
       EMAIL_FROM: wat@localhost
       EMAIL_SERVER: smtp://mailpit:1025
-      AUTH_SECRET: ${AUTH_SECRET:-local-compose-auth-secret}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-compose-auth-secret}
+      AUTH_SECRET: ${AUTH_SECRET:-local_compose_auth_secret_0123456789abcdef}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local_compose_auth_secret_0123456789abcdef}
       NEXTAUTH_URL: http://localhost:3000
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      WAT_API_KEY: ${WAT_API_KEY:-local_compose_api_key_0123456789abcdef}
       WAT_RATE_LIMIT_IP: 100000
       WAT_RATE_LIMIT_TEAM: 100000
       WAT_RATE_LIMIT_USER: 100000
       WAT_RATE_LIMIT_WINDOW_MS: 60000
+      WAT_VALIDATE_ENV: ${WAT_VALIDATE_ENV:-false}
     ports:
       - "${WAT_WEB_PORT:-3000}:3000"
     healthcheck:
@@ -67,9 +79,12 @@ services:
     environment:
       PORT: 3001
       SLACK_APP_TOKEN: xapp-local-dev
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-local-compose-slack-signing-secret}
       SLACK_HTTP_MODE: "true"
       SLACK_SOCKET_MODE: "true"
+      WAT_API_KEY: ${WAT_API_KEY:-local_compose_api_key_0123456789abcdef}
       WAT_API_BASE_URL: http://web:3000
+      WAT_TEAM_ID: ${WAT_TEAM_ID:-team_example}
     ports:
       - "${WAT_SLACK_PORT:-3001}:3001"
     healthcheck:

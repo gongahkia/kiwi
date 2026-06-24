@@ -22,6 +22,7 @@ ENV PORT=3000
 
 COPY --from=deps /app/apps/web/.next/standalone ./
 COPY --from=deps /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=deps /app/data/deltas ./data/deltas
 COPY --from=deps /app/packages/ingest/seeds/manual.json ./packages/ingest/seeds/manual.json
 
 EXPOSE 3000

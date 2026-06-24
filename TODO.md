@@ -158,7 +158,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Migrate team entry source model to match glossary source schema — done when team/personal entries store source quality, title, URL, publisher, license, retrieved date, and snippet in normalized DB rows.
 - [ ] Add idempotent migration runner for app startup or release phase — done when a clean deploy can run migrations exactly once without manual `pnpm db:migrate` steps.
 - [ ] Add idempotent public corpus seed/import job — done when a clean DB can import checked-in corpus data without duplicates and without deleting team/personal overlays.
-- [ ] Update Docker Compose to apply migrations and seed public corpus automatically — done when `docker compose up --build` yields a searchable DB-backed app on a clean machine.
 - [ ] Add restart persistence smoke test — done when an E2E creates a team entry, restarts web, and confirms the entry is still searchable.
 - [ ] Add multi-instance persistence smoke test — done when two web processes behind the same DB can create/read the same team and personal entries.
 
@@ -239,7 +238,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
 
 ### P1 — Self-host and deployment usability
-- [ ] Create one-command production-ish self-host path — done when Docker Compose with `.env` boots web + DB + migrations + seed + health checks without manual commands.
 - [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
 - [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.
 

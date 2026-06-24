@@ -44,7 +44,7 @@ For a local demo with Postgres, Mailpit, seed data, and the web app, run:
 pnpm demo:local
 ```
 
-The compose file starts Postgres, Mailpit, web, and Slack services:
+The compose file starts Postgres, Mailpit, a one-shot migration/seed job, web, and Slack services:
 
 ```sh
 docker compose up --build
@@ -57,7 +57,9 @@ Expected local endpoints:
 - Mailpit: <http://localhost:8025>
 - Postgres: `localhost:5432`
 
-The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. `/readyz` fails until Postgres is reachable, required migrations exist, and at least one public corpus entry is seeded.
+The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. On a clean volume, the migration job applies DB migrations and imports the public seed corpus before web starts. `/readyz` fails until Postgres is reachable, required migrations exist, and at least one public corpus entry is seeded.
+
+Local Compose defaults set `WAT_VALIDATE_ENV=false` because the default URLs and Mailpit SMTP endpoint are localhost-only. Before exposing a self-hosted deployment publicly, set production values in `.env` and run with `WAT_VALIDATE_ENV=true`.
 
 Compose backup and restore use the checked-in scripts:
 

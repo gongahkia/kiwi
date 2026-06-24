@@ -1,5 +1,6 @@
 import { Client } from "pg";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 interface CountRow {
