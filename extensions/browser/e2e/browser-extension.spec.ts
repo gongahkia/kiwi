@@ -31,6 +31,13 @@ let server: Server;
 let baseUrl: string;
 let searchRequests: Array<{ context: string; limit: string; q: string }> = [];
 let customEntryRequests: Array<Record<string, unknown>> = [];
+let savedCustomEntries: Array<{
+  expansion: string;
+  meaning: string;
+  sourceTitle?: string;
+  sourceUrl?: string;
+  term: string;
+}> = [];
 const referenceTerms = [
   { id: "kubernetes", peers: ["Docker Swarm", "Nomad", "ECS"], term: "Kubernetes" },
   { id: "kafka", peers: ["RabbitMQ", "NATS", "Redpanda", "Pulsar"], term: "Kafka" },
@@ -62,6 +69,7 @@ test.afterAll(async () => {
 test.beforeEach(() => {
   searchRequests = [];
   customEntryRequests = [];
+  savedCustomEntries = [];
 });
 
 test("hover mode renders a sourced lookup tooltip", async () => {
@@ -288,6 +296,66 @@ test("side panel handles custom entry conflicts with update choices", async () =
   }
 });
 
+test("saves selected page text and finds it in a later lookup", async () => {
+  const session = await launchExtension();
+  try {
+    await setExtensionStorage(session.worker, {
+      [optionsStorageKey]: {
+        accountEmail: "user@example.test",
+        apiBaseUrl: baseUrl,
+        apiToken: "test-token",
+        domainFilters: [],
+        highlightMode: false,
+        hoverMode: false
+      }
+    });
+
+    const fixture = await session.context.newPage();
+    await fixture.goto(`${baseUrl}/custom-entry-fixture`);
+    await fixture.locator("#custom-term").dblclick();
+    const selectedTerm = await fixture.evaluate(() => window.getSelection()?.toString() ?? "");
+    expect(selectedTerm).toBe("QDEPTH");
+
+    await setExtensionStorage(session.worker, {
+      [sidePanelCustomEntryStorageKey]: {
+        context: "docs.example.test",
+        createdAt: new Date().toISOString(),
+        sourceTitle: "Queue handbook",
+        sourceUrl: `${baseUrl}/custom-entry-fixture`,
+        term: selectedTerm
+      }
+    });
+
+    const sidePanel = await session.context.newPage();
+    await sidePanel.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+    await expect(sidePanel.locator("#save-term")).toHaveValue("QDEPTH");
+
+    await sidePanel.locator("#save-expansion").fill("Queue Depth");
+    await sidePanel.locator("#save-meaning").fill("Internal queue backlog health shorthand.");
+    await sidePanel.getByRole("button", { name: "Save acronym" }).click();
+
+    await expect(sidePanel.locator("#save-status")).toHaveText(
+      "Saved. Future searches will include this custom layer."
+    );
+    expect(customEntryRequests.at(-1)).toMatchObject({
+      expansion: "Queue Depth",
+      meaning: "Internal queue backlog health shorthand.",
+      mode: "create",
+      term: "QDEPTH"
+    });
+
+    await sidePanel.locator("#query").fill("QDEPTH");
+    await sidePanel.getByRole("button", { name: "Search" }).click();
+
+    const result = sidePanel.locator("article").filter({ hasText: "QDEPTH - Queue Depth" });
+    await expect(result).toBeVisible();
+    await expect(result).toContainText("Internal queue backlog health shorthand.");
+    await expect(result).toContainText(`Queue handbook - ${baseUrl}/custom-entry-fixture`);
+  } finally {
+    await closeExtension(session);
+  }
+});
+
 test("options page tests connection before saving settings", async () => {
   const session = await launchExtension();
   try {
@@ -412,6 +480,14 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (url.pathname === "/custom-entry-fixture") {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(
+      '<!doctype html><title>Queue handbook</title><p>Select <span id="custom-term">QDEPTH</span> before saving.</p>'
+    );
+    return;
+  }
+
   if (url.pathname === "/api/v1/search") {
     searchRequests.push({
       context: url.searchParams.get("context") ?? "",
@@ -433,6 +509,22 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
   if (url.pathname === "/api/v1/custom-entries" && request.method === "POST") {
     void readJsonBody(request).then((body) => {
       customEntryRequests.push(body);
+      if (
+        body.term !== "TLS" &&
+        typeof body.term === "string" &&
+        typeof body.expansion === "string"
+      ) {
+        savedCustomEntries.push({
+          expansion: body.expansion,
+          meaning: typeof body.meaning === "string" ? body.meaning : "",
+          sourceTitle: typeof body.sourceTitle === "string" ? body.sourceTitle : undefined,
+          sourceUrl: typeof body.sourceUrl === "string" ? body.sourceUrl : undefined,
+          term: body.term
+        });
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        response.end(JSON.stringify({ entry: { term: body.term }, mode: "created" }));
+        return;
+      }
       if (body.mode === "upsert") {
         response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
         response.end(JSON.stringify({ entry: { term: body.term }, mode: "updated" }));
@@ -460,6 +552,31 @@ async function readJsonBody(request: IncomingMessage): Promise<Record<string, un
 
 function searchResponse(query: string) {
   const trimmed = query.trim();
+  const saved = savedCustomEntries.find(
+    (entry) => entry.term.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (saved) {
+    return {
+      matches: [
+        {
+          entry: {
+            expansions: [saved.expansion],
+            meaning_short: saved.meaning,
+            sources: saved.sourceUrl
+              ? [
+                  {
+                    title: saved.sourceTitle,
+                    url: saved.sourceUrl
+                  }
+                ]
+              : [],
+            term: saved.term
+          }
+        }
+      ]
+    };
+  }
+
   const reference = referenceEntries.get(trimmed.toLowerCase());
   if (reference) {
     return {
