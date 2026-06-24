@@ -312,7 +312,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ### P2 — Documentation gaps that will cause failed adoption
 - [ ] Add team admin guide — done when admins can follow docs to create a team, import entries, manage members, issue keys, and review suggestions.
-- [ ] Add developer architecture guide for DB-backed layers — done when contributors can see how public/team/personal entries flow from DB to search and surfaces.
 
 ### Beta readiness acceptance gates from audit
 - [ ] New-team time-to-value ≤15 minutes — verified when a fresh team can sign up, create/import an acronym, install/connect the extension, and see a scoped lookup in under 15 minutes without maintainer help.

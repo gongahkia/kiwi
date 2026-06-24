@@ -2,6 +2,8 @@
 
 wat's target architecture is a Postgres-backed glossary with public, team, and personal layers exposed through web, browser extension, Slack, and MCP surfaces.
 
+For contributor-facing DB layer flow and current implementation gaps, see [Developer Architecture Guide](developer-architecture.md).
+
 ## System Diagram
 
 ```mermaid

@@ -106,6 +106,7 @@ pnpm --filter @wat/ingest test
 - [Architecture](docs/architecture.md)
 - [API](docs/api.md)
 - [Contributing](docs/contributing.md)
+- [Developer architecture](docs/developer-architecture.md)
 - [Limitations](docs/limitations.md)
 - [Migration runbook](docs/migration-runbook.md)
 - [Security](docs/security.md)
