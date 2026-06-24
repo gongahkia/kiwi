@@ -3,6 +3,7 @@ import type { SearchEntry } from "@wat/search";
 
 import { CopyCitationButton } from "@/components/copy-citation-button";
 import { formatAlternativesPreview } from "@/lib/alternatives-preview";
+import { confidenceLabel, layerLabel } from "@/lib/search-result-labels";
 import { cn } from "@/lib/utils";
 
 interface SearchResultCardProps {
@@ -12,6 +13,8 @@ interface SearchResultCardProps {
 
 export function SearchResultCard({ className, entry }: SearchResultCardProps) {
   const alternatives = formatAlternativesPreview(entry.contemporaries);
+  const confidence = confidenceLabel(entry.confidence_tier);
+  const layer = layerLabel(entry.layer);
 
   return (
     <article className={cn("grid gap-3 rounded-md border border-input p-4", className)}>
@@ -23,7 +26,10 @@ export function SearchResultCard({ className, entry }: SearchResultCardProps) {
           >
             {entry.term}
           </Link>
-          <span className="rounded-md bg-secondary px-2 py-1 text-xs">{entry.confidence_tier}</span>
+          <span className="rounded-md border border-input px-2 py-1 text-xs">{layer}</span>
+          <span className="rounded-md bg-secondary px-2 py-1 text-xs">
+            {confidence} · {entry.confidence_tier}
+          </span>
         </div>
         <CopyCitationButton entry={entry} />
       </div>

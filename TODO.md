@@ -220,7 +220,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add bulk edit/delete safeguards — done when destructive bulk actions require confirmation and write audit rows.
 - [ ] Add team glossary dashboard — done when admins see total entries, pending suggestions, top searched acronyms, no-result gaps, stale entries, and source coverage.
 - [ ] Add entry validation messages in CRUD forms — done when invalid source URLs, missing fields, duplicate IDs, and duplicate term/expansion pairs show inline errors.
-- [ ] Add clear confidence/layer labels for team users — done when users understand whether a result is public, team, personal, pending, or low-confidence.
 
 ### P1 — Browser extension adoption blockers
 - [ ] Add extension login/pairing flow — done when a user can connect the extension to their wat account without manually pasting API URL, email, token, and team ID.
