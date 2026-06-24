@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { ImageResponse } from "next/og";
 
+import { formatOpenGraphAlternatives } from "@/lib/og-alternatives";
+
 export const alt = "wat entry";
 export const contentType = "image/png";
 export const runtime = "nodejs";
@@ -12,6 +14,7 @@ export const size = {
 };
 
 interface Entry {
+  contemporaries: string[];
   domains: string[];
   expansions: string[];
   id: string;
@@ -50,6 +53,7 @@ export default async function Image({ params }: ImageProps) {
   const term = entry?.term ?? "wat";
   const expansion = entry?.expansions[0] ?? "Layered glossary lookup";
   const domains = entry?.domains ?? ["glossary"];
+  const alternatives = formatOpenGraphAlternatives(entry?.contemporaries ?? []);
 
   return new ImageResponse(
     <div
@@ -86,6 +90,9 @@ export default async function Image({ params }: ImageProps) {
           {term}
         </div>
         <div style={{ color: "#334155", fontSize: 52, lineHeight: 1.15 }}>{expansion}</div>
+        {alternatives ? (
+          <div style={{ color: "#64748b", fontSize: 36, lineHeight: 1.2 }}>{alternatives}</div>
+        ) : null}
       </div>
       <div style={{ color: "#64748b", fontSize: 30 }}>wat</div>
     </div>,

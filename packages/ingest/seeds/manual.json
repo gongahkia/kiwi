@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-19T00:00:00.000Z",
+  "generated_at": "2026-06-24T00:00:00.000Z",
   "source": "manual",
   "entries": [
     {
@@ -1947,6 +1947,40 @@
       "aliases": ["real-time communication"],
       "related_terms": ["ICE", "TURN", "API"],
       "contemporaries": []
+    },
+    {
+      "id": "seed-kafka-apache-kafka",
+      "term": "Kafka",
+      "term_normalized": "kafka",
+      "expansions": ["Apache Kafka"],
+      "domains": ["messaging", "streaming"],
+      "meaning_short": "A distributed event store and stream-processing platform.",
+      "meaning_long": "Apache Kafka is used to publish, store, and process high-volume event streams across producers, brokers, and consumers.",
+      "examples": ["Use Kafka to move application events into a stream-processing pipeline."],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Apache_Kafka",
+          "title": "Apache Kafka",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Apache Kafka as a distributed event store and stream-processing platform.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["Apache Kafka"],
+      "related_terms": ["message broker", "event streaming", "stream processing"],
+      "contemporaries": ["RabbitMQ", "NATS", "Redpanda"]
     },
     {
       "id": "seed-pwa-progressive-web-application",

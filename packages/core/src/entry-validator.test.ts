@@ -7,7 +7,7 @@ const manualSeed = validateEntries(manualSeeds.entries)[0]!;
 
 describe("validateEntry", () => {
   it("validates all manual seed entries", () => {
-    expect(validateEntries(manualSeeds.entries)).toHaveLength(58);
+    expect(validateEntries(manualSeeds.entries)).toHaveLength(59);
   });
 
   it("requires normalized terms to match the entry term", () => {
