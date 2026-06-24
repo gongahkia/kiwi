@@ -49,6 +49,7 @@ export function updatePersonalEntry(
   if (patch.term?.trim()) entry.term = patch.term.trim();
   if (patch.expansion?.trim()) entry.expansion = patch.expansion.trim();
   if (patch.meaning?.trim()) entry.meaning = patch.meaning.trim();
+  if (patch.contemporaries) entry.contemporaries = patch.contemporaries;
   if (patch.domains) entry.domains = patch.domains;
   if (patch.sources) entry.sources = patch.sources;
 

@@ -14,6 +14,7 @@ describe("personal entries", () => {
   it("scopes CRUD to the owning user", () => {
     resetPersonalEntriesForTest();
     const entry: PersonalEntry = {
+      contemporaries: ["SAML", "OIDC"],
       domains: ["private"],
       expansion: "Customer Access Policy",
       id: "personal-cap",
@@ -33,11 +34,15 @@ describe("personal entries", () => {
 
     expect(createPersonalEntry("user_a", entry)).toEqual(entry);
     expect(getPersonalEntries("user_b")).toEqual([]);
+    expect(getPersonalEntries("user_a")[0]?.contemporaries).toEqual(["SAML", "OIDC"]);
     expect(personalEntriesCsv("user_a")).toContain("personal-cap");
     expect(personalEntriesCsv("user_b")).not.toContain("personal-cap");
     expect(
-      updatePersonalEntry("user_a", entry.id, { meaning: "Updated private note." })
-    ).toMatchObject({ meaning: "Updated private note." });
+      updatePersonalEntry("user_a", entry.id, {
+        contemporaries: ["Okta"],
+        meaning: "Updated private note."
+      })
+    ).toMatchObject({ contemporaries: ["Okta"], meaning: "Updated private note." });
     expect(deletePersonalEntry("user_a", entry.id)).toMatchObject({ id: entry.id });
     expect(getPersonalEntries("user_a")).toEqual([]);
     resetPersonalEntriesForTest();

@@ -8,6 +8,7 @@ export interface TeamEntrySource {
 }
 
 export interface TeamEntry {
+  contemporaries?: string[];
   domains: string[];
   expansion: string;
   id: string;
@@ -78,6 +79,11 @@ export function validateTeamEntry(entry: TeamEntry): string[] {
   if (!nonEmpty(entry.meaning)) issues.push("meaning is required");
   if (entry.domains.length === 0) issues.push("at least one domain is required");
   if (!entry.domains.every(nonEmpty)) issues.push("domains are required");
+  if (entry.contemporaries && !Array.isArray(entry.contemporaries)) {
+    issues.push("contemporaries must be a string array");
+  } else if (entry.contemporaries && !entry.contemporaries.every(nonEmpty)) {
+    issues.push("contemporaries are required");
+  }
   if (entry.sources.length === 0) issues.push("at least one source is required");
 
   for (const [index, source] of entry.sources.entries()) {
@@ -207,6 +213,7 @@ export function updateTeamEntry(entryId: string, patch: Partial<TeamEntry>): Tea
   if (patch.term?.trim()) entry.term = patch.term.trim();
   if (patch.expansion?.trim()) entry.expansion = patch.expansion.trim();
   if (patch.meaning?.trim()) entry.meaning = patch.meaning.trim();
+  if (patch.contemporaries) entry.contemporaries = patch.contemporaries;
   if (patch.domains) entry.domains = patch.domains;
   if (patch.sources) entry.sources = patch.sources;
   assertValidTeamEntry(entry);

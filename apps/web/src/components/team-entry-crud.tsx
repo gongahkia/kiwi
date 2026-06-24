@@ -28,6 +28,7 @@ function idFromTerm(term: string): string {
 function emptyFormFor(defaultDomains: string, initialTerm = "") {
   const term = initialTerm.trim();
   return {
+    contemporaries: "",
     domains: defaultDomains,
     expansion: "",
     meaning: "",
@@ -70,6 +71,10 @@ function entryFromForm(
 ): TeamEntry {
   const sourceUrl = form.source_url.trim() || `https://wat.local/${sourceLabel}/${id || "draft"}`;
   return {
+    contemporaries: form.contemporaries
+      .split(",")
+      .map((contemporary) => contemporary.trim())
+      .filter(Boolean),
     domains: form.domains
       .split(",")
       .map((domain) => domain.trim())
@@ -159,6 +164,7 @@ export function TeamEntryCrud({
     setEditingId(entry.id);
     setForm({
       domains: entry.domains.join(", "),
+      contemporaries: (entry.contemporaries ?? []).join(", "),
       expansion: entry.expansion,
       meaning: entry.meaning,
       source_url: entry.sources[0]?.url ?? "",
@@ -210,15 +216,17 @@ export function TeamEntryCrud({
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       <section className="grid gap-3">
         <div className="grid gap-2 sm:grid-cols-2">
-          {(["term", "expansion", "domains", "source_url"] as const).map((field) => (
-            <input
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              key={field}
-              onChange={(event) => setField(field, event.target.value)}
-              placeholder={field.replace("_", " ")}
-              value={form[field]}
-            />
-          ))}
+          {(["term", "expansion", "domains", "contemporaries", "source_url"] as const).map(
+            (field) => (
+              <input
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                key={field}
+                onChange={(event) => setField(field, event.target.value)}
+                placeholder={field.replace("_", " ")}
+                value={form[field]}
+              />
+            )
+          )}
           <textarea
             className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-2"
             onChange={(event) => setField("meaning", event.target.value)}
@@ -254,6 +262,11 @@ export function TeamEntryCrud({
                     {entry.term} - {entry.expansion}
                   </p>
                   <p className="text-sm text-foreground/65">{entry.meaning}</p>
+                  {entry.contemporaries?.length ? (
+                    <p className="text-xs text-foreground/55">
+                      Alternatives: {entry.contemporaries.join(", ")}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={() => edit(entry)} size="sm" type="button" variant="outline">
@@ -282,6 +295,11 @@ export function TeamEntryCrud({
           {preview.term || "TERM"} - {preview.expansion || "Expansion"}
         </p>
         <p className="text-sm text-foreground/70">{preview.meaning || "Meaning"}</p>
+        {preview.contemporaries?.length ? (
+          <p className="text-xs text-foreground/55">
+            Alternatives: {preview.contemporaries.join(", ")}
+          </p>
+        ) : null}
         <p className="text-xs text-foreground/55">{preview.domains.join(", ")}</p>
       </aside>
     </div>

@@ -117,6 +117,7 @@ test("creates a personal entry without requiring a manual id", async ({ context,
   await expect(page.getByPlaceholder("id")).toHaveCount(0);
   await page.getByPlaceholder("term").fill("Queue Depth");
   await page.getByPlaceholder("expansion").fill("Quality of Service");
+  await page.getByPlaceholder("contemporaries").fill("SLO, SLA");
   await page.getByPlaceholder("meaning").fill("Internal queue health shorthand.");
 
   await expect(
@@ -126,6 +127,9 @@ test("creates a personal entry without requiring a manual id", async ({ context,
 
   await expect(page.locator("article").filter({ hasText: "Queue Depth" })).toContainText(
     "Quality of Service"
+  );
+  await expect(page.locator("article").filter({ hasText: "Queue Depth" })).toContainText(
+    "Alternatives: SLO, SLA"
   );
 });
 

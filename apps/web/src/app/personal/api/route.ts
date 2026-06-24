@@ -29,6 +29,7 @@ function isPersonalEntry(value: unknown): value is PersonalEntry {
     typeof entry.expansion === "string" &&
     typeof entry.meaning === "string" &&
     isStringArray(entry.domains) &&
+    (entry.contemporaries === undefined || isStringArray(entry.contemporaries)) &&
     Array.isArray(entry.sources)
   );
 }
