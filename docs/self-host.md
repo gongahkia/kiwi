@@ -91,4 +91,4 @@ Postgres backups should use `pg_dump` for logical exports and should include any
 
 Restore drills should create a new database, load the latest backup, run migrations, and verify `/readyz`.
 
-For upgrade, migration, backup, restore, rollback, and secret-rotation steps, see [Migration Runbook](migration-runbook.md).
+Before exposing a deployment to team data, review [Production Readiness](production-readiness.md). For upgrade, migration, backup, restore, rollback, and secret-rotation steps, see [Migration Runbook](migration-runbook.md).

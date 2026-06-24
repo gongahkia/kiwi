@@ -275,7 +275,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add backup and restore scripts to Compose docs — done when a self-hoster can run backup, restore to a new DB, and verify search works.
 - [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
 - [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.
-- [ ] Add production readiness checklist — done when docs state required secrets, DB extensions, migrations, backups, TLS, rate limits, and monitoring.
 - [ ] Add clean-machine install test to CI or release process — done when Compose is verified on a fresh Linux runner before releases.
 
 ### P1 — Hosted service operations
