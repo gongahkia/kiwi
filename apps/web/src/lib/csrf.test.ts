@@ -18,24 +18,49 @@ describe("csrf same-origin checks", () => {
   });
 
   it("accepts same-origin mutation origin headers", () => {
-    expect(hasSameOriginMutationHeaders(request("POST", { origin: "https://wat.example.com" }))).toBe(
-      true
-    );
+    expect(
+      hasSameOriginMutationHeaders(request("POST", { origin: "https://wat.example.com" }))
+    ).toBe(true);
   });
 
   it("accepts same-origin mutation referer headers", () => {
     expect(
-      hasSameOriginMutationHeaders(request("PATCH", { referer: "https://wat.example.com/team/admin" }))
+      hasSameOriginMutationHeaders(
+        request("PATCH", { referer: "https://wat.example.com/team/admin" })
+      )
     ).toBe(true);
   });
 
-  it("rejects cross-site mutation headers", () => {
-    expect(hasSameOriginMutationHeaders(request("DELETE", { origin: "https://evil.example" }))).toBe(
-      false
+  it("accepts browser fetch metadata for same-origin mutations", () => {
+    expect(hasSameOriginMutationHeaders(request("POST", { "sec-fetch-site": "same-origin" }))).toBe(
+      true
     );
+    expect(hasSameOriginMutationHeaders(request("POST", { "sec-fetch-site": "none" }))).toBe(true);
+    expect(
+      hasSameOriginMutationHeaders(
+        request("POST", {
+          origin: "https://localhost:3000",
+          "sec-fetch-site": "same-origin"
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("accepts same-origin custom headers for JavaScript mutations", () => {
+    expect(hasSameOriginMutationHeaders(request("POST", { "x-wat-same-origin": "1" }))).toBe(true);
+  });
+
+  it("rejects cross-site mutation headers", () => {
+    expect(
+      hasSameOriginMutationHeaders(request("DELETE", { origin: "https://evil.example" }))
+    ).toBe(false);
     expect(
       hasSameOriginMutationHeaders(request("POST", { referer: "https://evil.example/form" }))
     ).toBe(false);
+    expect(hasSameOriginMutationHeaders(request("POST", { "sec-fetch-site": "cross-site" }))).toBe(
+      false
+    );
+    expect(hasSameOriginMutationHeaders(request("POST", { "x-wat-same-origin": "0" }))).toBe(false);
   });
 
   it("rejects mutation requests without same-origin evidence", () => {

@@ -28,6 +28,11 @@ export function hasSameOriginMutationHeaders(request: SameOriginRequest): boolea
   const expectedOrigin = originFor(request.url);
   if (!expectedOrigin) return false;
 
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite === "same-origin" || fetchSite === "none";
+
+  if (request.headers.get("x-wat-same-origin") === "1") return true;
+
   const origin = request.headers.get("origin");
   if (origin) return originFor(origin) === expectedOrigin;
 

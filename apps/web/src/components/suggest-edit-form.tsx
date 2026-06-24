@@ -33,7 +33,7 @@ export function SuggestEditForm({
     setStatus("");
     const response = await fetch(`/term/${entryId}/suggest`, {
       body: JSON.stringify(form),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
       method: "POST"
     });
     if (!response.ok) {

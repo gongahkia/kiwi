@@ -35,7 +35,7 @@ export function SuggestionReviewQueue({ initialSuggestions }: SuggestionReviewQu
 
     const response = await fetch("/team/admin/review/api", {
       body: JSON.stringify({ after_jsonb, id, status }),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
       method: "PATCH"
     });
     if (!response.ok) return;

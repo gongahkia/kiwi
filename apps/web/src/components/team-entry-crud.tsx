@@ -174,7 +174,7 @@ export function TeamEntryCrud({
     const entry = entryFromForm(form, generatedId, sourceLabel, sourceLicense);
     const response = await fetch(apiPath, {
       body: JSON.stringify(editingId ? { id: editingId, patch: entry } : entry),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
       method: editingId ? "PATCH" : "POST"
     });
     if (!response.ok) {
@@ -198,6 +198,7 @@ export function TeamEntryCrud({
 
   async function remove(id: string) {
     const response = await fetch(`${apiPath}?id=${encodeURIComponent(id)}`, {
+      headers: { "x-wat-same-origin": "1" },
       method: "DELETE"
     });
     if (response.ok) {

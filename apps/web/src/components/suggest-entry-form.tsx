@@ -35,7 +35,7 @@ export function SuggestEntryForm({ initialTerm = "" }: SuggestEntryFormProps) {
           .map((domain) => domain.trim())
           .filter(Boolean)
       }),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
       method: "POST"
     });
     if (!response.ok) {

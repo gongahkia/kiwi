@@ -98,7 +98,7 @@ test("opens create and suggest flows from unmatched queries", async ({ context, 
 
   await gotoHome(page);
   await fillSearch(page, "zzzz-no-match");
-  await page.getByRole("link", { name: "Suggest entry" }).click();
+  await page.getByRole("link", { name: "Suggest for review" }).click();
 
   await expect(page).toHaveURL(/\/suggest\?term=zzzz-no-match$/);
   await expect(page.getByPlaceholder("term")).toHaveValue("zzzz-no-match");
