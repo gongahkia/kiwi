@@ -1,5 +1,6 @@
 export type ErrorReportMetadata = {
   method?: string;
+  request_id?: string;
   route?: string;
   source?: string;
 };

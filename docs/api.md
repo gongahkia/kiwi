@@ -26,6 +26,8 @@ API clients can pass a configured token with either `Authorization: Bearer $WAT_
 
 Browser/API CORS is deny-by-default. Set comma-separated `WAT_ALLOWED_ORIGINS` for web clients and `WAT_EXTENSION_ORIGINS` for installed extension origins such as `chrome-extension://<id>` or `moz-extension://<id>`.
 
+Every API response includes `X-Request-Id`. Clients may send `X-Request-Id`; otherwise the server generates one and includes the same value in request, search, and error logs.
+
 Rate-limit settings:
 
 | Env                        | Default | Scope                          |

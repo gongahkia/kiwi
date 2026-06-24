@@ -1,4 +1,5 @@
 import { reportError } from "./lib/error-reporting";
+import { requestIdFromHeaders } from "./lib/request-id";
 import { assertValidStartupEnv } from "./lib/startup-env";
 
 type RequestErrorContext = {
@@ -8,6 +9,9 @@ type RequestErrorContext = {
 };
 
 type RequestLike = {
+  headers?: {
+    get(name: string): string | null;
+  };
   method?: string;
   path?: string;
 };
@@ -29,6 +33,7 @@ export async function onRequestError(
 ): Promise<void> {
   await reportError(error, {
     method: request.method,
+    request_id: requestIdFromHeaders(request.headers),
     route: context.routePath ?? request.path,
     source: context.routeType ?? context.routerKind ?? "next-request"
   });

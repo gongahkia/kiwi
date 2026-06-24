@@ -7,6 +7,7 @@ import { applyDomainContextBoost } from "@wat/search/boost";
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { applyCorsHeaders } from "@/lib/cors";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
+import { ensureRequestId, requestIdHeader } from "@/lib/request-id";
 import {
   getPublicEntries,
   getScopedPersonalEntries,
@@ -20,7 +21,12 @@ function hashQuery(query: string): string {
   return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");
 }
 
-function logSearchEvent(query: string, startedAt: number, matches: SearchResult[]) {
+function logSearchEvent(
+  requestId: string,
+  query: string,
+  startedAt: number,
+  matches: SearchResult[]
+) {
   const confidenceDistribution = matches.reduce<Record<string, number>>((counts, match) => {
     const tier = match.entry.confidence_tier;
     counts[tier] = (counts[tier] ?? 0) + 1;
@@ -34,7 +40,8 @@ function logSearchEvent(query: string, startedAt: number, matches: SearchResult[
       event: "search",
       latency_ms: Math.round(performance.now() - startedAt),
       layer_hit: layerHit,
-      query_hash: hashQuery(query)
+      query_hash: hashQuery(query),
+      request_id: requestId
     })
   );
 }
@@ -47,15 +54,21 @@ function clientIp(request: NextRequest): string {
   );
 }
 
-function withCorsHeaders(response: NextResponse, request: NextRequest) {
+function withCorsHeaders(
+  response: NextResponse,
+  request: NextRequest,
+  requestId = ensureRequestId(request.headers)
+) {
   applyCorsHeaders(response, request, { methods: "GET, OPTIONS" });
+  response.headers.set(requestIdHeader, requestId);
   return response;
 }
 
 function withRateLimitHeaders(
   response: NextResponse,
   request: NextRequest,
-  decision: ReturnType<typeof checkRateLimit>
+  decision: ReturnType<typeof checkRateLimit>,
+  requestId = ensureRequestId(request.headers)
 ) {
   response.headers.set("retry-after", String(decision.retryAfter));
   response.headers.set("x-ratelimit-limit", String(decision.limit));
@@ -63,7 +76,7 @@ function withRateLimitHeaders(
   response.headers.set("x-ratelimit-reset", String(Math.ceil(decision.resetAt / 1000)));
   response.headers.set("x-ratelimit-scope", decision.scope);
 
-  return withCorsHeaders(response, request);
+  return withCorsHeaders(response, request, requestId);
 }
 
 export function OPTIONS(request: NextRequest) {
@@ -71,12 +84,14 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const requestId = ensureRequestId(request.headers);
   const startedAt = performance.now();
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return withCorsHeaders(
       NextResponse.json({ error: identity.error }, { status: identity.status }),
-      request
+      request,
+      requestId
     );
   }
 
@@ -95,7 +110,8 @@ export async function GET(request: NextRequest) {
         { status: 429 }
       ),
       request,
-      rateLimit
+      rateLimit,
+      requestId
     );
   }
 
@@ -111,7 +127,8 @@ export async function GET(request: NextRequest) {
     return withRateLimitHeaders(
       NextResponse.json<SearchResponse>({ matches: [], suggest_url: "/suggest?term=" }),
       request,
-      rateLimit
+      rateLimit,
+      requestId
     );
   }
 
@@ -132,7 +149,7 @@ export async function GET(request: NextRequest) {
     : sortMatches(scoredMatches);
   const matches = rankedMatches.slice(0, Number.isFinite(limit) && limit > 0 ? limit : 10);
 
-  logSearchEvent(query, startedAt, matches);
+  logSearchEvent(requestId, query, startedAt, matches);
 
   return withRateLimitHeaders(
     NextResponse.json<SearchResponse>({
@@ -140,6 +157,7 @@ export async function GET(request: NextRequest) {
       suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined
     }),
     request,
-    rateLimit
+    rateLimit,
+    requestId
   );
 }

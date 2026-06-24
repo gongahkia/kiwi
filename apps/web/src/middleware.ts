@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
 import { hasSameOriginMutationHeaders } from "./lib/csrf";
+import { ensureRequestId, requestIdHeader } from "./lib/request-id";
 import { isAdminSession } from "./lib/session";
 
 const sessionCookie = "wat_session";
@@ -10,7 +11,9 @@ const adminPrefix = "/team/admin";
 const logger = pino({ name: "wat-web" });
 
 export function middleware(request: NextRequest) {
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const requestId = ensureRequestId(request.headers);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(requestIdHeader, requestId);
   const startedAt = Date.now();
   let response: NextResponse;
 
@@ -29,10 +32,14 @@ export function middleware(request: NextRequest) {
   } else if (needsAdmin && session && !isAdminSession(session)) {
     response = new NextResponse("Forbidden", { status: 403 });
   } else {
-    response = NextResponse.next();
+    response = NextResponse.next({
+      request: {
+        headers: requestHeaders
+      }
+    });
   }
 
-  response.headers.set("x-request-id", requestId);
+  response.headers.set(requestIdHeader, requestId);
   logger.info({
     duration_ms: Date.now() - startedAt,
     event: "request",

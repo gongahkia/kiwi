@@ -6,7 +6,7 @@ describe("buildErrorReport", () => {
   it("normalizes thrown errors with request metadata", () => {
     const report = buildErrorReport(
       new TypeError("boom"),
-      { method: "GET", route: "/api/test", source: "route" },
+      { method: "GET", request_id: "req_123", route: "/api/test", source: "route" },
       new Date("2026-06-20T00:00:00.000Z")
     );
 
@@ -14,6 +14,7 @@ describe("buildErrorReport", () => {
       message: "boom",
       method: "GET",
       name: "TypeError",
+      request_id: "req_123",
       route: "/api/test",
       runtime: "server",
       source: "route",

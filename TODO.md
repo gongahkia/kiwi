@@ -264,7 +264,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.
 - [ ] Standardize REST error shapes — done when all APIs return consistent `{ error, code, message, request_id }` style responses.
 - [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
-- [ ] Add request IDs to all API responses and logs — done when support can correlate user-visible errors to server logs.
 
 ### P1 — Self-host and deployment usability
 - [ ] Create one-command local demo path — done when a new developer can run one documented command and get web search, DB, seeded corpus, and Mailpit working.
