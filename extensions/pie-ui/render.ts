@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import type { FooterSegment, PieConfig, PresetName } from "./config.ts";
+import type { FooterSegment, PieConfig, PresetName, SegmentEntry, WhenRule } from "./config.ts";
 import { FOOTER_SEGMENTS, PRESET_NAMES } from "./config.ts";
 
 type ThemeLike = {
@@ -33,10 +33,15 @@ export function createFooter(config: PieConfig, ctx: ExtensionContext, pi: Exten
 		invalidate() {},
 		render(width: number): string[] {
 			if (disposed || config.footer?.enabled === false) return [];
-			const segments = config.footer?.segments ?? [];
+			const segments: SegmentEntry[] = config.footer?.segments ?? [];
 			const sep = theme.fg("muted", config.footer?.separator ?? " · ");
 			const rendered = segments
-				.map((segment) => renderSegment(segment, config, ctx, pi, state, theme, footerData))
+				.map((entry) => {
+					const id = typeof entry === "string" ? entry : entry.id;
+					const when = typeof entry === "string" ? undefined : entry.when;
+					if (!shouldRenderSegment(when, ctx, footerData)) return undefined;
+					return renderSegment(id, config, ctx, pi, state, theme, footerData);
+				})
 				.filter((segment): segment is string => Boolean(segment));
 			const line = rendered.join(sep);
 			const prefix = visibleWidth(line) < width ? " " : "";
@@ -402,6 +407,26 @@ class TextPanel implements Component {
 	invalidate(): void {
 		this.scroll = Math.max(0, this.scroll);
 	}
+}
+
+// returns true if the segment should render given the when rule. unknown / undefined rules render.
+export function shouldRenderSegment(rule: WhenRule | undefined, ctx: ExtensionContext, footerData: FooterData): boolean {
+	if (!rule || rule === "always") return true;
+	if (rule === "git-repo") return footerData.getGitBranch() !== null;
+	if (rule === "trusted-project") return ctx.isProjectTrusted();
+	if (rule.startsWith("context>")) {
+		const threshold = Number(rule.slice("context>".length));
+		const usage = ctx.getContextUsage();
+		if (!usage || usage.percent === null) return false;
+		return usage.percent > threshold;
+	}
+	if (rule.startsWith("tokens>")) {
+		const raw = rule.slice("tokens>".length);
+		const threshold = raw.endsWith("k") ? Number(raw.slice(0, -1)) * 1000 : Number(raw);
+		const totals = usageTotals(ctx);
+		return totals.input + totals.output > threshold;
+	}
+	return true;
 }
 
 function renderSegment(segment: FooterSegment, config: PieConfig, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, theme: ThemeLike, footerData: FooterData): string | undefined {

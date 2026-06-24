@@ -149,7 +149,7 @@ JSON Schema: [`schema/pie-ui.schema.json`](./schema/pie-ui.schema.json). Use `{ 
 }
 ```
 
-Footer segments: `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`.
+Footer segments: `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`. Each entry can also be conditional: `{ "id": "cost", "when": "context>70" }`. Available `when` rules: `always`, `git-repo`, `trusted-project`, `context>50`, `context>70`, `context>90`, `tokens>10k`.
 
 Modes (what surface the extension owns):
 - `full` — header + footer + widget + theme.

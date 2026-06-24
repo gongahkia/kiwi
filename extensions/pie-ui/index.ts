@@ -399,7 +399,9 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 	}
 	if (action === "compact") next.compact = !Boolean(loaded.effective.compact);
 	if (action === "footer") {
-		const segments = await pickFooterSegments(ctx, loaded.effective.footer?.segments);
+		// picker handles bare-string entries only; conditional `when` rules must be edited via /pie edit-json or pie_config patch.
+		const current = loaded.effective.footer?.segments?.map((entry) => (typeof entry === "string" ? entry : entry.id));
+		const segments = await pickFooterSegments(ctx, current);
 		if (!segments) return;
 		next.footer = { ...next.footer, enabled: true, segments };
 	}

@@ -16,10 +16,13 @@ export const PRESET_NAMES = [
 ] as const;
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
 export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only"] as const;
+export const WHEN_RULES = ["always", "git-repo", "trusted-project", "context>50", "context>70", "context>90", "tokens>10k"] as const;
 
 export type PresetName = (typeof PRESET_NAMES)[number];
 export type FooterSegment = (typeof FOOTER_SEGMENTS)[number];
 export type PieMode = (typeof MODE_NAMES)[number];
+export type WhenRule = (typeof WHEN_RULES)[number];
+export type SegmentEntry = FooterSegment | { id: FooterSegment; when?: WhenRule };
 export type PresetApplyMode = "clean" | "merge";
 export type WidgetPlacement = "aboveEditor" | "belowEditor";
 
@@ -37,7 +40,7 @@ export type PieConfig = {
 	};
 	footer?: {
 		enabled?: boolean;
-		segments?: FooterSegment[];
+		segments?: SegmentEntry[];
 		separator?: string;
 	};
 	widget?: {
@@ -315,6 +318,7 @@ const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "pers
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
+const whenRules = new Set<string>(WHEN_RULES);
 const PERSONAS_KEYSET = new Set(Object.keys(PERSONAS));
 
 export function isObject(value: unknown): value is Record<string, unknown> {
@@ -397,7 +401,16 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 			errors.push("footer.segments must be an array");
 		} else {
 			for (const segment of cfg.footer.segments) {
-				if (typeof segment !== "string" || !footerSegments.has(segment)) errors.push(`unknown footer segment: ${String(segment)}`);
+				if (typeof segment === "string") {
+					if (!footerSegments.has(segment)) errors.push(`unknown footer segment: ${segment}`);
+				} else if (isObject(segment)) {
+					const id = (segment as { id?: unknown }).id;
+					if (typeof id !== "string" || !footerSegments.has(id)) errors.push(`unknown footer segment: ${String(id)}`);
+					const when = (segment as { when?: unknown }).when;
+					if (when !== undefined && (typeof when !== "string" || !whenRules.has(when))) errors.push(`unknown footer segment when rule: ${String(when)}`);
+				} else {
+					errors.push(`footer segment must be a string or object: ${String(segment)}`);
+				}
 			}
 		}
 	}

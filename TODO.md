@@ -238,32 +238,6 @@ Rebind path (document in README): `~/.pi/agent/keybindings.json` — per keybind
 
 ---
 
-### P1-09 — Conditional footer segments
-
-- [ ] Segment shape becomes `string | { id: FooterSegment; when?: WhenRule }`. Backward compatible (bare strings).
-
-**Why:** lualine parity. `branch` already returns `undefined` outside git repos (`render.ts:319-322`); generalize.
-
-**Files:**
-- `extensions/pie-ui/config.ts` — segment union type, validator update.
-- `extensions/pie-ui/render.ts` — filter at `createFooter` (`render.ts:34-44`) or per-segment in `renderSegment` (`render.ts:315`).
-- `schema/pie-ui.schema.json` — `segments.items` becomes union.
-- `tests/config.test.ts` — add tests.
-
-**Sketch:**
-```ts
-type WhenRule = "always" | "git-repo" | "trusted-project" | "context>50" | "context>70" | "context>90" | "tokens>10k";
-type SegmentEntry = FooterSegment | { id: FooterSegment; when?: WhenRule };
-function shouldRender(rule: WhenRule | undefined, ctx, footerData): boolean { /* … */ }
-```
-Existing `branch` short-circuit at `render.ts:320-322` can be removed once `{ id: "branch", when: "git-repo" }` is in default presets.
-
-**Refs:** existing `renderSegment` switch at `render.ts:315`.
-
-**Acceptance:** `{ id: "cost", when: "context>70" }` only renders when usage > 70%. New tests cover each rule. Bare-string config keeps working.
-
----
-
 ### P1-10 — Layer composition (Doom-modules pattern)
 
 - [ ] `layers: string[]` field that resolves additional partial configs between preset and user overrides.
@@ -606,7 +580,7 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 | User-msg styling | theme | **per element** | compact | — | n/a | n/a | n/a |
 | Markdown styling | — | **yes** | partial | — | n/a | n/a | n/a |
 | Keybinds registered | — | — | — | **alt+s, ctrl+shift+b** | — | n/a | yes |
-| Conditional segments | — | n/a | n/a | context-warn | flexible | **richest** | — |
+| Conditional segments | **7 rules** | n/a | n/a | context-warn | flexible | richest | — |
 | Sticky bash | — | — | — | yes | — | n/a | n/a |
 | Recent-prompts overlay | — | — | — | yes (50) | — | n/a | n/a |
 | Persona / output-style | — | — | — | working-vibes | — | n/a | n/a |

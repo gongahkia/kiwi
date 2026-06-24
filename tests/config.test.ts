@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig } from "../extensions/pie-ui/config.ts";
+import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { applyEffectiveConfig, applyPie, diffLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
 import { resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
-import { createFooter } from "../extensions/pie-ui/render.ts";
+import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
 const requiredThemeTokens = [
 	"accent",
@@ -136,12 +136,17 @@ test("schema enums match exported config constants", () => {
 		properties: {
 			preset: { enum: string[] };
 			mode: { enum: string[] };
-			footer: { properties: { segments: { items: { enum: string[] } } } };
+			footer: { properties: { segments: { items: { oneOf: Array<{ enum?: string[]; properties?: { id?: { enum?: string[] }; when?: { enum?: string[] } } }> } } } };
 		};
 	};
 	assert.deepEqual(schema.properties.preset.enum, [...PRESET_NAMES]);
 	assert.deepEqual(schema.properties.mode.enum, [...MODE_NAMES]);
-	assert.deepEqual(schema.properties.footer.properties.segments.items.enum, [...FOOTER_SEGMENTS]);
+	const segmentItems = schema.properties.footer.properties.segments.items;
+	const stringForm = segmentItems.oneOf.find((branch) => Array.isArray(branch.enum));
+	const objectForm = segmentItems.oneOf.find((branch) => branch.properties);
+	assert.deepEqual(stringForm?.enum, [...FOOTER_SEGMENTS]);
+	assert.deepEqual(objectForm?.properties?.id?.enum, [...FOOTER_SEGMENTS]);
+	assert.deepEqual(objectForm?.properties?.when?.enum, [...WHEN_RULES]);
 });
 
 test("footer render truncates and compact mode shortens labels", () => {
@@ -252,6 +257,70 @@ test("applyPie falls back to preset default persona when config.persona is unset
 		// codex-inspired defaults to arc persona; spinner frames must be set
 		assert.ok(calls.workingIndicator.at(-1)?.frames?.length);
 	});
+});
+
+test("conditional footer segments accept object form with when rule", () => {
+	const ok = validateConfig({
+		preset: "minimal",
+		footer: { segments: ["model", { id: "cost", when: "context>70" }, { id: "branch", when: "git-repo" }] },
+	});
+	assert.equal(ok.valid, true);
+	const badId = validateConfig({ preset: "minimal", footer: { segments: [{ id: "nope" } as unknown as never] } });
+	assert.equal(badId.valid, false);
+	assert.match(badId.errors.join("\n"), /unknown footer segment/);
+	const badWhen = validateConfig({ preset: "minimal", footer: { segments: [{ id: "cost", when: "always-on" } as unknown as never] } });
+	assert.equal(badWhen.valid, false);
+	assert.match(badWhen.errors.join("\n"), /unknown footer segment when rule/);
+});
+
+test("shouldRenderSegment evaluates when rules against ctx and footerData", () => {
+	const footerWithBranch = { getGitBranch: () => "main", getExtensionStatuses: () => new Map(), onBranchChange: () => () => {} };
+	const footerNoBranch = { getGitBranch: () => null, getExtensionStatuses: () => new Map(), onBranchChange: () => () => {} };
+	const trusted = { isProjectTrusted: () => true, getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent: 80 }), sessionManager: { getBranch: () => [] } } as any;
+	const untrusted = { isProjectTrusted: () => false, getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent: 10 }), sessionManager: { getBranch: () => [] } } as any;
+	assert.equal(shouldRenderSegment(undefined, trusted, footerWithBranch), true);
+	assert.equal(shouldRenderSegment("always", trusted, footerWithBranch), true);
+	assert.equal(shouldRenderSegment("git-repo", trusted, footerWithBranch), true);
+	assert.equal(shouldRenderSegment("git-repo", trusted, footerNoBranch), false);
+	assert.equal(shouldRenderSegment("trusted-project", trusted, footerWithBranch), true);
+	assert.equal(shouldRenderSegment("trusted-project", untrusted, footerWithBranch), false);
+	assert.equal(shouldRenderSegment("context>70", trusted, footerWithBranch), true);
+	assert.equal(shouldRenderSegment("context>70", untrusted, footerWithBranch), false);
+	assert.equal(shouldRenderSegment("context>90", trusted, footerWithBranch), false);
+});
+
+test("createFooter respects conditional segments and skips when rules that fail", () => {
+	const ctx = {
+		cwd: "/Users/test/repo",
+		model: { id: "m" },
+		isProjectTrusted: () => true,
+		getContextUsage: () => ({ tokens: 100, contextWindow: 1000, percent: 50 }),
+		sessionManager: { getBranch: () => [] },
+	} as any;
+	const pi = { getThinkingLevel: () => "low" } as any;
+	const theme = { fg: (_n: string, t: string) => t, bg: (_n: string, t: string) => t, bold: (t: string) => t };
+	const footerData = { getGitBranch: () => null, getExtensionStatuses: () => new Map(), onBranchChange: () => () => {} };
+	const footer = createFooter(
+		{
+			compact: true,
+			footer: {
+				enabled: true,
+				segments: ["model", { id: "branch", when: "git-repo" }, { id: "cost", when: "context>90" }, { id: "preset", when: "always" }],
+				separator: " | ",
+			},
+			preset: "minimal",
+		},
+		ctx,
+		pi,
+		{ working: false },
+		theme,
+		footerData,
+	);
+	const line = footer.render(120)[0];
+	assert.match(line, /m/);
+	assert.match(line, /minimal/);
+	assert.doesNotMatch(line, /\$/);
+	assert.equal(line.includes("main"), false);
 });
 
 test("diffLines reports no change for identical configs and changes for distinct presets", () => {

@@ -18,7 +18,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 
 ## Common Changes
 - Switch preset: patch `/preset` and `/theme` together.
-- Footer order: replace `/footer/segments` with any of `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`.
+- Footer order: replace `/footer/segments` with any of `model`, `thinking`, `cwd`, `branch`, `status`, `context`, `tokens`, `cost`, `preset`. Each entry can be a bare string or `{ id: <segment>, when: <rule> }`. Rules: `always`, `git-repo`, `trusted-project`, `context>50`, `context>70`, `context>90`, `tokens>10k`. Example: `[{ "id": "cost", "when": "context>70" }, "branch"]`.
 - Header: set `/header/enabled`, `/header/title`, and `/header/subtitle`.
 - Widget: set `/widget/enabled`, `/widget/placement`, and `/widget/lines`.
 - Tool display: set `/tools/expanded`.

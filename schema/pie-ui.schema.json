@@ -55,8 +55,26 @@
         "segments": {
           "type": "array",
           "items": {
-            "type": "string",
-            "enum": ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"]
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"]
+              },
+              {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"]
+                  },
+                  "when": {
+                    "type": "string",
+                    "enum": ["always", "git-repo", "trusted-project", "context>50", "context>70", "context>90", "tokens>10k"]
+                  }
+                }
+              }
+            ]
           }
         },
         "separator": { "type": "string" }
