@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "contemporaries:coverage": "tsx src/contemporaries-coverage.ts",
     "contemporaries:lint": "tsx src/contemporaries-lint.ts",
     "ingest": "tsx src/cli.ts",
     "lint:sources": "tsx src/source-coverage.ts seeds/manual.json",

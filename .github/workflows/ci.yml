@@ -18,6 +18,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm --filter @wat/ingest contemporaries:lint
+      - run: pnpm --filter @wat/ingest contemporaries:coverage
 
   typecheck:
     runs-on: ubuntu-latest

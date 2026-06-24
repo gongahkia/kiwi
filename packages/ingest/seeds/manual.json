@@ -884,7 +884,41 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["PV", "PVC", "K8s"],
-      "contemporaries": []
+      "contemporaries": ["FlexVolume"]
+    },
+    {
+      "id": "seed-flexvolume-flexvolume",
+      "term": "FlexVolume",
+      "term_normalized": "flexvolume",
+      "expansions": ["FlexVolume"],
+      "domains": ["kubernetes", "storage"],
+      "meaning_short": "A legacy Kubernetes volume plugin mechanism superseded by CSI drivers.",
+      "meaning_long": "FlexVolume let Kubernetes clusters integrate out-of-tree storage drivers through executable plugins before CSI became the preferred plugin interface.",
+      "examples": ["Migrate a FlexVolume storage integration to a CSI driver."],
+      "sources": [
+        {
+          "url": "https://github.com/kubernetes/community/blob/main/sig-storage/volume-plugin-faq.md",
+          "title": "Kubernetes volume plugin FAQ",
+          "publisher": "Kubernetes",
+          "license": "CC-BY-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Kubernetes SIG Storage documents FlexVolume as a deprecated out-of-tree volume driver option alongside CSI.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "CC-BY-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": true,
+      "deprecated_reason": "Kubernetes storage plugin guidance favors CSI drivers over FlexVolume drivers.",
+      "aliases": [],
+      "related_terms": ["CSI", "PV", "PVC"],
+      "contemporaries": ["CSI"]
     },
     {
       "id": "seed-rbac-role-based-access-control",
@@ -1158,7 +1192,75 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["K8s", "API", "Pod"],
-      "contemporaries": []
+      "contemporaries": ["Consul", "ZooKeeper"]
+    },
+    {
+      "id": "seed-consul-consul",
+      "term": "Consul",
+      "term_normalized": "consul",
+      "expansions": ["Consul"],
+      "domains": ["infra", "storage"],
+      "meaning_short": "A service networking platform with distributed key-value storage.",
+      "meaning_long": "Consul provides service discovery, service mesh features, and distributed key-value storage for application configuration and coordination.",
+      "examples": ["Use Consul KV to store service configuration shared across a cluster."],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Consul_(software)",
+          "title": "Consul (software)",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Consul as a service networking platform with distributed key-value storage.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["service discovery", "key-value store", "service mesh"],
+      "contemporaries": ["etcd"]
+    },
+    {
+      "id": "seed-zookeeper-apache-zookeeper",
+      "term": "ZooKeeper",
+      "term_normalized": "zookeeper",
+      "expansions": ["Apache ZooKeeper"],
+      "domains": ["infra", "storage"],
+      "meaning_short": "A distributed coordination service with hierarchical key-value storage.",
+      "meaning_long": "Apache ZooKeeper coordinates distributed systems through naming, configuration, synchronization, and group services backed by a replicated hierarchy.",
+      "examples": ["Use ZooKeeper to coordinate leader election in a distributed service."],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Apache_ZooKeeper",
+          "title": "Apache ZooKeeper",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Apache ZooKeeper as a service for distributed coordination with a hierarchical key-value store.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["Apache ZooKeeper"],
+      "related_terms": ["distributed coordination", "key-value store", "leader election"],
+      "contemporaries": ["etcd"]
     },
     {
       "id": "seed-pod",
@@ -1226,7 +1328,7 @@
       "deprecated_reason": null,
       "aliases": [],
       "related_terms": ["CD", "SRE", "IaC"],
-      "contemporaries": []
+      "contemporaries": ["Jenkins"]
     },
     {
       "id": "seed-cd-continuous-delivery",
@@ -1258,9 +1360,9 @@
       "updated_at": "2026-06-19T00:00:00.000Z",
       "deprecated": false,
       "deprecated_reason": null,
-      "aliases": [],
+      "aliases": ["Continuous Delivery"],
       "related_terms": ["CI", "Continuous Deployment", "SRE"],
-      "contemporaries": []
+      "contemporaries": ["Continuous Deployment"]
     },
     {
       "id": "seed-cd-continuous-deployment",
@@ -1294,9 +1396,9 @@
       "updated_at": "2026-06-19T00:00:00.000Z",
       "deprecated": false,
       "deprecated_reason": null,
-      "aliases": [],
+      "aliases": ["Continuous Deployment"],
       "related_terms": ["CI", "Continuous Delivery", "SRE"],
-      "contemporaries": []
+      "contemporaries": ["Continuous Delivery"]
     },
     {
       "id": "seed-iac-infrastructure-as-code",
@@ -1330,7 +1432,179 @@
       "deprecated_reason": null,
       "aliases": ["IAC"],
       "related_terms": ["CI", "CD", "K8s"],
-      "contemporaries": []
+      "contemporaries": ["Terraform", "Pulumi", "OpenTofu", "CloudFormation"]
+    },
+    {
+      "id": "seed-jenkins-jenkins",
+      "term": "Jenkins",
+      "term_normalized": "jenkins",
+      "expansions": ["Jenkins"],
+      "domains": ["devops", "software"],
+      "meaning_short": "An automation server commonly used for CI/CD pipelines.",
+      "meaning_long": "Jenkins automates software development tasks such as building, testing, and deploying applications through jobs and pipelines.",
+      "examples": ["Use Jenkins to run a pull-request build and test pipeline."],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Jenkins_(software)",
+          "title": "Jenkins (software)",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Jenkins as an open source automation server for building, testing, and deploying software.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": 2011,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["CI", "CD", "pipeline"],
+      "contemporaries": ["CI"]
+    },
+    {
+      "id": "seed-terraform-terraform",
+      "term": "Terraform",
+      "term_normalized": "terraform",
+      "expansions": ["Terraform"],
+      "domains": ["infra", "devops"],
+      "meaning_short": "An infrastructure-as-code tool for provisioning infrastructure from declarative configuration.",
+      "meaning_long": "Terraform lets operators define infrastructure resources in configuration files and apply changes through providers for cloud, SaaS, and platform APIs.",
+      "examples": ["Use Terraform to provision cloud networking and database resources."],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Terraform_(software)",
+          "title": "Terraform (software)",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Terraform as infrastructure-as-code software for defining and provisioning infrastructure.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": 2014,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["IaC", "HCL", "provider"],
+      "contemporaries": ["IaC"]
+    },
+    {
+      "id": "seed-pulumi-pulumi",
+      "term": "Pulumi",
+      "term_normalized": "pulumi",
+      "expansions": ["Pulumi"],
+      "domains": ["infra", "devops"],
+      "meaning_short": "An infrastructure-as-code platform that uses general-purpose programming languages.",
+      "meaning_long": "Pulumi lets teams define and manage cloud infrastructure with programming languages such as TypeScript, Python, Go, C#, Java, and YAML.",
+      "examples": [
+        "Use Pulumi TypeScript code to provision a Kubernetes cluster and cloud database."
+      ],
+      "sources": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Pulumi",
+          "title": "Pulumi",
+          "publisher": "Wikipedia",
+          "license": "CC-BY-SA-4.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Wikipedia describes Pulumi as infrastructure-as-code software using general-purpose languages.",
+          "source_quality": "secondary"
+        }
+      ],
+      "coiner": null,
+      "year_coined": 2017,
+      "confidence_tier": "T2",
+      "license": "CC-BY-SA-4.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["IaC", "cloud infrastructure", "automation"],
+      "contemporaries": ["IaC"]
+    },
+    {
+      "id": "seed-opentofu-opentofu",
+      "term": "OpenTofu",
+      "term_normalized": "opentofu",
+      "expansions": ["OpenTofu"],
+      "domains": ["infra", "devops"],
+      "meaning_short": "An open-source infrastructure-as-code tool forked from Terraform.",
+      "meaning_long": "OpenTofu is a Linux Foundation infrastructure-as-code tool for building, changing, and versioning infrastructure with Terraform-compatible workflows.",
+      "examples": ["Use OpenTofu to apply Terraform-compatible infrastructure configuration."],
+      "sources": [
+        {
+          "url": "https://github.com/opentofu/opentofu",
+          "title": "OpenTofu",
+          "publisher": "OpenTofu",
+          "license": "MPL-2.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "OpenTofu describes itself as an OSS tool for building, changing, and versioning infrastructure safely and efficiently.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": 2023,
+      "confidence_tier": "T1",
+      "license": "MPL-2.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["IaC", "Terraform", "provider"],
+      "contemporaries": ["IaC"]
+    },
+    {
+      "id": "seed-cloudformation-aws-cloudformation",
+      "term": "CloudFormation",
+      "term_normalized": "cloudformation",
+      "expansions": ["AWS CloudFormation"],
+      "domains": ["aws", "cloud", "devops"],
+      "meaning_short": "An AWS infrastructure-as-code service for modeling and provisioning resources.",
+      "meaning_long": "AWS CloudFormation lets teams define AWS and third-party resources as templates and provision them through managed stack operations.",
+      "examples": ["Use a CloudFormation template to create an S3 bucket and IAM role."],
+      "sources": [
+        {
+          "url": "https://github.com/aws/aws-sdk-js/blob/master/apis/cloudformation-2010-05-15.normal.json",
+          "title": "AWS CloudFormation service model",
+          "publisher": "AWS SDK for JavaScript",
+          "license": "Apache-2.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "The AWS SDK service model identifies CloudFormation as an AWS service.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "Apache-2.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": ["AWS CloudFormation"],
+      "related_terms": ["IaC", "AWS", "stack"],
+      "contemporaries": ["IaC"]
     },
     {
       "id": "seed-sre-site-reliability-engineering",
