@@ -242,6 +242,72 @@ Errors:
 | `403` | `x-wat-team-id is required for team entries` | Team-scope write without team scope. |
 | `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
 
+## Authenticated Surface Examples
+
+These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key`, and `WAT_TEAM_ID=team_123`.
+
+### curl
+
+```sh
+curl \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "X-Wat-User-Id: user_123" \
+  -H "X-Wat-Team-Id: $WAT_TEAM_ID" \
+  "$WAT_API_BASE_URL/api/v1/search?q=CAP&limit=5"
+```
+
+### Browser Extension
+
+The extension lookup path sends the stored account email and team ID with the stored API token:
+
+```js
+const url = new URL("/api/v1/search", WAT_API_BASE_URL);
+url.searchParams.set("q", "CAP");
+url.searchParams.set("limit", "5");
+url.searchParams.set("context", "docs.example.com");
+
+await fetch(url, {
+  headers: {
+    authorization: `Bearer ${WAT_API_KEY}`,
+    "x-wat-user-id": "user@example.com",
+    "x-wat-team-id": WAT_TEAM_ID
+  }
+});
+```
+
+### Slack
+
+Slack lookups use the configured wat API key and team ID, with the Slack user ID namespaced for user-level quotas:
+
+```sh
+curl \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "X-Wat-User-Id: slack:U_ALICE" \
+  -H "X-Wat-Team-Id: $WAT_TEAM_ID" \
+  "$WAT_API_BASE_URL/api/v1/search?q=TLS&limit=5&context=docs"
+```
+
+### MCP
+
+MCP clients pass the same team key as tool input. The server reads `WAT_API_KEY` and `WAT_TEAM_ID` from its environment and rejects mismatched `api_key` values.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "lookup",
+    "arguments": {
+      "api_key": "wat_team_key",
+      "term": "CAP",
+      "context": "Kubernetes incident notes",
+      "limit": 5
+    }
+  }
+}
+```
+
 ## Shared Types
 
 Confidence tiers:

@@ -267,7 +267,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Standardize REST error shapes — done when all APIs return consistent `{ error, code, message, request_id }` style responses.
 - [ ] Add pagination to list/export APIs where needed — done when large teams can list entries, audit logs, and suggestions without loading all rows.
 - [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
-- [ ] Add API examples for curl, browser extension, Slack, and MCP — done when docs show minimal working authenticated requests for each surface.
 - [ ] Add request IDs to all API responses and logs — done when support can correlate user-visible errors to server logs.
 
 ### P1 — Self-host and deployment usability
