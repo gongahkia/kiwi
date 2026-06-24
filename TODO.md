@@ -262,16 +262,6 @@ Autocomplete provider matches when text contains `pie-ui.json`-relevant patterns
 
 ---
 
-### P2-22 — AGENTS.md for cross-agent friendliness
-
-- [ ] Blocked on `.gitignore`: file `AGENTS.md` is already drafted at repo root locally (full content covers project purpose, `pie_config` tool actions, scopes/trust, slash commands, constants, coexistence pointers, behaviors to avoid). `.gitignore` lists `AGENTS.md` so `git add` refuses without `-f`. Decision needed from repo owner: (a) remove `AGENTS.md` from `.gitignore` and commit (recommended — Pi catalog and Claude marketplaces auto-index AGENTS.md and the file is generic, not personal), or (b) keep ignored if there is a personal/local reason. If (a), run `sed -i '' '/^AGENTS\.md$/d' .gitignore && git add AGENTS.md .gitignore && git commit`.
-
-**Files:** `AGENTS.md` (already written, untracked).
-
-**Acceptance unmet:** file exists locally but not in tracked tree.
-
----
-
 ### P3-23 — Preset SDK for third-party packages
 
 - [ ] Export `defineFriedApplePiePreset(...)` so others can publish presets that depend on this package.
