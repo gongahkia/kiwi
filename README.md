@@ -191,6 +191,9 @@ Modes (what surface the extension owns):
 Optional `notifications`:
 - `contextWarnings: false` — suppress the automatic context-usage warnings (70% info / 90% warning).
 
+Optional `analytics`:
+- `enabled: true` with `endpoint: "https://..."` — send one telemetry-free preset/persona/layers stats POST per session. Defaults off and sends nothing without an endpoint.
+
 Optional `tools`:
 - `expanded: true` — keep tool results expanded by default.
 - `renderStyle: "pill" | "card" | "dense" | "minimal"` — choose the built-in tool renderer style for `bash`, `edit`, `read`, and `grep`.

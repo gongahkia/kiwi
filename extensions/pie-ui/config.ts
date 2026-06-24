@@ -76,6 +76,10 @@ export type PieConfig = {
 	notifications?: {
 		contextWarnings?: boolean;
 	};
+	analytics?: {
+		enabled?: boolean;
+		endpoint?: string;
+	};
 };
 
 export type ValidationResult = {
@@ -401,8 +405,8 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 	},
 };
 
-const objectKeys = new Set(["header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications"]);
-const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "layers", "header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications"]);
+const objectKeys = new Set(["header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications", "analytics"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "layers", "header", "footer", "widget", "welcome", "tools", "thinking", "working", "notifications", "analytics"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
@@ -545,6 +549,10 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 	});
 	validateSection("notifications", cfg.notifications, errors, {
 		contextWarnings: "boolean",
+	});
+	validateSection("analytics", cfg.analytics, errors, {
+		enabled: "boolean",
+		endpoint: "string",
 	});
 	if (cfg.working?.frames !== undefined && (!Array.isArray(cfg.working.frames) || cfg.working.frames.some((frame) => typeof frame !== "string"))) {
 		errors.push("working.frames must be an array of strings");

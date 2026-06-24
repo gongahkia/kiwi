@@ -71,18 +71,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P3-26 — Telemetry-free opt-in stats
-
-- [ ] Anonymized POST to registry when user opts in. Defaults off.
-
-**Files:** new `extensions/pie-ui/stats.ts`. Config extension. Doctor reporting.
-
-**Sketch:** opt-in flag `analytics.enabled: true`. POST `{ preset, persona, layers, hashedInstallId: sha256(homedir + machineId).slice(0,16) }` once per session. No IP capture beyond what the HTTP server logs.
-
-**Acceptance:** opt-out by default; flag toggleable via `/pie edit`; doctor reports state.
-
----
-
 ## 2. Cross-cutting hygiene (always)
 
 - [ ] **CC-01** Update `skills/fried-apple-pie/SKILL.md` whenever a new command/subcommand/tool action is added so the Pi agent can drive it.

@@ -173,6 +173,14 @@
       "properties": {
         "contextWarnings": { "type": "boolean" }
       }
+    },
+    "analytics": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "endpoint": { "type": "string" }
+      }
     }
   }
 }

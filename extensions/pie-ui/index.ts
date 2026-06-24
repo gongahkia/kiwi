@@ -28,6 +28,7 @@ import { bannerForConfig } from "./banners.ts";
 import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, pickShortcutAction, PIE_SHORTCUT_ACTIONS, type PieShortcutAction, type RenderState, showPanel, widgetLines } from "./render.ts";
+import { analyticsStatus, postStats } from "./stats.ts";
 import { registerPresetToolRenderers } from "./tool-renderers.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -74,6 +75,7 @@ export default function (pi: ExtensionAPI) {
 	// context-warning latch: fire each threshold at most once per session; cleared on /compact.
 	const warned: { mid: boolean; high: boolean } = { mid: false, high: false };
 	let autocompleteRegistered = false;
+	let statsPosted = false;
 
 	pi.on("resources_discover", () => ({
 		themePaths: [themeDir],
@@ -93,6 +95,10 @@ export default function (pi: ExtensionAPI) {
 		if (!autocompleteRegistered) {
 			ctx.ui.addAutocompleteProvider(createPieAutocompleteProvider);
 			autocompleteRegistered = true;
+		}
+		if (!statsPosted && config.analytics?.enabled && config.analytics.endpoint) {
+			statsPosted = true;
+			void postStats(config);
 		}
 		const message = welcomeMessageForSession(event.reason, config);
 		if (message) pi.sendMessage(message);
@@ -923,6 +929,7 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	for (const warning of validation.warnings) lines.push(`config warning: ${warning}`);
 	const themes = new Set(ctx.ui.getAllThemes().map((theme) => theme.name));
 	if (loaded.effective.theme && !themes.has(loaded.effective.theme)) lines.push(`theme unavailable: ${loaded.effective.theme}`);
+	lines.push(analyticsStatus(loaded.effective));
 	const commands = pi.getCommands().map((command) => command.name);
 	const conflicts = commands.filter((name) => ["footer", "powerline-footer", "tool-display"].includes(name));
 	for (const conflict of conflicts) lines.push(`possible UI conflict: /${conflict}`);

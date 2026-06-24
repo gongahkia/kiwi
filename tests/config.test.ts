@@ -13,6 +13,7 @@ import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependen
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 import { defineFriedApplePiePreset } from "../extensions/pie-ui/sdk.ts";
+import { analyticsStatus, hashedInstallId, postStats, statsPayload } from "../extensions/pie-ui/stats.ts";
 import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
 
 const requiredThemeTokens = [
@@ -180,6 +181,17 @@ test("welcome config validates custom banners", () => {
 	assert.match(badEnabled.errors.join("\n"), /welcome.enabled/);
 	assert.equal(badBanner.valid, false);
 	assert.match(badBanner.errors.join("\n"), /welcome.banner/);
+});
+
+test("analytics config validates opt-in shape", () => {
+	const ok = validateConfig({ preset: "minimal", analytics: { enabled: true, endpoint: "https://stats.example.test" } });
+	const badEnabled = validateConfig({ preset: "minimal", analytics: { enabled: "yes" } });
+	const badEndpoint = validateConfig({ preset: "minimal", analytics: { endpoint: 123 } });
+	assert.equal(ok.valid, true);
+	assert.equal(badEnabled.valid, false);
+	assert.match(badEnabled.errors.join("\n"), /analytics.enabled/);
+	assert.equal(badEndpoint.valid, false);
+	assert.match(badEndpoint.errors.join("\n"), /analytics.endpoint/);
 });
 
 test("every preset has a bundled startup banner", () => {
@@ -724,6 +736,34 @@ test("recordHistory writes JSON history and appends session entry", () => {
 		assert.deepEqual(readHistory(), [entry]);
 		assert.deepEqual(appended, [{ customType: PIE_HISTORY_TYPE, data: entry }]);
 	});
+});
+
+test("postStats is opt-in and sends anonymized payload", async () => {
+	const disabledCalls: unknown[] = [];
+	const disabled = await postStats({ preset: "minimal" }, async (...args: unknown[]) => {
+		disabledCalls.push(args);
+		return { ok: true, status: 204 };
+	});
+	assert.deepEqual(disabled, { sent: false, reason: "disabled" });
+	assert.deepEqual(disabledCalls, []);
+
+	const config = { preset: "codex-inspired" as const, persona: "arc", layers: ["theme:gemini"], analytics: { enabled: true, endpoint: "https://stats.example.test" } };
+	const calls: Array<{ url: string; body: string }> = [];
+	const sent = await postStats(config, async (url, init) => {
+		calls.push({ url, body: init.body });
+		return { ok: true, status: 204 };
+	}, "/home/test", "machine");
+	assert.deepEqual(sent, { sent: true, status: 204 });
+	assert.equal(calls[0].url, "https://stats.example.test");
+	const payload = JSON.parse(calls[0].body);
+	assert.equal(payload.preset, "codex-inspired");
+	assert.equal(payload.persona, "arc");
+	assert.deepEqual(payload.layers, ["theme:gemini"]);
+	assert.equal(typeof payload.hashedInstallId, "string");
+	assert.equal(payload.hashedInstallId, hashedInstallId("/home/test", "machine"));
+	assert.equal(statsPayload(config, "/home/test", "machine").hashedInstallId, hashedInstallId("/home/test", "machine"));
+	assert.equal(analyticsStatus(config), "analytics: enabled -> https://stats.example.test");
+	assert.equal(analyticsStatus({ preset: "minimal" }), "analytics: disabled");
 });
 
 test("history is capped at 50 entries", () => {
