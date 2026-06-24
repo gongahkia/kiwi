@@ -3,7 +3,9 @@
 import { Check, Save, X } from "lucide-react";
 import { useState } from "react";
 
+import { AdminEmptyState } from "@/components/admin-empty-state";
 import { Button } from "@/components/ui/button";
+import { adminEmptyStates } from "@/lib/admin-empty-states";
 import type { SuggestedEdit, SuggestedEditStatus } from "@/lib/suggestions";
 
 interface SuggestionReviewQueueProps {
@@ -79,11 +81,7 @@ export function SuggestionReviewQueue({ initialSuggestions }: SuggestionReviewQu
           />
         </article>
       ))}
-      {suggestions.length === 0 ? (
-        <p className="rounded-md border border-input p-4 text-sm text-foreground/65">
-          No suggestions.
-        </p>
-      ) : null}
+      {suggestions.length === 0 ? <AdminEmptyState {...adminEmptyStates.suggestions} /> : null}
     </section>
   );
 }

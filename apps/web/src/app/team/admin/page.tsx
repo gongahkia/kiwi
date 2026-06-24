@@ -92,6 +92,9 @@ export default async function TeamAdminPage() {
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/members">
               Members
             </Link>
+            <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/api-keys">
+              API keys
+            </Link>
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/entries">
               Entries
             </Link>

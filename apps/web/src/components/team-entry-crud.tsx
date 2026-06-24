@@ -3,7 +3,9 @@
 import { Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { AdminEmptyState } from "@/components/admin-empty-state";
 import { Button } from "@/components/ui/button";
+import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { validateTeamEntryDraft } from "@/lib/team-entry-form-validation";
 import type { TeamEntry } from "@/lib/team-entries";
 
@@ -253,6 +255,18 @@ export function TeamEntryCrud({
           Created {layerLabel} entries are marked {sourceLicense}, not public open-source corpus
           data.
         </p>
+        {entries.length === 0 ? (
+          <AdminEmptyState
+            {...(layerLabel === "team"
+              ? adminEmptyStates.teamEntries
+              : {
+                  actionHref: "/personal",
+                  actionLabel: "Create personal entry",
+                  body: "Create a private entry with the form, or save selected text from the browser extension.",
+                  title: "No personal entries"
+                })}
+          />
+        ) : null}
         <div className="grid gap-3">
           {entries.map((entry) => (
             <article className="grid gap-2 rounded-md border border-input p-4" key={entry.id}>

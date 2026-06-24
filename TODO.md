@@ -256,7 +256,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add WAF/basic abuse rules — done when obvious SQLi/XSS probes and abusive request patterns are blocked or rate-limited at the edge.
 
 ### P2 — Product UX gaps that will block normal teams
-- [ ] Add onboarding empty states — done when empty team glossary, no suggestions, no members, and no API keys pages explain what to do next.
 - [ ] Add stale-entry review workflow — done when entries can be marked stale/needs review and admins can update or deprecate them.
 - [ ] Add deprecation support for team/personal entries — done when deprecated entries remain auditable but are hidden or labeled in normal search.
 

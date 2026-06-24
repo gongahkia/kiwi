@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { AdminEmptyState } from "@/components/admin-empty-state";
+import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { getTeamMembers } from "@/lib/team-members";
 
 export default function TeamMembersPage() {
@@ -17,24 +19,28 @@ export default function TeamMembersPage() {
           </Link>
           <h1 className="text-4xl font-semibold">Team members</h1>
         </header>
-        <div className="overflow-x-auto rounded-md border border-input">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-secondary">
-              <tr>
-                <th className="px-3 py-2 font-medium">Email</th>
-                <th className="px-3 py-2 font-medium">Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => (
-                <tr className="border-t border-input" key={member.id}>
-                  <td className="px-3 py-2">{member.email}</td>
-                  <td className="px-3 py-2">{member.role}</td>
+        {members.length === 0 ? (
+          <AdminEmptyState {...adminEmptyStates.members} />
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-input">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-secondary">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Email</th>
+                  <th className="px-3 py-2 font-medium">Role</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {members.map((member) => (
+                  <tr className="border-t border-input" key={member.id}>
+                    <td className="px-3 py-2">{member.email}</td>
+                    <td className="px-3 py-2">{member.role}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </main>
   );
