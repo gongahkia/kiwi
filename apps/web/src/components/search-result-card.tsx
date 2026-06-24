@@ -3,7 +3,7 @@ import type { SearchEntry } from "@wat/search";
 
 import { CopyCitationButton } from "@/components/copy-citation-button";
 import { formatAlternativesPreview } from "@/lib/alternatives-preview";
-import { confidenceLabel, layerLabel } from "@/lib/search-result-labels";
+import { confidenceLabel, layerLabel, sourceStatusLabel } from "@/lib/search-result-labels";
 import { cn } from "@/lib/utils";
 
 interface SearchResultCardProps {
@@ -15,6 +15,7 @@ export function SearchResultCard({ className, entry }: SearchResultCardProps) {
   const alternatives = formatAlternativesPreview(entry.contemporaries);
   const confidence = confidenceLabel(entry.confidence_tier);
   const layer = layerLabel(entry.layer);
+  const sourceStatus = sourceStatusLabel(entry);
 
   return (
     <article className={cn("grid gap-3 rounded-md border border-input p-4", className)}>
@@ -46,7 +47,7 @@ export function SearchResultCard({ className, entry }: SearchResultCardProps) {
           </span>
         ))}
       </div>
-      <p className="text-sm text-foreground/60">{entry.sources.length} sources</p>
+      <p className="text-sm text-foreground/60">{sourceStatus}</p>
     </article>
   );
 }

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { confidenceLabel, layerLabel } from "@/lib/search-result-labels";
+import { confidenceLabel, layerLabel, sourceStatusLabel } from "@/lib/search-result-labels";
 
 const renderedFieldFiles = [
   join(process.cwd(), "src/components/search-result-card.tsx"),
@@ -23,6 +23,34 @@ describe("search result card labels", () => {
     expect(confidenceLabel("T2")).toBe("Verified");
     expect(confidenceLabel("T3")).toBe("Low confidence");
     expect(confidenceLabel("T4")).toBe("Pending review");
+  });
+
+  it("explains user-contributed source provenance", () => {
+    expect(
+      sourceStatusLabel({
+        aliases: [],
+        confidence_tier: "T4",
+        contemporaries: [],
+        domains: ["ops"],
+        expansions: ["Change Approval Process"],
+        id: "team-cap",
+        layer: "team",
+        meaning_short: "Internal release gate.",
+        sources: [
+          {
+            license: "proprietary-team",
+            publisher: "wat",
+            retrieved_at: "2026-06-24T00:00:00.000Z",
+            snippet: "CAP fixture.",
+            source_quality: "community",
+            title: "Team glossary",
+            url: "https://example.com/cap"
+          }
+        ],
+        term: "CAP",
+        term_normalized: "cap"
+      })
+    ).toBe("User-contributed - proprietary-team - community source");
   });
 
   it("does not use raw HTML sinks for user-provided glossary fields", () => {

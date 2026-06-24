@@ -195,7 +195,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add team/private entries to web search UI for signed-in users — done when the homepage search includes scoped personal/team overlays, not only public seed entries.
 - [ ] Add context/domain boosting for DB-backed team and personal entries — done when `context` boosts matching domains across all layers and tests cover browser page hostname context.
 - [ ] Add no-result suggestion flow tied to authenticated team — done when no-match searches can create scoped suggestions without leaking query text across teams.
-- [ ] Add search result provenance for user-contributed entries — done when team/personal results clearly show user/team-contributed confidence and source status.
 - [ ] Add DB search performance indexes for team/personal tables — done when EXPLAIN plans use FTS/trigram indexes and p95 stays under target with public + team overlays.
 - [ ] Add search analytics with privacy-safe aggregation — done when query hashes, layer hits, confidence distribution, and latency are captured without raw private query logging.
 

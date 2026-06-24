@@ -20,3 +20,15 @@ export function confidenceLabel(tier: SearchEntry["confidence_tier"]): string {
 export function layerLabel(layer: SearchEntry["layer"]): string {
   return layerLabels[layer];
 }
+
+export function sourceStatusLabel(entry: SearchEntry): string {
+  if (entry.layer === "public") {
+    const noun = entry.sources.length === 1 ? "source" : "sources";
+    return `${entry.sources.length} ${noun}`;
+  }
+
+  const source = entry.sources[0];
+  const license = source?.license ?? "unknown license";
+  const quality = source?.source_quality ?? "community";
+  return `User-contributed - ${license} - ${quality} source`;
+}
