@@ -314,7 +314,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Rewrite README around current maturity and install paths — done when README clearly distinguishes demo, self-host, hosted beta, extension, Slack, and MCP readiness.
 - [ ] Add team admin guide — done when admins can follow docs to create a team, import entries, manage members, issue keys, and review suggestions.
 - [ ] Add developer architecture guide for DB-backed layers — done when contributors can see how public/team/personal entries flow from DB to search and surfaces.
-- [ ] Add security model docs for tenants and keys — done when docs explain tenant isolation, key scopes, Slack permissions, extension privacy, and audit logs.
 - [ ] Add migration/runbook docs for self-hosters — done when self-hosters can upgrade versions, run migrations, back up, restore, and rollback.
 
 ### Beta readiness acceptance gates from audit

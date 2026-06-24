@@ -63,4 +63,5 @@ pnpm --filter @wat/ingest test
 - [Contributing](docs/contributing.md)
 - [Limitations](docs/limitations.md)
 - [Security](docs/security.md)
+- [Security model](docs/security-model.md)
 - [Troubleshooting](docs/troubleshooting.md)

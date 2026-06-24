@@ -1,5 +1,7 @@
 # Security
 
+For tenant, key, Slack permission, extension privacy, and audit-log rules, see [Security Model](security-model.md).
+
 ## Threat Model
 
 wat handles public glossary data, team-private entries, personal entries, identities, OAuth tokens, API keys, and audit history.
