@@ -76,6 +76,7 @@ export function validateTeamEntry(entry: TeamEntry): string[] {
   if (!nonEmpty(entry.term)) issues.push("term is required");
   if (!nonEmpty(entry.expansion)) issues.push("expansion is required");
   if (!nonEmpty(entry.meaning)) issues.push("meaning is required");
+  if (entry.domains.length === 0) issues.push("at least one domain is required");
   if (!entry.domains.every(nonEmpty)) issues.push("domains are required");
   if (entry.sources.length === 0) issues.push("at least one source is required");
 
@@ -137,7 +138,10 @@ export function getTeamEntries(): TeamEntry[] {
   return structuredClone(teamEntries);
 }
 
-export function listTeamEntriesPage(offset: number, limit: number): {
+export function listTeamEntriesPage(
+  offset: number,
+  limit: number
+): {
   entries: TeamEntry[];
   total: number;
 } {

@@ -4,6 +4,7 @@ import { Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { validateTeamEntryDraft } from "@/lib/team-entry-form-validation";
 import type { TeamEntry } from "@/lib/team-entries";
 
 interface TeamEntryCrudProps {
@@ -107,6 +108,8 @@ export function TeamEntryCrud({
   const [entries, setEntries] = useState(initialEntries);
   const [editingId, setEditingId] = useState("");
   const [form, setForm] = useState(initialForm);
+  const [serverError, setServerError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const generatedId = useMemo(
     () => generatedIdFor(sourceLabel, form, entries, editingId),
     [editingId, entries, form, sourceLabel]
@@ -115,6 +118,13 @@ export function TeamEntryCrud({
     () => entryFromForm(form, generatedId, sourceLabel, sourceLicense),
     [form, generatedId, sourceLabel, sourceLicense]
   );
+  const validationIssues = useMemo(
+    () => validateTeamEntryDraft(preview, entries, editingId),
+    [editingId, entries, preview]
+  );
+  const visibleIssues = submitted
+    ? [...validationIssues, ...(serverError ? [serverError] : [])]
+    : [];
   const hasDraft = Boolean(preview.id.trim());
   const mergedEntries = useMemo(() => {
     if (!hasDraft) return entries;
@@ -139,10 +149,13 @@ export function TeamEntryCrud({
   }, [initialForm]);
 
   function setField(field: keyof EntryForm, value: string) {
+    setServerError("");
     setForm((current) => ({ ...current, [field]: value }));
   }
 
   function edit(entry: TeamEntry) {
+    setServerError("");
+    setSubmitted(false);
     setEditingId(entry.id);
     setForm({
       domains: entry.domains.join(", "),
@@ -154,13 +167,24 @@ export function TeamEntryCrud({
   }
 
   async function save() {
+    setSubmitted(true);
+    setServerError("");
+    if (validationIssues.length > 0) return;
+
     const entry = entryFromForm(form, generatedId, sourceLabel, sourceLicense);
     const response = await fetch(apiPath, {
       body: JSON.stringify(editingId ? { id: editingId, patch: entry } : entry),
       headers: { "content-type": "application/json" },
       method: editingId ? "PATCH" : "POST"
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setServerError(payload?.message ?? payload?.error ?? "save failed");
+      return;
+    }
     const payload = (await response.json()) as { entry: TeamEntry };
     setEntries((current) =>
       editingId
@@ -168,6 +192,7 @@ export function TeamEntryCrud({
         : [...current, payload.entry]
     );
     setEditingId("");
+    setSubmitted(false);
     setForm(blankForm);
   }
 
@@ -201,6 +226,16 @@ export function TeamEntryCrud({
           />
         </div>
         <p className="text-xs text-foreground/55">Generated ID: {preview.id || "term required"}</p>
+        {visibleIssues.length > 0 ? (
+          <div
+            className="grid gap-1 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+            role="alert"
+          >
+            {visibleIssues.map((issue) => (
+              <p key={issue}>{issue}</p>
+            ))}
+          </div>
+        ) : null}
         <Button onClick={save} type="button">
           {editingId ? <Save /> : <Plus />}
           {editingId ? "Save entry" : "Create entry"}
