@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "bench": "vitest run src/hybrid.test.ts",
+    "bench": "vitest run src/hybrid.test.ts src/ambiguous-acronym-benchmark.test.ts",
     "build": "tsc -b",
     "test": "vitest run src",
     "test:coverage": "vitest run src --coverage",

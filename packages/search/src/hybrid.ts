@@ -17,6 +17,7 @@ export interface HybridSearchMatch<
   score: number;
   score_breakdown: {
     contemporary: number;
+    domain: number;
     exact: number;
     lexical: number;
     trigram: number;
@@ -55,6 +56,7 @@ function scoreCandidate<TCandidate extends HybridSearchCandidate>(
   const termTokens = [candidate.term, ...(candidate.aliases ?? [])].map(normalizeText);
   const expansionTokens = new Set(tokenize(candidate.expansions?.join(" ") ?? ""));
   const contemporaryTokens = new Set(tokenize(candidate.contemporaries?.join(" ") ?? ""));
+  const domainTokens = new Set(tokenize(candidate.domains?.join(" ") ?? ""));
   const document = [
     candidate.term,
     ...(candidate.aliases ?? []),
@@ -72,18 +74,21 @@ function scoreCandidate<TCandidate extends HybridSearchCandidate>(
         : 0;
   const lexicalOverlap = queryTokens.filter((token) => expansionTokens.has(token)).length;
   const contemporaryOverlap = queryTokens.filter((token) => contemporaryTokens.has(token)).length;
+  const domainOverlap = queryTokens.filter((token) => domainTokens.has(token)).length;
   const allQueryTokensMatched = queryTokens.every(
     (token) => termTokens.includes(token) || expansionTokens.has(token)
   );
   const lexical = lexicalOverlap * 3 + (allQueryTokensMatched ? 2 : 0);
   const contemporary = contemporaryOverlap * 1.5;
+  const domain = domainOverlap * 2;
   const trigram = trigramSimilarity(normalizedQuery, document) * 2;
 
   return {
     candidate,
-    score: exact + lexical + contemporary + trigram,
+    score: exact + lexical + contemporary + domain + trigram,
     score_breakdown: {
       contemporary,
+      domain,
       exact,
       lexical,
       trigram
