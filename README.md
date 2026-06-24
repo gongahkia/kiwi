@@ -224,6 +224,22 @@ Preset apply modes:
 - `clean` — reset preset-owned config (header, footer, widget, tools, thinking).
 - `merge` — keep your overrides on top of the preset.
 
+## Authoring Presets
+
+Third-party preset packages can depend on `fried-apple-pie` and export a `PresetDefinition` from `fried-apple-pie/sdk`.
+
+```ts
+import { defineFriedApplePiePreset } from "fried-apple-pie/sdk";
+
+export default defineFriedApplePiePreset({
+  name: "my-preset",
+  theme: { name: "fried-apple-pie-my-preset", colors: { accent: "#7c3aed" } },
+  config: { preset: "minimal", theme: "fried-apple-pie-my-preset" }
+});
+```
+
+Real theme packages should provide the full Pi theme token set. See [`examples/third-party-preset`](./examples/third-party-preset).
+
 ## Comparison
 
 |                              | fried-apple-pie | tweakcc (CC) | amp-themes (Pi) | pi-powerline-footer | ccstatusline (CC) | lualine (nvim) | opencode |

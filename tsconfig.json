@@ -4,6 +4,9 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": true,
+    "paths": {
+      "fried-apple-pie/sdk": ["./extensions/pie-ui/sdk.ts"]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2022",
@@ -13,6 +16,7 @@
   },
   "include": [
     "extensions/**/*.ts",
+    "examples/**/*.ts",
     "tests/**/*.ts"
   ]
 }

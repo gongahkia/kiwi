@@ -71,31 +71,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P3-23 — Preset SDK for third-party packages
-
-- [ ] Export `defineFriedApplePiePreset(...)` so others can publish presets that depend on this package.
-
-**Files:** new `extensions/pie-ui/sdk.ts`, `package.json` `exports` map.
-
-**Sketch:**
-```ts
-export type PresetDefinition = {
-  name: string;
-  theme: ThemeFile;            // 51-token JSON shape
-  config: Partial<PieConfig>;
-  banner?: string[];
-  persona?: { spinner: string; verbs: string };
-};
-export function defineFriedApplePiePreset(spec: PresetDefinition): PresetDefinition { return spec; }
-```
-Third-party packages depend on `fried-apple-pie`, export a default `PresetDefinition`, Pi discovers via `pi.themes` and `pi.extensions` (host extension can scan loaded extensions for `__friedApplePiePreset` markers).
-
-**Refs:** lualine-themes ecosystem for ergonomic precedent.
-
-**Acceptance:** README "Authoring presets" section; example package stub in `examples/`.
-
----
-
 ### P3-24 — Theme-extraction CLI `npx fap capture-terminal`
 
 - [ ] Read terminal OSC color responses, emit a Pi-compatible 51-token theme JSON.

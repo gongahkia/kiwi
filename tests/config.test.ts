@@ -11,6 +11,7 @@ import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
 import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, importConfig, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_HISTORY_TYPE, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, recordHistory, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
+import { defineFriedApplePiePreset } from "../extensions/pie-ui/sdk.ts";
 import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
 
 const requiredThemeTokens = [
@@ -768,10 +769,23 @@ test("package metadata and preview assets are publish-ready", () => {
 	assert.ok(pkg.repository?.url);
 	assert.ok(pkg.homepage);
 	assert.ok(pkg.bugs?.url);
+	assert.equal(pkg.exports["./sdk"].types, "./extensions/pie-ui/sdk.ts");
+	assert.ok(pkg.files.includes("examples"));
 	assert.match(pkg.pi.image, /^https:\/\/raw\.githubusercontent\.com\//);
 	const png = readFileSync("assets/fried-apple-pie-gallery.png");
 	assert.equal(png.readUInt32BE(16), 1200);
 	assert.equal(png.readUInt32BE(20), 740);
+});
+
+test("preset SDK defines third-party preset specs", () => {
+	const spec = defineFriedApplePiePreset({
+		name: "demo",
+		theme: { name: "fried-apple-pie-demo", colors: { accent: "#fff" } },
+		config: { preset: "minimal", theme: "fried-apple-pie-demo" },
+	});
+	assert.equal(spec.name, "demo");
+	assert.throws(() => defineFriedApplePiePreset({ ...spec, name: "" }), /preset name/);
+	assert.equal(existsSync("examples/third-party-preset/index.ts"), true);
 });
 
 function writeProjectConfig(cwd: string, config: unknown): void {

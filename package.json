@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "description": "Pi UI presets, themes, and agent-editable config.",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./extensions/pie-ui/sdk.ts",
+      "import": "./extensions/pie-ui/sdk.ts",
+      "default": "./extensions/pie-ui/sdk.ts"
+    },
+    "./sdk": {
+      "types": "./extensions/pie-ui/sdk.ts",
+      "import": "./extensions/pie-ui/sdk.ts",
+      "default": "./extensions/pie-ui/sdk.ts"
+    },
+    "./package.json": "./package.json"
+  },
   "author": "gongahkia",
   "keywords": [
     "pi-package",
@@ -22,6 +35,7 @@
   },
   "files": [
     "assets",
+    "examples",
     "extensions",
     "LICENSE",
     "schema",
