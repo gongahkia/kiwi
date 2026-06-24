@@ -116,7 +116,7 @@ body {
 }
 
 main[class] {
-  padding: 40px var(--space-gutter);
+  padding: var(--space-section) var(--space-gutter);
 }
 
 button,
@@ -145,6 +145,13 @@ a {
 
 a:hover {
   color: var(--on-surface);
+}
+
+button:not(:disabled),
+a[href],
+label:has(input),
+select {
+  cursor: pointer;
 }
 
 ::selection {
@@ -235,6 +242,12 @@ th,
   border-radius: var(--radius-xl);
 }
 
+.rounded-2xl,
+.rounded-3xl,
+.rounded-full {
+  border-radius: var(--radius-md);
+}
+
 .shadow,
 .shadow-sm,
 .shadow-md,
@@ -273,6 +286,34 @@ th,
   color: var(--on-surface);
 }
 
+.bg-primary,
+.hover\:bg-primary:hover {
+  background-color: var(--primary);
+  color: var(--neutral);
+}
+
+.bg-muted-surface {
+  background-color: var(--muted-surface);
+}
+
+.bg-background,
+.bg-surface {
+  background-color: var(--surface);
+}
+
+.text-primary,
+.text-on-surface {
+  color: var(--on-surface);
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.text-destructive {
+  color: var(--destructive);
+}
+
 input,
 select,
 textarea {
@@ -286,6 +327,46 @@ input::placeholder,
 textarea::placeholder {
   color: var(--secondary);
   opacity: 1;
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  transform: scale(0);
+  background: var(--on-surface);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="file"] {
+  color: var(--secondary);
+}
+
+input[type="file"]::file-selector-button {
+  height: 32px;
+  margin-right: var(--space-md);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 a.rounded-md,
@@ -321,8 +402,13 @@ th {
   outline-offset: 2px;
 }
 
+.focus-visible\:ring-2:focus-visible,
+.focus-visible\:ring-ring:focus-visible {
+  box-shadow: none;
+}
+
 @media (max-width: 640px) {
   main[class] {
-    padding: 32px 16px;
+    padding: var(--space-section) var(--space-base);
   }
 }
