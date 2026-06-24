@@ -271,7 +271,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ### P1 — Self-host and deployment usability
 - [ ] Create one-command local demo path — done when a new developer can run one documented command and get web search, DB, seeded corpus, and Mailpit working.
 - [ ] Create one-command production-ish self-host path — done when Docker Compose with `.env` boots web + DB + migrations + seed + health checks without manual commands.
-- [ ] Add `.env` validation at startup — done when missing/unsafe production secrets fail fast with actionable messages.
 - [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
 - [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.
 - [ ] Add clean-machine install test to CI or release process — done when Compose is verified on a fresh Linux runner before releases.

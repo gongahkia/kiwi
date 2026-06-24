@@ -20,6 +20,8 @@ Generate first-run values with:
 
 Store secrets in the deployment secret manager, not in the repo.
 
+Production web startup validates required env values and fails before serving traffic when required secrets are missing, placeholders, or localhost-only defaults.
+
 ## Database Extensions
 
 Postgres must have:

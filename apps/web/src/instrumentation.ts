@@ -1,4 +1,5 @@
 import { reportError } from "./lib/error-reporting";
+import { assertValidStartupEnv } from "./lib/startup-env";
 
 type RequestErrorContext = {
   routerKind?: string;
@@ -10,6 +11,16 @@ type RequestLike = {
   method?: string;
   path?: string;
 };
+
+export function register(): void {
+  try {
+    assertValidStartupEnv();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  }
+}
 
 export async function onRequestError(
   error: unknown,
