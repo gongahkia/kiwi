@@ -85,7 +85,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Configure DNS + TLS — done when `https://wat.dev` resolves w/ valid cert.
 
 ## P5 — Testing
-- [ ] Integration tests for `packages/db` against ephemeral Postgres (testcontainers) — done when tests pass in CI.
 - [ ] Load test search endpoint (k6) — done when 100 RPS sustained w/ p95 <200ms hosted.
 - [ ] Chaos test for DB failover (self-host) — done when killing primary recovers within 30s via compose-level retry.
 - [ ] Security tests for SQLi/XSS — done when fuzz inputs over all forms produce no SQL errors and outputs are sanitized.
