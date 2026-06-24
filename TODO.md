@@ -59,7 +59,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Record 30-sec demo GIF of `/wat` + message shortcut — done when GIF in `/docs/assets/slack-demo.gif`.
 
 ## P3 — MCP server
-- [ ] Scaffold MCP TS server in `apps/mcp` — done when `npx @wat/mcp` connects via stdio to Claude Desktop locally.
 - [ ] Publish `@wat/mcp` to npm — done when `npx @wat/mcp@latest` is installable.
 - [ ] Submit to Anthropic MCP registry — done when PR opened to `modelcontextprotocol/servers`.
 - [ ] Submit to Cursor's MCP catalog — done when listed or in-review.

@@ -23,7 +23,7 @@
     "build": "tsc -b",
     "prepack": "rm -rf dist && pnpm build && rm -f dist/tsconfig.tsbuildinfo",
     "test": "pnpm build && vitest run src",
-    "test:contract": "sh ../../scripts/test-mcp-contract.sh"
+    "test:contract": "pnpm build && node scripts/contract.mjs"
   },
   "publishConfig": {
     "access": "public"
