@@ -53,6 +53,14 @@ Expected local endpoints:
 
 The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. Run migrations/seeding against the compose DSN before production use.
 
+Compose backup and restore use the checked-in scripts:
+
+```sh
+DATABASE_URL=postgres://wat:wat@localhost:5432/wat BACKUP_DIR=backups ./scripts/backup.sh
+DATABASE_URL=postgres://wat:wat@localhost:5432/wat BACKUP_ARCHIVE=backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz ./scripts/restore.sh
+curl -f 'http://localhost:3000/api/v1/search?q=API&limit=1'
+```
+
 ## Helm
 
 Target Kubernetes install path:
