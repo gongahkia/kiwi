@@ -8,6 +8,7 @@ describe("mergeEquivalentEntries", () => {
     const entries = [
       transformRawEntry({
         aliases: ["partition tolerance theorem"],
+        contemporaries: ["PACELC"],
         domains: ["distributed systems"],
         expansion: "Consistency Availability Partition tolerance",
         sources: [
@@ -23,6 +24,7 @@ describe("mergeEquivalentEntries", () => {
       }),
       transformRawEntry({
         aliases: ["Brewer theorem"],
+        contemporaries: ["Jepsen"],
         domains: ["databases"],
         expansion: "Consistency Availability Partition tolerance",
         sources: [
@@ -46,6 +48,7 @@ describe("mergeEquivalentEntries", () => {
       "https://example.com/cap-textbook"
     ]);
     expect(merged[0]?.aliases).toEqual(["partition tolerance theorem", "Brewer theorem"]);
+    expect(merged[0]?.contemporaries).toEqual(["PACELC", "Jepsen"]);
     expect(merged[0]?.domains).toEqual(["distributed systems", "databases"]);
   });
 

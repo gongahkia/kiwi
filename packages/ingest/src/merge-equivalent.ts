@@ -28,6 +28,7 @@ export function mergeEquivalentEntries(entries: CanonicalEntry[]): CanonicalEntr
     byKey.set(entry.dedup_key, {
       ...existing,
       aliases: uniqueStrings([...existing.aliases, ...entry.aliases]),
+      contemporaries: uniqueStrings([...existing.contemporaries, ...entry.contemporaries]),
       domains: uniqueStrings([...existing.domains, ...entry.domains]),
       examples: uniqueStrings([...existing.examples, ...entry.examples]),
       sources: mergeSources(existing.sources, entry.sources)
