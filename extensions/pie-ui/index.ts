@@ -20,7 +20,7 @@ import {
 	PRESETS,
 	validateConfig,
 } from "./config.ts";
-import { defaultWritePath, loadConfig, readConfigFile, resolveWriteTarget, writeConfigFile } from "./paths.ts";
+import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
 
@@ -88,7 +88,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -232,6 +232,22 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await showPanel(ctx, `Fried Apple Pie diff: ${before.preset ?? "custom"} -> ${target}`, diffLines(before, after));
 		return;
 	}
+	if (command === "history") {
+		await showPanel(ctx, "Fried Apple Pie history", historyLines(readHistory()));
+		return;
+	}
+	if (command === "undo") {
+		const popped = popHistory();
+		if (!popped) {
+			ctx.ui.notify("Fried Apple Pie history is empty", "warning");
+			return;
+		}
+		writeConfigFile(popped.path, popped.previous);
+		applyPie(ctx, pi, state);
+		const label = popped.previous.preset ?? "custom";
+		ctx.ui.notify(`Fried Apple Pie undo: restored ${label} at ${popped.path}`, "info");
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -266,6 +282,13 @@ async function writePreset(preset: PresetName, ctx: ExtensionContext, pi: Extens
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
 	const current = readConfigFile(path) ?? {};
 	const next = applyPresetConfig(current, preset, applyMode);
+	appendHistory({
+		ts: Date.now(),
+		scope: ctx.isProjectTrusted() ? "project" : "global",
+		path,
+		previous: current,
+		next,
+	});
 	writeConfigFile(path, next);
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie preset applied: ${preset} (${applyMode})`, "info");
@@ -447,6 +470,22 @@ function summarizeChange(before: PieConfig, after: PieConfig): string {
 		if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changed.push(key);
 	}
 	return changed.length ? changed.join(", ") : "no effective change";
+}
+
+// renders the most recent history entries as a panel. used by /pie history.
+export function historyLines(entries: HistoryEntry[]): string[] {
+	if (entries.length === 0) return ["history empty. preset switches are recorded once /pie preset runs."];
+	const lines: string[] = [`${entries.length} entr${entries.length === 1 ? "y" : "ies"} (most recent last). /pie undo restores the latest.`];
+	const tail = entries.slice(-10);
+	for (let i = 0; i < tail.length; i++) {
+		const entry = tail[i];
+		const idx = entries.length - tail.length + i + 1;
+		const when = new Date(entry.ts).toISOString().replace("T", " ").replace(/\..*$/, "");
+		const from = entry.previous.preset ?? "custom";
+		const to = entry.next.preset ?? "custom";
+		lines.push(`#${idx} ${when} [${entry.scope}] ${from} -> ${to}`);
+	}
+	return lines;
 }
 
 // key-by-key diff between two configs. used by /pie diff.

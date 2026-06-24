@@ -33,6 +33,50 @@ export function configPaths(cwd: string): ConfigPaths {
 	};
 }
 
+export function historyPath(): string {
+	return join(homedir(), ".pi", "agent", "pie-history.json");
+}
+
+export type HistoryEntry = {
+	ts: number;
+	scope: "global" | "project";
+	path: string;
+	previous: PieConfig;
+	next: PieConfig;
+};
+
+const HISTORY_CAP = 50;
+
+export function readHistory(): HistoryEntry[] {
+	const p = historyPath();
+	if (!existsSync(p)) return [];
+	try {
+		const parsed = JSON.parse(readFileSync(p, "utf8"));
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter((entry): entry is HistoryEntry => entry && typeof entry.ts === "number" && entry.previous !== undefined && entry.next !== undefined);
+	} catch {
+		return [];
+	}
+}
+
+export function appendHistory(entry: HistoryEntry): void {
+	const entries = readHistory();
+	entries.push(entry);
+	while (entries.length > HISTORY_CAP) entries.shift();
+	const p = historyPath();
+	mkdirSync(dirname(p), { recursive: true });
+	writeFileSync(p, `${JSON.stringify(entries, null, 2)}\n`, "utf8");
+}
+
+export function popHistory(): HistoryEntry | undefined {
+	const entries = readHistory();
+	const popped = entries.pop();
+	if (!popped) return undefined;
+	const p = historyPath();
+	writeFileSync(p, `${JSON.stringify(entries, null, 2)}\n`, "utf8");
+	return popped;
+}
+
 export function loadConfig(cwd: string, projectTrusted: boolean): LoadedConfig {
 	const paths = configPaths(cwd);
 	const readErrors: string[] = [];

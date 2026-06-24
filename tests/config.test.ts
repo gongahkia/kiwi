@@ -5,7 +5,8 @@ import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
-import { applyEffectiveConfig, applyPie, diffLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, diffLines, historyLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { appendHistory, historyPath, popHistory, readHistory } from "../extensions/pie-ui/paths.ts";
 import { resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -332,6 +333,47 @@ test("diffLines reports no change for identical configs and changes for distinct
 	assert.match(cross.join("\n"), /preset:/);
 	assert.match(cross.join("\n"), /theme:/);
 	assert.match(cross.join("\n"), /\d+ keys? changed/);
+});
+
+test("appendHistory + popHistory + readHistory round-trip", () => {
+	withTempHome(() => {
+		assert.deepEqual(readHistory(), []);
+		appendHistory({ ts: 1, scope: "global", path: "/tmp/x", previous: { preset: "minimal" }, next: { preset: "codex-inspired" } });
+		appendHistory({ ts: 2, scope: "global", path: "/tmp/x", previous: { preset: "codex-inspired" }, next: { preset: "claude-inspired" } });
+		const all = readHistory();
+		assert.equal(all.length, 2);
+		const popped = popHistory();
+		assert.equal(popped?.next.preset, "claude-inspired");
+		assert.equal(readHistory().length, 1);
+		assert.equal(existsSync(historyPath()), true);
+	});
+});
+
+test("history is capped at 50 entries", () => {
+	withTempHome(() => {
+		for (let i = 0; i < 60; i++) {
+			appendHistory({ ts: i, scope: "global", path: "/tmp/x", previous: { preset: "minimal" }, next: { preset: "codex-inspired" } });
+		}
+		const entries = readHistory();
+		assert.equal(entries.length, 50);
+		// rolling window keeps the most recent entries
+		assert.equal(entries[0].ts, 10);
+		assert.equal(entries.at(-1)?.ts, 59);
+	});
+});
+
+test("historyLines renders count, scope, and arrows; handles empty", () => {
+	const empty = historyLines([]);
+	assert.match(empty.join("\n"), /history empty/);
+	const lines = historyLines([
+		{ ts: Date.UTC(2026, 5, 1, 12, 0, 0), scope: "global", path: "/tmp/g.json", previous: { preset: "minimal" }, next: { preset: "codex-inspired" } },
+		{ ts: Date.UTC(2026, 5, 1, 13, 0, 0), scope: "project", path: "/tmp/p.json", previous: { preset: "codex-inspired" }, next: { preset: "dracula" } },
+	]);
+	assert.match(lines.join("\n"), /2 entries/);
+	assert.match(lines.join("\n"), /minimal -> codex-inspired/);
+	assert.match(lines.join("\n"), /codex-inspired -> dracula/);
+	assert.match(lines.join("\n"), /\[global\]/);
+	assert.match(lines.join("\n"), /\[project\]/);
 });
 
 test("applyEffectiveConfig applies transient config without writing to disk (gallery contract)", () => {

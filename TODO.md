@@ -375,23 +375,9 @@ Verify `event.messages` field name + mutability via smoke test before relying. e
 
 ---
 
-### P2-17 — `/pie history` + `/pie undo` via `pi.appendEntry`
+### P2-17 follow-ups (Pi event-bus integration)
 
-- [ ] Persist preset changes; allow rollback to previous.
-
-**Files:** `extensions/pie-ui/index.ts` (subcommands + `writePreset` hook at `index.ts:229-236`).
-
-**Sketch:**
-```ts
-// in writePreset, before applyPie:
-pi.appendEntry("pie:history", { previous: current, next, ts: Date.now() });
-```
-`/pie history`: read entries via `ctx.sessionManager.getBranch?.()` filtered by `customType === "pie:history"`, render last 10.
-`/pie undo`: pop most recent entry, `writeConfigFile` previous value.
-
-**Refs:** `pi.appendEntry` per extensions.md; `ctx.sessionManager.getBranch?.()` already used at `render.ts:350`.
-
-**Acceptance:** undo restores previous state; history shows ≥1 entry after first switch.
+P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `{ ts, scope, path, previous, next }` at `~/.pi/agent/pie-history.json`; rolling 50-entry cap; 3 new tests. Storage uses a plain JSON file instead of `pi.appendEntry` to avoid runtime-shape verification. Future agent: optionally also call `pi.appendEntry?.("pie:history", entry)` so other extensions on the same Pi session bus can react.
 
 ---
 
