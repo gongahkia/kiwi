@@ -89,7 +89,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ## P5 — Performance & ops
 - [ ] Profile cold-start of web app — done when cold p95 <800ms on Vercel.
-- [ ] Profile warm search path — done when warm p95 <80ms server-side excluding network.
 - [ ] Optimize Postgres queries via EXPLAIN ANALYZE — done when no seq scans on hot paths.
 - [ ] Tune ivfflat/HNSW index params — done when recall@10 ≥95% on benchmark.
 - [ ] Add Redis cache layer for top 1000 queries (optional) — done when Redis-enabled mode reduces DB load by ≥40%.
