@@ -35,6 +35,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - `/pie import <path-or-url>` reads a local or remote `pie-ui.json`, validates it, asks for scope and confirms before writing. URL import uses `curl -fsSL` through `pi.exec`.
 - `/pie capture` renders the active preset's tape via `vhs` to `assets/preview-<preset>.gif`. Requires `vhs`, `ttyd`, `ffmpeg` on PATH (install with `brew install vhs`). Regenerate tapes via `npm run assets:tapes` or render all via `npm run assets:capture`.
 - `/pie share` writes `assets/share/<timestamp>/pie-ui.json`, `payload.json`, and a preview asset. Server upload is not implemented; use the printed `gh gist create ...` fallback.
+- `npx fap capture-terminal --name <theme>` writes a Pi theme JSON from the current terminal ANSI palette.
 - `/pie doctor` validates config, detects UI package conflicts, and reports missing `/pie capture` dependencies (`vhs`, `ttyd`, `ffmpeg`).
 - Shortcut leader: `ctrl+alt+p`, then `p` preset picker, `g` gallery, `s` footer segments, `e` editor, `d` doctor, or `c` capture. `ctrl+p` is registered too, but Pi's default `app.model.cycleForward` reserves `ctrl+p`; rebind it in `~/.pi/agent/keybindings.json` and run `/reload` before using `ctrl+p` as the leader.
 - Use `/pie edit` for guided changes, `/pie edit-json` for direct JSON edits with enum autocomplete, and `/pie export` to inspect final merged config.

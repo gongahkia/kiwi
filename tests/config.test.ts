@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -770,11 +771,26 @@ test("package metadata and preview assets are publish-ready", () => {
 	assert.ok(pkg.homepage);
 	assert.ok(pkg.bugs?.url);
 	assert.equal(pkg.exports["./sdk"].types, "./extensions/pie-ui/sdk.ts");
+	assert.equal(pkg.bin.fap, "./bin/fap.mjs");
+	assert.ok(pkg.files.includes("bin"));
 	assert.ok(pkg.files.includes("examples"));
 	assert.match(pkg.pi.image, /^https:\/\/raw\.githubusercontent\.com\//);
 	const png = readFileSync("assets/fried-apple-pie-gallery.png");
 	assert.equal(png.readUInt32BE(16), 1200);
 	assert.equal(png.readUInt32BE(20), 740);
+});
+
+test("fap capture-terminal writes a valid theme from ANSI JSON", () => {
+	const dir = mkdtempSync(join(tmpdir(), "fap-cli-"));
+	const out = join(dir, "unit-theme.json");
+	const ansi = Object.fromEntries(Array.from({ length: 16 }, (_value, index) => [String(index), `#${index.toString(16).repeat(6)}`]));
+	const result = spawnSync(process.execPath, ["bin/fap.mjs", "capture-terminal", "--name", "unit-terminal", "--out", out, "--ansi-json", JSON.stringify(ansi)], { encoding: "utf8" });
+	assert.equal(result.status, 0, result.stderr);
+	const theme = JSON.parse(readFileSync(out, "utf8")) as { name?: string; colors?: Record<string, string> };
+	assert.equal(theme.name, "unit-terminal");
+	assert.equal(theme.colors?.error, "#111111");
+	assert.equal(theme.colors?.accent, "#555555");
+	for (const token of requiredThemeTokens) assert.ok(theme.colors && token in theme.colors, token);
 });
 
 test("preset SDK defines third-party preset specs", () => {

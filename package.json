@@ -16,6 +16,9 @@
     },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "fap": "./bin/fap.mjs"
+  },
   "author": "gongahkia",
   "keywords": [
     "pi-package",
@@ -35,6 +38,7 @@
   },
   "files": [
     "assets",
+    "bin",
     "examples",
     "extensions",
     "LICENSE",

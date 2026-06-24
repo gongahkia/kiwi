@@ -71,25 +71,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P3-24 — Theme-extraction CLI `npx fap capture-terminal`
-
-- [ ] Read terminal OSC color responses, emit a Pi-compatible 51-token theme JSON.
-
-**Files:** new `bin/fap-capture-terminal.ts`, `package.json` `bin: { fap: "./bin/fap-capture-terminal.ts" }` (or compiled JS).
-
-**Sketch:**
-- Use OSC 4 queries (`\x1b]4;<idx>;?\x07`) for ANSI 0-15. Read response from stdin within timeout.
-- Map ANSI → 51 tokens via heuristic similar to `leblancfg/pi-ansi-themes`:
-  - ANSI 1=error, 2=success, 3=warning, 4=accent2, 5=accent, 6=accent2, 7=text, 8=dim.
-  - Backgrounds (`*Bg`) from terminal default bg.
-- Write `themes/<name>.json` with `{ $schema, name, vars, colors }`.
-
-**Refs:** leblancfg/pi-ansi-themes for ANSI-mapping precedent: https://github.com/leblancfg/pi-ansi-themes.
-
-**Acceptance:** `npx fap capture-terminal --name my-theme` writes a valid 51-token theme. `npm test` passes against generated files.
-
----
-
 ### P3-26 — Telemetry-free opt-in stats
 
 - [ ] Anonymized POST to registry when user opts in. Defaults off.

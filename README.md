@@ -240,6 +240,16 @@ export default defineFriedApplePiePreset({
 
 Real theme packages should provide the full Pi theme token set. See [`examples/third-party-preset`](./examples/third-party-preset).
 
+## Theme Capture CLI
+
+Generate a Pi theme from the active terminal ANSI palette:
+
+```sh
+npx fap capture-terminal --name my-terminal-theme
+```
+
+This writes `themes/my-terminal-theme.json`. Use `--out <path>` to choose another file.
+
 ## Comparison
 
 |                              | fried-apple-pie | tweakcc (CC) | amp-themes (Pi) | pi-powerline-footer | ccstatusline (CC) | lualine (nvim) | opencode |
