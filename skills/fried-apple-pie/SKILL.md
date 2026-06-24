@@ -31,6 +31,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Use `/pie diff <preset>` to preview what a clean preset apply would change before running `/pie preset <preset>`. Optional second arg `merge` previews merge-mode apply.
 - `/pie history` shows the last 10 preset switches. `/pie undo` restores the most recent previous state and pops it from history. History lives at `~/.pi/agent/pie-history.json` and is capped at 50 entries.
 - `/pie import <path>` reads a local `pie-ui.json`, validates it, asks for scope and confirms before writing. URL import is not yet supported; download the JSON locally first.
+- `/pie capture` renders the active preset's tape via `vhs` to `assets/preview-<preset>.gif`. Requires `vhs`, `ttyd`, `ffmpeg` on PATH (install with `brew install vhs`). Regenerate tapes via `npm run assets:tapes` or render all via `npm run assets:capture`.
 - Use `/pie edit` for interactive changes and `/pie export` to inspect final merged config.
 - Prefer `pie_config` actions `set_preset`, `set_footer_segments`, `toggle_compact`, and `set_theme` over raw patching for common edits.
 

@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -27,6 +28,7 @@ import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGal
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const themeDir = resolve(__dirname, "../../themes");
 const skillDir = resolve(__dirname, "../../skills");
+const tapesDir = resolve(__dirname, "../../assets/tapes");
 const configToolSchema = Type.Object({
 	action: Type.Union([
 		Type.Literal("read"),
@@ -99,7 +101,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "capture", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -304,6 +306,10 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await importConfig(rest.join(" "), ctx, pi, state);
 		return;
 	}
+	if (command === "capture") {
+		await runCapture(loaded.effective.preset, ctx, pi);
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -373,6 +379,32 @@ async function writePersona(persona: string, ctx: ExtensionContext, pi: Extensio
 export function emitPieEvent(pi: ExtensionAPI, name: string, payload: { from?: string; to?: string; scope: "global" | "project"; path: string; ts: number }): void {
 	const events = (pi as unknown as { events?: { emit?: (name: string, payload: unknown) => void } }).events;
 	events?.emit?.(name, payload);
+}
+
+// resolves the tape path for a preset. exported for tests.
+export function tapePathFor(preset: PresetName | undefined): string {
+	return resolve(tapesDir, `${preset ?? "minimal"}.tape`);
+}
+
+// /pie capture: shells out to vhs for the active preset's tape. requires vhs+ttyd+ffmpeg on PATH.
+async function runCapture(preset: PresetName | undefined, ctx: ExtensionContext, pi: ExtensionAPI): Promise<void> {
+	const tape = tapePathFor(preset);
+	if (!existsSync(tape)) {
+		ctx.ui.notify(`Fried Apple Pie capture: no tape at ${tape}. Run npm run assets:tapes to regenerate.`, "error");
+		return;
+	}
+	const exec = (pi as unknown as { exec?: (cmd: string, args: string[], opts?: { signal?: AbortSignal }) => Promise<unknown> }).exec;
+	if (!exec) {
+		ctx.ui.notify("Fried Apple Pie capture: pi.exec unavailable on this build. Run scripts/capture.sh from a shell.", "warning");
+		return;
+	}
+	ctx.ui.notify(`Fried Apple Pie capture: rendering ${tape} (requires vhs/ttyd/ffmpeg on PATH)…`, "info");
+	try {
+		await exec("vhs", [tape], { signal: ctx.signal });
+		ctx.ui.notify(`Fried Apple Pie capture: wrote assets/preview-${preset}.gif`, "info");
+	} catch (error) {
+		ctx.ui.notify(`Fried Apple Pie capture failed: ${(error as Error).message}`, "error");
+	}
 }
 
 // /pie gallery: live-cycle every preset in-memory without writing to disk. on q/esc restores snapshot.

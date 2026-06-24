@@ -101,6 +101,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 /pie history                   show last preset switches
 /pie undo                      restore previous preset state
 /pie import <path>             import a pie-ui.json from a local file
+/pie capture                   render the active preset's tape with vhs (needs vhs+ttyd+ffmpeg)
 /pie edit                      interactive config editor
 /pie welcome                   show active config + command list
 /pie show                      dump loaded config (global + project + effective)

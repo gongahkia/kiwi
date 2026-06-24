@@ -31,6 +31,8 @@
   ],
   "scripts": {
     "assets:build": "sips -s format png assets/fried-apple-pie-gallery.svg --out assets/fried-apple-pie-gallery.png >/dev/null && magick -delay 140 assets/fried-apple-pie-gallery.png -delay 140 assets/fried-apple-pie-gallery.png -loop 0 assets/fried-apple-pie-demo.gif",
+    "assets:tapes": "./scripts/gen-tapes.sh",
+    "assets:capture": "./scripts/capture.sh",
     "smoke:pi": "pi -e . --offline --no-context-files --list-models >/dev/null",
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",

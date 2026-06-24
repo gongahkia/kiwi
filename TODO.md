@@ -73,38 +73,9 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P0-02 — `/pie capture` via vhs
+### P0-02 follow-ups (doctor PATH check)
 
-- [ ] Add `vhs` tapes, `scripts/capture.sh`, `assets:capture` npm script, `/pie capture` subcommand using `pi.exec`.
-
-**Why:** viral GIFs require deterministic regeneration. `vhs` (Charm) renders `.tape` files into reproducible GIFs.
-
-**Files:** new `assets/tapes/<preset>.tape` (one per preset), new `scripts/capture.sh`, edit `package.json` to add `"assets:capture"` script, edit `extensions/pie-ui/index.ts` to add `capture` subcommand (extend command list in `getArgumentCompletions` at `index.ts:90`).
-
-**Sketch:**
-```sh
-# scripts/capture.sh — runs every tape
-for tape in assets/tapes/*.tape; do vhs "$tape"; done
-```
-Tape template:
-```
-Output assets/preview-<preset>.gif
-Set FontSize 14
-Set Width 1200
-Set Height 740
-Set Theme "Dracula"
-Type "pi /pie preset <preset>" Enter
-Sleep 2s
-Type "list the files in this repo" Enter
-Sleep 6s
-```
-Command handler (in `extensions/pie-ui/index.ts`): write a temp tape with the active preset substituted → `await pi.exec("vhs", [tapePath], { signal: ctx.signal })` → notify with output path.
-
-Doctor must check `vhs`, `ttyd`, `ffmpeg` on PATH; warn if missing.
-
-**Refs:** vhs https://github.com/charmbracelet/vhs · `pi.exec` per extensions.md.
-
-**Acceptance:** `npm run assets:capture` writes one GIF per preset. `/pie capture` writes a GIF for the active preset and notifies the absolute path. `/pie doctor` warns on missing vhs/ttyd/ffmpeg.
+P0-02 shipped: 16 tapes in `assets/tapes/`, `scripts/gen-tapes.sh` regenerates, `scripts/capture.sh` runs every tape, `assets:tapes` / `assets:capture` npm scripts, `/pie capture` subcommand using `pi.exec` with optional-chain fallback. Tape sync test confirms every preset has a matching tape. Still pending: doctor active PATH probe for `vhs`/`ttyd`/`ffmpeg` — `pi.exec` is needed to probe at runtime, same verification risk as `/pie capture` itself. Future agent: in `doctorLines`, call `pi.exec?.("which", ["vhs"])` (or use `node:child_process` defensively) and report missing tools.
 
 ---
 
@@ -427,18 +398,6 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 
 ---
 
-### P3-25 — Web playground stub
-
-- [ ] Define scope of a live HTML preview site for presets. Implementation is out of this repo.
-
-**Files:** new `docs/playground.md`.
-
-**Sketch:** doc covers data flow (read `themes/*.json` and `PRESETS` constant at build time, render TUI mock in HTML), hosting suggestion (GitHub Pages), and link-back to install command.
-
-**Acceptance:** doc lists requirements and acceptance for a future implementation.
-
----
-
 ### P3-26 — Telemetry-free opt-in stats
 
 - [ ] Anonymized POST to registry when user opts in. Defaults off.
@@ -520,7 +479,7 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 Suggested sequence to balance viral demo and depth without half-finished work:
 
 1. ~~P0-04 (12+ presets)~~ — done.
-2. P0-02 (`/pie capture` + vhs) — produces deterministic GIFs for the 12 presets.
+2. ~~P0-02 (`/pie capture` + vhs)~~ — done.
 3. ~~P0-03 (`/pie gallery`)~~ — done.
 4. ~~P0-01 (README rewrite)~~ — done. Per-preset screenshot grid still pending P0-02.
 5. ~~P0-05 (personas)~~ — done.

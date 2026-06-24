@@ -6,7 +6,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import { applyEffectiveConfig, applyPie, diffLines, emitPieEvent, historyLines, maybeWarnContext, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, diffLines, emitPieEvent, historyLines, maybeWarnContext, runPieConfigTool, tapePathFor } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -347,6 +347,16 @@ test("layers apply between preset and user config; user config wins on conflict"
 	// footer layer compounds: footer:powerline sets segments, footer:none then disables
 	const disabled = materializeConfig({ preset: "minimal", layers: ["footer:powerline", "footer:none"] });
 	assert.equal(disabled.footer?.enabled, false);
+});
+
+test("every preset has a generated tape file (for /pie capture and vhs CI)", () => {
+	for (const preset of PRESET_NAMES) {
+		const tape = tapePathFor(preset);
+		assert.equal(existsSync(tape), true, `tape missing for ${preset}: ${tape}`);
+		const body = readFileSync(tape, "utf8");
+		assert.ok(body.includes(`/pie preset ${preset}`), `tape ${preset} missing preset command`);
+		assert.ok(body.includes(`Output assets/preview-${preset}.gif`), `tape ${preset} missing output`);
+	}
 });
 
 test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {
