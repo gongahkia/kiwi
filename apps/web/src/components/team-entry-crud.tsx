@@ -228,7 +228,7 @@ export function TeamEntryCrud({
         <p className="text-xs text-foreground/55">Generated ID: {preview.id || "term required"}</p>
         {visibleIssues.length > 0 ? (
           <div
-            className="grid gap-1 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+            className="grid gap-1 rounded-md border border-primary bg-muted-surface p-3 text-sm text-primary"
             role="alert"
           >
             {visibleIssues.map((issue) => (

@@ -14,7 +14,7 @@ export default function StatusPage() {
         </header>
         <div className="grid gap-3 rounded-md border border-input p-5">
           <div className="flex items-center gap-3">
-            <span className="size-3 rounded-full bg-green-500" />
+            <span className="size-3 rounded-sm bg-primary" />
             <p className="text-2xl font-semibold">Operational</p>
           </div>
           <dl className="grid gap-2 text-sm text-foreground/70">

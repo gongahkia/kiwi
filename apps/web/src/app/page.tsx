@@ -17,7 +17,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const includeLowConfidence = params?.min_confidence === "T4";
 
   return (
-    <main className="grid min-h-svh place-items-center bg-background p-6 text-foreground">
+    <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>

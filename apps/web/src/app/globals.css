@@ -10,41 +10,58 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-tertiary: var(--tertiary);
+  --color-neutral: var(--neutral);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-muted-surface: var(--muted-surface);
+  --color-on-surface: var(--on-surface);
   --font-sans: var(--font-sans);
+  --font-mono: var(--font-sans);
 }
 
 :root {
   color-scheme: light;
-  --background: oklch(0.985 0.004 247.9);
-  --foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.93 0.012 255);
-  --secondary-foreground: oklch(0.205 0 0);
-  --accent: oklch(0.92 0.03 255);
-  --accent-foreground: oklch(0.205 0 0);
-  --input: oklch(0.86 0.012 255);
-  --ring: oklch(0.52 0.16 250);
+  --background: #ffffff;
+  --foreground: #aaaaaa;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #aaaaaa;
+  --secondary-foreground: #ffffff;
+  --tertiary: #e5e7eb;
+  --neutral: #ffffff;
+  --accent: #f3f4f6;
+  --accent-foreground: #000000;
+  --muted-surface: #f3f4f6;
+  --on-surface: #000000;
+  --input: #e5e7eb;
+  --ring: #000000;
+  --destructive: #000000;
   --font-sans:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    CommitMono, "Commit Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 .dark {
-  color-scheme: dark;
-  --background: oklch(0.16 0.014 255);
-  --foreground: oklch(0.985 0.004 247.9);
-  --primary: oklch(0.985 0.004 247.9);
-  --primary-foreground: oklch(0.16 0.014 255);
-  --secondary: oklch(0.24 0.02 255);
-  --secondary-foreground: oklch(0.985 0.004 247.9);
-  --accent: oklch(0.3 0.05 255);
-  --accent-foreground: oklch(0.985 0.004 247.9);
-  --input: oklch(0.34 0.02 255);
-  --ring: oklch(0.7 0.14 250);
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #aaaaaa;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #aaaaaa;
+  --secondary-foreground: #ffffff;
+  --tertiary: #e5e7eb;
+  --neutral: #ffffff;
+  --accent: #f3f4f6;
+  --accent-foreground: #000000;
+  --muted-surface: #f3f4f6;
+  --on-surface: #000000;
+  --input: #e5e7eb;
+  --ring: #000000;
+  --destructive: #000000;
 }
 
 * {
@@ -54,4 +71,101 @@
 body {
   margin: 0;
   font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+a,
+button {
+  text-underline-offset: 4px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong,
+th,
+.font-bold,
+.font-semibold,
+.font-medium {
+  font-weight: 400;
+  color: var(--on-surface);
+}
+
+.text-\[56px\],
+.text-4xl {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.text-3xl {
+  font-size: 22px;
+  line-height: 26px;
+}
+
+.text-2xl {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+.text-xl,
+.text-lg {
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.text-base {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.text-sm {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.text-xs {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.mx-auto {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.rounded-md {
+  border-radius: 8px;
+}
+
+.rounded-sm {
+  border-radius: 4px;
+}
+
+.shadow,
+.shadow-sm {
+  box-shadow: none;
+}
+
+.uppercase {
+  text-transform: none;
+}
+
+.bg-green-500 {
+  background-color: var(--on-surface);
 }

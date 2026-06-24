@@ -5,11 +5,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function ButtonPage() {
   return (
-    <main className="grid min-h-svh place-items-center bg-background p-6 text-foreground">
+    <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex max-w-3xl flex-wrap items-center gap-3">
         <Button>
           <Search />
           Search

@@ -145,9 +145,9 @@ export function SearchShell({
   }
 
   return (
-    <section className="grid w-full max-w-[760px] gap-6">
+    <section className="grid w-full max-w-[760px] gap-8">
       <form className="grid gap-4" onSubmit={handleSubmit}>
-        <h1 className="text-[56px] font-bold leading-none">wat</h1>
+        <h1 className="text-[56px] font-bold">wat</h1>
         <div className="flex gap-2">
           <input
             aria-label="Search"
@@ -214,7 +214,7 @@ export function SearchShell({
         {visibleMatches.map((result, index) => (
           <SearchResultCard
             className={
-              selectedIndex === index ? "border-ring bg-accent/40 ring-2 ring-ring" : undefined
+              selectedIndex === index ? "border-ring bg-muted-surface ring-2 ring-ring" : undefined
             }
             entry={result.entry}
             key={result.entry.id}
