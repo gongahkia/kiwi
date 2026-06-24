@@ -82,3 +82,5 @@ The module in `infra/fly` provisions a single-region web machine, Fly app IPs, h
 Postgres backups should use `pg_dump` for logical exports and should include any uploaded/generated assets once file storage exists.
 
 Restore drills should create a new database, load the latest backup, run migrations, and verify `/readyz`.
+
+For upgrade, migration, backup, restore, rollback, and secret-rotation steps, see [Migration Runbook](migration-runbook.md).

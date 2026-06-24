@@ -62,6 +62,7 @@ pnpm --filter @wat/ingest test
 - [API](docs/api.md)
 - [Contributing](docs/contributing.md)
 - [Limitations](docs/limitations.md)
+- [Migration runbook](docs/migration-runbook.md)
 - [Security](docs/security.md)
 - [Security model](docs/security-model.md)
 - [Troubleshooting](docs/troubleshooting.md)
