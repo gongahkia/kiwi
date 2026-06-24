@@ -199,7 +199,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Build member invitation flow — done when admins can invite users by email, pending invites expire, and accepted invites create scoped team membership.
 - [ ] Build member role management backed by DB — done when admins can promote/demote/remove members and all changes persist/audit.
 - [ ] Build team settings page backed by DB — done when default domain filters, public-layer toggle, and domain tags are team-specific and durable.
-- [ ] Add import dry-run and conflict resolution — done when duplicate term/expansion conflicts show create/update/skip choices before commit.
 - [ ] Add export UI for JSON and CSV backed by DB — done when admins can export only their team entries with sources and audit metadata.
 - [ ] Add bulk edit/delete safeguards — done when destructive bulk actions require confirmation and write audit rows.
 - [ ] Add team glossary dashboard — done when admins see total entries, pending suggestions, top searched acronyms, no-result gaps, stale entries, and source coverage.

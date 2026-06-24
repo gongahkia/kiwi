@@ -5,17 +5,34 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { previewTeamImport, type TeamImportFormat } from "@/lib/team-import-preview";
+import type { TeamEntry } from "@/lib/team-entries";
 
-export function TeamImportPanel() {
+type ImportResolution = "skip" | "update";
+
+interface TeamImportPanelProps {
+  existingEntries: TeamEntry[];
+}
+
+export function TeamImportPanel({ existingEntries }: TeamImportPanelProps) {
   const [format, setFormat] = useState<TeamImportFormat>("json");
   const [input, setInput] = useState("");
+  const [resolutions, setResolutions] = useState<Record<string, ImportResolution>>({});
   const [result, setResult] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const preview = useMemo(() => previewTeamImport(input, format), [format, input]);
+  const preview = useMemo(
+    () => previewTeamImport(input, format, existingEntries),
+    [existingEntries, format, input]
+  );
+  const rowsToCreate = preview.rows.filter((row) => !row.conflict).map((row) => row.entry);
+  const rowsToUpdate = preview.rows.filter(
+    (row) => row.conflict && resolutions[row.entry.id] === "update"
+  );
+  const skippedConflicts = preview.conflicts.length - rowsToUpdate.length;
 
   async function readFile(file: File | null) {
     if (!file) return;
     setResult("");
+    setResolutions({});
     setInput(await file.text());
     if (file.name.toLowerCase().endsWith(".csv")) setFormat("csv");
     if (file.name.toLowerCase().endsWith(".json")) setFormat("json");
@@ -25,21 +42,43 @@ export function TeamImportPanel() {
     setSubmitting(true);
     setResult("");
     try {
-      const response = await fetch("/team/admin/import/api", {
-        body: JSON.stringify({ entries: preview.accepted }),
-        headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
-        method: "POST"
-      });
-      const body = (await response.json()) as {
-        error?: string;
-        inserted?: number;
-        skipped?: number;
-      };
-      if (!response.ok) {
-        setResult(body.error ?? "import failed");
-        return;
+      let inserted = 0;
+      let skipped = 0;
+      if (rowsToCreate.length > 0) {
+        const response = await fetch("/team/admin/import/api", {
+          body: JSON.stringify({ entries: rowsToCreate }),
+          headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
+          method: "POST"
+        });
+        const body = (await response.json()) as {
+          error?: string;
+          inserted?: number;
+          skipped?: number;
+        };
+        if (!response.ok) {
+          setResult(body.error ?? "import failed");
+          return;
+        }
+        inserted = body.inserted ?? 0;
+        skipped = body.skipped ?? 0;
       }
-      setResult(`Imported ${body.inserted ?? 0}; skipped ${body.skipped ?? 0}.`);
+
+      let updated = 0;
+      for (const row of rowsToUpdate) {
+        const response = await fetch("/team/admin/entries/api", {
+          body: JSON.stringify({ id: row.conflict!.existingId, patch: row.entry }),
+          headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
+          method: "PATCH"
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          setResult(body?.error ?? "update failed");
+          return;
+        }
+        updated += 1;
+      }
+
+      setResult(`Imported ${inserted}; updated ${updated}; skipped ${skipped + skippedConflicts}.`);
     } finally {
       setSubmitting(false);
     }
@@ -88,6 +127,7 @@ export function TeamImportPanel() {
         className="min-h-72 rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onChange={(event) => {
           setResult("");
+          setResolutions({});
           setInput(event.target.value);
         }}
         placeholder={format === "json" ? '{"entries": [...]}' : "id,term,expansion,..."}
@@ -99,6 +139,12 @@ export function TeamImportPanel() {
           Preview: {preview.accepted.length} accepted / {preview.issues.length} errors /{" "}
           {preview.total} total.
         </p>
+        {preview.conflicts.length > 0 ? (
+          <p>
+            Dry run found {preview.conflicts.length} duplicate conflict
+            {preview.conflicts.length === 1 ? "" : "s"}. Choose update or skip before import.
+          </p>
+        ) : null}
         {preview.issues.length > 0 ? (
           <ul className="grid gap-1">
             {preview.issues.map((issue) => (
@@ -110,9 +156,42 @@ export function TeamImportPanel() {
         ) : null}
         {preview.accepted.length > 0 ? (
           <ul className="grid gap-1 text-foreground/70">
-            {preview.accepted.slice(0, 5).map((entry) => (
-              <li key={entry.id}>
-                {entry.term} - {entry.expansion}
+            {preview.rows.map(({ conflict, entry }) => (
+              <li className="grid gap-2 sm:grid-cols-[1fr_auto]" key={entry.id}>
+                <span>
+                  {entry.term} - {entry.expansion}
+                  {conflict ? ` / conflict: ${conflict.reason}` : " / create"}
+                </span>
+                {conflict ? (
+                  <span className="flex gap-2">
+                    <Button
+                      onClick={() =>
+                        setResolutions((current) => ({ ...current, [entry.id]: "update" }))
+                      }
+                      size="sm"
+                      type="button"
+                      variant={resolutions[entry.id] === "update" ? "default" : "outline"}
+                    >
+                      Update
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        setResolutions((current) => ({ ...current, [entry.id]: "skip" }))
+                      }
+                      size="sm"
+                      type="button"
+                      variant={resolutions[entry.id] === "skip" ? "default" : "outline"}
+                    >
+                      Skip
+                    </Button>
+                  </span>
+                ) : (
+                  <span>
+                    <Button disabled size="sm" type="button" variant="outline">
+                      Create
+                    </Button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -120,7 +199,7 @@ export function TeamImportPanel() {
       </div>
 
       <Button
-        disabled={preview.accepted.length === 0 || submitting}
+        disabled={rowsToCreate.length + rowsToUpdate.length === 0 || submitting}
         onClick={() => void importAccepted()}
         type="button"
       >

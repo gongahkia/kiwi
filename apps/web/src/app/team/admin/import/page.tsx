@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { TeamImportPanel } from "@/components/team-import-panel";
+import { getTeamEntries } from "@/lib/team-entries";
 
 export default function TeamImportPage() {
   return (
@@ -29,7 +30,7 @@ export default function TeamImportPage() {
             </Link>
           </div>
         </header>
-        <TeamImportPanel />
+        <TeamImportPanel existingEntries={getTeamEntries()} />
       </div>
     </main>
   );
