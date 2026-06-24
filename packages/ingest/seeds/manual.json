@@ -1983,6 +1983,110 @@
       "contemporaries": ["RabbitMQ", "NATS", "Redpanda"]
     },
     {
+      "id": "seed-rabbitmq-rabbitmq",
+      "term": "RabbitMQ",
+      "term_normalized": "rabbitmq",
+      "expansions": ["RabbitMQ"],
+      "domains": ["messaging", "streaming"],
+      "meaning_short": "A message broker for queueing, routing, and streaming messages between applications.",
+      "meaning_long": "RabbitMQ is a message broker that helps applications exchange messages through queues and routing patterns across distributed systems.",
+      "examples": ["Use RabbitMQ to buffer background jobs between web workers and consumers."],
+      "sources": [
+        {
+          "url": "https://github.com/rabbitmq/rabbitmq-server",
+          "title": "RabbitMQ server",
+          "publisher": "RabbitMQ",
+          "license": "MPL-2.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "RabbitMQ describes its server as a messaging and streaming broker.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "MPL-2.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["message broker", "AMQP", "queue"],
+      "contemporaries": ["Kafka"]
+    },
+    {
+      "id": "seed-nats-nats",
+      "term": "NATS",
+      "term_normalized": "nats",
+      "expansions": ["NATS"],
+      "domains": ["messaging", "streaming"],
+      "meaning_short": "A lightweight messaging system for distributed applications.",
+      "meaning_long": "NATS is an open-source messaging system for connecting distributed services with publish/subscribe, request/reply, and streaming patterns.",
+      "examples": ["Use NATS for low-latency service messages across edge and cloud workloads."],
+      "sources": [
+        {
+          "url": "https://nats.io/about/",
+          "title": "About NATS",
+          "publisher": "NATS",
+          "license": "Apache-2.0",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "NATS describes itself as a high-performance, lightweight, open-source messaging system.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "Apache-2.0",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["message broker", "pub/sub", "JetStream"],
+      "contemporaries": ["Kafka"]
+    },
+    {
+      "id": "seed-redpanda-redpanda",
+      "term": "Redpanda",
+      "term_normalized": "redpanda",
+      "expansions": ["Redpanda"],
+      "domains": ["messaging", "streaming"],
+      "meaning_short": "A Kafka API-compatible streaming data platform.",
+      "meaning_long": "Redpanda is a streaming data platform with Kafka-compatible APIs and its own broker implementation for event streaming workloads.",
+      "examples": [
+        "Use Redpanda as a Kafka-compatible broker without ZooKeeper or JVM broker nodes."
+      ],
+      "sources": [
+        {
+          "url": "https://github.com/redpanda-data/redpanda",
+          "title": "Redpanda",
+          "publisher": "Redpanda Data",
+          "license": "BUSL-1.1",
+          "retrieved_at": "2026-06-24T00:00:00.000Z",
+          "snippet": "Redpanda describes itself as an Apache Kafka-compatible streaming data platform.",
+          "source_quality": "canonical"
+        }
+      ],
+      "coiner": null,
+      "year_coined": null,
+      "confidence_tier": "T1",
+      "license": "BUSL-1.1",
+      "layer": "public",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": ["Kafka API", "event streaming", "stream processing"],
+      "contemporaries": ["Kafka"]
+    },
+    {
       "id": "seed-pwa-progressive-web-application",
       "term": "PWA",
       "term_normalized": "pwa",

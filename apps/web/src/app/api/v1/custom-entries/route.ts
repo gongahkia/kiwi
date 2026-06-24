@@ -194,10 +194,7 @@ export async function POST(request: NextRequest) {
       message: "api token and x-wat-user-id are required"
     });
   }
-  const writeLimit = checkWriteRateLimit(
-    "custom-entry",
-    identity.identity.teamId ?? userId
-  );
+  const writeLimit = checkWriteRateLimit("custom-entry", identity.identity.teamId ?? userId);
   if (!writeLimit.allowed) {
     return apiErrorResponse(request, "rate_limited", 429, {
       fields: {

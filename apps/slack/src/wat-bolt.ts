@@ -524,7 +524,9 @@ function renderAlternativeLine(alternative: string, entry: SearchEntry | undefin
   const safeAlternative = escapeSlackText(alternative);
   if (!entry) return `*${safeAlternative}*`;
   const title = `${escapeSlackText(entry.term ?? alternative)}: ${escapeSlackText(entry.expansions?.[0] ?? alternative)}`;
-  return entry.meaning_short ? `*${title}* - ${escapeSlackText(entry.meaning_short)}` : `*${title}*`;
+  return entry.meaning_short
+    ? `*${title}* - ${escapeSlackText(entry.meaning_short)}`
+    : `*${title}*`;
 }
 
 function renderAcronymList(lookups: SearchEntry[][]): SlackMessage {
@@ -537,12 +539,10 @@ function renderAcronymList(lookups: SearchEntry[][]): SlackMessage {
     };
   }
 
-  const lines = entries.map(
-    (entry) => {
-      const term = entry.term ?? "Result";
-      return `*${escapeSlackText(term)}*: ${escapeSlackText(entry.expansions?.[0] ?? term)}`;
-    }
-  );
+  const lines = entries.map((entry) => {
+    const term = entry.term ?? "Result";
+    return `*${escapeSlackText(term)}*: ${escapeSlackText(entry.expansions?.[0] ?? term)}`;
+  });
   return {
     blocks: [section(lines.join("\n"))],
     response_type: "ephemeral",

@@ -102,7 +102,11 @@ function validateDatabaseUrl(env: StartupEnv, issues: StartupEnvIssue[]): void {
     }
     if (!url.password || url.password === "wat") {
       issues.push(
-        issue("DATABASE_URL", "missing or unsafe database password", "Use a non-default DB user password.")
+        issue(
+          "DATABASE_URL",
+          "missing or unsafe database password",
+          "Use a non-default DB user password."
+        )
       );
     }
   } catch {
@@ -114,7 +118,11 @@ function validateSiteUrl(env: StartupEnv, issues: StartupEnvIssue[]): void {
   const siteUrl = value(env, "NEXT_PUBLIC_SITE_URL");
   if (!siteUrl) {
     issues.push(
-      issue("NEXT_PUBLIC_SITE_URL", "missing", "Set NEXT_PUBLIC_SITE_URL to the HTTPS public origin.")
+      issue(
+        "NEXT_PUBLIC_SITE_URL",
+        "missing",
+        "Set NEXT_PUBLIC_SITE_URL to the HTTPS public origin."
+      )
     );
     return;
   }
@@ -155,7 +163,11 @@ function validateEmail(env: StartupEnv, issues: StartupEnvIssue[]): void {
   }
   if (!emailFrom || emailFrom === "wat@localhost") {
     issues.push(
-      issue("EMAIL_FROM", "missing or default sender", "Set EMAIL_FROM to a verified production sender.")
+      issue(
+        "EMAIL_FROM",
+        "missing or default sender",
+        "Set EMAIL_FROM to a verified production sender."
+      )
     );
   }
 }
@@ -171,11 +183,17 @@ function validateProviderPair(
   const clientSecret = value(env, clientSecretKey);
   if (clientId && !clientSecret) {
     issues.push(
-      issue(String(clientSecretKey), "missing", `Set ${String(clientSecretKey)} for ${provider} login.`)
+      issue(
+        String(clientSecretKey),
+        "missing",
+        `Set ${String(clientSecretKey)} for ${provider} login.`
+      )
     );
   }
   if (!clientId && clientSecret) {
-    issues.push(issue(String(clientIdKey), "missing", `Set ${String(clientIdKey)} for ${provider} login.`));
+    issues.push(
+      issue(String(clientIdKey), "missing", `Set ${String(clientIdKey)} for ${provider} login.`)
+    );
   }
 }
 

@@ -27,7 +27,10 @@ export function getAuditLog(): AuditLogEntry[] {
   return structuredClone(auditLog);
 }
 
-export function listAuditLogPage(offset: number, limit: number): {
+export function listAuditLogPage(
+  offset: number,
+  limit: number
+): {
   audit: AuditLogEntry[];
   total: number;
 } {

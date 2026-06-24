@@ -21,12 +21,18 @@ const validProdEnv = {
 describe("startup env validation", () => {
   it("skips validation outside production runtime by default", () => {
     expect(validateStartupEnv({ NODE_ENV: "development" })).toEqual([]);
-    expect(validateStartupEnv({ NEXT_PHASE: "phase-production-build", NODE_ENV: "production" })).toEqual([]);
+    expect(
+      validateStartupEnv({ NEXT_PHASE: "phase-production-build", NODE_ENV: "production" })
+    ).toEqual([]);
   });
 
   it("can be explicitly enabled or disabled", () => {
-    expect(shouldValidateStartupEnv({ NODE_ENV: "development", WAT_VALIDATE_ENV: "true" })).toBe(true);
-    expect(shouldValidateStartupEnv({ NODE_ENV: "production", WAT_VALIDATE_ENV: "false" })).toBe(false);
+    expect(shouldValidateStartupEnv({ NODE_ENV: "development", WAT_VALIDATE_ENV: "true" })).toBe(
+      true
+    );
+    expect(shouldValidateStartupEnv({ NODE_ENV: "production", WAT_VALIDATE_ENV: "false" })).toBe(
+      false
+    );
   });
 
   it("accepts production-safe required values", () => {
@@ -46,7 +52,10 @@ describe("startup env validation", () => {
     expect(issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "AUTH_SECRET", message: "unsafe placeholder or too short" }),
-        expect.objectContaining({ key: "DATABASE_URL", message: "missing or unsafe database password" }),
+        expect.objectContaining({
+          key: "DATABASE_URL",
+          message: "missing or unsafe database password"
+        }),
         expect.objectContaining({ key: "EMAIL_FROM", message: "missing or default sender" }),
         expect.objectContaining({ key: "EMAIL_SERVER", message: "missing or points at localhost" }),
         expect.objectContaining({ key: "NEXT_PUBLIC_SITE_URL", message: "must use HTTPS" }),
