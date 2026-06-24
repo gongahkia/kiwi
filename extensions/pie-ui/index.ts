@@ -88,7 +88,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -248,6 +248,10 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		ctx.ui.notify(`Fried Apple Pie undo: restored ${label} at ${popped.path}`, "info");
 		return;
 	}
+	if (command === "import") {
+		await importConfig(rest.join(" "), ctx, pi, state);
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -395,6 +399,41 @@ async function updateConfigTool(params: PieToolParams, ctx: ExtensionContext, pi
 		applyPie(ctx, pi, state);
 	}
 	return toolResult(params.action, { path: target?.path, scope: params.scope ?? target?.scope ?? "effective", writable: Boolean(target), dryRun: Boolean(params.dryRun || !target), config: next, validation });
+}
+
+// /pie import <path>: reads a JSON file, validates, confirms, writes to chosen scope.
+// URL import is deferred — pi.exec runtime shape is unverified; for now suggest a local download.
+async function importConfig(arg: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const source = arg.trim();
+	if (!source) {
+		ctx.ui.notify("Usage: /pie import <path-to-pie-ui.json>", "error");
+		return;
+	}
+	if (source.startsWith("http://") || source.startsWith("https://")) {
+		ctx.ui.notify("URL import not yet supported. Download the JSON locally then /pie import <path>.", "warning");
+		return;
+	}
+	const errors: string[] = [];
+	const candidate = readConfigFile(source, errors);
+	if (!candidate) {
+		ctx.ui.notify(`Import failed: ${errors[0] ?? `not found: ${source}`}`, "error");
+		return;
+	}
+	const validation = validateConfig(materializeConfig(candidate));
+	if (!validation.valid) {
+		ctx.ui.notify(`Import invalid: ${validation.errors[0]}`, "error");
+		return;
+	}
+	const target = await chooseWriteTarget(ctx);
+	if (!target) return;
+	const before = readConfigFile(target.path) ?? {};
+	const summary = summarizeChange(materializeConfig(before), materializeConfig(candidate));
+	const confirmed = await ctx.ui.confirm("Apply imported config?", `source: ${source}\ntarget: ${target.path}\nchange: ${summary}`);
+	if (!confirmed) return;
+	appendHistory({ ts: Date.now(), scope: target.scope, path: target.path, previous: before, next: candidate });
+	writeConfigFile(target.path, candidate);
+	applyPie(ctx, pi, state);
+	ctx.ui.notify(`Fried Apple Pie imported from ${source}`, "info");
 }
 
 async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {

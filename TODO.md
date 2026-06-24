@@ -381,15 +381,9 @@ P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `
 
 ---
 
-### P2-18 — `/pie import <url|file>`
+### P2-18 follow-ups (URL import)
 
-- [ ] Read remote JSON (curl via `pi.exec`) or local file → validate → write to chosen scope.
-
-**Files:** `extensions/pie-ui/index.ts`.
-
-**Sketch:** detect `https?://` prefix → `pi.exec("curl", ["-fsSL", url])`; otherwise `readFileSync`. Validate via `validateConfig`. Confirm with `ctx.ui.confirm` listing change summary. Write via existing `chooseWriteTarget` at `index.ts:370-381`.
-
-**Acceptance:** valid imports applied; invalid rejected with reason; user can choose global or project scope.
+P2-18 file import shipped: validates, asks for scope, confirms, writes, records to history. URL import deferred until `pi.exec` runtime shape is verified — current behavior is to notify and ask the user to download locally first. Future agent should add `pi.exec?.("curl", ["-fsSL", url])` branch (with try/catch on absent `pi.exec`) above the file path.
 
 ---
 

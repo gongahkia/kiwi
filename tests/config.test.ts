@@ -6,8 +6,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { applyEffectiveConfig, applyPie, diffLines, historyLines, runPieConfigTool } from "../extensions/pie-ui/index.ts";
-import { appendHistory, historyPath, popHistory, readHistory } from "../extensions/pie-ui/paths.ts";
-import { resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
+import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
 const requiredThemeTokens = [
@@ -333,6 +332,30 @@ test("diffLines reports no change for identical configs and changes for distinct
 	assert.match(cross.join("\n"), /preset:/);
 	assert.match(cross.join("\n"), /theme:/);
 	assert.match(cross.join("\n"), /\d+ keys? changed/);
+});
+
+test("import flow: readConfigFile parses arbitrary path and validateConfig catches malformed input", () => {
+	const dir = mkdtempSync(join(tmpdir(), "pie-import-"));
+	const valid = join(dir, "valid.json");
+	writeFileSync(valid, JSON.stringify({ preset: "codex-inspired" }));
+	const ok = readConfigFile(valid);
+	assert.equal(ok?.preset, "codex-inspired");
+	const v = validateConfig(materializeConfig(ok));
+	assert.equal(v.valid, true);
+
+	const invalidPreset = join(dir, "invalid.json");
+	writeFileSync(invalidPreset, JSON.stringify({ preset: "not-a-preset" }));
+	const bad = readConfigFile(invalidPreset);
+	const bv = validateConfig(materializeConfig(bad));
+	assert.equal(bv.valid, false);
+	assert.match(bv.errors.join("\n"), /unknown preset/);
+
+	const garbage = join(dir, "garbage.json");
+	writeFileSync(garbage, "not-json");
+	const errs: string[] = [];
+	const parsed = readConfigFile(garbage, errs);
+	assert.equal(parsed, undefined);
+	assert.equal(errs.length, 1);
 });
 
 test("appendHistory + popHistory + readHistory round-trip", () => {
