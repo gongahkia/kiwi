@@ -30,7 +30,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 
 **Used today** (grep `pi.on`, `pi.register*`, `ctx.ui.` in `extensions/pie-ui/`):
 - Events: `resources_discover`, `session_start`, `agent_start`, `agent_end`, `model_select`, `thinking_level_select`, `message_end`.
-- `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`.
+- `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`, `pi.exec`.
 - Built-in tool overrides for `bash`, `edit`, `read`, `grep` via `renderCall`/`renderResult`; execution/schemas cloned from Pi's own tool definitions.
 - `ctx.ui`: `setTheme`, `setToolsExpanded`, `setHiddenThinkingLabel`, `setWorkingVisible`, `setWorkingMessage`, `setWorkingIndicator`, `setWidget`, `setHeader`, `setFooter`, `notify`, `select`, `input`, `confirm`, `getAllThemes`, `custom`, `editor`, `addAutocompleteProvider`.
 
@@ -42,7 +42,6 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - `pi.appendEntry(customType, data?)` — persist state outside LLM context.
 - `pi.events` — inter-extension event bus.
 - `pi.setSessionName`, `pi.setLabel`.
-- `pi.exec(command, args, options?)` — shell exec with signal + timeout.
 - `ctx.ui.setStatus(key, text?)`, `ctx.ui.setTitle`, `ctx.ui.setEditorComponent`, `ctx.ui.pasteToEditor`, `ctx.ui.getEditorText`/`setEditorText`.
 - Built-in tool overrides for `write`, `find`, `ls` (read/bash/edit/grep now have Fried Apple Pie renderers).
 - `highlightCode`, `getLanguageFromPath`, `keyHint`, `keyText`, `truncateHead`, `truncateTail` utilities from `@earendil-works/pi-tui`.
@@ -76,12 +75,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 ### P2-17 follow-ups (Pi event-bus integration)
 
 P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `{ ts, scope, path, previous, next }` at `~/.pi/agent/pie-history.json`; rolling 50-entry cap; 3 new tests. Storage uses a plain JSON file instead of `pi.appendEntry` to avoid runtime-shape verification. Future agent: optionally also call `pi.appendEntry?.("pie:history", entry)` so other extensions on the same Pi session bus can react.
-
----
-
-### P2-18 follow-ups (URL import)
-
-P2-18 file import shipped: validates, asks for scope, confirms, writes, records to history. URL import deferred until `pi.exec` runtime shape is verified — current behavior is to notify and ask the user to download locally first. Future agent should add `pi.exec?.("curl", ["-fsSL", url])` branch (with try/catch on absent `pi.exec`) above the file path.
 
 ---
 

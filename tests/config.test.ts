@@ -8,7 +8,7 @@ import { pieAutocompleteSuggestions } from "../extensions/pie-ui/autocomplete.ts
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, TOOL_RENDER_STYLES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, importConfig, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
@@ -675,6 +675,29 @@ test("import flow: readConfigFile parses arbitrary path and validateConfig catch
 	const parsed = readConfigFile(garbage, errs);
 	assert.equal(parsed, undefined);
 	assert.equal(errs.length, 1);
+});
+
+test("importConfig fetches URL JSON with pi.exec curl and applies it", async () => {
+	await withTempHomeAsync(async (cwd) => {
+		writeProjectConfig(cwd, { preset: "minimal" });
+		const calls = makeCalls();
+		const ctx = makeCtx(cwd, calls);
+		ctx.hasUI = false;
+		ctx.ui.confirm = async () => true;
+		const execCalls: Array<{ command: string; args: string[] }> = [];
+		const pi = {
+			...makePi(),
+			async exec(command: string, args: string[]) {
+				execCalls.push({ command, args });
+				return { stdout: JSON.stringify({ preset: "gemini-inspired", theme: "fried-apple-pie-gemini" }), stderr: "", code: 0, killed: false };
+			},
+		};
+		await importConfig("https://example.test/pie-ui.json", ctx, pi as any, { working: false });
+		assert.deepEqual(execCalls, [{ command: "curl", args: ["-fsSL", "https://example.test/pie-ui.json"] }]);
+		const written = JSON.parse(readFileSync(join(cwd, ".pi", "pie-ui.json"), "utf8"));
+		assert.equal(written.preset, "gemini-inspired");
+		assert.equal(calls.themes.at(-1), "fried-apple-pie-gemini");
+	});
 });
 
 test("appendHistory + popHistory + readHistory round-trip", () => {

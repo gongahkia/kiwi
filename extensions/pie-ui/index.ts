@@ -657,20 +657,15 @@ async function updateConfigTool(params: PieToolParams, ctx: ExtensionContext, pi
 	return toolResult(params.action, { path: target?.path, scope: params.scope ?? target?.scope ?? "effective", writable: Boolean(target), dryRun: Boolean(params.dryRun || !target), config: next, validation });
 }
 
-// /pie import <path>: reads a JSON file, validates, confirms, writes to chosen scope.
-// URL import is deferred — pi.exec runtime shape is unverified; for now suggest a local download.
-async function importConfig(arg: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+// /pie import <path-or-url>: reads JSON, validates, confirms, writes to chosen scope.
+export async function importConfig(arg: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
 	const source = arg.trim();
 	if (!source) {
-		ctx.ui.notify("Usage: /pie import <path-to-pie-ui.json>", "error");
-		return;
-	}
-	if (source.startsWith("http://") || source.startsWith("https://")) {
-		ctx.ui.notify("URL import not yet supported. Download the JSON locally then /pie import <path>.", "warning");
+		ctx.ui.notify("Usage: /pie import <path-or-url-to-pie-ui.json>", "error");
 		return;
 	}
 	const errors: string[] = [];
-	const candidate = readConfigFile(source, errors);
+	const candidate = isUrl(source) ? await readConfigUrl(source, pi, ctx, errors) : readConfigFile(source, errors);
 	if (!candidate) {
 		ctx.ui.notify(`Import failed: ${errors[0] ?? `not found: ${source}`}`, "error");
 		return;
@@ -690,6 +685,30 @@ async function importConfig(arg: string, ctx: ExtensionContext, pi: ExtensionAPI
 	writeConfigFile(target.path, candidate);
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie imported from ${source}`, "info");
+}
+
+async function readConfigUrl(source: string, pi: ExtensionAPI, ctx: ExtensionContext, errors: string[]): Promise<PieConfig | undefined> {
+	try {
+		const result = await pi.exec("curl", ["-fsSL", source], { cwd: ctx.cwd, timeout: 15_000 });
+		if (result.code !== 0) {
+			errors.push(result.stderr.trim() || `curl exited ${result.code}`);
+			return undefined;
+		}
+		const parsed = JSON.parse(result.stdout) as unknown;
+		const validation = validateConfig(parsed);
+		if (!validation.valid) {
+			errors.push(validation.errors[0]);
+			return undefined;
+		}
+		return parsed as PieConfig;
+	} catch (error) {
+		errors.push(error instanceof Error ? error.message : String(error));
+		return undefined;
+	}
+}
+
+function isUrl(source: string): boolean {
+	return source.startsWith("http://") || source.startsWith("https://");
 }
 
 async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
