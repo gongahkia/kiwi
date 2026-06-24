@@ -249,7 +249,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Increase seed/public corpus beyond demo size — done when public search covers at least the target launch benchmark set and no longer relies on ~50 unique seed terms.
 - [ ] Add corpus refresh dashboard/report — done when scheduled scraper runs publish added/changed/removed counts, license changes, parser errors, and benchmark impact.
 - [ ] Add bad-delta rollback path — done when a bad corpus import can be reverted to a known-good version with documented commands.
-- [ ] Add source license change alerts — done when changes in source license metadata block automatic import until reviewed.
 - [ ] Add no-fabrication corpus gate — done when entries without acceptable provenance are excluded from public results or marked review-only.
 - [ ] Add corpus quality sampling workflow — done when each refresh PR includes random sample entries for human review.
 
