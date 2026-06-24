@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: CommitMono;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("CommitMono"), local("Commit Mono");
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -19,6 +27,9 @@
   --color-destructive: var(--destructive);
   --color-muted-surface: var(--muted-surface);
   --color-on-surface: var(--on-surface);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-sans);
 }
@@ -26,6 +37,7 @@
 :root {
   color-scheme: light;
   --background: #ffffff;
+  --border: #e5e7eb;
   --foreground: #aaaaaa;
   --primary: #000000;
   --primary-foreground: #ffffff;
@@ -33,6 +45,7 @@
   --secondary-foreground: #ffffff;
   --tertiary: #e5e7eb;
   --neutral: #ffffff;
+  --surface: #ffffff;
   --accent: #f3f4f6;
   --accent-foreground: #000000;
   --muted-surface: #f3f4f6;
@@ -40,6 +53,20 @@
   --input: #e5e7eb;
   --ring: #000000;
   --destructive: #000000;
+  --text: #aaaaaa;
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --space-xs: 2px;
+  --space-sm: 6px;
+  --space-md: 14px;
+  --space-lg: 18px;
+  --space-xl: 23px;
+  --space-base: 16px;
+  --space-gutter: 24px;
+  --space-section: 32px;
   --font-sans:
     CommitMono, "Commit Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
@@ -48,6 +75,7 @@
 .dark {
   color-scheme: light;
   --background: #ffffff;
+  --border: #e5e7eb;
   --foreground: #aaaaaa;
   --primary: #000000;
   --primary-foreground: #ffffff;
@@ -55,6 +83,7 @@
   --secondary-foreground: #ffffff;
   --tertiary: #e5e7eb;
   --neutral: #ffffff;
+  --surface: #ffffff;
   --accent: #f3f4f6;
   --accent-foreground: #000000;
   --muted-surface: #f3f4f6;
@@ -62,10 +91,17 @@
   --input: #e5e7eb;
   --ring: #000000;
   --destructive: #000000;
+  --text: #aaaaaa;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
 }
 
 body {
@@ -80,7 +116,7 @@ body {
 }
 
 main[class] {
-  padding: 40px 24px;
+  padding: 40px var(--space-gutter);
 }
 
 button,
@@ -91,9 +127,29 @@ textarea {
   letter-spacing: 0;
 }
 
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-sans);
+}
+
 a,
 button {
   text-underline-offset: 4px;
+}
+
+a {
+  color: inherit;
+}
+
+a:hover {
+  color: var(--on-surface);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--neutral);
 }
 
 h1,
@@ -148,21 +204,42 @@ th,
   line-height: 16px;
 }
 
+.leading-7,
+.leading-8 {
+  line-height: 24px;
+}
+
+.tracking-normal,
+[class*="tracking-"] {
+  letter-spacing: 0;
+}
+
 .mx-auto {
   margin-left: 0;
   margin-right: auto;
 }
 
 .rounded-md {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 .rounded-sm {
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.rounded-lg {
+  border-radius: var(--radius-lg);
+}
+
+.rounded-xl {
+  border-radius: var(--radius-xl);
 }
 
 .shadow,
-.shadow-sm {
+.shadow-sm,
+.shadow-md,
+.shadow-lg,
+.shadow-xl {
   box-shadow: none;
 }
 
@@ -185,6 +262,12 @@ th,
   color: var(--secondary);
 }
 
+.border,
+.border-input,
+.divide-input > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--input);
+}
+
 .bg-secondary:not(.text-neutral) {
   background-color: var(--muted-surface);
   color: var(--on-surface);
@@ -194,7 +277,7 @@ input,
 select,
 textarea {
   border-color: var(--input);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--background);
   color: var(--on-surface);
 }
@@ -210,7 +293,17 @@ button.rounded-md,
 input.rounded-md,
 select.rounded-md,
 textarea.rounded-md {
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+}
+
+kbd {
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background: var(--muted-surface);
+  color: var(--on-surface);
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 thead {
@@ -221,6 +314,11 @@ thead {
 td,
 th {
   border-color: var(--input);
+}
+
+:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: 2px;
 }
 
 @media (max-width: 640px) {
