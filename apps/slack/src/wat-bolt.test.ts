@@ -4,6 +4,11 @@ import { App, type Receiver, type ReceiverEvent } from "@slack/bolt";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { explainAcronymsShortcutId, registerWatBoltHandlers } from "./wat-bolt.js";
+import {
+  MemoryRateLimitStore,
+  type SlackRateLimitStore,
+  type WorkspaceRateLimitConfig
+} from "./workspace-rate-limit.js";
 
 interface ProcessableBoltApp {
   processEvent(event: ReceiverEvent): Promise<void>;
@@ -243,6 +248,43 @@ describe("wat Bolt handlers", () => {
     expect(JSON.stringify(searchRequests)).not.toContain("docs-channel-secret");
   });
 
+  it("throttles Slack command bursts by channel", async () => {
+    const receiver = createWatApp({
+      rateLimitConfig: {
+        channelLimit: 1,
+        limit: 99,
+        userLimit: 99,
+        windowMs: 60_000,
+        workspaceLimit: 99
+      }
+    });
+
+    const command = {
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "TLS",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    };
+
+    await receiver.dispatch(command);
+    await receiver.dispatch({ ...command, text: "SSL", user_id: "U_BOB" });
+
+    expect(receiver.acked).toEqual([true, true]);
+    expect(responsePayloads("/response").at(-1)).toMatchObject({
+      response_type: "ephemeral",
+      text: "Slack rate limit exceeded for channel. Retry after 60s."
+    });
+    expect(searchRequests.map((request) => request.q)).toEqual(["TLS"]);
+  });
+
   it("replies in-thread to app mentions", async () => {
     const receiver = createWatApp();
 
@@ -280,7 +322,13 @@ describe("wat Bolt handlers", () => {
   });
 });
 
-function createWatApp(options: { slackAdminUserIds?: string[] } = {}): BoltTestReceiver {
+function createWatApp(
+  options: {
+    rateLimitConfig?: WorkspaceRateLimitConfig;
+    rateLimitStore?: SlackRateLimitStore;
+    slackAdminUserIds?: string[];
+  } = {}
+): BoltTestReceiver {
   const receiver = new BoltTestReceiver();
   const app = new App({
     botId: "B_WAT",
@@ -294,18 +342,32 @@ function createWatApp(options: { slackAdminUserIds?: string[] } = {}): BoltTestR
     tokenVerificationEnabled: false
   });
   registerWatBoltHandlers(app, {
+    rateLimitConfig: options.rateLimitConfig ?? {
+      channelLimit: 100,
+      limit: 100,
+      userLimit: 100,
+      windowMs: 60_000,
+      workspaceLimit: 100
+    },
+    rateLimitStore: options.rateLimitStore ?? new MemoryRateLimitStore(),
     slackAdminUserIds: options.slackAdminUserIds,
     watApiBaseUrl: baseUrl
   });
   return receiver;
 }
 
+function responsePayloads(path: string): Record<string, unknown>[] {
+  return captured
+    .filter((item) => item.path === path && item.body && typeof item.body === "object")
+    .map((item) => item.body as Record<string, unknown>);
+}
+
 function responsePayload(path: string): Record<string, unknown> {
-  const request = captured.find((item) => item.path === path);
-  if (!request || !request.body || typeof request.body !== "object") {
+  const [request] = responsePayloads(path);
+  if (!request) {
     throw new Error(`missing captured request for ${path}`);
   }
-  return request.body as Record<string, unknown>;
+  return request;
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {

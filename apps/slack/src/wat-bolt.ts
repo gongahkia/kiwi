@@ -5,11 +5,23 @@ import type {
   SlackShortcutMiddlewareArgs
 } from "@slack/bolt";
 
+import {
+  checkSlackRateLimit,
+  defaultRateLimitStore,
+  workspaceRateLimitConfigFromEnv,
+  type SlackRateLimitStore,
+  type SlackRateLimitSubject,
+  type WorkspaceRateLimitConfig,
+  type WorkspaceRateLimitDecision
+} from "./workspace-rate-limit.js";
+
 export const explainAcronymsShortcutId = "wat_explain_acronyms";
 
 interface WatBoltDeps {
   fetchLookup?: typeof fetch;
   fetchWrite?: typeof fetch;
+  rateLimitConfig?: WorkspaceRateLimitConfig;
+  rateLimitStore?: SlackRateLimitStore;
   slackAdminUserIds?: string[];
   watApiBaseUrl: string;
 }
@@ -87,6 +99,7 @@ export function registerWatBoltHandlers(
 
 async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  if (!(await allowCommand(args, deps))) return;
   const term = args.command.text.trim();
   if (!term) {
     await args.respond({
@@ -102,6 +115,7 @@ async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltD
 
 async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  if (!(await allowCommand(args, deps))) return;
   const term = args.command.text.trim();
   if (!term) {
     await args.respond({
@@ -124,6 +138,7 @@ async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
 
 async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  if (!(await allowCommand(args, deps))) return;
   if (!isAdminUser(args.command.user_id, deps)) {
     await args.respond({
       response_type: "ephemeral",
@@ -150,6 +165,7 @@ async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
 
 async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  if (!(await allowCommand(args, deps))) return;
   const definition = parseDefinition(args.command.text, fallbackMeaning(args.command.user_name));
   if (!definition) {
     await args.respond({
@@ -174,6 +190,7 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
 
 async function handleExplainAcronymsShortcut(args: SlackShortcutMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  if (!(await allowShortcut(args, deps))) return;
   const messageText =
     "message" in args.shortcut && typeof args.shortcut.message.text === "string"
       ? args.shortcut.message.text
@@ -195,9 +212,17 @@ async function handleAppMention(args: SlackEventMiddlewareArgs<"app_mention">, d
   const text = "text" in args.event && typeof args.event.text === "string" ? args.event.text : "";
   const term = text.replace(/<@[^>]+>/g, " ").trim();
   if (!term || !("say" in args)) return;
+  const rateLimit = await rateLimitDecision(mentionSubject(args), deps);
+  if (!rateLimit.allowed) {
+    await args.say({
+      text: rateLimitText(rateLimit),
+      thread_ts: appMentionThreadTs(args.event)
+    });
+    return;
+  }
 
   const result = await lookup(deps, term, text);
-  const threadTs = "thread_ts" in args.event ? args.event.thread_ts : args.event.ts;
+  const threadTs = appMentionThreadTs(args.event);
   await args.say({
     ...renderLookupMessage(term, result),
     thread_ts: threadTs
@@ -206,6 +231,79 @@ async function handleAppMention(args: SlackEventMiddlewareArgs<"app_mention">, d
 
 function acronymsIn(text: string): string[] {
   return Array.from(new Set(text.match(/\b[A-Z][A-Z0-9]{1,9}\b/g) ?? [])).slice(0, 8);
+}
+
+async function allowCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps): Promise<boolean> {
+  const decision = await rateLimitDecision(commandSubject(args.command), deps);
+  if (decision.allowed) return true;
+
+  await args.respond({
+    response_type: "ephemeral",
+    text: rateLimitText(decision)
+  });
+  return false;
+}
+
+async function allowShortcut(
+  args: SlackShortcutMiddlewareArgs,
+  deps: WatBoltDeps
+): Promise<boolean> {
+  const decision = await rateLimitDecision(shortcutSubject(args), deps);
+  if (decision.allowed) return true;
+
+  await args.respond({
+    response_type: "ephemeral",
+    text: rateLimitText(decision)
+  });
+  return false;
+}
+
+function commandSubject(command: SlackCommandMiddlewareArgs["command"]): SlackRateLimitSubject {
+  return {
+    channelId: command.channel_id,
+    userId: command.user_id,
+    workspaceId: command.team_id ?? command.team_domain ?? "unknown"
+  };
+}
+
+function shortcutSubject(args: SlackShortcutMiddlewareArgs): SlackRateLimitSubject {
+  return {
+    channelId: "channel" in args.shortcut ? args.shortcut.channel.id : undefined,
+    userId: args.shortcut.user.id,
+    workspaceId: args.shortcut.team?.id ?? args.shortcut.user.team_id ?? "unknown"
+  };
+}
+
+function mentionSubject(args: SlackEventMiddlewareArgs<"app_mention">): SlackRateLimitSubject {
+  return {
+    channelId: "channel" in args.event ? args.event.channel : undefined,
+    userId: "user" in args.event ? args.event.user : undefined,
+    workspaceId:
+      "team_id" in args.body && typeof args.body.team_id === "string"
+        ? args.body.team_id
+        : "unknown"
+  };
+}
+
+function appMentionThreadTs(event: SlackEventMiddlewareArgs<"app_mention">["event"]): string {
+  return "thread_ts" in event && typeof event.thread_ts === "string"
+    ? event.thread_ts
+    : (event.ts ?? "");
+}
+
+function rateLimitDecision(
+  subject: SlackRateLimitSubject,
+  deps: WatBoltDeps
+): Promise<WorkspaceRateLimitDecision> {
+  return checkSlackRateLimit(
+    subject,
+    deps.rateLimitConfig ?? workspaceRateLimitConfigFromEnv(),
+    deps.rateLimitStore ?? defaultRateLimitStore()
+  );
+}
+
+function rateLimitText(decision: WorkspaceRateLimitDecision): string {
+  return `Slack rate limit exceeded for ${decision.scope}. Retry after ${decision.retryAfter}s.`;
 }
 
 async function writeJson(deps: WatBoltDeps, pathname: string, body: unknown): Promise<void> {

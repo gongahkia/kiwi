@@ -21,6 +21,11 @@ SLACK_CLIENT_SECRET=
 SLACK_SIGNING_SECRET=
 SLACK_APP_TOKEN=
 WAT_API_BASE_URL=http://localhost:3000
+SLACK_RATE_LIMIT_STORE_PATH=.wat-slack-rate-limits.json
+SLACK_WORKSPACE_RATE_LIMIT=30
+SLACK_CHANNEL_RATE_LIMIT=30
+SLACK_USER_RATE_LIMIT=30
+SLACK_WORKSPACE_RATE_LIMIT_WINDOW_MS=60000
 ```
 
 ## Target Bot Scopes
@@ -40,6 +45,8 @@ WAT_API_BASE_URL=http://localhost:3000
 ## Permissions Model
 
 Slash-command lookup is read-only. Admin definition commands should require Slack workspace admin status plus wat team admin status before writing team entries.
+
+Command, shortcut, and mention bursts are rate-limited per workspace, channel, and user. Counters persist to `SLACK_RATE_LIMIT_STORE_PATH` so restarts do not reset active windows.
 
 Message shortcuts should process only the selected message payload Slack sends to the app. Channel-wide auto-detect should be opt-in per channel.
 
