@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { Key, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -26,13 +26,14 @@ import {
 import { bannerForConfig } from "./banners.ts";
 import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
-import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, type RenderState, showPanel, widgetLines } from "./render.ts";
+import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, pickShortcutAction, PIE_SHORTCUT_ACTIONS, type PieShortcutAction, type RenderState, showPanel, widgetLines } from "./render.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const themeDir = resolve(__dirname, "../../themes");
 const skillDir = resolve(__dirname, "../../skills");
 const tapesDir = resolve(__dirname, "../../assets/tapes");
 export const PIE_WELCOME_TYPE = "pie:welcome";
+export const PIE_LEADER_SHORTCUTS = [Key.ctrlAlt("p"), Key.ctrl("p")] as const;
 const configToolSchema = Type.Object({
 	action: Type.Union([
 		Type.Literal("read"),
@@ -124,6 +125,14 @@ export default function (pi: ExtensionAPI) {
 			await handlePieCommand(args, ctx, pi, state);
 		},
 	});
+	for (const shortcut of PIE_LEADER_SHORTCUTS) {
+		pi.registerShortcut(shortcut, {
+			description: "Fried Apple Pie leader (p/g/s/e/d/c)",
+			handler: async (ctx) => {
+				await handlePieShortcut(ctx, pi, state);
+			},
+		});
+	}
 
 	pi.registerTool({
 		name: "pie_config",
@@ -140,6 +149,38 @@ export default function (pi: ExtensionAPI) {
 			return runPieConfigTool(params as PieToolParams, ctx, pi, state);
 		},
 	});
+}
+
+async function handlePieShortcut(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const action = await pickShortcutAction(ctx);
+	if (!action) return;
+	await runShortcutAction(action, ctx, pi, state);
+}
+
+async function runShortcutAction(action: PieShortcutAction, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
+	if (action === "preset") {
+		const selected = await pickPreset(ctx, loaded.effective.preset);
+		if (selected) await writePreset(selected, ctx, pi, state, "clean");
+		return;
+	}
+	if (action === "gallery") {
+		await runGallery(ctx, pi, state, loaded.effective);
+		return;
+	}
+	if (action === "footer") {
+		await editFooterSegments(ctx, pi, state);
+		return;
+	}
+	if (action === "edit") {
+		await editConfig(ctx, pi, state);
+		return;
+	}
+	if (action === "doctor") {
+		await showPanel(ctx, "Fried Apple Pie doctor", doctorLines(loaded, ctx, pi));
+		return;
+	}
+	if (action === "capture") await runCapture(loaded.effective.preset, ctx, pi);
 }
 
 type PieToolParams = {
@@ -639,6 +680,22 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 		next.widget = { ...next.widget, enabled, lines: enabled ? [line ?? ""] : next.widget?.lines };
 	}
 	if (action === "tools") next.tools = { ...next.tools, expanded: !Boolean(loaded.effective.tools?.expanded) };
+	await applyEditedConfig(ctx, pi, state, loaded.effective, next, action);
+}
+
+async function editFooterSegments(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
+	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
+	const current = readConfigFile(path) ?? {};
+	const next = cloneConfig(current);
+	const currentSegments = loaded.effective.footer?.segments?.map((entry) => (typeof entry === "string" ? entry : entry.id));
+	const segments = await pickFooterSegments(ctx, currentSegments);
+	if (!segments) return;
+	next.footer = { ...next.footer, enabled: true, segments };
+	await applyEditedConfig(ctx, pi, state, loaded.effective, next, "footer");
+}
+
+async function applyEditedConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, before: PieConfig, next: PieConfig, label: string): Promise<void> {
 	const validation = validateConfig(materializeConfig(next));
 	if (!validation.valid) {
 		ctx.ui.notify(`Invalid config: ${validation.errors[0]}`, "error");
@@ -646,12 +703,12 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 	}
 	const target = await chooseWriteTarget(ctx);
 	if (!target) return;
-	const summary = summarizeChange(loaded.effective, materializeConfig(next));
+	const summary = summarizeChange(before, materializeConfig(next));
 	const confirmed = await ctx.ui.confirm("Apply Fried Apple Pie config?", `target: ${target.path}\nchange: ${summary}`);
 	if (!confirmed) return;
 	writeConfigFile(target.path, next);
 	applyPie(ctx, pi, state);
-	ctx.ui.notify(`Fried Apple Pie updated: ${action}`, "info");
+	ctx.ui.notify(`Fried Apple Pie updated: ${label}`, "info");
 }
 
 async function chooseWriteTarget(ctx: ExtensionContext): Promise<{ path: string; scope: "global" | "project" } | undefined> {
@@ -771,7 +828,14 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	const hasConfigOrConflictIssue = lines.length > 5;
 	const deps = captureDependencyLines();
 	lines.push(...deps);
+	lines.push(...shortcutLines());
 	if (!hasConfigOrConflictIssue && !deps.some((line) => line.startsWith("capture unavailable:"))) lines.push("ok");
+	return lines;
+}
+
+export function shortcutLines(): string[] {
+	const lines = PIE_SHORTCUT_ACTIONS.map((action) => `shortcut: ${PIE_LEADER_SHORTCUTS[0]} ${action.key} -> ${action.label}`);
+	lines.push(`shortcut: ${PIE_LEADER_SHORTCUTS[1]} registered; Pi default binds app.model.cycleForward to ctrl+p, so rebind that action before using ctrl+p as the leader`);
 	return lines;
 }
 

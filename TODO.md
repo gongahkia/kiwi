@@ -129,32 +129,6 @@ Build one style at a time:
 
 ---
 
-### P1-08 — Keybindings via `pi.registerShortcut` with leader prefix
-
-- [ ] Register `ctrl+p` leader chord plus `p/g/s/e/d/c` follow-ups. Document rebind path.
-
-**Why:** parity with `pi-powerline-footer` (alt+s, ctrl+shift+b). Zero shortcuts today.
-
-**Files:** `extensions/pie-ui/index.ts` (add `pi.registerShortcut` block alongside `registerCommand`). README + SKILL.md updates.
-
-**Sketch:**
-```ts
-pi.registerShortcut("ctrl+p p", { description: "Fried Apple Pie: preset picker",   handler: async (ctx) => { /* call pickPreset + writePreset */ } });
-pi.registerShortcut("ctrl+p g", { description: "Fried Apple Pie: gallery cycle",   handler: async (ctx) => { /* P0-03 entry */ } });
-pi.registerShortcut("ctrl+p s", { description: "Fried Apple Pie: footer segments", handler: async (ctx) => { /* pickFooterSegments */ } });
-pi.registerShortcut("ctrl+p e", { description: "Fried Apple Pie: edit",            handler: async (ctx) => { /* editConfig */ } });
-pi.registerShortcut("ctrl+p d", { description: "Fried Apple Pie: doctor",          handler: async (ctx) => { /* doctorLines panel */ } });
-pi.registerShortcut("ctrl+p c", { description: "Fried Apple Pie: capture",         handler: async (ctx) => { /* P0-02 entry */ } });
-```
-
-Rebind path (document in README): `~/.pi/agent/keybindings.json` — per keybindings.md https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/keybindings.md. After editing, run `/reload` in Pi.
-
-**Refs:** keybindings.md.
-
-**Acceptance:** all six shortcuts work; README documents rebind; doctor lists active chords.
-
----
-
 ### P1-11 — `/pie share` to static registry
 
 - [ ] Subcommand that bundles current effective config + screenshot into a shareable payload.
@@ -392,8 +366,9 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 4. ~~P0-01 (README rewrite)~~ — done. Per-preset screenshot grid still pending P0-02.
 5. ~~P0-05 (personas)~~ — done.
 6. ~~P0-06 (boot ASCII)~~ — done.
-7. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
-8. P1-08 → P1-15 in parallel.
-9. P2 / P3 as bandwidth allows.
+7. ~~P1-08 (keybindings)~~ — done.
+8. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
+9. P1-11 → P1-15 in parallel.
+10. P2 / P3 as bandwidth allows.
 
 [Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.

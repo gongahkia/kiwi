@@ -7,9 +7,9 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
-import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
+import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
 const requiredThemeTokens = [
 	"accent",
@@ -439,6 +439,27 @@ test("captureDependencyLines reports missing capture tools", () => {
 	assert.match(lines.join("\n"), /capture dependency: ttyd missing/);
 	assert.match(lines.join("\n"), /capture dependency: ffmpeg ok/);
 	assert.match(lines.join("\n"), /capture unavailable: install ttyd on PATH/);
+});
+
+test("shortcut leader registration and doctor lines cover every follow-up", () => {
+	const shortcuts: Array<{ key: string; description?: string }> = [];
+	const pi = {
+		on() {},
+		registerMessageRenderer() {},
+		registerCommand() {},
+		registerTool() {},
+		registerShortcut(key: string, options: { description?: string }) {
+			shortcuts.push({ key, description: options.description });
+		},
+	} as any;
+	friedApplePieExtension(pi);
+	assert.deepEqual(shortcuts.map((shortcut) => shortcut.key), [...PIE_LEADER_SHORTCUTS]);
+	assert.ok(shortcuts.every((shortcut) => shortcut.description === "Fried Apple Pie leader (p/g/s/e/d/c)"));
+	const lines = shortcutLines();
+	for (const action of PIE_SHORTCUT_ACTIONS) {
+		assert.ok(lines.some((line) => line.includes(`${PIE_LEADER_SHORTCUTS[0]} ${action.key}`) && line.includes(action.label)), action.id);
+	}
+	assert.match(lines.join("\n"), /app\.model\.cycleForward/);
 });
 
 test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {

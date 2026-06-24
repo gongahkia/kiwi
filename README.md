@@ -20,7 +20,7 @@ pi install npm:fried-apple-pie
 
 Pi already supports themes, extensions, and packages. Existing packages each cover one slice — a theme pack, a footer, a tool renderer. Fried Apple Pie is a **composition layer**:
 
-- 12 presets covering cross-agent looks (claude / codex / gemini / opencode / aider / copilot) and popular color schemes (dracula / tokyo-night / catppuccin-mocha / nord / gruvbox-dark).
+- 16 presets covering cross-agent looks (claude / codex / gemini / opencode / aider / copilot / cursor / amp) and popular color schemes (dracula / tokyo-night / catppuccin / nord / gruvbox).
 - One `pie_config` tool that lets the Pi agent itself read, validate, patch, and apply UI config — no other Pi customization package exposes this.
 - Trust-aware global + project scope, JSON Patch subset, `/pie doctor` conflict detection, `npm test` shipped.
 
@@ -94,7 +94,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 ```txt
 /pie                           open preset picker overlay
 /pie preset <name> [clean|merge]   apply preset (default: clean)
-/pie mode <full|theme-only|footer-only|widgets-only>
+/pie mode <full|theme-only|footer-only|widgets-only|status-only>
 /pie persona <name>            swap spinner + verb pack
 /pie gallery                   live-cycle every preset (no writes)
 /pie diff <preset> [merge]     preview what a preset apply would change
@@ -111,6 +111,19 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 ```
 
 `/pie gallery` controls: `j`/`l` next, `k`/`h` previous, `enter` keep current preview, `q` restore prior config.
+
+## Keybindings
+
+`ctrl+alt+p` opens the Fried Apple Pie leader. Then press `p` preset picker, `g` gallery, `s` footer segments, `e` editor, `d` doctor, or `c` capture.
+
+`ctrl+p` is also registered, but Pi's default `app.model.cycleForward` binding reserves `ctrl+p`, so Pi skips that extension shortcut until you rebind the model cycle action in `~/.pi/agent/keybindings.json` and run `/reload`.
+
+```json
+{
+  "app.model.cycleForward": "ctrl+alt+right",
+  "app.model.cycleBackward": "ctrl+alt+left"
+}
+```
 
 ## Agent tool
 
@@ -208,8 +221,8 @@ Preset apply modes:
 | Multi-preset switch          | **16**          | —            | —               | —                   | scripted          | themes         | themes   |
 | Spinners / personas          | **10 / 7**      | 70+ / lib    | —               | AI "vibes"          | —                 | n/a            | n/a      |
 | Boot/welcome ASCII           | startup banner  | sign-in art  | —               | branded splash      | —                 | winbar         | —        |
-| Conditional segments         | —               | n/a          | n/a             | context-warn        | flexible          | richest        | —        |
-| Capture / share              | (planned)       | —            | —               | —                   | —                 | n/a            | n/a      |
+| Conditional segments         | **yes**         | n/a          | n/a             | context-warn        | flexible          | richest        | —        |
+| Capture / share              | capture / share planned | —     | —               | —                   | —                 | n/a            | n/a      |
 | Doctor / conflict check      | **yes**         | —            | —               | —                   | —                 | n/a            | —        |
 | Agent-readable config        | **yes**         | —            | —               | —                   | —                 | n/a            | —        |
 | JSON Patch agent API         | **yes**         | —            | —               | —                   | —                 | n/a            | —        |

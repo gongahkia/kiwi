@@ -24,6 +24,15 @@ export type RenderState = {
 };
 
 export type EditAction = "preset" | "theme" | "mode" | "compact" | "footer" | "header" | "widget" | "tools" | "cancel";
+export const PIE_SHORTCUT_ACTIONS = [
+	{ key: "p", id: "preset", label: "preset picker" },
+	{ key: "g", id: "gallery", label: "gallery" },
+	{ key: "s", id: "footer", label: "footer segments" },
+	{ key: "e", id: "edit", label: "editor" },
+	{ key: "d", id: "doctor", label: "doctor" },
+	{ key: "c", id: "capture", label: "capture" },
+] as const;
+export type PieShortcutAction = (typeof PIE_SHORTCUT_ACTIONS)[number]["id"];
 
 export function createFooter(config: PieConfig, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, theme: ThemeLike, footerData: FooterData): Component & { dispose(): void } {
 	let disposed = false;
@@ -146,6 +155,23 @@ export async function pickFooterSegments(ctx: ExtensionContext, active: FooterSe
 	);
 }
 
+export async function pickShortcutAction(ctx: ExtensionContext): Promise<PieShortcutAction | undefined> {
+	if (ctx.mode !== "tui") return undefined;
+	return ctx.ui.custom<PieShortcutAction | undefined>(
+		(_tui, theme, _keybindings, done) => new ShortcutPicker(theme as ThemeLike, done),
+		{
+			overlay: true,
+			overlayOptions: {
+				anchor: "center",
+				width: "54%",
+				minWidth: 44,
+				maxHeight: "60%",
+				margin: 1,
+			},
+		},
+	);
+}
+
 export async function showPanel(ctx: ExtensionContext, title: string, lines: string[]): Promise<void> {
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(lines.slice(0, 3).join(" · ") || title, "info");
@@ -199,6 +225,46 @@ class PresetPicker implements Component {
 		if (data === "j") this.index = Math.min(PRESET_NAMES.length - 1, this.index + 1);
 		if (data === "k") this.index = Math.max(0, this.index - 1);
 		if (data === "\r" || data === "\n") this.done(PRESET_NAMES[this.index]);
+	}
+
+	invalidate(): void {}
+}
+
+class ShortcutPicker implements Component {
+	private index = 0;
+
+	constructor(
+		private theme: ThemeLike,
+		private done: (result: PieShortcutAction | undefined) => void,
+	) {}
+
+	render(width: number): string[] {
+		const w = Math.max(44, width);
+		const lines = [
+			pad(this.theme.bg("toolPendingBg", this.theme.bold(" Fried Apple Pie shortcuts ") + this.theme.fg("muted", "p/g/s/e/d/c enter q")), w),
+		];
+		for (let i = 0; i < PIE_SHORTCUT_ACTIONS.length; i++) {
+			const action = PIE_SHORTCUT_ACTIONS[i];
+			const selected = i === this.index;
+			const row = `${selected ? ">" : " "} ${action.key} ${action.label}`;
+			lines.push(selected ? this.theme.bg("selectedBg", pad(this.theme.fg("accent", row), w)) : pad(row, w));
+		}
+		return lines;
+	}
+
+	handleInput(data: string): void {
+		if (data === "q" || data === "\u001b") {
+			this.done(undefined);
+			return;
+		}
+		const direct = PIE_SHORTCUT_ACTIONS.find((action) => action.key === data);
+		if (direct) {
+			this.done(direct.id);
+			return;
+		}
+		if (data === "j") this.index = Math.min(PIE_SHORTCUT_ACTIONS.length - 1, this.index + 1);
+		if (data === "k") this.index = Math.max(0, this.index - 1);
+		if (data === "\r" || data === "\n") this.done(PIE_SHORTCUT_ACTIONS[this.index].id);
 	}
 
 	invalidate(): void {}
