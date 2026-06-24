@@ -21,12 +21,16 @@ SLACK_CLIENT_SECRET=
 SLACK_SIGNING_SECRET=
 SLACK_APP_TOKEN=
 WAT_API_BASE_URL=http://localhost:3000
+WAT_API_KEY=
+WAT_TEAM_ID=
 SLACK_RATE_LIMIT_STORE_PATH=.wat-slack-rate-limits.json
 SLACK_WORKSPACE_RATE_LIMIT=30
 SLACK_CHANNEL_RATE_LIMIT=30
 SLACK_USER_RATE_LIMIT=30
 SLACK_WORKSPACE_RATE_LIMIT_WINDOW_MS=60000
 ```
+
+When `WAT_API_KEY` and `WAT_TEAM_ID` are set, wat lookup/write calls include `Authorization: Bearer <key>`, `X-Wat-Team-Id`, and `X-Wat-User-Id: slack:<user id>`.
 
 ## Target Bot Scopes
 

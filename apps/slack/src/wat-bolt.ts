@@ -17,13 +17,15 @@ import {
 
 export const explainAcronymsShortcutId = "wat_explain_acronyms";
 
-interface WatBoltDeps {
+export interface WatBoltDeps {
   fetchLookup?: typeof fetch;
   fetchWrite?: typeof fetch;
   rateLimitConfig?: WorkspaceRateLimitConfig;
   rateLimitStore?: SlackRateLimitStore;
   slackAdminUserIds?: string[];
+  watApiKey?: string;
   watApiBaseUrl: string;
+  watTeamId?: string;
 }
 
 interface SlackTextObject {
@@ -109,7 +111,7 @@ async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltD
     return;
   }
 
-  const result = await lookup(deps, term, args.command.channel_name);
+  const result = await lookup(deps, term, args.command.channel_name, args.command.user_id);
   await args.respond(renderLookupMessage(term, result, { response_type: "ephemeral" }));
 }
 
@@ -125,11 +127,13 @@ async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
     return;
   }
 
-  const entries = await lookup(deps, term, args.command.channel_name);
+  const entries = await lookup(deps, term, args.command.channel_name, args.command.user_id);
   const top = entries[0];
   const alternatives = listAlternatives(top?.contemporaries);
   const resolved = await Promise.all(
-    alternatives.map((alternative) => lookup(deps, alternative, args.command.channel_name))
+    alternatives.map((alternative) =>
+      lookup(deps, alternative, args.command.channel_name, args.command.user_id)
+    )
   );
   await args.respond(
     renderAlternativesMessage(term, top, alternatives, resolved, { response_type: "ephemeral" })
@@ -156,7 +160,12 @@ async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
     return;
   }
 
-  await writeJson(deps, "/team/admin/entries/api", teamEntryFromCommand(definition, args.command));
+  await writeJson(
+    deps,
+    "/team/admin/entries/api",
+    teamEntryFromCommand(definition, args.command),
+    args.command.user_id
+  );
   await args.respond({
     response_type: "ephemeral",
     text: `Defined ${definition.term} as ${definition.expansion}.`
@@ -175,13 +184,18 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
     return;
   }
 
-  await writeJson(deps, "/suggest/api", {
-    domains: domainsFor(args.command),
-    expansion: definition.expansion,
-    meaning: definition.meaning,
-    source_url: slackSourceUrl(args.command),
-    term: definition.term
-  });
+  await writeJson(
+    deps,
+    "/suggest/api",
+    {
+      domains: domainsFor(args.command),
+      expansion: definition.expansion,
+      meaning: definition.meaning,
+      source_url: slackSourceUrl(args.command),
+      term: definition.term
+    },
+    args.command.user_id
+  );
   await args.respond({
     response_type: "ephemeral",
     text: `Suggested ${definition.term} as ${definition.expansion} for admin review.`
@@ -204,7 +218,9 @@ async function handleExplainAcronymsShortcut(args: SlackShortcutMiddlewareArgs, 
     return;
   }
 
-  const lookups = await Promise.all(terms.map((term) => lookup(deps, term, messageText)));
+  const lookups = await Promise.all(
+    terms.map((term) => lookup(deps, term, messageText, args.shortcut.user.id))
+  );
   await args.respond(renderAcronymList(lookups));
 }
 
@@ -221,7 +237,7 @@ async function handleAppMention(args: SlackEventMiddlewareArgs<"app_mention">, d
     return;
   }
 
-  const result = await lookup(deps, term, text);
+  const result = await lookup(deps, term, text, args.event.user);
   const threadTs = appMentionThreadTs(args.event);
   await args.say({
     ...renderLookupMessage(term, result),
@@ -306,28 +322,47 @@ function rateLimitText(decision: WorkspaceRateLimitDecision): string {
   return `Slack rate limit exceeded for ${decision.scope}. Retry after ${decision.retryAfter}s.`;
 }
 
-async function writeJson(deps: WatBoltDeps, pathname: string, body: unknown): Promise<void> {
+async function writeJson(
+  deps: WatBoltDeps,
+  pathname: string,
+  body: unknown,
+  userId: string
+): Promise<void> {
   const client = deps.fetchWrite ?? fetch;
   const url = new URL(pathname, deps.watApiBaseUrl);
   const response = await client(url, {
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...watAuthHeaders(deps, userId) },
     method: "POST"
   });
   if (!response.ok) throw new Error(`wat write failed: ${response.status}`);
 }
 
-async function lookup(deps: WatBoltDeps, term: string, context = ""): Promise<SearchEntry[]> {
+async function lookup(
+  deps: WatBoltDeps,
+  term: string,
+  context = "",
+  userId?: string
+): Promise<SearchEntry[]> {
   const client = deps.fetchLookup ?? fetch;
   const url = new URL("/api/v1/search", deps.watApiBaseUrl);
   url.searchParams.set("q", term);
   url.searchParams.set("limit", "5");
   if (context.trim()) url.searchParams.set("context", context.trim());
 
-  const response = await client(url);
+  const response = await client(url, { headers: watAuthHeaders(deps, userId) });
   if (!response.ok) throw new Error(`wat lookup failed: ${response.status}`);
   const body = (await response.json()) as SearchResponse;
   return body.matches?.flatMap((match) => (match.entry ? [match.entry] : [])) ?? [];
+}
+
+function watAuthHeaders(deps: WatBoltDeps, userId?: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (!deps.watApiKey) return headers;
+  headers.authorization = `Bearer ${deps.watApiKey}`;
+  if (deps.watTeamId) headers["x-wat-team-id"] = deps.watTeamId;
+  if (userId) headers["x-wat-user-id"] = `slack:${userId}`;
+  return headers;
 }
 
 interface ParsedDefinition {

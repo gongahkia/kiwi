@@ -235,7 +235,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Persist Slack workspace installs in DB — done when bot/user tokens, workspace ID, team mapping, installer, scopes, and timestamps survive restart.
 - [ ] Map Slack workspace to wat team securely — done when installer identity/domain maps to an existing or new wat team with admin review for ambiguous cases.
 - [ ] Enforce Slack admin + wat admin for `/wat-define` — done when a Slack workspace admin who is not a wat team admin cannot write team entries.
-- [ ] Send Slack API auth headers to wat API — done when Slack lookup/write requests use scoped per-team credentials rather than anonymous/global calls.
 - [ ] Implement `/wat` command in deployed Slack app — done when a real Slack workspace command returns sourced ephemeral results from the same hosted API as web.
 - [ ] Implement `/wat-define` against DB-backed team entries — done when approved Slack definitions appear in web search/admin and audit logs.
 - [ ] Implement `/wat-suggest` against DB-backed suggestion queue — done when member suggestions appear in web review queue.

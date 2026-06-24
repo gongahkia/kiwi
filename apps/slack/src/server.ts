@@ -7,7 +7,9 @@ export interface SlackRuntimeConfig {
   port: number;
   signingSecret?: string;
   socketMode: boolean;
+  watApiKey?: string;
   watApiBaseUrl: string;
+  watTeamId?: string;
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): SlackRuntimeConfig {
@@ -17,7 +19,9 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): SlackRuntim
     port: Number(env.PORT ?? 3001),
     signingSecret: env.SLACK_SIGNING_SECRET,
     socketMode: env.SLACK_SOCKET_MODE === "true",
-    watApiBaseUrl: env.WAT_API_BASE_URL ?? "http://localhost:3000"
+    watApiKey: env.WAT_API_KEY,
+    watApiBaseUrl: env.WAT_API_BASE_URL ?? "http://localhost:3000",
+    watTeamId: env.WAT_TEAM_ID
   };
 }
 
@@ -43,6 +47,10 @@ export function createSlackHttpHandler(config: SlackRuntimeConfig) {
         },
         service: "slack",
         status: "ok",
+        wat_api_auth: {
+          key: config.watApiKey ? "configured" : "missing",
+          team_id: config.watTeamId ?? null
+        },
         wat_api_base_url: config.watApiBaseUrl
       });
       return;

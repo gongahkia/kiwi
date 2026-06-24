@@ -35,7 +35,8 @@ describe("slack runtime", () => {
     expect(await response.json()).toMatchObject({
       mode: { http: "ok", socket: "ok" },
       service: "slack",
-      status: "ok"
+      status: "ok",
+      wat_api_auth: { key: "missing", team_id: null }
     });
   });
 
@@ -126,6 +127,8 @@ describe("slack runtime", () => {
         SLACK_APP_TOKEN: "xapp-test",
         SLACK_SIGNING_SECRET: "signing-secret",
         SLACK_SOCKET_MODE: "true",
+        WAT_API_KEY: "wat-team-key",
+        WAT_TEAM_ID: "wat-team-123",
         WAT_API_BASE_URL: "http://web:3000"
       })
     ).toMatchObject({
@@ -133,7 +136,9 @@ describe("slack runtime", () => {
       port: 4000,
       signingSecret: "signing-secret",
       socketMode: true,
-      watApiBaseUrl: "http://web:3000"
+      watApiKey: "wat-team-key",
+      watApiBaseUrl: "http://web:3000",
+      watTeamId: "wat-team-123"
     });
   });
 });

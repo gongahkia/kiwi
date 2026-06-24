@@ -16,12 +16,20 @@ interface ProcessableBoltApp {
 
 interface CapturedRequest {
   body: unknown;
+  headers: WatHeaders;
   path: string;
 }
 
 interface CapturedSearchRequest {
   context: string;
+  headers: WatHeaders;
   q: string;
+}
+
+interface WatHeaders {
+  authorization?: string;
+  xWatTeamId?: string;
+  xWatUserId?: string;
 }
 
 class BoltTestReceiver implements Receiver {
@@ -99,6 +107,31 @@ describe("wat Bolt handlers", () => {
     expect(JSON.stringify(response)).toContain("Alternatives: SSL, DTLS");
   });
 
+  it("sends scoped wat API headers on Slack lookups", async () => {
+    const receiver = createWatApp({ watApiKey: "wat-team-key", watTeamId: "wat-team-123" });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "TLS",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(searchRequests[0]?.headers).toEqual({
+      authorization: "Bearer wat-team-key",
+      xWatTeamId: "wat-team-123",
+      xWatUserId: "slack:U_ALICE"
+    });
+  });
+
   it("responds to /wat-alt with resolved alternatives", async () => {
     const receiver = createWatApp();
 
@@ -159,7 +192,7 @@ describe("wat Bolt handlers", () => {
   });
 
   it("queues member suggestions from Slack", async () => {
-    const receiver = createWatApp();
+    const receiver = createWatApp({ watApiKey: "wat-team-key", watTeamId: "wat-team-123" });
 
     await receiver.dispatch({
       api_app_id: "A_WAT",
@@ -185,6 +218,11 @@ describe("wat Bolt handlers", () => {
       expansion: "Recovery Time Objective",
       meaning: "Maximum acceptable restore time.",
       term: "RTO"
+    });
+    expect(capturedRequest("/suggest/api").headers).toEqual({
+      authorization: "Bearer wat-team-key",
+      xWatTeamId: "wat-team-123",
+      xWatUserId: "slack:U_BOB"
     });
   });
 
@@ -241,7 +279,7 @@ describe("wat Bolt handlers", () => {
     expect(response).toMatchObject({ response_type: "ephemeral" });
     expect(JSON.stringify(response)).toContain("TLS");
     expect(JSON.stringify(response)).toContain("Application Programming Interface");
-    expect(searchRequests).toEqual([
+    expect(searchRequests.map(({ context, q }) => ({ context, q }))).toEqual([
       { context: "Rotate TLS certs before API clients fail.", q: "TLS" },
       { context: "Rotate TLS certs before API clients fail.", q: "API" }
     ]);
@@ -327,6 +365,8 @@ function createWatApp(
     rateLimitConfig?: WorkspaceRateLimitConfig;
     rateLimitStore?: SlackRateLimitStore;
     slackAdminUserIds?: string[];
+    watApiKey?: string;
+    watTeamId?: string;
   } = {}
 ): BoltTestReceiver {
   const receiver = new BoltTestReceiver();
@@ -351,7 +391,9 @@ function createWatApp(
     },
     rateLimitStore: options.rateLimitStore ?? new MemoryRateLimitStore(),
     slackAdminUserIds: options.slackAdminUserIds,
-    watApiBaseUrl: baseUrl
+    watApiKey: options.watApiKey,
+    watApiBaseUrl: baseUrl,
+    watTeamId: options.watTeamId
   });
   return receiver;
 }
@@ -363,7 +405,12 @@ function responsePayloads(path: string): Record<string, unknown>[] {
 }
 
 function responsePayload(path: string): Record<string, unknown> {
-  const [request] = responsePayloads(path);
+  const request = capturedRequest(path);
+  return request.body as Record<string, unknown>;
+}
+
+function capturedRequest(path: string): CapturedRequest {
+  const [request] = captured.filter((item) => item.path === path);
   if (!request) {
     throw new Error(`missing captured request for ${path}`);
   }
@@ -375,6 +422,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   if (url.pathname === "/api/v1/search") {
     searchRequests.push({
       context: url.searchParams.get("context") ?? "",
+      headers: watHeaders(request),
       q: url.searchParams.get("q") ?? ""
     });
     writeJson(response, 200, searchResponse(url.searchParams.get("q") ?? ""));
@@ -387,12 +435,28 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     url.pathname === "/team/admin/entries/api" ||
     url.pathname === "/suggest/api"
   ) {
-    captured.push({ body: await readBody(request), path: url.pathname });
+    captured.push({
+      body: await readBody(request),
+      headers: watHeaders(request),
+      path: url.pathname
+    });
     writeJson(response, 200, { ok: true, ts: "1700000003.000000" });
     return;
   }
 
   writeJson(response, 404, { error: "not_found" });
+}
+
+function watHeaders(request: IncomingMessage): WatHeaders {
+  return {
+    authorization: firstHeader(request.headers.authorization),
+    xWatTeamId: firstHeader(request.headers["x-wat-team-id"]),
+    xWatUserId: firstHeader(request.headers["x-wat-user-id"])
+  };
+}
+
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
