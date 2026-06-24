@@ -314,10 +314,5 @@ Context for any coding agent picking up these tasks (read this before touching c
   - `data/deltas/<date>/*.json` (corpus deltas; existing fields shown in `data/deltas/2026-06-19/example.json`)
   - `docs/db-schema.md` (must be kept in sync w/ Drizzle schema)
 
-### P2 — Web app: Alternatives block
-
-### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
-- [ ] Alternatives block renders correctly across web, ext, Slack, MCP for ≥ 5 reference entries (Kubernetes, Kafka, Postgres, Terraform, Datadog) — verified by E2E.
-
 ## Folder/root note
 Rename folder freely; keep `idea.md` and `todo.md` at project root.

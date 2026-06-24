@@ -12,6 +12,34 @@ function resultFor(page: Page, term: string) {
   return page.locator("article").filter({ has: page.getByRole("link", { name: term }) });
 }
 
+const referenceAlternativePages = [
+  {
+    id: "contemporaries-seed-kubernetes",
+    peers: ["Docker Swarm", "Nomad", "ECS"],
+    term: "Kubernetes"
+  },
+  {
+    id: "seed-kafka-apache-kafka",
+    peers: ["RabbitMQ", "NATS", "Redpanda", "Pulsar"],
+    term: "Kafka"
+  },
+  {
+    id: "contemporaries-seed-postgres",
+    peers: ["MySQL", "MariaDB", "CockroachDB", "YugabyteDB"],
+    term: "Postgres"
+  },
+  {
+    id: "seed-terraform-terraform",
+    peers: ["Pulumi", "OpenTofu", "CloudFormation"],
+    term: "Terraform"
+  },
+  {
+    id: "contemporaries-seed-datadog",
+    peers: ["New Relic", "Grafana Cloud", "Honeycomb", "Splunk"],
+    term: "Datadog"
+  }
+];
+
 async function stubClipboard(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -204,4 +232,19 @@ test("term page renders sources and copies share links", async ({ page }) => {
   await expect(
     page.evaluate(() => window.sessionStorage.getItem("copied-text"))
   ).resolves.toContain("/term/seed-api-application-programming-interface");
+});
+
+test("term pages render alternatives for reference entries", async ({ page }) => {
+  for (const reference of referenceAlternativePages) {
+    await page.goto(`/term/${reference.id}`);
+
+    await expect(page.getByRole("heading", { name: reference.term })).toBeVisible();
+    const alternatives = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Alternatives" })
+    });
+    await expect(alternatives).toBeVisible();
+    for (const peer of reference.peers) {
+      await expect(alternatives).toContainText(peer);
+    }
+  }
 });

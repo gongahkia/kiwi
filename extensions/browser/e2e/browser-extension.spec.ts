@@ -1,6 +1,7 @@
 import { expect, test, chromium, type BrowserContext, type Worker } from "@playwright/test";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -30,6 +31,18 @@ let server: Server;
 let baseUrl: string;
 let searchRequests: Array<{ context: string; limit: string; q: string }> = [];
 let customEntryRequests: Array<Record<string, unknown>> = [];
+const referenceTerms = [
+  { id: "kubernetes", peers: ["Docker Swarm", "Nomad", "ECS"], term: "Kubernetes" },
+  { id: "kafka", peers: ["RabbitMQ", "NATS", "Redpanda", "Pulsar"], term: "Kafka" },
+  { id: "postgres", peers: ["MySQL", "MariaDB", "CockroachDB", "YugabyteDB"], term: "Postgres" },
+  { id: "terraform", peers: ["Pulumi", "OpenTofu", "CloudFormation"], term: "Terraform" },
+  {
+    id: "datadog",
+    peers: ["New Relic", "Grafana Cloud", "Honeycomb", "Splunk"],
+    term: "Datadog"
+  }
+];
+const referenceEntries = loadReferenceEntries();
 
 test.beforeAll(async () => {
   server = createServer(handleRequest);
@@ -73,6 +86,40 @@ test("hover mode renders a sourced lookup tooltip", async () => {
     await expect(page.getByText("A protocol for encrypted transport.")).toBeVisible();
     await expect(page.getByText("Alt: SSL, DTLS, HTTPS, +1 more")).toBeVisible();
     await expect(page.getByText("Mock TLS Source")).toBeVisible();
+  } finally {
+    await closeExtension(session);
+  }
+});
+
+test("side panel renders alternatives for reference entries", async () => {
+  const session = await launchExtension();
+  try {
+    await setExtensionStorage(session.worker, {
+      [optionsStorageKey]: {
+        accountEmail: "",
+        apiBaseUrl: baseUrl,
+        apiToken: "",
+        domainFilters: [],
+        highlightMode: false,
+        hoverMode: false
+      }
+    });
+
+    const page = await session.context.newPage();
+    await page.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+
+    for (const reference of referenceTerms) {
+      await page.locator("#query").fill(reference.term);
+      await page.getByRole("button", { name: "Search" }).click();
+      const result = page
+        .locator("article")
+        .filter({ hasText: `${reference.term} - ${reference.term}` });
+      await expect(result).toBeVisible();
+      await expect(result.getByText("Alternatives:")).toBeVisible();
+      for (const peer of reference.peers) {
+        await expect(result.getByRole("button", { name: peer })).toBeVisible();
+      }
+    }
   } finally {
     await closeExtension(session);
   }
@@ -345,6 +392,16 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
     return;
   }
 
+  if (url.pathname === "/reference-fixture") {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(
+      `<!doctype html><title>Reference Docs</title><p>${referenceTerms
+        .map((reference) => `<span id="${reference.id}">${reference.term}</span>`)
+        .join(" ")}</p>`
+    );
+    return;
+  }
+
   if (url.pathname === "/privacy-fixture") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(`<!doctype html>
@@ -402,7 +459,25 @@ async function readJsonBody(request: IncomingMessage): Promise<Record<string, un
 }
 
 function searchResponse(query: string) {
-  const term = query.trim().toUpperCase();
+  const trimmed = query.trim();
+  const reference = referenceEntries.get(trimmed.toLowerCase());
+  if (reference) {
+    return {
+      matches: [
+        {
+          entry: {
+            contemporaries: reference.contemporaries,
+            expansions: reference.expansions,
+            meaning_short: reference.meaning_short,
+            sources: reference.sources.map((source) => ({ title: source.title, url: source.url })),
+            term: reference.term
+          }
+        }
+      ]
+    };
+  }
+
+  const term = trimmed.toUpperCase();
   if (term === "SSL") {
     return {
       matches: [
@@ -437,4 +512,27 @@ function searchResponse(query: string) {
       }
     ]
   };
+}
+
+function loadReferenceEntries(): Map<
+  string,
+  {
+    contemporaries: string[];
+    expansions: string[];
+    meaning_short: string;
+    sources: Array<{ title: string; url: string }>;
+    term: string;
+  }
+> {
+  const file = path.resolve(process.cwd(), "data/deltas/2026-06-23/contemporaries-seed.json");
+  const corpus = JSON.parse(readFileSync(file, "utf8")) as {
+    entries: Array<{
+      contemporaries: string[];
+      expansions: string[];
+      meaning_short: string;
+      sources: Array<{ title: string; url: string }>;
+      term: string;
+    }>;
+  };
+  return new Map(corpus.entries.map((entry) => [entry.term.toLowerCase(), entry]));
 }

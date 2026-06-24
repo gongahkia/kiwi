@@ -26,15 +26,17 @@ const layerRank: Record<EntryLayer, number> = {
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
+const defaultCorpusPaths = [
+  "packages/ingest/seeds/manual.json",
+  "data/deltas/2026-06-23/contemporaries-seed.json"
+];
 
-async function readSeedJson(): Promise<string> {
-  const seedPath = process.env.WAT_SEED_PATH;
+async function readCorpusJson(relativePath: string): Promise<string> {
   const candidates = [
-    seedPath,
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json"),
-    join(here, "../../../packages/ingest/seeds/manual.json")
-  ].filter((path): path is string => Boolean(path));
+    join(process.cwd(), relativePath),
+    join(process.cwd(), "../../", relativePath),
+    join(here, "../../../", relativePath)
+  ];
 
   for (const candidate of candidates) {
     try {
@@ -44,12 +46,65 @@ async function readSeedJson(): Promise<string> {
     }
   }
 
-  throw new Error("manual seed file not found; set WAT_SEED_PATH");
+  throw new Error(`corpus file not found: ${relativePath}`);
+}
+
+async function readCorpusFiles(): Promise<Array<{ entries?: WatEntry[] }>> {
+  if (process.env.WAT_SEED_PATH) {
+    return [
+      JSON.parse(await readFile(process.env.WAT_SEED_PATH, "utf8")) as { entries?: WatEntry[] }
+    ];
+  }
+
+  return Promise.all(
+    defaultCorpusPaths.map(
+      async (relativePath) =>
+        JSON.parse(await readCorpusJson(relativePath)) as { entries?: WatEntry[] }
+    )
+  );
 }
 
 async function publicEntries(): Promise<WatEntry[]> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: WatEntry[] };
-  return parsed.entries.filter((entry) => entry.layer === "public");
+  const files = await readCorpusFiles();
+  return overlaySeedContemporaries(
+    files.flatMap((file) => file.entries ?? []).filter((entry) => entry.layer === "public")
+  );
+}
+
+function overlaySeedContemporaries(entries: WatEntry[]): WatEntry[] {
+  const output: WatEntry[] = [];
+  const byTerm = new Map<string, WatEntry>();
+
+  for (const entry of entries) {
+    const key = entry.term_normalized || entry.term.toLowerCase();
+    const existing = byTerm.get(key);
+    if (existing && entry.id.startsWith("contemporaries-seed-")) {
+      existing.contemporaries = uniqueStrings([
+        ...existing.contemporaries,
+        ...entry.contemporaries
+      ]);
+      existing.aliases = uniqueStrings([...existing.aliases, ...entry.aliases]);
+      continue;
+    }
+
+    output.push(entry);
+    byTerm.set(key, entry);
+  }
+
+  return output;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim();
+    const key = normalized.toLowerCase();
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    output.push(normalized);
+  }
+  return output;
 }
 
 function toResult(entry: WatEntry, score: number): WatResult {

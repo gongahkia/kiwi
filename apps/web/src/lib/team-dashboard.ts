@@ -1,12 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
+import { getPublicCorpusEntries } from "@/lib/public-corpus";
 import { getTeamMembers } from "@/lib/team-members";
 import { getTeamEntries } from "@/lib/team-entries";
-
-interface PublicEntry {
-  layer: string;
-}
 
 export interface TeamActivity {
   actor: string;
@@ -25,24 +19,8 @@ export interface TeamDashboardSnapshot {
   teamName: string;
 }
 
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
-}
-
 export async function getTeamDashboardSnapshot(): Promise<TeamDashboardSnapshot> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: PublicEntry[] };
-  const publicCount = parsed.entries.filter((entry) => entry.layer === "public").length;
+  const publicCount = (await getPublicCorpusEntries()).length;
   const teamEntries = getTeamEntries();
   const members = getTeamMembers();
 

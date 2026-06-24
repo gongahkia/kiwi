@@ -1,31 +1,13 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import type { SearchEntry } from "@wat/search";
 
 import type { ApiIdentity } from "@/lib/api-identity";
 import { getPersonalEntries } from "@/lib/personal-entries";
+import { getPublicCorpusEntries } from "@/lib/public-corpus";
 import { getTeamEntries, type TeamEntry } from "@/lib/team-entries";
 import { getTeamMember } from "@/lib/team-members";
 
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
-}
-
 export async function getPublicEntries(): Promise<SearchEntry[]> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: SearchEntry[] };
-  return parsed.entries.filter((entry) => entry.layer === "public");
+  return getPublicCorpusEntries();
 }
 
 export function getScopedTeamEntries(identity: ApiIdentity): SearchEntry[] {

@@ -1,30 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
-import {
-  sourceInventoryFromEntries,
-  type InventoryEntry,
-  type SourceInventoryRow
-} from "@/lib/source-inventory";
-
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
-}
+import { sourceInventoryFromEntries, type SourceInventoryRow } from "@/lib/source-inventory";
+import { getPublicCorpusEntries } from "@/lib/public-corpus";
 
 async function getSources(): Promise<SourceInventoryRow[]> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: InventoryEntry[] };
-  return sourceInventoryFromEntries(parsed.entries);
+  return sourceInventoryFromEntries(await getPublicCorpusEntries());
 }
 
 export default async function SourcesPage() {

@@ -1,29 +1,11 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import type { SearchEntry } from "@wat/search";
 
 import { SearchResultCard } from "@/components/search-result-card";
+import { getPublicCorpusEntries } from "@/lib/public-corpus";
 
 async function getSampleEntry(): Promise<SearchEntry> {
-  const seedJson = await readSeedJson();
-  const parsed = JSON.parse(seedJson) as { entries: SearchEntry[] };
-  return parsed.entries.find((entry) => entry.id === "seed-api-application-programming-interface")!;
-}
-
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
+  const entries = await getPublicCorpusEntries();
+  return entries.find((entry) => entry.id === "seed-api-application-programming-interface")!;
 }
 
 export default async function ResultCardPage() {

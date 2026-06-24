@@ -1,9 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { ImageResponse } from "next/og";
 
 import { formatOpenGraphAlternatives } from "@/lib/og-alternatives";
+import { getPublicCorpusEntries } from "@/lib/public-corpus";
 
 export const alt = "wat entry";
 export const contentType = "image/png";
@@ -27,24 +25,8 @@ interface ImageProps {
 }
 
 async function getEntry(id: string): Promise<Entry | undefined> {
-  const seedJson = await readSeedJson();
-  const parsed = JSON.parse(seedJson) as { entries: Entry[] };
-  return parsed.entries.find((entry) => entry.layer === "public" && entry.id === id);
-}
-
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
+  const entries = await getPublicCorpusEntries();
+  return entries.find((entry) => entry.id === id);
 }
 
 export default async function Image({ params }: ImageProps) {

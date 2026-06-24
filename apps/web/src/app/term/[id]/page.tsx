@@ -1,58 +1,16 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { notFound } from "next/navigation";
 
 import { ShareLinkButton } from "@/components/share-link-button";
 import { SuggestEditForm } from "@/components/suggest-edit-form";
 import { resolveContemporaryTerms } from "@/lib/contemporaries";
+import { getPublicCorpusEntries, type PublicCorpusEntry } from "@/lib/public-corpus";
 
 interface TermPageProps {
   params: Promise<{ id: string }>;
 }
 
-interface PublicEntry {
-  aliases: string[];
-  contemporaries: string[];
-  created_at: string;
-  domains: string[];
-  examples: string[];
-  expansions: string[];
-  id: string;
-  layer: string;
-  meaning_short: string;
-  meaning_long: string;
-  sources: {
-    license: string;
-    publisher: string;
-    source_quality: string;
-    title: string;
-    url: string;
-  }[];
-  term: string;
-  term_normalized: string;
-  updated_at: string;
-}
-
-async function getEntries(): Promise<PublicEntry[]> {
-  const seedJson = await readSeedJson();
-  const parsed = JSON.parse(seedJson) as { entries: PublicEntry[] };
-  return parsed.entries.filter((entry) => entry.layer === "public");
-}
-
-async function readSeedJson(): Promise<string> {
-  for (const seedPath of [
-    join(process.cwd(), "packages/ingest/seeds/manual.json"),
-    join(process.cwd(), "../../packages/ingest/seeds/manual.json")
-  ]) {
-    try {
-      return await readFile(seedPath, "utf8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("manual seed file not found");
+async function getEntries(): Promise<PublicCorpusEntry[]> {
+  return getPublicCorpusEntries();
 }
 
 export async function generateStaticParams() {

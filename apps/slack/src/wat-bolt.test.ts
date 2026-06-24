@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { App, type Receiver, type ReceiverEvent } from "@slack/bolt";
@@ -59,6 +60,14 @@ let baseUrl: string;
 let captured: CapturedRequest[];
 let searchRequests: CapturedSearchRequest[];
 let server: Server;
+const referenceTerms = [
+  { peers: ["Docker Swarm", "Nomad", "ECS"], term: "Kubernetes" },
+  { peers: ["RabbitMQ", "NATS", "Redpanda", "Pulsar"], term: "Kafka" },
+  { peers: ["MySQL", "MariaDB", "CockroachDB", "YugabyteDB"], term: "Postgres" },
+  { peers: ["Pulumi", "OpenTofu", "CloudFormation"], term: "Terraform" },
+  { peers: ["New Relic", "Grafana Cloud", "Honeycomb", "Splunk"], term: "Datadog" }
+];
+const referenceEntries = loadReferenceEntries();
 
 beforeEach(async () => {
   captured = [];
@@ -185,6 +194,40 @@ describe("wat Bolt handlers", () => {
     expect(JSON.stringify(response)).toContain("SSL: Secure Sockets Layer");
     expect(JSON.stringify(response)).toContain("Legacy transport encryption.");
     expect(JSON.stringify(response)).toContain("DTLS: Datagram Transport Layer Security");
+  });
+
+  it("responds to /wat-alt for reference entries", async () => {
+    const receiver = createWatApp();
+
+    for (const reference of referenceTerms) {
+      await receiver.dispatch({
+        api_app_id: "A_WAT",
+        channel_id: "C_DOCS",
+        channel_name: "docs",
+        command: "/wat-alt",
+        response_url: `${baseUrl}/response`,
+        team_domain: "example",
+        team_id: "T_WAT",
+        text: reference.term,
+        token: "legacy-token",
+        trigger_id: "trigger",
+        user_id: "U_ALICE",
+        user_name: "alice"
+      });
+    }
+
+    const responses = responsePayloads("/response").slice(-referenceTerms.length);
+    expect(responses).toHaveLength(referenceTerms.length);
+    for (const [index, reference] of referenceTerms.entries()) {
+      const response = responses[index]!;
+      expect(response).toMatchObject({
+        response_type: "ephemeral",
+        text: `Alternatives for ${reference.term}: ${reference.peers.join(", ")}`
+      });
+      for (const peer of reference.peers) {
+        expect(JSON.stringify(response)).toContain(peer);
+      }
+    }
   });
 
   it("lets configured admins define team entries from Slack", async () => {
@@ -502,6 +545,11 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
 
 function searchResponse(query: string) {
   const normalized = query.trim().toUpperCase();
+  const reference = referenceEntries.get(query.trim().toLowerCase());
+  if (reference) {
+    return { matches: [{ entry: reference }] };
+  }
+
   if (normalized === "TLS") {
     return {
       matches: [
@@ -583,6 +631,33 @@ function searchResponse(query: string) {
     };
   }
   return { matches: [] };
+}
+
+function loadReferenceEntries(): Map<
+  string,
+  {
+    contemporaries: string[];
+    expansions: string[];
+    id: string;
+    meaning_short: string;
+    term: string;
+  }
+> {
+  const corpus = JSON.parse(
+    readFileSync(
+      new URL("../../../data/deltas/2026-06-23/contemporaries-seed.json", import.meta.url),
+      "utf8"
+    )
+  ) as {
+    entries: Array<{
+      contemporaries: string[];
+      expansions: string[];
+      id: string;
+      meaning_short: string;
+      term: string;
+    }>;
+  };
+  return new Map(corpus.entries.map((entry) => [entry.term.toLowerCase(), entry]));
 }
 
 function writeJson(response: ServerResponse, status: number, body: unknown): void {

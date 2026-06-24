@@ -8,7 +8,10 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   outputFileTracingIncludes: {
-    "/api/v1/search": ["../../packages/ingest/seeds/manual.json"]
+    "/api/v1/search": [
+      "../../packages/ingest/seeds/manual.json",
+      "../../data/deltas/2026-06-23/contemporaries-seed.json"
+    ]
   }
 };
 

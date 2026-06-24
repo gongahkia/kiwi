@@ -13,6 +13,13 @@ const clientEnv = {
   WAT_TEAM_DOMAINS: "example.com",
   WAT_TEAM_ID: "team_example"
 } as Record<string, string>;
+const referenceTerms = [
+  { peers: ["Docker Swarm", "Nomad", "ECS"], term: "Kubernetes" },
+  { peers: ["RabbitMQ", "NATS", "Redpanda", "Pulsar"], term: "Kafka" },
+  { peers: ["MySQL", "MariaDB", "CockroachDB", "YugabyteDB"], term: "Postgres" },
+  { peers: ["Pulumi", "OpenTofu", "CloudFormation"], term: "Terraform" },
+  { peers: ["New Relic", "Grafana Cloud", "Honeycomb", "Splunk"], term: "Datadog" }
+];
 
 async function connectClient(env: Record<string, string> = {}): Promise<Client> {
   const transport = new StdioClientTransport({
@@ -102,6 +109,29 @@ describe("wat mcp server", () => {
       team_id: "team_example",
       unresolved_terms: []
     });
+  });
+
+  it("returns resolved alternatives for reference entries", async () => {
+    const client = await connectClient();
+
+    for (const reference of referenceTerms) {
+      const result = await client.callTool({
+        arguments: { api_key: "test-key", term: reference.term },
+        name: "list_alternatives"
+      });
+      const structured = result.structuredContent as {
+        alternatives: Array<{ term: string }>;
+        entry: { term: string };
+        unresolved_terms: string[];
+      };
+
+      expect(result.isError).not.toBe(true);
+      expect(structured.entry.term).toBe(reference.term);
+      expect(structured.alternatives.map((entry) => entry.term)).toEqual(
+        expect.arrayContaining(reference.peers)
+      );
+      expect(structured.unresolved_terms).toEqual([]);
+    }
   });
 
   it("returns a paged team acronym list scoped by domain", async () => {

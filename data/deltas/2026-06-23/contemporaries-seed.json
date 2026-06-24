@@ -32,7 +32,18 @@
       "term": "Kubernetes",
       "term_normalized": "kubernetes",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kubernetes in the container orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-docker-swarm",
@@ -66,7 +77,18 @@
       "term": "Docker Swarm",
       "term_normalized": "docker swarm",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Docker Swarm in the container orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-nomad",
@@ -100,7 +122,18 @@
       "term": "Nomad",
       "term_normalized": "nomad",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Nomad in the container orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-ecs",
@@ -134,7 +167,18 @@
       "term": "ECS",
       "term_normalized": "ecs",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for ECS in the container orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-kafka",
@@ -169,7 +213,18 @@
       "term": "Kafka",
       "term_normalized": "kafka",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kafka in the event streaming and messaging comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-rabbitmq",
@@ -204,7 +259,18 @@
       "term": "RabbitMQ",
       "term_normalized": "rabbitmq",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for RabbitMQ in the event streaming and messaging comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-nats",
@@ -239,7 +305,18 @@
       "term": "NATS",
       "term_normalized": "nats",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for NATS in the event streaming and messaging comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-redpanda",
@@ -274,7 +351,18 @@
       "term": "Redpanda",
       "term_normalized": "redpanda",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Redpanda in the event streaming and messaging comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-pulsar",
@@ -309,7 +397,18 @@
       "term": "Pulsar",
       "term_normalized": "pulsar",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Pulsar in the event streaming and messaging comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-redis",
@@ -343,7 +442,18 @@
       "term": "Redis",
       "term_normalized": "redis",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Redis in the cache and key value stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-memcached",
@@ -377,7 +487,18 @@
       "term": "Memcached",
       "term_normalized": "memcached",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Memcached in the cache and key value stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-keydb",
@@ -411,7 +532,18 @@
       "term": "KeyDB",
       "term_normalized": "keydb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for KeyDB in the cache and key value stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-dragonflydb",
@@ -445,7 +577,18 @@
       "term": "DragonflyDB",
       "term_normalized": "dragonflydb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for DragonflyDB in the cache and key value stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-postgres",
@@ -480,7 +623,18 @@
       "term": "Postgres",
       "term_normalized": "postgres",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Postgres in the relational databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-mysql",
@@ -515,7 +669,18 @@
       "term": "MySQL",
       "term_normalized": "mysql",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for MySQL in the relational databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-mariadb",
@@ -550,7 +715,18 @@
       "term": "MariaDB",
       "term_normalized": "mariadb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for MariaDB in the relational databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cockroachdb",
@@ -585,7 +761,18 @@
       "term": "CockroachDB",
       "term_normalized": "cockroachdb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for CockroachDB in the relational databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-yugabytedb",
@@ -620,7 +807,18 @@
       "term": "YugabyteDB",
       "term_normalized": "yugabytedb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for YugabyteDB in the relational databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-terraform",
@@ -654,7 +852,18 @@
       "term": "Terraform",
       "term_normalized": "terraform",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Terraform in the infrastructure as code comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-pulumi",
@@ -688,7 +897,18 @@
       "term": "Pulumi",
       "term_normalized": "pulumi",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Pulumi in the infrastructure as code comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-opentofu",
@@ -722,7 +942,18 @@
       "term": "OpenTofu",
       "term_normalized": "opentofu",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for OpenTofu in the infrastructure as code comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cloudformation",
@@ -756,7 +987,18 @@
       "term": "CloudFormation",
       "term_normalized": "cloudformation",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for CloudFormation in the infrastructure as code comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-datadog",
@@ -791,7 +1033,18 @@
       "term": "Datadog",
       "term_normalized": "datadog",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Datadog in the observability platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-new-relic",
@@ -826,7 +1079,18 @@
       "term": "New Relic",
       "term_normalized": "new relic",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for New Relic in the observability platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-grafana-cloud",
@@ -861,7 +1125,18 @@
       "term": "Grafana Cloud",
       "term_normalized": "grafana cloud",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Grafana Cloud in the observability platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-honeycomb",
@@ -896,7 +1171,18 @@
       "term": "Honeycomb",
       "term_normalized": "honeycomb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Honeycomb in the observability platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-splunk",
@@ -931,7 +1217,18 @@
       "term": "Splunk",
       "term_normalized": "splunk",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Splunk in the observability platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-sentry",
@@ -965,7 +1262,18 @@
       "term": "Sentry",
       "term_normalized": "sentry",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Sentry in the error monitoring comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-bugsnag",
@@ -999,7 +1307,18 @@
       "term": "Bugsnag",
       "term_normalized": "bugsnag",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Bugsnag in the error monitoring comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-rollbar",
@@ -1033,7 +1352,18 @@
       "term": "Rollbar",
       "term_normalized": "rollbar",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Rollbar in the error monitoring comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-honeybadger",
@@ -1067,7 +1397,18 @@
       "term": "Honeybadger",
       "term_normalized": "honeybadger",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Honeybadger in the error monitoring comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-oauth",
@@ -1100,7 +1441,18 @@
       "term": "OAuth",
       "term_normalized": "oauth",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for OAuth in the identity protocols comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-saml",
@@ -1133,7 +1485,18 @@
       "term": "SAML",
       "term_normalized": "saml",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for SAML in the identity protocols comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-oidc",
@@ -1166,7 +1529,18 @@
       "term": "OIDC",
       "term_normalized": "oidc",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for OIDC in the identity protocols comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-grpc",
@@ -1201,7 +1575,18 @@
       "term": "gRPC",
       "term_normalized": "grpc",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for gRPC in the api styles comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-rest",
@@ -1236,7 +1621,18 @@
       "term": "REST",
       "term_normalized": "rest",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for REST in the api styles comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-graphql",
@@ -1271,7 +1667,18 @@
       "term": "GraphQL",
       "term_normalized": "graphql",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for GraphQL in the api styles comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-json-rpc",
@@ -1306,7 +1713,18 @@
       "term": "JSON-RPC",
       "term_normalized": "json rpc",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for JSON-RPC in the api styles comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-thrift",
@@ -1341,7 +1759,18 @@
       "term": "Thrift",
       "term_normalized": "thrift",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Thrift in the api styles comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-docker",
@@ -1375,7 +1804,18 @@
       "term": "Docker",
       "term_normalized": "docker",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Docker in the container runtimes comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-podman",
@@ -1409,7 +1849,18 @@
       "term": "Podman",
       "term_normalized": "podman",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Podman in the container runtimes comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-containerd",
@@ -1443,7 +1894,18 @@
       "term": "containerd",
       "term_normalized": "containerd",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for containerd in the container runtimes comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cri-o",
@@ -1477,7 +1939,18 @@
       "term": "CRI-O",
       "term_normalized": "cri o",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for CRI-O in the container runtimes comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-nginx",
@@ -1512,7 +1985,18 @@
       "term": "Nginx",
       "term_normalized": "nginx",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Nginx in the web servers and reverse proxies comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-apache-httpd",
@@ -1547,7 +2031,18 @@
       "term": "Apache HTTPD",
       "term_normalized": "apache httpd",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Apache HTTPD in the web servers and reverse proxies comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-caddy",
@@ -1582,7 +2077,18 @@
       "term": "Caddy",
       "term_normalized": "caddy",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Caddy in the web servers and reverse proxies comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-haproxy",
@@ -1617,7 +2123,18 @@
       "term": "HAProxy",
       "term_normalized": "haproxy",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for HAProxy in the web servers and reverse proxies comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-traefik",
@@ -1652,7 +2169,18 @@
       "term": "Traefik",
       "term_normalized": "traefik",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Traefik in the web servers and reverse proxies comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-webpack",
@@ -1688,7 +2216,18 @@
       "term": "Webpack",
       "term_normalized": "webpack",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Webpack in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-vite",
@@ -1724,7 +2263,18 @@
       "term": "Vite",
       "term_normalized": "vite",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Vite in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-esbuild",
@@ -1760,7 +2310,18 @@
       "term": "esbuild",
       "term_normalized": "esbuild",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for esbuild in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-rollup",
@@ -1796,7 +2357,18 @@
       "term": "Rollup",
       "term_normalized": "rollup",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Rollup in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-parcel",
@@ -1832,7 +2404,18 @@
       "term": "Parcel",
       "term_normalized": "parcel",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Parcel in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-turbopack",
@@ -1868,7 +2451,18 @@
       "term": "Turbopack",
       "term_normalized": "turbopack",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Turbopack in the frontend build tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-react",
@@ -1903,7 +2497,18 @@
       "term": "React",
       "term_normalized": "react",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for React in the frontend frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-vue",
@@ -1938,7 +2543,18 @@
       "term": "Vue",
       "term_normalized": "vue",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Vue in the frontend frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-svelte",
@@ -1973,7 +2589,18 @@
       "term": "Svelte",
       "term_normalized": "svelte",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Svelte in the frontend frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-solid",
@@ -2008,7 +2635,18 @@
       "term": "Solid",
       "term_normalized": "solid",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Solid in the frontend frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-angular",
@@ -2043,7 +2681,18 @@
       "term": "Angular",
       "term_normalized": "angular",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Angular in the frontend frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-stripe",
@@ -2078,7 +2727,18 @@
       "term": "Stripe",
       "term_normalized": "stripe",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Stripe in the payment processors comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-adyen",
@@ -2113,7 +2773,18 @@
       "term": "Adyen",
       "term_normalized": "adyen",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Adyen in the payment processors comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-braintree",
@@ -2148,7 +2819,18 @@
       "term": "Braintree",
       "term_normalized": "braintree",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Braintree in the payment processors comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-checkout-com",
@@ -2183,7 +2865,18 @@
       "term": "Checkout.com",
       "term_normalized": "checkout com",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Checkout.com in the payment processors comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-lemon-squeezy",
@@ -2218,7 +2911,18 @@
       "term": "Lemon Squeezy",
       "term_normalized": "lemon squeezy",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Lemon Squeezy in the payment processors comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-auth0",
@@ -2254,7 +2958,18 @@
       "term": "Auth0",
       "term_normalized": "auth0",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Auth0 in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-clerk",
@@ -2290,7 +3005,18 @@
       "term": "Clerk",
       "term_normalized": "clerk",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Clerk in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-workos",
@@ -2326,7 +3052,18 @@
       "term": "WorkOS",
       "term_normalized": "workos",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for WorkOS in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-okta",
@@ -2362,7 +3099,18 @@
       "term": "Okta",
       "term_normalized": "okta",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Okta in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fusionauth",
@@ -2398,7 +3146,18 @@
       "term": "FusionAuth",
       "term_normalized": "fusionauth",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for FusionAuth in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-supertokens",
@@ -2434,7 +3193,18 @@
       "term": "Supertokens",
       "term_normalized": "supertokens",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Supertokens in the developer identity platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-mongodb",
@@ -2469,7 +3239,18 @@
       "term": "MongoDB",
       "term_normalized": "mongodb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for MongoDB in the document databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-couchbase",
@@ -2504,7 +3285,18 @@
       "term": "Couchbase",
       "term_normalized": "couchbase",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Couchbase in the document databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cassandra",
@@ -2539,7 +3331,18 @@
       "term": "Cassandra",
       "term_normalized": "cassandra",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Cassandra in the document databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-dynamodb",
@@ -2574,7 +3377,18 @@
       "term": "DynamoDB",
       "term_normalized": "dynamodb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for DynamoDB in the document databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-firestore",
@@ -2609,7 +3423,18 @@
       "term": "Firestore",
       "term_normalized": "firestore",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Firestore in the document databases comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-elasticsearch",
@@ -2645,7 +3470,18 @@
       "term": "Elasticsearch",
       "term_normalized": "elasticsearch",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Elasticsearch in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-opensearch",
@@ -2681,7 +3517,18 @@
       "term": "OpenSearch",
       "term_normalized": "opensearch",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for OpenSearch in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-solr",
@@ -2717,7 +3564,18 @@
       "term": "Solr",
       "term_normalized": "solr",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Solr in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-algolia",
@@ -2753,7 +3611,18 @@
       "term": "Algolia",
       "term_normalized": "algolia",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Algolia in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-typesense",
@@ -2789,7 +3658,18 @@
       "term": "Typesense",
       "term_normalized": "typesense",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Typesense in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-meilisearch",
@@ -2825,7 +3705,18 @@
       "term": "Meilisearch",
       "term_normalized": "meilisearch",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Meilisearch in the search platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-prometheus",
@@ -2860,7 +3751,18 @@
       "term": "Prometheus",
       "term_normalized": "prometheus",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Prometheus in the metrics stores and dashboards comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-grafana",
@@ -2895,7 +3797,18 @@
       "term": "Grafana",
       "term_normalized": "grafana",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Grafana in the metrics stores and dashboards comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-influxdb",
@@ -2930,7 +3843,18 @@
       "term": "InfluxDB",
       "term_normalized": "influxdb",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for InfluxDB in the metrics stores and dashboards comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-victoriametrics",
@@ -2965,7 +3889,18 @@
       "term": "VictoriaMetrics",
       "term_normalized": "victoriametrics",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for VictoriaMetrics in the metrics stores and dashboards comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-graphite",
@@ -3000,7 +3935,18 @@
       "term": "Graphite",
       "term_normalized": "graphite",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Graphite in the metrics stores and dashboards comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-opentelemetry",
@@ -3035,7 +3981,18 @@
       "term": "OpenTelemetry",
       "term_normalized": "opentelemetry",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for OpenTelemetry in the distributed tracing comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-jaeger",
@@ -3070,7 +4027,18 @@
       "term": "Jaeger",
       "term_normalized": "jaeger",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Jaeger in the distributed tracing comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-zipkin",
@@ -3105,7 +4073,18 @@
       "term": "Zipkin",
       "term_normalized": "zipkin",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Zipkin in the distributed tracing comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-grafana-tempo",
@@ -3140,7 +4119,18 @@
       "term": "Grafana Tempo",
       "term_normalized": "grafana tempo",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Grafana Tempo in the distributed tracing comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-aws-x-ray",
@@ -3175,7 +4165,18 @@
       "term": "AWS X-Ray",
       "term_normalized": "aws x ray",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for AWS X-Ray in the distributed tracing comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-jenkins",
@@ -3211,7 +4212,18 @@
       "term": "Jenkins",
       "term_normalized": "jenkins",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Jenkins in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-github-actions",
@@ -3247,7 +4259,18 @@
       "term": "GitHub Actions",
       "term_normalized": "github actions",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for GitHub Actions in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-gitlab-ci",
@@ -3283,7 +4306,18 @@
       "term": "GitLab CI",
       "term_normalized": "gitlab ci",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for GitLab CI in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-circleci",
@@ -3319,7 +4353,18 @@
       "term": "CircleCI",
       "term_normalized": "circleci",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for CircleCI in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-buildkite",
@@ -3355,7 +4400,18 @@
       "term": "Buildkite",
       "term_normalized": "buildkite",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Buildkite in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-travis-ci",
@@ -3391,7 +4447,18 @@
       "term": "Travis CI",
       "term_normalized": "travis ci",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Travis CI in the ci cd systems comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-ansible",
@@ -3426,7 +4493,18 @@
       "term": "Ansible",
       "term_normalized": "ansible",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Ansible in the configuration management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-chef",
@@ -3461,7 +4539,18 @@
       "term": "Chef",
       "term_normalized": "chef",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Chef in the configuration management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-puppet",
@@ -3496,7 +4585,18 @@
       "term": "Puppet",
       "term_normalized": "puppet",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Puppet in the configuration management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-saltstack",
@@ -3531,7 +4631,18 @@
       "term": "SaltStack",
       "term_normalized": "saltstack",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for SaltStack in the configuration management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cfengine",
@@ -3566,7 +4677,18 @@
       "term": "CFEngine",
       "term_normalized": "cfengine",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for CFEngine in the configuration management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-vault",
@@ -3601,7 +4723,18 @@
       "term": "Vault",
       "term_normalized": "vault",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Vault in the secret management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-aws-secrets-manager",
@@ -3636,7 +4769,18 @@
       "term": "AWS Secrets Manager",
       "term_normalized": "aws secrets manager",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for AWS Secrets Manager in the secret management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-azure-key-vault",
@@ -3671,7 +4815,18 @@
       "term": "Azure Key Vault",
       "term_normalized": "azure key vault",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Azure Key Vault in the secret management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-google-secret-manager",
@@ -3706,7 +4861,18 @@
       "term": "Google Secret Manager",
       "term_normalized": "google secret manager",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Google Secret Manager in the secret management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-doppler",
@@ -3741,7 +4907,18 @@
       "term": "Doppler",
       "term_normalized": "doppler",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Doppler in the secret management comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-kong",
@@ -3776,7 +4953,18 @@
       "term": "Kong",
       "term_normalized": "kong",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kong in the api gateways comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-apigee",
@@ -3811,7 +4999,18 @@
       "term": "Apigee",
       "term_normalized": "apigee",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Apigee in the api gateways comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-tyk",
@@ -3846,7 +5045,18 @@
       "term": "Tyk",
       "term_normalized": "tyk",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Tyk in the api gateways comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-ambassador",
@@ -3881,7 +5091,18 @@
       "term": "Ambassador",
       "term_normalized": "ambassador",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Ambassador in the api gateways comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-envoy-gateway",
@@ -3916,7 +5137,18 @@
       "term": "Envoy Gateway",
       "term_normalized": "envoy gateway",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Envoy Gateway in the api gateways comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-istio",
@@ -3951,7 +5183,18 @@
       "term": "Istio",
       "term_normalized": "istio",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Istio in the service mesh comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-linkerd",
@@ -3986,7 +5229,18 @@
       "term": "Linkerd",
       "term_normalized": "linkerd",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Linkerd in the service mesh comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-consul-connect",
@@ -4021,7 +5275,18 @@
       "term": "Consul Connect",
       "term_normalized": "consul connect",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Consul Connect in the service mesh comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-kuma",
@@ -4056,7 +5321,18 @@
       "term": "Kuma",
       "term_normalized": "kuma",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kuma in the service mesh comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cilium-service-mesh",
@@ -4091,7 +5367,18 @@
       "term": "Cilium Service Mesh",
       "term_normalized": "cilium service mesh",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Cilium Service Mesh in the service mesh comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-docker-hub",
@@ -4126,7 +5413,18 @@
       "term": "Docker Hub",
       "term_normalized": "docker hub",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Docker Hub in the container registries comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-github-container-registry",
@@ -4161,7 +5459,18 @@
       "term": "GitHub Container Registry",
       "term_normalized": "github container registry",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for GitHub Container Registry in the container registries comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-amazon-ecr",
@@ -4196,7 +5505,18 @@
       "term": "Amazon ECR",
       "term_normalized": "amazon ecr",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Amazon ECR in the container registries comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-google-artifact-registry",
@@ -4231,7 +5551,18 @@
       "term": "Google Artifact Registry",
       "term_normalized": "google artifact registry",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Google Artifact Registry in the container registries comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-harbor",
@@ -4266,7 +5597,18 @@
       "term": "Harbor",
       "term_normalized": "harbor",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Harbor in the container registries comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-npm",
@@ -4302,7 +5644,18 @@
       "term": "npm",
       "term_normalized": "npm",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for npm in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-yarn",
@@ -4338,7 +5691,18 @@
       "term": "Yarn",
       "term_normalized": "yarn",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Yarn in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-pnpm",
@@ -4374,7 +5738,18 @@
       "term": "pnpm",
       "term_normalized": "pnpm",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for pnpm in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-bun",
@@ -4410,7 +5785,18 @@
       "term": "Bun",
       "term_normalized": "bun",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Bun in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-deno",
@@ -4446,7 +5832,18 @@
       "term": "Deno",
       "term_normalized": "deno",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Deno in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-corepack",
@@ -4482,7 +5879,18 @@
       "term": "Corepack",
       "term_normalized": "corepack",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Corepack in the javascript package tools comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-express",
@@ -4517,7 +5925,18 @@
       "term": "Express",
       "term_normalized": "express",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Express in the node web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fastify",
@@ -4552,7 +5971,18 @@
       "term": "Fastify",
       "term_normalized": "fastify",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Fastify in the node web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-nestjs",
@@ -4587,7 +6017,18 @@
       "term": "NestJS",
       "term_normalized": "nestjs",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for NestJS in the node web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-hapi",
@@ -4622,7 +6063,18 @@
       "term": "Hapi",
       "term_normalized": "hapi",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Hapi in the node web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-koa",
@@ -4657,7 +6109,18 @@
       "term": "Koa",
       "term_normalized": "koa",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Koa in the node web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-django",
@@ -4692,7 +6155,18 @@
       "term": "Django",
       "term_normalized": "django",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Django in the python web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-flask",
@@ -4727,7 +6201,18 @@
       "term": "Flask",
       "term_normalized": "flask",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Flask in the python web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fastapi",
@@ -4762,7 +6247,18 @@
       "term": "FastAPI",
       "term_normalized": "fastapi",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for FastAPI in the python web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-pyramid",
@@ -4797,7 +6293,18 @@
       "term": "Pyramid",
       "term_normalized": "pyramid",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Pyramid in the python web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-tornado",
@@ -4832,7 +6339,18 @@
       "term": "Tornado",
       "term_normalized": "tornado",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Tornado in the python web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-spring-boot",
@@ -4867,7 +6385,18 @@
       "term": "Spring Boot",
       "term_normalized": "spring boot",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Spring Boot in the java application frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-quarkus",
@@ -4902,7 +6431,18 @@
       "term": "Quarkus",
       "term_normalized": "quarkus",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Quarkus in the java application frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-micronaut",
@@ -4937,7 +6477,18 @@
       "term": "Micronaut",
       "term_normalized": "micronaut",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Micronaut in the java application frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-jakarta-ee",
@@ -4972,7 +6523,18 @@
       "term": "Jakarta EE",
       "term_normalized": "jakarta ee",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Jakarta EE in the java application frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-helidon",
@@ -5007,7 +6569,18 @@
       "term": "Helidon",
       "term_normalized": "helidon",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Helidon in the java application frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-gin",
@@ -5042,7 +6615,18 @@
       "term": "Gin",
       "term_normalized": "gin",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Gin in the go web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-echo",
@@ -5077,7 +6661,18 @@
       "term": "Echo",
       "term_normalized": "echo",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Echo in the go web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fiber",
@@ -5112,7 +6707,18 @@
       "term": "Fiber",
       "term_normalized": "fiber",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Fiber in the go web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-chi",
@@ -5147,7 +6753,18 @@
       "term": "Chi",
       "term_normalized": "chi",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Chi in the go web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fasthttp",
@@ -5182,7 +6799,18 @@
       "term": "FastHTTP",
       "term_normalized": "fasthttp",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for FastHTTP in the go web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-rails",
@@ -5217,7 +6845,18 @@
       "term": "Rails",
       "term_normalized": "rails",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Rails in the server web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-laravel",
@@ -5252,7 +6891,18 @@
       "term": "Laravel",
       "term_normalized": "laravel",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Laravel in the server web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-symfony",
@@ -5287,7 +6937,18 @@
       "term": "Symfony",
       "term_normalized": "symfony",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Symfony in the server web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-phoenix",
@@ -5322,7 +6983,18 @@
       "term": "Phoenix",
       "term_normalized": "phoenix",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Phoenix in the server web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-asp-net-core",
@@ -5357,7 +7029,18 @@
       "term": "ASP.NET Core",
       "term_normalized": "asp net core",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for ASP.NET Core in the server web frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-react-native",
@@ -5392,7 +7075,18 @@
       "term": "React Native",
       "term_normalized": "react native",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for React Native in the mobile app frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-flutter",
@@ -5427,7 +7121,18 @@
       "term": "Flutter",
       "term_normalized": "flutter",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Flutter in the mobile app frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-swiftui",
@@ -5462,7 +7167,18 @@
       "term": "SwiftUI",
       "term_normalized": "swiftui",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for SwiftUI in the mobile app frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-jetpack-compose",
@@ -5497,7 +7213,18 @@
       "term": "Jetpack Compose",
       "term_normalized": "jetpack compose",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Jetpack Compose in the mobile app frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-kotlin-multiplatform",
@@ -5532,7 +7259,18 @@
       "term": "Kotlin Multiplatform",
       "term_normalized": "kotlin multiplatform",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kotlin Multiplatform in the mobile app frameworks comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-snowflake",
@@ -5568,7 +7306,18 @@
       "term": "Snowflake",
       "term_normalized": "snowflake",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Snowflake in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-bigquery",
@@ -5604,7 +7353,18 @@
       "term": "BigQuery",
       "term_normalized": "bigquery",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for BigQuery in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-redshift",
@@ -5640,7 +7400,18 @@
       "term": "Redshift",
       "term_normalized": "redshift",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Redshift in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-synapse",
@@ -5676,7 +7447,18 @@
       "term": "Synapse",
       "term_normalized": "synapse",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Synapse in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-databricks",
@@ -5712,7 +7494,18 @@
       "term": "Databricks",
       "term_normalized": "databricks",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Databricks in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-clickhouse",
@@ -5748,7 +7541,18 @@
       "term": "ClickHouse",
       "term_normalized": "clickhouse",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for ClickHouse in the data warehouses and analytics stores comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-flink",
@@ -5783,7 +7587,18 @@
       "term": "Flink",
       "term_normalized": "flink",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Flink in the stream processing engines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-spark-streaming",
@@ -5818,7 +7633,18 @@
       "term": "Spark Streaming",
       "term_normalized": "spark streaming",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Spark Streaming in the stream processing engines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-kafka-streams",
@@ -5853,7 +7679,18 @@
       "term": "Kafka Streams",
       "term_normalized": "kafka streams",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Kafka Streams in the stream processing engines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-samza",
@@ -5888,7 +7725,18 @@
       "term": "Samza",
       "term_normalized": "samza",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Samza in the stream processing engines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-apache-beam",
@@ -5923,7 +7771,18 @@
       "term": "Apache Beam",
       "term_normalized": "apache beam",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Apache Beam in the stream processing engines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-airflow",
@@ -5958,7 +7817,18 @@
       "term": "Airflow",
       "term_normalized": "airflow",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Airflow in the workflow orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-dagster",
@@ -5993,7 +7863,18 @@
       "term": "Dagster",
       "term_normalized": "dagster",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Dagster in the workflow orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-prefect",
@@ -6028,7 +7909,18 @@
       "term": "Prefect",
       "term_normalized": "prefect",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Prefect in the workflow orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-argo-workflows",
@@ -6063,7 +7955,18 @@
       "term": "Argo Workflows",
       "term_normalized": "argo workflows",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Argo Workflows in the workflow orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-temporal",
@@ -6098,7 +8001,18 @@
       "term": "Temporal",
       "term_normalized": "temporal",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Temporal in the workflow orchestration comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-dbt",
@@ -6133,7 +8047,18 @@
       "term": "dbt",
       "term_normalized": "dbt",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for dbt in the data transformation comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-dataform",
@@ -6168,7 +8093,18 @@
       "term": "Dataform",
       "term_normalized": "dataform",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Dataform in the data transformation comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-matillion",
@@ -6203,7 +8139,18 @@
       "term": "Matillion",
       "term_normalized": "matillion",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Matillion in the data transformation comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-coalesce",
@@ -6238,7 +8185,18 @@
       "term": "Coalesce",
       "term_normalized": "coalesce",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Coalesce in the data transformation comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-sqlmesh",
@@ -6273,7 +8231,18 @@
       "term": "SQLMesh",
       "term_normalized": "sqlmesh",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for SQLMesh in the data transformation comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-launchdarkly",
@@ -6308,7 +8277,18 @@
       "term": "LaunchDarkly",
       "term_normalized": "launchdarkly",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for LaunchDarkly in the feature flag platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-split",
@@ -6343,7 +8323,18 @@
       "term": "Split",
       "term_normalized": "split",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Split in the feature flag platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-unleash",
@@ -6378,7 +8369,18 @@
       "term": "Unleash",
       "term_normalized": "unleash",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Unleash in the feature flag platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-flagsmith",
@@ -6413,7 +8415,18 @@
       "term": "Flagsmith",
       "term_normalized": "flagsmith",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Flagsmith in the feature flag platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-configcat",
@@ -6448,7 +8461,18 @@
       "term": "ConfigCat",
       "term_normalized": "configcat",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for ConfigCat in the feature flag platforms comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-ec2",
@@ -6483,7 +8507,18 @@
       "term": "EC2",
       "term_normalized": "ec2",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for EC2 in the cloud virtual machines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-compute-engine",
@@ -6518,7 +8553,18 @@
       "term": "Compute Engine",
       "term_normalized": "compute engine",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Compute Engine in the cloud virtual machines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-azure-virtual-machines",
@@ -6553,7 +8599,18 @@
       "term": "Azure Virtual Machines",
       "term_normalized": "azure virtual machines",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Azure Virtual Machines in the cloud virtual machines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-digitalocean-droplets",
@@ -6588,7 +8645,18 @@
       "term": "DigitalOcean Droplets",
       "term_normalized": "digitalocean droplets",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for DigitalOcean Droplets in the cloud virtual machines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-hetzner-cloud",
@@ -6623,7 +8691,18 @@
       "term": "Hetzner Cloud",
       "term_normalized": "hetzner cloud",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Hetzner Cloud in the cloud virtual machines comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-lambda",
@@ -6659,7 +8738,18 @@
       "term": "Lambda",
       "term_normalized": "lambda",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Lambda in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cloud-functions",
@@ -6695,7 +8785,18 @@
       "term": "Cloud Functions",
       "term_normalized": "cloud functions",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Cloud Functions in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-azure-functions",
@@ -6731,7 +8832,18 @@
       "term": "Azure Functions",
       "term_normalized": "azure functions",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Azure Functions in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cloudflare-workers",
@@ -6767,7 +8879,18 @@
       "term": "Cloudflare Workers",
       "term_normalized": "cloudflare workers",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Cloudflare Workers in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-vercel-functions",
@@ -6803,7 +8926,18 @@
       "term": "Vercel Functions",
       "term_normalized": "vercel functions",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Vercel Functions in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-fastly-compute",
@@ -6839,7 +8973,18 @@
       "term": "Fastly Compute",
       "term_normalized": "fastly compute",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Fastly Compute in the serverless compute comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-s3",
@@ -6874,7 +9019,18 @@
       "term": "S3",
       "term_normalized": "s3",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for S3 in the object storage comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-cloud-storage",
@@ -6909,7 +9065,18 @@
       "term": "Cloud Storage",
       "term_normalized": "cloud storage",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Cloud Storage in the object storage comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-azure-blob-storage",
@@ -6944,7 +9111,18 @@
       "term": "Azure Blob Storage",
       "term_normalized": "azure blob storage",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for Azure Blob Storage in the object storage comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-r2",
@@ -6979,7 +9157,18 @@
       "term": "R2",
       "term_normalized": "r2",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for R2 in the object storage comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     },
     {
       "id": "contemporaries-seed-minio",
@@ -7014,7 +9203,18 @@
       "term": "MinIO",
       "term_normalized": "minio",
       "confidence_tier": "T3",
-      "layer": "public"
+      "layer": "public",
+      "meaning_long": "Manual contemporaries seed for MinIO in the object storage comparison set.",
+      "coiner": null,
+      "year_coined": null,
+      "license": "MIT",
+      "team_id": null,
+      "created_at": "2026-06-24T00:00:00.000Z",
+      "updated_at": "2026-06-24T00:00:00.000Z",
+      "deprecated": false,
+      "deprecated_reason": null,
+      "aliases": [],
+      "related_terms": []
     }
   ],
   "generated_at": "2026-06-24T00:00:00.000Z",
