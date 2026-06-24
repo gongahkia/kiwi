@@ -52,6 +52,23 @@ describe("searchHybrid", () => {
     expect(top?.candidate.id).toBe("cap-theorem");
   });
 
+  it("boosts exact multi-word term matches", () => {
+    const [top] = searchHybrid("access control", [
+      {
+        expansions: ["Access"],
+        id: "access",
+        term: "Access"
+      },
+      {
+        expansions: ["Security authorization model"],
+        id: "access-control",
+        term: "Access Control"
+      }
+    ]);
+
+    expect(top?.candidate.id).toBe("access-control");
+  });
+
   it("boosts results whose contemporaries match the query", () => {
     const matches = searchHybrid("kafka alternatives", [
       {

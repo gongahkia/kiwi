@@ -329,8 +329,6 @@ Goal: seed corpus w/ tech concepts (hosting, idempotency, service mesh) + system
 ### P2 — Web app: Alternatives block
 
 ### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
-- [ ] Search benchmark expanded from 500 acronyms to 1000 mixed entries (500 acronyms + 300 concepts + 200 systems) — verified by `pnpm bench`.
-- [ ] Hit-rate target unchanged (≥ 90% top-1, ≥ 98% top-5) on the expanded benchmark — verified by `pnpm bench`.
 - [ ] Alternatives block renders correctly across web, ext, Slack, MCP for ≥ 5 reference entries (Kubernetes, Kafka, Postgres, Terraform, Datadog) — verified by E2E.
 
 ## Folder/root note

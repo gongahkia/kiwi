@@ -66,8 +66,9 @@ function scoreCandidate<TCandidate extends HybridSearchCandidate>(
     candidate.meaning_short ?? ""
   ].join(" ");
   const firstQueryToken = queryTokens[0];
-  const exact =
-    firstQueryToken && termTokens.includes(firstQueryToken)
+  const exact = termTokens.includes(normalizedQuery)
+    ? 20
+    : firstQueryToken && termTokens.includes(firstQueryToken)
       ? 10
       : termTokens.some((term) => queryTokens.includes(term))
         ? 4
