@@ -7,7 +7,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -329,6 +329,15 @@ test("explicit working.message disables persona verb rotation", () => {
 		assert.equal(rotateWorkingVerb(ctx, state), undefined);
 		assert.equal(calls.workingMessage.length, before);
 	});
+});
+
+test("persona system prompt suffix applies only when configured", () => {
+	const base = "base prompt";
+	const terse = personaSystemPrompt(base, materializeConfig({ preset: "minimal", persona: "terse" }));
+	assert.match(terse ?? "", /Respond tersely/);
+	assert.match(terse ?? "", /base prompt/);
+	assert.equal(personaSystemPrompt(terse ?? "", materializeConfig({ preset: "minimal", persona: "terse" })), undefined);
+	assert.equal(personaSystemPrompt(base, materializeConfig({ preset: "minimal", persona: "startrek" })), undefined);
 });
 
 test("conditional footer segments accept object form with when rule", () => {

@@ -78,10 +78,10 @@ Theme-only (minimal layout, popular color schemes):
 
 ## Personas
 
-Persona is an orthogonal axis to preset. Controls working spinner + per-turn verb rotation only; does not touch layout or theme.
+Persona is an orthogonal axis to preset. It controls working spinner + per-turn verb rotation; some personas also append per-turn system prompt style. It does not touch layout or theme.
 
 - `default` — dots spinner, "Working / Thinking / Processing"
-- `terse` — line spinner, "Working"
+- `terse` — line spinner, "Working", terse response suffix
 - `arc` — arc spinner, "Working / Reasoning"
 - `startrek` — dots3 spinner, "Engaging warp drive / Running diagnostics / Hailing frequencies"
 - `medieval` — triangle spinner, "Forging / Conjuring / Questing"

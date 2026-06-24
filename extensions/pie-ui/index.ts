@@ -101,6 +101,11 @@ export default function (pi: ExtensionAPI) {
 	pi.on("turn_start", (_event, ctx) => {
 		rotateWorkingVerb(ctx, state);
 	});
+	pi.on("before_agent_start", (event, ctx) => {
+		const config = state.lastConfig ?? loadConfig(ctx.cwd, ctx.isProjectTrusted()).effective;
+		const systemPrompt = personaSystemPrompt(event.systemPrompt, config);
+		return systemPrompt ? { systemPrompt } : undefined;
+	});
 
 	pi.on("model_select", () => state.requestRender?.());
 	pi.on("thinking_level_select", () => state.requestRender?.());
@@ -326,6 +331,12 @@ export function rotateWorkingVerb(ctx: ExtensionContext, state: RenderState): st
 	ctx.ui.setWorkingMessage(message);
 	state.requestRender?.();
 	return message;
+}
+
+export function personaSystemPrompt(systemPrompt: string, config: PieConfig): string | undefined {
+	const suffix = resolvePersona(config.persona, config.preset)?.systemPromptSuffix;
+	if (!suffix || systemPrompt.includes(suffix)) return undefined;
+	return `${systemPrompt}\n\n${suffix}`;
 }
 
 function personaVerbKey(config: PieConfig, persona: { spinner: string; verbs: string[] }): string {

@@ -21,12 +21,12 @@ export const SPINNERS: Record<string, SpinnerSpec> = {
 export type PersonaSpec = {
 	spinner: keyof typeof SPINNERS;
 	verbs: string[];
-	systemPromptSuffix?: string; // p1-15 hook, unused in v1
+	systemPromptSuffix?: string; // appended per turn by before_agent_start
 };
 
 export const PERSONAS: Record<string, PersonaSpec> = {
 	default: { spinner: "dots", verbs: ["Working", "Thinking", "Processing"] },
-	terse: { spinner: "line", verbs: ["Working"] },
+	terse: { spinner: "line", verbs: ["Working"], systemPromptSuffix: "Respond tersely. Omit preamble and filler. Prefer direct answers and compact status summaries." },
 	arc: { spinner: "arc", verbs: ["Working", "Reasoning"] },
 	startrek: { spinner: "dots3", verbs: ["Engaging warp drive", "Running diagnostics", "Hailing frequencies"] },
 	medieval: { spinner: "triangle", verbs: ["Forging", "Conjuring", "Questing"] },

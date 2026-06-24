@@ -17,7 +17,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Opt out of automatic context warnings (70% info, 90% warning) by setting `notifications.contextWarnings: false`.
 - Compose layered decorations via `layers: ["theme:gemini", "footer:powerline", "persona:terse"]`. Layers apply between preset and user config (preset → layers in order → user overrides). Categories: `theme:*`, `footer:*`, `welcome:*`, `persona:*`, `compact:*`.
 - Use `applyMode: "clean"` to reset preset-owned config and `applyMode: "merge"` to preserve overrides.
-- Persona is an orthogonal axis controlling spinner + working-message verbs. Available personas: `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Switch with `/pie persona <name>` or set `persona` in config. Persona does not change preset, theme, footer, or layout.
+- Persona is an orthogonal axis controlling spinner + working-message verbs, with optional per-turn system prompt suffixes. Available personas: `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Switch with `/pie persona <name>` or set `persona` in config. `terse` appends a terse response suffix. Persona does not change preset, theme, footer, or layout.
 
 ## Common Changes
 - Switch preset: patch `/preset` and `/theme` together.

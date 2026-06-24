@@ -46,7 +46,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - Tool definition `renderCall(args, theme) => Component`, `renderResult(result, opts, theme) => Component`, `renderShell: "self"`.
 - Built-in tool overrides (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`). Renderers and `execute` are independent — omitting either preserves built-in for that slot.
 - `highlightCode`, `getLanguageFromPath`, `keyHint`, `keyText`, `truncateHead`, `truncateTail` utilities from `@earendil-works/pi-tui`.
-- Events not subscribed: `project_trust`, `before_agent_start`, `turn_start`, `turn_end`, `tool_execution_start/update/end`, `tool_call`, `tool_result`, `input`, `user_bash`, `session_before_compact`, `session_compact`, `before_provider_request`, `after_provider_response`, `session_before_switch/fork/tree`.
+- Events not subscribed: `project_trust`, `turn_end`, `tool_execution_start/update/end`, `tool_call`, `tool_result`, `input`, `user_bash`, `session_before_compact`, `before_provider_request`, `after_provider_response`, `session_before_switch/fork/tree`.
 
 ### Coexistence targets (doctor must detect)
 - `pi-powerline-footer` — owns footer + welcome overlay.
@@ -145,30 +145,6 @@ Build one style at a time:
 **Refs:** `pi.exec` per extensions.md. `pi install` resolves `npm:` and git URLs per packages.md; custom protocols would need Pi-side hook.
 
 **Acceptance:** command works offline (prints fallback). Server-side optional. `docs/registry.md` documents protocol.
-
----
-
-### P1-15 — Persona system prompt suffix (orthogonal axis)
-
-Depends on P0-05.
-
-- [ ] Each persona may carry a `systemPromptSuffix`. Applied via `before_agent_start`.
-
-**Why:** Claude Code `/output-style` proved demand for instant personality changes that affect agent tone.
-
-**Files:** `extensions/pie-ui/personas.ts` (extend `VERB_PACKS` shape), `extensions/pie-ui/index.ts` (subscribe `before_agent_start`).
-
-**Sketch:**
-```ts
-pi.on("before_agent_start", (event, ctx) => {
-  const persona = currentVerbPack();
-  if (!persona?.systemPromptSuffix) return;
-  event.messages.unshift({ role: "system", content: persona.systemPromptSuffix });
-});
-```
-Verify `event.messages` field name + mutability via smoke test before relying. extensions.md describes the event as "inject messages, modify system prompt" but exact field shape requires runtime confirmation.
-
-**Acceptance:** `/pie persona terse` shortens verbs + adds "respond tersely, omit preamble" suffix; `/pie persona vibes-startrek` only changes verbs.
 
 ---
 
@@ -340,8 +316,9 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 6. ~~P0-06 (boot ASCII)~~ — done.
 7. ~~P1-08 (keybindings)~~ — done.
 8. ~~P1-12 (launch preset flag)~~ — done.
-9. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
-10. P1-11 / P1-15 in parallel.
-11. P2 / P3 as bandwidth allows.
+9. ~~P1-15 (persona prompt suffix)~~ — done.
+10. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
+11. P1-11.
+12. P2 / P3 as bandwidth allows.
 
 [Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.
