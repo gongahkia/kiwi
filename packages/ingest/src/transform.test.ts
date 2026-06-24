@@ -71,6 +71,24 @@ describe("transformRawEntry", () => {
     expect(entry.contemporaries).toEqual(["Kafka", "NATS"]);
   });
 
+  it("normalizes optional aliases", () => {
+    const entry = transformRawEntry({
+      aliases: [" Cloud Native Technology ", "", "cloud native technology", "Cloud Native Stack"],
+      expansion: "Cloud Native Technology",
+      sources: [
+        {
+          license: "CC-BY-4.0",
+          publisher: "Example",
+          retrieved_at: "2026-01-01T00:00:00.000Z",
+          url: "https://example.com/cloud-native"
+        }
+      ],
+      term: "Cloud Native"
+    });
+
+    expect(entry.aliases).toEqual(["Cloud Native Technology", "Cloud Native Stack"]);
+  });
+
   it("defaults missing contemporaries to an empty array", () => {
     const entry = transformRawEntry({
       expansion: "Representational State Transfer",
@@ -86,5 +104,22 @@ describe("transformRawEntry", () => {
     });
 
     expect(entry.contemporaries).toEqual([]);
+  });
+
+  it("defaults missing aliases to an empty array", () => {
+    const entry = transformRawEntry({
+      expansion: "Representational State Transfer",
+      sources: [
+        {
+          license: "MIT",
+          publisher: "Example",
+          retrieved_at: "2026-01-01T00:00:00.000Z",
+          url: "https://example.com/rest"
+        }
+      ],
+      term: "REST"
+    });
+
+    expect(entry.aliases).toEqual([]);
   });
 });

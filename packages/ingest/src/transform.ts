@@ -13,6 +13,7 @@ export interface CanonicalSourceCitation {
 }
 
 export interface CanonicalEntry {
+  aliases: string[];
   dedup_key: string;
   domains: string[];
   examples: string[];
@@ -55,6 +56,7 @@ export function transformRawEntry(raw: RawEntry): CanonicalEntry {
   const expansionNormalized = normalizeText(expansion);
 
   return {
+    aliases: normalizeDisplayTermList(raw.aliases ?? []),
     dedup_key: `${termNormalized}:${expansionNormalized}`,
     contemporaries: normalizeDisplayTermList(raw.contemporaries ?? []),
     domains: raw.domains ?? [],

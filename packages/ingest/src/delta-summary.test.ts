@@ -8,6 +8,7 @@ import {
 } from "./delta-summary.js";
 
 const baseEntry = {
+  aliases: [],
   dedup_key: "api:application programming interface",
   contemporaries: [],
   domains: ["web"],

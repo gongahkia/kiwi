@@ -7,6 +7,7 @@ describe("mergeEquivalentEntries", () => {
   it("merges CAP from Wikipedia and textbook into one multi-source entry", () => {
     const entries = [
       transformRawEntry({
+        aliases: ["partition tolerance theorem"],
         domains: ["distributed systems"],
         expansion: "Consistency Availability Partition tolerance",
         sources: [
@@ -21,6 +22,7 @@ describe("mergeEquivalentEntries", () => {
         term: "CAP"
       }),
       transformRawEntry({
+        aliases: ["Brewer theorem"],
         domains: ["databases"],
         expansion: "Consistency Availability Partition tolerance",
         sources: [
@@ -43,6 +45,7 @@ describe("mergeEquivalentEntries", () => {
       "https://en.wikipedia.org/wiki/CAP_theorem",
       "https://example.com/cap-textbook"
     ]);
+    expect(merged[0]?.aliases).toEqual(["partition tolerance theorem", "Brewer theorem"]);
     expect(merged[0]?.domains).toEqual(["distributed systems", "databases"]);
   });
 
