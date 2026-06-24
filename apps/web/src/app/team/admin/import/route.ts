@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
+import { checkWriteRateLimit } from "@/lib/write-rate-limit";
+
+const sessionCookie = "wat_session";
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim());
@@ -29,6 +32,23 @@ function isTeamEntry(value: unknown): value is TeamEntry {
 }
 
 export async function POST(request: NextRequest) {
+  const actorId =
+    request.cookies.get(sessionCookie)?.value ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "anonymous";
+  const writeLimit = checkWriteRateLimit("team-import", actorId);
+  if (!writeLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        limit: writeLimit.limit,
+        remaining: writeLimit.remaining,
+        reset_at: writeLimit.reset_at
+      },
+      { status: 429 }
+    );
+  }
+
   const body = (await request.json()) as { entries?: unknown };
   if (!Array.isArray(body.entries) || !body.entries.every(isTeamEntry)) {
     return NextResponse.json({ error: "invalid team import" }, { status: 400 });

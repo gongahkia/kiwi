@@ -39,6 +39,7 @@ Browser extension, Slack, and MCP requests should resolve to the same team/user 
 - Require same-origin `Origin` or `Referer` headers for unsafe cookie-authenticated mutations.
 - Store OAuth tokens and API keys encrypted at rest.
 - Rate-limit anonymous lookup, authenticated suggestions, Slack commands, and MCP calls.
+- Rate-limit custom-entry saves and team imports per actor to slow write spam.
 - Log security-relevant mutations to `audit_log`.
 - Keep source URLs and license tags attached to public entries.
 - Run dependency, license, SQL injection, and XSS checks in CI.

@@ -3,9 +3,11 @@ import { NextRequest } from "next/server";
 
 import { getPersonalEntries, resetPersonalEntriesForTest } from "@/lib/personal-entries";
 import { getTeamEntries, initialTeamEntries, resetTeamEntriesForTest } from "@/lib/team-entries";
+import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
 import { POST } from "./route";
 
 const previousApiKey = process.env.WAT_API_KEY;
+const previousCustomEntryWriteLimit = process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
 
 function request(body: Record<string, unknown>, headers: Record<string, string> = {}) {
   const mergedHeaders: Record<string, string> = {
@@ -28,8 +30,10 @@ function request(body: Record<string, unknown>, headers: Record<string, string> 
 describe("POST /api/v1/custom-entries", () => {
   beforeEach(() => {
     process.env.WAT_API_KEY = "test-key";
+    delete process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
+    resetWriteRateLimitsForTest();
   });
 
   afterEach(() => {
@@ -38,8 +42,14 @@ describe("POST /api/v1/custom-entries", () => {
     } else {
       process.env.WAT_API_KEY = previousApiKey;
     }
+    if (previousCustomEntryWriteLimit === undefined) {
+      delete process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
+    } else {
+      process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT = previousCustomEntryWriteLimit;
+    }
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
+    resetWriteRateLimitsForTest();
   });
 
   it("marks personal custom entries as proprietary", async () => {
@@ -103,6 +113,33 @@ describe("POST /api/v1/custom-entries", () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
       error: "api token and x-wat-user-id are required"
+    });
+  });
+
+  it("rate limits custom entry writes by actor", async () => {
+    process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT = "1";
+
+    const first = await POST(
+      request({
+        expansion: "Change Approval Process",
+        scope: "personal",
+        term: "CAP"
+      })
+    );
+    const second = await POST(
+      request({
+        expansion: "Recovery Time Objective",
+        scope: "personal",
+        term: "RTO"
+      })
+    );
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(429);
+    await expect(second.json()).resolves.toMatchObject({
+      error: "rate_limited",
+      limit: 1,
+      remaining: 0
     });
   });
 

@@ -16,6 +16,7 @@ import {
   type TeamEntry,
   type TeamEntrySource
 } from "@/lib/team-entries";
+import { checkWriteRateLimit } from "@/lib/write-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -186,6 +187,22 @@ export async function POST(request: NextRequest) {
   const userId = request.headers.get("x-wat-user-id")?.trim();
   if (identity.identity.type !== "api" || !userId) {
     return json(request, { error: "api token and x-wat-user-id are required" }, { status: 401 });
+  }
+  const writeLimit = checkWriteRateLimit(
+    "custom-entry",
+    identity.identity.teamId ?? userId
+  );
+  if (!writeLimit.allowed) {
+    return json(
+      request,
+      {
+        error: "rate_limited",
+        limit: writeLimit.limit,
+        remaining: writeLimit.remaining,
+        reset_at: writeLimit.reset_at
+      },
+      { status: 429 }
+    );
   }
 
   const parsed = customEntryFromBody((await request.json()) as CustomEntryRequest);
