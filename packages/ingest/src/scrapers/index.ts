@@ -2,6 +2,7 @@ import type { ScraperPlugin } from "../scraper.js";
 import { awsServicesScraper } from "./aws-services.js";
 import { azureServicesScraper } from "./azure-services.js";
 import { cncfGlossaryScraper } from "./cncf-glossary.js";
+import { cncfLandscapeScraper } from "./cncf-landscape.js";
 import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
 import { gcpServicesScraper } from "./gcp-services.js";
 import { exampleScraper } from "./example.js";
@@ -21,6 +22,7 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [awsServicesScraper.name, awsServicesScraper],
   [azureServicesScraper.name, azureServicesScraper],
   [cncfGlossaryScraper.name, cncfGlossaryScraper],
+  [cncfLandscapeScraper.name, cncfLandscapeScraper],
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
   [gcpServicesScraper.name, gcpServicesScraper],
   [exampleScraper.name, exampleScraper],
