@@ -51,8 +51,8 @@ Actions:
 
 Rollback:
 
-- Revert the corpus delta commit if bad entries reached `main`.
-- Re-run import from the last known-good delta.
+- Restore the bad delta from a known-good git ref with `pnpm rollback:delta <known-good-ref> data/deltas/<date>/<source>.json`.
+- Follow [Corpus Delta Rollback](corpus-rollback.md) for summary regeneration, lint, benchmark, and DB re-import commands.
 
 ## Abuse Mitigation
 

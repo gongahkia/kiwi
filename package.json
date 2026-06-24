@@ -21,6 +21,7 @@
     "lint": "eslint . && prettier --check .",
     "load:search": "k6 run scripts/k6-search.js",
     "prepare": "husky",
+    "rollback:delta": "node scripts/rollback-delta.mjs",
     "test": "pnpm -r --if-present test",
     "test:e2e:auth": "sh scripts/e2e-auth-mailpit.sh",
     "test:e2e:extension": "pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",

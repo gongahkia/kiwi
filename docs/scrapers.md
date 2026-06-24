@@ -51,6 +51,8 @@ pnpm ingest run example
 
 The CLI writes a JSON delta to `data/deltas/<date>/<source>.json`.
 
+If a merged delta is bad, restore it from a known-good git ref with the [corpus delta rollback runbook](corpus-rollback.md).
+
 ## Rules
 
 - `name` must match the CLI source name.
