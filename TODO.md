@@ -30,7 +30,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 
 **Used today** (grep `pi.on`, `pi.register*`, `ctx.ui.` in `extensions/pie-ui/`):
 - Events: `resources_discover`, `session_start`, `agent_start`, `agent_end`, `model_select`, `thinking_level_select`, `message_end`.
-- `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`, `pi.exec`.
+- `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`, `pi.exec`, `pi.appendEntry`.
 - Built-in tool overrides for `bash`, `edit`, `read`, `grep` via `renderCall`/`renderResult`; execution/schemas cloned from Pi's own tool definitions.
 - `ctx.ui`: `setTheme`, `setToolsExpanded`, `setHiddenThinkingLabel`, `setWorkingVisible`, `setWorkingMessage`, `setWorkingIndicator`, `setWidget`, `setHeader`, `setFooter`, `notify`, `select`, `input`, `confirm`, `getAllThemes`, `custom`, `editor`, `addAutocompleteProvider`.
 
@@ -39,7 +39,6 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - `pi.registerShortcut(shortcut, { description, handler })` — chord registration.
 - `pi.registerFlag(name, { description, type, default })` — CLI flag.
 - `pi.sendMessage(message, options?)` — inject custom-type message; `delivery` ∈ `"steer" | "followUp" | "nextTurn"`; `triggerTurn?: boolean`.
-- `pi.appendEntry(customType, data?)` — persist state outside LLM context.
 - `pi.events` — inter-extension event bus.
 - `pi.setSessionName`, `pi.setLabel`.
 - `ctx.ui.setStatus(key, text?)`, `ctx.ui.setTitle`, `ctx.ui.setEditorComponent`, `ctx.ui.pasteToEditor`, `ctx.ui.getEditorText`/`setEditorText`.
@@ -69,12 +68,6 @@ Each task is self-contained. Dependencies noted explicitly.
 ### P0-01 follow-ups (per-preset screenshots)
 
 README rewrite landed (comparison table, migration block, persona section, agent tool section, compat list with known co-existence pairings). Still pending: per-preset screenshot grid — depends on P0-02 (`/pie capture` via vhs) producing assets/preview-<preset>.gif|png for each of the 12 presets. Once P0-02 lands, add a "Gallery" section with a grid of preview images and update the first-screen hero from the current static GIF.
-
----
-
-### P2-17 follow-ups (Pi event-bus integration)
-
-P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `{ ts, scope, path, previous, next }` at `~/.pi/agent/pie-history.json`; rolling 50-entry cap; 3 new tests. Storage uses a plain JSON file instead of `pi.appendEntry` to avoid runtime-shape verification. Future agent: optionally also call `pi.appendEntry?.("pie:history", entry)` so other extensions on the same Pi session bus can react.
 
 ---
 

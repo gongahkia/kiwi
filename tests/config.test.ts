@@ -8,7 +8,7 @@ import { pieAutocompleteSuggestions } from "../extensions/pie-ui/autocomplete.ts
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, TOOL_RENDER_STYLES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, importConfig, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, importConfig, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_HISTORY_TYPE, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, recordHistory, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
@@ -711,6 +711,16 @@ test("appendHistory + popHistory + readHistory round-trip", () => {
 		assert.equal(popped?.next.preset, "claude-inspired");
 		assert.equal(readHistory().length, 1);
 		assert.equal(existsSync(historyPath()), true);
+	});
+});
+
+test("recordHistory writes JSON history and appends session entry", () => {
+	withTempHome(() => {
+		const appended: Array<{ customType: string; data: unknown }> = [];
+		const entry = { ts: 1, scope: "global" as const, path: "/tmp/x", previous: { preset: "minimal" as const }, next: { preset: "codex-inspired" as const } };
+		recordHistory({ appendEntry: (customType: string, data: unknown) => appended.push({ customType, data }) } as any, entry);
+		assert.deepEqual(readHistory(), [entry]);
+		assert.deepEqual(appended, [{ customType: PIE_HISTORY_TYPE, data: entry }]);
 	});
 });
 

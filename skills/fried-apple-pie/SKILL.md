@@ -31,7 +31,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - One-shot launch preset: run `pi -e . --pie-preset <preset>` to apply a preset for that launch without writing `pie-ui.json`.
 - Use `/pie gallery` to live-preview every preset without writing to config. j/k or h/l cycles, enter keeps current preview, q/esc restores previous config.
 - Use `/pie diff <preset>` to preview what a clean preset apply would change before running `/pie preset <preset>`. Optional second arg `merge` previews merge-mode apply.
-- `/pie history` shows the last 10 preset switches. `/pie undo` restores the most recent previous state and pops it from history. History lives at `~/.pi/agent/pie-history.json` and is capped at 50 entries.
+- `/pie history` shows the last 10 preset/import writes. `/pie undo` restores the most recent previous state and pops it from history. History lives at `~/.pi/agent/pie-history.json`, is capped at 50 entries, and is also appended as `pie:history`.
 - `/pie import <path-or-url>` reads a local or remote `pie-ui.json`, validates it, asks for scope and confirms before writing. URL import uses `curl -fsSL` through `pi.exec`.
 - `/pie capture` renders the active preset's tape via `vhs` to `assets/preview-<preset>.gif`. Requires `vhs`, `ttyd`, `ffmpeg` on PATH (install with `brew install vhs`). Regenerate tapes via `npm run assets:tapes` or render all via `npm run assets:capture`.
 - `/pie share` writes `assets/share/<timestamp>/pie-ui.json`, `payload.json`, and a preview asset. Server upload is not implemented; use the printed `gh gist create ...` fallback.

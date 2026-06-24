@@ -36,6 +36,7 @@ const themeDir = resolve(__dirname, "../../themes");
 const skillDir = resolve(__dirname, "../../skills");
 const tapesDir = resolve(assetsDir, "tapes");
 export const PIE_WELCOME_TYPE = "pie:welcome";
+export const PIE_HISTORY_TYPE = "pie:history";
 export const PIE_LEADER_SHORTCUTS = [Key.ctrlAlt("p"), Key.ctrl("p")] as const;
 const configToolSchema = Type.Object({
 	action: Type.Union([
@@ -503,7 +504,7 @@ async function writePreset(preset: PresetName, ctx: ExtensionContext, pi: Extens
 	const next = applyPresetConfig(current, preset, applyMode);
 	const scope = ctx.isProjectTrusted() ? "project" : "global";
 	const ts = Date.now();
-	appendHistory({ ts, scope, path, previous: current, next });
+	recordHistory(pi, { ts, scope, path, previous: current, next });
 	writeConfigFile(path, next);
 	applyPie(ctx, pi, state);
 	emitPieEvent(pi, "pie:preset-changed", { from: current.preset, to: preset, scope, path, ts });
@@ -536,6 +537,12 @@ async function writePersona(persona: string, ctx: ExtensionContext, pi: Extensio
 export function emitPieEvent(pi: ExtensionAPI, name: string, payload: { from?: string; to?: string; scope: "global" | "project"; path: string; ts: number }): void {
 	const events = (pi as unknown as { events?: { emit?: (name: string, payload: unknown) => void } }).events;
 	events?.emit?.(name, payload);
+}
+
+export function recordHistory(pi: ExtensionAPI, entry: HistoryEntry): void {
+	appendHistory(entry);
+	const appendEntry = (pi as unknown as { appendEntry?: (customType: string, data?: unknown) => void }).appendEntry;
+	appendEntry?.(PIE_HISTORY_TYPE, entry);
 }
 
 // resolves the tape path for a preset. exported for tests.
@@ -681,7 +688,7 @@ export async function importConfig(arg: string, ctx: ExtensionContext, pi: Exten
 	const summary = summarizeChange(materializeConfig(before), materializeConfig(candidate));
 	const confirmed = await ctx.ui.confirm("Apply imported config?", `source: ${source}\ntarget: ${target.path}\nchange: ${summary}`);
 	if (!confirmed) return;
-	appendHistory({ ts: Date.now(), scope: target.scope, path: target.path, previous: before, next: candidate });
+	recordHistory(pi, { ts: Date.now(), scope: target.scope, path: target.path, previous: before, next: candidate });
 	writeConfigFile(target.path, candidate);
 	applyPie(ctx, pi, state);
 	ctx.ui.notify(`Fried Apple Pie imported from ${source}`, "info");

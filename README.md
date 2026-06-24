@@ -115,6 +115,8 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 
 `/pie gallery` controls: `j`/`l` next, `k`/`h` previous, `enter` keep current preview, `q` restore prior config.
 
+Preset/import history is stored in `~/.pi/agent/pie-history.json` and appended as `pie:history` custom session entries.
+
 ## Keybindings
 
 `ctrl+alt+p` opens the Fried Apple Pie leader. Then press `p` preset picker, `g` gallery, `s` footer segments, `e` editor, `d` doctor, or `c` capture.
