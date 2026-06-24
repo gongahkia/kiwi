@@ -274,7 +274,7 @@ Team admins can download import templates:
 - `GET /team/admin/import/template/json`
 - `GET /team/admin/import/template/csv`
 
-`POST /team/admin/import` accepts either JSON shaped as `{ "entries": [...] }` or CSV using the template headers. CSV `domains` are semicolon-separated, and each CSV row imports one source.
+`POST /team/admin/import/api` accepts either JSON shaped as `{ "entries": [...] }` or CSV using the template headers. CSV `domains` are semicolon-separated, and each CSV row imports one source.
 
 ## Authenticated Surface Examples
 
