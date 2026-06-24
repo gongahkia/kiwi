@@ -1,22 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-interface Source {
-  license: string;
-  publisher: string;
-  retrieved_at: string;
-  title: string;
-  url: string;
-}
-
-interface Entry {
-  layer: string;
-  sources: Source[];
-}
-
-interface SourceRow extends Source {
-  count: number;
-}
+import {
+  sourceInventoryFromEntries,
+  type InventoryEntry,
+  type SourceInventoryRow
+} from "@/lib/source-inventory";
 
 async function readSeedJson(): Promise<string> {
   for (const seedPath of [
@@ -33,25 +22,9 @@ async function readSeedJson(): Promise<string> {
   throw new Error("manual seed file not found");
 }
 
-async function getSources(): Promise<SourceRow[]> {
-  const parsed = JSON.parse(await readSeedJson()) as { entries: Entry[] };
-  const byUrl = new Map<string, SourceRow>();
-
-  for (const entry of parsed.entries.filter((candidate) => candidate.layer === "public")) {
-    for (const source of entry.sources) {
-      const existing = byUrl.get(source.url);
-      byUrl.set(source.url, {
-        ...source,
-        count: (existing?.count ?? 0) + 1,
-        retrieved_at:
-          existing && existing.retrieved_at > source.retrieved_at
-            ? existing.retrieved_at
-            : source.retrieved_at
-      });
-    }
-  }
-
-  return [...byUrl.values()].sort((left, right) => left.publisher.localeCompare(right.publisher));
+async function getSources(): Promise<SourceInventoryRow[]> {
+  const parsed = JSON.parse(await readSeedJson()) as { entries: InventoryEntry[] };
+  return sourceInventoryFromEntries(parsed.entries);
 }
 
 export default async function SourcesPage() {
@@ -70,8 +43,10 @@ export default async function SourcesPage() {
               <tr>
                 <th className="p-3 font-medium">Source</th>
                 <th className="p-3 font-medium">License</th>
+                <th className="p-3 font-medium">Policy</th>
                 <th className="p-3 font-medium">Last refresh</th>
                 <th className="p-3 font-medium">Entries</th>
+                <th className="p-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -84,8 +59,10 @@ export default async function SourcesPage() {
                     <p className="text-foreground/60">{source.publisher}</p>
                   </td>
                   <td className="p-3">{source.license}</td>
+                  <td className="p-3">{source.license_policy}</td>
                   <td className="p-3">{source.retrieved_at}</td>
                   <td className="p-3">{source.count}</td>
+                  <td className="p-3">{source.failure_status}</td>
                 </tr>
               ))}
             </tbody>

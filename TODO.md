@@ -247,7 +247,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ### P1 — Public corpus coverage and ingestion readiness
 - [ ] Import scraper outputs into production-searchable corpus — done when daily corpus refresh deltas can be reviewed, merged, and loaded into the DB-backed public search index.
 - [ ] Increase seed/public corpus beyond demo size — done when public search covers at least the target launch benchmark set and no longer relies on ~50 unique seed terms.
-- [ ] Add corpus source inventory page — done when docs/UI list each source, license policy, last refresh time, entry count, and failure status.
 - [ ] Add corpus refresh dashboard/report — done when scheduled scraper runs publish added/changed/removed counts, license changes, parser errors, and benchmark impact.
 - [ ] Add bad-delta rollback path — done when a bad corpus import can be reverted to a known-good version with documented commands.
 - [ ] Add source license change alerts — done when changes in source license metadata block automatic import until reviewed.
