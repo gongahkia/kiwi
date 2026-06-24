@@ -18,6 +18,7 @@ import { postgresqlExtensionsScraper } from "./postgresql-extensions.js";
 import { postgresqlGlossaryScraper } from "./postgresql-glossary.js";
 import { w3cGlossaryScraper } from "./w3c-glossary.js";
 import { wikipediaAcronymsScraper } from "./wikipedia-acronyms.js";
+import { wikipediaOutlineScraper } from "./wikipedia-outline.js";
 
 export const scrapers = new Map<string, ScraperPlugin>([
   [awsServicesScraper.name, awsServicesScraper],
@@ -38,5 +39,6 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [postgresqlExtensionsScraper.name, postgresqlExtensionsScraper],
   [postgresqlGlossaryScraper.name, postgresqlGlossaryScraper],
   [w3cGlossaryScraper.name, w3cGlossaryScraper],
-  [wikipediaAcronymsScraper.name, wikipediaAcronymsScraper]
+  [wikipediaAcronymsScraper.name, wikipediaAcronymsScraper],
+  [wikipediaOutlineScraper.name, wikipediaOutlineScraper]
 ]);
