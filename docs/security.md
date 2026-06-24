@@ -36,6 +36,7 @@ Browser extension, Slack, and MCP requests should resolve to the same team/user 
 - Use parameterized SQL or ORM query builders for database access.
 - Escape rendered text by default and avoid raw HTML from corpus sources.
 - Enforce role checks on admin endpoints and review actions.
+- Require same-origin `Origin` or `Referer` headers for unsafe cookie-authenticated mutations.
 - Store OAuth tokens and API keys encrypted at rest.
 - Rate-limit anonymous lookup, authenticated suggestions, Slack commands, and MCP calls.
 - Log security-relevant mutations to `audit_log`.

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
+import { hasSameOriginMutationHeaders } from "./lib/csrf";
 import { isAdminSession } from "./lib/session";
 
 const sessionCookie = "wat_session";
@@ -19,7 +20,9 @@ export function middleware(request: NextRequest) {
   );
   const needsAdmin = request.nextUrl.pathname.startsWith(adminPrefix);
 
-  if (needsSession && !session) {
+  if (session && !hasSameOriginMutationHeaders(request)) {
+    response = NextResponse.json({ error: "same_origin_required" }, { status: 403 });
+  } else if (needsSession && !session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     response = NextResponse.redirect(loginUrl);
