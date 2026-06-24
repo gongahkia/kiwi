@@ -19,6 +19,14 @@ DATABASE_URL=postgres://wat:wat@localhost:5432/wat
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
+Generate fresh auth/API/token-encryption secrets for new self-host installs:
+
+```sh
+./scripts/generate-secrets.sh
+```
+
+Copy the generated `AUTH_SECRET`, `WAT_API_KEY`, and `SLACK_TOKEN_ENCRYPTION_KEY` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid.
+
 Optional values depend on enabled surfaces:
 
 ```sh
