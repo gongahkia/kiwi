@@ -21,12 +21,12 @@ DATABASE_URL="$DATABASE_URL" BACKUP_DIR=backups ./scripts/backup.sh
 
 5. Keep the produced archive path with the deployment record.
 
-## Run Migrations
+## Run Migrations And Public Seed
 
-Apply migrations from the repo root:
+Run the idempotent release step from the repo root:
 
 ```sh
-DATABASE_URL="$DATABASE_URL" pnpm --filter @wat/db db:migrate
+DATABASE_URL="$DATABASE_URL" pnpm db:deploy
 ```
 
 Then verify the application path:

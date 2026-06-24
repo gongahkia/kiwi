@@ -74,7 +74,7 @@ else
   printf 'migrations skipped: entries table already exists\n'
 fi
 
-DATABASE_URL="$database_url" pnpm db:seed:dev
+DATABASE_URL="$database_url" pnpm db:seed:public
 seed_count="$(docker compose exec -T postgres psql -U wat -d wat -Atc "select count(*) from entries" | tr -d '[:space:]')"
 if [ "${seed_count:-0}" -lt 1 ]; then
   fail "seeded corpus check failed"

@@ -8,6 +8,7 @@
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "tsx src/migrate.ts",
     "seed:dev": "pnpm build && node dist/src/seed-dev.js",
+    "seed:public": "pnpm build && node dist/src/seed-public.js",
     "test": "vitest run src --exclude 'dist/**'"
   },
   "dependencies": {

@@ -10,4 +10,4 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile && pnpm --filter @wat/db build
 
-CMD ["sh", "-c", "pnpm --filter @wat/db db:migrate && pnpm --filter @wat/db seed:dev"]
+CMD ["pnpm", "db:deploy"]

@@ -39,10 +39,10 @@ select extname from pg_extension where extname in ('pg_trgm', 'vector');
 
 ## Migrations And Seeds
 
-- Run `DATABASE_URL="$DATABASE_URL" pnpm --filter @wat/db db:migrate` during deploy.
-- Verify `/readyz` after migrations.
+- Configure the deploy release phase to run `DATABASE_URL="$DATABASE_URL" pnpm db:deploy`.
+- `db:deploy` applies pending migrations and imports the checked-in public corpus idempotently.
+- Verify `/readyz` after the release phase.
 - Verify `GET /api/v1/search?q=API&limit=1`.
-- Confirm the public seed/import job has loaded corpus rows before accepting traffic.
 
 ## Backups And Restore
 

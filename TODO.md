@@ -156,8 +156,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Replace in-memory rate limiter for hosted mode — done when rate limits use Redis/Upstash/Postgres advisory storage in production and still support an in-memory dev fallback.
 - [ ] Add DB repository interfaces for public, team, and personal entries — done when web/API/search code depends on typed repositories instead of module-level arrays or seed JSON reads.
 - [ ] Migrate team entry source model to match glossary source schema — done when team/personal entries store source quality, title, URL, publisher, license, retrieved date, and snippet in normalized DB rows.
-- [ ] Add idempotent migration runner for app startup or release phase — done when a clean deploy can run migrations exactly once without manual `pnpm db:migrate` steps.
-- [ ] Add idempotent public corpus seed/import job — done when a clean DB can import checked-in corpus data without duplicates and without deleting team/personal overlays.
 - [ ] Add restart persistence smoke test — done when an E2E creates a team entry, restarts web, and confirms the entry is still searchable.
 - [ ] Add multi-instance persistence smoke test — done when two web processes behind the same DB can create/read the same team and personal entries.
 

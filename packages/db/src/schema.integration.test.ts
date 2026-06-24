@@ -5,6 +5,7 @@ import { Client } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 import { applyMigrations } from "./migrate.js";
+import { seedPublicCorpus } from "./seed-public.js";
 
 let client: Client;
 let container: StartedTestContainer;
@@ -40,6 +41,34 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
     );
 
     expect(rows.map((row) => row.extname)).toEqual(["pg_trgm", "vector"]);
+  });
+
+  it("skips already applied migrations", async () => {
+    const before = await migrationCount();
+
+    await applyMigrations(client);
+
+    expect(await migrationCount()).toBe(before);
+  });
+
+  it("seeds public corpus idempotently without deleting scoped overlays", async () => {
+    await insertTeam("team_public_seed", "public-seed.example");
+    await insertUser("user_public_seed", "team_public_seed");
+    await insertTeamEntry("team_entry_public_seed", "team_public_seed", ["Kafka"]);
+    await insertPersonalEntry("personal_entry_public_seed", "user_public_seed", ["OIDC"]);
+
+    try {
+      expect(await seedPublicCorpus(client, { limit: 3 })).toEqual({ count: 3 });
+      expect(await seedPublicCorpus(client, { limit: 3 })).toEqual({ count: 3 });
+
+      expect(await rowCount("entries", "id like 'seed-%'")).toBe(3);
+      expect(await rowCount("sources", "entry_id like 'seed-%'")).toBe(3);
+      expect(await rowCount("examples", "entry_id like 'seed-%'")).toBe(3);
+      expect(await rowCount("team_entries", "id = 'team_entry_public_seed'")).toBe(1);
+      expect(await rowCount("personal_entries", "id = 'personal_entry_public_seed'")).toBe(1);
+    } finally {
+      await client.query("delete from entries where id like 'seed-%'");
+    }
   });
 
   it("creates entry rows", async () => {
@@ -222,6 +251,20 @@ function hasDockerRuntime(): boolean {
   } catch {
     return false;
   }
+}
+
+async function migrationCount(): Promise<number> {
+  const { rows } = await client.query<{ count: number }>(
+    "select count(*)::int as count from drizzle.__drizzle_migrations"
+  );
+  return rows[0]?.count ?? 0;
+}
+
+async function rowCount(table: string, where: string): Promise<number> {
+  const { rows } = await client.query<{ count: number }>(
+    `select count(*)::int as count from ${table} where ${where}`
+  );
+  return rows[0]?.count ?? 0;
 }
 
 async function connectWithRetry(connectionString: string): Promise<Client> {
