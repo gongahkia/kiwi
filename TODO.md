@@ -280,7 +280,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Tenant isolation proven — verified when automated tests cover cross-team denial for every private read/write path.
 - [ ] Browser extension install is non-developer-mode — verified when at least one signed store or enterprise-install path works with documented auth.
 - [ ] Same hosted instance powers web, extension, Slack, and MCP — verified when all four surfaces read the same DB-backed public/team/personal data for a test team.
-- [ ] Private glossary legal/privacy defaults are safe — verified when private entries are not mislabeled as open-source/public and privacy docs match actual data flows.
 - [ ] Self-host clean install works — verified when `docker compose up --build` on a clean machine runs migrations, seeds corpus, and passes `/readyz` plus a search smoke test.
 
 ## Scope expansion — tech terms + contemporaries (2026-06-23)

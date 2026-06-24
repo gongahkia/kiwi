@@ -4,6 +4,10 @@ const sections = [
     body: "Search sends q, limit, optional context, and optional confidence filters. Suggestions and glossary forms send term, expansion, meaning, domains, source URL, and source title. Hosted wat stores account email, sessions, team membership, personal entries, team entries, suggestions, and audit history."
   },
   {
+    title: "Private glossary layers",
+    body: "Team and personal entries are private layer data, not public open-source corpus entries. Browser-saved private entries default to proprietary-team or proprietary-personal source labels and stay scoped to the caller's team or user."
+  },
+  {
     title: "Search logs",
     body: "Hosted search records query hashes, latency, match count, layer hit, and confidence distribution for operations. Raw query text is not required for analytics."
   },
