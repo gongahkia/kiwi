@@ -30,7 +30,7 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 - The MCP server is a local stdio server backed by seed/dev fixtures.
 - `@wat/mcp` is not published to npm yet.
-- Hosted/API or DB-backed lookup, DB-backed suggestions, hosted configuration, and catalog submissions are not complete.
+- Hosted/API or DB-backed lookup, DB-backed suggestions, and catalog submissions are not complete; hosted configuration examples are documented as the target shape.
 
 ## Corpus Coverage
 

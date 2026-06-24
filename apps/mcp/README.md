@@ -1,6 +1,6 @@
 # @wat/mcp
 
-stdio MCP server for wat lookup.
+stdio MCP server for wat lookup. See [MCP Configuration](../../docs/mcp.md) for Claude Desktop, Cursor, hosted target, key scope, team ID, and self-host examples.
 
 Build before using the local config:
 
@@ -14,7 +14,7 @@ After publishing, users can run it with npm without cloning the repo:
 npx @wat/mcp@latest
 ```
 
-## Claude Desktop
+## Claude Desktop local stdio
 
 ```json
 {
@@ -75,6 +75,7 @@ Tools:
 
 - `lookup(term, context?, limit?, min_confidence?, api_key)`: returns top matches with citations.
 - `list_team_acronyms(domain?, cursor?, limit?, api_key)`: returns paged team entries scoped to the API key.
+- `list_alternatives(term, api_key)`: returns resolved peer alternatives for a matched term.
 - `suggest_definition(term, expansion, meaning, source_url, source_title, domains?, api_key)`: queues a pending team suggestion when `WAT_MCP_ALLOW_WRITE=true` and `WAT_MCP_SUGGESTIONS_PATH` is configured.
 
 ## Privacy Notes

@@ -76,6 +76,7 @@ pnpm --filter @wat/ingest test
 - [Developer architecture](docs/developer-architecture.md)
 - [Limitations](docs/limitations.md)
 - [Migration runbook](docs/migration-runbook.md)
+- [MCP configuration](docs/mcp.md)
 - [Production readiness](docs/production-readiness.md)
 - [Security](docs/security.md)
 - [Security model](docs/security-model.md)

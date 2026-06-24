@@ -235,7 +235,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Replace MCP file-backed suggestions with DB-backed suggestions — done when `suggest_definition` queues suggestions in the same review UI as web/Slack.
 - [ ] Add MCP per-team API key support — done when MCP auth uses DB-backed scoped keys and returns clear unauthorized/forbidden errors.
 - [ ] Publish `@wat/mcp` package — done when users can run `npx @wat/mcp@latest` without cloning the repo.
-- [ ] Add MCP hosted configuration docs — done when Claude Desktop/Cursor examples show hosted URL, key scopes, team ID behavior, and self-host mode.
 - [ ] Add MCP integration tests against a running web API — done when lookup/list/suggest are verified against seeded DB fixtures.
 - [ ] Submit MCP catalog listings — done when Anthropic/Cursor listing PRs or submissions are opened with screenshots and docs.
 

@@ -96,8 +96,9 @@ export const installGuides: InstallGuide[] = [
     ]
   },
   {
-    detail: "Connect local agent clients to the stdio MCP server for lookup/list/suggest tools.",
-    environment: "Local MCP-compatible client",
+    detail:
+      "Connect agent clients to wat MCP using local stdio today or the hosted/self-host URL shape once remote MCP is deployed.",
+    environment: "Local MCP-compatible client; hosted/self-host remote MCP target",
     href: "/install/mcp",
     icon: Cable,
     id: "mcp",
@@ -110,14 +111,18 @@ export const installGuides: InstallGuide[] = [
         code: "pnpm --filter @wat/mcp build"
       },
       {
-        title: "Configure client command",
-        body: "Point Claude Desktop/Cursor-compatible clients at the built stdio entrypoint.",
-        code: "node apps/mcp/dist/index.js"
+        title: "Configure local stdio clients",
+        body: "Point Claude Desktop or Cursor at the built entrypoint and pass the same key as each tool call api_key.",
+        code: '{\n  "mcpServers": {\n    "wat": {\n      "command": "node",\n      "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],\n      "env": {\n        "WAT_API_KEY": "wat_team_key",\n        "WAT_TEAM_ID": "team_123",\n        "WAT_TEAM_DOMAINS": "example.com"\n      }\n    }\n  }\n}'
       },
       {
-        title: "Set hosted/self-host credentials",
-        body: "Pass the same wat API key and team ID used by other integration surfaces.",
-        code: "WAT_API_KEY=<self-host-dev-key>\nWAT_TEAM_ID=team_123"
+        title: "Plan hosted or self-host remote config",
+        body: "Use the wat MCP URL plus a scoped team key when remote MCP support is deployed.",
+        code: '{\n  "mcpServers": {\n    "wat": {\n      "type": "http",\n      "url": "https://wat.example.com/mcp",\n      "headers": {\n        "Authorization": "Bearer wat_live_read_key",\n        "X-Wat-Team-Id": "team_123"\n      }\n    }\n  }\n}'
+      },
+      {
+        title: "Choose key scope and team behavior",
+        body: "Use read keys for lookup/list tools and suggestion-write keys for suggest_definition; team ID labels current stdio responses and should be derived from the key in hosted mode."
       }
     ]
   },

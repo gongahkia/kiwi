@@ -323,7 +323,7 @@ curl \
 
 ### MCP
 
-MCP clients pass the same team key as tool input. The server reads `WAT_API_KEY` and `WAT_TEAM_ID` from its environment and rejects mismatched `api_key` values.
+MCP clients pass the same team key as tool input. The current stdio server reads `WAT_API_KEY` and `WAT_TEAM_ID` from its environment and rejects mismatched `api_key` values. See [MCP Configuration](mcp.md) for Claude Desktop, Cursor, hosted target, self-host, key scope, and team ID examples.
 
 ```json
 {
