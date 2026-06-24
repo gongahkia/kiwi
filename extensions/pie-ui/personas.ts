@@ -45,11 +45,15 @@ export const PRESET_DEFAULT_PERSONA: Record<PresetName, string> = {
 	"gemini-inspired": "default",
 	"aider-inspired": "terse",
 	"copilot-inspired": "default",
+	"cursor-inspired": "default",
+	"amp-inspired": "default",
 	dracula: "default",
 	"tokyo-night": "default",
 	"catppuccin-mocha": "default",
+	"catppuccin-latte": "default",
 	nord: "default",
 	"gruvbox-dark": "default",
+	"gruvbox-light": "default",
 };
 
 export function resolvePersona(personaName: string | undefined, preset: PresetName | undefined): PersonaSpec | undefined {

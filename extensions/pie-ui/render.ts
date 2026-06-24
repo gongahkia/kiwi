@@ -209,11 +209,15 @@ const PRESET_DESCRIPTIONS: Record<PresetName, string> = {
 	"gemini-inspired": "bright header, below-editor widget, expanded tools",
 	"aider-inspired": "no header, terse 3-segment footer",
 	"copilot-inspired": "dense GitHub-style, full footer with thinking",
+	"cursor-inspired": "charcoal + electric blue, minimal layout with widget hint",
+	"amp-inspired": "warm amber, compact tool pills, expanded tools",
 	dracula: "purple+cyan, minimal layout",
 	"tokyo-night": "blue+magenta, minimal layout",
 	"catppuccin-mocha": "mauve+sky pastel, minimal layout",
+	"catppuccin-latte": "light pastel, minimal layout",
 	nord: "frost blue, minimal layout",
 	"gruvbox-dark": "warm yellow+green, minimal layout",
+	"gruvbox-light": "warm yellow+green light, minimal layout",
 };
 
 class GalleryCycle implements Component {

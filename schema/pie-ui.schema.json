@@ -15,11 +15,15 @@
         "gemini-inspired",
         "aider-inspired",
         "copilot-inspired",
+        "cursor-inspired",
+        "amp-inspired",
         "dracula",
         "tokyo-night",
         "catppuccin-mocha",
+        "catppuccin-latte",
         "nord",
-        "gruvbox-dark"
+        "gruvbox-dark",
+        "gruvbox-light"
       ]
     },
     "theme": {

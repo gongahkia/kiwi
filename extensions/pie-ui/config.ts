@@ -8,11 +8,15 @@ export const PRESET_NAMES = [
 	"gemini-inspired",
 	"aider-inspired",
 	"copilot-inspired",
+	"cursor-inspired",
+	"amp-inspired",
 	"dracula",
 	"tokyo-night",
 	"catppuccin-mocha",
+	"catppuccin-latte",
 	"nord",
 	"gruvbox-dark",
+	"gruvbox-light",
 ] as const;
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
 export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only"] as const;
@@ -76,11 +80,15 @@ export const PRESET_THEMES: Record<PresetName, string> = {
 	"gemini-inspired": "fried-apple-pie-gemini",
 	"aider-inspired": "fried-apple-pie-aider",
 	"copilot-inspired": "fried-apple-pie-copilot",
+	"cursor-inspired": "fried-apple-pie-cursor",
+	"amp-inspired": "fried-apple-pie-amp",
 	dracula: "fried-apple-pie-dracula",
 	"tokyo-night": "fried-apple-pie-tokyo-night",
 	"catppuccin-mocha": "fried-apple-pie-catppuccin-mocha",
+	"catppuccin-latte": "fried-apple-pie-catppuccin-latte",
 	nord: "fried-apple-pie-nord",
 	"gruvbox-dark": "fried-apple-pie-gruvbox-dark",
+	"gruvbox-light": "fried-apple-pie-gruvbox-light",
 };
 
 export const DEFAULT_CONFIG: PieConfig = {
@@ -241,6 +249,42 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 		tools: { expanded: true },
 		thinking: { hiddenLabel: "thinking" },
 	},
+	"cursor-inspired": {
+		preset: "cursor-inspired",
+		theme: PRESET_THEMES["cursor-inspired"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: {
+			enabled: true,
+			placement: "aboveEditor",
+			lines: ["preset: cursor-inspired · charcoal + electric blue"],
+		},
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"amp-inspired": {
+		preset: "amp-inspired",
+		theme: PRESET_THEMES["amp-inspired"],
+		compact: true,
+		header: {
+			enabled: true,
+			title: "Amp-inspired",
+			subtitle: "warm amber, compact tool pills",
+		},
+		footer: {
+			enabled: true,
+			segments: ["model", "thinking", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: true },
+		thinking: { hiddenLabel: "reasoning" },
+	},
 	dracula: {
 		preset: "dracula",
 		theme: PRESET_THEMES.dracula,
@@ -283,6 +327,20 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 		tools: { expanded: false },
 		thinking: { hiddenLabel: "thinking" },
 	},
+	"catppuccin-latte": {
+		preset: "catppuccin-latte",
+		theme: PRESET_THEMES["catppuccin-latte"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
 	nord: {
 		preset: "nord",
 		theme: PRESET_THEMES.nord,
@@ -300,6 +358,20 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 	"gruvbox-dark": {
 		preset: "gruvbox-dark",
 		theme: PRESET_THEMES["gruvbox-dark"],
+		compact: true,
+		header: { enabled: false },
+		footer: {
+			enabled: true,
+			segments: ["model", "cwd", "branch", "status", "context"],
+			separator: " · ",
+		},
+		widget: { enabled: false },
+		tools: { expanded: false },
+		thinking: { hiddenLabel: "thinking" },
+	},
+	"gruvbox-light": {
+		preset: "gruvbox-light",
+		theme: PRESET_THEMES["gruvbox-light"],
 		compact: true,
 		header: { enabled: false },
 		footer: {

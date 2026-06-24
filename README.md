@@ -1,6 +1,6 @@
 # Fried Apple Pie
 
-Agent-editable Pi UI presets, themes, and config. 12 presets, 7 personas, one `pie_config` tool the Pi agent can drive directly.
+Agent-editable Pi UI presets, themes, and config. 16 presets, 7 personas, one `pie_config` tool the Pi agent can drive directly.
 
 <div align="center">
   <img width=85% alt="Fried Apple Pie preset gallery" src="./assets/fried-apple-pie-demo.gif" />
@@ -62,14 +62,18 @@ Cross-agent inspired (layout + theme):
 - `gemini-inspired` — bright header, below-editor widget, expanded tools
 - `aider-inspired` — no header, terse 3-segment footer
 - `copilot-inspired` — dense GitHub-style, full footer with thinking
+- `cursor-inspired` — charcoal + electric blue with widget hint
+- `amp-inspired` — warm amber, compact tool pills
 
 Theme-only (minimal layout, popular color schemes):
 
 - `dracula` — purple+cyan
 - `tokyo-night` — blue+magenta
-- `catppuccin-mocha` — mauve+sky pastel
+- `catppuccin-mocha` — mauve+sky pastel (dark)
+- `catppuccin-latte` — mauve+sky pastel (light)
 - `nord` — frost blue
-- `gruvbox-dark` — warm yellow+green
+- `gruvbox-dark` — warm yellow+green (dark)
+- `gruvbox-light` — warm yellow+green (light)
 
 ## Personas
 
@@ -168,7 +172,7 @@ Preset apply modes:
 
 |                              | fried-apple-pie | tweakcc (CC) | amp-themes (Pi) | pi-powerline-footer | ccstatusline (CC) | lualine (nvim) | opencode |
 |------------------------------|-----------------|--------------|-----------------|---------------------|-------------------|----------------|----------|
-| Multi-preset switch          | **12**          | —            | —               | —                   | scripted          | themes         | themes   |
+| Multi-preset switch          | **16**          | —            | —               | —                   | scripted          | themes         | themes   |
 | Spinners / personas          | **10 / 7**      | 70+ / lib    | —               | AI "vibes"          | —                 | n/a            | n/a      |
 | Boot/welcome ASCII           | header line     | sign-in art  | —               | branded splash      | —                 | winbar         | —        |
 | Conditional segments         | —               | n/a          | n/a             | context-warn        | flexible          | richest        | —        |

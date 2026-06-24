@@ -5,7 +5,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 ## Rules
 - Prefer the `pie_config` tool over editing config files directly.
 - Read config before changing it: `pie_config` action `read`.
-- Use presets for broad visual changes. Cross-agent inspired (layout + theme): `minimal`, `claude-inspired`, `opencode-inspired`, `codex-inspired`, `gemini-inspired`, `aider-inspired`, `copilot-inspired`. Theme-only (minimal layout, color scheme only): `dracula`, `tokyo-night`, `catppuccin-mocha`, `nord`, `gruvbox-dark`.
+- Use presets for broad visual changes. Cross-agent inspired (layout + theme): `minimal`, `claude-inspired`, `opencode-inspired`, `codex-inspired`, `gemini-inspired`, `aider-inspired`, `copilot-inspired`, `cursor-inspired`, `amp-inspired`. Theme-only (minimal layout, color scheme only): `dracula`, `tokyo-night`, `catppuccin-mocha`, `catppuccin-latte`, `nord`, `gruvbox-dark`, `gruvbox-light`.
 - Use the supported JSON Patch subset for targeted edits: `add`, `replace`, `remove`.
 - Project config is `.pi/pie-ui.json`; global config is `~/.pi/agent/pie-ui.json`.
 - Project config only applies when Pi trusts the project.

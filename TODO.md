@@ -108,11 +108,6 @@ Doctor must check `vhs`, `ttyd`, `ffmpeg` on PATH; warn if missing.
 
 ---
 
-### P0-04 follow-ups (remaining additions)
-
-P0-04 main goal hit (12 presets shipped: 7 cross-agent + 5 theme-only). Remaining optional presets if needed later: `cursor-inspired`, `amp-inspired`, `catppuccin-latte`, `gruvbox-light`. Same shape and acceptance as P0-04; bundle if/when there's demand.
-
----
 
 ### P0-05 follow-ups (initial-message rotation)
 
@@ -552,7 +547,7 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 
 | Surface | fried-apple-pie | tweakcc (CC) | amp-themes (Pi) | pi-powerline-footer | ccstatusline (CC) | lualine (nvim) | opencode |
 |---|---|---|---|---|---|---|---|
-| Multi-preset switch | **12** | — | — | — | scripted | themes | themes |
+| Multi-preset switch | **16** | — | — | — | scripted | themes | themes |
 | Tool rendering | expand-only | — | pills/cards | — | — | n/a | — |
 | Spinners | **10 vendored** | **70+** | — | — | — | n/a | n/a |
 | Thinking verbs | **7 personas** | **custom lib** | — | AI "vibes" | — | n/a | n/a |
