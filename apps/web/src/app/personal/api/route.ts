@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import {
   createPersonalEntry,
   deletePersonalEntry,
@@ -32,43 +33,48 @@ function isPersonalEntry(value: unknown): value is PersonalEntry {
   );
 }
 
-function unauthorized() {
-  return NextResponse.json({ error: "login required" }, { status: 401 });
-}
-
 export function GET(request: NextRequest) {
   const userId = userIdFromRequest(request);
-  if (!userId) return unauthorized();
+  if (!userId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
 
   return NextResponse.json({ entries: getPersonalEntries(userId) });
 }
 
 export async function POST(request: NextRequest) {
   const userId = userIdFromRequest(request);
-  if (!userId) return unauthorized();
+  if (!userId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
 
   const body = (await request.json()) as unknown;
   if (!isPersonalEntry(body)) {
-    return NextResponse.json({ error: "invalid personal entry" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_personal_entry", 400, {
+      message: "invalid personal entry"
+    });
   }
 
   try {
     return NextResponse.json({ entry: createPersonalEntry(userId, body) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "create failed" },
-      { status: 409 }
-    );
+    return apiErrorResponse(request, "personal_entry_conflict", 409, {
+      message: error instanceof Error ? error.message : "create failed"
+    });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   const userId = userIdFromRequest(request);
-  if (!userId) return unauthorized();
+  if (!userId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
 
   const body = (await request.json()) as { id?: unknown; patch?: unknown };
   if (typeof body.id !== "string" || !body.patch || typeof body.patch !== "object") {
-    return NextResponse.json({ error: "invalid personal entry update" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_personal_entry_update", 400, {
+      message: "invalid personal entry update"
+    });
   }
 
   try {
@@ -76,28 +82,28 @@ export async function PATCH(request: NextRequest) {
       entry: updatePersonalEntry(userId, body.id, body.patch as Partial<PersonalEntry>)
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "personal_entry_not_found", 404, {
+      message: error instanceof Error ? error.message : "update failed"
+    });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const userId = userIdFromRequest(request);
-  if (!userId) return unauthorized();
+  if (!userId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
 
   const id = request.nextUrl.searchParams.get("id");
   if (!id) {
-    return NextResponse.json({ error: "id is required" }, { status: 400 });
+    return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
   }
 
   try {
     return NextResponse.json({ entry: deletePersonalEntry(userId, id) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "delete failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "personal_entry_not_found", 404, {
+      message: error instanceof Error ? error.message : "delete failed"
+    });
   }
 }

@@ -60,8 +60,10 @@ describe("POST /team/admin/import", () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(429);
     await expect(second.json()).resolves.toMatchObject({
+      code: "rate_limited",
       error: "rate_limited",
       limit: 1,
+      message: "rate limit exceeded",
       remaining: 0
     });
   });

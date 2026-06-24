@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { checkSuggestionRateLimit } from "@/lib/suggestion-rate-limit";
 import { submitEntryEditSuggestion, validateSuggestedEntryEdit } from "@/lib/suggestions";
 
@@ -12,21 +13,23 @@ interface SuggestEditRouteContext {
 export async function POST(request: NextRequest, context: SuggestEditRouteContext) {
   const actorId = request.cookies.get(sessionCookie)?.value;
   if (!actorId) {
-    return NextResponse.json({ error: "login required" }, { status: 401 });
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
   const rateLimit = checkSuggestionRateLimit(actorId);
   if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: "rate_limited", limit: rateLimit.limit, remaining: rateLimit.remaining },
-      { status: 429 }
-    );
+    return apiErrorResponse(request, "rate_limited", 429, {
+      fields: { limit: rateLimit.limit, remaining: rateLimit.remaining },
+      message: "rate limit exceeded"
+    });
   }
 
   const { id } = await context.params;
   const body = (await request.json()) as unknown;
   const input = validateSuggestedEntryEdit(body);
   if (!input) {
-    return NextResponse.json({ error: "invalid suggestion" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_suggestion", 400, {
+      message: "invalid suggestion"
+    });
   }
 
   return NextResponse.json({

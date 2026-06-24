@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { corsHeadersForRequest } from "@/lib/cors";
 import { resolveApiIdentity } from "@/lib/api-identity";
 import {
@@ -182,40 +183,46 @@ export function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
-    return json(request, { error: identity.error }, { status: identity.status });
+    return apiErrorResponse(request, identity.error, identity.status, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" })
+    });
   }
   const userId = request.headers.get("x-wat-user-id")?.trim();
   if (identity.identity.type !== "api" || !userId) {
-    return json(request, { error: "api token and x-wat-user-id are required" }, { status: 401 });
+    return apiErrorResponse(request, "missing_user_scope", 401, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: "api token and x-wat-user-id are required"
+    });
   }
   const writeLimit = checkWriteRateLimit(
     "custom-entry",
     identity.identity.teamId ?? userId
   );
   if (!writeLimit.allowed) {
-    return json(
-      request,
-      {
-        error: "rate_limited",
+    return apiErrorResponse(request, "rate_limited", 429, {
+      fields: {
         limit: writeLimit.limit,
         remaining: writeLimit.remaining,
         reset_at: writeLimit.reset_at
       },
-      { status: 429 }
-    );
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: "rate limit exceeded"
+    });
   }
 
   const parsed = customEntryFromBody((await request.json()) as CustomEntryRequest);
   if (!parsed) {
-    return json(
-      request,
-      { error: "term, expansion, and valid mode are required" },
-      { status: 400 }
-    );
+    return apiErrorResponse(request, "invalid_custom_entry", 400, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: "term, expansion, and valid mode are required"
+    });
   }
 
   if (parsed.scope === "team" && !identity.identity.teamId) {
-    return json(request, { error: "x-wat-team-id is required for team entries" }, { status: 403 });
+    return apiErrorResponse(request, "missing_team_scope", 403, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: "x-wat-team-id is required for team entries"
+    });
   }
 
   try {
@@ -239,10 +246,9 @@ export async function POST(request: NextRequest) {
 
     return json(request, { entry, mode: "created", scope: parsed.scope }, { status: 201 });
   } catch (error) {
-    return json(
-      request,
-      { error: error instanceof Error ? error.message : "create failed" },
-      { status: 409 }
-    );
+    return apiErrorResponse(request, "custom_entry_conflict", 409, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: error instanceof Error ? error.message : "create failed"
+    });
   }
 }

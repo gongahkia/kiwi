@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import {
   getTeamMembers,
   removeTeamMember,
@@ -18,31 +19,31 @@ export function GET() {
 export async function PATCH(request: NextRequest) {
   const body = (await request.json()) as { id?: unknown; role?: unknown };
   if (typeof body.id !== "string" || !isRole(body.role)) {
-    return NextResponse.json({ error: "invalid member update" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_member_update", 400, {
+      message: "invalid member update"
+    });
   }
 
   try {
     return NextResponse.json({ member: setTeamMemberRole(body.id, body.role) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "member update failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "member_not_found", 404, {
+      message: error instanceof Error ? error.message : "member update failed"
+    });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) {
-    return NextResponse.json({ error: "id is required" }, { status: 400 });
+    return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
   }
 
   try {
     return NextResponse.json({ member: removeTeamMember(id) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "member removal failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "member_not_found", 404, {
+      message: error instanceof Error ? error.message : "member removal failed"
+    });
   }
 }

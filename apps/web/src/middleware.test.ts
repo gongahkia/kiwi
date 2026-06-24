@@ -20,7 +20,11 @@ describe("middleware csrf guard", () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "same_origin_required" });
+    await expect(response.json()).resolves.toMatchObject({
+      code: "same_origin_required",
+      error: "same_origin_required",
+      message: "same origin required"
+    });
     expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
@@ -34,5 +38,16 @@ describe("middleware csrf guard", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
+
+  it("returns REST error bodies instead of redirects for protected APIs", async () => {
+    const response = middleware(nextRequest("GET"));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "login_required",
+      error: "login_required",
+      message: "login required"
+    });
   });
 });

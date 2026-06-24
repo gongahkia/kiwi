@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SearchResponse, SearchResult } from "@wat/search";
 import { applyDomainContextBoost } from "@wat/search/boost";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { applyCorsHeaders } from "@/lib/cors";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return withCorsHeaders(
-      NextResponse.json({ error: identity.error }, { status: identity.status }),
+      apiErrorResponse(request, identity.error, identity.status, { requestId }),
       request,
       requestId
     );
@@ -101,14 +102,14 @@ export async function GET(request: NextRequest) {
   );
   if (!rateLimit.allowed) {
     return withRateLimitHeaders(
-      NextResponse.json(
-        {
-          error: "rate_limited",
+      apiErrorResponse(request, "rate_limited", 429, {
+        fields: {
           retry_after: rateLimit.retryAfter,
           scope: rateLimit.scope
         },
-        { status: 429 }
-      ),
+        message: "rate limit exceeded",
+        requestId
+      }),
       request,
       rateLimit,
       requestId

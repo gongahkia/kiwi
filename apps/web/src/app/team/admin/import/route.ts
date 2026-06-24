@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
 import { checkWriteRateLimit } from "@/lib/write-rate-limit";
 
@@ -38,20 +39,21 @@ export async function POST(request: NextRequest) {
     "anonymous";
   const writeLimit = checkWriteRateLimit("team-import", actorId);
   if (!writeLimit.allowed) {
-    return NextResponse.json(
-      {
-        error: "rate_limited",
+    return apiErrorResponse(request, "rate_limited", 429, {
+      fields: {
         limit: writeLimit.limit,
         remaining: writeLimit.remaining,
         reset_at: writeLimit.reset_at
       },
-      { status: 429 }
-    );
+      message: "rate limit exceeded"
+    });
   }
 
   const body = (await request.json()) as { entries?: unknown };
   if (!Array.isArray(body.entries) || !body.entries.every(isTeamEntry)) {
-    return NextResponse.json({ error: "invalid team import" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_team_import", 400, {
+      message: "invalid team import"
+    });
   }
 
   const result = importTeamEntries(body.entries);

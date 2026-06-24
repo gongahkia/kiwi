@@ -259,7 +259,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ### P1 — API readiness for teams and integrations
 - [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.
-- [ ] Standardize REST error shapes — done when all APIs return consistent `{ error, code, message, request_id }` style responses.
 - [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
 
 ### P1 — Self-host and deployment usability

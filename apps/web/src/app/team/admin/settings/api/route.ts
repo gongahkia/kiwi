@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { getTeamSettings, updateTeamSettings, type TeamSettings } from "@/lib/team-settings";
 
 function isSettingsPatch(value: unknown): value is Partial<TeamSettings> {
@@ -24,7 +25,9 @@ export function GET() {
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as unknown;
   if (!isSettingsPatch(body)) {
-    return NextResponse.json({ error: "invalid team settings" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_team_settings", 400, {
+      message: "invalid team settings"
+    });
   }
 
   return NextResponse.json(updateTeamSettings(body));

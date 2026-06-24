@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { pageInfo, paginationWindow } from "@/lib/pagination";
 import {
   createTeamEntry,
@@ -43,47 +44,48 @@ export function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as unknown;
   if (!isTeamEntry(body)) {
-    return NextResponse.json({ error: "invalid team entry" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_team_entry", 400, {
+      message: "invalid team entry"
+    });
   }
 
   try {
     return NextResponse.json({ entry: createTeamEntry(body) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "create failed" },
-      { status: 409 }
-    );
+    return apiErrorResponse(request, "team_entry_conflict", 409, {
+      message: error instanceof Error ? error.message : "create failed"
+    });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   const body = (await request.json()) as { id?: unknown; patch?: unknown };
   if (typeof body.id !== "string" || !body.patch || typeof body.patch !== "object") {
-    return NextResponse.json({ error: "invalid team entry update" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_team_entry_update", 400, {
+      message: "invalid team entry update"
+    });
   }
 
   try {
     return NextResponse.json({ entry: updateTeamEntry(body.id, body.patch as Partial<TeamEntry>) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "update failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "team_entry_not_found", 404, {
+      message: error instanceof Error ? error.message : "update failed"
+    });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) {
-    return NextResponse.json({ error: "id is required" }, { status: 400 });
+    return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
   }
 
   try {
     return NextResponse.json({ entry: deleteTeamEntry(id) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "delete failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "team_entry_not_found", 404, {
+      message: error instanceof Error ? error.message : "delete failed"
+    });
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
+import { apiErrorResponse } from "./lib/api-error";
 import { hasSameOriginMutationHeaders } from "./lib/csrf";
 import { ensureRequestId, requestIdHeader } from "./lib/request-id";
 import { isAdminSession } from "./lib/session";
@@ -9,6 +10,16 @@ const sessionCookie = "wat_session";
 const protectedPrefixes = ["/team/admin", "/personal"];
 const adminPrefix = "/team/admin";
 const logger = pino({ name: "wat-web" });
+
+function isRestEndpoint(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/") ||
+    pathname.endsWith("/api") ||
+    pathname.includes("/api/") ||
+    pathname.includes("/export/") ||
+    pathname.endsWith("/import")
+  );
+}
 
 export function middleware(request: NextRequest) {
   const requestId = ensureRequestId(request.headers);
@@ -24,13 +35,28 @@ export function middleware(request: NextRequest) {
   const needsAdmin = request.nextUrl.pathname.startsWith(adminPrefix);
 
   if (session && !hasSameOriginMutationHeaders(request)) {
-    response = NextResponse.json({ error: "same_origin_required" }, { status: 403 });
+    response = apiErrorResponse(request, "same_origin_required", 403, {
+      message: "same origin required",
+      requestId
+    });
   } else if (needsSession && !session) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    response = NextResponse.redirect(loginUrl);
+    if (isRestEndpoint(request.nextUrl.pathname)) {
+      response = apiErrorResponse(request, "login_required", 401, {
+        message: "login required",
+        requestId
+      });
+    } else {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+      response = NextResponse.redirect(loginUrl);
+    }
   } else if (needsAdmin && session && !isAdminSession(session)) {
-    response = new NextResponse("Forbidden", { status: 403 });
+    response = isRestEndpoint(request.nextUrl.pathname)
+      ? apiErrorResponse(request, "admin_required", 403, {
+          message: "admin required",
+          requestId
+        })
+      : new NextResponse("Forbidden", { status: 403 });
   } else {
     response = NextResponse.next({
       request: {

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { sendSuggestionOutcomeEmail } from "@/lib/email-notifications";
 import { pageInfo, paginationWindow } from "@/lib/pagination";
 import { approveSuggestion } from "@/lib/suggestion-approval";
@@ -28,7 +29,7 @@ export async function PATCH(request: NextRequest) {
     status?: unknown;
   };
   if (typeof body.id !== "string" || !isStatus(body.status)) {
-    return NextResponse.json({ error: "invalid review" }, { status: 400 });
+    return apiErrorResponse(request, "invalid_review", 400, { message: "invalid review" });
   }
 
   try {
@@ -43,9 +44,8 @@ export async function PATCH(request: NextRequest) {
       suggestion
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "review failed" },
-      { status: 404 }
-    );
+    return apiErrorResponse(request, "suggestion_not_found", 404, {
+      message: error instanceof Error ? error.message : "review failed"
+    });
   }
 }

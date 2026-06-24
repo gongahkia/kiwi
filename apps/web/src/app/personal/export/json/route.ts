@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { getPersonalEntries } from "@/lib/personal-entries";
 
 const sessionCookie = "wat_session";
@@ -7,7 +8,7 @@ const sessionCookie = "wat_session";
 export function GET(request: NextRequest) {
   const userId = request.cookies.get(sessionCookie)?.value.trim();
   if (!userId) {
-    return NextResponse.json({ error: "login required" }, { status: 401 });
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
 
   return NextResponse.json({

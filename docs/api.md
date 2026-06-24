@@ -28,6 +28,17 @@ Browser/API CORS is deny-by-default. Set comma-separated `WAT_ALLOWED_ORIGINS` f
 
 Every API response includes `X-Request-Id`. Clients may send `X-Request-Id`; otherwise the server generates one and includes the same value in request, search, and error logs.
 
+Error responses use this JSON shape:
+
+```json
+{
+  "error": "invalid_api_key",
+  "code": "invalid_api_key",
+  "message": "invalid_api_key",
+  "request_id": "req_123"
+}
+```
+
 Rate-limit settings:
 
 | Env                        | Default | Scope                          |
@@ -238,11 +249,11 @@ Errors:
 
 | Status | Error | Cause |
 | --- | --- | --- |
-| `400` | `term, expansion, and valid mode are required` | Missing or empty `term`/`expansion`, or `mode` is not `create`/`upsert`. |
+| `400` | `invalid_custom_entry` | Missing or empty `term`/`expansion`, or `mode` is not `create`/`upsert`. |
 | `401` | `invalid_api_key` | Supplied token does not match `WAT_API_KEY`. |
-| `401` | `api token and x-wat-user-id are required` | Anonymous write or missing user scope. |
-| `403` | `x-wat-team-id is required for team entries` | Team-scope write without team scope. |
-| `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
+| `401` | `missing_user_scope` | Anonymous write or missing user scope. |
+| `403` | `missing_team_scope` | Team-scope write without team scope. |
+| `409` | `custom_entry_conflict` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
 
 ## Admin List And Export Pagination
 
@@ -425,6 +436,6 @@ Output:
 
 ## Errors
 
-REST endpoints use HTTP status codes. Validation failures should return `400`, unauthorized requests `401`, forbidden requests `403`, rate limits `429`, and unexpected failures `500`.
+REST endpoints use HTTP status codes and return `{ error, code, message, request_id }` on failures. Validation failures should return `400`, unauthorized requests `401`, forbidden requests `403`, rate limits `429`, and unexpected failures `500`.
 
 MCP tools should return structured tool errors with the same categories: validation, unauthorized, forbidden, rate_limited, and internal.

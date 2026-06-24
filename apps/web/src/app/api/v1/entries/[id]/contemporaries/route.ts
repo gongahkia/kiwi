@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-error";
 import { corsHeadersForRequest } from "@/lib/cors";
 import { resolveApiIdentity } from "@/lib/api-identity";
 import { resolveEntryContemporaries } from "@/lib/contemporaries";
@@ -29,7 +30,9 @@ export function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest, context: RouteContext) {
   const identity = resolveApiIdentity(request.headers);
   if (!identity.ok) {
-    return json(request, { error: identity.error }, { status: identity.status });
+    return apiErrorResponse(request, identity.error, identity.status, {
+      headers: corsHeadersForRequest(request, { methods: "GET, OPTIONS" })
+    });
   }
 
   const { id } = await context.params;

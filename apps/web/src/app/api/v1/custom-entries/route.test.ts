@@ -111,8 +111,10 @@ describe("POST /api/v1/custom-entries", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      error: "api token and x-wat-user-id are required"
+    await expect(response.json()).resolves.toMatchObject({
+      code: "missing_user_scope",
+      error: "missing_user_scope",
+      message: "api token and x-wat-user-id are required"
     });
   });
 
@@ -137,8 +139,10 @@ describe("POST /api/v1/custom-entries", () => {
     expect(first.status).toBe(201);
     expect(second.status).toBe(429);
     await expect(second.json()).resolves.toMatchObject({
+      code: "rate_limited",
       error: "rate_limited",
       limit: 1,
+      message: "rate limit exceeded",
       remaining: 0
     });
   });
