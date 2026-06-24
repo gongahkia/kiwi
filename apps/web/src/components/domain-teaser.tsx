@@ -35,7 +35,7 @@ export function DomainTeaser() {
         </Button>
       </form>
       {domain ? (
-        <div className="rounded-md bg-secondary p-3 text-sm">
+        <div className="rounded-md border border-input bg-muted-surface p-3 text-sm">
           <p className="font-medium">{domain}</p>
           <p className="text-foreground/65">
             Team mode preview: shared entries, domain defaults, and admin review queue.

@@ -79,6 +79,10 @@ body {
   background: var(--background);
 }
 
+main[class] {
+  padding: 40px 24px;
+}
+
 button,
 input,
 select,
@@ -168,4 +172,59 @@ th,
 
 .bg-green-500 {
   background-color: var(--on-surface);
+}
+
+.text-foreground\/45,
+.text-foreground\/50,
+.text-foreground\/55,
+.text-foreground\/60,
+.text-foreground\/65,
+.text-foreground\/70,
+.text-foreground\/75,
+.text-foreground\/80 {
+  color: var(--secondary);
+}
+
+.bg-secondary:not(.text-neutral) {
+  background-color: var(--muted-surface);
+  color: var(--on-surface);
+}
+
+input,
+select,
+textarea {
+  border-color: var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--on-surface);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--secondary);
+  opacity: 1;
+}
+
+a.rounded-md,
+button.rounded-md,
+input.rounded-md,
+select.rounded-md,
+textarea.rounded-md {
+  border-radius: 4px;
+}
+
+thead {
+  background: var(--muted-surface);
+  color: var(--on-surface);
+}
+
+td,
+th {
+  border-color: var(--input);
+}
+
+@media (max-width: 640px) {
+  main[class] {
+    padding: 32px 16px;
+  }
 }

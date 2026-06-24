@@ -77,7 +77,10 @@ export default async function TermPage({ params }: TermPageProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               {entry.domains.map((domain) => (
-                <span className="rounded-md bg-secondary px-2 py-1 text-xs" key={domain}>
+                <span
+                  className="rounded-md border border-input bg-muted-surface px-2 py-1 text-xs text-on-surface"
+                  key={domain}
+                >
                   {domain}
                 </span>
               ))}

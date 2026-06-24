@@ -28,7 +28,7 @@ export function SearchResultCard({ className, entry }: SearchResultCardProps) {
             {entry.term}
           </Link>
           <span className="rounded-md border border-input px-2 py-1 text-xs">{layer}</span>
-          <span className="rounded-md bg-secondary px-2 py-1 text-xs">
+          <span className="rounded-md border border-input bg-muted-surface px-2 py-1 text-xs text-on-surface">
             {confidence} · {entry.confidence_tier}
           </span>
         </div>

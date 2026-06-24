@@ -152,12 +152,12 @@ export function SearchShell({
   return (
     <section className="grid w-full max-w-[760px] gap-8">
       <form className="grid gap-4" onSubmit={handleSubmit}>
-        <h1 className="text-[56px] font-bold">wat</h1>
+        <h1 className="text-4xl font-semibold">wat</h1>
         <div className="flex gap-2">
           <input
             aria-label="Search"
             autoFocus
-            className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
             name="q"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleSearchKeyDown}
@@ -238,9 +238,7 @@ export function SearchShell({
         ) : null}
         {visibleMatches.map((result, index) => (
           <SearchResultCard
-            className={
-              selectedIndex === index ? "border-ring bg-muted-surface ring-2 ring-ring" : undefined
-            }
+            className={selectedIndex === index ? "border-primary bg-muted-surface" : undefined}
             entry={result.entry}
             key={result.entry.id}
           />
