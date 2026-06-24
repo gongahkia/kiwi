@@ -76,9 +76,14 @@ export default function (pi: ExtensionAPI) {
 	}));
 
 	pi.registerMessageRenderer<WelcomeMessageDetails>(PIE_WELCOME_TYPE, (message, _opts, theme) => createWelcomeMessage(message.details?.lines ?? [], theme));
+	pi.registerFlag("pie-preset", {
+		description: "Apply Fried Apple Pie preset on launch without writing config",
+		type: "string",
+		default: "",
+	});
 
 	pi.on("session_start", (event, ctx) => {
-		const config = applyPie(ctx, pi, state);
+		const config = applyPie(ctx, pi, state, launchPresetOverride(ctx, pi));
 		const message = welcomeMessageForSession(event.reason, config);
 		if (message) pi.sendMessage(message);
 	});
@@ -196,9 +201,21 @@ type PieToolParams = {
 	dryRun?: boolean;
 };
 
-export function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): PieConfig {
+export function applyPie(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState, override?: PieConfig): PieConfig {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
-	return applyEffectiveConfig(ctx, pi, state, loaded.effective);
+	return applyEffectiveConfig(ctx, pi, state, override ?? loaded.effective);
+}
+
+export function launchPresetOverride(ctx: ExtensionContext, pi: ExtensionAPI): PieConfig | undefined {
+	const flag = pi.getFlag("pie-preset");
+	if (typeof flag !== "string" || flag.trim() === "") return undefined;
+	const preset = flag.trim();
+	if (!PRESET_NAMES.includes(preset as PresetName)) {
+		ctx.ui.notify(`Unknown --pie-preset: ${preset}`, "warning");
+		return undefined;
+	}
+	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
+	return materializeConfig(applyPresetConfig(loaded.effective, preset as PresetName, "clean"));
 }
 
 // applies an already-materialized config directly. used by applyPie (live config) and /pie gallery (transient cycle).

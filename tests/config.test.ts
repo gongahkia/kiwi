@@ -7,7 +7,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -443,16 +443,21 @@ test("captureDependencyLines reports missing capture tools", () => {
 
 test("shortcut leader registration and doctor lines cover every follow-up", () => {
 	const shortcuts: Array<{ key: string; description?: string }> = [];
+	const flags: Array<{ name: string; type: string; default?: string | boolean }> = [];
 	const pi = {
 		on() {},
 		registerMessageRenderer() {},
 		registerCommand() {},
 		registerTool() {},
+		registerFlag(name: string, options: { type: string; default?: string | boolean }) {
+			flags.push({ name, type: options.type, default: options.default });
+		},
 		registerShortcut(key: string, options: { description?: string }) {
 			shortcuts.push({ key, description: options.description });
 		},
 	} as any;
 	friedApplePieExtension(pi);
+	assert.deepEqual(flags, [{ name: "pie-preset", type: "string", default: "" }]);
 	assert.deepEqual(shortcuts.map((shortcut) => shortcut.key), [...PIE_LEADER_SHORTCUTS]);
 	assert.ok(shortcuts.every((shortcut) => shortcut.description === "Fried Apple Pie leader (p/g/s/e/d/c)"));
 	const lines = shortcutLines();
@@ -460,6 +465,21 @@ test("shortcut leader registration and doctor lines cover every follow-up", () =
 		assert.ok(lines.some((line) => line.includes(`${PIE_LEADER_SHORTCUTS[0]} ${action.key}`) && line.includes(action.label)), action.id);
 	}
 	assert.match(lines.join("\n"), /app\.model\.cycleForward/);
+});
+
+test("pie-preset flag applies a transient launch preset without writing config", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "minimal" });
+		const calls = makeCalls();
+		const ctx = makeCtx(cwd, calls);
+		const pi = { ...makePi(), getFlag: (name: string) => (name === "pie-preset" ? "codex-inspired" : undefined) } as any;
+		const override = launchPresetOverride(ctx, pi);
+		assert.equal(override?.preset, "codex-inspired");
+		applyPie(ctx, pi, { working: false }, override);
+		assert.equal(calls.themes.at(-1), "fried-apple-pie-codex");
+		const written = JSON.parse(readFileSync(join(cwd, ".pi", "pie-ui.json"), "utf8"));
+		assert.equal(written.preset, "minimal");
+	});
 });
 
 test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {

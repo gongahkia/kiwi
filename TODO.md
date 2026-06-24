@@ -148,34 +148,6 @@ Build one style at a time:
 
 ---
 
-### P1-12 — CLI flag `pi --pie-preset=<name>`
-
-- [ ] Register a flag for one-shot launches into a preset without writing config.
-
-**Why:** blog tutorials and demo videos.
-
-**Files:** `extensions/pie-ui/index.ts`.
-
-**Sketch:**
-```ts
-pi.registerFlag("pie-preset", { description: "Apply Fried Apple Pie preset on launch", type: "string", default: "" });
-
-pi.on("session_start", (_event, ctx) => {
-  const flag = pi.getFlag?.("pie-preset"); // verify retrieval API name with smoke test
-  if (flag && PRESET_NAMES.includes(flag as PresetName)) {
-    state.transientPreset = flag as PresetName;
-  }
-  applyPie(ctx, pi, state);
-});
-```
-Transient preset: skip write to `pie-ui.json`; pass as override into `applyPie` (see P0-03 `applyPieOverride`).
-
-**Refs:** extensions.md `pi.registerFlag` — verify exact retrieval API (`pi.getFlag` vs flag-as-arg) with smoke test before relying on it.
-
-**Acceptance:** `pi --pie-preset codex-inspired -e .` boots into preset; nothing written to disk.
-
----
-
 ### P1-15 — Persona system prompt suffix (orthogonal axis)
 
 Depends on P0-05.
@@ -367,8 +339,9 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 5. ~~P0-05 (personas)~~ — done.
 6. ~~P0-06 (boot ASCII)~~ — done.
 7. ~~P1-08 (keybindings)~~ — done.
-8. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
-9. P1-11 → P1-15 in parallel.
-10. P2 / P3 as bandwidth allows.
+8. ~~P1-12 (launch preset flag)~~ — done.
+9. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
+10. P1-11 / P1-15 in parallel.
+11. P2 / P3 as bandwidth allows.
 
 [Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.

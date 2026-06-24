@@ -47,6 +47,7 @@ These are **inspired presets**, not exact clones.
 pi install npm:fried-apple-pie       # published
 pi install .                         # from a checkout
 pi -e .                              # one-shot local run
+pi -e . --pie-preset codex-inspired  # one-shot preset without writing config
 ```
 
 After install, run `/pie welcome` to see active config and the command list.
