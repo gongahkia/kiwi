@@ -287,7 +287,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add tenant isolation test suite — done when every team/personal endpoint has positive same-tenant and negative cross-tenant cases.
 - [ ] Add persistence test suite — done when restart/redeploy does not lose entries, suggestions, settings, keys, audit logs, or installs.
 - [ ] Add migration compatibility test — done when migrations apply from empty DB and from previous release snapshots.
-- [ ] Add import/export round-trip tests — done when exported team glossary can be imported into a new team without loss of required fields.
 - [ ] Add load test with team overlays — done when benchmark includes public corpus plus at least 10k team entries and meets p95 targets.
 - [ ] Add browser cross-compat release test checklist to CI artifacts — done when Chrome/Firefox/Edge/Brave results are recorded for each extension release.
 

@@ -155,6 +155,10 @@ export function resetTeamEntriesForTest() {
   teamEntries = structuredClone(initialTeamEntries);
 }
 
+export function replaceTeamEntriesForTest(entries: TeamEntry[]) {
+  teamEntries = structuredClone(entries);
+}
+
 function importKey(entry: TeamEntry): string {
   return `${entry.term.trim().toLowerCase()}:${entry.expansion.trim().toLowerCase()}`;
 }
@@ -229,18 +233,37 @@ function csvCell(value: string): string {
 }
 
 export function teamEntriesCsv(entries = getTeamEntries()): string {
-  const header = ["id", "term", "expansion", "meaning", "domains", "sources"];
-  const rows = entries.map((entry) =>
-    [
-      entry.id,
-      entry.term,
-      entry.expansion,
-      entry.meaning,
-      entry.domains.join(";"),
-      entry.sources.map((source) => source.url).join(";")
-    ]
-      .map(csvCell)
-      .join(",")
+  const header = [
+    "id",
+    "term",
+    "expansion",
+    "meaning",
+    "domains",
+    "source_url",
+    "source_title",
+    "source_publisher",
+    "source_license",
+    "source_retrieved_at",
+    "source_snippet"
+  ];
+  const rows = entries.flatMap((entry) =>
+    entry.sources.map((source) =>
+      [
+        entry.id,
+        entry.term,
+        entry.expansion,
+        entry.meaning,
+        entry.domains.join(";"),
+        source.url,
+        source.title,
+        source.publisher,
+        source.license,
+        source.retrieved_at,
+        source.snippet
+      ]
+        .map(csvCell)
+        .join(",")
+    )
   );
 
   return `${header.join(",")}\n${rows.join("\n")}\n`;

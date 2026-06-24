@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { parseTeamImportCsv } from "./team-import-template";
 import {
   createTeamEntry,
   deleteTeamEntry,
   getTeamEntries,
   importTeamEntries,
   initialTeamEntries,
+  replaceTeamEntriesForTest,
   resetTeamEntriesForTest,
   teamEntriesCsv,
   updateTeamEntry,
@@ -23,6 +25,23 @@ describe("team export helpers", () => {
         expect(csv).toContain(source.url);
       }
     }
+  });
+
+  it("round-trips exported CSV and JSON into an empty team glossary", () => {
+    const csv = teamEntriesCsv(initialTeamEntries);
+    const csvEntries = parseTeamImportCsv(csv)!;
+
+    replaceTeamEntriesForTest([]);
+    expect(importTeamEntries(csvEntries).inserted).toEqual(initialTeamEntries);
+    expect(getTeamEntries()).toEqual(initialTeamEntries);
+
+    const json = JSON.stringify({ entries: initialTeamEntries });
+    const jsonEntries = (JSON.parse(json) as { entries: TeamEntry[] }).entries;
+
+    replaceTeamEntriesForTest([]);
+    expect(importTeamEntries(jsonEntries).inserted).toEqual(initialTeamEntries);
+    expect(getTeamEntries()).toEqual(initialTeamEntries);
+    resetTeamEntriesForTest();
   });
 
   it("imports valid new entries and dedups existing entries", () => {

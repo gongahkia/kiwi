@@ -154,12 +154,26 @@ export function parseTeamImportCsv(input: string): TeamEntry[] | null {
   const [header, ...dataRows] = rows;
   if (!header) return null;
 
-  const entries: TeamEntry[] = [];
+  const entriesById = new Map<string, TeamEntry>();
   for (const row of dataRows) {
     const record = rowRecord(header, row);
     if (!record) return null;
+    const source = {
+      license: record.source_license.trim(),
+      publisher: record.source_publisher.trim(),
+      retrieved_at: record.source_retrieved_at.trim(),
+      snippet: record.source_snippet.trim(),
+      title: record.source_title.trim(),
+      url: record.source_url.trim()
+    };
+    const existing = entriesById.get(record.id.trim());
 
-    entries.push({
+    if (existing) {
+      existing.sources.push(source);
+      continue;
+    }
+
+    entriesById.set(record.id.trim(), {
       domains: record.domains
         .split(";")
         .map((domain) => domain.trim())
@@ -167,19 +181,10 @@ export function parseTeamImportCsv(input: string): TeamEntry[] | null {
       expansion: record.expansion.trim(),
       id: record.id.trim(),
       meaning: record.meaning.trim(),
-      sources: [
-        {
-          license: record.source_license.trim(),
-          publisher: record.source_publisher.trim(),
-          retrieved_at: record.source_retrieved_at.trim(),
-          snippet: record.source_snippet.trim(),
-          title: record.source_title.trim(),
-          url: record.source_url.trim()
-        }
-      ],
+      sources: [source],
       term: record.term.trim()
     });
   }
 
-  return entries;
+  return Array.from(entriesById.values());
 }
