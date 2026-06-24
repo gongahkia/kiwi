@@ -105,6 +105,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 /pie capture                   render the active preset's tape with vhs (needs vhs+ttyd+ffmpeg)
 /pie share                     bundle effective config + preview asset under assets/share/
 /pie edit                      interactive config editor
+/pie edit-json                 edit effective config with JSON enum autocomplete
 /pie welcome                   show active config + command list
 /pie show                      dump loaded config (global + project + effective)
 /pie export                    dump effective config only

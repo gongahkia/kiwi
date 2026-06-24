@@ -4,10 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { pieAutocompleteSuggestions } from "../extensions/pie-ui/autocomplete.ts";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, TOOL_RENDER_STYLES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, editJsonConfig, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
@@ -543,6 +544,37 @@ test("tool renderers expose distinct styles and preserve built-in executes", () 
 	registerPresetToolRenderers({ registerTool: (tool: unknown) => tools.push(tool) } as any, process.cwd(), () => "dense");
 	assert.deepEqual(tools.map((tool) => tool.name), [...RENDERED_TOOL_NAMES]);
 	assert.ok(tools.every((tool) => typeof tool.execute === "function" && tool.parameters && typeof tool.renderCall === "function" && typeof tool.renderResult === "function"));
+});
+
+test("pie autocomplete suggests config keys and enum values", () => {
+	const keyLine = '  "pre';
+	const key = pieAutocompleteSuggestions(["{", '  "preset": "minimal",', keyLine], 2, keyLine.length);
+	assert.ok(key?.items.some((item) => item.label === "preset"));
+	const presetLine = '  "preset": "co';
+	const preset = pieAutocompleteSuggestions(["{", presetLine], 1, presetLine.length);
+	assert.ok(preset?.items.some((item) => item.label === "codex-inspired" && item.value === '"codex-inspired"'));
+	const styleLine = '    "renderStyle": "d';
+	const style = pieAutocompleteSuggestions(["{", '  "tools": {', styleLine], 2, styleLine.length);
+	assert.ok(style?.items.some((item) => item.label === "dense"));
+});
+
+test("editJsonConfig applies valid editor JSON live", async () => {
+	await withTempHomeAsync(async (cwd) => {
+		writeProjectConfig(cwd, { preset: "minimal" });
+		const calls = makeCalls();
+		const ctx = makeCtx(cwd, calls);
+		ctx.hasUI = false;
+		ctx.ui.editor = async (_title: string, prefill?: string) => {
+			assert.match(prefill ?? "", /"preset": "minimal"/);
+			return JSON.stringify({ preset: "codex-inspired", theme: "fried-apple-pie-codex", tools: { renderStyle: "dense" } }, null, 2);
+		};
+		ctx.ui.confirm = async () => true;
+		await editJsonConfig(ctx, makePi(), { working: false });
+		const written = JSON.parse(readFileSync(join(cwd, ".pi", "pie-ui.json"), "utf8"));
+		assert.equal(written.preset, "codex-inspired");
+		assert.equal(written.tools.renderStyle, "dense");
+		assert.equal(calls.themes.at(-1), "fried-apple-pie-codex");
+	});
 });
 
 test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {

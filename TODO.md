@@ -32,7 +32,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - Events: `resources_discover`, `session_start`, `agent_start`, `agent_end`, `model_select`, `thinking_level_select`, `message_end`.
 - `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`.
 - Built-in tool overrides for `bash`, `edit`, `read`, `grep` via `renderCall`/`renderResult`; execution/schemas cloned from Pi's own tool definitions.
-- `ctx.ui`: `setTheme`, `setToolsExpanded`, `setHiddenThinkingLabel`, `setWorkingVisible`, `setWorkingMessage`, `setWorkingIndicator`, `setWidget`, `setHeader`, `setFooter`, `notify`, `select`, `input`, `confirm`, `getAllThemes`, `custom`.
+- `ctx.ui`: `setTheme`, `setToolsExpanded`, `setHiddenThinkingLabel`, `setWorkingVisible`, `setWorkingMessage`, `setWorkingIndicator`, `setWidget`, `setHeader`, `setFooter`, `notify`, `select`, `input`, `confirm`, `getAllThemes`, `custom`, `editor`, `addAutocompleteProvider`.
 
 **Not yet used** (all verified present in extensions.md):
 - `pi.registerMessageRenderer(customType, (message, opts, theme) => Component)` — per-customType TUI rendering.
@@ -43,7 +43,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - `pi.events` — inter-extension event bus.
 - `pi.setSessionName`, `pi.setLabel`.
 - `pi.exec(command, args, options?)` — shell exec with signal + timeout.
-- `ctx.ui.setStatus(key, text?)`, `ctx.ui.setTitle`, `ctx.ui.editor`, `ctx.ui.addAutocompleteProvider`, `ctx.ui.setEditorComponent`, `ctx.ui.pasteToEditor`, `ctx.ui.getEditorText`/`setEditorText`.
+- `ctx.ui.setStatus(key, text?)`, `ctx.ui.setTitle`, `ctx.ui.setEditorComponent`, `ctx.ui.pasteToEditor`, `ctx.ui.getEditorText`/`setEditorText`.
 - Built-in tool overrides for `write`, `find`, `ls` (read/bash/edit/grep now have Fried Apple Pie renderers).
 - `highlightCode`, `getLanguageFromPath`, `keyHint`, `keyText`, `truncateHead`, `truncateTail` utilities from `@earendil-works/pi-tui`.
 - Events not subscribed: `project_trust`, `turn_end`, `tool_execution_start/update/end`, `tool_call`, `tool_result`, `input`, `user_bash`, `session_before_compact`, `before_provider_request`, `after_provider_response`, `session_before_switch/fork/tree`.
@@ -82,30 +82,6 @@ P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `
 ### P2-18 follow-ups (URL import)
 
 P2-18 file import shipped: validates, asks for scope, confirms, writes, records to history. URL import deferred until `pi.exec` runtime shape is verified — current behavior is to notify and ask the user to download locally first. Future agent should add `pi.exec?.("curl", ["-fsSL", url])` branch (with try/catch on absent `pi.exec`) above the file path.
-
----
-
-### P2-19 — Inline `ctx.ui.editor` config edit + autocomplete
-
-- [ ] `/pie edit-json` opens multi-line editor seeded with current effective config; autocomplete for known keys/enums.
-
-**Files:** `extensions/pie-ui/index.ts` (subcommand + `addAutocompleteProvider`).
-
-**Sketch:**
-```ts
-const text = await ctx.ui.editor("Fried Apple Pie config", JSON.stringify(loaded.effective, null, 2));
-if (!text) return;
-const parsed = JSON.parse(text);
-const v = validateConfig(parsed);
-if (!v.valid) { ctx.ui.notify(`Invalid: ${v.errors[0]}`, "error"); return; }
-const target = await chooseWriteTarget(ctx);
-if (target) { writeConfigFile(target.path, parsed); applyPie(ctx, pi, state); }
-```
-Autocomplete provider matches when text contains `pie-ui.json`-relevant patterns (`"preset":`, `"mode":`, etc.) and returns enums from `PRESET_NAMES`, `MODE_NAMES`, `FOOTER_SEGMENTS`.
-
-**Refs:** `ctx.ui.editor`, `ctx.ui.addAutocompleteProvider` per extensions.md.
-
-**Acceptance:** editing in TUI, saving applies live; autocomplete suggests enum values.
 
 ---
 

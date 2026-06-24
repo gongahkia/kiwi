@@ -23,6 +23,7 @@ import {
 	PRESETS,
 	validateConfig,
 } from "./config.ts";
+import { createPieAutocompleteProvider } from "./autocomplete.ts";
 import { bannerForConfig } from "./banners.ts";
 import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
@@ -71,6 +72,7 @@ export default function (pi: ExtensionAPI) {
 	const state: RenderState = { working: false };
 	// context-warning latch: fire each threshold at most once per session; cleared on /compact.
 	const warned: { mid: boolean; high: boolean } = { mid: false, high: false };
+	let autocompleteRegistered = false;
 
 	pi.on("resources_discover", () => ({
 		themePaths: [themeDir],
@@ -87,6 +89,10 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (event, ctx) => {
 		const config = applyPie(ctx, pi, state, launchPresetOverride(ctx, pi));
 		registerPresetToolRenderers(pi, ctx.cwd, () => state.lastConfig?.tools?.renderStyle);
+		if (!autocompleteRegistered) {
+			ctx.ui.addAutocompleteProvider(createPieAutocompleteProvider);
+			autocompleteRegistered = true;
+		}
 		const message = welcomeMessageForSession(event.reason, config);
 		if (message) pi.sendMessage(message);
 	});
@@ -127,7 +133,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "capture", "share", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "capture", "share", "edit", "edit-json", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -465,6 +471,10 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await editConfig(ctx, pi, state);
 		return;
 	}
+	if (command === "edit-json") {
+		await editJsonConfig(ctx, pi, state);
+		return;
+	}
 	if (command === "welcome") {
 		await showPanel(ctx, "Fried Apple Pie", welcomeLines(loaded, ctx));
 		return;
@@ -724,6 +734,30 @@ async function editConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: Render
 	await applyEditedConfig(ctx, pi, state, loaded.effective, next, action);
 }
 
+export async function editJsonConfig(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
+	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
+	const text = await ctx.ui.editor("Fried Apple Pie JSON", JSON.stringify(loaded.effective, null, 2));
+	if (text === undefined) return;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch (error) {
+		ctx.ui.notify(`Invalid JSON: ${error instanceof Error ? error.message : String(error)}`, "error");
+		return;
+	}
+	const rawValidation = validateConfig(parsed);
+	if (!rawValidation.valid) {
+		ctx.ui.notify(`Invalid config: ${rawValidation.errors[0]}`, "error");
+		return;
+	}
+	const validation = validateConfig(materializeConfig(parsed as PieConfig));
+	if (!validation.valid) {
+		ctx.ui.notify(`Invalid config: ${validation.errors[0]}`, "error");
+		return;
+	}
+	await applyEditedConfig(ctx, pi, state, loaded.effective, parsed as PieConfig, "edit-json");
+}
+
 async function editFooterSegments(ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
 	const loaded = loadConfig(ctx.cwd, ctx.isProjectTrusted());
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
@@ -840,6 +874,7 @@ function welcomeLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionConte
 		`config: ${loaded.projectTrusted ? loaded.paths.projectPath : loaded.paths.globalPath}`,
 		"",
 		"/pie edit            configure preset, theme, footer, header, widget, tools",
+		"/pie edit-json       edit effective config in a multi-line editor",
 		"/pie persona <name>  switch spinner+verb pack (default, terse, arc, startrek, medieval, pirate, mlengineer)",
 		"/pie share           bundle effective config + preview asset",
 		"/pie export          show effective config",

@@ -37,7 +37,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - `/pie share` writes `assets/share/<timestamp>/pie-ui.json`, `payload.json`, and a preview asset. Server upload is not implemented; use the printed `gh gist create ...` fallback.
 - `/pie doctor` validates config, detects UI package conflicts, and reports missing `/pie capture` dependencies (`vhs`, `ttyd`, `ffmpeg`).
 - Shortcut leader: `ctrl+alt+p`, then `p` preset picker, `g` gallery, `s` footer segments, `e` editor, `d` doctor, or `c` capture. `ctrl+p` is registered too, but Pi's default `app.model.cycleForward` reserves `ctrl+p`; rebind it in `~/.pi/agent/keybindings.json` and run `/reload` before using `ctrl+p` as the leader.
-- Use `/pie edit` for interactive changes and `/pie export` to inspect final merged config.
+- Use `/pie edit` for guided changes, `/pie edit-json` for direct JSON edits with enum autocomplete, and `/pie export` to inspect final merged config.
 - Prefer `pie_config` actions `set_preset`, `set_footer_segments`, `toggle_compact`, and `set_theme` over raw patching for common edits.
 
 ## Inter-extension Events
