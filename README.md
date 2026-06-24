@@ -80,3 +80,7 @@ pnpm --filter @wat/ingest test
 - [Security](docs/security.md)
 - [Security model](docs/security-model.md)
 - [Troubleshooting](docs/troubleshooting.md)
+
+## Security Reports
+
+Report vulnerabilities privately to <angryapplegravy@gmail.com> or through the GitHub security policy for this repository. Do not post exploit details in public issues.

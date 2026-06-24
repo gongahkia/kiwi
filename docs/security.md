@@ -63,13 +63,18 @@ Entries without acceptable provenance should be excluded or marked for review in
 
 ## Responsible Disclosure
 
-Report vulnerabilities privately before public disclosure. Include:
+Report vulnerabilities privately before public disclosure:
+
+- Email: <angryapplegravy@gmail.com>
+- GitHub security policy: <https://github.com/gongahkia/wat/security/policy>
+
+Do not post exploit details in public issues. Include:
 
 - affected endpoint, package, or surface
 - reproduction steps
 - impact and required privileges
 - logs or screenshots if safe to share
 
-Use GitHub private vulnerability reporting when available. If it is unavailable, open a minimal public issue asking for a maintainer security contact without posting exploit details.
+Use GitHub private vulnerability reporting when available. If it is unavailable, email the maintainer directly.
 
 Maintainers should acknowledge reports within 72 hours, triage severity, publish fixes with a security note when appropriate, and credit reporters who want attribution.

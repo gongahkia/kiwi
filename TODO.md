@@ -199,7 +199,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Encrypt OAuth tokens and bot tokens at rest — done when Slack/Google/other OAuth tokens use envelope encryption or `SLACK_TOKEN_ENCRYPTION_KEY` equivalent with rotation docs.
 - [ ] Add audit entries for API key and integration changes — done when key creation/revocation, Slack install, extension token creation, imports, and member role changes are audited.
 - [ ] Add SQL injection regression tests for all DB-backed filters and forms — done when fuzzed strings do not produce SQL errors or cross-tenant reads.
-- [ ] Add responsible disclosure contact to README and security docs — done when users can privately report vulnerabilities without opening a public exploit issue.
 
 ### P1 — Team onboarding and admin usability
 - [ ] Build first-run team onboarding flow — done when a new user can create or join a team, set team name/domain, and land on an admin checklist.
