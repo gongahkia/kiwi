@@ -168,7 +168,7 @@ async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
   );
   await args.respond({
     response_type: "ephemeral",
-    text: `Defined ${definition.term} as ${definition.expansion}.`
+    text: `Defined ${escapeSlackText(definition.term)} as ${escapeSlackText(definition.expansion)}.`
   });
 }
 
@@ -198,7 +198,7 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
   );
   await args.respond({
     response_type: "ephemeral",
-    text: `Suggested ${definition.term} as ${definition.expansion} for admin review.`
+    text: `Suggested ${escapeSlackText(definition.term)} as ${escapeSlackText(definition.expansion)} for admin review.`
   });
 }
 
@@ -436,7 +436,11 @@ function listAlternatives(values?: string[]): string[] {
 }
 
 function formatAlternativesLine(values?: string[]): string {
-  return `Alternatives: ${listAlternatives(values).join(", ")}`;
+  return `Alternatives: ${listAlternatives(values).map(escapeSlackText).join(", ")}`;
+}
+
+function escapeSlackText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 function slackSourceUrl(command: SlackCommandMiddlewareArgs["command"]): string {
@@ -449,24 +453,25 @@ function renderLookupMessage(
   options: Pick<SlackMessage, "response_type"> = {}
 ): SlackMessage {
   const [top, ...rest] = entries;
+  const safeTerm = escapeSlackText(term);
   if (!top) {
     return {
       ...options,
-      blocks: [section(`No result for *${term}*.`)],
-      text: `No result for ${term}.`
+      blocks: [section(`No result for *${safeTerm}*.`)],
+      text: `No result for ${safeTerm}.`
     };
   }
 
-  const title = `${top.term ?? term}: ${top.expansions?.[0] ?? term}`;
+  const title = `${escapeSlackText(top.term ?? term)}: ${escapeSlackText(top.expansions?.[0] ?? term)}`;
   const lines = [`*${title}*`];
-  if (top.meaning_short) lines.push(top.meaning_short);
+  if (top.meaning_short) lines.push(escapeSlackText(top.meaning_short));
   if (top.contemporaries && listAlternatives(top.contemporaries).length > 0) {
     lines.push(formatAlternativesLine(top.contemporaries));
   }
   const blocks = [section(lines.join("\n"))];
   const buttons = rest.slice(0, 4).map((entry) => ({
     action_id: "wat_disambiguate",
-    text: { text: entry.term ?? "Result", type: "plain_text" as const },
+    text: { text: escapeSlackText(entry.term ?? "Result"), type: "plain_text" as const },
     type: "button" as const,
     value: entry.id ?? entry.term ?? "result"
   }));
@@ -487,36 +492,39 @@ function renderAlternativesMessage(
   options: Pick<SlackMessage, "response_type"> = {}
 ): SlackMessage {
   const resolvedTerm = entry?.term ?? term;
+  const safeResolvedTerm = escapeSlackText(resolvedTerm);
+  const safeTerm = escapeSlackText(term);
   if (!entry) {
     return {
       ...options,
-      blocks: [section(`No result for *${term}*.`)],
-      text: `No result for ${term}.`
+      blocks: [section(`No result for *${safeTerm}*.`)],
+      text: `No result for ${safeTerm}.`
     };
   }
   if (alternatives.length === 0) {
     return {
       ...options,
-      blocks: [section(`No alternatives for *${resolvedTerm}*.`)],
-      text: `No alternatives for ${resolvedTerm}.`
+      blocks: [section(`No alternatives for *${safeResolvedTerm}*.`)],
+      text: `No alternatives for ${safeResolvedTerm}.`
     };
   }
 
-  const lines = [`Alternatives for *${resolvedTerm}*:`];
+  const lines = [`Alternatives for *${safeResolvedTerm}*:`];
   for (const [index, alternative] of alternatives.entries()) {
     lines.push(renderAlternativeLine(alternative, resolved[index]?.[0]));
   }
   return {
     ...options,
     blocks: [section(lines.join("\n"))],
-    text: `Alternatives for ${resolvedTerm}: ${alternatives.join(", ")}`
+    text: `Alternatives for ${safeResolvedTerm}: ${alternatives.map(escapeSlackText).join(", ")}`
   };
 }
 
 function renderAlternativeLine(alternative: string, entry: SearchEntry | undefined): string {
-  if (!entry) return `*${alternative}*`;
-  const title = `${entry.term ?? alternative}: ${entry.expansions?.[0] ?? alternative}`;
-  return entry.meaning_short ? `*${title}* - ${entry.meaning_short}` : `*${title}*`;
+  const safeAlternative = escapeSlackText(alternative);
+  if (!entry) return `*${safeAlternative}*`;
+  const title = `${escapeSlackText(entry.term ?? alternative)}: ${escapeSlackText(entry.expansions?.[0] ?? alternative)}`;
+  return entry.meaning_short ? `*${title}* - ${escapeSlackText(entry.meaning_short)}` : `*${title}*`;
 }
 
 function renderAcronymList(lookups: SearchEntry[][]): SlackMessage {
@@ -529,11 +537,21 @@ function renderAcronymList(lookups: SearchEntry[][]): SlackMessage {
     };
   }
 
-  const lines = entries.map((entry) => `*${entry.term}*: ${entry.expansions?.[0] ?? entry.term}`);
+  const lines = entries.map(
+    (entry) => {
+      const term = entry.term ?? "Result";
+      return `*${escapeSlackText(term)}*: ${escapeSlackText(entry.expansions?.[0] ?? term)}`;
+    }
+  );
   return {
     blocks: [section(lines.join("\n"))],
     response_type: "ephemeral",
-    text: entries.map((entry) => `${entry.term}: ${entry.expansions?.[0] ?? entry.term}`).join("\n")
+    text: entries
+      .map((entry) => {
+        const term = entry.term ?? "Result";
+        return `${escapeSlackText(term)}: ${escapeSlackText(entry.expansions?.[0] ?? term)}`;
+      })
+      .join("\n")
   };
 }
 

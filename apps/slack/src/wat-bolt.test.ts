@@ -107,6 +107,32 @@ describe("wat Bolt handlers", () => {
     expect(JSON.stringify(response)).toContain("Alternatives: SSL, DTLS");
   });
 
+  it("escapes user-provided glossary fields in Slack output", async () => {
+    const receiver = createWatApp();
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "XSS",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    const response = JSON.stringify(responsePayload("/response"));
+    expect(response).toContain("&lt;!channel&gt;");
+    expect(response).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(response).toContain("Fish &amp; Chips");
+    expect(response).not.toContain("<!channel>");
+    expect(response).not.toContain("<script>");
+  });
+
   it("sends scoped wat API headers on Slack lookups", async () => {
     const receiver = createWatApp({ watApiKey: "wat-team-key", watTeamId: "wat-team-123" });
 
@@ -536,6 +562,21 @@ function searchResponse(query: string) {
             id: "seed-api",
             meaning_short: "A software interface.",
             term: "API"
+          }
+        }
+      ]
+    };
+  }
+  if (normalized === "XSS") {
+    return {
+      matches: [
+        {
+          entry: {
+            contemporaries: ["<svg onload=alert(1)>"],
+            expansions: ["<script>alert(1)</script>"],
+            id: "seed-xss",
+            meaning_short: "Fish & Chips",
+            term: "<!channel>"
           }
         }
       ]

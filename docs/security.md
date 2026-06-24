@@ -42,6 +42,7 @@ Browser extension, Slack, and MCP requests should resolve to the same team/user 
 - Log security-relevant mutations to `audit_log`.
 - Keep source URLs and license tags attached to public entries.
 - Run dependency, license, SQL injection, and XSS checks in CI.
+- Cover glossary term, expansion, meaning, source, and domain rendering with XSS regression tests for web, browser extension, and Slack surfaces.
 
 ## Data Handling
 
