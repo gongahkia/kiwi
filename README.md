@@ -38,35 +38,9 @@ Open `http://localhost:3000`.
 
 ## Install Paths
 
-Self-host:
+Open `/install` in the web app for role- and environment-specific setup paths for web, browser extension, Slack, MCP, API, and self-host installs.
 
-```sh
-docker compose up --build
-```
-
-Then follow [Self-Host](docs/self-host.md) and [Migration Runbook](docs/migration-runbook.md) for migrations, backups, restore, and rollback.
-
-Browser extension:
-
-```sh
-pnpm --filter @wat/ext dev
-pnpm --filter @wat/ext build
-pnpm --filter @wat/ext zip
-```
-
-Slack:
-
-```sh
-pnpm --filter @wat/slack build
-pnpm --filter @wat/slack test
-```
-
-MCP:
-
-```sh
-pnpm --filter @wat/mcp build
-node apps/mcp/dist/index.js
-```
+Self-host operators should also follow [Self-Host](docs/self-host.md) and [Migration Runbook](docs/migration-runbook.md) for migrations, backups, restore, rollback, and secret rotation.
 
 ## Workspace
 
