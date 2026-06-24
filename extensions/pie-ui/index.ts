@@ -27,6 +27,7 @@ import { bannerForConfig } from "./banners.ts";
 import { appendHistory, defaultWritePath, type HistoryEntry, loadConfig, popHistory, readConfigFile, readHistory, resolveWriteTarget, writeConfigFile } from "./paths.ts";
 import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts";
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, pickShortcutAction, PIE_SHORTCUT_ACTIONS, type PieShortcutAction, type RenderState, showPanel, widgetLines } from "./render.ts";
+import { registerPresetToolRenderers } from "./tool-renderers.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, "../../assets");
@@ -85,6 +86,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", (event, ctx) => {
 		const config = applyPie(ctx, pi, state, launchPresetOverride(ctx, pi));
+		registerPresetToolRenderers(pi, ctx.cwd, () => state.lastConfig?.tools?.renderStyle);
 		const message = welcomeMessageForSession(event.reason, config);
 		if (message) pi.sendMessage(message);
 	});

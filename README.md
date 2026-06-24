@@ -59,8 +59,8 @@ Cross-agent inspired (layout + theme):
 - `minimal` — single footer line, no header, terse spinner
 - `claude-inspired` — header + thinking segment, dots spinner
 - `opencode-inspired` — pipe-separated footer, widget hint, expanded tools
-- `codex-inspired` — dense footer with tokens, arc spinner
-- `gemini-inspired` — bright header, below-editor widget, expanded tools
+- `codex-inspired` — dense footer with tokens, dense tool renderer
+- `gemini-inspired` — bright header, below-editor widget, card tool renderer
 - `aider-inspired` — no header, terse 3-segment footer
 - `copilot-inspired` — dense GitHub-style, full footer with thinking
 - `cursor-inspired` — charcoal + electric blue with widget hint
@@ -170,7 +170,8 @@ JSON Schema: [`schema/pie-ui.schema.json`](./schema/pie-ui.schema.json). Use `{ 
     "enabled": true
   },
   "tools": {
-    "expanded": false
+    "expanded": false,
+    "renderStyle": "dense"
   }
 }
 ```
@@ -186,6 +187,10 @@ Modes (what surface the extension owns):
 
 Optional `notifications`:
 - `contextWarnings: false` — suppress the automatic context-usage warnings (70% info / 90% warning).
+
+Optional `tools`:
+- `expanded: true` — keep tool results expanded by default.
+- `renderStyle: "pill" | "card" | "dense" | "minimal"` — choose the built-in tool renderer style for `bash`, `edit`, `read`, and `grep`.
 
 Optional `welcome`:
 - `enabled: false` — suppress the startup ASCII banner.

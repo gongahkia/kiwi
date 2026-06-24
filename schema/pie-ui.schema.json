@@ -143,7 +143,8 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "expanded": { "type": "boolean" }
+        "expanded": { "type": "boolean" },
+        "renderStyle": { "type": "string", "enum": ["pill", "card", "dense", "minimal"] }
       }
     },
     "thinking": {

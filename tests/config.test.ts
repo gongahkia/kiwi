@@ -5,11 +5,12 @@ import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
-import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
+import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, TOOL_RENDER_STYLES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
 import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
+import { registerPresetToolRenderers, RENDERED_TOOL_NAMES, renderToolCall, renderToolResult } from "../extensions/pie-ui/tool-renderers.ts";
 
 const requiredThemeTokens = [
 	"accent",
@@ -140,6 +141,7 @@ test("schema enums match exported config constants", () => {
 			mode: { enum: string[] };
 			layers: { items: { enum: string[] } };
 			footer: { properties: { segments: { items: { oneOf: Array<{ enum?: string[]; properties?: { id?: { enum?: string[] }; when?: { enum?: string[] } } }> } } } };
+			tools: { properties: { renderStyle: { enum: string[] } } };
 		};
 	};
 	assert.deepEqual(schema.properties.preset.enum, [...PRESET_NAMES]);
@@ -151,6 +153,19 @@ test("schema enums match exported config constants", () => {
 	assert.deepEqual(stringForm?.enum, [...FOOTER_SEGMENTS]);
 	assert.deepEqual(objectForm?.properties?.id?.enum, [...FOOTER_SEGMENTS]);
 	assert.deepEqual(objectForm?.properties?.when?.enum, [...WHEN_RULES]);
+	assert.deepEqual(schema.properties.tools.properties.renderStyle.enum, [...TOOL_RENDER_STYLES]);
+});
+
+test("tool render style validates and every preset declares one", () => {
+	const ok = validateConfig({ preset: "minimal", tools: { renderStyle: "dense" } });
+	const bad = validateConfig({ preset: "minimal", tools: { renderStyle: "wide" } });
+	assert.equal(ok.valid, true);
+	assert.equal(bad.valid, false);
+	assert.match(bad.errors.join("\n"), /unknown tool render style/);
+	for (const preset of PRESET_NAMES) {
+		const style = materializeConfig({ preset }).tools?.renderStyle;
+		assert.ok(style && TOOL_RENDER_STYLES.includes(style), `${preset}: missing render style`);
+	}
 });
 
 test("welcome config validates custom banners", () => {
@@ -508,6 +523,26 @@ test("writeShareBundle writes effective config, payload, and preview asset", () 
 		assert.equal(payload.config.preset, "codex-inspired");
 		assert.equal(payload.screenshotPath, "screenshot.gif");
 	});
+});
+
+test("tool renderers expose distinct styles and preserve built-in executes", () => {
+	const theme = { fg: (_name: string, text: string) => text, bg: (_name: string, text: string) => `[${text}]`, bold: (text: string) => `*${text}*` };
+	const calls = TOOL_RENDER_STYLES.map((style) => renderToolCall(style, "bash", { command: "echo hello" }, theme, { executionStarted: true }).render(80)[0]);
+	assert.equal(new Set(calls).size, TOOL_RENDER_STYLES.length);
+	const result = renderToolResult(
+		"dense",
+		"bash",
+		{ content: [{ type: "text", text: "hello" }], details: undefined } as any,
+		{ expanded: false, isPartial: false },
+		theme,
+		{ isError: false },
+	).render(80).join("\n");
+	assert.match(result, /hello/);
+
+	const tools: any[] = [];
+	registerPresetToolRenderers({ registerTool: (tool: unknown) => tools.push(tool) } as any, process.cwd(), () => "dense");
+	assert.deepEqual(tools.map((tool) => tool.name), [...RENDERED_TOOL_NAMES]);
+	assert.ok(tools.every((tool) => typeof tool.execute === "function" && tool.parameters && typeof tool.renderCall === "function" && typeof tool.renderResult === "function"));
 });
 
 test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {

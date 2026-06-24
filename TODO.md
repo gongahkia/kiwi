@@ -31,6 +31,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 **Used today** (grep `pi.on`, `pi.register*`, `ctx.ui.` in `extensions/pie-ui/`):
 - Events: `resources_discover`, `session_start`, `agent_start`, `agent_end`, `model_select`, `thinking_level_select`, `message_end`.
 - `pi.registerCommand("pie", …)`, `pi.registerTool({ name: "pie_config", … })`, `pi.getCommands`, `pi.getThinkingLevel`.
+- Built-in tool overrides for `bash`, `edit`, `read`, `grep` via `renderCall`/`renderResult`; execution/schemas cloned from Pi's own tool definitions.
 - `ctx.ui`: `setTheme`, `setToolsExpanded`, `setHiddenThinkingLabel`, `setWorkingVisible`, `setWorkingMessage`, `setWorkingIndicator`, `setWidget`, `setHeader`, `setFooter`, `notify`, `select`, `input`, `confirm`, `getAllThemes`, `custom`.
 
 **Not yet used** (all verified present in extensions.md):
@@ -43,8 +44,7 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 - `pi.setSessionName`, `pi.setLabel`.
 - `pi.exec(command, args, options?)` — shell exec with signal + timeout.
 - `ctx.ui.setStatus(key, text?)`, `ctx.ui.setTitle`, `ctx.ui.editor`, `ctx.ui.addAutocompleteProvider`, `ctx.ui.setEditorComponent`, `ctx.ui.pasteToEditor`, `ctx.ui.getEditorText`/`setEditorText`.
-- Tool definition `renderCall(args, theme) => Component`, `renderResult(result, opts, theme) => Component`, `renderShell: "self"`.
-- Built-in tool overrides (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`). Renderers and `execute` are independent — omitting either preserves built-in for that slot.
+- Built-in tool overrides for `write`, `find`, `ls` (read/bash/edit/grep now have Fried Apple Pie renderers).
 - `highlightCode`, `getLanguageFromPath`, `keyHint`, `keyText`, `truncateHead`, `truncateTail` utilities from `@earendil-works/pi-tui`.
 - Events not subscribed: `project_trust`, `turn_end`, `tool_execution_start/update/end`, `tool_call`, `tool_result`, `input`, `user_bash`, `session_before_compact`, `before_provider_request`, `after_provider_response`, `session_before_switch/fork/tree`.
 
@@ -70,62 +70,6 @@ Each task is self-contained. Dependencies noted explicitly.
 ### P0-01 follow-ups (per-preset screenshots)
 
 README rewrite landed (comparison table, migration block, persona section, agent tool section, compat list with known co-existence pairings). Still pending: per-preset screenshot grid — depends on P0-02 (`/pie capture` via vhs) producing assets/preview-<preset>.gif|png for each of the 12 presets. Once P0-02 lands, add a "Gallery" section with a grid of preview images and update the first-screen hero from the current static GIF.
-
----
-
-### P0-07 — Per-preset tool rendering via `renderCall`/`renderResult`
-
-- [ ] Override built-in `bash`, `edit`, `read`, `grep` renderers with preset-driven styles. Ship one style end-to-end before templating the rest.
-
-**Why:** single largest visual lift. Differentiates from amp-themes (one style) and pi-subagents (fixed Claude style) by switching style per preset. Highest engineering cost; ship one style first to de-risk.
-
-**Files:**
-- new `extensions/pie-ui/tool-renderers.ts` — style implementations.
-- `extensions/pie-ui/index.ts` — register tool overrides in addition to `pie_config`.
-- `extensions/pie-ui/config.ts` — extend `tools?: { expanded?: boolean; renderStyle?: "pill" | "card" | "dense" | "minimal" }`.
-- `extensions/pie-ui/render.ts` — shared helpers if needed.
-- `schema/pie-ui.schema.json` — extend `tools` properties.
-
-**Sketch:**
-```ts
-// tool-renderers.ts
-export type ToolRenderStyle = "pill" | "card" | "dense" | "minimal";
-import type { Component } from "@earendil-works/pi-tui";
-
-export function renderToolCall(style: ToolRenderStyle, name: string, args: unknown, theme: ThemeLike): Component { /* … */ }
-export function renderToolResult(style: ToolRenderStyle, name: string, result: { content: { type: "text"; text: string }[]; details?: unknown }, opts: { expanded: boolean }, theme: ThemeLike): Component { /* … */ }
-```
-Built-in override (extensions.md confirms renderers and `execute` are independent — omit `execute` to keep built-in):
-```ts
-for (const name of ["bash", "edit", "read", "grep"] as const) {
-  pi.registerTool({
-    name,
-    label: name,
-    description: "", // built-in
-    parameters: Type.Any(),
-    renderCall:   (args, theme)        => renderToolCall  (currentStyle(), name, args, theme),
-    renderResult: (result, opts, theme) => renderToolResult(currentStyle(), name, result, opts, theme),
-    // execute omitted -> built-in execute preserved
-  });
-}
-```
-
-`currentStyle()` reads cached `applyPie` config — store the last-applied style in module-scope state (similar to `RenderState`).
-
-Build one style at a time:
-1. Start with `dense` for `codex-inspired` (single-row header, inline diff).
-2. Add `pill` for `claude-inspired` (compact pill chips).
-3. Add `card` for `gemini-inspired` (bordered card with metadata).
-4. Add `minimal` for `minimal` and `aider-inspired`.
-
-**Refs:**
-- extensions.md §"Built-in Tool Override Details" — confirms slots independent.
-- `truncateHead`, `truncateTail`, `highlightCode`, `getLanguageFromPath`, `keyHint` from `@earendil-works/pi-tui`.
-- amp-themes for "Amp-style tool rendering" precedent (do not copy code).
-
-**Risks:** built-in tool override semantics need empirical verification — register only renderers (no `execute`) and confirm `bash`/`edit`/`read`/`grep` still run normally via `npm run smoke:pi` + manual `pi -e .` smoke. If override mode silently disables execute, fall back to wrapping output by listening on `tool_result` event and rendering via `setWidget` (less elegant).
-
-**Acceptance:** switching presets visibly changes tool-call rendering. 4 styles ship. Each preset declares its style. Built-in tool behavior (success/error/output) unchanged.
 
 ---
 
@@ -299,7 +243,7 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 8. ~~P1-12 (launch preset flag)~~ — done.
 9. ~~P1-15 (persona prompt suffix)~~ — done.
 10. ~~P1-11 (`/pie share`)~~ — done.
-11. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
+11. ~~P0-07 (per-preset tool rendering)~~ — done.
 12. P2 / P3 as bandwidth allows.
 
 [Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.

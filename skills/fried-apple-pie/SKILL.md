@@ -25,7 +25,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Header: set `/header/enabled`, `/header/title`, and `/header/subtitle`.
 - Widget: set `/widget/enabled`, `/widget/placement`, and `/widget/lines`.
 - Welcome banner: set `/welcome/enabled` to false to suppress startup ASCII, or `/welcome/banner` to custom string lines.
-- Tool display: set `/tools/expanded`.
+- Tool display: set `/tools/expanded` and `/tools/renderStyle` (`pill`, `card`, `dense`, `minimal`). Render style affects `bash`, `edit`, `read`, and `grep`.
 - Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`, `status-only`.
 - Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and per-turn working-message rotation.
 - One-shot launch preset: run `pi -e . --pie-preset <preset>` to apply a preset for that launch without writing `pie-ui.json`.

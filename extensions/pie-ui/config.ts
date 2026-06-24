@@ -22,11 +22,13 @@ export const PRESET_NAMES = [
 export const FOOTER_SEGMENTS = ["model", "thinking", "cwd", "branch", "status", "context", "tokens", "cost", "preset"] as const;
 export const MODE_NAMES = ["full", "theme-only", "footer-only", "widgets-only", "status-only"] as const;
 export const WHEN_RULES = ["always", "git-repo", "trusted-project", "context>50", "context>70", "context>90", "tokens>10k"] as const;
+export const TOOL_RENDER_STYLES = ["pill", "card", "dense", "minimal"] as const;
 
 export type PresetName = (typeof PRESET_NAMES)[number];
 export type FooterSegment = (typeof FOOTER_SEGMENTS)[number];
 export type PieMode = (typeof MODE_NAMES)[number];
 export type WhenRule = (typeof WHEN_RULES)[number];
+export type ToolRenderStyle = (typeof TOOL_RENDER_STYLES)[number];
 export type SegmentEntry = FooterSegment | { id: FooterSegment; when?: WhenRule };
 export type PresetApplyMode = "clean" | "merge";
 export type WidgetPlacement = "aboveEditor" | "belowEditor";
@@ -60,6 +62,7 @@ export type PieConfig = {
 	};
 	tools?: {
 		expanded?: boolean;
+		renderStyle?: ToolRenderStyle;
 	};
 	thinking?: {
 		hiddenLabel?: string;
@@ -126,6 +129,7 @@ export const DEFAULT_CONFIG: PieConfig = {
 	},
 	tools: {
 		expanded: false,
+		renderStyle: "minimal",
 	},
 	thinking: {
 		hiddenLabel: "thinking",
@@ -150,7 +154,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "minimal" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"claude-inspired": {
@@ -168,7 +172,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "pill" },
 		thinking: { hiddenLabel: "thinking hidden" },
 	},
 	"opencode-inspired": {
@@ -186,7 +190,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			placement: "aboveEditor",
 			lines: ["Fried Apple Pie · tools compact · git visible · config editable"],
 		},
-		tools: { expanded: true },
+		tools: { expanded: true, renderStyle: "dense" },
 		thinking: { hiddenLabel: "reasoning" },
 	},
 	"codex-inspired": {
@@ -204,7 +208,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "dense" },
 		thinking: { hiddenLabel: "reasoning" },
 	},
 	"gemini-inspired": {
@@ -226,7 +230,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			placement: "belowEditor",
 			lines: ["preset: gemini-inspired · /pie preset minimal to switch back"],
 		},
-		tools: { expanded: true },
+		tools: { expanded: true, renderStyle: "card" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"aider-inspired": {
@@ -240,7 +244,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "minimal" },
 		thinking: { hiddenLabel: "" },
 	},
 	"copilot-inspired": {
@@ -258,7 +262,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " | ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: true },
+		tools: { expanded: true, renderStyle: "card" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"cursor-inspired": {
@@ -276,7 +280,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			placement: "aboveEditor",
 			lines: ["preset: cursor-inspired · charcoal + electric blue"],
 		},
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "dense" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"amp-inspired": {
@@ -294,7 +298,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: true },
+		tools: { expanded: true, renderStyle: "pill" },
 		thinking: { hiddenLabel: "reasoning" },
 	},
 	dracula: {
@@ -308,7 +312,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "card" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"tokyo-night": {
@@ -322,7 +326,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "dense" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"catppuccin-mocha": {
@@ -336,7 +340,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "card" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"catppuccin-latte": {
@@ -350,7 +354,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "card" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	nord: {
@@ -364,7 +368,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "minimal" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"gruvbox-dark": {
@@ -378,7 +382,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "dense" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 	"gruvbox-light": {
@@ -392,7 +396,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 			separator: " · ",
 		},
 		widget: { enabled: false },
-		tools: { expanded: false },
+		tools: { expanded: false, renderStyle: "minimal" },
 		thinking: { hiddenLabel: "thinking" },
 	},
 };
@@ -403,6 +407,7 @@ const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
 const whenRules = new Set<string>(WHEN_RULES);
+const toolRenderStyles = new Set<string>(TOOL_RENDER_STYLES);
 const PERSONAS_KEYSET = new Set(Object.keys(PERSONAS));
 
 export function isObject(value: unknown): value is Record<string, unknown> {
@@ -530,7 +535,8 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 	if (cfg.welcome?.banner !== undefined && (!Array.isArray(cfg.welcome.banner) || cfg.welcome.banner.some((line) => typeof line !== "string"))) {
 		errors.push("welcome.banner must be an array of strings");
 	}
-	validateSection("tools", cfg.tools, errors, { expanded: "boolean" });
+	validateSection("tools", cfg.tools, errors, { expanded: "boolean", renderStyle: "string" });
+	if (cfg.tools?.renderStyle !== undefined && !toolRenderStyles.has(cfg.tools.renderStyle)) errors.push(`unknown tool render style: ${String(cfg.tools.renderStyle)}`);
 	validateSection("thinking", cfg.thinking, errors, { hiddenLabel: "string" });
 	validateSection("working", cfg.working, errors, {
 		visible: "boolean",
