@@ -38,6 +38,12 @@ SLACK_APP_TOKEN=
 
 ## Docker Compose
 
+For a local demo with Postgres, Mailpit, seed data, and the web app, run:
+
+```sh
+pnpm demo:local
+```
+
 The compose file starts Postgres, Mailpit, web, and Slack services:
 
 ```sh

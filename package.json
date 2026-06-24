@@ -13,6 +13,7 @@
     "db:generate": "pnpm --filter @wat/db db:generate",
     "db:migrate": "pnpm --filter @wat/db db:migrate",
     "db:seed:dev": "pnpm --filter @wat/db seed:dev",
+    "demo:local": "sh scripts/local-demo.sh",
     "dev": "sh -c 'pnpm --filter @wat/web dev'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

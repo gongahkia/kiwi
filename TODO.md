@@ -254,7 +254,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add import API authentication and team scoping — done when bulk imports require admin/key scope and cannot affect other teams.
 
 ### P1 — Self-host and deployment usability
-- [ ] Create one-command local demo path — done when a new developer can run one documented command and get web search, DB, seeded corpus, and Mailpit working.
 - [ ] Create one-command production-ish self-host path — done when Docker Compose with `.env` boots web + DB + migrations + seed + health checks without manual commands.
 - [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
 - [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.

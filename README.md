@@ -22,19 +22,12 @@ See [Limitations](docs/limitations.md) for the current unsupported areas.
 ## Local Demo
 
 ```sh
-corepack enable
-pnpm install
-pnpm typecheck
-pnpm --filter @wat/web build
+corepack enable && pnpm demo:local
 ```
 
-Run the web app:
+The command installs dependencies, starts Postgres and Mailpit with Docker Compose, applies migrations on a clean local DB, seeds the public corpus, and starts the web app.
 
-```sh
-pnpm dev
-```
-
-Open `http://localhost:3000`.
+Open `http://localhost:3000` and Mailpit at `http://localhost:8025`.
 
 ## Install Paths
 
