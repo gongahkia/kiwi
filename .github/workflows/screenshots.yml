@@ -1,0 +1,34 @@
+name: screenshots
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "assets/tapes/**"
+      - "themes/**"
+      - "extensions/pie-ui/**"
+      - "scripts/gen-tapes.sh"
+      - "scripts/capture.sh"
+      - ".github/workflows/screenshots.yml"
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci
+      - run: npm run verify
+      - name: render tapes via vhs
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: "assets/tapes"
+      - name: upload preview gifs
+        uses: actions/upload-artifact@v4
+        with:
+          name: preset-previews
+          path: assets/preview-*.gif
+          if-no-files-found: error
