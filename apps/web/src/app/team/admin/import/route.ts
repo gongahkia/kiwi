@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { parseTeamImportCsv } from "@/lib/team-import-template";
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
 import { checkWriteRateLimit } from "@/lib/write-rate-limit";
 
@@ -32,6 +33,21 @@ function isTeamEntry(value: unknown): value is TeamEntry {
   return validateTeamEntry(entry as TeamEntry).length === 0;
 }
 
+async function entriesFromRequest(request: NextRequest): Promise<TeamEntry[] | null> {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  try {
+    if (contentType.includes("text/csv") || contentType.includes("application/csv")) {
+      const entries = parseTeamImportCsv(await request.text());
+      return entries && entries.every(isTeamEntry) ? entries : null;
+    }
+
+    const body = (await request.json()) as { entries?: unknown };
+    return Array.isArray(body.entries) && body.entries.every(isTeamEntry) ? body.entries : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const actorId =
     request.cookies.get(sessionCookie)?.value ??
@@ -49,14 +65,14 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const body = (await request.json()) as { entries?: unknown };
-  if (!Array.isArray(body.entries) || !body.entries.every(isTeamEntry)) {
+  const entries = await entriesFromRequest(request);
+  if (!entries) {
     return apiErrorResponse(request, "invalid_team_import", 400, {
       message: "invalid team import"
     });
   }
 
-  const result = importTeamEntries(body.entries);
+  const result = importTeamEntries(entries);
 
   return NextResponse.json({
     inserted: result.inserted.length,

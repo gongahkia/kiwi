@@ -267,6 +267,15 @@ Team admin list/export endpoints accept `limit` and `cursor` query params:
 
 JSON responses include `page.limit`, `page.total`, `page.cursor`, and `page.next_cursor`. CSV exports set `X-Page-Limit`, `X-Page-Total`, and `X-Next-Cursor` headers.
 
+## Team Import Templates
+
+Team admins can download import templates:
+
+- `GET /team/admin/import/template/json`
+- `GET /team/admin/import/template/csv`
+
+`POST /team/admin/import` accepts either JSON shaped as `{ "entries": [...] }` or CSV using the template headers. CSV `domains` are semicolon-separated, and each CSV row imports one source.
+
 ## Authenticated Surface Examples
 
 These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key`, and `WAT_TEAM_ID=team_123`.

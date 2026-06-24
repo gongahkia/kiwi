@@ -280,7 +280,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 ### P2 — Product UX gaps that will block normal teams
 - [ ] Add guided install page for each surface — done when web, extension, Slack, MCP, and API install steps are separated by role and environment.
 - [ ] Add admin checklist after team creation — done when admins see next steps for importing acronyms, inviting members, installing extension, and connecting Slack.
-- [ ] Add sample team glossary import template — done when CSV/JSON templates can be downloaded and imported successfully.
 - [ ] Add onboarding empty states — done when empty team glossary, no suggestions, no members, and no API keys pages explain what to do next.
 - [ ] Add no-results learning loop — done when no-result searches can be converted into suggestions/personal entries and later reviewed.
 - [ ] Add duplicate/ambiguous acronym UX — done when users can see and choose among multiple expansions by domain/layer/confidence.

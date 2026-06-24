@@ -48,7 +48,19 @@ export default async function TeamAdminPage() {
               Export CSV
             </Link>
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/import">
-              Import JSON
+              Import
+            </Link>
+            <Link
+              className="rounded-md border border-input px-3 py-2"
+              href="/team/admin/import/template/json"
+            >
+              JSON template
+            </Link>
+            <Link
+              className="rounded-md border border-input px-3 py-2"
+              href="/team/admin/import/template/csv"
+            >
+              CSV template
             </Link>
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/settings">
               Settings

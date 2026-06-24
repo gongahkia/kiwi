@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetTeamEntriesForTest, type TeamEntry } from "@/lib/team-entries";
 import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
+import { GET as CSV_TEMPLATE } from "./template/csv/route";
+import { GET as JSON_TEMPLATE } from "./template/json/route";
 import { POST } from "./route";
 
 const previousImportWriteLimit = process.env.WAT_IMPORT_WRITE_LIMIT;
@@ -30,6 +32,17 @@ function request(entries: TeamEntry[]) {
     body: JSON.stringify({ entries }),
     headers: {
       "content-type": "application/json",
+      cookie: "wat_session=dev"
+    },
+    method: "POST"
+  });
+}
+
+function csvRequest(body: string) {
+  return new NextRequest("https://wat.example.com/team/admin/import", {
+    body,
+    headers: {
+      "content-type": "text/csv",
       cookie: "wat_session=dev"
     },
     method: "POST"
@@ -66,5 +79,26 @@ describe("POST /team/admin/import", () => {
       message: "rate limit exceeded",
       remaining: 0
     });
+  });
+
+  it("downloads and imports the JSON template", async () => {
+    const template = JSON_TEMPLATE();
+    const body = (await template.json()) as { entries: TeamEntry[] };
+    const response = await POST(request(body.entries));
+    const result = (await response.json()) as { inserted: number; skipped: number };
+
+    expect(template.headers.get("content-disposition")).toContain("wat-team-import-template.json");
+    expect(response.status).toBe(200);
+    expect(result).toEqual({ inserted: 1, skipped: 0 });
+  });
+
+  it("downloads and imports the CSV template", async () => {
+    const template = CSV_TEMPLATE();
+    const response = await POST(csvRequest(await template.text()));
+    const result = (await response.json()) as { inserted: number; skipped: number };
+
+    expect(template.headers.get("content-disposition")).toContain("wat-team-import-template.csv");
+    expect(response.status).toBe(200);
+    expect(result).toEqual({ inserted: 1, skipped: 0 });
   });
 });
