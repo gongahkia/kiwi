@@ -311,7 +311,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add browser cross-compat release test checklist to CI artifacts — done when Chrome/Firefox/Edge/Brave results are recorded for each extension release.
 
 ### P2 — Documentation gaps that will cause failed adoption
-- [ ] Rewrite README around current maturity and install paths — done when README clearly distinguishes demo, self-host, hosted beta, extension, Slack, and MCP readiness.
 - [ ] Add team admin guide — done when admins can follow docs to create a team, import entries, manage members, issue keys, and review suggestions.
 - [ ] Add developer architecture guide for DB-backed layers — done when contributors can see how public/team/personal entries flow from DB to search and surfaces.
 
