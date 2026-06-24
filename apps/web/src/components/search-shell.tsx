@@ -17,7 +17,9 @@ import type { SearchEntry } from "@wat/search";
 import { DomainTeaser } from "@/components/domain-teaser";
 import { SearchResultCard } from "@/components/search-result-card";
 import { Button } from "@/components/ui/button";
+import { ambiguityChoices } from "@/lib/ambiguity-choices";
 import { noResultActions } from "@/lib/no-result-actions";
+import { confidenceLabel, layerLabel } from "@/lib/search-result-labels";
 import { searchEntries } from "@/lib/search-core";
 
 type SearchStatus = "idle" | "loading" | "ready";
@@ -68,6 +70,7 @@ export function SearchShell({
     () => (domain ? matches.filter((match) => match.entry.domains.includes(domain)) : matches),
     [domain, matches]
   );
+  const choices = useMemo(() => ambiguityChoices(query, visibleMatches), [query, visibleMatches]);
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -209,6 +212,26 @@ export function SearchShell({
                 >
                   <Link href={action.href}>{action.label}</Link>
                 </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {choices.length > 1 ? (
+          <div className="grid gap-3 rounded-md border border-input p-4">
+            <p className="text-sm text-foreground/60">Multiple meanings for {choices[0]?.term}.</p>
+            <div className="grid gap-2">
+              {choices.map((choice) => (
+                <Link
+                  className="grid gap-1 rounded-md border border-input p-3 underline-offset-4 hover:underline"
+                  href={`/term/${choice.entry_id}`}
+                  key={choice.entry_id}
+                >
+                  <span className="text-sm">{choice.expansion}</span>
+                  <span className="text-xs text-foreground/55">
+                    {choice.domains.join(", ")} · {layerLabel(choice.layer)} ·{" "}
+                    {confidenceLabel(choice.confidence_tier)}
+                  </span>
+                </Link>
               ))}
             </div>
           </div>
