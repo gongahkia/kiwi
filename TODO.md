@@ -250,7 +250,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add corpus refresh dashboard/report — done when scheduled scraper runs publish added/changed/removed counts, license changes, parser errors, and benchmark impact.
 - [ ] Add bad-delta rollback path — done when a bad corpus import can be reverted to a known-good version with documented commands.
 - [ ] Add no-fabrication corpus gate — done when entries without acceptable provenance are excluded from public results or marked review-only.
-- [ ] Add corpus quality sampling workflow — done when each refresh PR includes random sample entries for human review.
 
 ### P1 — API readiness for teams and integrations
 - [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.

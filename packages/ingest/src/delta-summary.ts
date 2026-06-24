@@ -14,8 +14,16 @@ export interface DeltaSummary {
   added: CanonicalEntry[];
   changed: CanonicalEntry[];
   license_changes: SourceLicenseChange[];
+  quality_samples: QualitySample[];
   removed: CanonicalEntry[];
   source: string;
+}
+
+export interface QualitySample {
+  domains: string[];
+  expansion: string;
+  source_count: number;
+  term: string;
 }
 
 export interface SourceLicenseChange {
@@ -41,11 +49,16 @@ export function summarizeDelta(current: DeltaFile, previous: DeltaFile | null): 
   });
   const removed = (previous?.entries ?? []).filter((entry) => !currentEntries.has(entryKey(entry)));
   const licenseChanges = sourceLicenseChanges(current.entries, previous?.entries ?? []);
+  const qualitySamples = qualitySampleEntries(
+    current.entries,
+    `${current.source}:${current.generated_at}`
+  );
 
   return {
     added,
     changed,
     license_changes: licenseChanges,
+    quality_samples: qualitySamples,
     removed,
     source: current.source
   };
@@ -68,6 +81,12 @@ export function renderDeltaSummary(summary: DeltaSummary, deltaPath: string): st
       `| ${escapeCell(change.url)} | ${escapeCell(change.previous_license)} | ${escapeCell(
         change.current_license
       )} | ${escapeCell(change.current_entry)} |`
+  );
+  const qualitySampleRows = summary.quality_samples.map(
+    (sample) =>
+      `| ${escapeCell(sample.term)} | ${escapeCell(sample.expansion)} | ${escapeCell(
+        sample.domains.join(", ")
+      )} | ${sample.source_count} |`
   );
 
   return [
@@ -95,6 +114,14 @@ export function renderDeltaSummary(summary: DeltaSummary, deltaPath: string): st
     "| Source URL | Previous license | Current license | Entry |",
     "| --- | --- | --- | --- |",
     ...(licenseChangeRows.length > 0 ? licenseChangeRows : ["| none |  |  |  |"]),
+    "",
+    "## Quality review sample",
+    "",
+    "Review these deterministic-random entries before merging the refresh PR.",
+    "",
+    "| Term | Expansion | Domains | Sources |",
+    "| --- | --- | --- | ---: |",
+    ...(qualitySampleRows.length > 0 ? qualitySampleRows : ["| none |  |  | 0 |"]),
     ""
   ].join("\n");
 }
@@ -168,6 +195,31 @@ function sourceLicenseChanges(
   }
 
   return changes.sort((left, right) => left.url.localeCompare(right.url));
+}
+
+function qualitySampleEntries(entries: CanonicalEntry[], seed: string, limit = 5): QualitySample[] {
+  return [...entries]
+    .sort(
+      (left, right) =>
+        sampleScore(seed, left.dedup_key) - sampleScore(seed, right.dedup_key) ||
+        left.dedup_key.localeCompare(right.dedup_key)
+    )
+    .slice(0, limit)
+    .map((entry) => ({
+      domains: entry.domains,
+      expansion: entry.expansions[0] ?? "",
+      source_count: entry.sources.length,
+      term: entry.term
+    }));
+}
+
+function sampleScore(seed: string, value: string): number {
+  let hash = 2166136261;
+  for (const char of `${seed}:${value}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function sampleRow(change: string, entry: CanonicalEntry): [string, string, string] {

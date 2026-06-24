@@ -36,4 +36,4 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 - The public corpus is still seed-sized and should be treated as demo coverage.
 - Scraper utilities exist, but scraper outputs are not yet imported into a production-searchable reviewed corpus.
-- License-change alerts, bad-delta rollback, quality sampling, and benchmark gates are not complete.
+- Bad-delta rollback and broader benchmark gates are not complete.

@@ -67,10 +67,13 @@ describe("delta summary", () => {
     expect(summary.added).toHaveLength(1);
     expect(summary.changed).toHaveLength(1);
     expect(summary.license_changes).toHaveLength(0);
+    expect(summary.quality_samples).toHaveLength(2);
     expect(summary.removed).toHaveLength(1);
-    expect(renderDeltaSummary(summary, "data/deltas/2026-06-19/example.json")).toContain(
-      "| Added | 1 |"
-    );
+    const rendered = renderDeltaSummary(summary, "data/deltas/2026-06-19/example.json");
+
+    expect(rendered).toContain("| Added | 1 |");
+    expect(rendered).toContain("## Quality review sample");
+    expect(rendered).toContain("Review these deterministic-random entries");
   });
 
   it("blocks source license metadata changes until reviewed", () => {
