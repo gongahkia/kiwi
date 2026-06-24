@@ -6,7 +6,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import { applyEffectiveConfig, applyPie, diffLines, historyLines, maybeWarnContext, runPieConfigTool } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, diffLines, emitPieEvent, historyLines, maybeWarnContext, runPieConfigTool } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -347,6 +347,19 @@ test("layers apply between preset and user config; user config wins on conflict"
 	// footer layer compounds: footer:powerline sets segments, footer:none then disables
 	const disabled = materializeConfig({ preset: "minimal", layers: ["footer:powerline", "footer:none"] });
 	assert.equal(disabled.footer?.enabled, false);
+});
+
+test("emitPieEvent fires on pi.events bus when present and no-ops when absent", () => {
+	const seen: Array<{ name: string; payload: unknown }> = [];
+	const piWithBus = { events: { emit: (name: string, payload: unknown) => seen.push({ name, payload }) } } as any;
+	emitPieEvent(piWithBus, "pie:preset-changed", { from: "minimal", to: "codex-inspired", scope: "global", path: "/tmp/x", ts: 1 });
+	assert.equal(seen.length, 1);
+	assert.equal(seen[0].name, "pie:preset-changed");
+	assert.deepEqual(seen[0].payload, { from: "minimal", to: "codex-inspired", scope: "global", path: "/tmp/x", ts: 1 });
+	// no events bus -> no throw, no record
+	const piWithoutBus = {} as any;
+	emitPieEvent(piWithoutBus, "pie:mode-changed", { to: "theme-only", scope: "project", path: "/tmp/y", ts: 2 });
+	assert.equal(seen.length, 1);
 });
 
 test("layer validation warns by default and errors in strict for unknown layers", () => {

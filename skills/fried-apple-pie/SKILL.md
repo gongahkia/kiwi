@@ -34,5 +34,15 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Use `/pie edit` for interactive changes and `/pie export` to inspect final merged config.
 - Prefer `pie_config` actions `set_preset`, `set_footer_segments`, `toggle_compact`, and `set_theme` over raw patching for common edits.
 
+## Inter-extension Events
+
+Fried Apple Pie emits the following events on `pi.events` (when present):
+
+- `pie:preset-changed` — `{ from, to, scope, path, ts }`. Fires after `/pie preset` writes.
+- `pie:mode-changed` — `{ from, to, scope, path, ts }`. Fires after `/pie mode` writes.
+- `pie:persona-changed` — `{ from, to, scope, path, ts }`. Fires after `/pie persona` writes.
+
+Other Pi extensions can subscribe to coordinate companion behavior (e.g. swap a footer renderer when preset changes).
+
 ## Validation
 After every change, run `pie_config` action `validate` or use `/pie doctor`.

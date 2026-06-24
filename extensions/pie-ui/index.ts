@@ -338,32 +338,41 @@ async function writePreset(preset: PresetName, ctx: ExtensionContext, pi: Extens
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
 	const current = readConfigFile(path) ?? {};
 	const next = applyPresetConfig(current, preset, applyMode);
-	appendHistory({
-		ts: Date.now(),
-		scope: ctx.isProjectTrusted() ? "project" : "global",
-		path,
-		previous: current,
-		next,
-	});
+	const scope = ctx.isProjectTrusted() ? "project" : "global";
+	const ts = Date.now();
+	appendHistory({ ts, scope, path, previous: current, next });
 	writeConfigFile(path, next);
 	applyPie(ctx, pi, state);
+	emitPieEvent(pi, "pie:preset-changed", { from: current.preset, to: preset, scope, path, ts });
 	ctx.ui.notify(`Fried Apple Pie preset applied: ${preset} (${applyMode})`, "info");
 }
 
 async function writeMode(mode: PieMode, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
 	const current = readConfigFile(path) ?? {};
+	const scope = ctx.isProjectTrusted() ? "project" : "global";
+	const ts = Date.now();
 	writeConfigFile(path, { ...current, mode });
 	applyPie(ctx, pi, state);
+	emitPieEvent(pi, "pie:mode-changed", { from: current.mode, to: mode, scope, path, ts });
 	ctx.ui.notify(`Fried Apple Pie mode applied: ${mode}`, "info");
 }
 
 async function writePersona(persona: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
 	const path = defaultWritePath(ctx.cwd, ctx.isProjectTrusted());
 	const current = readConfigFile(path) ?? {};
+	const scope = ctx.isProjectTrusted() ? "project" : "global";
+	const ts = Date.now();
 	writeConfigFile(path, { ...current, persona });
 	applyPie(ctx, pi, state);
+	emitPieEvent(pi, "pie:persona-changed", { from: current.persona, to: persona, scope, path, ts });
 	ctx.ui.notify(`Fried Apple Pie persona applied: ${persona}`, "info");
+}
+
+// emits a pie:* event on the Pi inter-extension bus. defensive optional-chain tolerates older builds.
+export function emitPieEvent(pi: ExtensionAPI, name: string, payload: { from?: string; to?: string; scope: "global" | "project"; path: string; ts: number }): void {
+	const events = (pi as unknown as { events?: { emit?: (name: string, payload: unknown) => void } }).events;
+	events?.emit?.(name, payload);
 }
 
 // /pie gallery: live-cycle every preset in-memory without writing to disk. on q/esc restores snapshot.

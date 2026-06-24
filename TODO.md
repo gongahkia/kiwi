@@ -340,22 +340,6 @@ Autocomplete provider matches when text contains `pie-ui.json`-relevant patterns
 
 ---
 
-### P2-20 — `pi.events` emit on preset/mode change
-
-- [ ] Emit `pie:preset-changed`, `pie:mode-changed`, `pie:persona-changed` for companion extensions.
-
-**Files:** `extensions/pie-ui/index.ts` (`writePreset`, `writeMode`, persona setter), SKILL.md documenting events.
-
-**Sketch:**
-```ts
-pi.events?.emit?.("pie:preset-changed", { from, to });
-```
-Use optional chaining defensively until event-bus shape is empirically confirmed.
-
-**Acceptance:** event emitted on each setter; SKILL.md documents schema.
-
----
-
 ### P2-21 — Screenshot CI workflow
 
 Depends on P0-02.
