@@ -12,6 +12,7 @@ import { linuxFoundationGlossaryScraper } from "./linux-foundation-glossary.js";
 import { mdnGlossaryScraper } from "./mdn-glossary.js";
 import { mdnWebTechnologyScraper } from "./mdn-web-technology.js";
 import { nistCsrcGlossaryScraper } from "./nist-csrc-glossary.js";
+import { postgresqlExtensionsScraper } from "./postgresql-extensions.js";
 import { postgresqlGlossaryScraper } from "./postgresql-glossary.js";
 import { w3cGlossaryScraper } from "./w3c-glossary.js";
 import { wikipediaAcronymsScraper } from "./wikipedia-acronyms.js";
@@ -30,6 +31,7 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [mdnGlossaryScraper.name, mdnGlossaryScraper],
   [mdnWebTechnologyScraper.name, mdnWebTechnologyScraper],
   [nistCsrcGlossaryScraper.name, nistCsrcGlossaryScraper],
+  [postgresqlExtensionsScraper.name, postgresqlExtensionsScraper],
   [postgresqlGlossaryScraper.name, postgresqlGlossaryScraper],
   [w3cGlossaryScraper.name, w3cGlossaryScraper],
   [wikipediaAcronymsScraper.name, wikipediaAcronymsScraper]
