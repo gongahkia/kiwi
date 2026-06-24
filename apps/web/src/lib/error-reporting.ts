@@ -1,3 +1,5 @@
+import { safeLogFields } from "./safe-logging";
+
 export type ErrorReportMetadata = {
   method?: string;
   request_id?: string;
@@ -21,13 +23,15 @@ export function buildErrorReport(
   now: Date = new Date()
 ): ErrorReport {
   const normalized = normalizeError(error);
+  const safeMetadata = safeLogFields(metadata);
+  const safeError = safeLogFields(normalized);
 
   return {
-    ...metadata,
-    message: normalized.message,
-    name: normalized.name,
+    ...safeMetadata,
+    message: safeError.message,
+    name: safeError.name,
     runtime: "server",
-    stack: normalized.stack,
+    stack: safeError.stack,
     timestamp: now.toISOString()
   };
 }
@@ -56,7 +60,10 @@ export async function reportError(
 
     return { delivered: response.ok, status: response.status };
   } catch (reportingError) {
-    console.error("wat error tracking delivery failed", normalizeError(reportingError));
+    console.error(
+      "wat error tracking delivery failed",
+      safeLogFields(normalizeError(reportingError))
+    );
     return { delivered: false };
   }
 }

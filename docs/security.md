@@ -47,7 +47,7 @@ Browser extension, Slack, and MCP requests should resolve to the same team/user 
 
 ## Data Handling
 
-Do not log raw private glossary definitions, OAuth tokens, API keys, magic links, or session cookies.
+Do not log raw private glossary definitions, OAuth tokens, API keys, magic links, or session cookies. Web runtime logs must pass structured fields through the safe logging redactor before console, pino, or error-tracking delivery.
 
 Search analytics should use query hashes and aggregate metrics. Team and user identifiers should be minimized in analytics output.
 

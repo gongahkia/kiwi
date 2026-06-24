@@ -4,6 +4,7 @@ import pino from "pino";
 import { apiErrorResponse } from "./lib/api-error";
 import { hasSameOriginMutationHeaders } from "./lib/csrf";
 import { ensureRequestId, requestIdHeader } from "./lib/request-id";
+import { safeLogFields } from "./lib/safe-logging";
 import { isAdminSession } from "./lib/session";
 
 const sessionCookie = "wat_session";
@@ -66,14 +67,16 @@ export function middleware(request: NextRequest) {
   }
 
   response.headers.set(requestIdHeader, requestId);
-  logger.info({
-    duration_ms: Date.now() - startedAt,
-    event: "request",
-    method: request.method,
-    path: request.nextUrl.pathname,
-    request_id: requestId,
-    status: response.status
-  });
+  logger.info(
+    safeLogFields({
+      duration_ms: Date.now() - startedAt,
+      event: "request",
+      method: request.method,
+      path: request.nextUrl.pathname,
+      request_id: requestId,
+      status: response.status
+    })
+  );
 
   return response;
 }
