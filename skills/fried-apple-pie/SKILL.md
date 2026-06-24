@@ -15,6 +15,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Use `mode: "theme-only"` when another extension owns the footer or widgets.
 - Use `mode: "status-only"` when another extension owns header/footer/widget but you still want a small `setStatus` surface showing preset and context usage.
 - Opt out of automatic context warnings (70% info, 90% warning) by setting `notifications.contextWarnings: false`.
+- Compose layered decorations via `layers: ["theme:gemini", "footer:powerline", "persona:terse"]`. Layers apply between preset and user config (preset → layers in order → user overrides). Categories: `theme:*`, `footer:*`, `welcome:*`, `persona:*`, `compact:*`.
 - Use `applyMode: "clean"` to reset preset-owned config and `applyMode: "merge"` to preserve overrides.
 - Persona is an orthogonal axis controlling spinner + working-message verbs. Available personas: `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Switch with `/pie persona <name>` or set `persona` in config. Persona does not change preset, theme, footer, or layout.
 

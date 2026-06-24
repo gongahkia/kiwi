@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
+import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
 import { applyEffectiveConfig, applyPie, diffLines, historyLines, maybeWarnContext, runPieConfigTool } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
@@ -136,11 +137,13 @@ test("schema enums match exported config constants", () => {
 		properties: {
 			preset: { enum: string[] };
 			mode: { enum: string[] };
+			layers: { items: { enum: string[] } };
 			footer: { properties: { segments: { items: { oneOf: Array<{ enum?: string[]; properties?: { id?: { enum?: string[] }; when?: { enum?: string[] } } }> } } } };
 		};
 	};
 	assert.deepEqual(schema.properties.preset.enum, [...PRESET_NAMES]);
 	assert.deepEqual(schema.properties.mode.enum, [...MODE_NAMES]);
+	assert.deepEqual([...schema.properties.layers.items.enum].sort(), [...LAYER_NAMES].sort());
 	const segmentItems = schema.properties.footer.properties.segments.items;
 	const stringForm = segmentItems.oneOf.find((branch) => Array.isArray(branch.enum));
 	const objectForm = segmentItems.oneOf.find((branch) => branch.properties);
@@ -332,6 +335,27 @@ test("diffLines reports no change for identical configs and changes for distinct
 	assert.match(cross.join("\n"), /preset:/);
 	assert.match(cross.join("\n"), /theme:/);
 	assert.match(cross.join("\n"), /\d+ keys? changed/);
+});
+
+test("layers apply between preset and user config; user config wins on conflict", () => {
+	// codex-inspired uses theme fried-apple-pie-codex. theme:gemini layer overrides to gemini.
+	const codexThenGemini = materializeConfig({ preset: "codex-inspired", layers: ["theme:gemini"] });
+	assert.equal(codexThenGemini.theme, "fried-apple-pie-gemini");
+	// user raw config overrides a layer's value
+	const userWins = materializeConfig({ preset: "codex-inspired", layers: ["theme:gemini"], theme: "fried-apple-pie-nord" });
+	assert.equal(userWins.theme, "fried-apple-pie-nord");
+	// footer layer compounds: footer:powerline sets segments, footer:none then disables
+	const disabled = materializeConfig({ preset: "minimal", layers: ["footer:powerline", "footer:none"] });
+	assert.equal(disabled.footer?.enabled, false);
+});
+
+test("layer validation warns by default and errors in strict for unknown layers", () => {
+	const loose = validateConfig({ preset: "minimal", layers: ["theme:codex", "made-up:layer"] });
+	const strict = validateConfig({ preset: "minimal", layers: ["theme:codex", "made-up:layer"] }, { strict: true });
+	assert.equal(loose.valid, true);
+	assert.match(loose.warnings.join("\n"), /unknown layer/);
+	assert.equal(strict.valid, false);
+	assert.match(strict.errors.join("\n"), /unknown layer/);
 });
 
 test("maybeWarnContext fires mid+high notifications once per session and respects opt-out", () => {

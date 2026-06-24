@@ -168,6 +168,27 @@ Modes (what surface the extension owns):
 Optional `notifications`:
 - `contextWarnings: false` — suppress the automatic context-usage warnings (70% info / 90% warning).
 
+## Layers (compose decorations)
+
+`layers` is an array of small named overlays applied between the preset and your raw config. Use it to mix preset bones with theme/footer/persona variants.
+
+```json
+{
+  "preset": "codex-inspired",
+  "layers": ["theme:gemini", "footer:powerline", "persona:terse"]
+}
+```
+
+Categories shipped:
+
+- `theme:*` — claude, codex, gemini, opencode, dracula, nord, tokyo-night, catppuccin-mocha, gruvbox-dark.
+- `footer:*` — minimal, dense, powerline, none.
+- `welcome:*` — on (widget hint), none (no header + no widget).
+- `persona:*` — default, terse, arc, startrek, medieval, pirate, mlengineer.
+- `compact:*` — on, off.
+
+Resolve order: `DEFAULT_CONFIG → PRESETS[preset] → layers[0..n] → user raw config`. Your raw config always wins.
+
 Preset apply modes:
 - `clean` — reset preset-owned config (header, footer, widget, tools, thinking).
 - `merge` — keep your overrides on top of the preset.

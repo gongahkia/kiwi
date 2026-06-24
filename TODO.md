@@ -233,24 +233,6 @@ Rebind path (document in README): `~/.pi/agent/keybindings.json` — per keybind
 
 ---
 
-### P1-10 — Layer composition (Doom-modules pattern)
-
-- [ ] `layers: string[]` field that resolves additional partial configs between preset and user overrides.
-
-**Why:** power-user mental model. Users compose `theme:codex + footer:powerline + welcome:claude`.
-
-**Files:** new `extensions/pie-ui/layers/` dir + `extensions/pie-ui/layers.ts` registry. Extend `config.ts` `materializeConfig` (`config.ts:218-221`). Update schema + tests.
-
-**Sketch:**
-- Bundled layers (each a partial `PieConfig`): `theme:codex`, `theme:gemini`, `theme:claude`, `theme:opencode`, `footer:powerline`, `footer:minimal`, `footer:dense`, `welcome:claude`, `welcome:none`, `tools:pill`, `tools:dense`, `persona:terse`, `persona:startrek`.
-- Resolve order: `DEFAULT_CONFIG` → `PRESETS[preset]` → `layers[0..n]` → user raw config.
-- Validation rejects unknown layer ids in strict mode; warns in default.
-- Doctor lists active layers.
-
-**Acceptance:** `{ preset: "codex-inspired", layers: ["theme:gemini", "footer:powerline"] }` produces a config combining all three. Tests cover order + unknown-layer rejection.
-
----
-
 ### P1-11 — `/pie share` to static registry
 
 - [ ] Subcommand that bundles current effective config + screenshot into a shareable payload.

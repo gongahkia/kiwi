@@ -1,3 +1,4 @@
+import { LAYERS } from "./layers.ts";
 import { PERSONAS } from "./personas.ts";
 
 export const PRESET_NAMES = [
@@ -37,6 +38,7 @@ export type PieConfig = {
 	compact?: boolean;
 	strict?: boolean;
 	persona?: string;
+	layers?: string[];
 	header?: {
 		enabled?: boolean;
 		title?: string;
@@ -389,7 +391,7 @@ export const PRESETS: Record<PresetName, PieConfig> = {
 };
 
 const objectKeys = new Set(["header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
-const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
+const knownKeys = new Set(["preset", "theme", "mode", "compact", "strict", "persona", "layers", "header", "footer", "widget", "tools", "thinking", "working", "notifications"]);
 const presetNames = new Set<string>(PRESET_NAMES);
 const footerSegments = new Set<string>(FOOTER_SEGMENTS);
 const modeNames = new Set<string>(MODE_NAMES);
@@ -422,7 +424,13 @@ export function mergeConfig(base: PieConfig, override: PieConfig | undefined): P
 
 export function materializeConfig(raw: PieConfig | undefined): PieConfig {
 	const basePreset = raw?.preset && presetNames.has(raw.preset) ? raw.preset : DEFAULT_CONFIG.preset ?? "minimal";
-	return mergeConfig(mergeConfig(DEFAULT_CONFIG, PRESETS[basePreset]), raw);
+	let merged = mergeConfig(DEFAULT_CONFIG, PRESETS[basePreset]);
+	// layers apply between preset and user overrides so users can compose decorations.
+	for (const layerId of raw?.layers ?? []) {
+		const layer = LAYERS[layerId];
+		if (layer) merged = mergeConfig(merged, layer as PieConfig);
+	}
+	return mergeConfig(merged, raw);
 }
 
 export function effectiveConfig(globalConfig?: PieConfig, projectConfig?: PieConfig): PieConfig {
@@ -461,6 +469,18 @@ export function validateConfig(config: unknown, options: { strict?: boolean } = 
 	if (cfg.persona !== undefined) {
 		if (typeof cfg.persona !== "string") errors.push("persona must be a string");
 		else if (!PERSONAS_KEYSET.has(cfg.persona)) errors.push(`unknown persona: ${cfg.persona}`);
+	}
+	if (cfg.layers !== undefined) {
+		if (!Array.isArray(cfg.layers)) errors.push("layers must be an array of strings");
+		else {
+			for (const layer of cfg.layers) {
+				if (typeof layer !== "string") errors.push(`layer must be a string: ${String(layer)}`);
+				else if (!LAYERS[layer]) {
+					if (strict) errors.push(`unknown layer: ${layer}`);
+					else warnings.push(`unknown layer: ${layer}`);
+				}
+			}
+		}
 	}
 	validateSection("header", cfg.header, errors, {
 		enabled: "boolean",

@@ -644,6 +644,7 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	lines.push(`project trusted: ${loaded.projectTrusted ? "yes" : "no"}`);
 	lines.push(`active preset: ${loaded.effective.preset ?? "custom"}`);
 	lines.push(`active theme: ${loaded.effective.theme ?? "default"}`);
+	if (loaded.effective.layers?.length) lines.push(`active layers: ${loaded.effective.layers.join(", ")}`);
 	for (const error of loaded.readErrors) lines.push(`read error: ${error}`);
 	const validation = strict ? validateConfig(loaded.effective, { strict: true }) : loaded.validation;
 	for (const error of validation.errors) lines.push(`config error: ${error}`);

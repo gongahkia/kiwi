@@ -42,6 +42,38 @@
     "persona": {
       "type": "string"
     },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "compact:off",
+          "compact:on",
+          "footer:dense",
+          "footer:minimal",
+          "footer:none",
+          "footer:powerline",
+          "persona:arc",
+          "persona:default",
+          "persona:medieval",
+          "persona:mlengineer",
+          "persona:pirate",
+          "persona:startrek",
+          "persona:terse",
+          "theme:catppuccin-mocha",
+          "theme:claude",
+          "theme:codex",
+          "theme:dracula",
+          "theme:gemini",
+          "theme:gruvbox-dark",
+          "theme:nord",
+          "theme:opencode",
+          "theme:tokyo-night",
+          "welcome:none",
+          "welcome:on"
+        ]
+      }
+    },
     "header": {
       "type": "object",
       "additionalProperties": true,
