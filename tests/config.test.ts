@@ -6,7 +6,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, runPieConfigTool, tapePathFor } from "../extensions/pie-ui/index.ts";
+import { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, maybeWarnContext, rotateWorkingVerb, runPieConfigTool, tapePathFor } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -259,6 +259,33 @@ test("applyPie falls back to preset default persona when config.persona is unset
 		applyPie(makeCtx(cwd, calls), makePi(), { working: false });
 		// codex-inspired defaults to arc persona; spinner frames must be set
 		assert.ok(calls.workingIndicator.at(-1)?.frames?.length);
+	});
+});
+
+test("turn_start verb rotation advances through persona verbs", () => {
+	withTempHome((cwd) => {
+		writeProjectConfig(cwd, { preset: "codex-inspired", persona: "arc" });
+		const calls = makeCalls();
+		const ctx = makeCtx(cwd, calls);
+		const state = { working: false };
+		applyPie(ctx, makePi(), state);
+		assert.equal(calls.workingMessage.at(-1), "Working");
+		assert.equal(rotateWorkingVerb(ctx, state), "Reasoning");
+		assert.equal(rotateWorkingVerb(ctx, state), "Working");
+		assert.equal(rotateWorkingVerb(ctx, state), "Reasoning");
+	});
+});
+
+test("explicit working.message disables persona verb rotation", () => {
+	withTempHome((cwd) => {
+		const calls = makeCalls();
+		const ctx = makeCtx(cwd, calls);
+		const state = { working: false };
+		applyEffectiveConfig(ctx, makePi(), state, materializeConfig({ preset: "codex-inspired", persona: "arc", working: { message: "Pinned" } }));
+		const before = calls.workingMessage.length;
+		assert.equal(calls.workingMessage.at(-1), "Pinned");
+		assert.equal(rotateWorkingVerb(ctx, state), undefined);
+		assert.equal(calls.workingMessage.length, before);
 	});
 });
 

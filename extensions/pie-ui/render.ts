@@ -19,6 +19,8 @@ export type RenderState = {
 	working: boolean;
 	requestRender?: () => void;
 	lastConfig?: PieConfig;
+	verbKey?: string;
+	verbIndex?: number;
 };
 
 export type EditAction = "preset" | "theme" | "mode" | "compact" | "footer" | "header" | "widget" | "tools" | "cancel";

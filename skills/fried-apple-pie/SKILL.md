@@ -26,7 +26,7 @@ Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie 
 - Widget: set `/widget/enabled`, `/widget/placement`, and `/widget/lines`.
 - Tool display: set `/tools/expanded`.
 - Compatibility mode: set `/mode` to one of `full`, `theme-only`, `footer-only`, `widgets-only`, `status-only`.
-- Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and initial working message.
+- Persona swap: set `/persona` to one of `default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`. Affects spinner frames and per-turn working-message rotation.
 - Use `/pie gallery` to live-preview every preset without writing to config. j/k or h/l cycles, enter keeps current preview, q/esc restores previous config.
 - Use `/pie diff <preset>` to preview what a clean preset apply would change before running `/pie preset <preset>`. Optional second arg `merge` previews merge-mode apply.
 - `/pie history` shows the last 10 preset switches. `/pie undo` restores the most recent previous state and pops it from history. History lives at `~/.pi/agent/pie-history.json` and is capped at 50 entries.

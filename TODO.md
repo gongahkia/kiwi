@@ -73,12 +73,6 @@ README rewrite landed (comparison table, migration block, persona section, agent
 
 ---
 
-### P0-05 follow-ups (initial-message rotation)
-
-P0-05 main goal hit: 10 vendored spinners, 7 personas (`default`, `terse`, `arc`, `startrek`, `medieval`, `pirate`, `mlengineer`), per-preset default-persona binding, `/pie persona <name>` subcommand, persona validation, schema field, 3 new tests. Still deferred: per-turn verb rotation (cycles through `PERSONAS[name].verbs` on each `turn_start` event). Implementation note for future agent: subscribe to `pi.on("turn_start", …)`, maintain a counter in `RenderState`, call `ctx.ui.setWorkingMessage(verbs[counter % verbs.length])`. Risk: confirm `turn_start` event payload shape and rotation timing via `npm run smoke:pi` before relying.
-
----
-
 ### P0-06 — Boot ASCII art per preset (`pi.sendMessage` + `registerMessageRenderer`)
 
 - [ ] Add ASCII banner per preset; deliver as a custom-type message at `session_start`.

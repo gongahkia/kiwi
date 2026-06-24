@@ -85,6 +85,10 @@ export default function (pi: ExtensionAPI) {
 		state.requestRender?.();
 	});
 
+	pi.on("turn_start", (_event, ctx) => {
+		rotateWorkingVerb(ctx, state);
+	});
+
 	pi.on("model_select", () => state.requestRender?.());
 	pi.on("thinking_level_select", () => state.requestRender?.());
 	pi.on("message_end", (_event, ctx) => {
@@ -172,12 +176,16 @@ export function applyEffectiveConfig(ctx: ExtensionContext, pi: ExtensionAPI, st
 		const message = config.working?.message ?? persona?.verbs[0];
 		ctx.ui.setWorkingMessage(message);
 		ctx.ui.setWorkingIndicator(frames ? { frames, intervalMs } : undefined);
+		state.verbKey = persona ? personaVerbKey(config, persona) : undefined;
+		state.verbIndex = config.working?.message === undefined && persona?.verbs.length ? 1 % persona.verbs.length : 0;
 	} else {
 		ctx.ui.setToolsExpanded(false);
 		ctx.ui.setHiddenThinkingLabel();
 		ctx.ui.setWorkingMessage();
 		ctx.ui.setWorkingIndicator();
 		ctx.ui.setWorkingVisible(true);
+		state.verbKey = undefined;
+		state.verbIndex = 0;
 	}
 	const ownsWidgets = mode === "full" || mode === "widgets-only";
 	const lines = ownsWidgets ? widgetLines(config) : undefined;
@@ -235,6 +243,28 @@ export function maybeWarnContext(ctx: ExtensionContext, state: RenderState, warn
 		ctx.ui.notify("Fried Apple Pie: context >70%.", "info");
 		warned.mid = true;
 	}
+}
+
+export function rotateWorkingVerb(ctx: ExtensionContext, state: RenderState): string | undefined {
+	const config = state.lastConfig;
+	if (!config || (config.mode ?? "full") !== "full" || config.working?.message !== undefined) return undefined;
+	const persona = resolvePersona(config.persona, config.preset);
+	if (!persona?.verbs.length) return undefined;
+	const key = personaVerbKey(config, persona);
+	if (state.verbKey !== key) {
+		state.verbKey = key;
+		state.verbIndex = 0;
+	}
+	const index = state.verbIndex ?? 0;
+	const message = persona.verbs[index % persona.verbs.length];
+	state.verbIndex = (index + 1) % persona.verbs.length;
+	ctx.ui.setWorkingMessage(message);
+	state.requestRender?.();
+	return message;
+}
+
+function personaVerbKey(config: PieConfig, persona: { spinner: string; verbs: string[] }): string {
+	return [config.preset ?? "", config.persona ?? "", persona.spinner, ...persona.verbs].join("\u0000");
 }
 
 async function handlePieCommand(args: string, ctx: ExtensionContext, pi: ExtensionAPI, state: RenderState): Promise<void> {
