@@ -6,6 +6,7 @@ interface Source {
 }
 
 interface Entry {
+  confidence_tier?: string;
   id?: string;
   layer?: string;
   sources?: Source[];
@@ -29,17 +30,18 @@ export function checkSourceCoverage(corpus: Corpus): SourceCoverageIssue[] {
     }
 
     const entryId = entry.id ?? "(missing id)";
+    const reviewOnly = entry.confidence_tier === "T4";
     if (!entry.sources || entry.sources.length === 0) {
-      issues.push({ entryId, reason: "missing sources" });
+      if (!reviewOnly) issues.push({ entryId, reason: "missing acceptable provenance" });
       continue;
     }
 
     for (const [index, source] of entry.sources.entries()) {
       if (!source.url) {
-        issues.push({ entryId, reason: `source ${index} missing url` });
+        if (!reviewOnly) issues.push({ entryId, reason: `source ${index} missing url` });
       }
       if (!source.license) {
-        issues.push({ entryId, reason: `source ${index} missing license` });
+        if (!reviewOnly) issues.push({ entryId, reason: `source ${index} missing license` });
       }
     }
   }

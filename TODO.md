@@ -249,7 +249,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Increase seed/public corpus beyond demo size — done when public search covers at least the target launch benchmark set and no longer relies on ~50 unique seed terms.
 - [ ] Add corpus refresh dashboard/report — done when scheduled scraper runs publish added/changed/removed counts, license changes, parser errors, and benchmark impact.
 - [ ] Add bad-delta rollback path — done when a bad corpus import can be reverted to a known-good version with documented commands.
-- [ ] Add no-fabrication corpus gate — done when entries without acceptable provenance are excluded from public results or marked review-only.
 
 ### P1 — API readiness for teams and integrations
 - [ ] Add OpenAPI spec for REST endpoints — done when search, custom entries, suggestions, imports, exports, keys, and team admin endpoints are machine-readable.
