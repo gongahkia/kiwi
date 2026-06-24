@@ -57,7 +57,7 @@ Expected local endpoints:
 - Mailpit: <http://localhost:8025>
 - Postgres: `localhost:5432`
 
-The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. Run migrations/seeding against the compose DSN before production use.
+The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. `/readyz` fails until Postgres is reachable, required migrations exist, and at least one public corpus entry is seeded.
 
 Compose backup and restore use the checked-in scripts:
 

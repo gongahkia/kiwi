@@ -166,7 +166,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add idempotent migration runner for app startup or release phase — done when a clean deploy can run migrations exactly once without manual `pnpm db:migrate` steps.
 - [ ] Add idempotent public corpus seed/import job — done when a clean DB can import checked-in corpus data without duplicates and without deleting team/personal overlays.
 - [ ] Update Docker Compose to apply migrations and seed public corpus automatically — done when `docker compose up --build` yields a searchable DB-backed app on a clean machine.
-- [ ] Make `/readyz` verify database connectivity and migration state — done when readiness fails if DB is unavailable, migrations are missing, or seed corpus is absent.
 - [ ] Add restart persistence smoke test — done when an E2E creates a team entry, restarts web, and confirms the entry is still searchable.
 - [ ] Add multi-instance persistence smoke test — done when two web processes behind the same DB can create/read the same team and personal entries.
 
