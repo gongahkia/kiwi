@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -696,6 +697,25 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 	const conflicts = commands.filter((name) => ["footer", "powerline-footer", "tool-display"].includes(name));
 	for (const conflict of conflicts) lines.push(`possible UI conflict: /${conflict}`);
 	if (conflicts.length > 0 && loaded.effective.mode === "full") lines.push("recommendation: set /pie mode status-only (minimal surface), theme-only, or footer-only if another UI package owns a surface");
-	if (lines.length === 5) lines.push("ok");
+	const hasConfigOrConflictIssue = lines.length > 5;
+	const deps = captureDependencyLines();
+	lines.push(...deps);
+	if (!hasConfigOrConflictIssue && !deps.some((line) => line.startsWith("capture unavailable:"))) lines.push("ok");
 	return lines;
+}
+
+export function captureDependencyLines(probe: (name: string) => string | undefined = commandPath): string[] {
+	const tools = ["vhs", "ttyd", "ffmpeg"] as const;
+	const results = tools.map((name) => ({ name, path: probe(name) }));
+	const missing = results.filter((result) => !result.path).map((result) => result.name);
+	const lines = results.map((result) => `capture dependency: ${result.name} ${result.path ? `ok (${result.path})` : "missing"}`);
+	if (missing.length > 0) lines.push(`capture unavailable: install ${missing.join(", ")} on PATH`);
+	return lines;
+}
+
+function commandPath(name: string): string | undefined {
+	const result = spawnSync("which", [name], { encoding: "utf8" });
+	if (result.status !== 0) return undefined;
+	const path = result.stdout.trim().split("\n")[0];
+	return path || undefined;
 }

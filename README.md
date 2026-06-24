@@ -106,7 +106,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 /pie welcome                   show active config + command list
 /pie show                      dump loaded config (global + project + effective)
 /pie export                    dump effective config only
-/pie doctor [strict]           validate config, detect conflicts
+/pie doctor [strict]           validate config, detect conflicts, check capture deps
 /pie reset                     return to minimal preset
 ```
 
