@@ -17,6 +17,7 @@ import type { SearchEntry } from "@wat/search";
 import { DomainTeaser } from "@/components/domain-teaser";
 import { SearchResultCard } from "@/components/search-result-card";
 import { Button } from "@/components/ui/button";
+import { noResultActions } from "@/lib/no-result-actions";
 import { searchEntries } from "@/lib/search-core";
 
 type SearchStatus = "idle" | "loading" | "ready";
@@ -57,6 +58,7 @@ export function SearchShell({
       ? "loading"
       : "ready";
   const noResultTerm = query.trim();
+  const noResultLinks = useMemo(() => noResultActions(noResultTerm), [noResultTerm]);
 
   const domainOptions = useMemo(
     () => Array.from(new Set(matches.flatMap((match) => match.entry.domains))).sort(),
@@ -198,16 +200,16 @@ export function SearchShell({
           <div className="grid gap-3 rounded-md border border-input p-4">
             <p className="text-sm text-foreground/60">No results.</p>
             <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
-                <Link href={`/suggest?term=${encodeURIComponent(noResultTerm)}`}>
-                  Suggest entry
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/personal?term=${encodeURIComponent(noResultTerm)}`}>
-                  Save personal entry
-                </Link>
-              </Button>
+              {noResultLinks.map((action, index) => (
+                <Button
+                  asChild
+                  key={action.href}
+                  size="sm"
+                  variant={index === 0 ? "default" : "outline"}
+                >
+                  <Link href={action.href}>{action.label}</Link>
+                </Button>
+              ))}
             </div>
           </div>
         ) : null}
