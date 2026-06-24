@@ -1,19 +1,27 @@
 const sections = [
   {
-    title: "Hosted data",
-    body: "Hosted wat stores account email, team membership, team glossary entries, suggestions, and audit history needed to operate the service."
+    title: "Web app",
+    body: "Search sends q, limit, optional context, and optional confidence filters. Suggestions and glossary forms send term, expansion, meaning, domains, source URL, and source title. Hosted wat stores account email, sessions, team membership, personal entries, team entries, suggestions, and audit history."
   },
   {
-    title: "Search privacy",
-    body: "Hosted search may record non-PII operational metadata such as query hashes, latency, layer hit, and confidence distribution. Raw query text is not required for analytics."
+    title: "Search logs",
+    body: "Hosted search records query hashes, latency, match count, layer hit, and confidence distribution for operations. Raw query text is not required for analytics."
+  },
+  {
+    title: "Browser extension",
+    body: "The extension sends the acronym token, lookup limit, account email, team ID, API token header, and bounded context made from hostname, title, and headings. It stores API base URL, account email, token, team ID, domain filters, hover/highlight settings, and recent lookup cache in browser storage."
+  },
+  {
+    title: "Slack",
+    body: "Slack sends the explicit slash-command term, selected message text, mention text, or opted-in candidate text plus Slack user ID, wat team ID, and API token header. The scaffold stores rate-limit counters when configured; production installs must store encrypted workspace install tokens."
+  },
+  {
+    title: "MCP",
+    body: "MCP tools send the tool input: api_key, term, domain, context, limit, confidence filter, or suggestion fields. The server stores only configured environment values and optional pending suggestion files when writes are enabled."
   },
   {
     title: "Self-host defaults",
     body: "Self-hosted wat has no query logging by default. Operators can add their own logging, but the default deployment should work without sending lookup data to a third-party service."
-  },
-  {
-    title: "Integrations",
-    body: "Browser, Slack, and MCP integrations use configured API endpoints and only send lookup or account data needed for the requested action."
   }
 ];
 

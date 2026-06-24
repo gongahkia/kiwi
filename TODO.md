@@ -298,7 +298,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Add duplicate/ambiguous acronym UX — done when users can see and choose among multiple expansions by domain/layer/confidence.
 - [ ] Add stale-entry review workflow — done when entries can be marked stale/needs review and admins can update or deprecate them.
 - [ ] Add deprecation support for team/personal entries — done when deprecated entries remain auditable but are hidden or labeled in normal search.
-- [ ] Add user-facing privacy explanations — done when extension, Slack, MCP, and web describe exactly what text is sent and stored.
 
 ### P2 — Testing gates for credible beta
 - [ ] Add full team onboarding E2E — done when Playwright covers sign up, create team, invite member, add entry, search entry, export entry.

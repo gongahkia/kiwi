@@ -59,3 +59,5 @@ Tokens must be encrypted at rest. Workspace installs should map to wat teams thr
 ## Privacy Notes
 
 The app should not ingest channel history by default. It should send only the explicit command term, selected message text, mention text, or opted-in auto-detect candidate to wat lookup APIs.
+
+wat API calls include the configured API token, configured wat team ID, and `slack:<user id>` for user-level quota scope. The Slack scaffold stores rate-limit counters when `SLACK_RATE_LIMIT_STORE_PATH` is set; production install records and bot tokens must be encrypted at rest before directory submission.

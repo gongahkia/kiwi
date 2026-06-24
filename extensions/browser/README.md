@@ -85,6 +85,8 @@ Hover and highlight lookups send only the acronym token, lookup limit, and a bou
 
 The hover/highlight context is limited to the current hostname, document title, and up to 12 heading texts, truncated to 1200 characters. It does not include paragraph text, form fields, inputs, or full-page body text.
 
-Local cache data should stay in browser storage and be bounded by an LRU limit. Telemetry should be off by default.
+Custom-entry saves send the selected term, expansion, meaning, scope, domains, source URL, and source title only after user confirmation.
+
+The extension stores `apiBaseUrl`, `accountEmail`, `apiToken`, `teamId`, domain filters, hover/highlight settings, and recent lookup cache in browser storage. Local cache data should be bounded by an LRU limit. Telemetry should be off by default.
 
 Team entries require account sync. Authentication tokens should be stored through browser extension storage APIs and scoped to wat API calls only.
