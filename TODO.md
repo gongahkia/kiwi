@@ -10,14 +10,14 @@ Conventions enforced by `CLAUDE.md`: terse, vertical-dense, in-line lowercase co
 
 ### Repo map (under `/Users/gongahkia/Desktop/coding/projects/fried-apple-pie`)
 - `package.json` — npm + Pi manifest. `pi.extensions: ["./extensions/pie-ui"]`, `pi.skills: ["./skills"]`, `pi.themes: ["./themes"]`. Peer deps: `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `typebox`.
-- `extensions/pie-ui/index.ts` — default-exported `(pi: ExtensionAPI) => void`. Subscribes events, registers `/pie` command and `pie_config` tool, calls `applyPie()` on `session_start`. Currently ~445 LOC.
+- `extensions/pie-ui/index.ts` — default-exported `(pi: ExtensionAPI) => void`. Subscribes events, registers `/pie` command and `pie_config` tool, calls `applyPie()` on `session_start`. Currently ~1043 LOC.
 - `extensions/pie-ui/config.ts` — constants (`PRESET_NAMES`, `FOOTER_SEGMENTS`, `MODE_NAMES`, `PRESET_THEMES`, `PRESETS`), `validateConfig`, `applyJsonPatch`, `materializeConfig`, `mergeConfig`, `applyPresetConfig`, `cloneConfig`.
 - `extensions/pie-ui/paths.ts` — `loadConfig`, `readConfigFile`, `writeConfigFile`, `defaultWritePath`, `resolveWriteTarget`. Global path: `~/.pi/agent/pie-ui.json`. Project path: `<cwd>/.pi/pie-ui.json` (requires `ctx.isProjectTrusted()`).
 - `extensions/pie-ui/render.ts` — `createFooter`, `createHeader`, `widgetLines`, picker overlays (`PresetPicker`, `EditPicker`, `FooterSegmentPicker`, `TextPanel`), footer segment renderer switch (`renderSegment` at `render.ts:315`).
-- `themes/*.json` — 5 themes; every theme must contain 51 color tokens (canonical list at `tests/config.test.ts:12-64`).
-- `schema/pie-ui.schema.json` — JSON Schema. Enums MUST stay in sync with `config.ts` (enforced by test at `tests/config.test.ts:134-145`).
+- `themes/*.json` — 16 themes; every theme must contain 51 color tokens (canonical list at `tests/config.test.ts:12-64`).
+- `schema/pie-ui.schema.json` — JSON Schema. Enums MUST stay in sync with `config.ts` (enforced by tests).
 - `skills/fried-apple-pie/SKILL.md` — agent-facing instructions; update when commands/tool actions change.
-- `tests/config.test.ts` — `node:test` runner via tsx. 14 tests today.
+- `tests/config.test.ts` — `node:test` runner via tsx. 55 tests today.
 
 ### Build / verify
 - `npm run typecheck` — `tsc --noEmit`.
@@ -65,17 +65,15 @@ Each task is self-contained. Dependencies noted explicitly.
 
 ---
 
-### P0-01 follow-ups (per-preset screenshots)
-
-README rewrite landed (comparison table, migration block, persona section, agent tool section, compat list with known co-existence pairings). Still pending: per-preset screenshot grid — depends on P0-02 (`/pie capture` via vhs) producing assets/preview-<preset>.gif|png for each of the 12 presets. Once P0-02 lands, add a "Gallery" section with a grid of preview images and update the first-screen hero from the current static GIF.
+No open feature tasks.
 
 ---
 
 ## 2. Cross-cutting hygiene (always)
 
 - [ ] **CC-01** Update `skills/fried-apple-pie/SKILL.md` whenever a new command/subcommand/tool action is added so the Pi agent can drive it.
-- [ ] **CC-02** Keep `schema/pie-ui.schema.json` enums in sync with `extensions/pie-ui/config.ts` constants. Test at `tests/config.test.ts:134-145` enforces.
-- [ ] **CC-03** All themes must include 51 tokens (canonical list `tests/config.test.ts:12-64`). Tests enforce token completeness (`:119-125`) and preset↔theme mapping (`:112-117`).
+- [ ] **CC-02** Keep `schema/pie-ui.schema.json` enums in sync with `extensions/pie-ui/config.ts` constants. Tests enforce this.
+- [ ] **CC-03** All themes must include 51 tokens. Tests enforce token completeness and preset↔theme mapping.
 - [ ] **CC-04** Verify each new Pi API call with `npm run smoke:pi` and a manual `pi -e .` run before promising it. Docs are authoritative but field shapes occasionally drift.
 - [ ] **CC-05** Before adding any new event subscription, confirm event payload shape in a smoke test — extensions.md lists handlers but not always every field name.
 
@@ -132,24 +130,3 @@ README rewrite landed (comparison table, migration block, persona section, agent
 - nord palette: https://www.nordtheme.com
 - gruvbox palette: https://github.com/morhetz/gruvbox
 - dracula: https://draculatheme.com
-
----
-
-## 5. Order-of-operations recommendation
-
-Suggested sequence to balance viral demo and depth without half-finished work:
-
-1. ~~P0-04 (12+ presets)~~ — done.
-2. ~~P0-02 (`/pie capture` + vhs)~~ — done.
-3. ~~P0-03 (`/pie gallery`)~~ — done.
-4. ~~P0-01 (README rewrite)~~ — done. Per-preset screenshot grid still pending P0-02.
-5. ~~P0-05 (personas)~~ — done.
-6. ~~P0-06 (boot ASCII)~~ — done.
-7. ~~P1-08 (keybindings)~~ — done.
-8. ~~P1-12 (launch preset flag)~~ — done.
-9. ~~P1-15 (persona prompt suffix)~~ — done.
-10. ~~P1-11 (`/pie share`)~~ — done.
-11. ~~P0-07 (per-preset tool rendering)~~ — done.
-12. P2 / P3 as bandwidth allows.
-
-[Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.

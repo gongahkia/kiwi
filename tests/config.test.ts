@@ -467,6 +467,16 @@ test("every preset has a generated tape file (for /pie capture and vhs CI)", () 
 	}
 });
 
+test("every preset has a captured preview gif", () => {
+	for (const preset of PRESET_NAMES) {
+		const preview = join("assets", `preview-${preset}.gif`);
+		assert.equal(existsSync(preview), true, `preview missing for ${preset}: ${preview}`);
+		const body = readFileSync(preview);
+		assert.ok(body.length > 1024, `preview too small for ${preset}`);
+		assert.match(body.subarray(0, 6).toString("ascii"), /^GIF8[79]a$/);
+	}
+});
+
 test("captureDependencyLines reports missing capture tools", () => {
 	const paths: Record<string, string | undefined> = {
 		vhs: "/opt/homebrew/bin/vhs",

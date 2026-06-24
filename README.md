@@ -3,7 +3,7 @@
 Agent-editable Pi UI presets, themes, and config. 16 presets, 7 personas, one `pie_config` tool the Pi agent can drive directly.
 
 <div align="center">
-  <img width=85% alt="Fried Apple Pie preset gallery" src="./assets/fried-apple-pie-demo.gif" />
+  <img width=85% alt="Codex-inspired Fried Apple Pie preset preview" src="./assets/preview-codex-inspired.gif" />
 </div>
 
 ```sh
@@ -75,6 +75,18 @@ Theme-only (minimal layout, popular color schemes):
 - `nord` — frost blue
 - `gruvbox-dark` — warm yellow+green (dark)
 - `gruvbox-light` — warm yellow+green (light)
+
+## Gallery
+
+| `minimal` | `claude-inspired` | `codex-inspired` | `gemini-inspired` |
+|---|---|---|---|
+| <img alt="minimal preset preview" src="./assets/preview-minimal.gif" width="260" /> | <img alt="claude-inspired preset preview" src="./assets/preview-claude-inspired.gif" width="260" /> | <img alt="codex-inspired preset preview" src="./assets/preview-codex-inspired.gif" width="260" /> | <img alt="gemini-inspired preset preview" src="./assets/preview-gemini-inspired.gif" width="260" /> |
+| `opencode-inspired` | `aider-inspired` | `copilot-inspired` | `cursor-inspired` |
+| <img alt="opencode-inspired preset preview" src="./assets/preview-opencode-inspired.gif" width="260" /> | <img alt="aider-inspired preset preview" src="./assets/preview-aider-inspired.gif" width="260" /> | <img alt="copilot-inspired preset preview" src="./assets/preview-copilot-inspired.gif" width="260" /> | <img alt="cursor-inspired preset preview" src="./assets/preview-cursor-inspired.gif" width="260" /> |
+| `amp-inspired` | `dracula` | `tokyo-night` | `nord` |
+| <img alt="amp-inspired preset preview" src="./assets/preview-amp-inspired.gif" width="260" /> | <img alt="dracula preset preview" src="./assets/preview-dracula.gif" width="260" /> | <img alt="tokyo-night preset preview" src="./assets/preview-tokyo-night.gif" width="260" /> | <img alt="nord preset preview" src="./assets/preview-nord.gif" width="260" /> |
+| `catppuccin-mocha` | `catppuccin-latte` | `gruvbox-dark` | `gruvbox-light` |
+| <img alt="catppuccin-mocha preset preview" src="./assets/preview-catppuccin-mocha.gif" width="260" /> | <img alt="catppuccin-latte preset preview" src="./assets/preview-catppuccin-latte.gif" width="260" /> | <img alt="gruvbox-dark preset preview" src="./assets/preview-gruvbox-dark.gif" width="260" /> | <img alt="gruvbox-light preset preview" src="./assets/preview-gruvbox-light.gif" width="260" /> |
 
 ## Personas
 
