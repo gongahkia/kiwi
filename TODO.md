@@ -129,25 +129,6 @@ Build one style at a time:
 
 ---
 
-### P1-11 — `/pie share` to static registry
-
-- [ ] Subcommand that bundles current effective config + screenshot into a shareable payload.
-
-**Why:** community flywheel. Users export their config, others install via slug.
-
-**Files:** `extensions/pie-ui/index.ts` (subcommand), new `docs/registry.md` describing protocol, optional `scripts/share.sh`.
-
-**Sketch (MVP, server-stub):**
-- `/pie share` writes `pie-ui.json` + latest screenshot to `assets/share/<timestamp>/`.
-- `pi.exec("curl", ["-fsSL", "-X", "POST", "https://fried-apple-pie.dev/api/share", "-d@-"], { input: payload })` — server returns slug; if unreachable, fall back to printing local files and a `gh gist create` command suggestion.
-- Doc `docs/registry.md` defines payload schema (`{ config, screenshotPath, author, version, timestamp }`) and `pi install fap:<slug>` resolution behaviour for a future Pi-side resolver.
-
-**Refs:** `pi.exec` per extensions.md. `pi install` resolves `npm:` and git URLs per packages.md; custom protocols would need Pi-side hook.
-
-**Acceptance:** command works offline (prints fallback). Server-side optional. `docs/registry.md` documents protocol.
-
----
-
 ### P2-17 follow-ups (Pi event-bus integration)
 
 P2-17 main goal hit: `/pie history` and `/pie undo` ship; preset writes record `{ ts, scope, path, previous, next }` at `~/.pi/agent/pie-history.json`; rolling 50-entry cap; 3 new tests. Storage uses a plain JSON file instead of `pi.appendEntry` to avoid runtime-shape verification. Future agent: optionally also call `pi.appendEntry?.("pie:history", entry)` so other extensions on the same Pi session bus can react.
@@ -266,7 +247,7 @@ Third-party packages depend on `fried-apple-pie`, export a default `PresetDefini
 | Sticky bash | — | — | — | yes | — | n/a | n/a |
 | Recent-prompts overlay | — | — | — | yes (50) | — | n/a | n/a |
 | Persona / output-style | — | — | — | working-vibes | — | n/a | n/a |
-| Capture / share | — | — | — | — | — | n/a | n/a |
+| Capture / share | bundle | — | — | — | — | n/a | n/a |
 | Doctor / conflict check | **unique** | — | — | — | — | n/a | — |
 | Agent-readable config | **unique** | — | — | — | — | n/a | — |
 | JSON Patch agent API | **unique** | — | — | — | — | n/a | — |
@@ -317,8 +298,8 @@ Suggested sequence to balance viral demo and depth without half-finished work:
 7. ~~P1-08 (keybindings)~~ — done.
 8. ~~P1-12 (launch preset flag)~~ — done.
 9. ~~P1-15 (persona prompt suffix)~~ — done.
-10. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
-11. P1-11.
+10. ~~P1-11 (`/pie share`)~~ — done.
+11. P0-07 (per-preset tool rendering) — biggest engineering cost; ship one style end-to-end first (codex-inspired, dense).
 12. P2 / P3 as bandwidth allows.
 
 [Inference] This sequence ships visible artifacts every 1–2 days for the first week, which matches the viral-first signal from the project intent.

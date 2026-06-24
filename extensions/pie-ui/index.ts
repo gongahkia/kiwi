@@ -2,8 +2,8 @@ import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendi
 import { Key, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	applyJsonPatch,
@@ -29,9 +29,10 @@ import { PERSONA_NAMES, PERSONAS, resolvePersona, SPINNERS } from "./personas.ts
 import { createFooter, createHeader, pickEditAction, pickFooterSegments, pickGallery, pickPreset, pickShortcutAction, PIE_SHORTCUT_ACTIONS, type PieShortcutAction, type RenderState, showPanel, widgetLines } from "./render.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const assetsDir = resolve(__dirname, "../../assets");
 const themeDir = resolve(__dirname, "../../themes");
 const skillDir = resolve(__dirname, "../../skills");
-const tapesDir = resolve(__dirname, "../../assets/tapes");
+const tapesDir = resolve(assetsDir, "tapes");
 export const PIE_WELCOME_TYPE = "pie:welcome";
 export const PIE_LEADER_SHORTCUTS = [Key.ctrlAlt("p"), Key.ctrl("p")] as const;
 const configToolSchema = Type.Object({
@@ -124,7 +125,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Switch and inspect Fried Apple Pie UI presets",
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trimStart().split(/\s+/);
-			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "capture", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
+			if (parts.length <= 1) return ["preset", "mode", "persona", "gallery", "diff", "history", "undo", "import", "capture", "share", "edit", "welcome", "export", "show", "doctor", "reset"].filter((item) => item.startsWith(parts[0] ?? "")).map((item) => ({ label: item, value: item }));
 			if (parts[0] === "preset") return PRESET_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `preset ${name}` }));
 			if (parts[0] === "mode") return MODE_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `mode ${name}` }));
 			if (parts[0] === "persona") return PERSONA_NAMES.filter((name) => name.startsWith(parts[1] ?? "")).map((name) => ({ label: name, value: `persona ${name}` }));
@@ -450,6 +451,10 @@ async function handlePieCommand(args: string, ctx: ExtensionContext, pi: Extensi
 		await runCapture(loaded.effective.preset, ctx, pi);
 		return;
 	}
+	if (command === "share") {
+		await runShare(loaded.effective, ctx);
+		return;
+	}
 	if (command === "show") {
 		await showPanel(ctx, "Fried Apple Pie config", JSON.stringify(loaded, null, 2).split("\n"));
 		return;
@@ -545,6 +550,12 @@ async function runCapture(preset: PresetName | undefined, ctx: ExtensionContext,
 	} catch (error) {
 		ctx.ui.notify(`Fried Apple Pie capture failed: ${(error as Error).message}`, "error");
 	}
+}
+
+async function runShare(config: PieConfig, ctx: ExtensionContext): Promise<void> {
+	const bundle = writeShareBundle(config, ctx.cwd);
+	ctx.ui.notify(`Fried Apple Pie share bundle: ${bundle.dir}`, "info");
+	await showPanel(ctx, "Fried Apple Pie share", shareBundleLines(bundle));
 }
 
 // /pie gallery: live-cycle every preset in-memory without writing to disk. on q/esc restores snapshot.
@@ -828,6 +839,7 @@ function welcomeLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionConte
 		"",
 		"/pie edit            configure preset, theme, footer, header, widget, tools",
 		"/pie persona <name>  switch spinner+verb pack (default, terse, arc, startrek, medieval, pirate, mlengineer)",
+		"/pie share           bundle effective config + preview asset",
 		"/pie export          show effective config",
 		"/pie doctor          validate config and conflicts",
 		"/pie reset           return to minimal preset",
@@ -886,4 +898,76 @@ function commandPath(name: string): string | undefined {
 	if (result.status !== 0) return undefined;
 	const path = result.stdout.trim().split("\n")[0];
 	return path || undefined;
+}
+
+export type SharePayload = {
+	version: 1;
+	package: "fried-apple-pie";
+	createdAt: string;
+	config: PieConfig;
+	preset?: string;
+	theme?: string;
+	screenshotPath?: string;
+};
+
+export type ShareBundle = {
+	dir: string;
+	configPath: string;
+	payloadPath: string;
+	screenshotPath?: string;
+	payload: SharePayload;
+};
+
+export function writeShareBundle(config: PieConfig, cwd: string, ts = Date.now()): ShareBundle {
+	const stamp = shareTimestamp(ts);
+	const dir = resolve(cwd, "assets", "share", stamp);
+	mkdirSync(dir, { recursive: true });
+	const configPath = join(dir, "pie-ui.json");
+	writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+	const payload: SharePayload = {
+		version: 1,
+		package: "fried-apple-pie",
+		createdAt: new Date(ts).toISOString(),
+		config,
+		preset: config.preset,
+		theme: config.theme,
+	};
+	const source = shareScreenshotSource(config.preset);
+	let screenshotPath: string | undefined;
+	if (source) {
+		screenshotPath = join(dir, `screenshot${extname(source) || ".png"}`);
+		copyFileSync(source, screenshotPath);
+		payload.screenshotPath = basename(screenshotPath);
+	}
+	const payloadPath = join(dir, "payload.json");
+	writeFileSync(payloadPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+	return { dir, configPath, payloadPath, screenshotPath, payload };
+}
+
+export function shareTimestamp(ts: number): string {
+	return new Date(ts).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function shareScreenshotSource(preset: PresetName | undefined): string | undefined {
+	const candidates = [
+		preset ? resolve(assetsDir, `preview-${preset}.gif`) : undefined,
+		resolve(assetsDir, "fried-apple-pie-demo.gif"),
+		resolve(assetsDir, "fried-apple-pie-gallery.png"),
+	].filter((path): path is string => Boolean(path));
+	return candidates.find((path) => existsSync(path));
+}
+
+function shareBundleLines(bundle: ShareBundle): string[] {
+	const files = [bundle.configPath, bundle.payloadPath, bundle.screenshotPath].filter((path): path is string => Boolean(path));
+	return [
+		`bundle: ${bundle.dir}`,
+		`config: ${bundle.configPath}`,
+		`payload: ${bundle.payloadPath}`,
+		`screenshot: ${bundle.screenshotPath ?? "none"}`,
+		"",
+		"offline share:",
+		`gh gist create ${files.join(" ")}`,
+		"",
+		"registry upload is not implemented in v1. See docs/registry.md.",
+	];
 }

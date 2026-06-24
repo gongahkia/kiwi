@@ -103,6 +103,7 @@ Each preset has a default persona. Override with `/pie persona <name>` or set `p
 /pie undo                      restore previous preset state
 /pie import <path>             import a pie-ui.json from a local file
 /pie capture                   render the active preset's tape with vhs (needs vhs+ttyd+ffmpeg)
+/pie share                     bundle effective config + preview asset under assets/share/
 /pie edit                      interactive config editor
 /pie welcome                   show active config + command list
 /pie show                      dump loaded config (global + project + effective)
@@ -223,7 +224,7 @@ Preset apply modes:
 | Spinners / personas          | **10 / 7**      | 70+ / lib    | —               | AI "vibes"          | —                 | n/a            | n/a      |
 | Boot/welcome ASCII           | startup banner  | sign-in art  | —               | branded splash      | —                 | winbar         | —        |
 | Conditional segments         | **yes**         | n/a          | n/a             | context-warn        | flexible          | richest        | —        |
-| Capture / share              | capture / share planned | —     | —               | —                   | —                 | n/a            | n/a      |
+| Capture / share              | capture + share bundle | —      | —               | —                   | —                 | n/a            | n/a      |
 | Doctor / conflict check      | **yes**         | —            | —               | —                   | —                 | n/a            | —        |
 | Agent-readable config        | **yes**         | —            | —               | —                   | —                 | n/a            | —        |
 | JSON Patch agent API         | **yes**         | —            | —               | —                   | —                 | n/a            | —        |

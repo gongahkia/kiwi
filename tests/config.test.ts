@@ -7,7 +7,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { BANNERS } from "../extensions/pie-ui/banners.ts";
 import { applyJsonPatch, applyPresetConfig, effectiveConfig, FOOTER_SEGMENTS, materializeConfig, MODE_NAMES, PRESET_NAMES, PRESET_THEMES, validateConfig, WHEN_RULES } from "../extensions/pie-ui/config.ts";
 import { LAYER_NAMES } from "../extensions/pie-ui/layers.ts";
-import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession } from "../extensions/pie-ui/index.ts";
+import friedApplePieExtension, { applyEffectiveConfig, applyPie, captureDependencyLines, diffLines, emitPieEvent, historyLines, launchPresetOverride, maybeWarnContext, personaSystemPrompt, PIE_LEADER_SHORTCUTS, PIE_WELCOME_TYPE, rotateWorkingVerb, runPieConfigTool, shareTimestamp, shortcutLines, tapePathFor, welcomeConflictLines, welcomeMessageForSession, writeShareBundle } from "../extensions/pie-ui/index.ts";
 import { appendHistory, historyPath, popHistory, readConfigFile, readHistory, resolveWriteTarget } from "../extensions/pie-ui/paths.ts";
 import { createFooter, PIE_SHORTCUT_ACTIONS, shouldRenderSegment } from "../extensions/pie-ui/render.ts";
 
@@ -488,6 +488,25 @@ test("pie-preset flag applies a transient launch preset without writing config",
 		assert.equal(calls.themes.at(-1), "fried-apple-pie-codex");
 		const written = JSON.parse(readFileSync(join(cwd, ".pi", "pie-ui.json"), "utf8"));
 		assert.equal(written.preset, "minimal");
+	});
+});
+
+test("writeShareBundle writes effective config, payload, and preview asset", () => {
+	withTempHome((cwd) => {
+		const ts = Date.UTC(2026, 5, 24, 1, 2, 3);
+		const config = materializeConfig({ preset: "codex-inspired" });
+		const bundle = writeShareBundle(config, cwd, ts);
+		assert.equal(bundle.dir.endsWith(join("assets", "share", "20260624T010203Z")), true);
+		assert.equal(shareTimestamp(ts), "20260624T010203Z");
+		assert.equal(existsSync(bundle.configPath), true);
+		assert.equal(existsSync(bundle.payloadPath), true);
+		assert.equal(bundle.screenshotPath ? existsSync(bundle.screenshotPath) : false, true);
+		const writtenConfig = JSON.parse(readFileSync(bundle.configPath, "utf8"));
+		const payload = JSON.parse(readFileSync(bundle.payloadPath, "utf8"));
+		assert.equal(writtenConfig.preset, "codex-inspired");
+		assert.equal(payload.package, "fried-apple-pie");
+		assert.equal(payload.config.preset, "codex-inspired");
+		assert.equal(payload.screenshotPath, "screenshot.gif");
 	});
 });
 
