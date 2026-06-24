@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { getAuditLog } from "@/lib/audit-log";
+import { listAuditLogPage } from "@/lib/audit-log";
+import { pageInfo, paginationWindow } from "@/lib/pagination";
 
-export function GET() {
-  return NextResponse.json({ audit: getAuditLog() });
+export function GET(request: NextRequest) {
+  const window = paginationWindow(request.nextUrl.searchParams);
+  const page = listAuditLogPage(window.offset, window.limit);
+  return NextResponse.json({ audit: page.audit, page: pageInfo(page.total, window) });
 }

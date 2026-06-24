@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { getTeamEntries } from "@/lib/team-entries";
+import { pageInfo, paginationWindow } from "@/lib/pagination";
+import { listTeamEntriesPage } from "@/lib/team-entries";
 
-export function GET() {
+export function GET(request: NextRequest) {
+  const window = paginationWindow(request.nextUrl.searchParams);
+  const page = listTeamEntriesPage(window.offset, window.limit);
   return NextResponse.json({
-    entries: getTeamEntries(),
-    exported_at: new Date().toISOString()
+    entries: page.entries,
+    exported_at: new Date().toISOString(),
+    page: pageInfo(page.total, window)
   });
 }

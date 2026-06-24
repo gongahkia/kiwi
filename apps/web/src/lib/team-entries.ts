@@ -137,6 +137,16 @@ export function getTeamEntries(): TeamEntry[] {
   return structuredClone(teamEntries);
 }
 
+export function listTeamEntriesPage(offset: number, limit: number): {
+  entries: TeamEntry[];
+  total: number;
+} {
+  return {
+    entries: structuredClone(teamEntries.slice(offset, offset + limit)),
+    total: teamEntries.length
+  };
+}
+
 export function resetTeamEntriesForTest() {
   teamEntries = structuredClone(initialTeamEntries);
 }

@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { sendSuggestionOutcomeEmail } from "@/lib/email-notifications";
+import { pageInfo, paginationWindow } from "@/lib/pagination";
 import { approveSuggestion } from "@/lib/suggestion-approval";
 import {
-  getSuggestedEdits,
+  listSuggestedEditsPage,
   reviewSuggestedEdit,
   type SuggestedEditStatus
 } from "@/lib/suggestions";
@@ -14,8 +15,10 @@ function isStatus(value: unknown): value is SuggestedEditStatus {
   return value === "approved" || value === "pending" || value === "rejected";
 }
 
-export function GET() {
-  return NextResponse.json({ suggestions: getSuggestedEdits() });
+export function GET(request: NextRequest) {
+  const window = paginationWindow(request.nextUrl.searchParams);
+  const page = listSuggestedEditsPage(window.offset, window.limit);
+  return NextResponse.json({ page: pageInfo(page.total, window), suggestions: page.suggestions });
 }
 
 export async function PATCH(request: NextRequest) {

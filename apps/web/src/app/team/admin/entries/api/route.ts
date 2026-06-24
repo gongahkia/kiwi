@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { pageInfo, paginationWindow } from "@/lib/pagination";
 import {
   createTeamEntry,
   deleteTeamEntry,
-  getTeamEntries,
+  listTeamEntriesPage,
   updateTeamEntry,
   type TeamEntry,
   validateTeamEntry
@@ -33,8 +34,10 @@ function isTeamEntry(value: unknown): value is TeamEntry {
   return validateTeamEntry(entry as TeamEntry).length === 0;
 }
 
-export function GET() {
-  return NextResponse.json({ entries: getTeamEntries() });
+export function GET(request: NextRequest) {
+  const window = paginationWindow(request.nextUrl.searchParams);
+  const page = listTeamEntriesPage(window.offset, window.limit);
+  return NextResponse.json({ entries: page.entries, page: pageInfo(page.total, window) });
 }
 
 export async function POST(request: NextRequest) {

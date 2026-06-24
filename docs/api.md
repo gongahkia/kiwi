@@ -242,6 +242,18 @@ Errors:
 | `403` | `x-wat-team-id is required for team entries` | Team-scope write without team scope. |
 | `409` | `personal entry already exists` or `team entry already exists` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
 
+## Admin List And Export Pagination
+
+Team admin list/export endpoints accept `limit` and `cursor` query params:
+
+- `/team/admin/entries/api`
+- `/team/admin/audit/api`
+- `/team/admin/review/api`
+- `/team/admin/export/json`
+- `/team/admin/export/csv`
+
+JSON responses include `page.limit`, `page.total`, `page.cursor`, and `page.next_cursor`. CSV exports set `X-Page-Limit`, `X-Page-Total`, and `X-Next-Cursor` headers.
+
 ## Authenticated Surface Examples
 
 These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key`, and `WAT_TEAM_ID=team_123`.

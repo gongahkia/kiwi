@@ -148,6 +148,16 @@ export function getSuggestedEdits(): SuggestedEdit[] {
   return structuredClone(suggestedEdits);
 }
 
+export function listSuggestedEditsPage(offset: number, limit: number): {
+  suggestions: SuggestedEdit[];
+  total: number;
+} {
+  return {
+    suggestions: structuredClone(suggestedEdits.slice(offset, offset + limit)),
+    total: suggestedEdits.length
+  };
+}
+
 export function resetSuggestedEditsForTest() {
   suggestedEdits.length = 0;
 }
