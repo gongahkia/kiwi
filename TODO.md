@@ -257,7 +257,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 - [ ] Create one-command production-ish self-host path — done when Docker Compose with `.env` boots web + DB + migrations + seed + health checks without manual commands.
 - [ ] Add Helm chart values for auth/secrets/ingress/Postgres — done when chart install works with external Postgres and documented secret refs.
 - [ ] Add Fly.io deployment smoke test — done when Terraform output URL passes `/readyz` and `GET /api/v1/search?q=API`.
-- [ ] Add clean-machine install test to CI or release process — done when Compose is verified on a fresh Linux runner before releases.
 
 ### P1 — Hosted service operations
 - [ ] Provision hosted Postgres with pg_trgm and pgvector — done when migrations run and DB health is monitored.
