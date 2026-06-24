@@ -61,4 +61,5 @@ pnpm --filter @wat/ingest test
 - [Architecture](docs/architecture.md)
 - [API](docs/api.md)
 - [Contributing](docs/contributing.md)
+- [Limitations](docs/limitations.md)
 - [Security](docs/security.md)

@@ -312,7 +312,6 @@ Format: `- [ ] task — done when <condition>`. Phases run roughly in order; tas
 
 ### P2 — Documentation gaps that will cause failed adoption
 - [ ] Rewrite README around current maturity and install paths — done when README clearly distinguishes demo, self-host, hosted beta, extension, Slack, and MCP readiness.
-- [ ] Add honest limitations page — done when docs list unsupported/experimental areas: hosted auth, persistence status, extension store status, Slack status, MCP status, and corpus coverage.
 - [ ] Add team admin guide — done when admins can follow docs to create a team, import entries, manage members, issue keys, and review suggestions.
 - [ ] Add developer architecture guide for DB-backed layers — done when contributors can see how public/team/personal entries flow from DB to search and surfaces.
 - [ ] Add security model docs for tenants and keys — done when docs explain tenant isolation, key scopes, Slack permissions, extension privacy, and audit logs.
