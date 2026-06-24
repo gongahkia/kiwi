@@ -314,9 +314,6 @@ Context for any coding agent picking up these tasks (read this before touching c
   - `data/deltas/<date>/*.json` (corpus deltas; existing fields shown in `data/deltas/2026-06-19/example.json`)
   - `docs/db-schema.md` (must be kept in sync w/ Drizzle schema)
 
-### P1 — Contemporaries seed pass (manual curation)
-- [ ] Curate contemporaries for top-200 most-likely-searched concepts/systems in a single committed JSON delta at `data/deltas/2026-06-23/contemporaries-seed.json` — done when file contains 200 entries each w/ a `contemporaries` array of 2–6 peer alternatives. Examples that MUST be seeded: Kubernetes→{Docker Swarm, Nomad, ECS}; Kafka→{RabbitMQ, NATS, Redpanda, Pulsar}; Redis→{Memcached, KeyDB, DragonflyDB}; Postgres→{MySQL, MariaDB, CockroachDB, YugabyteDB}; Terraform→{Pulumi, OpenTofu, CloudFormation}; Datadog→{New Relic, Grafana Cloud, Honeycomb, Splunk}; Sentry→{Bugsnag, Rollbar, Honeybadger}; OAuth→{SAML, OIDC}; gRPC→{REST, GraphQL, JSON-RPC, Thrift}; Docker→{Podman, containerd, CRI-O}; Nginx→{Apache HTTPD, Caddy, HAProxy, Traefik}; Webpack→{Vite, esbuild, Rollup, Parcel, Turbopack}; React→{Vue, Svelte, Solid, Angular}; Stripe→{Adyen, Braintree, Checkout.com, Lemon Squeezy}; Auth0→{Clerk, WorkOS, Okta, FusionAuth, Supertokens}. Every alternative term in the file must either already exist in the public corpus or be queued for ingestion (lint enforces).
-
 ### P2 — Web app: Alternatives block
 
 ### Acceptance gate additions (must pass before declaring v0.1 — these replace/extend the existing acceptance gates)
