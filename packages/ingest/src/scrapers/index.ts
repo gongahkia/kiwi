@@ -10,6 +10,7 @@ import { jargonFileScraper } from "./jargon-file.js";
 import { kubernetesGlossaryScraper } from "./kubernetes-glossary.js";
 import { linuxFoundationGlossaryScraper } from "./linux-foundation-glossary.js";
 import { mdnGlossaryScraper } from "./mdn-glossary.js";
+import { mdnWebTechnologyScraper } from "./mdn-web-technology.js";
 import { nistCsrcGlossaryScraper } from "./nist-csrc-glossary.js";
 import { postgresqlGlossaryScraper } from "./postgresql-glossary.js";
 import { w3cGlossaryScraper } from "./w3c-glossary.js";
@@ -27,6 +28,7 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [kubernetesGlossaryScraper.name, kubernetesGlossaryScraper],
   [linuxFoundationGlossaryScraper.name, linuxFoundationGlossaryScraper],
   [mdnGlossaryScraper.name, mdnGlossaryScraper],
+  [mdnWebTechnologyScraper.name, mdnWebTechnologyScraper],
   [nistCsrcGlossaryScraper.name, nistCsrcGlossaryScraper],
   [postgresqlGlossaryScraper.name, postgresqlGlossaryScraper],
   [w3cGlossaryScraper.name, w3cGlossaryScraper],
