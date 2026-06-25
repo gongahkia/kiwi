@@ -104,31 +104,78 @@ Use it in HTML:
 
 ```html
 <kumeyuri-diagram
-  src="/diagrams/flow.mmd"
-  animate="trace"
+  source="sequenceDiagram&#10;Alice->>Bob: hello"
+  animate="playback"
   theme="github"
   dark-theme="tokyo-night"
+  charset="unicode"
   speed="1.25"
   autoplay
   controls
 ></kumeyuri-diagram>
 ```
 
+SSR/static fallback HTML can stay inside the element until render succeeds:
+
+```html
+<kumeyuri-diagram src="/diagrams/flow.mmd" animate="trace" controls>
+  <svg role="img" aria-label="Request flow fallback"></svg>
+  <noscript><img src="/diagrams/flow.svg" alt="Request flow"></noscript>
+</kumeyuri-diagram>
+```
+
+For long inline sources, keep the source in a non-executed script tag:
+
+```html
+<kumeyuri-diagram animate="trace" controls>
+  <svg role="img" aria-label="Request flow fallback"></svg>
+  <script type="text/plain" data-kumeyuri-source>
+graph TD
+  Browser --> Edge
+  Edge --> App
+  </script>
+</kumeyuri-diagram>
+```
+
 Supported attributes:
 
 | Attribute | Purpose |
 | --- | --- |
-| `src` | Fetch Mermaid source from a URL |
-| `inline` | Render Mermaid source from an attribute |
+| `src` | Fetch Mermaid source from a URL; `.kumecast` uses `renderCast()` |
+| `source` | Render Mermaid source from an attribute |
+| `inline` | Legacy alias for `source` |
 | `animate` | Inject `trace`, `playback`, `transitions`, or `none` directive |
 | `theme` | Base built-in theme |
 | `dark-theme` | SVG dark-mode built-in theme |
+| `charset` | `ascii` or `unicode` |
+| `width` | Positive minimum text-frame width |
+| `padding` | Non-negative SVG padding |
+| `font` | SVG font family |
 | `speed` | Positive playback speed factor |
+| `loop` | Repeat controls playback and set render option `repeat` |
 | `autoplay` | Start controls playback after render |
 | `controls` | Mount play/pause, restart, and scrub controls |
+| `reduced-motion` | `auto`, `reduce`, or `no-preference` |
+| `svg-animation` | `smil` or `css-keyframes` |
+| `csp` | Do not write inline styles for controls |
 
-If `src` and `inline` are both absent, the element uses its initial text
-content as Mermaid source.
+If `src`, `source`, `inline`, and script source are absent, the element uses its
+initial text content as Mermaid source.
+
+The custom element exposes:
+
+```ts
+interface KumeyuriDiagramElement extends HTMLElement {
+  play(): void;
+  pause(): void;
+  seek(frameIndex: number): void;
+  exportSvg(): string;
+}
+```
+
+Use `csp` when a site blocks inline styles. The element writes `part="controls"`,
+`part="play-button"`, `part="restart-button"`, `part="scrubber"`, and
+`data-kumeyuri-csp="true"` so page CSS can style the controls.
 
 ## React
 
@@ -150,7 +197,9 @@ export function App() {
         animate="trace"
         theme="github"
         darkTheme="tokyo-night"
+        charset="unicode"
         speed={1.25}
+        reducedMotion="auto"
         autoplay
         controls
       />
@@ -166,4 +215,5 @@ attributes, so it works across React 18/19 custom-element behavior.
 
 Parse, option, fetch, and render failures surface as thrown errors from the
 wrapper API. The custom element stores the error message in `data-error` and
-does not replace the element content with a partial render.
+restores its initial fallback HTML. If no fallback HTML exists, it renders a
+`<pre data-kumeyuri-error role="alert">` with the error message.

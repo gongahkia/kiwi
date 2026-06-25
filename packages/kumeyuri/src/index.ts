@@ -12,6 +12,8 @@ export type KumeyuriTheme =
   | "print-mono";
 export type KumeyuriCharset = "ascii" | "unicode";
 export type KumeyuriSvgAnimation = "smil" | "css-keyframes";
+export type KumeyuriAnimation = "trace" | "playback" | "transitions" | "none";
+export type KumeyuriReducedMotion = "auto" | "reduce" | "no-preference";
 
 export interface KumeyuriRenderOptions {
   theme?: KumeyuriTheme;
@@ -52,6 +54,13 @@ export interface KumeyuriClient {
 export interface KumeyuriElementOptions {
   tagName?: string;
   registry?: CustomElementRegistry;
+}
+
+export interface KumeyuriDiagramElement extends HTMLElement {
+  play(): void;
+  pause(): void;
+  seek(frameIndex: number): void;
+  exportSvg(): string;
 }
 
 let activeClient: KumeyuriClient | undefined;
@@ -108,14 +117,40 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
   }
   class KumeyuriDiagramElement extends HTMLElement {
     static get observedAttributes(): string[] {
-      return ["src", "inline", "animate", "theme", "dark-theme", "speed", "autoplay", "controls"];
+      return [
+        "src",
+        "source",
+        "inline",
+        "animate",
+        "theme",
+        "dark-theme",
+        "charset",
+        "width",
+        "padding",
+        "font",
+        "speed",
+        "loop",
+        "autoplay",
+        "controls",
+        "reduced-motion",
+        "svg-animation",
+        "csp",
+      ];
     }
 
     #inlineSource: string | null = null;
+    #fallbackHtml: string | null = null;
+    #lastSvg = "";
+    #output: KumeyuriRenderOutput | null = null;
+    #frameIndex = 0;
+    #playing = false;
     #playbackTimer: number | undefined;
+    #playButton: HTMLButtonElement | null = null;
+    #scrub: HTMLInputElement | null = null;
     #queued = false;
 
     connectedCallback(): void {
+      this.#fallbackHtml ??= this.innerHTML;
       this.#inlineSource ??= this.textContent ?? "";
       this.#queueRender();
     }
@@ -128,6 +163,26 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       if (this.isConnected) {
         this.#queueRender();
       }
+    }
+
+    play(): void {
+      this.#setPlaying(true);
+    }
+
+    pause(): void {
+      this.#setPlaying(false);
+    }
+
+    seek(frameIndex: number): void {
+      if (!Number.isFinite(frameIndex)) {
+        throw new Error(`invalid frame index ${JSON.stringify(frameIndex)}`);
+      }
+      this.#setPlaying(false);
+      this.#showFrame(Math.trunc(frameIndex));
+    }
+
+    exportSvg(): string {
+      return this.#lastSvg;
     }
 
     #queueRender(): void {
@@ -144,22 +199,37 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
     async #renderNow(): Promise<void> {
       try {
         this.#stopPlayback();
+        this.#output = null;
+        this.#frameIndex = 0;
+        this.#playing = false;
+        this.#playButton = null;
+        this.#scrub = null;
         const source = await this.#source();
         if (source.text.trim().length === 0) {
           return;
         }
+        const renderOptions = this.#renderOptions();
         const output = source.cast
-          ? renderCast(source.text, this.#renderOptions())
-          : render(withAnimationDirective(source.text, this.getAttribute("animate")), this.#renderOptions());
+          ? renderCast(source.text, renderOptions)
+          : render(withAnimationDirective(source.text, this.#animationMode()), renderOptions);
         this.dataset.autoplay = String(this.hasAttribute("autoplay"));
         this.dataset.controls = String(this.hasAttribute("controls"));
+        this.dataset.loop = String(this.hasAttribute("loop"));
+        this.dataset.reducedMotion = String(this.#shouldReduceMotion());
         this.removeAttribute("data-error");
+        this.#output = output;
+        this.#lastSvg = output.svg;
         this.innerHTML = output.svg;
         if (this.hasAttribute("controls")) {
           this.#mountControls(output);
         }
       } catch (error) {
         this.dataset.error = error instanceof Error ? error.message : String(error);
+        this.#lastSvg = "";
+        this.#output = null;
+        this.#playButton = null;
+        this.#scrub = null;
+        this.#restoreFallback(error);
       }
     }
 
@@ -172,9 +242,18 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         }
         return { text: await response.text(), cast: isKumecastSrc(src) };
       }
+      const source = this.getAttribute("source");
+      if (source !== null && source.length > 0) {
+        return { text: source, cast: false };
+      }
       const inline = this.getAttribute("inline");
       if (inline !== null && inline.length > 0) {
         return { text: inline, cast: false };
+      }
+      const script = this.querySelector<HTMLScriptElement>("script[type='text/plain'][data-kumeyuri-source]");
+      if (script?.textContent) {
+        this.#inlineSource = script.textContent;
+        return { text: script.textContent, cast: false };
       }
       return { text: this.#inlineSource ?? "", cast: false };
     }
@@ -189,6 +268,25 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       if (darkTheme) {
         options.darkTheme = darkTheme as KumeyuriTheme;
       }
+      const charset = this.getAttribute("charset");
+      if (charset) {
+        if (charset !== "ascii" && charset !== "unicode") {
+          throw new Error(`invalid charset ${JSON.stringify(charset)}: expected ascii or unicode`);
+        }
+        options.charset = charset;
+      }
+      const width = this.#positiveNumberAttribute("width");
+      if (width !== undefined) {
+        options.width = width;
+      }
+      const padding = this.#nonNegativeNumberAttribute("padding");
+      if (padding !== undefined) {
+        options.padding = padding;
+      }
+      const font = this.getAttribute("font");
+      if (font) {
+        options.font = font;
+      }
       const speed = this.getAttribute("speed");
       if (speed) {
         const parsed = Number(speed);
@@ -197,36 +295,85 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         }
         options.speed = parsed;
       }
+      if (this.hasAttribute("loop")) {
+        options.repeat = true;
+      }
+      const svgAnimation = this.getAttribute("svg-animation");
+      if (svgAnimation) {
+        if (svgAnimation !== "smil" && svgAnimation !== "css-keyframes") {
+          throw new Error(`invalid svg-animation ${JSON.stringify(svgAnimation)}: expected smil or css-keyframes`);
+        }
+        options.svgAnimation = svgAnimation;
+      }
       return options;
+    }
+
+    #positiveNumberAttribute(name: string): number | undefined {
+      const value = this.getAttribute(name);
+      if (!value) {
+        return undefined;
+      }
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(`invalid ${name} ${JSON.stringify(value)}: expected finite number > 0`);
+      }
+      return parsed;
+    }
+
+    #nonNegativeNumberAttribute(name: string): number | undefined {
+      const value = this.getAttribute(name);
+      if (!value) {
+        return undefined;
+      }
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        throw new Error(`invalid ${name} ${JSON.stringify(value)}: expected finite number >= 0`);
+      }
+      return parsed;
     }
 
     #mountControls(output: KumeyuriRenderOutput): void {
       if (output.frames.length === 0) {
         return;
       }
-      if (!this.style.position) {
+      const cspMode = this.hasAttribute("csp");
+      if (!cspMode && !this.style.position) {
         this.style.position = "relative";
       }
       const svg = this.querySelector("svg") as SVGSVGElement | null;
       svg?.pauseAnimations?.();
       const controls = document.createElement("div");
       controls.dataset.kumeyuriControls = "true";
-      controls.style.cssText =
-        "position:absolute;right:0.5rem;bottom:0.5rem;display:flex;gap:0.25rem;align-items:center;padding:0.25rem;background:rgba(255,255,255,0.9);border:1px solid currentColor;font:12px system-ui,sans-serif;";
+      controls.setAttribute("part", "controls");
+      if (cspMode) {
+        controls.dataset.kumeyuriCsp = "true";
+      } else {
+        controls.style.cssText =
+          "position:absolute;right:0.5rem;bottom:0.5rem;display:flex;gap:0.25rem;align-items:center;padding:0.25rem;background:rgba(255,255,255,0.9);border:1px solid currentColor;font:12px system-ui,sans-serif;";
+      }
       const play = document.createElement("button");
       play.type = "button";
       play.dataset.action = "play";
-      play.style.cssText = controlButtonStyle();
+      play.setAttribute("part", "play-button");
+      if (!cspMode) {
+        play.style.cssText = controlButtonStyle();
+      }
       const restart = document.createElement("button");
       restart.type = "button";
       restart.dataset.action = "restart";
       restart.textContent = "restart";
       restart.setAttribute("aria-label", "Restart animation");
-      restart.style.cssText = controlButtonStyle();
+      restart.setAttribute("part", "restart-button");
+      if (!cspMode) {
+        restart.style.cssText = controlButtonStyle();
+      }
       const scrub = document.createElement("input");
       scrub.type = "range";
       scrub.setAttribute("aria-label", "Animation frame");
-      scrub.style.cssText = "box-sizing:border-box;min-width:8rem;min-height:44px;";
+      scrub.setAttribute("part", "scrubber");
+      if (!cspMode) {
+        scrub.style.cssText = "box-sizing:border-box;min-width:8rem;min-height:44px;";
+      }
       scrub.min = "0";
       scrub.max = String(output.frames.length - 1);
       scrub.step = "1";
@@ -234,46 +381,63 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
       controls.append(play, scrub, restart);
       this.append(controls);
 
-      let index = 0;
-      let playing = this.hasAttribute("autoplay");
-      const setPlaying = (next: boolean): void => {
-        playing = next;
-        play.textContent = playing ? "pause" : "play";
-        play.setAttribute("aria-label", playing ? "Pause animation" : "Play animation");
-        this.#stopPlayback();
-        if (playing) {
-          schedule();
-        }
-      };
-      const showFrame = (next: number): void => {
-        index = Math.max(0, Math.min(output.frames.length - 1, next));
-        scrub.value = String(index);
-        for (const group of this.querySelectorAll<SVGGElement>("svg > g[id^='frame-']")) {
-          group.setAttribute("opacity", group.id === `frame-${index}` ? "1" : "0");
-        }
-      };
-      const schedule = (): void => {
-        if (!playing || output.frames.length < 2) {
-          return;
-        }
-        const delay = Math.max(1, output.frames[index]?.durationMs ?? 1);
-        this.#playbackTimer = window.setTimeout(() => {
-          showFrame(index + 1 >= output.frames.length ? 0 : index + 1);
-          schedule();
-        }, delay);
-      };
-
-      play.addEventListener("click", () => setPlaying(!playing));
+      this.#playButton = play;
+      this.#scrub = scrub;
+      play.addEventListener("click", () => this.#setPlaying(!this.#playing));
       restart.addEventListener("click", () => {
-        showFrame(0);
-        setPlaying(this.hasAttribute("autoplay"));
+        this.#showFrame(0);
+        this.#setPlaying(this.hasAttribute("autoplay") && !this.#shouldReduceMotion());
       });
       scrub.addEventListener("input", () => {
-        setPlaying(false);
-        showFrame(Number(scrub.value));
+        this.#setPlaying(false);
+        this.#showFrame(Number(scrub.value));
       });
-      showFrame(0);
-      setPlaying(playing);
+      this.#showFrame(0);
+      this.#setPlaying(this.hasAttribute("autoplay") && !this.#shouldReduceMotion());
+    }
+
+    #showFrame(next: number): void {
+      const output = this.#output;
+      if (!output || output.frames.length === 0) {
+        return;
+      }
+      this.#frameIndex = Math.max(0, Math.min(output.frames.length - 1, next));
+      if (this.#scrub) {
+        this.#scrub.value = String(this.#frameIndex);
+      }
+      for (const group of this.querySelectorAll<SVGGElement>("svg > g[id^='frame-']")) {
+        group.setAttribute("opacity", group.id === `frame-${this.#frameIndex}` ? "1" : "0");
+      }
+    }
+
+    #setPlaying(next: boolean): void {
+      this.#playing = next && !!this.#output && this.#output.frames.length > 1;
+      if (this.#playButton) {
+        this.#playButton.textContent = this.#playing ? "pause" : "play";
+        this.#playButton.setAttribute("aria-label", this.#playing ? "Pause animation" : "Play animation");
+      }
+      this.#stopPlayback();
+      if (this.#playing) {
+        this.#schedulePlayback();
+      }
+    }
+
+    #schedulePlayback(): void {
+      const output = this.#output;
+      if (!this.#playing || !output || output.frames.length < 2) {
+        return;
+      }
+      const delay = Math.max(1, output.frames[this.#frameIndex]?.durationMs ?? 1);
+      this.#playbackTimer = window.setTimeout(() => {
+        const next = this.#frameIndex + 1;
+        if (next >= output.frames.length && !this.hasAttribute("loop")) {
+          this.#showFrame(output.frames.length - 1);
+          this.#setPlaying(false);
+          return;
+        }
+        this.#showFrame(next >= output.frames.length ? 0 : next);
+        this.#schedulePlayback();
+      }, delay);
     }
 
     #stopPlayback(): void {
@@ -281,6 +445,44 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         window.clearTimeout(this.#playbackTimer);
         this.#playbackTimer = undefined;
       }
+    }
+
+    #animationMode(): KumeyuriAnimation | null {
+      const animate = this.getAttribute("animate");
+      if (!animate) {
+        return null;
+      }
+      if (!["trace", "playback", "transitions", "none"].includes(animate)) {
+        throw new Error(`invalid animate ${JSON.stringify(animate)}`);
+      }
+      return animate as KumeyuriAnimation;
+    }
+
+    #shouldReduceMotion(): boolean {
+      const preference = this.getAttribute("reduced-motion") ?? "auto";
+      if (preference === "reduce") {
+        return true;
+      }
+      if (preference === "no-preference") {
+        return false;
+      }
+      if (preference !== "auto") {
+        throw new Error(`invalid reduced-motion ${JSON.stringify(preference)}: expected auto, reduce, or no-preference`);
+      }
+      return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    }
+
+    #restoreFallback(error: unknown): void {
+      if (this.#fallbackHtml !== null && this.#fallbackHtml.trim().length > 0) {
+        this.innerHTML = this.#fallbackHtml;
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      const pre = document.createElement("pre");
+      pre.dataset.kumeyuriError = "true";
+      pre.setAttribute("role", "alert");
+      pre.textContent = message;
+      this.replaceChildren(pre);
     }
   }
   registry.define(tagName, KumeyuriDiagramElement);

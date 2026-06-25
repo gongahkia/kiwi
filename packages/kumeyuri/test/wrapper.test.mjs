@@ -10,6 +10,9 @@ const wasm = {
   },
   render(source, options) {
     calls.push({ kind: "mermaid", source, options });
+    if (source.includes("BAD")) {
+      throw new Error("bad diagram");
+    }
     return {
       svg: `<svg data-kind="mermaid" data-theme="${options.theme ?? "default"}" data-dark-theme="${options.darkTheme ?? ""}"></svg>`,
       frames: [
@@ -65,7 +68,13 @@ inlineElement.setAttribute("inline", "graph TD\\nA --> B");
 inlineElement.setAttribute("animate", "trace");
 inlineElement.setAttribute("theme", "github");
 inlineElement.setAttribute("dark-theme", "dracula");
+inlineElement.setAttribute("charset", "unicode");
+inlineElement.setAttribute("width", "80");
+inlineElement.setAttribute("padding", "12");
+inlineElement.setAttribute("font", "ui-monospace");
 inlineElement.setAttribute("speed", "1.5");
+inlineElement.setAttribute("loop", "");
+inlineElement.setAttribute("svg-animation", "css-keyframes");
 inlineElement.setAttribute("autoplay", "");
 inlineElement.setAttribute("controls", "");
 document.body.append(inlineElement);
@@ -73,16 +82,76 @@ await tick();
 
 assert.equal(inlineElement.dataset.autoplay, "true");
 assert.equal(inlineElement.dataset.controls, "true");
+assert.equal(inlineElement.dataset.loop, "true");
+assert.equal(inlineElement.dataset.reducedMotion, "false");
 assert.equal(inlineElement.querySelector("svg")?.getAttribute("data-theme"), "github");
 assert.equal(inlineElement.querySelector("svg")?.getAttribute("data-dark-theme"), "dracula");
 assert.match(calls.at(-1).source, /^%%\{ animate: 'trace' \}%%\n/);
 assert.equal(calls.at(-1).options.darkTheme, "dracula");
+assert.equal(calls.at(-1).options.charset, "unicode");
+assert.equal(calls.at(-1).options.width, 80);
+assert.equal(calls.at(-1).options.padding, 12);
+assert.equal(calls.at(-1).options.font, "ui-monospace");
 assert.equal(calls.at(-1).options.speed, 1.5);
+assert.equal(calls.at(-1).options.repeat, true);
+assert.equal(calls.at(-1).options.svgAnimation, "css-keyframes");
 assert.equal(inlineElement.querySelector("[data-kumeyuri-controls]") !== null, true);
 assert.equal(inlineElement.querySelector("input[type='range']")?.getAttribute("max"), "1");
 assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "pause");
 inlineElement.querySelector("button[data-action='play']")?.click();
 assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "play");
+inlineElement.play();
+assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "pause");
+inlineElement.pause();
+assert.equal(inlineElement.querySelector("button[data-action='play']")?.textContent, "play");
+inlineElement.seek(1);
+assert.equal(inlineElement.querySelector("input[type='range']")?.value, "1");
+assert.match(inlineElement.exportSvg(), /data-kind="mermaid"/);
+
+const sourceElement = document.createElement("kumeyuri-diagram");
+sourceElement.setAttribute("source", "graph TD\nS --> T");
+sourceElement.setAttribute("reduced-motion", "reduce");
+sourceElement.setAttribute("autoplay", "");
+sourceElement.setAttribute("controls", "");
+document.body.append(sourceElement);
+await tick();
+
+assert.equal(calls.at(-1).source, "graph TD\nS --> T");
+assert.equal(sourceElement.dataset.reducedMotion, "true");
+assert.equal(sourceElement.querySelector("button[data-action='play']")?.textContent, "play");
+
+const scriptSourceElement = document.createElement("kumeyuri-diagram");
+scriptSourceElement.innerHTML =
+  '<svg id="ssr-fallback"></svg><script type="text/plain" data-kumeyuri-source>graph TD\nQ --> R</script>';
+document.body.append(scriptSourceElement);
+await tick();
+
+assert.equal(calls.at(-1).source, "graph TD\nQ --> R");
+scriptSourceElement.setAttribute("theme", "nord");
+await tick();
+assert.equal(calls.at(-1).source, "graph TD\nQ --> R");
+assert.equal(calls.at(-1).options.theme, "nord");
+
+const cspElement = document.createElement("kumeyuri-diagram");
+cspElement.setAttribute("source", "graph TD\nC --> S");
+cspElement.setAttribute("controls", "");
+cspElement.setAttribute("csp", "");
+document.body.append(cspElement);
+await tick();
+
+assert.equal(cspElement.querySelector("[data-kumeyuri-csp]")?.getAttribute("style"), null);
+assert.equal(cspElement.querySelector("button[data-action='play']")?.getAttribute("style"), null);
+assert.equal(cspElement.querySelector("input[type='range']")?.getAttribute("style"), null);
+
+const badElement = document.createElement("kumeyuri-diagram");
+badElement.setAttribute("source", "BAD");
+badElement.innerHTML = '<svg id="fallback-svg"></svg><noscript><img src="/diagram.svg" alt="fallback"></noscript>';
+document.body.append(badElement);
+await tick();
+
+assert.equal(badElement.dataset.error, "bad diagram");
+assert.equal(badElement.querySelector("#fallback-svg") !== null, true);
+assert.equal(badElement.querySelector("noscript img")?.getAttribute("alt"), "fallback");
 
 const srcElement = document.createElement("kumeyuri-diagram");
 srcElement.setAttribute("src", "remote.mmd");

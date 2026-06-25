@@ -1,9 +1,14 @@
 import { Fragment, createElement, forwardRef, useEffect } from "react";
 import type { ForwardedRef, HTMLAttributes, ReactElement, ReactNode } from "react";
 import { defineKumeyuriElement, initKumeyuri } from "./index.js";
-import type { KumeyuriTheme, KumeyuriWasmModule } from "./index.js";
-
-export type KumeyuriAnimation = "trace" | "playback" | "transitions" | "none";
+import type {
+  KumeyuriAnimation,
+  KumeyuriCharset,
+  KumeyuriReducedMotion,
+  KumeyuriSvgAnimation,
+  KumeyuriTheme,
+  KumeyuriWasmModule,
+} from "./index.js";
 
 export interface KumeyuriProviderProps {
   moduleOrLoader?: KumeyuriWasmModule | Promise<KumeyuriWasmModule> | (() => Promise<KumeyuriWasmModule>);
@@ -18,13 +23,22 @@ export interface KumeyuriProviderProps {
 export interface KumeyuriDiagramProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   tagName?: string;
   src?: string;
+  source?: string;
   inline?: string;
   animate?: KumeyuriAnimation;
   theme?: KumeyuriTheme;
   darkTheme?: KumeyuriTheme;
+  charset?: KumeyuriCharset;
+  width?: number | string;
+  padding?: number | string;
+  font?: string;
   speed?: number | string;
+  loop?: boolean;
   autoplay?: boolean;
   controls?: boolean;
+  reducedMotion?: KumeyuriReducedMotion;
+  svgAnimation?: KumeyuriSvgAnimation;
+  csp?: boolean;
   children?: string;
 }
 
@@ -72,19 +86,31 @@ export const KumeyuriDiagram = forwardRef<HTMLElement, KumeyuriDiagramProps>(fun
   const {
     tagName = "kumeyuri-diagram",
     src,
+    source,
     inline,
     animate,
     theme,
     darkTheme,
+    charset,
+    width,
+    padding,
+    font,
     speed,
+    loop,
     autoplay,
     controls,
+    reducedMotion,
+    svgAnimation,
+    csp,
     children,
     ...rest
   } = props;
   const attrs: CustomElementProps = { ...rest, ref };
   if (src !== undefined) {
     attrs.src = src;
+  }
+  if (source !== undefined) {
+    attrs.source = source;
   }
   if (inline !== undefined) {
     attrs.inline = inline;
@@ -98,14 +124,38 @@ export const KumeyuriDiagram = forwardRef<HTMLElement, KumeyuriDiagramProps>(fun
   if (darkTheme !== undefined) {
     attrs["dark-theme"] = darkTheme;
   }
+  if (charset !== undefined) {
+    attrs.charset = charset;
+  }
+  if (width !== undefined) {
+    attrs.width = String(width);
+  }
+  if (padding !== undefined) {
+    attrs.padding = String(padding);
+  }
+  if (font !== undefined) {
+    attrs.font = font;
+  }
   if (speed !== undefined) {
     attrs.speed = String(speed);
+  }
+  if (loop) {
+    attrs.loop = "";
   }
   if (autoplay) {
     attrs.autoplay = "";
   }
   if (controls) {
     attrs.controls = "";
+  }
+  if (reducedMotion !== undefined) {
+    attrs["reduced-motion"] = reducedMotion;
+  }
+  if (svgAnimation !== undefined) {
+    attrs["svg-animation"] = svgAnimation;
+  }
+  if (csp) {
+    attrs.csp = "";
   }
   return createElement(tagName, attrs, children);
 });

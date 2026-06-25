@@ -51,31 +51,56 @@ async function runTarget(target, baseUrl) {
 
   try {
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("kumeyuri-diagram svg");
+    await page.waitForSelector("#primary svg");
+    await page.waitForSelector("#fallback svg");
     assert.deepEqual(pageErrors, []);
 
     const calls = await page.evaluate(() => window.__kumeyuriCalls);
-    assert.equal(calls.length, 1);
+    assert.ok(calls.length >= 2);
     assert.match(calls[0].source, /^%%\{ animate: 'trace' \}%%\n/);
     assert.equal(calls[0].options.theme, "github");
     assert.equal(calls[0].options.darkTheme, "tokyo-night");
     assert.equal(calls[0].options.speed, 1.5);
+    assert.equal(calls[1].source, "graph TD\nC --> D");
+    assert.equal(calls[1].options.repeat, true);
 
-    const diagram = page.locator("kumeyuri-diagram");
+    const diagram = page.locator("#primary");
     assert.equal(await diagram.getAttribute("data-autoplay"), "true");
     assert.equal(await diagram.getAttribute("data-controls"), "true");
-    assert.equal(await page.locator("button[data-action='play']").textContent(), "pause");
-    assert.equal(await page.locator("input[type='range']").getAttribute("max"), "1");
+    assert.equal(await diagram.getAttribute("data-loop"), "false");
+    assert.equal(await page.locator("#primary button[data-action='play']").textContent(), "pause");
+    assert.equal(await page.locator("#primary input[type='range']").getAttribute("max"), "1");
 
-    await page.locator("button[data-action='play']").click();
-    assert.equal(await page.locator("button[data-action='play']").textContent(), "play");
+    await page.locator("#primary button[data-action='play']").click();
+    assert.equal(await page.locator("#primary button[data-action='play']").textContent(), "play");
 
-    await page.locator("input[type='range']").evaluate((input) => {
+    await page.locator("#primary input[type='range']").evaluate((input) => {
       input.value = "1";
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    assert.equal(await page.locator("#frame-0").getAttribute("opacity"), "0");
-    assert.equal(await page.locator("#frame-1").getAttribute("opacity"), "1");
+    assert.equal(await page.locator("#primary #frame-0").getAttribute("opacity"), "0");
+    assert.equal(await page.locator("#primary #frame-1").getAttribute("opacity"), "1");
+
+    const exported = await diagram.evaluate((element) => {
+      element.seek(1);
+      element.play();
+      element.pause();
+      return element.exportSvg();
+    });
+    assert.match(exported, /role="img"/);
+
+    const fallback = page.locator("#fallback");
+    assert.equal(await fallback.getAttribute("data-autoplay"), "true");
+    assert.equal(await fallback.getAttribute("data-loop"), "true");
+    assert.equal(await fallback.getAttribute("data-reduced-motion"), "true");
+    assert.equal(await page.locator("#fallback button[data-action='play']").textContent(), "play");
+    assert.equal(await page.locator("#fallback [data-kumeyuri-csp='true']").getAttribute("style"), null);
+    assert.equal(await page.locator("#fallback button[data-action='play']").getAttribute("style"), null);
+    assert.equal(await page.locator("#fallback input[type='range']").getAttribute("style"), null);
+    const fallbackRect = await fallback.boundingBox();
+    const beforeRect = await page.evaluate(() => window.__fallbackBefore);
+    assert.ok(fallbackRect.width >= beforeRect.width - 1);
+    assert.ok(fallbackRect.height >= beforeRect.height - 1);
 
     await assertScreenshot(target.name, await diagram.screenshot({ animations: "disabled" }));
   } finally {
@@ -298,10 +323,35 @@ function pageHtml() {
       kumeyuri-diagram { display: block; width: max-content; color: #24292f; }
       kumeyuri-diagram svg { display: block; width: 360px; height: 180px; background: #ffffff; border: 1px solid #d0d7de; }
       kumeyuri-diagram [data-kumeyuri-controls='true'] { border-radius: 4px; }
+      kumeyuri-diagram[csp] { position: relative; }
+      kumeyuri-diagram [data-kumeyuri-csp='true'] {
+        position: absolute;
+        right: 0.5rem;
+        bottom: 0.5rem;
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+        padding: 0.25rem;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid currentColor;
+        font: 12px system-ui,sans-serif;
+      }
+      kumeyuri-diagram [data-kumeyuri-csp='true'] button {
+        box-sizing: border-box;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0 0.75rem;
+      }
+      kumeyuri-diagram [data-kumeyuri-csp='true'] input[type='range'] {
+        box-sizing: border-box;
+        min-width: 8rem;
+        min-height: 44px;
+      }
     </style>
   </head>
   <body>
     <kumeyuri-diagram
+      id="primary"
       inline="graph TD&#10;A --> B"
       animate="trace"
       theme="github"
@@ -310,11 +360,27 @@ function pageHtml() {
       autoplay
       controls
     ></kumeyuri-diagram>
+    <kumeyuri-diagram
+      id="fallback"
+      source="graph TD&#10;C --> D"
+      animate="trace"
+      theme="github"
+      autoplay
+      controls
+      loop
+      reduced-motion="reduce"
+      csp
+    >
+      <svg id="ssr-fallback" role="img" width="360" height="180"><title>fallback diagram</title></svg>
+      <noscript><img src="/diagrams/fallback.svg" alt="fallback diagram"></noscript>
+    </kumeyuri-diagram>
     <script type="module">
       import { defineKumeyuriElement, initKumeyuri } from "/dist/index.js";
 
       const calls = [];
       window.__kumeyuriCalls = calls;
+      const fallbackRect = document.querySelector("#fallback").getBoundingClientRect();
+      window.__fallbackBefore = { width: fallbackRect.width, height: fallbackRect.height };
       await initKumeyuri({
         async default() {
           window.__kumeyuriInitialized = true;

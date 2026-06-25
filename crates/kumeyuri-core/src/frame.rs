@@ -2750,6 +2750,12 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
     let text_style = theme.style_for(ThemeRole::Text);
     let muted_style = theme.style_for(ThemeRole::Muted);
     let node_style = theme.style_for(ThemeRole::Node);
+    let styles = CynefinRenderStyles {
+        palette,
+        text_style: &text_style,
+        muted_style: &muted_style,
+        node_style: &node_style,
+    };
     if let Some(title) = &ast.title {
         write_text_safe(&mut frame, 1, 0, &title.text, text_style.clone());
     }
@@ -2797,16 +2803,7 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
         ),
     ];
     for (kind, rect) in domains {
-        draw_cynefin_domain(
-            &mut frame,
-            cynefin_domain(ast, kind),
-            kind,
-            rect,
-            palette,
-            text_style.clone(),
-            muted_style.clone(),
-            node_style.clone(),
-        );
+        draw_cynefin_domain(&mut frame, cynefin_domain(ast, kind), kind, rect, styles);
     }
 
     let confusion = Rect {
@@ -2821,10 +2818,7 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
         cynefin_domain(ast, CynefinDomainKind::Confusion),
         CynefinDomainKind::Confusion,
         confusion,
-        palette,
-        text_style.clone(),
-        muted_style.clone(),
-        node_style,
+        styles,
     );
 
     if !ast.transitions.is_empty() {
@@ -2854,23 +2848,28 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
     frame
 }
 
+#[derive(Clone, Copy)]
+struct CynefinRenderStyles<'style> {
+    palette: GlyphPalette,
+    text_style: &'style CellStyle,
+    muted_style: &'style CellStyle,
+    node_style: &'style CellStyle,
+}
+
 fn draw_cynefin_domain(
     frame: &mut Frame,
     domain: Option<&CynefinDomain>,
     kind: CynefinDomainKind,
     rect: Rect,
-    palette: GlyphPalette,
-    text_style: CellStyle,
-    muted_style: CellStyle,
-    node_style: CellStyle,
+    styles: CynefinRenderStyles<'_>,
 ) {
-    draw_box(frame, rect, palette, node_style);
+    draw_box(frame, rect, styles.palette, styles.node_style.clone());
     write_text_safe(
         frame,
         rect.origin.x + 2,
         rect.origin.y,
         cynefin_domain_label(kind),
-        text_style.clone(),
+        styles.text_style.clone(),
     );
     let Some(domain) = domain else {
         write_text_safe(
@@ -2878,7 +2877,7 @@ fn draw_cynefin_domain(
             rect.origin.x + 2,
             rect.origin.y + 2,
             "empty",
-            muted_style,
+            styles.muted_style.clone(),
         );
         return;
     };
@@ -2894,7 +2893,7 @@ fn draw_cynefin_domain(
             rect.origin.x + 2,
             rect.origin.y + 2 + index as i32,
             &truncate_display_width(&text, (rect.size.width - 4) as usize),
-            text_style.clone(),
+            styles.text_style.clone(),
         );
     }
     if domain.items.len() > (rect.size.height - 3) as usize {
@@ -2907,15 +2906,12 @@ fn draw_cynefin_domain(
             rect.origin.x + 2,
             rect.bottom() - 2,
             &more,
-            muted_style,
+            styles.muted_style.clone(),
         );
     }
 }
 
-fn cynefin_domain<'ast>(
-    ast: &'ast CynefinAst,
-    kind: CynefinDomainKind,
-) -> Option<&'ast CynefinDomain> {
+fn cynefin_domain(ast: &CynefinAst, kind: CynefinDomainKind) -> Option<&CynefinDomain> {
     ast.domains.iter().find(|domain| domain.kind.value == kind)
 }
 
