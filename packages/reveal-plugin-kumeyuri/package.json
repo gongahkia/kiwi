@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "reveal.js plugin that loads kumeyuri .kumecast timelines inline in slides.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

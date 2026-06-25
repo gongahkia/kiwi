@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "Marp CLI engine hook that embeds kumeyuri .kumecast timelines.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

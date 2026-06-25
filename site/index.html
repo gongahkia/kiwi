@@ -15,6 +15,7 @@
         <a href="#install">Install</a>
         <a href="#formats">Formats</a>
         <a href="#embed">Embed</a>
+        <a href="#migration">Audit</a>
         <a href="#playground">Playground</a>
         <a href="#gallery">Gallery</a>
         <a href="#status">Status</a>
@@ -66,7 +67,8 @@ defineKumeyuriElement();</code></pre>
           <article>
             <h3>Static Sites</h3>
             <pre><code>kumeyuri render docs/diagram.mmd --format webp &gt; public/diagram.webp
-kumeyuri compat --json &gt; public/kumeyuri-compat.json</code></pre>
+kumeyuri compat --json &gt; public/kumeyuri-compat.json
+kumeyuri audit-mermaid ./docs --json &gt; public/kumeyuri-audit.json</code></pre>
           </article>
         </div>
       </section>
@@ -82,6 +84,18 @@ kumeyuri compat --json &gt; public/kumeyuri-compat.json</code></pre>
           <li><strong>Raster</strong><span>GIF, APNG, and WebP for feeds and slide decks.</span></li>
           <li><strong>WASM</strong><span>A typed wrapper and custom element for browser embeds.</span></li>
         </ul>
+      </section>
+
+      <section id="migration" class="embed" aria-labelledby="migration-title">
+        <div>
+          <p class="section-kicker">Migration Audit</p>
+          <h2 id="migration-title">Scan existing Mermaid content before replacing Mermaid.js.</h2>
+        </div>
+        <div class="trust-list">
+          <p><code>audit-mermaid</code> scans <code>.mmd</code>, <code>.mermaid</code>, Markdown, and MDX files. It reports parsed/rendered status, animated vs static-only support, frame counts, ignored Mermaid config, and migration suggestions.</p>
+          <pre><code>kumeyuri audit-mermaid ./docs --json &gt; kumeyuri-audit.json
+kumeyuri audit-mermaid ./docs ./site/content</code></pre>
+        </div>
       </section>
 
       <section id="embed" class="embed" aria-labelledby="embed-title">
@@ -202,13 +216,21 @@ kumeyuri compat --json &gt; public/kumeyuri-compat.json</code></pre>
           <h2 id="trust-title">Designed for pinned, verifiable website deploys.</h2>
         </div>
         <div class="trust-list">
-          <p>Publish artifacts should include npm provenance, release checksums, SBOM output, and SRI hashes for static browser assets. This site ships a generated `integrity.json` manifest for the checked-in browser files.</p>
+          <p>Publish artifacts include GitHub attestations, Sigstore bundles, npm provenance metadata, npm SBOM output, and SRI hashes for static browser assets. This site ships a generated `integrity.json` manifest for the checked-in browser files.</p>
           <pre><code>npm pack --dry-run
 npm run integrity:site
+npm run release:trust
 cargo audit
 cargo deny check
 scripts/check-wasm-budget.sh
-shasum -a 256 site/pkg/*</code></pre>
+shasum -a 256 site/pkg/*
+
+&lt;script
+  type="module"
+  src="/pkg/kumeyuri_render_wasm.js"
+  integrity="sha384-Th8ISiYUbgAB2kJdO/e1iOeh0H+Rk1g0dGaZgpFrsas1wfYpPmFlFyJO+d5Yzj7F"
+  crossorigin="anonymous"
+&gt;&lt;/script&gt;</code></pre>
         </div>
       </section>
 
@@ -219,7 +241,10 @@ shasum -a 256 site/pkg/*</code></pre>
         </div>
         <dl class="status-grid">
           <div><dt>Compatibility</dt><dd id="status-compat">31 families; 40 root spellings</dd></div>
+          <div><dt>Mermaid Parity</dt><dd id="status-parity">31 kumeyuri renders; 28 Mermaid CLI renders; 3 deltas</dd></div>
+          <div><dt>Animation Quality</dt><dd id="status-motion">11 animated; 20 static-only; 0 gate failures</dd></div>
           <div><dt>WASM gzip</dt><dd id="status-wasm">487,660 / 500,000 bytes</dd></div>
+          <div><dt>Release Trust</dt><dd id="status-release">npm provenance, SBOM, SRI, attestations</dd></div>
           <div><dt>Browser QA</dt><dd>Chromium, Firefox, WebKit, mobile Chromium, mobile WebKit</dd></div>
           <div><dt>Perf budget</dt><dd>Web first content render &lt; 250ms p95</dd></div>
         </dl>

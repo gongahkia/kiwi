@@ -8,9 +8,4 @@ Bob-->>Alice: Response
 Note over Alice,Bob: Shared context
 loop Retry
 Alice->Bob: Ping
-alt Success
-Bob-->>Alice: OK
-opt Cache
-Alice--)Bob: Open message
-par Worker
-Alice-xBob: Stop
+end

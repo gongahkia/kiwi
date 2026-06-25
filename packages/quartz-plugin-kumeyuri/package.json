@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "Quartz transformer plugin for kumeyuri .kumecast embeds.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

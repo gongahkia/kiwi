@@ -1,0 +1,679 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/check-mermaid-parity.mjs",
+  "mermaidVersion": "11.15.0",
+  "sources": {
+    "fixtures": "tests/fuzz/official-mermaid/manifest.json",
+    "kumeyuri": "target/debug/kumeyuri",
+    "mermaid": "npx mmdc"
+  },
+  "counts": {
+    "fixtures": 31,
+    "kumeyuriParsed": 31,
+    "kumeyuriRendered": 31,
+    "mermaidRendered": 28,
+    "animatedPartial": 11,
+    "staticOnlyPartial": 20,
+    "unsupported": 0,
+    "deltas": 3
+  },
+  "fixtures": [
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/flowchart.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/flowchart.html",
+      "rootType": "flowchart",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 5,
+        "animationSupport": "animated-partial",
+        "svgBytes": 31490,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 15849,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/sequence.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/sequenceDiagram.html",
+      "rootType": "sequenceDiagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 4,
+        "animationSupport": "animated-partial",
+        "svgBytes": 19553,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 24793,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/state.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/stateDiagram.html",
+      "rootType": "stateDiagram-v2",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 9,
+        "animationSupport": "animated-partial",
+        "svgBytes": 22171,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 30357,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/class.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/classDiagram.html",
+      "rootType": "classDiagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 2,
+        "animationSupport": "animated-partial",
+        "svgBytes": 5013,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 18580,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/er.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html",
+      "rootType": "erDiagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 2,
+        "animationSupport": "animated-partial",
+        "svgBytes": 4289,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 28582,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/gantt.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/gantt.html",
+      "rootType": "gantt",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 3,
+        "animationSupport": "animated-partial",
+        "svgBytes": 8353,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 9443,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/pie.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/pie.html",
+      "rootType": "pie",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 4,
+        "animationSupport": "animated-partial",
+        "svgBytes": 17093,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 4322,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/quadrant.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/quadrantChart.html",
+      "rootType": "quadrantChart",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8191,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 5474,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/requirement.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/requirementDiagram.html",
+      "rootType": "requirementDiagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 18740,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 17037,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/cynefin.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/cynefin.html",
+      "rootType": "cynefin-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8556,
+        "error": null
+      },
+      "mermaid": {
+        "status": "failed",
+        "svgBytes": 0,
+        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: cynefin-beta\ntitle Incident Response\ncomplex\n  \"Investigate root cause\"\ncomplicated\n  \"Expert review needed\"\nclear\n  \"Apply known fix\""
+      },
+      "deltas": [
+        "mermaid-render-failed"
+      ]
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/gitgraph.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/gitgraph.html",
+      "rootType": "gitGraph",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 6,
+        "animationSupport": "animated-partial",
+        "svgBytes": 63973,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 12733,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/c4.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/c4.html",
+      "rootType": "C4Container",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 11230,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 25305,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/mindmap.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/mindmap.html",
+      "rootType": "mindmap",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 3,
+        "animationSupport": "animated-partial",
+        "svgBytes": 19438,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 33717,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/timeline.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/timeline.html",
+      "rootType": "timeline",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 4,
+        "animationSupport": "animated-partial",
+        "svgBytes": 18185,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 19632,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/zenuml.mmd",
+      "sourceUrl": "https://mermaid.ai/open-source/syntax/zenuml.html",
+      "rootType": "zenuml",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 6093,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 6592,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/sankey.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/sankey.html",
+      "rootType": "sankey-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 1858,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 4608,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/xychart.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/xyChart.html",
+      "rootType": "xychart-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8150,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 7057,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/block.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/block.html",
+      "rootType": "block",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 6927,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 10000,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/packet.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/packet.html",
+      "rootType": "packet",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 24053,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 8856,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/kanban.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/kanban.html",
+      "rootType": "kanban",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 4147,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 16535,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/architecture.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/architecture.html",
+      "rootType": "architecture-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 3888,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 8602,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/radar.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/radar.html",
+      "rootType": "radar-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 5582,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 8722,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/railroad.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/railroad.html",
+      "rootType": "railroad-diagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 4065,
+        "error": null
+      },
+      "mermaid": {
+        "status": "failed",
+        "svgBytes": 0,
+        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: railroad-diagram\ntitle \"Number Grammar\"\nsign = \"+\" | \"-\" ;\nnumber = sign? digit+ ;\ndigit = \"0\" | \"1\" | \"2\" ;\ndetectType (https://mermaid-cli-intercept.invalid/Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/mermaid/dist/chunks/mermaid.esm/chunk-Q52JI7PB.mjs:36:9)\n    at $eval ($eval at renderMermaid (file:///Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/@mermaid-js/mermaid-cli/src/index.js:328:33), <anonymous>:48:45)\n    at #evaluate (file:///Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/ExecutionContext.js:388:19)"
+      },
+      "deltas": [
+        "mermaid-render-failed"
+      ]
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/swimlanes.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/swimlanes.html",
+      "rootType": "swimlane",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 4765,
+        "error": null
+      },
+      "mermaid": {
+        "status": "failed",
+        "svgBytes": 0,
+        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: swimlane LR\nsubgraph Customer\n  request[Request service]\n  receive[Receive update]\nend\nsubgraph Support\n  triage[Triage request]\n  answer[Send answer]"
+      },
+      "deltas": [
+        "mermaid-render-failed"
+      ]
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/eventmodeling.mmd",
+      "sourceUrl": "https://mermaid.ai/open-source/syntax/eventmodeling.html",
+      "rootType": "eventmodeling",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8779,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 4425,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/treemap.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/treemap.html",
+      "rootType": "treemap-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8239,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 8981,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/venn.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/venn.html",
+      "rootType": "venn-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 8653,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 4538,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/ishikawa.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/ishikawa.html",
+      "rootType": "ishikawa-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 20231,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 11452,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/wardley.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/wardley.html",
+      "rootType": "wardley-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 12517,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 5100,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/tree_view.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/treeView.html",
+      "rootType": "treeView-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 1,
+        "animationSupport": "static-only-partial",
+        "svgBytes": 3124,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 4067,
+        "error": null
+      },
+      "deltas": []
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/journey.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/userJourney.html",
+      "rootType": "journey",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass",
+      "kumeyuri": {
+        "parseOk": true,
+        "renderOk": true,
+        "frames": 5,
+        "animationSupport": "animated-partial",
+        "svgBytes": 22520,
+        "error": null
+      },
+      "mermaid": {
+        "status": "rendered",
+        "svgBytes": 12224,
+        "error": null
+      },
+      "deltas": []
+    }
+  ]
+}

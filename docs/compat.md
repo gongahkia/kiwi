@@ -1,6 +1,6 @@
 # Mermaid compatibility
 
-Last checked: 2026-06-18.
+Last checked: 2026-06-25.
 
 Upstream reference: Mermaid docs `11.15.0`.
 
@@ -22,6 +22,11 @@ release-facing compatibility tracker.
 - Unsupported roots fail at parser-header detection instead of rendering partial output.
 - Mermaid config/frontmatter/init/theme/layout/click behavior is not compatibility
   surface today, except `%%{ animate: ... }%%` for kumeyuri animation.
+- `site/parity.json` is the release-facing fixture delta report. Current local
+  evidence: kumeyuri renders 31/31 fixtures; Mermaid CLI renders 28/31. The
+  Mermaid CLI deltas are `cynefin-beta`, `railroad-diagram`, and `swimlane`.
+- `site/motion.json` is the animation quality report. Current local evidence:
+  11 animated partial families, 20 static-only partial families, 0 gate failures.
 
 ## Release checklist
 
@@ -42,7 +47,10 @@ rg -n "pub enum DiagramKind|parse_.*_header|C4Context|C4Container|C4Component|C4
 find tests/snapshots -path '*/input/*.mmd' -print | sed 's#tests/snapshots/##; s#/input/.*##' | sort | uniq -c
 npm run test:compat
 npm run test:compat-versions
+npm run test:mermaid-parity
+npm run test:animation-quality
 npm run test:coverage-gate
 kumeyuri compat --json
+kumeyuri audit-mermaid ./docs --json
 npm run docs:build
 ```

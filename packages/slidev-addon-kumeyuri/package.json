@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "Slidev addon exposing a <KumeyuriDiagram> component for .kumecast timelines.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

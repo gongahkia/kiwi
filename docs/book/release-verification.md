@@ -3,6 +3,10 @@
 Official release artifacts are expected to have GitHub provenance attestations
 and keyless Sigstore bundles when the repository is public.
 
+npm workspaces are expected to publish through GitHub OIDC trusted publishing,
+with `publishConfig.provenance=true`, no `NPM_TOKEN`/`NODE_AUTH_TOKEN`, and an
+uploaded npm SBOM artifact from the publish workflow.
+
 Download a release:
 
 ```bash
@@ -38,3 +42,16 @@ done
 
 If an artifact has no matching `.sigstore.json` bundle or GitHub attestation,
 treat the release as unverifiable.
+
+Verify repository release-trust metadata:
+
+```bash
+npm run release:trust
+```
+
+Verify npm package provenance and SBOM after publish:
+
+```bash
+npm view kumeyuri dist.integrity repository version
+npm sbom --json > npm-sbom.cdx.json
+```

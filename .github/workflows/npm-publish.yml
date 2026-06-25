@@ -1,0 +1,47 @@
+name: npm Publish
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish npm workspaces
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package trust policy
+        run: npm run release:trust
+
+      - name: Generate npm SBOM
+        run: npm sbom --workspaces --json > npm-sbom.cdx.json
+
+      - name: Upload npm SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-sbom
+          path: npm-sbom.cdx.json
+          if-no-files-found: error
+
+      - name: Publish with provenance
+        run: npm publish --workspaces --access public --provenance

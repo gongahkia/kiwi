@@ -12,6 +12,9 @@ const copy = document.querySelector("#playground-copy");
 const download = document.querySelector("#playground-download");
 const statusCompat = document.querySelector("#status-compat");
 const statusWasm = document.querySelector("#status-wasm");
+const statusParity = document.querySelector("#status-parity");
+const statusMotion = document.querySelector("#status-motion");
+const statusRelease = document.querySelector("#status-release");
 
 let renderToken = 0;
 let lastSvg = "";
@@ -94,6 +97,18 @@ function updateStatusBoard(data) {
   }
   if (statusWasm && data.wasm) {
     statusWasm.textContent = `${data.wasm.gzipBytes.toLocaleString()} / ${data.wasm.gzipBudget.toLocaleString()} bytes`;
+  }
+  if (statusParity && data.parity) {
+    statusParity.textContent = `${data.parity.kumeyuriRendered} kumeyuri renders; ${data.parity.mermaidRendered} Mermaid CLI renders; ${data.parity.deltas} deltas`;
+  }
+  if (statusMotion && data.motion) {
+    statusMotion.textContent = `${data.motion.animatedPartial} animated; ${data.motion.staticOnlyPartial} static-only; ${data.motion.failures} gate failures`;
+  }
+  if (statusRelease && data.releaseTrust) {
+    const enabled = Object.entries(data.releaseTrust)
+      .filter(([, value]) => value)
+      .map(([key]) => key.replaceAll(/([A-Z])/g, " $1").toLowerCase());
+    statusRelease.textContent = enabled.join("; ");
   }
 }
 

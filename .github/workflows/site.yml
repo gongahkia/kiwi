@@ -7,7 +7,11 @@ on:
       - "book.toml"
       - "docs/book/**"
       - "packages/kumeyuri/**"
+      - "tests/fuzz/official-mermaid/**"
       - "scripts/verify-site.mjs"
+      - "scripts/check-mermaid-parity.mjs"
+      - "scripts/check-animation-quality.mjs"
+      - "scripts/check-release-trust.mjs"
       - "package.json"
       - ".github/workflows/site.yml"
   push:
@@ -18,7 +22,11 @@ on:
       - "book.toml"
       - "docs/book/**"
       - "packages/kumeyuri/**"
+      - "tests/fuzz/official-mermaid/**"
       - "scripts/verify-site.mjs"
+      - "scripts/check-mermaid-parity.mjs"
+      - "scripts/check-animation-quality.mjs"
+      - "scripts/check-release-trust.mjs"
       - "package.json"
       - ".github/workflows/site.yml"
   workflow_dispatch:

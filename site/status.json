@@ -11,6 +11,23 @@
     "gzipBytes": 487660,
     "gzipBudget": 500000
   },
+  "parity": {
+    "fixtures": 31,
+    "kumeyuriRendered": 31,
+    "mermaidRendered": 28,
+    "deltas": 3
+  },
+  "motion": {
+    "animatedPartial": 11,
+    "staticOnlyPartial": 20,
+    "failures": 0
+  },
+  "releaseTrust": {
+    "npmProvenance": true,
+    "npmTrustedPublishingWorkflow": true,
+    "sbom": true,
+    "sriManifest": true
+  },
   "browserQa": [
     "chromium",
     "firefox",

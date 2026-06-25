@@ -29,11 +29,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Check Mermaid docs roots
         run: npm run test:compat
 
       - name: Check compatibility doc versions
         run: npm run test:compat-versions
+
+      - name: Check Mermaid parity harness
+        run: npm run test:mermaid-parity
+
+      - name: Check animation quality gate
+        run: npm run test:animation-quality
 
   open-drift-issue:
     name: Open Drift Issue

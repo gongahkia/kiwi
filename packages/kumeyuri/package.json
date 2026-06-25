@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "Typed browser wrapper for kumeyuri WASM rendering.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

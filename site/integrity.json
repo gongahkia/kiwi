@@ -11,9 +11,9 @@
     {
       "path": "site/pkg/kumeyuri_render_wasm_bg.wasm",
       "webPath": "pkg/kumeyuri_render_wasm_bg.wasm",
-      "bytes": 1220346,
-      "sha256": "e99bda949a87e505b3ff00ac7f19418b28cbbefab011bd544718dac3d176ebe7",
-      "sri": "sha384-8ObhOc3M9+1vCf+0DJIOFAUw66+nnZsRdY9uFnFdKkMROoHsu7oZzaezLMbEOR43"
+      "bytes": 1220348,
+      "sha256": "5bb698ba8924827e64555106212b934c6b2cc4a1593bedd89753feef6440d4a8",
+      "sri": "sha384-GkansE7FyZFjdnh8jjxU3Aq7HMzy3hp5l2znNB9hbsi/axgVw5383urwt02gz+4I"
     },
     {
       "path": "site/compat.json",
@@ -23,11 +23,25 @@
       "sri": "sha384-Yf/6dNeUDFP6bHPI3MKaV6qLVS43Vv1w6F1dAkiE1jXx6mMAxbXtu2/WrewZ2S5N"
     },
     {
+      "path": "site/parity.json",
+      "webPath": "parity.json",
+      "bytes": 19665,
+      "sha256": "20b0983e252c848fcc43d0ff114c09755a4aff992d8291ef61eeef352e41c723",
+      "sri": "sha384-nKrmoolDvoNdMXMMKnCjy3poGGxexAqeU0BpdFKPZIL2XUqFVVI9UZ9xBqefHGdl"
+    },
+    {
+      "path": "site/motion.json",
+      "webPath": "motion.json",
+      "bytes": 13196,
+      "sha256": "99a6b4195ec951240deaa1f3b69b3b552581d13a56fe1d731d899df9cf9183ec",
+      "sri": "sha384-69diytPzMMN7QrSw9tonlNalZU4bqQaVjhdledpESVIkXtbrBUj5ukb2LQLTC98x"
+    },
+    {
       "path": "site/status.json",
       "webPath": "status.json",
-      "bytes": 411,
-      "sha256": "0847299a5e4668332373229c31204d9f3e01119778ada8e0501ad1af0d0742b4",
-      "sri": "sha384-PXHHQEvhYQxM3xgGAWrfmitQwiVugs+smbNtVuPErQsaAqAbJXUCRfCvoRDYJ0sb"
+      "bytes": 750,
+      "sha256": "7110d3f743c1569ad619c2ffbd20696aea05602e89b597aa06d430f5b800b7cb",
+      "sri": "sha384-YWVga/EOXspwkMH+usMWYNho9rr21L6lQP82Ymxo174BFEsGWjTIACtZ7ChJ6/yl"
     },
     {
       "path": "site/favicon.svg",
@@ -46,9 +60,9 @@
     {
       "path": "packages/kumeyuri/wasm/kumeyuri_render_wasm_bg.wasm",
       "webPath": null,
-      "bytes": 1220346,
-      "sha256": "e99bda949a87e505b3ff00ac7f19418b28cbbefab011bd544718dac3d176ebe7",
-      "sri": "sha384-8ObhOc3M9+1vCf+0DJIOFAUw66+nnZsRdY9uFnFdKkMROoHsu7oZzaezLMbEOR43"
+      "bytes": 1220348,
+      "sha256": "5bb698ba8924827e64555106212b934c6b2cc4a1593bedd89753feef6440d4a8",
+      "sri": "sha384-GkansE7FyZFjdnh8jjxU3Aq7HMzy3hp5l2znNB9hbsi/axgVw5383urwt02gz+4I"
     },
     {
       "path": "packages/kumeyuri/wasm/kumeyuri_render_wasm.d.ts",

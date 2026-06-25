@@ -9,9 +9,12 @@ Covered surfaces:
 - GitHub Pages landing site under `site/`;
 - live playground with copyable embeds and SVG download;
 - `kumeyuri compat --json` for machine-readable support;
+- `site/parity.json` for Mermaid CLI vs kumeyuri fixture deltas;
+- `site/motion.json` for animation quality gates;
 - line/column parse diagnostics;
+- `kumeyuri audit-mermaid` for drop-in migration scans;
 - runtime hardening with `max-source-bytes`, `fetch-timeout-ms`, `lazy`, and `csp`;
-- distribution trust checks and `site/integrity.json`;
+- distribution trust checks, npm provenance metadata, npm SBOM workflow, and `site/integrity.json`;
 - adoption gallery;
 - animation intent by diagram family;
 - static-first framework plugins;
@@ -22,6 +25,9 @@ Verification:
 ```bash
 npm run site:verify
 npm run integrity:site:check
+npm run release:trust
+npm run test:mermaid-parity
+npm run test:animation-quality
 npm run test:ts-package
 npm run test:web-component:browsers
 npm run test:web-component:a11y

@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "Rehype plugin that renders Mermaid code blocks with kumeyuri.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gongahkia/kumeyuri.git",

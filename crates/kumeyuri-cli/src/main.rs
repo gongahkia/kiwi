@@ -115,6 +115,12 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    AuditMermaid {
+        #[arg(value_name = "PATH", required = true)]
+        paths: Vec<PathBuf>,
+        #[arg(long)]
+        json: bool,
+    },
     Layout {
         #[arg(value_name = "FILE")]
         file: PathBuf,
@@ -351,6 +357,7 @@ fn run() -> Result<(), String> {
         } => export_file(&file, format, &options, max_input_bytes),
         Command::Convert { cast, format } => convert_file(&cast, format, max_input_bytes),
         Command::Lint { file, json } => lint_file(&file, json, max_input_bytes),
+        Command::AuditMermaid { paths, json } => audit_mermaid(&paths, json, max_input_bytes),
         Command::Layout { file, ai } => layout_file(&file, ai, max_input_bytes),
         Command::Watch { file, theme_file } => {
             watch_file(&file, theme_file.as_deref(), max_input_bytes)
@@ -438,6 +445,52 @@ struct CompatJsonRoot {
     roots: Vec<&'static str>,
     support: &'static str,
     caveat: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MermaidAuditReport {
+    schema_version: u8,
+    paths: Vec<String>,
+    counts: MermaidAuditCounts,
+    findings: Vec<MermaidAuditFinding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MermaidAuditCounts {
+    diagrams: usize,
+    parsed: usize,
+    rendered: usize,
+    animated_partial: usize,
+    static_only_partial: usize,
+    unsupported: usize,
+    warnings: usize,
+    errors: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MermaidAuditFinding {
+    path: String,
+    line: usize,
+    source: &'static str,
+    root: Option<String>,
+    support: &'static str,
+    parse_ok: bool,
+    render_ok: bool,
+    frames: usize,
+    warnings: Vec<String>,
+    error: Option<String>,
+    suggestion: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MermaidAuditSource {
+    path: PathBuf,
+    line: usize,
+    source_kind: &'static str,
+    source: String,
 }
 
 const ANIMATED_PARTIAL_ROOTS: &[CompatRoot] = &[
@@ -773,6 +826,368 @@ fn lint_file(path: &Path, json: bool, max_input_bytes: usize) -> Result<(), Stri
     let source = read_source_file(path, max_input_bytes)?;
     let report = lint_source(&path.display().to_string(), &source)?;
     print_lint_report(&report, json)
+}
+
+fn audit_mermaid(paths: &[PathBuf], json: bool, max_input_bytes: usize) -> Result<(), String> {
+    let report = audit_mermaid_paths(paths, max_input_bytes)?;
+    let output = if json {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&report)
+                .map_err(|error| format!("failed to encode Mermaid audit json: {error}"))?
+        )
+    } else {
+        format_mermaid_audit_text(&report)
+    };
+    io::stdout()
+        .write_all(output.as_bytes())
+        .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
+}
+
+fn audit_mermaid_paths(
+    paths: &[PathBuf],
+    max_input_bytes: usize,
+) -> Result<MermaidAuditReport, String> {
+    let mut files = Vec::new();
+    for path in paths {
+        collect_mermaid_audit_files(path, &mut files)?;
+    }
+    files.sort();
+    files.dedup();
+
+    let mut findings = Vec::new();
+    for file in files {
+        let source = read_source_file(&file, max_input_bytes)?;
+        findings.extend(extract_mermaid_audit_sources(&file, &source).into_iter().map(
+            |source| audit_mermaid_source(source),
+        ));
+    }
+
+    let mut counts = MermaidAuditCounts {
+        diagrams: findings.len(),
+        ..MermaidAuditCounts::default()
+    };
+    for finding in &findings {
+        counts.parsed += usize::from(finding.parse_ok);
+        counts.rendered += usize::from(finding.render_ok);
+        counts.animated_partial += usize::from(finding.support == "animated-partial");
+        counts.static_only_partial += usize::from(finding.support == "static-only-partial");
+        counts.unsupported += usize::from(finding.support == "unsupported");
+        counts.warnings += finding.warnings.len();
+        counts.errors += usize::from(finding.error.is_some());
+    }
+
+    Ok(MermaidAuditReport {
+        schema_version: 1,
+        paths: paths.iter().map(|path| path.display().to_string()).collect(),
+        counts,
+        findings,
+    })
+}
+
+fn collect_mermaid_audit_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    if path.is_file() {
+        if is_mermaid_audit_file(path) {
+            files.push(path.to_owned());
+        }
+        return Ok(());
+    }
+    if !path.is_dir() {
+        return Err(format!("audit path does not exist: {}", path.display()));
+    }
+    let mut entries = fs::read_dir(path)
+        .map_err(|error| msg_args("error-read-dir", &[msg_arg("error", error)]))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| msg_args("error-read-dir", &[msg_arg("error", error)]))?;
+    entries.sort_by_key(|entry| entry.path());
+    for entry in entries {
+        let child = entry.path();
+        if child.is_dir() {
+            if should_skip_audit_dir(&child) {
+                continue;
+            }
+            collect_mermaid_audit_files(&child, files)?;
+        } else if is_mermaid_audit_file(&child) {
+            files.push(child);
+        }
+    }
+    Ok(())
+}
+
+fn should_skip_audit_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| matches!(name, ".git" | "node_modules" | "target" | ".playwright-cli"))
+}
+
+fn is_mermaid_audit_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "mmd" | "mermaid" | "md" | "mdx" | "markdown"
+            )
+        })
+}
+
+fn extract_mermaid_audit_sources(path: &Path, source: &str) -> Vec<MermaidAuditSource> {
+    if path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "mmd" | "mermaid"))
+    {
+        return vec![MermaidAuditSource {
+            path: path.to_owned(),
+            line: 1,
+            source_kind: "file",
+            source: source.to_owned(),
+        }];
+    }
+    extract_mermaid_fences(path, source)
+}
+
+fn extract_mermaid_fences(path: &Path, source: &str) -> Vec<MermaidAuditSource> {
+    let mut blocks = Vec::new();
+    let mut active: Option<(char, usize, String)> = None;
+    for (line_index, line) in source.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if let Some((marker, start_line, body)) = active.as_mut() {
+            if is_closing_fence(trimmed, *marker) {
+                blocks.push(MermaidAuditSource {
+                    path: path.to_owned(),
+                    line: *start_line,
+                    source_kind: "markdown-fence",
+                    source: body.clone(),
+                });
+                active = None;
+            } else {
+                body.push_str(line);
+                body.push('\n');
+            }
+            continue;
+        }
+        if let Some((marker, info)) = opening_fence(trimmed)
+            && is_mermaid_fence_info(info)
+        {
+            active = Some((marker, line_index + 1, String::new()));
+        }
+    }
+    blocks
+}
+
+fn opening_fence(line: &str) -> Option<(char, &str)> {
+    let marker = line.chars().next()?;
+    if marker != '`' && marker != '~' {
+        return None;
+    }
+    let count = line.chars().take_while(|char| *char == marker).count();
+    (count >= 3).then(|| (marker, line[count..].trim()))
+}
+
+fn is_closing_fence(line: &str, marker: char) -> bool {
+    line.chars().take_while(|char| *char == marker).count() >= 3
+}
+
+fn is_mermaid_fence_info(info: &str) -> bool {
+    let first = info.split_whitespace().next().unwrap_or_default();
+    matches!(
+        first.trim_matches(|char| matches!(char, '{' | '}' | '.')),
+        "mermaid" | "mmd"
+    )
+}
+
+fn audit_mermaid_source(source: MermaidAuditSource) -> MermaidAuditFinding {
+    let root = detect_mermaid_root(&source.source);
+    let mut warnings = mermaid_audit_warnings(&source.source);
+    match MermaidParser::parse_diagram(&source.source) {
+        Ok(diagram) => {
+            let support = diagram_support(&diagram.kind);
+            let timeline_result = timeline_from_diagram_with_render_options(
+                &diagram,
+                AnimationOptions::default(),
+                &RenderOptions::default(),
+            );
+            match timeline_result {
+                Ok(timeline) => {
+                    let frames = timeline.keyframes().len();
+                    let svg = SvgRenderer::new(svg_config_for_diagram(
+                        &RenderOptions::default(),
+                        &diagram,
+                    ))
+                    .render_timeline(&timeline);
+                    let render_ok = svg.contains("<svg") && svg.contains("</svg>");
+                    if support == "animated-partial" && frames < 2 {
+                        warnings.push("animated support produced fewer than two frames".to_owned());
+                    }
+                    if support == "static-only-partial" && frames != 1 {
+                        warnings.push("static-only support produced more than one frame".to_owned());
+                    }
+                    MermaidAuditFinding {
+                        path: source.path.display().to_string(),
+                        line: source.line,
+                        source: source.source_kind,
+                        root,
+                        support,
+                        parse_ok: true,
+                        render_ok,
+                        frames,
+                        warnings,
+                        error: (!render_ok).then(|| "SVG renderer did not emit an SVG document".to_owned()),
+                        suggestion: None,
+                    }
+                }
+                Err(error) => MermaidAuditFinding {
+                    path: source.path.display().to_string(),
+                    line: source.line,
+                    source: source.source_kind,
+                    root,
+                    support,
+                    parse_ok: true,
+                    render_ok: false,
+                    frames: 0,
+                    warnings,
+                    error: Some(error),
+                    suggestion: Some("render this diagram with Mermaid.js until kumeyuri animation/layout support is extended"),
+                },
+            }
+        }
+        Err(error) => MermaidAuditFinding {
+            path: source.path.display().to_string(),
+            line: source.line,
+            source: source.source_kind,
+            root,
+            support: "unsupported",
+            parse_ok: false,
+            render_ok: false,
+            frames: 0,
+            warnings,
+            error: Some(format_parse_error(&source.source, error.kind, error.span.start, error.span.end)),
+            suggestion: parse_error_suggestion(error.kind),
+        },
+    }
+}
+
+fn detect_mermaid_root(source: &str) -> Option<String> {
+    for raw_line in source.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with("%%") {
+            continue;
+        }
+        if line == "---" || line.starts_with("title:") || line.starts_with("config:") {
+            continue;
+        }
+        if line.starts_with("graph ") {
+            return Some("graph".to_owned());
+        }
+        if line.starts_with("flowchart ") {
+            return Some("flowchart".to_owned());
+        }
+        return line
+            .split(|char: char| char.is_whitespace() || char == ':')
+            .next()
+            .filter(|root| !root.is_empty())
+            .map(str::to_owned);
+    }
+    None
+}
+
+fn mermaid_audit_warnings(source: &str) -> Vec<String> {
+    let mut warnings = Vec::new();
+    let trimmed = source.trim_start();
+    if trimmed.starts_with("---") {
+        warnings.push("Mermaid frontmatter/config is outside kumeyuri parity; use CLI flags, element attributes, or site build config".to_owned());
+    }
+    if source.lines().any(|line| {
+        let line = line.trim_start();
+        line.starts_with("%%{")
+            && (line.contains("init")
+                || line.contains("config")
+                || line.contains("theme")
+                || line.contains("layout"))
+    }) {
+        warnings.push("Mermaid init/config/theme/layout directives are accepted as source directives but not interpreted except kumeyuri animate".to_owned());
+    }
+    if source.lines().any(|line| {
+        let line = line.trim_start();
+        line.starts_with("click ") || line.contains(" href ") || line.contains(" call ")
+    }) {
+        warnings.push("Mermaid click/callback/link behavior is not executed by kumeyuri website embeds".to_owned());
+    }
+    warnings
+}
+
+fn diagram_support(kind: &DiagramKind) -> &'static str {
+    match kind {
+        DiagramKind::Flowchart(_)
+        | DiagramKind::Sequence(_)
+        | DiagramKind::State(_)
+        | DiagramKind::Class(_)
+        | DiagramKind::Er(_)
+        | DiagramKind::Gantt(_)
+        | DiagramKind::Pie(_)
+        | DiagramKind::Mindmap(_)
+        | DiagramKind::Journey(_)
+        | DiagramKind::GitGraph(_)
+        | DiagramKind::Timeline(_) => "animated-partial",
+        _ => "static-only-partial",
+    }
+}
+
+fn format_parse_error(source: &str, kind: ParseErrorKind, start: usize, end: usize) -> String {
+    let location = parse_error_location(source, start);
+    let mut message = msg_args(
+        "parse-error",
+        &[
+            msg_arg("kind", parse_error_kind_label(kind)),
+            msg_arg("start", start),
+            msg_arg("end", end),
+        ],
+    );
+    message.push_str(&format!(
+        " at line {}, column {}",
+        location.line, location.column
+    ));
+    message
+}
+
+fn format_mermaid_audit_text(report: &MermaidAuditReport) -> String {
+    let mut output = format!(
+        "Mermaid audit: {} diagrams, {} parsed, {} rendered, {} warnings, {} errors\n",
+        report.counts.diagrams,
+        report.counts.parsed,
+        report.counts.rendered,
+        report.counts.warnings,
+        report.counts.errors
+    );
+    for finding in &report.findings {
+        output.push_str(&format!(
+            "{}:{} {} {} frames={} parse={} render={}\n",
+            finding.path,
+            finding.line,
+            finding.root.as_deref().unwrap_or("<unknown>"),
+            finding.support,
+            finding.frames,
+            finding.parse_ok,
+            finding.render_ok
+        ));
+        for warning in &finding.warnings {
+            output.push_str("  warning: ");
+            output.push_str(warning);
+            output.push('\n');
+        }
+        if let Some(error) = &finding.error {
+            output.push_str("  error: ");
+            output.push_str(error.lines().next().unwrap_or(error));
+            output.push('\n');
+        }
+        if let Some(suggestion) = finding.suggestion {
+            output.push_str("  suggestion: ");
+            output.push_str(suggestion);
+            output.push('\n');
+        }
+    }
+    output
 }
 
 fn lint_source(file: &str, source: &str) -> Result<LayoutReport, String> {
@@ -4428,6 +4843,69 @@ muted = "#7d8590"
         assert_eq!(ANIMATED_PARTIAL_ROOTS.len(), 11);
         assert_eq!(STATIC_ONLY_ROOTS.len(), 20);
         assert_eq!(UNSUPPORTED_ROOTS.len(), 0);
+    }
+
+    #[test]
+    fn audit_mermaid_parser_accepts_paths_and_json_flag() {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "audit-mermaid",
+            "docs",
+            "examples",
+            "--json",
+        ])
+        .unwrap();
+        let Some(Command::AuditMermaid { paths, json }) = cli.command else {
+            panic!("expected audit-mermaid command");
+        };
+
+        assert!(json);
+        assert_eq!(paths, [PathBuf::from("docs"), PathBuf::from("examples")]);
+    }
+
+    #[test]
+    fn audit_mermaid_extracts_markdown_fences() {
+        let blocks = extract_mermaid_audit_sources(
+            Path::new("README.md"),
+            "text\n```mermaid\ngraph TD\nA --> B\n```\n```rust\nfn main() {}\n```\n",
+        );
+
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].line, 2);
+        assert_eq!(blocks[0].source_kind, "markdown-fence");
+        assert!(blocks[0].source.contains("graph TD"));
+    }
+
+    #[test]
+    fn audit_mermaid_reports_support_warnings_and_errors() {
+        let animated = audit_mermaid_source(MermaidAuditSource {
+            path: PathBuf::from("flow.mmd"),
+            line: 1,
+            source_kind: "file",
+            source: "%%{ init: { 'theme': 'base' } }%%\ngraph TD\nA --> B\n".to_owned(),
+        });
+        let static_only = audit_mermaid_source(MermaidAuditSource {
+            path: PathBuf::from("packet.mmd"),
+            line: 1,
+            source_kind: "file",
+            source: "packet\n0-7: \"Version\"\n".to_owned(),
+        });
+        let unsupported = audit_mermaid_source(MermaidAuditSource {
+            path: PathBuf::from("bad.mmd"),
+            line: 1,
+            source_kind: "file",
+            source: "notMermaid\nA --> B\n".to_owned(),
+        });
+
+        assert_eq!(animated.support, "animated-partial");
+        assert!(animated.render_ok);
+        assert!(animated.frames >= 2);
+        assert_eq!(animated.warnings.len(), 1);
+        assert_eq!(static_only.support, "static-only-partial");
+        assert_eq!(static_only.frames, 1);
+        assert_eq!(unsupported.support, "unsupported");
+        assert!(!unsupported.parse_ok);
+        assert!(unsupported.error.is_some());
     }
 
     #[test]

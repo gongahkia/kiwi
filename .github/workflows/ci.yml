@@ -277,6 +277,21 @@ jobs:
           command: check advisories licenses sources
           arguments: --all-features
 
+  release-trust:
+    name: Release Trust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.3
+
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check release trust metadata
+        run: npm run release:trust
+
   unused-dependencies:
     name: Unused Dependencies
     runs-on: ubuntu-latest

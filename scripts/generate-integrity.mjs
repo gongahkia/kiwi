@@ -12,6 +12,8 @@ const files = [
   "site/pkg/kumeyuri_render_wasm.js",
   "site/pkg/kumeyuri_render_wasm_bg.wasm",
   "site/compat.json",
+  "site/parity.json",
+  "site/motion.json",
   "site/status.json",
   "site/favicon.svg",
   "packages/kumeyuri/wasm/kumeyuri_render_wasm.js",

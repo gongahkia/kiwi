@@ -15,7 +15,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/sequence.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/sequenceDiagram.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "sequence",
+      "rootType": "sequenceDiagram",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -23,7 +23,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/state.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/stateDiagram.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "state",
+      "rootType": "stateDiagram-v2",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -31,7 +31,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/class.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/classDiagram.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "class",
+      "rootType": "classDiagram",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -39,7 +39,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/er.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/entityRelationshipDiagram.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "er",
+      "rootType": "erDiagram",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -60,18 +60,26 @@
       "expectedRenderStatus": "pass"
     },
     {
-      "fixturePath": "tests/fuzz/official-mermaid/mindmap.mmd",
-      "sourceUrl": "https://mermaid.js.org/syntax/mindmap.html",
+      "fixturePath": "tests/fuzz/official-mermaid/quadrant.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/quadrantChart.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "mindmap",
+      "rootType": "quadrantChart",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
     {
-      "fixturePath": "tests/fuzz/official-mermaid/journey.mmd",
-      "sourceUrl": "https://mermaid.js.org/syntax/userJourney.html",
+      "fixturePath": "tests/fuzz/official-mermaid/requirement.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/requirementDiagram.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "journey",
+      "rootType": "requirementDiagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/cynefin.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/cynefin.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "cynefin-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -79,7 +87,23 @@
       "fixturePath": "tests/fuzz/official-mermaid/gitgraph.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/gitgraph.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "gitgraph",
+      "rootType": "gitGraph",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/c4.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/c4.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "C4Container",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/mindmap.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/mindmap.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "mindmap",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -92,18 +116,26 @@
       "expectedRenderStatus": "pass"
     },
     {
-      "fixturePath": "tests/fuzz/official-mermaid/requirement.mmd",
-      "sourceUrl": "https://mermaid.js.org/syntax/requirementDiagram.html",
+      "fixturePath": "tests/fuzz/official-mermaid/zenuml.mmd",
+      "sourceUrl": "https://mermaid.ai/open-source/syntax/zenuml.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "requirement",
+      "rootType": "zenuml",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
     {
-      "fixturePath": "tests/fuzz/official-mermaid/c4.mmd",
-      "sourceUrl": "https://mermaid.js.org/syntax/c4.html",
+      "fixturePath": "tests/fuzz/official-mermaid/sankey.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/sankey.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "c4",
+      "rootType": "sankey-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/xychart.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/xyChart.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "xychart-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -135,7 +167,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/architecture.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/architecture.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "architecture",
+      "rootType": "architecture-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -143,7 +175,23 @@
       "fixturePath": "tests/fuzz/official-mermaid/radar.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/radar.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "radar",
+      "rootType": "radar-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/railroad.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/railroad.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "railroad-diagram",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/swimlanes.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/swimlanes.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "swimlane",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -159,7 +207,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/treemap.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/treemap.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "treemap",
+      "rootType": "treemap-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -167,7 +215,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/venn.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/venn.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "venn",
+      "rootType": "venn-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -175,7 +223,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/ishikawa.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/ishikawa.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "ishikawa",
+      "rootType": "ishikawa-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -183,7 +231,7 @@
       "fixturePath": "tests/fuzz/official-mermaid/wardley.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/wardley.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "wardley",
+      "rootType": "wardley-beta",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     },
@@ -191,7 +239,15 @@
       "fixturePath": "tests/fuzz/official-mermaid/tree_view.mmd",
       "sourceUrl": "https://mermaid.js.org/syntax/treeView.html",
       "mermaidVersion": "11.15.0",
-      "rootType": "tree_view",
+      "rootType": "treeView-beta",
+      "expectedParserStatus": "pass",
+      "expectedRenderStatus": "pass"
+    },
+    {
+      "fixturePath": "tests/fuzz/official-mermaid/journey.mmd",
+      "sourceUrl": "https://mermaid.js.org/syntax/userJourney.html",
+      "mermaidVersion": "11.15.0",
+      "rootType": "journey",
       "expectedParserStatus": "pass",
       "expectedRenderStatus": "pass"
     }

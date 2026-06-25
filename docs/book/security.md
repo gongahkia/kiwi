@@ -43,7 +43,8 @@ theme/runtime selection are required:
 - Prefer same-origin `src` URLs under a known diagrams directory.
 - Do not pass arbitrary user-provided URLs into `src`.
 - If users can author Mermaid, validate on write with `kumeyuri lint` or
-  `kumeyuri render --format svg` and store the generated asset.
+  `kumeyuri render --format svg`, scan migrations with `kumeyuri audit-mermaid`,
+  and store the generated asset.
 - Keep fallback HTML authored by trusted templates; sanitize CMS/user HTML before
   it reaches `<kumeyuri-diagram>`.
 
@@ -67,6 +68,27 @@ kumeyuri-diagram [part="scrubber"] {
   min-height: 44px;
 }
 ```
+
+## SRI / CSP / Trusted Types
+
+Use `site/integrity.json` for pinned browser assets and regenerate it on every
+WASM/package change:
+
+```bash
+npm run integrity:site
+npm run integrity:site:check
+```
+
+Minimal static-site CSP:
+
+```http
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'
+```
+
+If a site accepts user-authored HTML around Mermaid fences, enforce Trusted
+Types at the host boundary and sanitize that HTML before kumeyuri output is
+inserted. kumeyuri does not sanitize arbitrary CMS/MDX HTML outside the diagram
+source and generated renderer output.
 
 ## Operational Checks
 

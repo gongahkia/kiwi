@@ -240,10 +240,7 @@ impl SvgRenderer {
         svg.push_str("</style>\n");
     }
 
-    fn push_reduced_motion_style(&self, svg: &mut String, frame_count: usize) {
-        if frame_count < 2 {
-            return;
-        }
+    fn push_reduced_motion_style(&self, svg: &mut String, _frame_count: usize) {
         svg.push_str("<style>\n");
         svg.push_str("@media (prefers-reduced-motion: reduce) {\n");
         svg.push_str(
@@ -519,6 +516,21 @@ mod tests {
         ));
         assert!(svg.contains(">..</text>"));
         assert!(svg.contains("frame 0\nA\n\nframe 1\nB"));
+    }
+
+    #[test]
+    fn renders_reduced_motion_style_for_one_frame_timeline() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        let timeline =
+            Timeline::from_keyframes(vec![KeyFrame::new(frame, Duration::from_millis(100))]);
+
+        let svg = SvgRenderer::default().render_timeline(&timeline);
+
+        assert!(svg.contains(r#"<animate attributeName="opacity""#));
+        assert!(svg.contains("@media (prefers-reduced-motion: reduce)"));
+        assert!(svg.contains(r#"#frame-0 { opacity: 1 !important; }"#));
+        assert!(!svg.contains("kumeyuri-progress-dots\" opacity"));
     }
 
     #[test]
