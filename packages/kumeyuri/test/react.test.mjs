@@ -22,6 +22,9 @@ const html = renderToString(
     reducedMotion: "reduce",
     svgAnimation: "css-keyframes",
     csp: true,
+    maxSourceBytes: 200000,
+    fetchTimeoutMs: 5000,
+    lazy: true,
     className: "diagram",
   }),
 );
@@ -42,6 +45,9 @@ assert.match(html, /controls=""/);
 assert.match(html, /reduced-motion="reduce"/);
 assert.match(html, /svg-animation="css-keyframes"/);
 assert.match(html, /csp=""/);
+assert.match(html, /max-source-bytes="200000"/);
+assert.match(html, /fetch-timeout-ms="5000"/);
+assert.match(html, /lazy=""/);
 assert.match(html, /class="diagram"/);
 
 const dom = new JSDOM("<!doctype html><body><div id=\"root\"></div></body>", { url: "https://example.test/" });
@@ -95,6 +101,9 @@ root.render(
       reducedMotion: "no-preference",
       svgAnimation: "smil",
       csp: true,
+      maxSourceBytes: 200000,
+      fetchTimeoutMs: 5000,
+      lazy: true,
     }),
   ),
 );
@@ -120,6 +129,9 @@ assert.equal(element.hasAttribute("autoplay"), false);
 assert.equal(element.getAttribute("controls"), "");
 assert.equal(element.getAttribute("reduced-motion"), "no-preference");
 assert.equal(element.getAttribute("csp"), "");
+assert.equal(element.getAttribute("max-source-bytes"), "200000");
+assert.equal(element.getAttribute("fetch-timeout-ms"), "5000");
+assert.equal(element.getAttribute("lazy"), "");
 assert.equal(element.querySelector("svg")?.getAttribute("data-theme"), "github");
 
 function tick() {

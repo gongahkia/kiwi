@@ -20,10 +20,16 @@
     "./react": {
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
-    }
+    },
+    "./wasm": {
+      "types": "./wasm/kumeyuri_render_wasm.d.ts",
+      "import": "./wasm/kumeyuri_render_wasm.js"
+    },
+    "./wasm/*": "./wasm/*"
   },
   "files": [
     "dist",
+    "wasm",
     "README.md"
   ],
   "scripts": {

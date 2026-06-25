@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { createKumeyuri, defineKumeyuriElement, initKumeyuri, render, renderCast } from "../dist/index.js";
 
+const bundledWasm = await import("../wasm/kumeyuri_render_wasm.js");
+assert.equal(typeof bundledWasm.default, "function");
+assert.equal(typeof bundledWasm.render, "function");
+assert.equal(typeof bundledWasm.renderCast, "function");
+
 const calls = [];
 const wasm = {
   initialized: false,
@@ -59,6 +64,11 @@ globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.fetch = async (url) => ({
   ok: true,
   status: 200,
+  headers: {
+    get(name) {
+      return name === "content-length" && url === "large.mmd" ? "12" : null;
+    },
+  },
   text: async () => url.endsWith(".kumecast") ? `{"version":1,"source":"${url}"}` : `graph TD\\n${url} --> B`,
 });
 
@@ -151,10 +161,28 @@ await tick();
 
 assert.equal(badElement.dataset.error, "bad diagram");
 assert.equal(badElement.querySelector("#fallback-svg") !== null, true);
-assert.equal(badElement.querySelector("noscript img")?.getAttribute("alt"), "fallback");
+assert.equal(badElement.innerHTML.includes("diagram.svg"), true);
+
+const limitedInlineElement = document.createElement("kumeyuri-diagram");
+limitedInlineElement.setAttribute("source", "graph TD\nTooLarge --> B");
+limitedInlineElement.setAttribute("max-source-bytes", "8");
+document.body.append(limitedInlineElement);
+await tick();
+
+assert.match(limitedInlineElement.dataset.error ?? "", /max-source-bytes/);
+assert.equal(limitedInlineElement.querySelector("[data-kumeyuri-error]")?.getAttribute("role"), "alert");
+
+const limitedSrcElement = document.createElement("kumeyuri-diagram");
+limitedSrcElement.setAttribute("src", "large.mmd");
+limitedSrcElement.setAttribute("max-source-bytes", "8");
+document.body.append(limitedSrcElement);
+await tick();
+
+assert.match(limitedSrcElement.dataset.error ?? "", /max-source-bytes/);
 
 const srcElement = document.createElement("kumeyuri-diagram");
 srcElement.setAttribute("src", "remote.mmd");
+srcElement.setAttribute("fetch-timeout-ms", "2500");
 document.body.append(srcElement);
 await tick();
 

@@ -43,5 +43,6 @@ find tests/snapshots -path '*/input/*.mmd' -print | sed 's#tests/snapshots/##; s
 npm run test:compat
 npm run test:compat-versions
 npm run test:coverage-gate
+kumeyuri compat --json
 npm run docs:build
 ```

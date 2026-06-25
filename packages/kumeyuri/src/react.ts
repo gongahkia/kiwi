@@ -39,6 +39,9 @@ export interface KumeyuriDiagramProps extends Omit<HTMLAttributes<HTMLElement>, 
   reducedMotion?: KumeyuriReducedMotion;
   svgAnimation?: KumeyuriSvgAnimation;
   csp?: boolean;
+  maxSourceBytes?: number | string;
+  fetchTimeoutMs?: number | string;
+  lazy?: boolean;
   children?: string;
 }
 
@@ -102,6 +105,9 @@ export const KumeyuriDiagram = forwardRef<HTMLElement, KumeyuriDiagramProps>(fun
     reducedMotion,
     svgAnimation,
     csp,
+    maxSourceBytes,
+    fetchTimeoutMs,
+    lazy,
     children,
     ...rest
   } = props;
@@ -156,6 +162,15 @@ export const KumeyuriDiagram = forwardRef<HTMLElement, KumeyuriDiagramProps>(fun
   }
   if (csp) {
     attrs.csp = "";
+  }
+  if (maxSourceBytes !== undefined) {
+    attrs["max-source-bytes"] = String(maxSourceBytes);
+  }
+  if (fetchTimeoutMs !== undefined) {
+    attrs["fetch-timeout-ms"] = String(fetchTimeoutMs);
+  }
+  if (lazy) {
+    attrs.lazy = "";
   }
   return createElement(tagName, attrs, children);
 });

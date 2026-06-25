@@ -16,7 +16,7 @@ npm --workspace kumeyuri run build
 ## Initialize
 
 ```ts
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { initKumeyuri, render } from "kumeyuri";
 
 await initKumeyuri({ ...wasm, default: initWasm });
@@ -158,6 +158,9 @@ Supported attributes:
 | `reduced-motion` | `auto`, `reduce`, or `no-preference` |
 | `svg-animation` | `smil` or `css-keyframes` |
 | `csp` | Do not write inline styles for controls |
+| `max-source-bytes` | Positive source-size cap; default `1000000` |
+| `fetch-timeout-ms` | Positive fetch timeout; default `10000` |
+| `lazy` | Defer first render until visible when `IntersectionObserver` exists |
 
 If `src`, `source`, `inline`, and script source are absent, the element uses its
 initial text content as Mermaid source.
@@ -184,7 +187,7 @@ the WASM module and defines the custom element on the client; `KumeyuriDiagram`
 renders the element with typed props.
 
 ```tsx
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
 
 const kumeyuriModule = { ...wasm, default: initWasm };

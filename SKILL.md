@@ -10,7 +10,7 @@ Use this skill when a task involves turning Mermaid source into deterministic ku
 ## Core model
 
 - Treat kumeyuri as a Mermaid-to-frame-stream renderer, not a drop-in Mermaid.js replacement.
-- Run `kumeyuri compat` or inspect `docs/compat.md`/`COVERAGE.md` before claiming diagram support.
+- Run `kumeyuri compat` or `kumeyuri compat --json`, or inspect `docs/compat.md`/`COVERAGE.md`, before claiming diagram support.
 - Animated roots and static-only roots are both useful output paths; static-only means the parser and renderer work but playback collapses to one frame.
 - Mermaid init/frontmatter/config/theme/layout/click behavior is not the main compatibility surface unless `COVERAGE.md` says otherwise.
 
@@ -21,6 +21,7 @@ Use this skill when a task involves turning Mermaid source into deterministic ku
 - Export: `kumeyuri export diagram.mmd --format kumecast|kumecast-gz`.
 - Convert: `kumeyuri convert diagram.kumecast --format svg|gif|text`.
 - Lint: `kumeyuri lint diagram.mmd` or `kumeyuri lint --json diagram.mmd`.
+- Compat JSON: `kumeyuri compat --json` for agents, docs, release notes, and websites.
 - Watch: `kumeyuri watch diagram.mmd`.
 - Themes: `kumeyuri theme list`, `kumeyuri theme show <name>`, `kumeyuri theme validate <file>`.
 - Plugins: `kumeyuri plugin install|list|update|disable|remove`.
@@ -52,7 +53,9 @@ Keep stdout clean for stdio MCP. Bind HTTP+SSE to loopback unless a real auth/TL
 ## Embeds and integrations
 
 - Rust crates: use `kumeyuri-core` for parse/layout/animation frames, renderer crates for SVG/raster/WASM surfaces.
-- WASM/browser: use the `kumeyuri` package/web component for browser playback.
+- WASM/browser: use `npm install kumeyuri`, import `kumeyuri/wasm`, and use the `kumeyuri` package/web component for browser playback.
+- Landing site: `site/` is the GitHub Pages static site with install docs, live playground, gallery, trust notes, and dashboard data.
+- Browser asset integrity: run `npm run integrity:site` after changing checked-in WASM/site assets; `npm run integrity:site:check` verifies `site/integrity.json`.
 - Docs: use the mdBook preprocessor, Docusaurus/Astro/Quartz/rehype/remark packages where appropriate.
 - Editors/actions: use the Neovim, VSCode, Obsidian, Logseq, and GitHub Action integrations from this repo when the target environment matches.
 - Plugins: prefer the plugin ABI for optional renderers or diagram extensions instead of hard-coding external behavior into core.
@@ -67,6 +70,7 @@ cargo test --workspace
 npm run test:compat
 npm run test:mcp-server
 npm run test:wasm-budget
+npm run site:verify
 ```
 
 For coverage claims:

@@ -135,6 +135,9 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         "reduced-motion",
         "svg-animation",
         "csp",
+        "max-source-bytes",
+        "fetch-timeout-ms",
+        "lazy",
       ];
     }
 
@@ -147,6 +150,9 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
     #playbackTimer: number | undefined;
     #playButton: HTMLButtonElement | null = null;
     #scrub: HTMLInputElement | null = null;
+    #lazyObserver: IntersectionObserver | null = null;
+    #lazyWaiting = false;
+    #rendered = false;
     #queued = false;
 
     connectedCallback(): void {
@@ -157,6 +163,9 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
 
     disconnectedCallback(): void {
       this.#stopPlayback();
+      this.#lazyObserver?.disconnect();
+      this.#lazyObserver = null;
+      this.#lazyWaiting = false;
     }
 
     attributeChangedCallback(): void {
@@ -186,6 +195,9 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
     }
 
     #queueRender(): void {
+      if (this.hasAttribute("lazy") && !this.#rendered && this.#observeLazy()) {
+        return;
+      }
       if (this.#queued) {
         return;
       }
@@ -219,6 +231,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         this.removeAttribute("data-error");
         this.#output = output;
         this.#lastSvg = output.svg;
+        this.#rendered = true;
         this.innerHTML = output.svg;
         if (this.hasAttribute("controls")) {
           this.#mountControls(output);
@@ -229,6 +242,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         this.#output = null;
         this.#playButton = null;
         this.#scrub = null;
+        this.#rendered = true;
         this.#restoreFallback(error);
       }
     }
@@ -236,26 +250,62 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
     async #source(): Promise<{ text: string; cast: boolean }> {
       const src = this.getAttribute("src");
       if (src) {
-        const response = await fetch(src);
-        if (!response.ok) {
-          throw new Error(`failed to fetch ${src}: ${response.status}`);
-        }
-        return { text: await response.text(), cast: isKumecastSrc(src) };
+        return { text: await this.#fetchSource(src), cast: isKumecastSrc(src) };
       }
       const source = this.getAttribute("source");
       if (source !== null && source.length > 0) {
-        return { text: source, cast: false };
+        return { text: this.#checkedSource(source, "source attribute"), cast: false };
       }
       const inline = this.getAttribute("inline");
       if (inline !== null && inline.length > 0) {
-        return { text: inline, cast: false };
+        return { text: this.#checkedSource(inline, "inline attribute"), cast: false };
       }
       const script = this.querySelector<HTMLScriptElement>("script[type='text/plain'][data-kumeyuri-source]");
       if (script?.textContent) {
         this.#inlineSource = script.textContent;
-        return { text: script.textContent, cast: false };
+        return { text: this.#checkedSource(script.textContent, "script source"), cast: false };
       }
-      return { text: this.#inlineSource ?? "", cast: false };
+      return { text: this.#checkedSource(this.#inlineSource ?? "", "text content"), cast: false };
+    }
+
+    async #fetchSource(src: string): Promise<string> {
+      const controller = typeof AbortController === "function" ? new AbortController() : undefined;
+      const timeoutMs = this.#fetchTimeoutMs();
+      const timer =
+        controller && timeoutMs > 0
+          ? globalThis.setTimeout(() => controller.abort(), timeoutMs)
+          : undefined;
+      try {
+        const init = controller ? { signal: controller.signal } : undefined;
+        const response = await fetch(src, init);
+        if (!response.ok) {
+          throw new Error(`failed to fetch ${src}: ${response.status}`);
+        }
+        const contentLength = Number(response.headers?.get("content-length") ?? NaN);
+        const maxBytes = this.#maxSourceBytes();
+        if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+          throw new Error(`source ${src} exceeds max-source-bytes (${contentLength} > ${maxBytes})`);
+        }
+        return this.#checkedSource(await response.text(), src);
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw new Error(`timed out fetching ${src} after ${timeoutMs}ms`);
+        }
+        throw error;
+      } finally {
+        if (timer !== undefined) {
+          globalThis.clearTimeout(timer);
+        }
+      }
+    }
+
+    #checkedSource(source: string, label: string): string {
+      const maxBytes = this.#maxSourceBytes();
+      const byteLength = utf8ByteLength(source);
+      if (byteLength > maxBytes) {
+        throw new Error(`source ${label} exceeds max-source-bytes (${byteLength} > ${maxBytes})`);
+      }
+      return source;
     }
 
     #renderOptions(): KumeyuriRenderOptions {
@@ -306,6 +356,26 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         options.svgAnimation = svgAnimation;
       }
       return options;
+    }
+
+    #fetchTimeoutMs(): number {
+      return this.#positiveIntegerAttribute("fetch-timeout-ms") ?? 10000;
+    }
+
+    #maxSourceBytes(): number {
+      return this.#positiveIntegerAttribute("max-source-bytes") ?? 1000000;
+    }
+
+    #positiveIntegerAttribute(name: string): number | undefined {
+      const value = this.getAttribute(name);
+      if (!value) {
+        return undefined;
+      }
+      const parsed = Number(value);
+      if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        throw new Error(`invalid ${name} ${JSON.stringify(value)}: expected integer > 0`);
+      }
+      return parsed;
     }
 
     #positiveNumberAttribute(name: string): number | undefined {
@@ -428,7 +498,7 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
         return;
       }
       const delay = Math.max(1, output.frames[this.#frameIndex]?.durationMs ?? 1);
-      this.#playbackTimer = window.setTimeout(() => {
+      this.#playbackTimer = globalThis.setTimeout(() => {
         const next = this.#frameIndex + 1;
         if (next >= output.frames.length && !this.hasAttribute("loop")) {
           this.#showFrame(output.frames.length - 1);
@@ -442,9 +512,30 @@ export function defineKumeyuriElement(options: KumeyuriElementOptions = {}): Cus
 
     #stopPlayback(): void {
       if (this.#playbackTimer !== undefined) {
-        window.clearTimeout(this.#playbackTimer);
+        globalThis.clearTimeout(this.#playbackTimer);
         this.#playbackTimer = undefined;
       }
+    }
+
+    #observeLazy(): boolean {
+      if (this.#lazyWaiting) {
+        return true;
+      }
+      if (typeof IntersectionObserver !== "function") {
+        return false;
+      }
+      this.#lazyWaiting = true;
+      this.#lazyObserver = new IntersectionObserver((entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return;
+        }
+        this.#lazyObserver?.disconnect();
+        this.#lazyObserver = null;
+        this.#lazyWaiting = false;
+        this.#queueRender();
+      });
+      this.#lazyObserver.observe(this);
+      return true;
     }
 
     #animationMode(): KumeyuriAnimation | null {
@@ -550,6 +641,17 @@ function isKumecastSrc(src: string): boolean {
   } catch {
     return src.split(/[?#]/, 1)[0]?.endsWith(".kumecast") ?? false;
   }
+}
+
+function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (typeof DOMException === "function" && error instanceof DOMException && error.name === "AbortError") ||
+    (isRecord(error) && error.name === "AbortError")
+  );
 }
 
 function controlButtonStyle(): string {

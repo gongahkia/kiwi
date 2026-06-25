@@ -9,6 +9,8 @@
 - [Themes](themes.md)
 - [Theming](theming.md)
 - [Embedding](embedding.md)
+- [Adoption](adoption.md)
+- [Security](security.md)
 - [X Cards](x-cards.md)
 - [Metrics](metrics.md)
 - [Recipes](recipes.md)

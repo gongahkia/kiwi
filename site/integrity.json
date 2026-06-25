@@ -1,0 +1,61 @@
+{
+  "generatedBy": "scripts/generate-integrity.mjs",
+  "files": [
+    {
+      "path": "site/pkg/kumeyuri_render_wasm.js",
+      "webPath": "pkg/kumeyuri_render_wasm.js",
+      "bytes": 17853,
+      "sha256": "2c40ab1012c7af15e0936a9a431fa046380f333775a7a43c163ca3ce810ab695",
+      "sri": "sha384-Th8ISiYUbgAB2kJdO/e1iOeh0H+Rk1g0dGaZgpFrsas1wfYpPmFlFyJO+d5Yzj7F"
+    },
+    {
+      "path": "site/pkg/kumeyuri_render_wasm_bg.wasm",
+      "webPath": "pkg/kumeyuri_render_wasm_bg.wasm",
+      "bytes": 1220346,
+      "sha256": "e99bda949a87e505b3ff00ac7f19418b28cbbefab011bd544718dac3d176ebe7",
+      "sri": "sha384-8ObhOc3M9+1vCf+0DJIOFAUw66+nnZsRdY9uFnFdKkMROoHsu7oZzaezLMbEOR43"
+    },
+    {
+      "path": "site/compat.json",
+      "webPath": "compat.json",
+      "bytes": 5821,
+      "sha256": "ee8d4b2a42e15575571d30edb53d94310913efeb10ee6f71474bf528dd038154",
+      "sri": "sha384-Yf/6dNeUDFP6bHPI3MKaV6qLVS43Vv1w6F1dAkiE1jXx6mMAxbXtu2/WrewZ2S5N"
+    },
+    {
+      "path": "site/status.json",
+      "webPath": "status.json",
+      "bytes": 411,
+      "sha256": "0847299a5e4668332373229c31204d9f3e01119778ada8e0501ad1af0d0742b4",
+      "sri": "sha384-PXHHQEvhYQxM3xgGAWrfmitQwiVugs+smbNtVuPErQsaAqAbJXUCRfCvoRDYJ0sb"
+    },
+    {
+      "path": "site/favicon.svg",
+      "webPath": "favicon.svg",
+      "bytes": 324,
+      "sha256": "d58e3d3fcde239ff579ea9d5d77e732f1177f12ef16f459815b58e2f856dffc4",
+      "sri": "sha384-q6SD1xrKK6sViKhT/6ALYIDMzOSDdl/2MakkS/xmrQwYy6RmVjKV1RW6EyssQGky"
+    },
+    {
+      "path": "packages/kumeyuri/wasm/kumeyuri_render_wasm.js",
+      "webPath": null,
+      "bytes": 17853,
+      "sha256": "2c40ab1012c7af15e0936a9a431fa046380f333775a7a43c163ca3ce810ab695",
+      "sri": "sha384-Th8ISiYUbgAB2kJdO/e1iOeh0H+Rk1g0dGaZgpFrsas1wfYpPmFlFyJO+d5Yzj7F"
+    },
+    {
+      "path": "packages/kumeyuri/wasm/kumeyuri_render_wasm_bg.wasm",
+      "webPath": null,
+      "bytes": 1220346,
+      "sha256": "e99bda949a87e505b3ff00ac7f19418b28cbbefab011bd544718dac3d176ebe7",
+      "sri": "sha384-8ObhOc3M9+1vCf+0DJIOFAUw66+nnZsRdY9uFnFdKkMROoHsu7oZzaezLMbEOR43"
+    },
+    {
+      "path": "packages/kumeyuri/wasm/kumeyuri_render_wasm.d.ts",
+      "webPath": null,
+      "bytes": 2571,
+      "sha256": "a80975156255a852bc08d244a77016ba3aabe2a29279757d8f93157724a23a62",
+      "sri": "sha384-/bz6XyJVDtb2+YPCUC6SuXCXYL8I2qAcObVIhYwO57hdTOvBA1KYFYKugRLl+u6Q"
+    }
+  ]
+}

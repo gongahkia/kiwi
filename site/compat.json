@@ -1,0 +1,51 @@
+{
+  "requestedVersion": "11.15.0",
+  "referenceVersion": "11.15.0",
+  "versionVerified": true,
+  "counts": {
+    "families": 31,
+    "animatedPartial": 11,
+    "staticOnlyPartial": 20,
+    "unsupported": 0,
+    "rootSpellings": 40
+  },
+  "roots": [
+    { "label": "Flowchart", "roots": ["graph", "flowchart"], "support": "animated-partial", "caveat": "trace animation; Mermaid config, styling, and exact visual parity are partial" },
+    { "label": "Sequence Diagram", "roots": ["sequenceDiagram"], "support": "animated-partial", "caveat": "playback animation; colors, actor menus, links, and rich styling are partial" },
+    { "label": "State Diagram", "roots": ["stateDiagram", "stateDiagram-v2"], "support": "animated-partial", "caveat": "transition animation; Mermaid layout/look config is rejected" },
+    { "label": "Class Diagram", "roots": ["classDiagram"], "support": "animated-partial", "caveat": "relationship trace animation; callbacks, links, and CSS styling are semantic-only" },
+    { "label": "Entity Relationship Diagram", "roots": ["erDiagram"], "support": "animated-partial", "caveat": "relationship trace animation; Mermaid styling/config is not interpreted" },
+    { "label": "Gantt", "roots": ["gantt"], "support": "animated-partial", "caveat": "timeline trace animation; date handling is day-level" },
+    { "label": "Pie Chart", "roots": ["pie"], "support": "animated-partial", "caveat": "slice trace animation; theme variables and hover behavior are not rendered" },
+    { "label": "Mindmaps", "roots": ["mindmap"], "support": "animated-partial", "caveat": "tree trace animation; CSS classes and icon registration are semantic-only" },
+    { "label": "User Journey", "roots": ["journey"], "support": "animated-partial", "caveat": "trace animation; Mermaid color palettes are approximated" },
+    { "label": "GitGraph Diagram", "roots": ["gitGraph"], "support": "animated-partial", "caveat": "commit trace animation; display config fields are semantic-only" },
+    { "label": "Timeline", "roots": ["timeline"], "support": "animated-partial", "caveat": "reveal animation; theme variables and direction styling are not rendered" },
+    { "label": "Quadrant Chart", "roots": ["quadrantChart"], "support": "static-only-partial", "caveat": "static frame; classes are semantic-only" },
+    { "label": "Requirement Diagram", "roots": ["requirementDiagram"], "support": "static-only-partial", "caveat": "static frame; styles/classes are semantic-only" },
+    { "label": "Cynefin Framework Diagram", "roots": ["cynefin-beta"], "support": "static-only-partial", "caveat": "static frame; domain boundary geometry and config are schematic" },
+    { "label": "C4 Diagram", "roots": ["C4Context", "C4Container", "C4Component", "C4Dynamic", "C4Deployment"], "support": "static-only-partial", "caveat": "static frame; C4 geometry is schematic and CSS colors are style rows" },
+    { "label": "ZenUML", "roots": ["zenuml"], "support": "static-only-partial", "caveat": "static frame; activation stack styling is not modeled" },
+    { "label": "Sankey", "roots": ["sankey", "sankey-beta"], "support": "static-only-partial", "caveat": "static frame; link widths/colors are schematic" },
+    { "label": "XY Chart", "roots": ["xychart", "xychart-beta"], "support": "static-only-partial", "caveat": "static frame; horizontal orientation is parsed but rendered schematically" },
+    { "label": "Block Diagram", "roots": ["block"], "support": "static-only-partial", "caveat": "static frame; styles/classes and arrow geometry are approximate" },
+    { "label": "Packet", "roots": ["packet", "packet-beta"], "support": "static-only-partial", "caveat": "static frame; packet sizing config is not interpreted" },
+    { "label": "Kanban", "roots": ["kanban"], "support": "static-only-partial", "caveat": "static frame; metadata is rendered as text" },
+    { "label": "Architecture", "roots": ["architecture-beta"], "support": "static-only-partial", "caveat": "static frame; icons/classes are text-only" },
+    { "label": "Radar", "roots": ["radar-beta"], "support": "static-only-partial", "caveat": "static frame; circular styling and curve fills are approximate" },
+    { "label": "Railroad Diagram", "roots": ["railroad-diagram"], "support": "static-only-partial", "caveat": "static frame; EBNF is summarized as rule rows" },
+    { "label": "Swimlanes Diagram", "roots": ["swimlane"], "support": "static-only-partial", "caveat": "static frame; lanes use flowchart subgraph layout" },
+    { "label": "Event Modeling", "roots": ["eventmodeling"], "support": "static-only-partial", "caveat": "static frame; Mermaid padding/rowHeight config is not interpreted" },
+    { "label": "Treemap", "roots": ["treemap-beta"], "support": "static-only-partial", "caveat": "static frame; classDef and D3 value formatting are semantic-only" },
+    { "label": "Venn", "roots": ["venn-beta"], "support": "static-only-partial", "caveat": "static frame; proportional area and theme colors are approximate" },
+    { "label": "Ishikawa", "roots": ["ishikawa-beta"], "support": "static-only-partial", "caveat": "static frame; fishbone geometry is approximate" },
+    { "label": "Wardley", "roots": ["wardley-beta"], "support": "static-only-partial", "caveat": "static frame; exact Mermaid geometry and styling are approximate" },
+    { "label": "TreeView", "roots": ["treeView-beta"], "support": "static-only-partial", "caveat": "static frame; icons/classes are text-only" }
+  ],
+  "caveats": [
+    "Partial: parser and renderer exist, but this is not full Mermaid parity.",
+    "Static-only: parser and renderer exist; animation collapses to a static frame.",
+    "Unsupported: no parser root exists; input is rejected.",
+    "Common: Mermaid frontmatter/init/theme/layout/click parity is not supported except kumeyuri animation directives."
+  ]
+}

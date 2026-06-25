@@ -154,7 +154,9 @@ h2 {
 .quickstart,
 .formats,
 .embed,
-.playground {
+.playground,
+.gallery,
+.status-board {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
   gap: 44px;
@@ -448,16 +450,59 @@ pre code {
   line-height: 1.55;
 }
 
+.install-grid,
+.gallery-grid,
+.status-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.install-grid article,
+.gallery-grid article,
+.status-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.install-grid article,
+.gallery-grid article {
+  padding: 16px;
+}
+
+.install-grid h3,
+.gallery-grid h3 {
+  margin: 0 0 12px;
+}
+
+.gallery-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gallery-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .embed-example,
-.playground-shell {
+.playground-shell,
+.trust-list {
   display: grid;
   gap: 18px;
 }
 
-.embed-example p {
+.embed-example p,
+.trust-list p {
   max-width: 620px;
   margin: 0;
+  color: var(--muted);
   font-size: 1.05rem;
+  line-height: 1.55;
 }
 
 .playground-shell {
@@ -523,10 +568,40 @@ textarea {
 }
 
 .playground-status {
-  grid-column: 1 / -1;
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.playground-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.embed-snippet {
+  grid-column: 1 / -1;
+}
+
+.status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.status-grid div {
+  padding: 16px;
+}
+
+.status-grid dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status-grid dd {
+  margin: 8px 0 0;
+  font-weight: 800;
+  line-height: 1.4;
 }
 
 @media (max-width: 760px) {
@@ -567,13 +642,17 @@ textarea {
   .quickstart,
   .formats,
   .embed,
-  .playground {
+  .playground,
+  .gallery,
+  .status-board {
     grid-template-columns: 1fr;
     gap: 24px;
     padding: 52px 18px;
   }
 
-  .format-grid {
+  .format-grid,
+  .gallery-grid,
+  .status-grid {
     grid-template-columns: 1fr;
   }
 

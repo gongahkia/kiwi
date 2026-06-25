@@ -23,7 +23,7 @@ use kumeyuri_core::{
     cast::Kumecast,
     frame::{Charset, Frame, StaticFrameRenderer},
     layout::FlowLayoutConfig,
-    parser::Parser as MermaidParser,
+    parser::{ParseErrorKind, Parser as MermaidParser},
     plugins::{PluginCache, PluginRuntimePolicy},
     text::{TextOutputBackend, TextOutputConfig},
     theme::{
@@ -84,6 +84,8 @@ enum Command {
     Compat {
         #[arg(long, value_name = "VERSION", value_parser = parse_non_empty_string)]
         mermaid_version: Option<String>,
+        #[arg(long)]
+        json: bool,
     },
     Render {
         #[arg(value_name = "FILE")]
@@ -333,7 +335,10 @@ fn run() -> Result<(), String> {
     }
 
     match cli.command.ok_or_else(|| msg("missing-command"))? {
-        Command::Compat { mermaid_version } => print_compat_report(mermaid_version.as_deref()),
+        Command::Compat {
+            mermaid_version,
+            json,
+        } => print_compat_report(mermaid_version.as_deref(), json),
         Command::Render {
             file,
             format,
@@ -403,6 +408,36 @@ struct CompatRoot {
     label_id: &'static str,
     roots: &'static [&'static str],
     caveat_id: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompatJsonReport {
+    requested_version: String,
+    reference_version: String,
+    version_verified: bool,
+    counts: CompatJsonCounts,
+    roots: Vec<CompatJsonRoot>,
+    caveats: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompatJsonCounts {
+    families: usize,
+    animated_partial: usize,
+    static_only_partial: usize,
+    unsupported: usize,
+    root_spellings: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CompatJsonRoot {
+    label: String,
+    roots: Vec<&'static str>,
+    support: &'static str,
+    caveat: String,
 }
 
 const ANIMATED_PARTIAL_ROOTS: &[CompatRoot] = &[
@@ -574,11 +609,59 @@ const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
 
 const UNSUPPORTED_ROOTS: &[CompatRoot] = &[];
 
-fn print_compat_report(mermaid_version: Option<&str>) -> Result<(), String> {
-    let output = compat_report(mermaid_version);
+fn print_compat_report(mermaid_version: Option<&str>, json: bool) -> Result<(), String> {
+    let output = if json {
+        serde_json::to_string_pretty(&compat_json_report(mermaid_version))
+            .map_err(|error| format!("failed to encode compat json: {error}"))?
+    } else {
+        compat_report(mermaid_version)
+    };
     io::stdout()
         .write_all(output.as_bytes())
         .map_err(|error| msg_args("error-write-stdout", &[msg_arg("error", error)]))
+}
+
+fn compat_json_report(mermaid_version: Option<&str>) -> CompatJsonReport {
+    let requested_version = mermaid_version.unwrap_or(MERMAID_COMPAT_VERSION);
+    let mut roots = Vec::new();
+    append_compat_json_roots(&mut roots, ANIMATED_PARTIAL_ROOTS, "animated-partial");
+    append_compat_json_roots(&mut roots, STATIC_ONLY_ROOTS, "static-only-partial");
+    append_compat_json_roots(&mut roots, UNSUPPORTED_ROOTS, "unsupported");
+    CompatJsonReport {
+        requested_version: requested_version.to_owned(),
+        reference_version: MERMAID_COMPAT_VERSION.to_owned(),
+        version_verified: requested_version == MERMAID_COMPAT_VERSION,
+        counts: CompatJsonCounts {
+            families: roots.len(),
+            animated_partial: ANIMATED_PARTIAL_ROOTS.len(),
+            static_only_partial: STATIC_ONLY_ROOTS.len(),
+            unsupported: UNSUPPORTED_ROOTS.len(),
+            root_spellings: roots.iter().map(|root| root.roots.len()).sum(),
+        },
+        roots,
+        caveats: [
+            "compat-caveat-partial",
+            "compat-caveat-static",
+            "compat-caveat-unsupported",
+            "compat-caveat-common",
+        ]
+        .into_iter()
+        .map(msg)
+        .collect(),
+    }
+}
+
+fn append_compat_json_roots(
+    output: &mut Vec<CompatJsonRoot>,
+    roots: &[CompatRoot],
+    support: &'static str,
+) {
+    output.extend(roots.iter().map(|root| CompatJsonRoot {
+        label: msg(root.label_id),
+        roots: root.roots.to_vec(),
+        support,
+        caveat: msg(root.caveat_id),
+    }));
 }
 
 fn compat_report(mermaid_version: Option<&str>) -> String {
@@ -2387,15 +2470,95 @@ fn parse_socket_addr(value: &str) -> Result<SocketAddr, String> {
 
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
     MermaidParser::parse_diagram(source).map_err(|error| {
-        msg_args(
+        let location = parse_error_location(source, error.span.start);
+        let mut message = msg_args(
             "parse-error",
             &[
-                msg_arg("kind", format!("{:?}", error.kind)),
+                msg_arg("kind", parse_error_kind_label(error.kind)),
                 msg_arg("start", error.span.start),
                 msg_arg("end", error.span.end),
             ],
-        )
+        );
+        message.push_str(&format!(
+            " at line {}, column {}",
+            location.line, location.column
+        ));
+        if !location.line_text.trim().is_empty() {
+            message.push('\n');
+            message.push_str(&location.line_text);
+            message.push('\n');
+            message.push_str(&location.caret);
+        }
+        if let Some(suggestion) = parse_error_suggestion(error.kind) {
+            message.push('\n');
+            message.push_str("suggestion: ");
+            message.push_str(suggestion);
+        }
+        message
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParseErrorLocation {
+    line: usize,
+    column: usize,
+    line_text: String,
+    caret: String,
+}
+
+fn parse_error_location(source: &str, offset: usize) -> ParseErrorLocation {
+    let offset = floor_char_boundary(source, offset.min(source.len()));
+    let line_start = source[..offset].rfind('\n').map_or(0, |index| index + 1);
+    let line_end = source[offset..]
+        .find('\n')
+        .map_or(source.len(), |index| offset + index);
+    let line = source[..offset]
+        .bytes()
+        .filter(|byte| *byte == b'\n')
+        .count()
+        + 1;
+    let column = source[line_start..offset].chars().count() + 1;
+    ParseErrorLocation {
+        line,
+        column,
+        line_text: source[line_start..line_end].to_owned(),
+        caret: format!("{}^", " ".repeat(column.saturating_sub(1))),
+    }
+}
+
+fn floor_char_boundary(source: &str, offset: usize) -> usize {
+    if source.is_char_boundary(offset) {
+        return offset;
+    }
+    source
+        .char_indices()
+        .map(|(index, _)| index)
+        .take_while(|index| *index < offset)
+        .last()
+        .unwrap_or(0)
+}
+
+fn parse_error_kind_label(kind: ParseErrorKind) -> String {
+    match kind {
+        ParseErrorKind::UnsupportedMermaidConfig => concat!(
+            "UnsupportedMermaidConfig: Mermaid frontmatter/init/layout/theme config is outside ",
+            "kumeyuri's compatibility surface; use kumeyuri CLI options or %%{ animate: ... }%%"
+        )
+        .to_owned(),
+        _ => format!("{kind:?}"),
+    }
+}
+
+fn parse_error_suggestion(kind: ParseErrorKind) -> Option<&'static str> {
+    match kind {
+        ParseErrorKind::ExpectedDiagramHeader => Some(
+            "start with a supported Mermaid root such as graph, sequenceDiagram, stateDiagram-v2, classDiagram, erDiagram, gantt, pie, mindmap, journey, gitGraph, or timeline",
+        ),
+        ParseErrorKind::UnsupportedMermaidConfig => Some(
+            "remove Mermaid frontmatter/init/layout/theme config and use kumeyuri CLI options, attributes, or %%{ animate: ... }%%",
+        ),
+        _ => None,
+    }
 }
 
 fn render_timeline_vtt(timeline: &Timeline) -> String {
@@ -3285,8 +3448,8 @@ mod tests {
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
         ExportFormat, McpTransport, PluginCommand, PluginRegistry, RenderCharset, RenderFormat,
         RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, Theme, ThemeCommand,
-        UNSUPPORTED_ROOTS, compat_report, convert_cast_source, convert_file, count_phrase,
-        decode_gzip_bytes, diagram_kind_id, diagram_kind_summary, direction_label,
+        UNSUPPORTED_ROOTS, compat_json_report, compat_report, convert_cast_source, convert_file,
+        count_phrase, decode_gzip_bytes, diagram_kind_id, diagram_kind_summary, direction_label,
         disable_plugin_records, encode_url_path_component, export_file, export_source,
         format_lint_text, format_theme_error, format_theme_list, is_hex, is_kumecast_gz_path,
         is_kumecast_path, layout_file, layout_warnings, lint_file, lint_source,
@@ -3814,7 +3977,7 @@ mod tests {
                 .unwrap_err()
                 .contains("missing.mmd")
         );
-        print_compat_report(None).unwrap();
+        print_compat_report(None, false).unwrap();
         print_lint_report(
             &lint_source("diagram.mmd", "graph TD\nA --> B\n").unwrap(),
             true,
@@ -3843,13 +4006,24 @@ mod tests {
 
     #[test]
     fn compat_parser_accepts_mermaid_version() {
-        let cli =
-            Cli::try_parse_from(["kumeyuri", "compat", "--mermaid-version", "11.15.0"]).unwrap();
-        let Some(Command::Compat { mermaid_version }) = cli.command else {
+        let cli = Cli::try_parse_from([
+            "kumeyuri",
+            "compat",
+            "--mermaid-version",
+            "11.15.0",
+            "--json",
+        ])
+        .unwrap();
+        let Some(Command::Compat {
+            mermaid_version,
+            json,
+        }) = cli.command
+        else {
             panic!("expected compat command");
         };
 
         assert_eq!(mermaid_version.as_deref(), Some("11.15.0"));
+        assert!(json);
     }
 
     #[test]
@@ -4227,6 +4401,26 @@ muted = "#7d8590"
 
         assert!(output.contains("requested Mermaid version: 12.0.0"));
         assert!(output.contains("version note: this build only verifies"));
+    }
+
+    #[test]
+    fn compat_json_report_is_machine_readable() {
+        let output = compat_json_report(Some("11.15.0"));
+
+        assert_eq!(output.requested_version, "11.15.0");
+        assert_eq!(output.reference_version, "11.15.0");
+        assert!(output.version_verified);
+        assert_eq!(output.counts.families, 31);
+        assert_eq!(output.counts.animated_partial, 11);
+        assert_eq!(output.counts.static_only_partial, 20);
+        assert_eq!(output.counts.unsupported, 0);
+        assert_eq!(output.counts.root_spellings, 40);
+        assert!(output.roots.iter().any(|root| {
+            root.support == "animated-partial" && root.roots.as_slice() == ["graph", "flowchart"]
+        }));
+        assert!(output.roots.iter().any(|root| {
+            root.support == "static-only-partial" && root.roots.as_slice() == ["cynefin-beta"]
+        }));
     }
 
     #[test]
@@ -4953,6 +5147,14 @@ muted = "#7d8590"
         let parse_error =
             render_source("notARoot\nA", RenderFormat::Vtt, &RenderOptions::default()).unwrap_err();
         assert!(parse_error.contains("parse error"));
+        assert!(parse_error.contains("line 1, column 1"));
+        assert!(parse_error.contains("suggestion: start with a supported Mermaid root"));
+        let config_error = parse_diagram("---\ntitle: bad\n---\ngraph TD\nA --> B").unwrap_err();
+        assert!(config_error.contains("Mermaid frontmatter/init/layout/theme config"));
+        assert!(
+            config_error
+                .contains("suggestion: remove Mermaid frontmatter/init/layout/theme config")
+        );
     }
 
     #[test]

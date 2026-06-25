@@ -1,5 +1,8 @@
 /* @ts-self-types="./kumeyuri_render_wasm.d.ts" */
 
+/**
+ * Browser-facing renderer wrapper.
+ */
 export class WasmRenderer {
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
@@ -11,6 +14,9 @@ export class WasmRenderer {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_wasmrenderer_free(ptr, 0);
     }
+    /**
+     * Create a browser renderer.
+     */
     constructor() {
         const ret = wasm.wasmrenderer_new();
         this.__wbg_ptr = ret;
@@ -18,6 +24,7 @@ export class WasmRenderer {
         return this;
     }
     /**
+     * Render Mermaid source to SVG plus text frames.
      * @param {string} source
      * @param {any} options
      * @returns {any}
@@ -31,10 +38,26 @@ export class WasmRenderer {
         }
         return takeFromExternrefTable0(ret[0]);
     }
+    /**
+     * Render a `.kumecast` JSON payload to SVG plus text frames.
+     * @param {string} source
+     * @param {any} options
+     * @returns {any}
+     */
+    renderCast(source, options) {
+        const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrenderer_renderCast(this.__wbg_ptr, ptr0, len0, options);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
 }
 if (Symbol.dispose) WasmRenderer.prototype[Symbol.dispose] = WasmRenderer.prototype.free;
 
 /**
+ * Render Mermaid source to SVG plus text frames.
  * @param {string} source
  * @param {any} options
  * @returns {any}
@@ -43,6 +66,22 @@ export function render(source, options) {
     const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.render(ptr0, len0, options);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Render a `.kumecast` JSON payload to SVG plus text frames.
+ * @param {string} source
+ * @param {any} options
+ * @returns {any}
+ */
+export function renderCast(source, options) {
+    const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.renderCast(ptr0, len0, options);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

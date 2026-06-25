@@ -5,15 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>kumeyuri</title>
     <meta name="description" content="Mermaid, animated. Anywhere text renders.">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="kumeyuri home">kumeyuri</a>
       <nav aria-label="Primary">
+        <a href="#install">Install</a>
         <a href="#formats">Formats</a>
         <a href="#embed">Embed</a>
         <a href="#playground">Playground</a>
+        <a href="#gallery">Gallery</a>
+        <a href="#status">Status</a>
         <a href="./play/">Player</a>
         <a href="./vs/">Compare</a>
         <a href="./blog/launch.html">Blog</a>
@@ -29,24 +33,42 @@
           <h1 id="hero-title">kumeyuri</h1>
           <p class="lede">A Rust renderer that turns vanilla Mermaid into animated terminal, SVG, raster, and browser artefacts from one frame stream.</p>
           <div class="actions" aria-label="Primary actions">
-            <a class="button primary" href="https://github.com/gongahkia/kumeyuri">View source</a>
-            <a class="button" href="./play/">Cast player</a>
-            <a class="button" href="https://github.com/gongahkia/kumeyuri/blob/main/docs/embedding.md">Embedding guide</a>
+            <a class="button primary" href="#install">Install</a>
+            <a class="button" href="#playground">Try playground</a>
+            <a class="button" href="https://github.com/gongahkia/kumeyuri">View source</a>
             <a class="button" href="./blog/launch.html">Launch notes</a>
           </div>
         </div>
       </section>
 
-      <section class="quickstart" aria-labelledby="quickstart-title">
+      <section id="install" class="quickstart" aria-labelledby="quickstart-title">
         <div>
-          <p class="section-kicker">Current repo workflow</p>
-          <h2 id="quickstart-title">Render one source into multiple surfaces.</h2>
+          <p class="section-kicker">Install</p>
+          <h2 id="quickstart-title">Use the CLI, npm browser package, or static GitHub Action.</h2>
         </div>
-        <pre><code>cargo run -q -p kumeyuri-cli -- render site/assets/hero.mmd \
-  --format svg --theme github --dark-theme tokyo-night &gt; site/assets/hero.svg
-cargo run -q -p kumeyuri-cli -- render site/assets/hero.mmd \
-  --format gif --padding 12 &gt; hero.gif
-cargo run -q -p kumeyuri-cli -- play site/assets/hero.mmd --loop</code></pre>
+        <div class="install-grid">
+          <article>
+            <h3>CLI</h3>
+            <pre><code>cargo install kumeyuri
+kumeyuri render diagrams/flow.mmd --format svg \
+  --theme github --dark-theme tokyo-night &gt; public/flow.svg</code></pre>
+          </article>
+          <article>
+            <h3>Browser</h3>
+            <pre><code>npm install kumeyuri
+
+import initWasm, * as wasm from "kumeyuri/wasm";
+import { defineKumeyuriElement, initKumeyuri } from "kumeyuri";
+
+await initKumeyuri({ ...wasm, default: initWasm });
+defineKumeyuriElement();</code></pre>
+          </article>
+          <article>
+            <h3>Static Sites</h3>
+            <pre><code>kumeyuri render docs/diagram.mmd --format webp &gt; public/diagram.webp
+kumeyuri compat --json &gt; public/kumeyuri-compat.json</code></pre>
+          </article>
+        </div>
       </section>
 
       <section id="formats" class="formats" aria-labelledby="formats-title">
@@ -65,18 +87,30 @@ cargo run -q -p kumeyuri-cli -- play site/assets/hero.mmd --loop</code></pre>
       <section id="embed" class="embed" aria-labelledby="embed-title">
         <div>
           <p class="section-kicker">Embed</p>
-          <h2 id="embed-title">Drop generated diagrams into READMEs, docs, and static sites.</h2>
+          <h2 id="embed-title">Ship static assets by default; use WASM when runtime controls matter.</h2>
         </div>
         <div class="embed-example">
-          <pre><code>&lt;kumeyuri-diagram
+          <pre><code>&lt;picture&gt;
+  &lt;source srcset="/diagrams/flow.webp" type="image/webp"&gt;
+  &lt;img src="/diagrams/flow.svg" alt="Request flow"&gt;
+&lt;/picture&gt;
+
+&lt;kumeyuri-diagram
   src="/diagrams/flow.mmd"
   animate="trace"
   theme="github"
   dark-theme="tokyo-night"
+  max-source-bytes="200000"
+  fetch-timeout-ms="5000"
+  lazy
+  csp
   autoplay
   controls
-&gt;&lt;/kumeyuri-diagram&gt;</code></pre>
-          <p>Static SVG works without JavaScript; the browser component adds playback controls when the WASM bundle is loaded.</p>
+&gt;
+  &lt;svg role="img" aria-label="Request flow fallback"&gt;&lt;/svg&gt;
+  &lt;noscript&gt;&lt;img src="/diagrams/flow.svg" alt="Request flow"&gt;&lt;/noscript&gt;
+&lt;/kumeyuri-diagram&gt;</code></pre>
+          <p>Static SVG/WebP works without JavaScript. The custom element adds playback controls, reduced-motion handling, CSP styling hooks, lazy rendering, fetch timeout, and source-size caps.</p>
         </div>
       </section>
 
@@ -109,14 +143,86 @@ cargo run -q -p kumeyuri-cli -- play site/assets/hero.mmd --loop</code></pre>
               Speed
               <input id="playground-speed" type="range" min="0.5" max="2" step="0.25" value="1">
             </label>
+            <button id="playground-copy" class="button" type="button">Copy embed</button>
+            <button id="playground-download" class="button" type="button">Download SVG</button>
           </div>
           <textarea id="playground-source" spellcheck="false">graph TD
   Source[Mermaid source] --> Core[Rust frame stream]
   Core --> SVG[animated SVG]
   Core --> Browser[WASM player]</textarea>
           <div class="playground-preview" id="playground-output" aria-live="polite"></div>
-          <p class="playground-status" id="playground-status">Loading WASM...</p>
+          <div class="playground-meta">
+            <p class="playground-status" id="playground-status">Loading WASM...</p>
+            <p class="playground-status" id="playground-compat">Loading compatibility data...</p>
+          </div>
+          <pre class="embed-snippet"><code id="playground-snippet"></code></pre>
         </div>
+      </section>
+
+      <section id="gallery" class="gallery" aria-labelledby="gallery-title">
+        <div>
+          <p class="section-kicker">Adoption Gallery</p>
+          <h2 id="gallery-title">Examples for docs pages, architecture posts, and launch assets.</h2>
+        </div>
+        <div class="gallery-grid">
+          <article>
+            <img src="./assets/blog/http-request-lifecycle.svg" alt="HTTP request lifecycle diagram">
+            <h3>API docs</h3>
+            <pre><code>kumeyuri render http-request-lifecycle.mmd --format svg &gt; public/http.svg</code></pre>
+          </article>
+          <article>
+            <img src="./assets/blog/microservice-fan-out.svg" alt="Microservice fan out diagram">
+            <h3>Architecture pages</h3>
+            <pre><code>kumeyuri render fan-out.mmd --format webp --padding 12 &gt; public/fan-out.webp</code></pre>
+          </article>
+          <article>
+            <img src="./assets/blog/os-scheduler-state-machine.svg" alt="OS scheduler state machine diagram">
+            <h3>Teaching posts</h3>
+            <pre><code>kumeyuri render scheduler.mmd --format gif --theme github &gt; public/scheduler.gif</code></pre>
+          </article>
+        </div>
+      </section>
+
+      <section id="static-first" class="formats" aria-labelledby="static-first-title">
+        <div>
+          <p class="section-kicker">Build-Time Plugins</p>
+          <h2 id="static-first-title">Render at build time for MDX, Markdown, and framework docs.</h2>
+        </div>
+        <ul class="format-grid">
+          <li><strong>remark / rehype</strong><span>Transform Mermaid fences into generated SVG or text during Markdown builds.</span></li>
+          <li><strong>Docusaurus / Astro</strong><span>Inject static assets by default and opt into the WASM player only for interactive pages.</span></li>
+          <li><strong>mdBook</strong><span>Use `mdbook-kumeyuri` for reproducible book builds.</span></li>
+          <li><strong>GitHub Action</strong><span>Render changed diagrams in CI and commit verified assets.</span></li>
+        </ul>
+      </section>
+
+      <section id="trust" class="embed" aria-labelledby="trust-title">
+        <div>
+          <p class="section-kicker">Distribution Trust</p>
+          <h2 id="trust-title">Designed for pinned, verifiable website deploys.</h2>
+        </div>
+        <div class="trust-list">
+          <p>Publish artifacts should include npm provenance, release checksums, SBOM output, and SRI hashes for static browser assets. This site ships a generated `integrity.json` manifest for the checked-in browser files.</p>
+          <pre><code>npm pack --dry-run
+npm run integrity:site
+cargo audit
+cargo deny check
+scripts/check-wasm-budget.sh
+shasum -a 256 site/pkg/*</code></pre>
+        </div>
+      </section>
+
+      <section id="status" class="status-board" aria-labelledby="status-title">
+        <div>
+          <p class="section-kicker">Regression Dashboard</p>
+          <h2 id="status-title">Track adoption-critical budgets every release.</h2>
+        </div>
+        <dl class="status-grid">
+          <div><dt>Compatibility</dt><dd id="status-compat">31 families; 40 root spellings</dd></div>
+          <div><dt>WASM gzip</dt><dd id="status-wasm">487,660 / 500,000 bytes</dd></div>
+          <div><dt>Browser QA</dt><dd>Chromium, Firefox, WebKit, mobile Chromium, mobile WebKit</dd></div>
+          <div><dt>Perf budget</dt><dd>Web first content render &lt; 250ms p95</dd></div>
+        </dl>
       </section>
     </main>
     <script type="module" src="./playground.js"></script>

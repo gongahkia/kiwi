@@ -61,7 +61,10 @@
     "metrics:poll": "node scripts/poll-daily-metrics.mjs",
     "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs",
     "metrics:weekly": "node scripts/aggregate-weekly-metrics.mjs",
-    "metrics:archive": "node scripts/archive-metrics-dashboard.mjs"
+    "metrics:archive": "node scripts/archive-metrics-dashboard.mjs",
+    "integrity:site": "node scripts/generate-integrity.mjs",
+    "integrity:site:check": "node scripts/generate-integrity.mjs --check",
+    "site:verify": "node scripts/verify-site.mjs"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "11.15.0",

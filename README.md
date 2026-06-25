@@ -9,6 +9,10 @@ Project direction: [NORTHSTAR.md](./NORTHSTAR.md)
 
 Docs: [docs/book](./docs/book/index.md)
 
+Adoption: [docs/adoption.md](./docs/adoption.md)
+
+Website: [site](./site/index.html)
+
 Examples: [examples](./examples/README.md)
 
 Demos: [demos](./demos/README.md)

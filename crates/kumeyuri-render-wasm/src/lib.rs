@@ -7,7 +7,7 @@ use kumeyuri_core::{
     ast::Diagram,
     cast::Kumecast,
     frame::{Charset, StaticFrameRenderer},
-    parser::Parser as MermaidParser,
+    parser::{ParseErrorKind, Parser as MermaidParser},
     text::{TextOutputBackend, TextOutputConfig},
     theme::{BuiltInTheme, RgbColor, Theme},
 };
@@ -251,11 +251,84 @@ fn css_color(color: RgbColor) -> String {
 
 fn parse_diagram(source: &str) -> Result<Diagram, String> {
     MermaidParser::parse_diagram(source).map_err(|error| {
+        let location = parse_error_location(source, error.span.start);
         format!(
-            "parse error {:?} at {}..{}",
-            error.kind, error.span.start, error.span.end
+            "parse error {} at {}..{} line {} column {}\n{}\n{}{}",
+            parse_error_kind_label(error.kind),
+            error.span.start,
+            error.span.end,
+            location.line,
+            location.column,
+            location.line_text,
+            location.caret,
+            parse_error_suggestion(error.kind)
+                .map(|suggestion| format!("\nsuggestion: {suggestion}"))
+                .unwrap_or_default()
         )
     })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParseErrorLocation {
+    line: usize,
+    column: usize,
+    line_text: String,
+    caret: String,
+}
+
+fn parse_error_location(source: &str, offset: usize) -> ParseErrorLocation {
+    let offset = floor_char_boundary(source, offset.min(source.len()));
+    let line_start = source[..offset].rfind('\n').map_or(0, |index| index + 1);
+    let line_end = source[offset..]
+        .find('\n')
+        .map_or(source.len(), |index| offset + index);
+    let line = source[..offset]
+        .bytes()
+        .filter(|byte| *byte == b'\n')
+        .count()
+        + 1;
+    let column = source[line_start..offset].chars().count() + 1;
+    ParseErrorLocation {
+        line,
+        column,
+        line_text: source[line_start..line_end].to_owned(),
+        caret: format!("{}^", " ".repeat(column.saturating_sub(1))),
+    }
+}
+
+fn floor_char_boundary(source: &str, offset: usize) -> usize {
+    if source.is_char_boundary(offset) {
+        return offset;
+    }
+    source
+        .char_indices()
+        .map(|(index, _)| index)
+        .take_while(|index| *index < offset)
+        .last()
+        .unwrap_or(0)
+}
+
+fn parse_error_kind_label(kind: ParseErrorKind) -> String {
+    match kind {
+        ParseErrorKind::UnsupportedMermaidConfig => concat!(
+            "UnsupportedMermaidConfig: Mermaid frontmatter/init/layout/theme config is outside ",
+            "kumeyuri's compatibility surface; use kumeyuri options or %%{ animate: ... }%%"
+        )
+        .to_owned(),
+        _ => format!("{kind:?}"),
+    }
+}
+
+fn parse_error_suggestion(kind: ParseErrorKind) -> Option<&'static str> {
+    match kind {
+        ParseErrorKind::ExpectedDiagramHeader => Some(
+            "start with a supported Mermaid root such as graph, sequenceDiagram, stateDiagram-v2, classDiagram, erDiagram, gantt, pie, mindmap, journey, gitGraph, or timeline",
+        ),
+        ParseErrorKind::UnsupportedMermaidConfig => Some(
+            "remove Mermaid frontmatter/init/layout/theme config and use kumeyuri options or %%{ animate: ... }%%",
+        ),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -437,6 +510,19 @@ mod tests {
         let parse_error =
             render_output("notARealRoot\nA", &WasmRenderOptions::default()).unwrap_err();
         assert!(parse_error.contains("parse error"));
+        assert!(parse_error.contains("line 1 column 1"));
+        assert!(parse_error.contains("suggestion: start with a supported Mermaid root"));
+
+        let config_error = render_output(
+            "---\ntitle: bad\n---\ngraph TD\nA --> B",
+            &WasmRenderOptions::default(),
+        )
+        .unwrap_err();
+        assert!(config_error.contains("Mermaid frontmatter/init/layout/theme config"));
+        assert!(
+            config_error
+                .contains("suggestion: remove Mermaid frontmatter/init/layout/theme config")
+        );
     }
 
     #[test]

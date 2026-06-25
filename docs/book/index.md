@@ -17,14 +17,14 @@ source builds or generated assets.
 
 ## Supported Mermaid families
 
-| Family | Headers |
-| --- | --- |
-| Flowcharts | `graph TD`, `graph LR`, `graph BT`, `graph RL`, `flowchart TD`, `flowchart LR`, `flowchart BT`, `flowchart RL` |
-| Sequences | `sequenceDiagram` |
-| States | `stateDiagram`, `stateDiagram-v2` |
+The current compatibility surface tracks Mermaid docs `11.15.0`: 11 animated
+partial families, 20 static-only partial families, and no unsupported tracked
+roots. Run `kumeyuri compat` or read `docs/compat.md` before making release or
+parity claims.
 
-Unsupported Mermaid syntax is rejected by the parser instead of silently
-rendering partial output.
+Partial support means kumeyuri parses and renders the root, but does not promise
+drop-in Mermaid.js visual/config parity. Static-only support means rendering
+works and playback collapses to one frame.
 
 ## Start here
 

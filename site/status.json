@@ -1,0 +1,24 @@
+{
+  "compat": {
+    "referenceVersion": "11.15.0",
+    "families": 31,
+    "animatedPartial": 11,
+    "staticOnlyPartial": 20,
+    "unsupported": 0,
+    "rootSpellings": 40
+  },
+  "wasm": {
+    "gzipBytes": 487660,
+    "gzipBudget": 500000
+  },
+  "browserQa": [
+    "chromium",
+    "firefox",
+    "webkit",
+    "mobile-chromium",
+    "mobile-webkit"
+  ],
+  "perf": {
+    "webFirstContentRenderP95Ms": 250
+  }
+}

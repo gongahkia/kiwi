@@ -40,7 +40,7 @@ wrapper:
 
 ```html
 <script type="module">
-  import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+  import initWasm, * as wasm from "kumeyuri/wasm";
   import { defineKumeyuriElement, initKumeyuri } from "./node_modules/kumeyuri/dist/index.js";
 
   await initKumeyuri({ ...wasm, default: initWasm });
@@ -48,7 +48,7 @@ wrapper:
 </script>
 
 <kumeyuri-diagram
-  inline="sequenceDiagram&#10;Alice->>Bob: hello"
+  source="sequenceDiagram&#10;Alice->>Bob: hello"
   animate="playback"
   theme="github"
   dark-theme="tokyo-night"
@@ -58,10 +58,29 @@ wrapper:
 ></kumeyuri-diagram>
 ```
 
+For production live embeds, include static fallback HTML:
+
+```html
+<kumeyuri-diagram src="/diagrams/flow.mmd" animate="trace" controls csp lazy max-source-bytes="200000" fetch-timeout-ms="5000">
+  <svg role="img" aria-label="Request flow fallback"></svg>
+  <noscript><img src="/diagrams/flow.svg" alt="Request flow"></noscript>
+</kumeyuri-diagram>
+```
+
+With `csp`, style controls from site CSS:
+
+```css
+kumeyuri-diagram[csp] { position: relative; }
+kumeyuri-diagram [part="controls"] { position: absolute; right: .5rem; bottom: .5rem; display: flex; gap: .25rem; }
+kumeyuri-diagram [part="play-button"],
+kumeyuri-diagram [part="restart-button"],
+kumeyuri-diagram [part="scrubber"] { min-height: 44px; }
+```
+
 ## TypeScript API
 
 ```ts
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { initKumeyuri, render } from "kumeyuri";
 
 await initKumeyuri({ ...wasm, default: initWasm });
@@ -79,7 +98,7 @@ const { svg, frames } = render("graph TD\nA --> B", {
 same custom element.
 
 ```tsx
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
 
 const kumeyuriModule = { ...wasm, default: initWasm };

@@ -89,7 +89,7 @@ For the WASM player, initialize the npm wrapper in a client-only component.
 
 ```tsx
 import { useEffect } from "react";
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { defineKumeyuriElement, initKumeyuri } from "kumeyuri";
 
 export function KumeyuriSetup() {
@@ -122,7 +122,7 @@ The React subpath renders the same `<kumeyuri-diagram>` element and maps
 `darkTheme` to `dark-theme` plus boolean props to omitted/present attributes.
 
 ```tsx
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
 
 const kumeyuriModule = { ...wasm, default: initWasm };
@@ -180,7 +180,7 @@ For live rendering, load the generated wasm-bindgen module and the typed npm wra
 
 ```html
 <script type="module">
-  import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+  import initWasm, * as wasm from "kumeyuri/wasm";
   import { defineKumeyuriElement, initKumeyuri } from "./node_modules/kumeyuri/dist/index.js";
 
   await initKumeyuri({ ...wasm, default: initWasm });
@@ -188,7 +188,7 @@ For live rendering, load the generated wasm-bindgen module and the typed npm wra
 </script>
 
 <kumeyuri-diagram
-  inline="sequenceDiagram&#10;Alice->>Bob: hello"
+  source="sequenceDiagram&#10;Alice->>Bob: hello"
   animate="playback"
   theme="github"
   dark-theme="tokyo-night"
@@ -196,4 +196,23 @@ For live rendering, load the generated wasm-bindgen module and the typed npm wra
   autoplay
   controls
 ></kumeyuri-diagram>
+```
+
+Production live embeds should include fallback HTML:
+
+```html
+<kumeyuri-diagram src="/diagrams/flow.mmd" animate="trace" controls csp lazy max-source-bytes="200000" fetch-timeout-ms="5000">
+  <svg role="img" aria-label="Request flow fallback"></svg>
+  <noscript><img src="/diagrams/flow.svg" alt="Request flow"></noscript>
+</kumeyuri-diagram>
+```
+
+With `csp`, style controls from site CSS:
+
+```css
+kumeyuri-diagram[csp] { position: relative; }
+kumeyuri-diagram [part="controls"] { position: absolute; right: .5rem; bottom: .5rem; display: flex; gap: .25rem; }
+kumeyuri-diagram [part="play-button"],
+kumeyuri-diagram [part="restart-button"],
+kumeyuri-diagram [part="scrubber"] { min-height: 44px; }
 ```

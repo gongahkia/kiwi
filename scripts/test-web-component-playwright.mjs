@@ -61,7 +61,7 @@ async function runTarget(target, baseUrl) {
     assert.equal(calls[0].options.theme, "github");
     assert.equal(calls[0].options.darkTheme, "tokyo-night");
     assert.equal(calls[0].options.speed, 1.5);
-    assert.equal(calls[1].source, "graph TD\nC --> D");
+    assert.match(calls[1].source, /^%%\{ animate: 'trace' \}%%\ngraph TD\nC --> D/);
     assert.equal(calls[1].options.repeat, true);
 
     const diagram = page.locator("#primary");

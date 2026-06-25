@@ -9,8 +9,12 @@ the page does not need runtime source loading or controls.
 
 ## Initialize
 
+```sh
+npm install kumeyuri
+```
+
 ```ts
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { initKumeyuri, render } from "kumeyuri";
 
 await initKumeyuri({ ...wasm, default: initWasm });
@@ -25,7 +29,7 @@ const { svg, frames } = render("graph TD\nA --> B", {
 ## Custom Element
 
 ```ts
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { defineKumeyuriElement, initKumeyuri } from "kumeyuri";
 
 await initKumeyuri({ ...wasm, default: initWasm });
@@ -75,6 +79,9 @@ If render fails, the element keeps the initial fallback HTML and sets
 | `reduced-motion` | `auto`, `reduce`, `no-preference` |
 | `svg-animation` | `smil`, `css-keyframes` |
 | `csp` | avoid inline control styles; provide CSS yourself |
+| `max-source-bytes` | positive integer source-size cap; defaults to `1000000` |
+| `fetch-timeout-ms` | positive integer fetch timeout; defaults to `10000` |
+| `lazy` | defer first render until visible when `IntersectionObserver` is available |
 
 The element exposes `play()`, `pause()`, `seek(frameIndex)`, and `exportSvg()`.
 
@@ -105,7 +112,7 @@ kumeyuri-diagram [part="scrubber"] {
 dashed attributes.
 
 ```tsx
-import initWasm, * as wasm from "./pkg/kumeyuri_render_wasm.js";
+import initWasm, * as wasm from "kumeyuri/wasm";
 import { KumeyuriDiagram, KumeyuriProvider } from "kumeyuri/react";
 
 const kumeyuriModule = { ...wasm, default: initWasm };
@@ -121,6 +128,9 @@ export function App() {
         speed={1.25}
         loop
         reducedMotion="auto"
+        maxSourceBytes={200000}
+        fetchTimeoutMs={5000}
+        lazy
         autoplay
         controls
       />
