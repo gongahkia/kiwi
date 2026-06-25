@@ -56,6 +56,7 @@ Rgb nearestPaletteColor(Rgb color, ColorMode mode) {
     case ColorMode::Mono:
       return color;
   }
+  return color;
 }
 
 int orderedAmplitude(ColorMode mode) noexcept {

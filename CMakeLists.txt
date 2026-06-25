@@ -5,6 +5,10 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(CONTOURTTY_LIGHT "Build without optional GPU/protocol backends" OFF)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-missing-field-initializers>)
+endif()
+
 include(GNUInstallDirs)
 add_compile_definitions(
   CONTOURTTY_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
