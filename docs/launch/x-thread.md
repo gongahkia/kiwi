@@ -53,7 +53,7 @@ demos/rendered/microservice-fan-out.gif
 Text:
 
 ```text
-Current support is partial, not Mermaid-complete: 11 animated families, 17 static-only families, and 3 rejected upstream roots tracked in COVERAGE.md.
+Current support is partial, not Mermaid-complete: 11 animated families and 20 static-only families tracked in COVERAGE.md.
 
 Tests cover parser fixtures, snapshots, fuzz/negative cases, compat drift, SVG sanitization, raster output, browser playback, and WASM bundle size.
 ```

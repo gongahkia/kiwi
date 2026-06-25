@@ -2755,22 +2755,46 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
     }
 
     let domains = [
-        (CynefinDomainKind::Complex, Rect {
-            origin: Point { x: 1, y: 2 },
-            size: Size { width: 38, height: 8 },
-        }),
-        (CynefinDomainKind::Complicated, Rect {
-            origin: Point { x: 41, y: 2 },
-            size: Size { width: 38, height: 8 },
-        }),
-        (CynefinDomainKind::Chaotic, Rect {
-            origin: Point { x: 1, y: 12 },
-            size: Size { width: 38, height: 8 },
-        }),
-        (CynefinDomainKind::Clear, Rect {
-            origin: Point { x: 41, y: 12 },
-            size: Size { width: 38, height: 8 },
-        }),
+        (
+            CynefinDomainKind::Complex,
+            Rect {
+                origin: Point { x: 1, y: 2 },
+                size: Size {
+                    width: 38,
+                    height: 8,
+                },
+            },
+        ),
+        (
+            CynefinDomainKind::Complicated,
+            Rect {
+                origin: Point { x: 41, y: 2 },
+                size: Size {
+                    width: 38,
+                    height: 8,
+                },
+            },
+        ),
+        (
+            CynefinDomainKind::Chaotic,
+            Rect {
+                origin: Point { x: 1, y: 12 },
+                size: Size {
+                    width: 38,
+                    height: 8,
+                },
+            },
+        ),
+        (
+            CynefinDomainKind::Clear,
+            Rect {
+                origin: Point { x: 41, y: 12 },
+                size: Size {
+                    width: 38,
+                    height: 8,
+                },
+            },
+        ),
     ];
     for (kind, rect) in domains {
         draw_cynefin_domain(
@@ -2787,7 +2811,10 @@ fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme)
 
     let confusion = Rect {
         origin: Point { x: 29, y: 8 },
-        size: Size { width: 22, height: 6 },
+        size: Size {
+            width: 22,
+            height: 6,
+        },
     };
     draw_cynefin_domain(
         &mut frame,
@@ -2846,10 +2873,21 @@ fn draw_cynefin_domain(
         text_style.clone(),
     );
     let Some(domain) = domain else {
-        write_text_safe(frame, rect.origin.x + 2, rect.origin.y + 2, "empty", muted_style);
+        write_text_safe(
+            frame,
+            rect.origin.x + 2,
+            rect.origin.y + 2,
+            "empty",
+            muted_style,
+        );
         return;
     };
-    for (index, item) in domain.items.iter().take((rect.size.height - 3) as usize).enumerate() {
+    for (index, item) in domain
+        .items
+        .iter()
+        .take((rect.size.height - 3) as usize)
+        .enumerate()
+    {
         let text = format!("- {}", item.label.text);
         write_text_safe(
             frame,
@@ -2860,7 +2898,10 @@ fn draw_cynefin_domain(
         );
     }
     if domain.items.len() > (rect.size.height - 3) as usize {
-        let more = format!("+{} more", domain.items.len() - (rect.size.height - 3) as usize);
+        let more = format!(
+            "+{} more",
+            domain.items.len() - (rect.size.height - 3) as usize
+        );
         write_text_safe(
             frame,
             rect.origin.x + 2,

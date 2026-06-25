@@ -114,6 +114,18 @@ const FIXTURES: &[(&str, &str)] = &[
         "c4",
         include_str!("../../../tests/fuzz/official-mermaid/c4.mmd"),
     ),
+    (
+        "cynefin",
+        include_str!("../../../tests/fuzz/official-mermaid/cynefin.mmd"),
+    ),
+    (
+        "railroad",
+        include_str!("../../../tests/fuzz/official-mermaid/railroad.mmd"),
+    ),
+    (
+        "swimlanes",
+        include_str!("../../../tests/fuzz/official-mermaid/swimlanes.mmd"),
+    ),
 ];
 
 proptest! {
@@ -188,5 +200,8 @@ fn diagram_kind_name(kind: &DiagramKind) -> &'static str {
         DiagramKind::Timeline(_) => "timeline",
         DiagramKind::Requirement(_) => "requirement",
         DiagramKind::C4(_) => "c4",
+        DiagramKind::Cynefin(_) => "cynefin",
+        DiagramKind::Railroad(_) => "railroad",
+        DiagramKind::Swimlanes(_) => "swimlanes",
     }
 }

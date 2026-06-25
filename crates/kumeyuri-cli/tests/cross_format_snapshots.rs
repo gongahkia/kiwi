@@ -15,7 +15,7 @@ use kumeyuri_render_raster::{RasterRenderConfig, RasterRenderer, RgbaColor};
 use kumeyuri_render_svg::{SvgRenderConfig, SvgRenderer};
 use kumeyuri_render_tui::TuiRenderer;
 
-const FIXTURES: [Fixture; 28] = [
+const FIXTURES: [Fixture; 31] = [
     Fixture::new("flowchart", "01_single_node"),
     Fixture::new("sequence", "01_single_message"),
     Fixture::new("state", "01_start_to_idle"),
@@ -44,6 +44,9 @@ const FIXTURES: [Fixture; 28] = [
     Fixture::new("timeline", "01_basic"),
     Fixture::new("requirement", "01_basic"),
     Fixture::new("c4", "01_context"),
+    Fixture::new("cynefin", "01_basic"),
+    Fixture::new("railroad", "01_basic"),
+    Fixture::new("swimlanes", "01_basic"),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

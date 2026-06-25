@@ -248,6 +248,9 @@ fn animation_identity(diagram: &Diagram) -> (&'static str, &'static str) {
         DiagramKind::Timeline(_) => ("timeline", "trace"),
         DiagramKind::Requirement(_) => ("requirement", "none"),
         DiagramKind::C4(_) => ("c4", "none"),
+        DiagramKind::Cynefin(_) => ("cynefin", "none"),
+        DiagramKind::Railroad(_) => ("railroad", "none"),
+        DiagramKind::Swimlanes(_) => ("swimlanes", "none"),
     }
 }
 

@@ -14,22 +14,21 @@ use crate::ast::{
     DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader,
     ErRelationship, ErStatement, EventModelingAst, EventModelingData, EventModelingDataBlock,
     EventModelingEntityType, EventModelingFrameKind, EventModelingHeader, EventModelingStatement,
-    EventModelingTimeFrame,
-    FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
-    FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective,
-    FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader, GanttStatement, GanttTask,
-    GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick, GitGraphCommit,
-    GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation, GitGraphStatement,
-    IshikawaAst, IshikawaHeader, IshikawaNode, IshikawaStatement, JourneyAst, JourneyHeader,
-    JourneyStatement, JourneyTask, KanbanAst, KanbanColumn, KanbanHeader, KanbanMetadata,
-    KanbanStatement, KanbanTask, Label, LabelKind, MermaidComment, MermaidDirective, MindmapAst,
-    MindmapHeader, MindmapNode, MindmapShape, MindmapStatement, PacketAst, PacketField,
-    PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig, PieHeader, PieLegendPosition,
-    PieSlice, PieStatement, QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader,
-    QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst, RadarAxis, RadarCurve,
-    RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind, RadarStatement, RailroadAst,
-    RailroadHeader, RailroadRule, RailroadStatement, RequirementAst, RequirementElement,
-    RequirementHeader, RequirementKind, RequirementNode,
+    EventModelingTimeFrame, FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke,
+    FlowNode, FlowShape, FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartAst,
+    FlowchartDirective, FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader,
+    GanttStatement, GanttTask, GanttTaskTag, GitGraphAst, GitGraphBranch, GitGraphCherryPick,
+    GitGraphCommit, GitGraphCommitKind, GitGraphHeader, GitGraphMerge, GitGraphOrientation,
+    GitGraphStatement, IshikawaAst, IshikawaHeader, IshikawaNode, IshikawaStatement, JourneyAst,
+    JourneyHeader, JourneyStatement, JourneyTask, KanbanAst, KanbanColumn, KanbanHeader,
+    KanbanMetadata, KanbanStatement, KanbanTask, Label, LabelKind, MermaidComment,
+    MermaidDirective, MindmapAst, MindmapHeader, MindmapNode, MindmapShape, MindmapStatement,
+    PacketAst, PacketField, PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig,
+    PieHeader, PieLegendPosition, PieSlice, PieStatement, QuadrantAst, QuadrantAxis,
+    QuadrantAxisKind, QuadrantHeader, QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst,
+    RadarAxis, RadarCurve, RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind,
+    RadarStatement, RailroadAst, RailroadHeader, RailroadRule, RailroadStatement, RequirementAst,
+    RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
     RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
     RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader, SankeyLink,
     SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst, SequenceAutoNumber,
@@ -2717,8 +2716,9 @@ impl<'source> DiagramParser<'source> {
                 continue;
             }
             if let Ok(comment) = Parser::parse_mermaid_comment(line.text) {
-                ast.statements
-                    .push(CynefinStatement::Comment(shift_comment(comment, line.start)));
+                ast.statements.push(CynefinStatement::Comment(shift_comment(
+                    comment, line.start,
+                )));
                 self.cursor = line.line.next;
                 continue;
             }
@@ -5754,9 +5754,9 @@ impl<'source> SwimlanesHeaderParser<'source> {
             let direction_end = root_end + direction_end;
             let direction = Direction::from_mermaid(&self.source[direction_start..direction_end])
                 .ok_or(ParseError {
-                    kind: ParseErrorKind::ExpectedSwimlanesHeader,
-                    span: Span::new(direction_start, direction_end),
-                })?;
+                kind: ParseErrorKind::ExpectedSwimlanesHeader,
+                span: Span::new(direction_start, direction_end),
+            })?;
             Spanned::new(direction, Span::new(direction_start, direction_end))
         } else {
             Spanned::new(Direction::TopDown, Span::new(root_end, root_end))
@@ -12566,7 +12566,10 @@ fn parse_cynefin_domain_header(
     let Some(kind) = cynefin_domain_kind(&source[start..end]) else {
         return Ok(None);
     };
-    Ok(Some(Spanned::new(kind, Span::new(offset + start, offset + end))))
+    Ok(Some(Spanned::new(
+        kind,
+        Span::new(offset + start, offset + end),
+    )))
 }
 
 fn parse_cynefin_transition(
@@ -12580,7 +12583,9 @@ fn parse_cynefin_transition(
         return Ok(None);
     };
     let target_start = arrow + "-->".len();
-    let colon = source[target_start..end].find(':').map(|index| target_start + index);
+    let colon = source[target_start..end]
+        .find(':')
+        .map(|index| target_start + index);
     let target_end = colon.unwrap_or(end);
     let from = parse_cynefin_domain_ref(source, start, arrow, offset)?;
     let to = parse_cynefin_domain_ref(source, target_start, target_end, offset)?;
@@ -16558,12 +16563,12 @@ mod tests {
     use crate::ast::{
         ArchitectureAlignAxis, ArchitectureSide, ArrowHead, BlockArrowDirection, BlockShape,
         ClassMemberKind, ClassRelationshipLine, ClassRelationshipMarker, ClassStatement,
-        DiagramKind, Direction, ErCardinality, ErStatement, EventModelingEntityType,
-        FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective, GanttTaskTag,
-        GitGraphCommitKind, GitGraphOrientation, LabelKind, QuadrantAxisKind, RadarOptionKind,
-        SequenceActivation, SequenceArrow, SequenceControlKind, SequenceNotePlacement,
-        SequenceParticipantKind, SequenceStatement, Span, StateDirective, StateNodeKind,
-        StateStatement, ZenUmlMessageKind,
+        CynefinDomainKind, DiagramKind, Direction, ErCardinality, ErStatement,
+        EventModelingEntityType, FlowEdgeStroke, FlowShape, FlowStatement, FlowchartDirective,
+        GanttTaskTag, GitGraphCommitKind, GitGraphOrientation, LabelKind, QuadrantAxisKind,
+        RadarOptionKind, SequenceActivation, SequenceArrow, SequenceControlKind,
+        SequenceNotePlacement, SequenceParticipantKind, SequenceStatement, Span, StateDirective,
+        StateNodeKind, StateStatement, ZenUmlMessageKind,
     };
 
     #[test]
@@ -17277,7 +17282,9 @@ cherry-pick id: "feat" parent: "base""#,
         };
         assert_eq!(ast.header.direction.value, Direction::LeftRight);
         assert_eq!(ast.graph.subgraphs.len(), 2);
-        assert_eq!(ast.graph.nodes.len(), 4);
+        assert_eq!(ast.graph.subgraphs[0].statements.len(), 2);
+        assert_eq!(ast.graph.subgraphs[1].statements.len(), 2);
+        assert_eq!(ast.graph.nodes.len(), 0);
         assert_eq!(ast.graph.edges.len(), 3);
     }
 

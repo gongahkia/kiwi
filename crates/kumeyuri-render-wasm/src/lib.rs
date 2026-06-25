@@ -274,7 +274,7 @@ mod tests {
         theme::Theme,
     };
 
-    const FIXTURES: [Fixture; 28] = [
+    const FIXTURES: [Fixture; 31] = [
         Fixture::new("flowchart", "01_single_node"),
         Fixture::new("sequence", "01_single_message"),
         Fixture::new("state", "01_start_to_idle"),
@@ -303,6 +303,9 @@ mod tests {
         Fixture::new("timeline", "01_basic"),
         Fixture::new("requirement", "01_basic"),
         Fixture::new("c4", "01_context"),
+        Fixture::new("cynefin", "01_basic"),
+        Fixture::new("railroad", "01_basic"),
+        Fixture::new("swimlanes", "01_basic"),
     ];
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]

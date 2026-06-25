@@ -1,13 +1,13 @@
 //! Animation configuration, timelines, and default diagram animators.
 
 use crate::ast::{
-    ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement,
-    CynefinStatement, Diagram, DiagramKind, ErAst, ErStatement, EventModelingStatement,
-    FlowStatement, FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement,
-    IshikawaStatement, JourneyAst, JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst,
-    MindmapStatement, PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement,
-    RailroadStatement, RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement,
-    StateAst, StateStatement, TimelineAst, TimelineStatement, TreeViewStatement, TreemapStatement,
+    ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement, CynefinStatement,
+    Diagram, DiagramKind, ErAst, ErStatement, EventModelingStatement, FlowStatement, FlowchartAst,
+    GanttAst, GanttStatement, GitGraphAst, GitGraphStatement, IshikawaStatement, JourneyAst,
+    JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst, MindmapStatement,
+    PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement, RailroadStatement,
+    RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement, StateAst,
+    StateStatement, TimelineAst, TimelineStatement, TreeViewStatement, TreemapStatement,
     VennStatement, WardleyStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
@@ -1215,7 +1215,9 @@ fn apply_railroad_animation_directives(
                 *config = Some(next);
             }
         }
-        RailroadStatement::Title(_) | RailroadStatement::Rule(_) | RailroadStatement::Comment(_) => {}
+        RailroadStatement::Title(_)
+        | RailroadStatement::Rule(_)
+        | RailroadStatement::Comment(_) => {}
     }
     Ok(())
 }

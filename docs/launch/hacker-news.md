@@ -24,8 +24,8 @@ Current pieces in the repo:
 - CLI: `render`, `watch`, and `play`
 - Outputs: text, SVG, GIF, APNG, WebP, TUI
 - Web: typed TS wrapper and `<kumeyuri-diagram>` custom element
-- Compatibility: 11 animated partial Mermaid families, 17 static-only partial
-  families, and 3 known unsupported upstream roots tracked in `COVERAGE.md`
+- Compatibility: 11 animated partial Mermaid families and 20 static-only partial
+  families tracked in `COVERAGE.md`
 - Tests: parser fixtures, static snapshots, animation hash snapshots, SVG
   sanitizer check, raster snapshots, Playwright browser coverage, fuzz/negative
   fixtures, compat drift checks, and WASM gzip budget

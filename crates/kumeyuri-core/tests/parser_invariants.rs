@@ -6,7 +6,7 @@ use kumeyuri_core::{
 };
 use proptest::prelude::*;
 
-const FIXTURES: [Fixture; 28] = [
+const FIXTURES: [Fixture; 31] = [
     Fixture::new("flowchart", "01_single_node"),
     Fixture::new("sequence", "01_single_message"),
     Fixture::new("state", "01_start_to_idle"),
@@ -35,6 +35,9 @@ const FIXTURES: [Fixture; 28] = [
     Fixture::new("timeline", "01_basic"),
     Fixture::new("requirement", "01_basic"),
     Fixture::new("c4", "01_context"),
+    Fixture::new("cynefin", "01_basic"),
+    Fixture::new("railroad", "01_basic"),
+    Fixture::new("swimlanes", "01_basic"),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -248,6 +251,19 @@ fn assert_root_spans(diagram: &Diagram, source: &str) {
         DiagramKind::C4(ast) => {
             assert_span(ast.header.span, source);
             assert_span(ast.span, source);
+        }
+        DiagramKind::Cynefin(ast) => {
+            assert_span(ast.header.span, source);
+            assert_span(ast.span, source);
+        }
+        DiagramKind::Railroad(ast) => {
+            assert_span(ast.header.span, source);
+            assert_span(ast.span, source);
+        }
+        DiagramKind::Swimlanes(ast) => {
+            assert_span(ast.header.span, source);
+            assert_span(ast.span, source);
+            assert_span(ast.graph.span, source);
         }
     }
 }
@@ -497,6 +513,28 @@ fn summary(diagram: &Diagram) -> ParserSummary {
                 ast.elements.len(),
                 ast.relationships.len(),
                 ast.boundaries.len(),
+            ],
+        },
+        DiagramKind::Cynefin(ast) => ParserSummary {
+            kind: "cynefin",
+            counts: [
+                ast.statements.len(),
+                ast.domains.len(),
+                ast.domains.iter().map(|domain| domain.items.len()).sum(),
+                ast.transitions.len(),
+            ],
+        },
+        DiagramKind::Railroad(ast) => ParserSummary {
+            kind: "railroad",
+            counts: [ast.statements.len(), ast.rules.len(), 0, 0],
+        },
+        DiagramKind::Swimlanes(ast) => ParserSummary {
+            kind: "swimlanes",
+            counts: [
+                ast.graph.statements.len(),
+                ast.graph.subgraphs.len(),
+                ast.graph.nodes.len(),
+                ast.graph.edges.len(),
             ],
         },
     }

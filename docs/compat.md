@@ -12,8 +12,8 @@ release-facing compatibility tracker.
 | Status | Mermaid roots/families |
 | --- | --- |
 | Animated partial support | `graph`, `flowchart`, `sequenceDiagram`, `stateDiagram`, `stateDiagram-v2`, `classDiagram`, `erDiagram`, `gantt`, `pie`, `mindmap`, `journey`, `gitGraph`, `timeline` |
-| Static-only partial support | `quadrantChart`, `zenuml`, `sankey`, `sankey-beta`, `xychart`, `xychart-beta`, `block`, `packet`, `packet-beta`, `kanban`, `architecture-beta`, `radar-beta`, `eventmodeling`, `treemap-beta`, `venn-beta`, `ishikawa-beta`, `wardley-beta`, `treeView-beta`, `requirementDiagram`, `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
-| No parser root | `cynefin-beta`, `railroad-diagram`, `swimlane` |
+| Static-only partial support | `quadrantChart`, `zenuml`, `sankey`, `sankey-beta`, `xychart`, `xychart-beta`, `block`, `packet`, `packet-beta`, `kanban`, `architecture-beta`, `radar-beta`, `eventmodeling`, `treemap-beta`, `venn-beta`, `ishikawa-beta`, `wardley-beta`, `treeView-beta`, `requirementDiagram`, `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment`, `cynefin-beta`, `railroad-diagram`, `swimlane` |
+| No parser root | None tracked |
 
 ## Compatibility policy
 

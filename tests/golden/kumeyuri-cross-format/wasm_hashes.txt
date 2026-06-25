@@ -26,3 +26,6 @@ gitgraph/01_basic wasm=0481a0f2b6b6a22a
 timeline/01_basic wasm=0f07fa99a28af453
 requirement/01_basic wasm=85156c9f98561678
 c4/01_context wasm=ecf285269ec40532
+cynefin/01_basic wasm=1c917e4afee77fd0
+railroad/01_basic wasm=b4be9c15509e57aa
+swimlanes/01_basic wasm=4ef7eeb0cb0bfe52

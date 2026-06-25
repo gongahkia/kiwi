@@ -2745,7 +2745,10 @@ fn diagram_kind_summary(kind: &DiagramKind) -> String {
             "Cynefin framework diagram with {}, {}, and {}.",
             count_phrase(ast.domains.len(), "domain block", "domain blocks"),
             count_phrase(
-                ast.domains.iter().map(|domain| domain.items.len()).sum::<usize>(),
+                ast.domains
+                    .iter()
+                    .map(|domain| domain.items.len())
+                    .sum::<usize>(),
                 "item",
                 "items"
             ),
@@ -4984,6 +4987,9 @@ muted = "#7d8590"
             ("timeline", "01_basic", "timeline"),
             ("requirement", "01_basic", "requirement"),
             ("c4", "01_context", "c4"),
+            ("cynefin", "01_basic", "cynefin"),
+            ("railroad", "01_basic", "railroad"),
+            ("swimlanes", "01_basic", "swimlanes"),
         ] {
             let path = root
                 .join("tests/snapshots")
@@ -5024,7 +5030,7 @@ muted = "#7d8590"
             .join("tests/snapshots");
         let paths = snapshot_input_paths(&root);
 
-        assert_eq!(paths.len(), 135);
+        assert_eq!(paths.len(), 141);
 
         for path in paths {
             let source = fs::read_to_string(&path)

@@ -26,3 +26,6 @@ gitgraph/01_basic text=571555bcab087eef svg=46eafbebe96b949b png=6cf30dd7928c91e
 timeline/01_basic text=a8ad297e3c37e956 svg=7c4ec44263d2c45f png=7cc6e0f82ae3718d gif=e04f510128affc81 apng=cb233fc238630f0b webp=247961c780e90116 tui=ffda8ca60534f418
 requirement/01_basic text=82c1804ef633dcf1 svg=0b2ee213cdb8c21d png=ad0488a8d95eeb7a gif=dccc91576478b94a apng=32009e1972dfc129 webp=74c34a60a763a9e5 tui=917fe43c88ffe555
 c4/01_context text=8ee4ce0efb318c54 svg=391af36f5b78faaa png=ade76ad4c8e62131 gif=501e193abfdcb08f apng=e02a50d3362dbfc1 webp=056940c12bae17fe tui=43d0771c2a5e45ce
+cynefin/01_basic text=4e80e6151c2ca0f4 svg=716dfb5cf6a459ca png=daf406862a99456c gif=fc0ab9c75d8e500d apng=f8e1f517e58a7639 webp=6f077228eb78f2c8 tui=ab6fe6d7eec67cba
+railroad/01_basic text=a75092e48380cf3a svg=27a37626b57278a3 png=9faeb06f19847c5b gif=96fe9118f4d61694 apng=5609860d702b9509 webp=da899d974cf634c3 tui=f947b8218198af08
+swimlanes/01_basic text=62fdf5e5743b7a48 svg=66277618b3dc5a58 png=55c6c272265ea217 gif=f8ef2ae9e11cad12 apng=f82678ceb56c86da webp=3ae788a4bf8cde1e tui=f6ed90f5632cf83c
