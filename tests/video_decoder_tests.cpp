@@ -19,6 +19,7 @@ void expect(bool condition, const char* label) {
 int main() {
   const std::filesystem::path fixture = std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "docs/v0.5-structure-demo.gif";
   contourtty::VideoDecoder decoder(fixture);
+  expect(decoder.averageFps().has_value() && *decoder.averageFps() > 0.0, "decoder reports positive average fps");
   const std::optional<contourtty::Frame> first = decoder.nextFrame();
   expect(first.has_value(), "first frame exists");
   expect(first->pts_us == 0, "first frame starts at zero");

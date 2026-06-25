@@ -300,19 +300,22 @@ int temporalSupersampleFromCli(const CliOptions& options) {
   return std::clamp(options.temporal_supersample, 1, 8);
 }
 
-LuminanceField blendTemporalSupersample(const LuminanceField& previous, const LuminanceField& current, int samples) {
-  if (samples <= 1 || previous.width != current.width || previous.height != current.height || previous.values.size() != current.values.size()) {
+LuminanceField blendTemporalSupersample(const LuminanceField& current, const LuminanceField& adjacent, int samples, bool adjacent_is_future) {
+  if (samples <= 1 || current.width != adjacent.width || current.height != adjacent.height || current.values.size() != adjacent.values.size()) {
     return current;
   }
   LuminanceField blended;
   blended.width = current.width;
   blended.height = current.height;
   blended.values.assign(current.values.size(), 0.0);
-  for (int sample = 1; sample <= samples; ++sample) {
-    const double t = static_cast<double>(sample) / static_cast<double>(samples);
-    const double prev_weight = 1.0 - t;
+  for (int sample = 0; sample < samples; ++sample) {
+    const double t = adjacent_is_future
+                       ? static_cast<double>(sample) / static_cast<double>(samples)
+                       : static_cast<double>(sample + 1) / static_cast<double>(samples);
+    const double current_weight = adjacent_is_future ? 1.0 - t : t;
+    const double adjacent_weight = 1.0 - current_weight;
     for (std::size_t index = 0; index < current.values.size(); ++index) {
-      blended.values[index] += (previous.values[index] * prev_weight) + (current.values[index] * t);
+      blended.values[index] += (current.values[index] * current_weight) + (adjacent.values[index] * adjacent_weight);
     }
   }
   const double scale = 1.0 / static_cast<double>(samples);
@@ -755,8 +758,16 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         LuminanceField current_luminance = makeLuminanceField(active_frame());
         if (temporal_state != nullptr && temporal_supersample > 1) {
           const auto supersample_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-          if (temporal_state->previous_supersample_luminance.has_value()) {
-            analysis_luminance = blendTemporalSupersample(*temporal_state->previous_supersample_luminance, current_luminance, temporal_supersample);
+          if (temporal_state->next_supersample_frame.has_value()) {
+            const LuminanceField next_luminance = makeLuminanceField(*temporal_state->next_supersample_frame);
+            analysis_luminance = blendTemporalSupersample(current_luminance, next_luminance, temporal_supersample, true);
+            temporal_state->next_supersample_frame.reset();
+            if (stats != nullptr) {
+              stats->temporal_supersample_frames += temporal_supersample - 1;
+              stats->temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
+            }
+          } else if (!temporal_state->next_supersample_required && temporal_state->previous_supersample_luminance.has_value()) {
+            analysis_luminance = blendTemporalSupersample(current_luminance, *temporal_state->previous_supersample_luminance, temporal_supersample, false);
             if (stats != nullptr) {
               stats->temporal_supersample_frames += temporal_supersample - 1;
               stats->temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();

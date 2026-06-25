@@ -209,6 +209,23 @@ int64_t frameMediaUs(const Frame& frame, int64_t first_pts_us) {
   return std::max<int64_t>(0, frame.pts_us - first_pts_us);
 }
 
+int effectiveTemporalSupersample(const CliOptions& options, std::optional<double> source_fps) {
+  const int requested = std::clamp(options.temporal_supersample, 1, 8);
+  if (requested <= 1) {
+    return 1;
+  }
+  if (!source_fps.has_value() || *source_fps >= 30.0) {
+    return 1;
+  }
+  return requested;
+}
+
+CliOptions withTemporalSupersample(const CliOptions& options, int samples) {
+  CliOptions copy = options;
+  copy.temporal_supersample = std::clamp(samples, 1, 8);
+  return copy;
+}
+
 bool writeAll(int fd, const std::string& bytes);
 
 double timevalSeconds(timeval value) {
@@ -2001,6 +2018,14 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   if (!frame.has_value()) {
     throw std::runtime_error("input contains no video frames");
   }
+  const std::optional<double> source_fps = video_decoder.averageFps();
+  const int temporal_supersample = effectiveTemporalSupersample(options, source_fps);
+  const CliOptions render_options = withTemporalSupersample(options, temporal_supersample);
+  if (options.temporal_supersample > 1) {
+    CONTOURTTY_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(options.temporal_supersample) +
+                                  " active=" + std::to_string(temporal_supersample) +
+                                  (source_fps.has_value() ? " source_fps=" + std::to_string(*source_fps) : " source_fps=unknown"));
+  }
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
@@ -2056,6 +2081,30 @@ int exportMedia(const CliOptions& options, Logger& logger) {
                                     " temporal_supersample_us=" + std::to_string(render_stats.temporal_supersample_ns / 1000));
     }
   };
+  std::optional<Frame> lookahead_frame;
+  const auto fill_lookahead = [&] {
+    if (!lookahead_frame.has_value()) {
+      lookahead_frame = video_decoder.nextFrame();
+    }
+  };
+  const auto take_next_frame = [&]() -> std::optional<Frame> {
+    if (lookahead_frame.has_value()) {
+      Frame next = std::move(*lookahead_frame);
+      lookahead_frame.reset();
+      return next;
+    }
+    return video_decoder.nextFrame();
+  };
+  const auto prepare_temporal_lookahead = [&] {
+    temporal_state.next_supersample_frame.reset();
+    temporal_state.next_supersample_required = render_options.temporal_supersample > 1;
+    if (render_options.temporal_supersample > 1) {
+      fill_lookahead();
+      if (lookahead_frame.has_value()) {
+        temporal_state.next_supersample_frame = *lookahead_frame;
+      }
+    }
+  };
 
   if (kind == ExportKind::Mp4) {
     std::optional<DecodedAudio> export_audio;
@@ -2066,16 +2115,17 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     } catch (const NoAudioStreamError&) {
       CONTOURTTY_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
     }
-    std::optional<Frame> second_frame = video_decoder.nextFrame();
+    fill_lookahead();
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &overlay_frame);
-    renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    prepare_temporal_lookahead();
+    renderFrame(render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
     RasterImage raster = rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr);
     Mp4VideoWriter writer(output_path,
                           raster.width,
                           raster.height,
-                          mp4ExportFps(options, *frame, second_frame),
+                          mp4ExportFps(options, *frame, lookahead_frame),
                           export_audio.has_value() ? &*export_audio : nullptr);
     writer.writeFrame(raster.rgb);
     ++exported_frames;
@@ -2083,16 +2133,12 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const auto write_mp4_frame = [&](const Frame& current_frame) {
       std::optional<Frame> current_overlay_frame;
       const Frame& current_render_input = frameWithOverlay(current_frame, overlay_source, exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), &current_overlay_frame);
-      renderFrame(current_render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+      prepare_temporal_lookahead();
+      renderFrame(current_render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
       caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
       writer.writeFrame(rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr).rgb);
     };
-    if (second_frame.has_value()) {
-      ++frame_index;
-      write_mp4_frame(*second_frame);
-      ++exported_frames;
-    }
-    while ((frame = video_decoder.nextFrame()).has_value()) {
+    while ((frame = take_next_frame()).has_value()) {
       ++frame_index;
       write_mp4_frame(*frame);
       ++exported_frames;
@@ -2139,7 +2185,8 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(current_frame, overlay_source, timestamp, &overlay_frame);
-    renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    prepare_temporal_lookahead();
+    renderFrame(render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
     const std::optional<EmissionResult> emission = emit_cells(timestamp);
     if (emission.has_value()) {
@@ -2150,7 +2197,8 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   temporal_state.reset();
   std::optional<Frame> first_overlay_frame;
   const Frame& first_render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &first_overlay_frame);
-  renderFrame(first_render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  prepare_temporal_lookahead();
+  renderFrame(first_render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
@@ -2167,7 +2215,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     write_emission(0.0, emission->bytes);
     ++exported_frames;
   }
-  while ((frame = video_decoder.nextFrame()).has_value()) {
+  while ((frame = take_next_frame()).has_value()) {
     ++frame_index;
     write_frame(*frame);
     ++exported_frames;
@@ -2540,7 +2588,9 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
                                   " optical_flow_blocks=" + std::to_string(render_stats.optical_flow_blocks) +
                                   " optical_flow_us=" + std::to_string(render_stats.optical_flow_ns / 1000) +
                                   " warp_history_cells=" + std::to_string(render_stats.warp_history_cells) +
-                                  " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000));
+                                  " warp_history_us=" + std::to_string(render_stats.warp_history_ns / 1000) +
+                                  " temporal_supersample_frames=" + std::to_string(render_stats.temporal_supersample_frames) +
+                                  " temporal_supersample_us=" + std::to_string(render_stats.temporal_supersample_ns / 1000));
   }
   return quit ? 130 : 0;
 }
@@ -2994,6 +3044,14 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   TerminalSize terminal = queryTerminalSize();
   VideoDecoder video_decoder(*live_options.input);
+  const std::optional<double> source_fps = video_decoder.averageFps();
+  const int temporal_supersample = effectiveTemporalSupersample(live_options, source_fps);
+  if (live_options.temporal_supersample > 1) {
+    CONTOURTTY_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(live_options.temporal_supersample) +
+                                  " active=" + std::to_string(temporal_supersample) +
+                                  (source_fps.has_value() ? " source_fps=" + std::to_string(*source_fps) : " source_fps=unknown"));
+    live_options.temporal_supersample = temporal_supersample;
+  }
   CellBuffer cells;
   CellBuffer split_left_cells;
   CellBuffer split_right_cells;
@@ -3038,6 +3096,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   bool audio_started = false;
   int64_t current_video_us = 0;
   std::optional<Frame> still_frame;
+  std::optional<Frame> lookahead_frame;
   bool osd_active = false;
   std::optional<int> split_seam_col;
 
@@ -3068,6 +3127,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       pacer.reset();
     }
     video_decoder.seekToUs(clamped_us);
+    lookahead_frame.reset();
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
     reset_render_state();
@@ -3208,10 +3268,18 @@ int playMedia(const CliOptions& options, Logger& logger) {
       continue;
     }
 
-    auto frame = video_decoder.nextFrame();
+    auto frame = [&]() -> std::optional<Frame> {
+      if (lookahead_frame.has_value()) {
+        Frame next = std::move(*lookahead_frame);
+        lookahead_frame.reset();
+        return next;
+      }
+      return video_decoder.nextFrame();
+    }();
     if (!frame.has_value()) {
       if (video_decoder.isAnimatedImage()) {
         video_decoder.restart();
+        lookahead_frame.reset();
         pacer.reset();
         reset_render_state();
         CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
@@ -3219,6 +3287,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       }
       if (live_options.loop && !video_decoder.isStillImage()) {
         video_decoder.restart();
+        lookahead_frame.reset();
         if (audio_player != nullptr) {
           audio_player->seekToUs(0);
         }
@@ -3284,6 +3353,16 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
+    if (live_options.temporal_supersample > 1 && !lookahead_frame.has_value()) {
+      lookahead_frame = video_decoder.nextFrame();
+    }
+    const auto set_temporal_lookahead = [&](RenderTemporalState* state) {
+      state->next_supersample_frame.reset();
+      state->next_supersample_required = live_options.temporal_supersample > 1;
+      if (live_options.temporal_supersample > 1 && lookahead_frame.has_value()) {
+        state->next_supersample_frame = *lookahead_frame;
+      }
+    };
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, static_cast<double>(current_video_us) / 1000000.0, &overlay_frame);
     if (split_config.has_value() && render_terminal.cols >= 3) {
@@ -3295,10 +3374,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
       right_terminal.cols = layout.right_cols;
       const CliOptions left_options = splitSideOptions(render_options, *split_config, true, left_terminal);
       const CliOptions right_options = splitSideOptions(render_options, *split_config, false, right_terminal);
+      set_temporal_lookahead(&split_left_temporal_state);
       renderFrame(render_input, ramp, left_options, left_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_left_cells, render_stats_ptr, &split_left_temporal_state);
+      set_temporal_lookahead(&split_right_temporal_state);
       renderFrame(render_input, ramp, right_options, right_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_right_cells, render_stats_ptr, &split_right_temporal_state);
       composeSplitCells(split_left_cells, split_right_cells, layout, &cells);
     } else {
+      set_temporal_lookahead(&temporal_state);
       renderFrame(render_input, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
     }
     if (video_decoder.isStillImage()) {

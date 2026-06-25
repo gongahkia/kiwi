@@ -329,10 +329,12 @@ int main() {
     contourtty::CellBuffer cells;
     contourtty::RenderTemporalState temporal_state;
     contourtty::RenderStats stats;
+    temporal_state.next_supersample_frame = second;
     contourtty::renderFrame(first, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
-    expect(stats.temporal_supersample_frames == 0, "temporal supersample first frame has no adjacent blend");
+    expect(stats.temporal_supersample_frames == 1, "temporal supersample first frame uses lookahead blend");
+    temporal_state.next_supersample_frame.reset();
     contourtty::renderFrame(second, contourtty::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
-    expect(stats.temporal_supersample_frames == 1, "temporal supersample counts analysis-only blended frame");
+    expect(stats.temporal_supersample_frames == 2, "temporal supersample falls back to adjacent history");
   }
 
   {

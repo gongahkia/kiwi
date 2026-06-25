@@ -428,4 +428,8 @@ bool VideoDecoder::isAnimatedImage() const noexcept {
   return impl_->animated_image;
 }
 
+std::optional<double> VideoDecoder::averageFps() const noexcept {
+  return impl_->average_fps;
+}
+
 }  // namespace contourtty

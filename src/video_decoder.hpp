@@ -23,6 +23,7 @@ class VideoDecoder {
   void restart();
   bool isStillImage() const noexcept;
   bool isAnimatedImage() const noexcept;
+  std::optional<double> averageFps() const noexcept;
 
  private:
   struct Impl;

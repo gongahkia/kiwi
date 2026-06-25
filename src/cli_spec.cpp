@@ -38,7 +38,7 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--contrast N", "structure contrast adjustment"},
   {"--glyph-stickiness N", "retain near-tied structure glyphs, 0..1"},
   {"--orient-stickiness N", "retain near-tied structure edge orientations in radians"},
-  {"--temporal-supersample N", "blend adjacent decoded frames for low-fps structure analysis"},
+  {"--temporal-supersample N", "blend next decoded frame when source fps is below 30"},
   {"--dither {none|ordered|fs}", "color dithering mode"},
   {"--diff-oklab-eps N", "suppress sub-perceptual color diff emits"},
   {"--bandwidth-cap N", "graphics protocol cap in MB/s, default 50"},
