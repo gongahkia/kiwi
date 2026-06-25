@@ -11,5 +11,6 @@ All assets in this directory are authored for contourtty and covered by the repo
 | `graphs/painterly_hatch_stipple.yaml` | render graph preset | in-tree authored | MIT | Composed NPR graph example. |
 | `noise/blue_noise_64.bin` | blue-noise rank tile | in-tree authored | MIT | Deterministic 64x64 toroidal rank tile for stipple thresholding. |
 | `scenes/cube.obj` | OBJ scene | in-tree authored | MIT | Minimal cube smoke asset. |
+| `scenes/suzanne.obj` | OBJ scene | Wikimedia Commons `File:Suzanne.stl`, converted to OBJ | GPL-3.0-or-later | Blender Suzanne test mesh by Willem-Paul van Overbruggen. Source: <https://commons.wikimedia.org/wiki/File:Suzanne.stl>. |
 
 No fonts, shader files, or third-party binary assets are shipped under `share/contourtty` at this point.

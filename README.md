@@ -66,7 +66,7 @@ Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure`
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing. `--grid CxR` treats a globbed image input as a fitted contact sheet and keeps animated GIF tiles on their own timelines.
 
-Scene inputs: `.obj` files and bundled aliases such as `contourtty:scene:cube` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
+Scene inputs: `.obj` files and bundled aliases such as `contourtty:scene:cube` and `contourtty:scene:suzanne` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
 
 Data and terminal-recording inputs: `--input stdin --plot waveform|spectrum|heatmap` renders numeric streams, and `.cast` inputs replay asciinema v2 recordings through the same renderer.
 

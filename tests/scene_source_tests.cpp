@@ -50,6 +50,12 @@ int main() {
   const contourtty::SceneMesh cube = contourtty::loadObjScene(*bundled);
   expect(cube.triangles.size() == 12, "bundled cube loads");
 
+  const std::optional<std::filesystem::path> suzanne_path = contourtty::resolveBundledScene("contourtty:scene:suzanne");
+  expect(suzanne_path.has_value(), "bundled suzanne resolves");
+  const contourtty::SceneMesh suzanne = contourtty::loadObjScene(*suzanne_path);
+  expect(suzanne.positions.size() == 505, "bundled suzanne vertex count");
+  expect(suzanne.triangles.size() == 968, "bundled suzanne triangle count");
+
   const contourtty::SceneMesh triangle = contourtty::parseObjScene(
     "v -1 -1 0\n"
     "v 1 -1 0\n"
@@ -85,4 +91,8 @@ int main() {
   expect(anyFiniteDepth(turntable) && anyFiniteDepth(orbit) && anyFiniteDepth(fly), "camera presets render depth");
   expect(albedoDiffers(turntable, orbit), "orbit camera changes rendered view");
   expect(albedoDiffers(turntable, fly), "fly camera changes rendered view");
+
+  const contourtty::SceneGBuffer suzanne_render = contourtty::renderSceneGBuffer(suzanne, contourtty::SceneRenderOptions{.width = 48, .height = 32, .time_seconds = 0.25, .camera_preset = contourtty::SceneCameraPreset::Turntable});
+  expect(anyFiniteDepth(suzanne_render), "bundled suzanne renders depth");
+  expect(anyNormal(suzanne_render), "bundled suzanne renders normals");
 }
