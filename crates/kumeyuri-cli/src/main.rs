@@ -858,9 +858,11 @@ fn audit_mermaid_paths(
     let mut findings = Vec::new();
     for file in files {
         let source = read_source_file(&file, max_input_bytes)?;
-        findings.extend(extract_mermaid_audit_sources(&file, &source).into_iter().map(
-            |source| audit_mermaid_source(source),
-        ));
+        findings.extend(
+            extract_mermaid_audit_sources(&file, &source)
+                .into_iter()
+                .map(audit_mermaid_source),
+        );
     }
 
     let mut counts = MermaidAuditCounts {
@@ -879,7 +881,10 @@ fn audit_mermaid_paths(
 
     Ok(MermaidAuditReport {
         schema_version: 1,
-        paths: paths.iter().map(|path| path.display().to_string()).collect(),
+        paths: paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
         counts,
         findings,
     })
@@ -935,7 +940,9 @@ fn extract_mermaid_audit_sources(path: &Path, source: &str) -> Vec<MermaidAuditS
     if path
         .extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "mmd" | "mermaid"))
+        .is_some_and(|extension| {
+            matches!(extension.to_ascii_lowercase().as_str(), "mmd" | "mermaid")
+        })
     {
         return vec![MermaidAuditSource {
             path: path.to_owned(),
@@ -1021,7 +1028,8 @@ fn audit_mermaid_source(source: MermaidAuditSource) -> MermaidAuditFinding {
                         warnings.push("animated support produced fewer than two frames".to_owned());
                     }
                     if support == "static-only-partial" && frames != 1 {
-                        warnings.push("static-only support produced more than one frame".to_owned());
+                        warnings
+                            .push("static-only support produced more than one frame".to_owned());
                     }
                     MermaidAuditFinding {
                         path: source.path.display().to_string(),
@@ -1033,7 +1041,8 @@ fn audit_mermaid_source(source: MermaidAuditSource) -> MermaidAuditFinding {
                         render_ok,
                         frames,
                         warnings,
-                        error: (!render_ok).then(|| "SVG renderer did not emit an SVG document".to_owned()),
+                        error: (!render_ok)
+                            .then(|| "SVG renderer did not emit an SVG document".to_owned()),
                         suggestion: None,
                     }
                 }
@@ -1048,7 +1057,9 @@ fn audit_mermaid_source(source: MermaidAuditSource) -> MermaidAuditFinding {
                     frames: 0,
                     warnings,
                     error: Some(error),
-                    suggestion: Some("render this diagram with Mermaid.js until kumeyuri animation/layout support is extended"),
+                    suggestion: Some(
+                        "render this diagram with Mermaid.js until kumeyuri animation/layout support is extended",
+                    ),
                 },
             }
         }
@@ -1062,7 +1073,12 @@ fn audit_mermaid_source(source: MermaidAuditSource) -> MermaidAuditFinding {
             render_ok: false,
             frames: 0,
             warnings,
-            error: Some(format_parse_error(&source.source, error.kind, error.span.start, error.span.end)),
+            error: Some(format_parse_error(
+                &source.source,
+                error.kind,
+                error.span.start,
+                error.span.end,
+            )),
             suggestion: parse_error_suggestion(error.kind),
         },
     }
@@ -1112,7 +1128,10 @@ fn mermaid_audit_warnings(source: &str) -> Vec<String> {
         let line = line.trim_start();
         line.starts_with("click ") || line.contains(" href ") || line.contains(" call ")
     }) {
-        warnings.push("Mermaid click/callback/link behavior is not executed by kumeyuri website embeds".to_owned());
+        warnings.push(
+            "Mermaid click/callback/link behavior is not executed by kumeyuri website embeds"
+                .to_owned(),
+        );
     }
     warnings
 }
@@ -3861,20 +3880,22 @@ enum PlaybackAction {
 mod tests {
     use super::{
         ANIMATED_PARTIAL_ROOTS, Cli, Command, ConvertFormat, DEFAULT_INPUT_LIMIT_BYTES,
-        ExportFormat, McpTransport, PluginCommand, PluginRegistry, RenderCharset, RenderFormat,
-        RenderOptions, RenderTheme, ResolvedPluginPackage, STATIC_ONLY_ROOTS, Theme, ThemeCommand,
-        UNSUPPORTED_ROOTS, compat_json_report, compat_report, convert_cast_source, convert_file,
-        count_phrase, decode_gzip_bytes, diagram_kind_id, diagram_kind_summary, direction_label,
+        ExportFormat, McpTransport, MermaidAuditSource, PluginCommand, PluginRegistry,
+        RenderCharset, RenderFormat, RenderOptions, RenderTheme, ResolvedPluginPackage,
+        STATIC_ONLY_ROOTS, Theme, ThemeCommand, UNSUPPORTED_ROOTS, audit_mermaid_source,
+        compat_json_report, compat_report, convert_cast_source, convert_file, count_phrase,
+        decode_gzip_bytes, diagram_kind_id, diagram_kind_summary, direction_label,
         disable_plugin_records, encode_url_path_component, export_file, export_source,
-        format_lint_text, format_theme_error, format_theme_list, is_hex, is_kumecast_gz_path,
-        is_kumecast_path, layout_file, layout_warnings, lint_file, lint_source,
-        load_render_theme_file, normalize_inline_text, parse_diagram, parse_locale_override,
-        parse_non_empty_string, parse_positive_input_bytes, parse_positive_usize,
-        parse_socket_addr, parse_speed_override, playback_options, playback_timeline_from_source,
-        plugin_runtime_policy, print_compat_report, print_lint_report, publish_theme_file,
-        read_cast_source_file, read_installed_plugin_records, read_playback_file_source,
-        read_source_file, read_theme_index, remove_plugin_records, render_file, render_source,
-        render_theme, render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
+        extract_mermaid_audit_sources, format_lint_text, format_theme_error, format_theme_list,
+        is_hex, is_kumecast_gz_path, is_kumecast_path, layout_file, layout_warnings, lint_file,
+        lint_source, load_render_theme_file, normalize_inline_text, parse_diagram,
+        parse_locale_override, parse_non_empty_string, parse_positive_input_bytes,
+        parse_positive_usize, parse_socket_addr, parse_speed_override, playback_options,
+        playback_timeline_from_source, plugin_runtime_policy, print_compat_report,
+        print_lint_report, publish_theme_file, read_cast_source_file,
+        read_installed_plugin_records, read_playback_file_source, read_source_file,
+        read_theme_index, remove_plugin_records, render_file, render_source, render_theme,
+        render_timeline_vtt, resolve_ai_library_path, resolve_crates_plugin_metadata,
         resolve_npm_plugin_metadata, show_theme, svg_config, theme_charset_name,
         timeline_from_source, timeline_from_source_with_options,
         timeline_from_source_with_render_options, validate_theme_file, write_plugin_install_record,
@@ -4847,14 +4868,8 @@ muted = "#7d8590"
 
     #[test]
     fn audit_mermaid_parser_accepts_paths_and_json_flag() {
-        let cli = Cli::try_parse_from([
-            "kumeyuri",
-            "audit-mermaid",
-            "docs",
-            "examples",
-            "--json",
-        ])
-        .unwrap();
+        let cli = Cli::try_parse_from(["kumeyuri", "audit-mermaid", "docs", "examples", "--json"])
+            .unwrap();
         let Some(Command::AuditMermaid { paths, json }) = cli.command else {
             panic!("expected audit-mermaid command");
         };
@@ -4879,10 +4894,10 @@ muted = "#7d8590"
     #[test]
     fn audit_mermaid_reports_support_warnings_and_errors() {
         let animated = audit_mermaid_source(MermaidAuditSource {
-            path: PathBuf::from("flow.mmd"),
+            path: PathBuf::from("sequence.mmd"),
             line: 1,
             source_kind: "file",
-            source: "%%{ init: { 'theme': 'base' } }%%\ngraph TD\nA --> B\n".to_owned(),
+            source: "%%{ init: { 'theme': 'base' } }%%\nsequenceDiagram\nA->>B: hello\n".to_owned(),
         });
         let static_only = audit_mermaid_source(MermaidAuditSource {
             path: PathBuf::from("packet.mmd"),

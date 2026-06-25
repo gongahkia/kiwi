@@ -18,7 +18,7 @@
     "docs:pagefind": "npm run docs:build && npx -y pagefind --site target/mdbook",
     "test:compat": "node scripts/check-mermaid-coverage.mjs",
     "test:compat-versions": "node scripts/check-compat-doc-versions.mjs",
-    "test:mermaid-parity": "node scripts/check-mermaid-parity.mjs --check",
+    "test:mermaid-parity": "cargo build -q -p kumeyuri-cli && KUMEYURI_BIN=target/debug/kumeyuri node scripts/check-mermaid-parity.mjs --check",
     "test:animation-quality": "node scripts/check-animation-quality.mjs --check",
     "test:coverage-gate": "node scripts/check-coverage-snapshot-delta.mjs",
     "test:render-action": "node scripts/test-render-action.mjs",

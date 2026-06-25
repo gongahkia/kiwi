@@ -4,18 +4,18 @@
   "mermaidVersion": "11.15.0",
   "sources": {
     "fixtures": "tests/fuzz/official-mermaid/manifest.json",
-    "kumeyuri": "target/debug/kumeyuri",
+    "kumeyuri": "kumeyuri-cli",
     "mermaid": "npx mmdc"
   },
   "counts": {
     "fixtures": 31,
     "kumeyuriParsed": 31,
     "kumeyuriRendered": 31,
-    "mermaidRendered": 28,
+    "mermaidRendered": 0,
     "animatedPartial": 11,
     "staticOnlyPartial": 20,
     "unsupported": 0,
-    "deltas": 3
+    "deltas": 31
   },
   "fixtures": [
     {
@@ -33,11 +33,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 15849,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151515.831235:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151515.844234:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151515.845773:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151515.851857:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/sequence.mmd",
@@ -54,11 +55,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 24793,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151516.341186:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151516.342257:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151516.342517:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151516.343284:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/state.mmd",
@@ -75,11 +77,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 30357,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151516.824794:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151516.825827:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151516.826133:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151516.826900:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/class.mmd",
@@ -96,11 +99,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 18580,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151517.352799:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151517.354280:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151517.354588:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151517.355531:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/er.mmd",
@@ -117,11 +121,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 28582,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151517.842851:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151517.844059:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151517.844326:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151517.845144:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/gantt.mmd",
@@ -138,11 +143,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 9443,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151518.356041:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151518.357578:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151518.358240:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151518.358772:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/pie.mmd",
@@ -159,11 +165,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 4322,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151518.851917:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151518.852995:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151518.853408:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151518.854092:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/quadrant.mmd",
@@ -180,11 +187,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 5474,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151519.297414:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151519.298508:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151519.298842:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151519.299641:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/requirement.mmd",
@@ -201,11 +209,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 17037,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151519.752241:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151519.753469:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151519.753898:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151519.754704:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/cynefin.mmd",
@@ -223,8 +232,7 @@
       },
       "mermaid": {
         "status": "failed",
-        "svgBytes": 0,
-        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: cynefin-beta\ntitle Incident Response\ncomplex\n  \"Investigate root cause\"\ncomplicated\n  \"Expert review needed\"\nclear\n  \"Apply known fix\""
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151520.213988:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151520.215080:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151520.215548:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151520.216457:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
       "deltas": [
         "mermaid-render-failed"
@@ -245,11 +253,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 12733,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151520.701446:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151520.702890:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151520.703411:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151520.704051:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/c4.mmd",
@@ -266,11 +275,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 25305,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151521.243636:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151521.244927:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151521.245221:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151521.246157:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/mindmap.mmd",
@@ -287,11 +297,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 33717,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151521.857997:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151521.859525:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151521.860041:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151521.860894:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/timeline.mmd",
@@ -308,11 +319,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 19632,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151522.520465:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151522.522084:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151522.522512:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151522.523714:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/zenuml.mmd",
@@ -329,11 +341,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 6592,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151523.244899:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151523.246708:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151523.247163:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151523.248489:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/sankey.mmd",
@@ -350,11 +363,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 4608,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151523.969217:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151523.970752:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151523.971137:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151523.972480:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/xychart.mmd",
@@ -371,11 +385,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 7057,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151524.584435:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151524.585698:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151524.586041:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151524.587094:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/block.mmd",
@@ -392,11 +407,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 10000,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151525.225788:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151525.227015:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151525.227343:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151525.228414:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/packet.mmd",
@@ -413,11 +429,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 8856,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151525.789717:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151525.790937:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151525.791235:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151525.792058:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/kanban.mmd",
@@ -434,11 +451,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 16535,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151526.332793:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151526.334327:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151526.335298:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151526.336706:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/architecture.mmd",
@@ -455,11 +473,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 8602,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151527.055704:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151527.057548:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151527.057956:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151527.058969:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/radar.mmd",
@@ -476,11 +495,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 8722,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151527.602009:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151527.603541:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151527.604009:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151527.604995:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/railroad.mmd",
@@ -498,8 +518,7 @@
       },
       "mermaid": {
         "status": "failed",
-        "svgBytes": 0,
-        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: railroad-diagram\ntitle \"Number Grammar\"\nsign = \"+\" | \"-\" ;\nnumber = sign? digit+ ;\ndigit = \"0\" | \"1\" | \"2\" ;\ndetectType (https://mermaid-cli-intercept.invalid/Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/mermaid/dist/chunks/mermaid.esm/chunk-Q52JI7PB.mjs:36:9)\n    at $eval ($eval at renderMermaid (file:///Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/@mermaid-js/mermaid-cli/src/index.js:328:33), <anonymous>:48:45)\n    at #evaluate (file:///Users/gongahkia/Desktop/coding/projects/kumeyuri/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/ExecutionContext.js:388:19)"
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151528.146641:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151528.147869:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151528.148280:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151528.149093:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
       "deltas": [
         "mermaid-render-failed"
@@ -521,8 +540,7 @@
       },
       "mermaid": {
         "status": "failed",
-        "svgBytes": 0,
-        "error": "UnknownDiagramError: No diagram type detected matching given configuration for text: swimlane LR\nsubgraph Customer\n  request[Request service]\n  receive[Receive update]\nend\nsubgraph Support\n  triage[Triage request]\n  answer[Send answer]"
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151528.732488:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151528.733758:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151528.734206:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151528.735381:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
       "deltas": [
         "mermaid-render-failed"
@@ -543,11 +561,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 4425,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151529.380165:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151529.381477:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151529.381926:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151529.382975:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/treemap.mmd",
@@ -564,11 +583,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 8981,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151529.979891:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151529.981253:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151529.981585:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151529.982678:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/venn.mmd",
@@ -585,11 +605,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 4538,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151530.546063:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151530.547387:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151530.547789:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151530.548678:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/ishikawa.mmd",
@@ -606,11 +627,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 11452,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151531.189996:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151531.191742:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151531.192155:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151531.193496:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/wardley.mmd",
@@ -627,11 +649,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 5100,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151531.775219:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151531.776493:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151531.776882:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151531.777817:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/tree_view.mmd",
@@ -648,11 +671,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 4067,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151532.408635:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151532.410015:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151532.410424:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151532.411367:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     },
     {
       "fixturePath": "tests/fuzz/official-mermaid/journey.mmd",
@@ -669,11 +693,12 @@
         "error": null
       },
       "mermaid": {
-        "status": "rendered",
-        "svgBytes": 12224,
-        "error": null
+        "status": "failed",
+        "error": "Error: Failed to launch the browser process:  Code: null\nstderr:\n[0625/151532.987195:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9\n[0625/151532.988471:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.\n[0625/151532.988789:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.\n[0625/151532.989752:FATAL:content/browser/sandbox_parameters_mac.mm:67] Check failed: . : Input/output error (5)\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n    at ChildProcess.onClose (file://<repo>/node_modules/@puppeteer/browsers/lib/esm/launch.js:339:24)"
       },
-      "deltas": []
+      "deltas": [
+        "mermaid-render-failed"
+      ]
     }
   ]
 }

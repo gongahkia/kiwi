@@ -12,6 +12,7 @@ kumeyuri <COMMAND>
 | `export` | Export a file to portable `.kumecast` JSON or `.kumecast.gz` gzip |
 | `convert` | Convert a `.kumecast`/`.kumecast.gz` file back to SVG, GIF, or text frames |
 | `lint` | Print layout warnings as text or JSON |
+| `audit-mermaid` | Scan files/directories for Mermaid sources and migration risks |
 | `layout` | Load an optional AI layout companion binding |
 | `watch` | Redraw text output when a file changes |
 | `play` | Play an animated Mermaid or `.kumecast` TUI timeline |
@@ -136,6 +137,17 @@ kumeyuri lint [--json] <FILE>
 `lint` parses the diagram and reports non-fatal layout warnings without rendering
 an artifact. Text output is intended for terminals; `--json` emits a stable
 report with `file`, `ok`, and `warnings` fields.
+
+## Audit Mermaid
+
+```text
+kumeyuri audit-mermaid [--json] <PATH>...
+```
+
+`audit-mermaid` recursively scans `.mmd`, `.mermaid`, Markdown, and MDX files.
+It reports each Mermaid source with detected root, support class, parse/render
+status, frame count, warnings for ignored Mermaid config/click behavior, and a
+suggestion when parsing fails. JSON output is intended for migration CI.
 
 ## Layout
 

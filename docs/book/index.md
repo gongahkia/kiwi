@@ -19,8 +19,8 @@ source builds or generated assets.
 
 The current compatibility surface tracks Mermaid docs `11.15.0`: 11 animated
 partial families, 20 static-only partial families, and no unsupported tracked
-roots. Run `kumeyuri compat` or read `docs/compat.md` before making release or
-parity claims.
+roots. Run `kumeyuri compat`, inspect `site/parity.json`, or read
+`docs/compat.md` before making release or parity claims.
 
 Partial support means kumeyuri parses and renders the root, but does not promise
 drop-in Mermaid.js visual/config parity. Static-only support means rendering
@@ -33,3 +33,6 @@ works and playback collapses to one frame.
 - See accepted Mermaid forms: [Syntax](syntax.md)
 - Configure animation: [Directives](directives.md)
 - Embed generated diagrams: [Embedding](embedding.md)
+- Check parity evidence: [Compatibility Dashboard](compat-dashboard.md)
+- Audit a migration: [Migration Audit](migration-audit.md)
+- Wire a static site: [Static Site Recipes](static-site-recipes.md)

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,7 @@ const scriptPath = fileURLToPath(import.meta.url);
 const root = resolve(dirname(scriptPath), "..");
 const manifestPath = join(root, "tests/fuzz/official-mermaid/manifest.json");
 const defaultOutput = join(root, "site/parity.json");
+const defaultKumeyuriBin = "target/debug/kumeyuri";
 const maxBuffer = 64 * 1024 * 1024;
 
 const args = new Set(process.argv.slice(2));
@@ -73,7 +74,7 @@ function buildReport(manifest, compat) {
       mermaidVersion: manifest.mermaidVersion,
       sources: {
         fixtures: "tests/fuzz/official-mermaid/manifest.json",
-        kumeyuri: process.env.KUMEYURI_BIN ?? "cargo run -q -p kumeyuri-cli --",
+        kumeyuri: "kumeyuri-cli",
         mermaid: skipMermaid ? "skipped" : "npx mmdc",
       },
       counts: {
@@ -99,7 +100,7 @@ function analyzeFixture(fixture, index, tmp, compat) {
   const rootType = detectRoot(source) ?? fixture.rootType;
   const support = supportForRoot(compat, rootType);
   const kumeyuri = runKumeyuriFixture(fixture.fixturePath, support);
-  const mermaid = skipMermaid ? { status: "skipped", svgBytes: 0, error: null } : runMermaidFixture(fixturePath, index, tmp);
+  const mermaid = skipMermaid ? { status: "skipped", error: null } : runMermaidFixture(fixturePath, index, tmp);
   const deltas = [];
   if (fixture.expectedParserStatus === "pass" && !kumeyuri.parseOk) {
     deltas.push("kumeyuri-parse-failed");
@@ -164,13 +165,11 @@ function runMermaidFixture(inputPath, index, tmp) {
     const svg = readFileSync(outputPath, "utf8");
     return {
       status: svg.includes("<svg") ? "rendered" : "invalid-output",
-      svgBytes: Buffer.byteLength(svg),
       error: null,
     };
   } catch (error) {
     return {
       status: "failed",
-      svgBytes: 0,
       error: cleanError(error),
     };
   }
@@ -178,8 +177,9 @@ function runMermaidFixture(inputPath, index, tmp) {
 
 function runKumeyuri(args) {
   try {
-    const stdout = process.env.KUMEYURI_BIN
-      ? execFileSync(process.env.KUMEYURI_BIN, args, { cwd: root, encoding: "utf8", maxBuffer })
+    const kumeyuriBin = process.env.KUMEYURI_BIN ?? (existsSync(join(root, defaultKumeyuriBin)) ? defaultKumeyuriBin : undefined);
+    const stdout = kumeyuriBin
+      ? execFileSync(kumeyuriBin, args, { cwd: root, encoding: "utf8", maxBuffer })
       : execFileSync("cargo", ["run", "-q", "-p", "kumeyuri-cli", "--", ...args], {
           cwd: root,
           encoding: "utf8",
