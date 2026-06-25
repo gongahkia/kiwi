@@ -51,11 +51,13 @@ describe("private glossary privacy defaults", () => {
     await createTeamEntry("team_private", privateEntry("team-private-cap", "proprietary-team"));
 
     const personal = (await getScopedPersonalEntries({ type: "api", userId: "user_private" }))[0];
-    const team = (await getScopedTeamEntries({
-      teamId: "team_private",
-      type: "api",
-      userId: "user_private"
-    }))[0];
+    const team = (
+      await getScopedTeamEntries({
+        teamId: "team_private",
+        type: "api",
+        userId: "user_private"
+      })
+    )[0];
 
     expect(personal).toMatchObject({
       confidence_tier: "T4",
@@ -79,7 +81,7 @@ describe("private glossary privacy defaults", () => {
     expect(privacy).toContain("proprietary-personal");
     expect(privacy).toContain("Search sends q, limit, optional context");
     expect(privacy).toContain("Slack sends the explicit slash-command term");
-    expect(privacy).toContain("MCP tools send the tool input");
+    expect(privacy).toContain("MCP tools send term, domain, context");
     expect(terms).toContain("Team and personal entries remain scoped");
   });
 });

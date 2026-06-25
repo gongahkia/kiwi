@@ -47,4 +47,13 @@ describe("GET /api/v1/team/admin-check", () => {
       403
     );
   });
+
+  it("requires admin scope", async () => {
+    seedApiKeyForTest({ key: "test-key", scopes: ["search"], teamId: "team_1" });
+
+    const response = await GET(request("admin@example.com"));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "insufficient_api_scope" });
+  });
 });

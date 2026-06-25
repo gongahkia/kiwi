@@ -58,7 +58,7 @@ Current support:
 - adaptive-card response template for Teams search results
 - env-rendered upload package under `apps/teams/dist`
 - package validation for manifest/OpenAPI/template/icon consistency
-- single-team API-key fallback through `WAT_TEAM_ID`
+- team identity derived from a DB-backed API key
 - DB-backed `teams_installs` tenant mapping for gateways or later SSO/bot flows
 - protected Teams metrics endpoint
 

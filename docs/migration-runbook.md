@@ -97,4 +97,4 @@ When credentials may have leaked or a backup was handled outside trusted infrast
 ./scripts/rotate-secrets.sh
 ```
 
-`rotate-secrets.sh` reuses `generate-secrets.sh` and prints replacement `AUTH_SECRET`, `WAT_API_KEY`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, and `SLACK_METRICS_TOKEN` values. Update deployment secrets, restart services, verify login/search, then revoke old credentials.
+`rotate-secrets.sh` reuses `generate-secrets.sh` and prints replacement deployment secrets such as `AUTH_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, and metrics tokens. Update deployment secrets, restart services, verify login/search, then revoke old API keys in `/team/admin/api-keys` and issue replacement keys for external runtimes.

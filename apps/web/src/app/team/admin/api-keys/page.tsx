@@ -2,7 +2,9 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { AdminEmptyState } from "@/components/admin-empty-state";
 import { ApiKeysPanel } from "@/components/api-keys-panel";
+import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { listApiKeys } from "@/lib/api-keys";
 import { sessionUserFromCookieStore } from "@/lib/session";
 
@@ -23,6 +25,7 @@ export default async function TeamApiKeysPage() {
           </Link>
           <h1 className="text-4xl font-semibold">API keys</h1>
         </header>
+        {keys.length === 0 ? <AdminEmptyState {...adminEmptyStates.apiKeys} /> : null}
         <ApiKeysPanel initialKeys={keys} />
       </div>
     </main>

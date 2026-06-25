@@ -39,15 +39,14 @@ Output:
 
 ## Backend Config
 
-For self-host/single-team installs:
+For self-host or hosted installs:
 
 ```sh
-WAT_API_KEY=<same-secret-registered-in-teams-developer-portal>
-WAT_TEAM_ID=team_123
+WAT_API_KEY=<team-api-key-registered-in-teams-developer-portal>
 TEAMS_METRICS_TOKEN=<random-secret>
 ```
 
-Teams API-secret auth sends `Authorization: Bearer <secret>` to wat. If `X-Wat-Team-Id` is absent, wat API-key identity falls back to `WAT_TEAM_ID`.
+Teams API-secret auth sends `Authorization: Bearer <secret>` to wat. The secret must be a DB-backed wat API key with `search` scope; wat derives `team_id` from that key.
 
 For integration gateways or later SSO/bot flows that can supply a Microsoft tenant ID, create a DB mapping:
 

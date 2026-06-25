@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { createDbSuggestion, type DbSuggestion } from "@/lib/db-suggestions";
 import { checkSuggestionRateLimit } from "@/lib/suggestion-rate-limit";
 import { validateSuggestedEntry } from "@/lib/suggestions";
@@ -18,6 +18,11 @@ export async function postApiSuggestion(request: NextRequest, deps: ApiSuggestio
   if (identity.identity.type !== "api") {
     return apiErrorResponse(request, "missing_api_scope", 401, {
       message: "api token is required"
+    });
+  }
+  if (!hasApiScope(identity.identity, "suggest")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      message: "suggest scope is required"
     });
   }
   if (!identity.identity.teamId) {

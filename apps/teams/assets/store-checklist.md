@@ -16,7 +16,7 @@
 - Register the API secret and set `TEAMS_API_SECRET_REGISTRATION_ID`.
 - Set `TEAMS_PUBLIC_ORIGIN` to the production HTTPS wat origin.
 - Set `TEAMS_APP_ID` to the app GUID from Developer Portal.
-- Configure the API secret value to match `WAT_API_KEY`.
+- Configure the API secret value to a DB-backed wat team API key with `search` scope.
 
 ## Demo Script
 

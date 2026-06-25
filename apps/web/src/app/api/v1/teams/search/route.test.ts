@@ -38,6 +38,18 @@ describe("GET /api/v1/teams/search", () => {
     expect(response.status).toBe(401);
   });
 
+  it("requires search scope for API-secret search", async () => {
+    seedApiKeyForTest({ key: "test-key", scopes: ["suggest"], teamId: "team_123" });
+
+    const response = await GET(
+      new NextRequest("https://wat.example.com/api/v1/teams/search?q=API", {
+        headers: { authorization: "Bearer test-key" }
+      })
+    );
+
+    expect(response.status).toBe(403);
+  });
+
   it("uses DB-backed Teams tenant mapping when supplied by an integration gateway", async () => {
     seedApiKeyForTest({ key: "test-key", teamId: "team_from_install" });
 

@@ -30,12 +30,12 @@ DISCORD_METRICS_TOKEN=<random-secret>
 DISCORD_ADMIN_USER_IDS=
 DISCORD_ADMIN_ROLE_IDS=
 WAT_API_BASE_URL=https://wat.example.com
-WAT_API_KEY=<self-host-dev-key>
+WAT_API_KEY=<team-api-key>
 WAT_DISCORD_GUILD_MAP=
 WAT_TEAM_ID=
 ```
 
-`DISCORD_PUBLIC_KEY` is required at runtime. `DISCORD_BOT_TOKEN` is only required for command registration.
+`DISCORD_PUBLIC_KEY` is required at runtime. `DISCORD_BOT_TOKEN` is only required for command registration. `WAT_API_KEY` must be a DB-backed team API key; if `WAT_TEAM_ID` is used as a fallback, it must match that key's team.
 
 ## Install Flow
 

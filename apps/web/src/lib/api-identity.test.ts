@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { resolveApiIdentity } from "./api-identity";
+import { hasApiScope, resolveApiIdentity } from "./api-identity";
 import { resetApiKeysForTest, seedApiKeyForTest } from "./api-keys";
 
 describe("api identity", () => {
@@ -63,5 +63,12 @@ describe("api identity", () => {
     );
 
     expect(result).toEqual({ error: "team_scope_mismatch", ok: false, status: 403 });
+  });
+
+  it("checks explicit and admin-implied scopes", () => {
+    expect(hasApiScope({ scopes: ["search"], teamId: "team_1", type: "api" }, "search")).toBe(true);
+    expect(hasApiScope({ scopes: ["search"], teamId: "team_1", type: "api" }, "write")).toBe(false);
+    expect(hasApiScope({ scopes: ["admin"], teamId: "team_1", type: "api" }, "write")).toBe(true);
+    expect(hasApiScope({ type: "anonymous" }, "search")).toBe(false);
   });
 });

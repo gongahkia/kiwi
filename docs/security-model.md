@@ -1,6 +1,6 @@
 # Security Model
 
-This page describes the intended hosted security model and the current self-host/dev escape hatches.
+This page describes the hosted and self-host security model.
 
 ## Tenants
 
@@ -17,13 +17,13 @@ Cross-tenant reads and writes should fail closed. Exports, imports, member chang
 
 ## Keys
 
-Hosted keys should be DB-backed, hashed at rest, and scoped to one team. The current global `WAT_API_KEY` is a self-host/dev escape hatch and should not be used as the hosted multi-tenant model.
+API keys are DB-backed, hashed at rest, revocable, and scoped to one team. Raw key values are shown once at creation and are not stored.
 
-Expected hosted key scopes:
+Key scopes:
 
-- `read`: search public plus authorized team overlays.
-- `suggestion-write`: queue suggestions for team review.
-- `team-entry-write`: create or update team entries through approved integration paths.
+- `search`: search public plus authorized team overlays.
+- `suggest`: queue suggestions for team review.
+- `write`: create or update team entries through approved integration paths.
 - `admin`: perform team administration APIs where the owning user/team policy allows it.
 
 Key usage metadata should store last-used time, surface, actor, and IP hash without storing raw keys.
@@ -47,7 +47,7 @@ The Teams API-based message extension is read-only.
 - It exposes one search command with one `q` parameter.
 - It uses API-secret service auth for `/api/v1/teams/search`.
 - It must not request channel history or message content access.
-- In self-host single-team mode, the bearer API secret maps to `WAT_TEAM_ID`.
+- Teams API-secret auth uses a DB-backed team API key; team identity is derived from the key.
 - If an integration gateway supplies `X-Wat-Teams-Tenant-Id`, wat resolves it through `teams_installs`; unknown supplied tenants fail closed.
 
 Do not add Teams define/suggest/admin writes until tenant mapping and user authorization are stronger than a shared API secret.

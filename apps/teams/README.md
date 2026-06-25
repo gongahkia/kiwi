@@ -27,7 +27,7 @@ pnpm --filter @wat/teams package:prod
 
 This writes `apps/teams/dist/appPackage` and `apps/teams/dist/wat-teams-app.zip`.
 
-Teams calls the OpenAPI operation `searchGlossary` with one query parameter, `q`, against `/api/v1/teams/search`. Configure the API secret registration to send the same bearer value as `WAT_API_KEY`. For single-team self-host installs, set `WAT_TEAM_ID` so API-key requests without `X-Wat-Team-Id` resolve to that team.
+Teams calls the OpenAPI operation `searchGlossary` with one query parameter, `q`, against `/api/v1/teams/search`. Configure the API secret registration to send a DB-backed team API key generated in wat admin. The web API derives team identity from that key.
 
 ## Verify
 

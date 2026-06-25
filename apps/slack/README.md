@@ -41,7 +41,7 @@ SLACK_USER_RATE_LIMIT=30
 SLACK_WORKSPACE_RATE_LIMIT_WINDOW_MS=60000
 ```
 
-When `WAT_API_KEY` and `WAT_TEAM_ID` are set, wat lookup/write calls include `Authorization: Bearer <key>`, `X-Wat-Team-Id`, and `X-Wat-User-Id: slack:<user id>`.
+When `WAT_API_KEY` and `WAT_TEAM_ID` are set, wat lookup/write calls include `Authorization: Bearer <key>`, `X-Wat-Team-Id`, and `X-Wat-User-Id: slack:<user id>`. The key must be a DB-backed team API key and `WAT_TEAM_ID` must match that key's team.
 
 `SLACK_BOT_TOKEN` is required when `SLACK_SOCKET_MODE=true`. `SLACK_ADMIN_USER_IDS` is a dev override; production `/wat-define` should rely on Slack user email lookup plus `/api/v1/team/admin-check`.
 
@@ -50,7 +50,7 @@ When `WAT_API_KEY` and `WAT_TEAM_ID` are set, wat lookup/write calls include `Au
 - `GET /slack/install` redirects to Slack `oauth/v2/authorize`.
 - `GET /slack/oauth/callback` verifies signed state, exchanges the code with Slack, encrypts bot/user tokens, and stores the install record.
 - `SLACK_INSTALL_STORE=postgres` writes to `slack_installs`; `json` uses `SLACK_INSTALL_STORE_PATH`; `memory` is test-only.
-- `WAT_SLACK_TEAM_MAP` maps Slack workspace IDs to wat team IDs with comma-separated `T123:team_123` pairs. `WAT_TEAM_ID` is a fallback for single-team self-host installs.
+- `WAT_SLACK_TEAM_MAP` maps Slack workspace IDs to wat team IDs with comma-separated `T123:team_123` pairs. `WAT_TEAM_ID` is a runtime fallback for single-team self-host installs and must match the API key's team.
 - Commands resolve `X-Wat-Team-Id` from the Slack install record first, then `WAT_SLACK_TEAM_MAP`, then `WAT_TEAM_ID`.
 - `SLACK_REDIRECT_URI` must match the Slack app OAuth redirect configuration. Slack requires HTTPS for production redirect URLs.
 - `app_uninstalled` and `tokens_revoked` events delete the matching install record.

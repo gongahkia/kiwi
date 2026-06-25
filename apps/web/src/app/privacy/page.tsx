@@ -21,7 +21,7 @@ const sections = [
   },
   {
     title: "MCP",
-    body: "MCP tools send the tool input: api_key, term, domain, context, limit, confidence filter, or suggestion fields. The server stores only configured environment values and optional pending suggestion files when writes are enabled."
+    body: "MCP tools send term, domain, context, limit, confidence filter, or suggestion fields to the local MCP process, which forwards them to the configured wat API with a team API key. The MCP process does not store local lookup fixtures or suggestion files."
   },
   {
     title: "Self-host defaults",

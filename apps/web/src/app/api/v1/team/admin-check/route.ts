@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { getTeamMember } from "@/lib/team-members";
 
 export const runtime = "nodejs";
@@ -14,6 +14,11 @@ export async function GET(request: NextRequest) {
   if (identity.identity.type !== "api") {
     return apiErrorResponse(request, "missing_api_scope", 401, {
       message: "api token is required"
+    });
+  }
+  if (!hasApiScope(identity.identity, "admin")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      message: "admin scope is required"
     });
   }
   if (!identity.identity.teamId) {

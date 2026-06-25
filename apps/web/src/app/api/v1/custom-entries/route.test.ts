@@ -116,6 +116,22 @@ describe("POST /api/v1/custom-entries", () => {
     });
   });
 
+  it("requires write scope", async () => {
+    resetApiKeysForTest();
+    seedApiKeyForTest({ key: "test-key", scopes: ["search"], teamId: "team_1" });
+
+    const response = await POST(
+      request({
+        expansion: "Change Approval Process",
+        scope: "personal",
+        term: "CAP"
+      })
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "insufficient_api_scope" });
+  });
+
   it("rate limits custom entry writes by actor", async () => {
     process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT = "1";
 

@@ -19,13 +19,13 @@ DATABASE_URL=postgres://wat:wat@localhost:5432/wat
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Generate fresh auth/API/token-encryption secrets for new self-host installs:
+Generate fresh auth/token-encryption secrets for new self-host installs:
 
 ```sh
 ./scripts/generate-secrets.sh
 ```
 
-Copy the generated `AUTH_SECRET`, `WAT_API_KEY`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid.
+Copy the generated `AUTH_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, `TEAMS_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid. Create team API keys from `/team/admin/api-keys` after login, then use those raw keys as `WAT_API_KEY` values for Slack, Teams, Discord, MCP, browser extensions, or trusted automation.
 
 Optional values depend on enabled surfaces:
 

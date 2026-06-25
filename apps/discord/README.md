@@ -21,9 +21,11 @@ DISCORD_INSTALL_STORE=postgres
 DISCORD_DATABASE_URL=postgres://wat:wat@localhost:5432/wat
 DISCORD_METRICS_TOKEN=<random-secret>
 WAT_API_BASE_URL=http://localhost:3000
-WAT_API_KEY=<self-host-dev-key>
+WAT_API_KEY=<team-api-key>
 WAT_DISCORD_GUILD_MAP=<discord-guild-id>:team_123
 ```
+
+`WAT_API_KEY` must be a DB-backed team API key. Any `WAT_DISCORD_GUILD_MAP` or `WAT_TEAM_ID` fallback must map to the same team as that key.
 
 Set the Discord Interactions Endpoint URL to:
 

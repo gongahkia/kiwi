@@ -22,7 +22,7 @@ Example:
 curl 'http://localhost:3000/api/v1/search?q=CAP&limit=2'
 ```
 
-API clients can pass a configured token with either `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`. Token requests can also send `X-Wat-User-Id` and `X-Wat-Team-Id` so quotas apply per user and team.
+API clients can pass a DB-backed team API key with either `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`. Create keys in `/team/admin/api-keys`. Token requests can also send `X-Wat-User-Id`; `X-Wat-Team-Id` is optional and must match the key's team when supplied.
 
 Browser/API CORS is deny-by-default. Set comma-separated `WAT_ALLOWED_ORIGINS` for web clients and `WAT_EXTENSION_ORIGINS` for installed extension origins such as `chrome-extension://<id>` or `moz-extension://<id>`.
 
@@ -150,7 +150,7 @@ Auth:
 
 - `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
 - `X-Wat-User-Id` is required for writes.
-- `X-Wat-Team-Id` is required when `scope` is `team`.
+- `X-Wat-Team-Id` is optional for team writes and must match the authenticated key's team when supplied.
 
 Request body:
 
@@ -250,7 +250,8 @@ Errors:
 | Status | Error | Cause |
 | --- | --- | --- |
 | `400` | `invalid_custom_entry` | Missing or empty `term`/`expansion`, or `mode` is not `create`/`upsert`. |
-| `401` | `invalid_api_key` | Supplied token does not match `WAT_API_KEY`. |
+| `401` | `invalid_api_key` | Supplied token does not match an active DB-backed API key. |
+| `403` | `insufficient_api_scope` | API key lacks the required `write` scope. |
 | `401` | `missing_user_scope` | Anonymous write or missing user scope. |
 | `403` | `missing_team_scope` | Team-scope write without team scope. |
 | `409` | `custom_entry_conflict` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
@@ -262,8 +263,9 @@ Queue a team-scoped, DB-backed glossary suggestion. This is the Slack and Discor
 Auth:
 
 - `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
-- `X-Wat-Team-Id` is required.
+- `X-Wat-Team-Id` is optional and must match the authenticated key's team when supplied.
 - `X-Wat-User-Id` is used for quota scope and is stored inside `after_jsonb`.
+- API key must include `suggest` or `admin` scope.
 
 Request body:
 
@@ -342,7 +344,7 @@ Team admins can download import templates:
 
 ## Authenticated Surface Examples
 
-These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key`, and `WAT_TEAM_ID=team_123`.
+These examples use `WAT_API_BASE_URL=http://localhost:3000`, `WAT_API_KEY=wat_team_key` created from `/team/admin/api-keys`, and `WAT_TEAM_ID=team_123` as a client-side label.
 
 ### curl
 
@@ -389,7 +391,7 @@ curl \
 
 Teams API-based message-extension search uses the packaged OpenAPI operation `searchGlossary` and passes one query parameter, `q`, to `/api/v1/teams/search`.
 
-For single-team self-host installs, configure the Teams API secret to send `Authorization: Bearer $WAT_API_KEY` and set `WAT_TEAM_ID`; API-key requests without `X-Wat-Team-Id` use that fallback.
+Configure the Teams API secret to send `Authorization: Bearer $WAT_API_KEY`. The web API derives `team_id` from the DB-backed key; if a trusted gateway supplies `X-Wat-Teams-Tenant-Id`, the mapped team must match that key.
 
 Source package files live in `apps/teams/appPackage`; rendered upload output lives in `apps/teams/dist`.
 
@@ -405,7 +407,7 @@ curl \
 
 Optional integration-gateway header:
 
-- `X-Wat-Teams-Tenant-Id`: resolves `team_id` through `teams_installs`. Unknown supplied tenants fail closed with `403`.
+- `X-Wat-Teams-Tenant-Id`: resolves `team_id` through `teams_installs`. Unknown tenants and mappings that do not match the authenticated key fail closed with `403`.
 
 #### `POST /teams/installations`
 
@@ -482,7 +484,7 @@ curl -H "Authorization: Bearer $DISCORD_METRICS_TOKEN" \
 
 ### MCP
 
-MCP clients pass the same team key as tool input. The current stdio server reads `WAT_API_KEY` and `WAT_TEAM_ID` from its environment and rejects mismatched `api_key` values. See [MCP Configuration](mcp.md) for Claude Desktop, Cursor, hosted target, self-host, key scope, and team ID examples.
+MCP local stdio reads `WAT_API_BASE_URL` and `WAT_API_KEY` from its environment. Tool calls do not include credentials. See [MCP Configuration](mcp.md).
 
 ```json
 {
@@ -492,7 +494,6 @@ MCP clients pass the same team key as tool input. The current stdio server reads
   "params": {
     "name": "lookup",
     "arguments": {
-      "api_key": "wat_team_key",
       "term": "CAP",
       "context": "Kubernetes incident notes",
       "limit": 5

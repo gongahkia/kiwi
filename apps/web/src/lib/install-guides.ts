@@ -43,8 +43,8 @@ export const installGuides: InstallGuide[] = [
       },
       {
         title: "Set Slack and wat environment",
-        body: "Use Slack Socket Mode credentials plus the wat API URL, token, team map, and metrics token.",
-        code: "SLACK_SOCKET_MODE=true\nSLACK_APP_TOKEN=<xapp-token>\nSLACK_BOT_TOKEN=<xoxb-token>\nSLACK_CLIENT_ID=<client-id>\nSLACK_CLIENT_SECRET=<client-secret>\nSLACK_SIGNING_SECRET=<secret>\nSLACK_REDIRECT_URI=https://wat.example.com/slack/oauth/callback\nSLACK_STATE_SECRET=<random-secret>\nSLACK_TOKEN_ENCRYPTION_KEY=<random-secret>\nSLACK_INSTALL_STORE=postgres\nSLACK_DATABASE_URL=<postgres-url>\nSLACK_METRICS_TOKEN=<random-secret>\nWAT_API_BASE_URL=http://localhost:3000\nWAT_API_KEY=<self-host-dev-key>\nWAT_SLACK_TEAM_MAP=T123:team_123"
+        body: "Use Slack Socket Mode credentials plus the wat API URL, team API key, team map, and metrics token.",
+        code: "SLACK_SOCKET_MODE=true\nSLACK_APP_TOKEN=<xapp-token>\nSLACK_BOT_TOKEN=<xoxb-token>\nSLACK_CLIENT_ID=<client-id>\nSLACK_CLIENT_SECRET=<client-secret>\nSLACK_SIGNING_SECRET=<secret>\nSLACK_REDIRECT_URI=https://wat.example.com/slack/oauth/callback\nSLACK_STATE_SECRET=<random-secret>\nSLACK_TOKEN_ENCRYPTION_KEY=<random-secret>\nSLACK_INSTALL_STORE=postgres\nSLACK_DATABASE_URL=<postgres-url>\nSLACK_METRICS_TOKEN=<random-secret>\nWAT_API_BASE_URL=http://localhost:3000\nWAT_API_KEY=<team-api-key>\nWAT_SLACK_TEAM_MAP=T123:team_123"
       },
       {
         title: "Start Slack runtime",
@@ -78,9 +78,9 @@ export const installGuides: InstallGuide[] = [
         code: "pnpm --filter @wat/teams test"
       },
       {
-        title: "Set wat API fallback team",
-        body: "Use the single-team fallback until DB-backed Teams tenant mapping or Entra SSO lands.",
-        code: "WAT_API_KEY=<self-host-dev-key>\nWAT_TEAM_ID=team_123"
+        title: "Set wat API key",
+        body: "Register a wat team API key with Teams Developer Portal as the API secret.",
+        code: "WAT_API_KEY=<team-api-key>"
       },
       {
         title: "Configure package placeholders",
@@ -116,7 +116,7 @@ export const installGuides: InstallGuide[] = [
       {
         title: "Set Discord and wat environment",
         body: "Use the Discord application public key, bot token for registration, wat API credentials, and a DB-backed guild map.",
-        code: "DISCORD_PUBLIC_KEY=<application-public-key>\nDISCORD_APPLICATION_ID=<application-id>\nDISCORD_BOT_TOKEN=<bot-token>\nDISCORD_INSTALL_SCOPES=applications.commands\nDISCORD_INSTALL_STORE=postgres\nDISCORD_DATABASE_URL=<postgres-url>\nDISCORD_METRICS_TOKEN=<random-secret>\nWAT_API_BASE_URL=https://wat.example.com\nWAT_API_KEY=<self-host-dev-key>\nWAT_DISCORD_GUILD_MAP=<guild-id>:team_123"
+        code: "DISCORD_PUBLIC_KEY=<application-public-key>\nDISCORD_APPLICATION_ID=<application-id>\nDISCORD_BOT_TOKEN=<bot-token>\nDISCORD_INSTALL_SCOPES=applications.commands\nDISCORD_INSTALL_STORE=postgres\nDISCORD_DATABASE_URL=<postgres-url>\nDISCORD_METRICS_TOKEN=<random-secret>\nWAT_API_BASE_URL=https://wat.example.com\nWAT_API_KEY=<team-api-key>\nWAT_DISCORD_GUILD_MAP=<guild-id>:team_123"
       },
       {
         title: "Register Discord commands",
@@ -178,7 +178,7 @@ export const installGuides: InstallGuide[] = [
       {
         title: "Configure runtime settings",
         body: "Set the API base URL, account email, API token, optional team ID, and domain filters.",
-        code: "WAT_API_BASE_URL=http://localhost:3000\nWAT_API_KEY=<self-host-dev-key>\nWAT_TEAM_ID=team_123"
+        code: "WAT_API_BASE_URL=http://localhost:3000\nWAT_API_KEY=<team-api-key>\nWAT_TEAM_ID=team_123"
       },
       {
         title: "Verify lookup",
@@ -203,8 +203,8 @@ export const installGuides: InstallGuide[] = [
       },
       {
         title: "Configure local stdio clients",
-        body: "Point Claude Desktop or Cursor at the built entrypoint and pass the same key as each tool call api_key.",
-        code: '{\n  "mcpServers": {\n    "wat": {\n      "command": "node",\n      "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],\n      "env": {\n        "WAT_API_KEY": "wat_team_key",\n        "WAT_TEAM_ID": "team_123",\n        "WAT_TEAM_DOMAINS": "example.com"\n      }\n    }\n  }\n}'
+        body: "Point Claude Desktop or Cursor at the built entrypoint and provide the wat API URL plus team API key in the process environment.",
+        code: '{\n  "mcpServers": {\n    "wat": {\n      "command": "node",\n      "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],\n      "env": {\n        "WAT_API_BASE_URL": "https://wat.example.com",\n        "WAT_API_KEY": "wat_team_key"\n      }\n    }\n  }\n}'
       },
       {
         title: "Plan hosted or self-host remote config",
@@ -213,7 +213,7 @@ export const installGuides: InstallGuide[] = [
       },
       {
         title: "Choose key scope and team behavior",
-        body: "Use read keys for lookup/list tools and suggestion-write keys for suggest_definition; team ID labels current stdio responses and should be derived from the key in hosted mode."
+        body: "Use search-scoped keys for lookup/list tools and suggest-scoped keys for suggest_definition; team ID is derived from the API key."
       }
     ]
   },
@@ -232,8 +232,8 @@ export const installGuides: InstallGuide[] = [
         code: "curl 'http://localhost:3000/api/v1/search?q=API&limit=2'"
       },
       {
-        title: "Attach self-host/dev credentials for scoped traffic",
-        body: "Team and personal overlays use the configured key plus user/team headers until DB-backed per-team keys land.",
+        title: "Attach scoped credentials",
+        body: "Team and personal overlays use a DB-backed team API key plus user/team headers.",
         code: 'curl \\\n  -H "Authorization: Bearer $WAT_API_KEY" \\\n  -H "X-Wat-User-Id: user_123" \\\n  -H "X-Wat-Team-Id: team_123" \\\n  \'http://localhost:3000/api/v1/search?q=CAP&limit=5\''
       },
       {
@@ -253,7 +253,7 @@ export const installGuides: InstallGuide[] = [
     steps: [
       {
         title: "Generate secrets",
-        body: "Create stable auth, API, and token-encryption secrets before exposing team data.",
+        body: "Create stable auth, token-encryption, and metrics secrets before exposing team data; create API keys from team admin after login.",
         code: "./scripts/generate-secrets.sh"
       },
       {

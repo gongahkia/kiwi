@@ -1,6 +1,6 @@
 # @wat/mcp
 
-stdio MCP server for wat lookup. See [MCP Configuration](../../docs/mcp.md) for Claude Desktop, Cursor, hosted target, key scope, team ID, and self-host examples.
+stdio MCP server for wat lookup. It calls the wat web API with a team API key generated from the web admin API-key page. See [MCP Configuration](../../docs/mcp.md).
 
 Build before using the local config:
 
@@ -23,10 +23,8 @@ npx @wat/mcp@latest
       "command": "node",
       "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],
       "env": {
-        "WAT_API_KEY": "wat_team_key",
-        "WAT_TEAM_ID": "team_example",
-        "WAT_TEAM_DOMAINS": "example.com",
-        "WAT_SEED_PATH": "/absolute/path/to/wat/packages/ingest/seeds/manual.json"
+        "WAT_API_BASE_URL": "https://wat.example.com",
+        "WAT_API_KEY": "wat_team_key"
       }
     }
   }
@@ -42,10 +40,8 @@ npx @wat/mcp@latest
       "command": "node",
       "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],
       "env": {
-        "WAT_API_KEY": "wat_team_key",
-        "WAT_TEAM_ID": "team_example",
-        "WAT_TEAM_DOMAINS": "example.com",
-        "WAT_SEED_PATH": "/absolute/path/to/wat/packages/ingest/seeds/manual.json"
+        "WAT_API_BASE_URL": "https://wat.example.com",
+        "WAT_API_KEY": "wat_team_key"
       }
     }
   }
@@ -61,10 +57,8 @@ npx @wat/mcp@latest
       "command": "node",
       "args": ["/absolute/path/to/wat/apps/mcp/dist/index.js"],
       "env": {
-        "WAT_API_KEY": "wat_team_key",
-        "WAT_TEAM_ID": "team_example",
-        "WAT_TEAM_DOMAINS": "example.com",
-        "WAT_SEED_PATH": "/absolute/path/to/wat/packages/ingest/seeds/manual.json"
+        "WAT_API_BASE_URL": "https://wat.example.com",
+        "WAT_API_KEY": "wat_team_key"
       }
     }
   }
@@ -73,13 +67,11 @@ npx @wat/mcp@latest
 
 Tools:
 
-- `lookup(term, context?, limit?, min_confidence?, api_key)`: returns top matches with citations.
-- `list_team_acronyms(domain?, cursor?, limit?, api_key)`: returns paged team entries scoped to the API key.
-- `list_alternatives(term, api_key)`: returns resolved peer alternatives for a matched term.
-- `suggest_definition(term, expansion, meaning, source_url, source_title, domains?, api_key)`: queues a pending team suggestion when `WAT_MCP_ALLOW_WRITE=true` and `WAT_MCP_SUGGESTIONS_PATH` is configured.
+- `lookup(term, context?, limit?, min_confidence?)`: returns top matches with citations.
+- `list_team_acronyms(domain?, cursor?, limit?)`: returns paged team entries scoped to the API key.
+- `list_alternatives(term)`: returns resolved peer alternatives for a matched term.
+- `suggest_definition(term, expansion, meaning, source_url, source_title, domains?)`: queues a pending team suggestion through `/api/v1/suggestions`.
 
 ## Privacy Notes
 
-MCP calls send the tool input to the local wat MCP process: `api_key`, term, optional context/domain/cursor/limit/confidence fields, and suggestion fields for `suggest_definition`. The server does not store lookup text. It reads `WAT_API_KEY`, `WAT_TEAM_ID`, `WAT_TEAM_DOMAINS`, and `WAT_SEED_PATH` from its environment.
-
-When `WAT_MCP_ALLOW_WRITE=true`, `suggest_definition` appends pending suggestion records to `WAT_MCP_SUGGESTIONS_PATH`, including term, expansion, meaning, source URL/title, domains, team ID, status, and creation time.
+MCP calls send term, optional context/domain/cursor/limit/confidence fields, and suggestion fields to the local wat MCP process. The process forwards requests to `WAT_API_BASE_URL` with `Authorization: Bearer <WAT_API_KEY>`. Team identity is derived by the web API from the DB-backed key; the MCP process does not store lookup text or suggestions locally.

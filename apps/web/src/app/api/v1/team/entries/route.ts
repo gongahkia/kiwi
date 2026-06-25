@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SearchEntry } from "@wat/search";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { getScopedTeamEntries } from "@/lib/search-data";
 
 export const runtime = "nodejs";
@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
   if (identity.identity.type !== "api" || !identity.identity.teamId) {
     return apiErrorResponse(request, "missing_team_scope", 403, {
       message: "api team scope is required"
+    });
+  }
+  if (!hasApiScope(identity.identity, "search")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      message: "search scope is required"
     });
   }
   const limit = Number(request.nextUrl.searchParams.get("limit") ?? "25");

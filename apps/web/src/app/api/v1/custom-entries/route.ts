@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
 import { corsHeadersForRequest } from "@/lib/cors";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import {
   createPersonalEntry,
   getPersonalEntries,
@@ -55,7 +55,8 @@ function domainsFromBody(value: unknown, fallbackDomain: string | null): string[
   const cleaned = domains.map((domain) => domain.trim().toLowerCase());
   if (fallbackDomain) cleaned.push(fallbackDomain.toLowerCase());
 
-  return Array.from(new Set(cleaned)).slice(0, 12);
+  const unique = Array.from(new Set(cleaned)).slice(0, 12);
+  return unique.length > 0 ? unique : ["custom"];
 }
 
 function hostnameFromUrl(value: string | null): string | null {
@@ -150,7 +151,9 @@ async function upsertTeamEntry(
   teamId: string,
   entry: TeamEntry
 ): Promise<{ entry: TeamEntry; status: "created" | "updated" }> {
-  const existing = (await getTeamEntries(teamId)).find((item) => entryKey(item) === entryKey(entry));
+  const existing = (await getTeamEntries(teamId)).find(
+    (item) => entryKey(item) === entryKey(entry)
+  );
   if (!existing) {
     return { entry: await createTeamEntry(teamId, entry), status: "created" };
   }
@@ -197,6 +200,12 @@ export async function POST(request: NextRequest) {
     return apiErrorResponse(request, "missing_user_scope", 401, {
       headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
       message: "api token and x-wat-user-id are required"
+    });
+  }
+  if (!hasApiScope(identity.identity, "write")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" }),
+      message: "write scope is required"
     });
   }
   const writeLimit = await checkWriteRateLimit("custom-entry", identity.identity.teamId ?? userId);

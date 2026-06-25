@@ -51,3 +51,12 @@ export async function resolveApiIdentity(headers: Headers): Promise<ApiIdentityR
     ok: true
   };
 }
+
+export function hasApiScope(
+  identity: ApiIdentity,
+  scope: "admin" | "search" | "suggest" | "write"
+): boolean {
+  if (identity.type !== "api") return false;
+  const scopes = identity.scopes ?? [];
+  return scopes.includes("admin") || scopes.includes(scope);
+}

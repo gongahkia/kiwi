@@ -4,15 +4,15 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 ## Hosted Auth
 
-- Email login and NextAuth scaffolding exist, but production hosted auth is not the single source for every surface yet.
-- Hosted multi-tenant API keys are not DB-backed per-team keys yet; the global `WAT_API_KEY` remains a self-host/dev path.
+- Email login and NextAuth scaffolding exist, but production hosted auth still needs live provider verification.
+- API keys are DB-backed per-team keys; external runtimes must use keys created from the team admin API-key page.
 - Slack OAuth install exists; browser extension pairing is not complete.
 
 ## Persistence
 
-- Postgres schema and migrations exist, but some web product paths still use in-memory runtime stores for team entries, personal entries, settings, audit logs, and related admin state.
-- Slack rate-limit counters can be file-backed; Slack workspace installs and tokens can be persisted in DB through `slack_installs`.
-- MCP suggestions are file-backed when enabled and do not share the web review queue yet.
+- Web product paths for team entries, personal entries, settings, audit logs, suggestions, API keys, and API rate limits are DB-backed in production.
+- Slack workspace installs and tokens can be persisted in DB through `slack_installs`; Slack runtime rate-limit counters are still local/file-backed in the Slack process.
+- MCP calls the web API; suggestions write to the shared DB review queue.
 
 ## Browser Extension
 
@@ -31,7 +31,7 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 ## Teams
 
 - Teams support has an API-based message extension package for search only.
-- Tenant/team mapping supports the single-team `WAT_TEAM_ID` fallback and DB-backed `teams_installs` mappings when an integration gateway supplies `X-Wat-Teams-Tenant-Id`.
+- Team identity is derived from the Teams API-secret key; optional `teams_installs` mappings are used when an integration gateway supplies `X-Wat-Teams-Tenant-Id`.
 - Entra SSO, automatic Microsoft tenant discovery from native Teams API-secret calls, define/suggest writes, and admin flows need later bot/auth work.
 
 ## Discord
@@ -42,9 +42,9 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 ## MCP
 
-- The MCP server is a local stdio server backed by seed/dev fixtures.
+- The MCP server is a local stdio server that proxies to the web API.
 - `@wat/mcp` is not published to npm yet.
-- Hosted/API or DB-backed lookup, DB-backed suggestions, and catalog submissions are not complete; hosted configuration examples are documented as the target shape.
+- Hosted remote MCP endpoint and catalog submissions are not complete.
 
 ## Corpus Coverage
 

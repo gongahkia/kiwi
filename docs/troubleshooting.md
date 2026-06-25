@@ -59,7 +59,7 @@ Symptoms:
 Checks:
 
 - `apiBaseUrl` points at the web origin, not the extension origin.
-- `apiToken` matches the server `WAT_API_KEY` for self-host/dev.
+- `apiToken` is an active team API key from `/team/admin/api-keys`.
 - `accountEmail` is set so requests include `X-Wat-User-Id`.
 - `teamId` is set when team-scoped lookups or writes are expected.
 - `WAT_EXTENSION_ORIGINS` includes the installed extension origin.
@@ -99,8 +99,7 @@ Checks:
 
 - `pnpm --filter @wat/teams test` passes.
 - `apps/teams/dist/wat-teams-app.zip` was rendered with `TEAMS_PUBLIC_ORIGIN`, `TEAMS_APP_ID`, and `TEAMS_API_SECRET_REGISTRATION_ID`.
-- Teams Developer Portal API secret matches `WAT_API_KEY`.
-- `WAT_TEAM_ID` is set for single-team installs.
+- Teams Developer Portal API secret is an active wat team API key with `search` scope.
 - `TEAMS_PUBLIC_ORIGIN/api/v1/teams/search?q=API` returns `{ "results": [...] }`.
 
 Fix:
@@ -129,7 +128,7 @@ Checks:
 - Discord Interactions Endpoint URL points at `/discord/interactions`.
 - `/discord/install` redirects to `https://discord.com/oauth2/authorize`.
 - `discord_installs` or `WAT_DISCORD_GUILD_MAP` maps the guild before write commands are used.
-- `WAT_API_KEY` and `WAT_API_BASE_URL` are configured for suggestion/define writes.
+- `WAT_API_KEY` is an active wat team API key with `search`, `suggest`, `write`, and `admin` scopes as needed, and `WAT_API_BASE_URL` points at the web API.
 
 Fix:
 

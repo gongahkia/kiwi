@@ -7,7 +7,6 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 - `DATABASE_URL`
 - `AUTH_SECRET`
 - `NEXT_PUBLIC_SITE_URL`
-- `WAT_API_KEY` for self-host/dev API access until DB-backed per-team keys replace it
 - `SLACK_TOKEN_ENCRYPTION_KEY` when Slack tokens are stored
 - `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `SLACK_SIGNING_SECRET` when Slack Socket Mode is enabled
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`, and `SLACK_STATE_SECRET` when Slack OAuth install is enabled
@@ -24,6 +23,8 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 - `DISCORD_METRICS_TOKEN` when exposing Discord runtime `/metrics`
 - `WAT_DISCORD_GUILD_MAP` or DB-backed `discord_installs` rows before accepting Discord team writes
 - OAuth provider secrets when Google or Slack login is enabled
+
+Post-deploy, create team API keys from `/team/admin/api-keys` for Slack, Teams, Discord, MCP, browser extension, and trusted automation. Do not configure the web app with a global API key.
 
 Generate first-run values with:
 

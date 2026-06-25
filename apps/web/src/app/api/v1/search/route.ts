@@ -5,7 +5,7 @@ import type { SearchResponse, SearchResult } from "@wat/search";
 import { applyDomainContextBoost } from "@wat/search/boost";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { applyCorsHeaders } from "@/lib/cors";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
 import { ensureRequestId, requestIdHeader } from "@/lib/request-id";
@@ -93,6 +93,16 @@ export async function GET(request: NextRequest) {
   if (!identity.ok) {
     return withCorsHeaders(
       apiErrorResponse(request, identity.error, identity.status, { requestId }),
+      request,
+      requestId
+    );
+  }
+  if (identity.identity.type === "api" && !hasApiScope(identity.identity, "search")) {
+    return withCorsHeaders(
+      apiErrorResponse(request, "insufficient_api_scope", 403, {
+        message: "search scope is required",
+        requestId
+      }),
       request,
       requestId
     );

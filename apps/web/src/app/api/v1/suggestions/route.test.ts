@@ -69,6 +69,15 @@ describe("POST /api/v1/suggestions", () => {
     ).toBe(403);
   });
 
+  it("requires suggest scope", async () => {
+    seedApiKeyForTest({ key: "test-key", scopes: ["search"], teamId: "team_123" });
+
+    const response = await postApiSuggestion(request(validSuggestion));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "insufficient_api_scope" });
+  });
+
   it("rejects invalid suggestions", async () => {
     seedApiKeyForTest({ key: "test-key", teamId: "team_123" });
 

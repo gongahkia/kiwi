@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { resolveApiIdentity } from "@/lib/api-identity";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import {
   deleteDiscordInstallByGuildId,
   upsertDiscordInstall,
@@ -23,9 +23,14 @@ export async function postDiscordInstallation(request: NextRequest, deps: Discor
       message: "api token is required"
     });
   }
+  if (!hasApiScope(identity.identity, "admin")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      message: "admin scope is required"
+    });
+  }
   if (!identity.identity.teamId) {
     return apiErrorResponse(request, "missing_team_scope", 403, {
-      message: "x-wat-team-id or WAT_TEAM_ID is required"
+      message: "team-scoped API key is required"
     });
   }
 
@@ -64,9 +69,14 @@ export async function deleteDiscordInstallation(
       message: "api token is required"
     });
   }
+  if (!hasApiScope(identity.identity, "admin")) {
+    return apiErrorResponse(request, "insufficient_api_scope", 403, {
+      message: "admin scope is required"
+    });
+  }
   if (!identity.identity.teamId) {
     return apiErrorResponse(request, "missing_team_scope", 403, {
-      message: "x-wat-team-id or WAT_TEAM_ID is required"
+      message: "team-scoped API key is required"
     });
   }
 
