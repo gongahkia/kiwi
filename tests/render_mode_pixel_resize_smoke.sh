@@ -88,7 +88,8 @@ with open(transcript_path, "wb") as transcript:
       except OSError:
         chunk = b""
       if not chunk:
-        break
+        _, status = os.waitpid(pid, 0)
+        sys.exit(os.waitstatus_to_exitcode(status))
       transcript.write(chunk)
     finished, status = os.waitpid(pid, os.WNOHANG)
     if finished:

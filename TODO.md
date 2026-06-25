@@ -184,8 +184,6 @@
 
 - [~] **N1. `raster_compose` pixel buffer.** DoD: per-frame composed pixel buffer matches terminal output visually (modulo font); shared with Phase G3 MP4 export and Phase P3 still snapshot. Reference: PHASE_N §RasterCompose.
   - `src/raster_compose.{hpp,cpp}` now owns the cell-to-RGB raster path; MP4 export, pixel-mode export/playback, `graphics_emitter`, and `--still` consume it. Open: visual terminal-vs-raster proof.
-- [~] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
-  - Direct RGB24 Kitty encoder, base64 chunking, placement ids, delete escapes, cell-raster graphics-frame emission, pixel-mode export/playback dispatch, and persistent Kitty animation-frame delta uploads are in place. Open: live Kitty/Ghostty/WezTerm proof.
 - [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
   - In-tree Sixel encoder, OKLab nearest xterm-256 palette quantization, graphics-emitter dispatch, forced Sixel export proof, docs caveat, and `sixel_tests` landed. Open: live xterm-sixel/foot/wezterm proof; no Sixel terminal/decoder tooling is installed locally.
 - [~] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.
