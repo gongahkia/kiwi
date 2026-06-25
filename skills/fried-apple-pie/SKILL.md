@@ -1,3 +1,8 @@
+---
+name: fried-apple-pie
+description: Customize Pi's TUI through Fried Apple Pie presets, themes, footer/header/widget layout, personas, and pie-ui.json config.
+---
+
 # Fried Apple Pie UI Customization
 
 Use this skill when the user asks to customize Pi's TUI through Fried Apple Pie presets, themes, footer/header/widget layout, or the `pie-ui.json` config.

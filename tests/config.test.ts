@@ -824,10 +824,19 @@ test("package metadata and preview assets are publish-ready", () => {
 	assert.equal(pkg.bin.fap, "./bin/fap.mjs");
 	assert.ok(pkg.files.includes("bin"));
 	assert.ok(pkg.files.includes("examples"));
+	assert.deepEqual(pkg.pi.skills, ["./skills"]);
+	assert.deepEqual(pkg.pi.themes, ["./themes"]);
 	assert.match(pkg.pi.image, /^https:\/\/raw\.githubusercontent\.com\//);
 	const png = readFileSync("assets/fried-apple-pie-gallery.png");
 	assert.equal(png.readUInt32BE(16), 1200);
 	assert.equal(png.readUInt32BE(20), 740);
+});
+
+test("packaged skill has Pi-required frontmatter", () => {
+	const skill = readFileSync("skills/fried-apple-pie/SKILL.md", "utf8");
+	assert.match(skill, /^---\n/);
+	assert.match(skill, /\nname: fried-apple-pie\n/);
+	assert.match(skill, /\ndescription: .+\n/);
 });
 
 test("fap capture-terminal writes a valid theme from ANSI JSON", () => {

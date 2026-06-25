@@ -33,8 +33,6 @@ import { registerPresetToolRenderers } from "./tool-renderers.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, "../../assets");
-const themeDir = resolve(__dirname, "../../themes");
-const skillDir = resolve(__dirname, "../../skills");
 const tapesDir = resolve(assetsDir, "tapes");
 export const PIE_WELCOME_TYPE = "pie:welcome";
 export const PIE_HISTORY_TYPE = "pie:history";
@@ -76,11 +74,6 @@ export default function (pi: ExtensionAPI) {
 	const warned: { mid: boolean; high: boolean } = { mid: false, high: false };
 	let autocompleteRegistered = false;
 	let statsPosted = false;
-
-	pi.on("resources_discover", () => ({
-		themePaths: [themeDir],
-		skillPaths: [skillDir],
-	}));
 
 	pi.registerMessageRenderer<WelcomeMessageDetails>(PIE_WELCOME_TYPE, (message, _opts, theme) => createWelcomeMessage(message.details?.lines ?? [], theme));
 	pi.registerFlag("pie-preset", {
