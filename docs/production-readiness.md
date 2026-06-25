@@ -26,6 +26,12 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 
 Post-deploy, create team API keys from `/team/admin/api-keys` for Slack, Teams, Discord, MCP, browser extension, and trusted automation. Do not configure the web app with a global API key.
 
+If this is a first-run environment with no admin session yet, create the initial admin and one-time API key from the CLI:
+
+```sh
+pnpm bootstrap:admin -- --migrate --email admin@example.com --team-name "Example"
+```
+
 Generate first-run values with:
 
 ```sh
@@ -110,6 +116,16 @@ curl -f "$NEXT_PUBLIC_SITE_URL/api/v1/search?q=API&limit=1"
 ```
 
 Then verify enabled surfaces: Slack `/wat`, Slack URL verification if HTTP mode is exposed, browser extension connection test, MCP lookup, and admin import/export if enabled.
+
+Credential-backed smoke scripts are available for platform/API checks:
+
+```sh
+WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" pnpm smoke:teams
+WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" SLACK_PUBLIC_URL="$SLACK_PUBLIC_URL" pnpm smoke:slack
+WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" DISCORD_PUBLIC_URL="$DISCORD_PUBLIC_URL" pnpm smoke:discord
+```
+
+By default these scripts avoid writes where possible. Set `SMOKE_WRITE=true` to queue test suggestions, and set `DISCORD_SMOKE_INSTALL=true` with `DISCORD_SMOKE_GUILD_ID` to test Discord install mapping.
 
 For Teams, render `apps/teams/dist/wat-teams-app.zip` with `TEAMS_PUBLIC_ORIGIN`, `TEAMS_APP_ID`, and `TEAMS_API_SECRET_REGISTRATION_ID`, upload through Teams Developer Portal or Agents Toolkit, and smoke-test compose-box search.
 

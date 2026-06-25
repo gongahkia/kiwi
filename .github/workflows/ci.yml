@@ -83,3 +83,40 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:all
+
+  ship-gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: wat_ci
+          POSTGRES_PASSWORD: wat
+          POSTGRES_USER: wat
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wat -d wat_ci" --health-interval 10s --health-timeout 5s --health-retries 10
+
+
+    env:
+      AUTH_SECRET: ci-auth-secret-ci-auth-secret-ci-auth-secret
+      DATABASE_URL: postgres://wat:wat@localhost:5432/wat_ci
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-auth-secret-ci-auth-secret-ci-auth-secret
+      WAT_DATABASE_URL: postgres://wat:wat@localhost:5432/wat_ci
+      WAT_VALIDATE_ENV: "false"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm db:seed:public
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build:all

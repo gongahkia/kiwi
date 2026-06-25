@@ -27,6 +27,15 @@ Generate fresh auth/token-encryption secrets for new self-host installs:
 
 Copy the generated `AUTH_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, `TEAMS_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid. Create team API keys from `/team/admin/api-keys` after login, then use those raw keys as `WAT_API_KEY` values for Slack, Teams, Discord, MCP, browser extensions, or trusted automation.
 
+For first-run installs where no admin can log in yet, bootstrap the first team admin and API key directly against Postgres:
+
+```sh
+DATABASE_URL=postgres://wat:wat@localhost:5432/wat \
+pnpm bootstrap:admin -- --migrate --email admin@example.com --team-name "Example"
+```
+
+The command upserts the team, promotes the user to `admin`, and prints a raw `wat_...` API key once. If an active key with the same name already exists, rerun with `--force-key` to issue another raw key.
+
 Optional values depend on enabled surfaces:
 
 ```sh
