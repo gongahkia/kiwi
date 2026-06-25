@@ -11,8 +11,12 @@ describe("team members", () => {
   it("promotes and demotes members", async () => {
     resetTeamMembersForTest();
 
-    expect(await setTeamMemberRole("team_1", "user_platform", "admin")).toMatchObject({ role: "admin" });
-    expect(await setTeamMemberRole("team_1", "user_platform", "member")).toMatchObject({ role: "member" });
+    expect(await setTeamMemberRole("team_1", "user_platform", "admin")).toMatchObject({
+      role: "admin"
+    });
+    expect(await setTeamMemberRole("team_1", "user_platform", "member")).toMatchObject({
+      role: "member"
+    });
     resetTeamMembersForTest();
   });
 

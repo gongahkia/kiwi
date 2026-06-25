@@ -35,7 +35,10 @@ function enabled(env: EmailEnv): boolean {
   return env.WAT_EMAIL_NOTIFICATIONS === "1" || env.WAT_EMAIL_NOTIFICATIONS === "true";
 }
 
-async function recipientForActor(teamId: string | null, actorId: string | null): Promise<string | null> {
+async function recipientForActor(
+  teamId: string | null,
+  actorId: string | null
+): Promise<string | null> {
   if (!actorId) return null;
   const member = teamId ? await getTeamMember(teamId, actorId) : null;
   if (member) return member.email;

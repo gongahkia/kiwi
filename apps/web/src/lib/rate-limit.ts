@@ -59,8 +59,10 @@ function subjectKeys(subject: RateLimitSubject): Array<{ key: string; scope: Rat
   const keys: Array<{ key: string; scope: RateLimitScope }> = [
     { key: `search:ip:${subject.ip}`, scope: "ip" }
   ];
-  if (subject.identity.userId) keys.push({ key: `search:user:${subject.identity.userId}`, scope: "user" });
-  if (subject.identity.teamId) keys.push({ key: `search:team:${subject.identity.teamId}`, scope: "team" });
+  if (subject.identity.userId)
+    keys.push({ key: `search:user:${subject.identity.userId}`, scope: "user" });
+  if (subject.identity.teamId)
+    keys.push({ key: `search:team:${subject.identity.teamId}`, scope: "team" });
   return keys;
 }
 
@@ -73,7 +75,8 @@ function memoryDecision(
   now: number
 ): RateLimitDecision {
   const existing = store.get(key);
-  const bucket = existing && existing.resetAt > now ? existing : { count: 0, resetAt: now + windowMs };
+  const bucket =
+    existing && existing.resetAt > now ? existing : { count: 0, resetAt: now + windowMs };
   const count = bucket.count + 1;
   store.set(key, { count, resetAt: bucket.resetAt });
   return {

@@ -88,7 +88,9 @@ export async function recordAuditLog(
 
 export async function getAuditLog(teamId?: string): Promise<AuditLogEntry[]> {
   if (useTestState()) {
-    return structuredClone(teamId ? testAuditLog.filter((entry) => entry.team_id === teamId) : testAuditLog);
+    return structuredClone(
+      teamId ? testAuditLog.filter((entry) => entry.team_id === teamId) : testAuditLog
+    );
   }
   const { rows } = await authDb().query<{
     action: string;

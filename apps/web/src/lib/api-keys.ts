@@ -180,12 +180,14 @@ export async function lookupApiKey(key: string): Promise<ApiKeyRecord | null> {
   return rows[0] ? rowToRecord(rows[0]) : null;
 }
 
-export function seedApiKeyForTest(input: {
-  key?: string;
-  name?: string;
-  scopes?: ApiKeyScope[];
-  teamId?: string;
-} = {}): string {
+export function seedApiKeyForTest(
+  input: {
+    key?: string;
+    name?: string;
+    scopes?: ApiKeyScope[];
+    teamId?: string;
+  } = {}
+): string {
   const key = input.key ?? "test-key";
   const now = new Date().toISOString();
   testKeys.set(hashApiKey(key), {

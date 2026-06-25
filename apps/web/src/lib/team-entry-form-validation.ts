@@ -1,5 +1,4 @@
-import type { TeamEntry } from "./team-entries";
-import { validateTeamEntry } from "./team-entries";
+import { validateTeamEntry, type TeamEntry } from "./team-entry-model";
 
 function entryKey(entry: Pick<TeamEntry, "expansion" | "term">): string {
   return `${entry.term.trim().toLowerCase()}:${entry.expansion.trim().toLowerCase()}`;

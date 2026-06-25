@@ -3,7 +3,9 @@ export interface WatApiConfig {
   baseUrl: string;
 }
 
-export function requireApiConfig(env: Record<string, string | undefined> = process.env): WatApiConfig {
+export function requireApiConfig(
+  env: Record<string, string | undefined> = process.env
+): WatApiConfig {
   const baseUrl = env.WAT_API_BASE_URL?.trim();
   const apiKey = env.WAT_API_KEY?.trim();
   if (!baseUrl) throw new Error("WAT_API_BASE_URL is required");

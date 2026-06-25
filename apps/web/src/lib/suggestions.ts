@@ -247,7 +247,13 @@ export async function reviewSuggestedEdit(
     where team_id = $1 and id = $2
     returning id, actor_id, team_id, target_type, target_id, status, before_jsonb, after_jsonb, created_at, reviewed_by, reviewed_at
     `,
-    [teamId, suggestionId, status, reviewerId, afterJsonb == null ? null : JSON.stringify(afterJsonb)]
+    [
+      teamId,
+      suggestionId,
+      status,
+      reviewerId,
+      afterJsonb == null ? null : JSON.stringify(afterJsonb)
+    ]
   );
   const row = rows[0];
   if (!row) throw new Error("suggestion not found");

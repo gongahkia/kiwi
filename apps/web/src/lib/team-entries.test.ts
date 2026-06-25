@@ -64,7 +64,10 @@ describe("team export helpers", () => {
       ],
       term: "SLI"
     };
-    const result = await importTeamEntries("team_1", [initialTeamEntries[0] as TeamEntry, imported]);
+    const result = await importTeamEntries("team_1", [
+      initialTeamEntries[0] as TeamEntry,
+      imported
+    ]);
 
     expect(result.inserted).toEqual([imported]);
     expect(result.skipped).toEqual([initialTeamEntries[0]]);
@@ -133,7 +136,9 @@ describe("team export helpers", () => {
     };
 
     expect(await createTeamEntry("team_1", entry)).toEqual(entry);
-    expect(await updateTeamEntry("team_1", entry.id, { meaning: "Updated access policy." })).toMatchObject({
+    expect(
+      await updateTeamEntry("team_1", entry.id, { meaning: "Updated access policy." })
+    ).toMatchObject({
       meaning: "Updated access policy."
     });
     expect(await deleteTeamEntry("team_1", entry.id)).toMatchObject({ id: entry.id });

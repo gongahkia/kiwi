@@ -1,5 +1,5 @@
 import { parseTeamImportCsv } from "./team-import-template";
-import { validateTeamEntry, type TeamEntry } from "./team-entries";
+import { validateTeamEntry, type TeamEntry } from "./team-entry-model";
 
 export type TeamImportFormat = "csv" | "json";
 

@@ -22,7 +22,9 @@ describe("team settings", () => {
     await updateTeamSettings("team_1", { domain_tags: ["Security", "security", ""] });
 
     expect((await getTeamSettings()).domain_tags).toContain("security");
-    expect((await getTeamSettings()).domain_tags.filter((tag) => tag === "security")).toHaveLength(1);
+    expect((await getTeamSettings()).domain_tags.filter((tag) => tag === "security")).toHaveLength(
+      1
+    );
     resetTeamSettingsForTest();
   });
 });

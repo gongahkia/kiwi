@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { previewTeamImport, type TeamImportFormat } from "@/lib/team-import-preview";
-import type { TeamEntry } from "@/lib/team-entries";
+import type { TeamEntry } from "@/lib/team-entry-model";
 
 type ImportResolution = "skip" | "update";
 

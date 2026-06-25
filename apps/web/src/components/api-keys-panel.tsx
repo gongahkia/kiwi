@@ -15,7 +15,11 @@ const scopes: ApiKeyScope[] = ["search", "suggest", "write", "admin"];
 export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
   const [keys, setKeys] = useState(initialKeys);
   const [name, setName] = useState("Team API key");
-  const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>(["search", "suggest", "write"]);
+  const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>([
+    "search",
+    "suggest",
+    "write"
+  ]);
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const [error, setError] = useState("");
 
@@ -32,7 +36,10 @@ export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
       headers: { "content-type": "application/json", "x-wat-same-origin": "1" },
       method: "POST"
     });
-    const payload = (await response.json().catch(() => null)) as { key?: CreatedApiKey; message?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      key?: CreatedApiKey;
+      message?: string;
+    } | null;
     if (!response.ok || !payload?.key) {
       setError(payload?.message ?? "create failed");
       return;
@@ -47,7 +54,10 @@ export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
       headers: { "x-wat-same-origin": "1" },
       method: "DELETE"
     });
-    const payload = (await response.json().catch(() => null)) as { key?: ApiKeyRecord; message?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      key?: ApiKeyRecord;
+      message?: string;
+    } | null;
     if (!response.ok || !payload?.key) {
       setError(payload?.message ?? "revoke failed");
       return;
@@ -87,7 +97,9 @@ export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
         {createdKey ? (
           <div className="grid gap-1 rounded-md border border-input bg-secondary p-3 text-sm">
             <p className="font-medium">New key</p>
-            <code className="break-all rounded bg-background px-2 py-1 text-xs">{createdKey.key}</code>
+            <code className="break-all rounded bg-background px-2 py-1 text-xs">
+              {createdKey.key}
+            </code>
           </div>
         ) : null}
         {error ? <p className="text-sm text-primary">{error}</p> : null}
@@ -112,7 +124,12 @@ export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
                 <td className="px-3 py-2">{key.revoked_at ? "revoked" : "active"}</td>
                 <td className="px-3 py-2">
                   {!key.revoked_at ? (
-                    <Button onClick={() => revoke(key.id)} size="sm" type="button" variant="outline">
+                    <Button
+                      onClick={() => revoke(key.id)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
                       <Trash2 />
                       Revoke
                     </Button>

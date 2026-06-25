@@ -176,7 +176,7 @@ export async function createPersonalEntry(
   } catch (error) {
     await client.query("rollback");
     if ((error as { code?: string }).code === "23505") {
-      throw new Error("personal entry already exists");
+      throw new Error("personal entry already exists", { cause: error });
     }
     throw error;
   } finally {
@@ -241,7 +241,7 @@ export async function updatePersonalEntry(
   } catch (error) {
     await client.query("rollback");
     if ((error as { code?: string }).code === "23505") {
-      throw new Error("personal entry already exists");
+      throw new Error("personal entry already exists", { cause: error });
     }
     throw error;
   } finally {
@@ -249,10 +249,7 @@ export async function updatePersonalEntry(
   }
 }
 
-export async function deletePersonalEntry(
-  userId: string,
-  entryId: string
-): Promise<PersonalEntry> {
+export async function deletePersonalEntry(userId: string, entryId: string): Promise<PersonalEntry> {
   const existing = (await getPersonalEntries(userId)).find((entry) => entry.id === entryId);
   if (!existing) throw new Error("personal entry not found");
   if (useTestState()) {

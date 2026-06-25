@@ -1,4 +1,4 @@
-import type { TeamEntry, TeamEntrySource } from "./team-entries";
+import type { TeamEntry, TeamEntrySource } from "./team-entry-model";
 
 const importCsvColumns = [
   "id",

@@ -17,9 +17,7 @@ export interface SuggestedDefinition {
   team_id: string;
 }
 
-export async function writeSuggestion(
-  input: SuggestDefinitionInput
-): Promise<SuggestedDefinition> {
+export async function writeSuggestion(input: SuggestDefinitionInput): Promise<SuggestedDefinition> {
   const response = await fetch(`${input.config.baseUrl}/api/v1/suggestions`, {
     body: JSON.stringify({
       domains: input.domains ?? [],

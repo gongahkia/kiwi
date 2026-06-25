@@ -7,7 +7,7 @@ import { AdminEmptyState } from "@/components/admin-empty-state";
 import { Button } from "@/components/ui/button";
 import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { validateTeamEntryDraft } from "@/lib/team-entry-form-validation";
-import type { TeamEntry } from "@/lib/team-entries";
+import type { TeamEntry } from "@/lib/team-entry-model";
 
 interface TeamEntryCrudProps {
   apiPath?: string;

@@ -34,7 +34,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ member: await setTeamMemberRole(session.teamId, body.id, body.role) });
+    return NextResponse.json({
+      member: await setTeamMemberRole(session.teamId, body.id, body.role)
+    });
   } catch (error) {
     return apiErrorResponse(request, "member_not_found", 404, {
       message: error instanceof Error ? error.message : "member update failed"

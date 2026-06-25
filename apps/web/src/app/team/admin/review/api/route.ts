@@ -48,7 +48,9 @@ export async function PATCH(request: NextRequest) {
       body.after_jsonb
     );
     const approval =
-      body.status === "approved" ? await approveSuggestion(session.teamId, suggestion, session.id) : null;
+      body.status === "approved"
+        ? await approveSuggestion(session.teamId, suggestion, session.id)
+        : null;
     const notification = await sendSuggestionOutcomeEmail(suggestion, body.status);
 
     return NextResponse.json({

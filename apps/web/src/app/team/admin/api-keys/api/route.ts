@@ -16,10 +16,14 @@ function scopesFromBody(value: unknown): ApiKeyScope[] | undefined {
 async function requireAdmin(request: NextRequest) {
   const session = await sessionUserFromRequest(request);
   if (!session?.teamId) {
-    return { error: apiErrorResponse(request, "login_required", 401, { message: "login required" }) };
+    return {
+      error: apiErrorResponse(request, "login_required", 401, { message: "login required" })
+    };
   }
   if (session.role !== "admin") {
-    return { error: apiErrorResponse(request, "admin_required", 403, { message: "admin required" }) };
+    return {
+      error: apiErrorResponse(request, "admin_required", 403, { message: "admin required" })
+    };
   }
   return { session: session as WatSessionUser & { teamId: string } };
 }

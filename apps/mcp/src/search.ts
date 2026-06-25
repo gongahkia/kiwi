@@ -53,10 +53,7 @@ export async function lookupEntries(input: {
   if (input.context) url.searchParams.set("context", input.context);
   if (input.limit) url.searchParams.set("limit", String(input.limit));
   if (input.min_confidence) url.searchParams.set("min_confidence", input.min_confidence);
-  const data = await getJson<SearchResponse>(
-    input.config,
-    `${url.pathname}${url.search}`
-  );
+  const data = await getJson<SearchResponse>(input.config, `${url.pathname}${url.search}`);
   return {
     matches: data.matches.map((match) => toResult(match.entry, match.score)),
     team_id: data.team_id ?? "remote"

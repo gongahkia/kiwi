@@ -16,11 +16,13 @@ export const nextAuthSessionCookies = [
   "__Secure-next-auth.session-token"
 ] as const;
 
-export function testSessionToken(input: {
-  role?: TeamRole;
-  teamId?: string;
-  userId?: string;
-} = {}): string {
+export function testSessionToken(
+  input: {
+    role?: TeamRole;
+    teamId?: string;
+    userId?: string;
+  } = {}
+): string {
   return `test:${input.userId ?? "user_admin"}:${input.teamId ?? "team_1"}:${input.role ?? "admin"}`;
 }
 

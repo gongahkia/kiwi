@@ -69,7 +69,9 @@ export async function approveSuggestion(
     return { audit, entry };
   }
 
-  const existing = (await getTeamEntries(teamId)).find((entry) => entry.id === suggestion.target_id);
+  const existing = (await getTeamEntries(teamId)).find(
+    (entry) => entry.id === suggestion.target_id
+  );
   if (!suggestion.target_id || !existing || typeof suggestion.after_jsonb !== "object") {
     throw new Error("suggestion cannot be applied");
   }
