@@ -25,9 +25,9 @@
     {
       "path": "site/parity.json",
       "webPath": "parity.json",
-      "bytes": 18725,
-      "sha256": "f3ff708adc9e6e355971078d15c41bc410fa83ef491323f9c1fc3b064121b7c6",
-      "sri": "sha384-7G2mH53qa5QQSwQs54TXRnNQo2uCkXGzru8jfXe6lXvnO8Ibxb5w5cnKlrwqRIAR"
+      "bytes": 18716,
+      "sha256": "25d737923014f5675db7c4b771978251a6153ed910449af23ce41b3164ae6176",
+      "sri": "sha384-+W1GF+Z0q10UqR7QGTglgp8PJsQPgn/yRikc/BHI1XKU1KpUSgYygMHpRk/WBr6U"
     },
     {
       "path": "site/motion.json",
