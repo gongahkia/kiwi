@@ -4,6 +4,7 @@
 #include "iterm_inline.hpp"
 #include "kitty_graphics.hpp"
 #include "raster_compose.hpp"
+#include "sixel.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -109,6 +110,10 @@ GraphicsFrameResult emitFullGraphicsFrame(const CellBuffer& cells, const Graphic
         .raster_bytes = raster.rgb.size(),
       };
     case GraphicsProtocol::Sixel:
+      return GraphicsFrameResult{
+        .bytes = encodeSixelRgb24(raster),
+        .raster_bytes = raster.rgb.size(),
+      };
     case GraphicsProtocol::None:
       throw std::runtime_error("graphics protocol is not implemented");
   }

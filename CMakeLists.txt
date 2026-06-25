@@ -130,6 +130,7 @@ add_executable(contourtty
   src/renderer.cpp
   src/scene_source.cpp
   src/sextant_renderer.cpp
+  src/sixel.cpp
   src/split.cpp
   src/stdin_data.cpp
   src/stipple.cpp
@@ -1234,6 +1235,33 @@ else()
 endif()
 add_test(NAME iterm_inline COMMAND iterm_inline_tests)
 
+add_executable(sixel_tests
+  tests/sixel_tests.cpp
+  src/color_quantization.cpp
+  src/luminance.cpp
+  src/posterize.cpp
+  src/sixel.cpp
+)
+target_include_directories(sixel_tests PRIVATE src)
+target_compile_features(sixel_tests PRIVATE cxx_std_20)
+set_target_properties(sixel_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(sixel_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(sixel_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(sixel_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(sixel_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME sixel COMMAND sixel_tests)
+
 add_executable(render_mode_tests
   tests/render_mode_tests.cpp
   src/render_mode.cpp
@@ -1342,10 +1370,13 @@ add_executable(hybrid_emitter_tests
   src/hybrid_emitter.cpp
   src/iterm_inline.cpp
   src/kitty_graphics.cpp
+  src/luminance.cpp
   src/png_writer.cpp
+  src/posterize.cpp
   src/raster_compose.cpp
   src/render_layout.cpp
   src/render_mode.cpp
+  src/sixel.cpp
 )
 target_include_directories(hybrid_emitter_tests PRIVATE src)
 target_include_directories(hybrid_emitter_tests SYSTEM PRIVATE third_party)
@@ -1380,9 +1411,12 @@ add_executable(graphics_emitter_tests
   src/graphics_emitter.cpp
   src/iterm_inline.cpp
   src/kitty_graphics.cpp
+  src/luminance.cpp
   src/png_writer.cpp
+  src/posterize.cpp
   src/raster_compose.cpp
   src/render_mode.cpp
+  src/sixel.cpp
 )
 target_include_directories(graphics_emitter_tests PRIVATE src)
 target_compile_features(graphics_emitter_tests PRIVATE cxx_std_20)

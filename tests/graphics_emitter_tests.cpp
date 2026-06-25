@@ -130,12 +130,11 @@ int main() {
   }
 
   {
-    bool threw = false;
-    try {
-      (void)contourtty::emitGraphicsFrame(oneCell(), contourtty::GraphicsFrameOptions{.protocol = contourtty::GraphicsProtocol::Sixel});
-    } catch (const std::runtime_error&) {
-      threw = true;
-    }
-    expect(threw, "sixel emitter blocked until encoder exists");
+    const auto frame = contourtty::emitGraphicsFrame(oneCell(), contourtty::GraphicsFrameOptions{.protocol = contourtty::GraphicsProtocol::Sixel});
+    expect(frame.raster_bytes == 1U * contourtty::kRasterCellPixelWidth * contourtty::kRasterCellPixelHeight * 3U, "sixel raster byte count");
+    expect(frame.bytes.find("\x1bPq") == 0, "sixel frame escape prefix");
+    expect(frame.bytes.find("#9;2;100;0;0") != std::string::npos, "sixel palette defines red register");
+    expect(frame.bytes.find("#9!8~") != std::string::npos, "sixel red full-cell run encoded");
+    expect(frame.bytes.ends_with("\x1b\\"), "sixel frame terminator");
   }
 }

@@ -1340,7 +1340,7 @@ std::optional<GraphicsFrameOptions> graphicsOptionsFromResolution(const CliOptio
   if (resolution.mode != ResolvedRenderMode::Pixel && resolution.mode != ResolvedRenderMode::Hybrid) {
     return std::nullopt;
   }
-  if (resolution.protocol == GraphicsProtocol::Sixel || resolution.protocol == GraphicsProtocol::None) {
+  if (resolution.protocol == GraphicsProtocol::None) {
     CONTOURTTY_LOG_INFO(logger, "graphics protocol " + std::string(toString(resolution.protocol)) + " not implemented; using text");
     return std::nullopt;
   }

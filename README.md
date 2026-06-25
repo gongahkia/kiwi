@@ -11,9 +11,9 @@ Demo source: generated FFmpeg test media; luminance is left, structure+hatch is 
 
 ## Status
 
-Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm pixel emitters are implemented and covered by local tests. Published release artifacts are still pending.
+Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. Published release artifacts are still pending.
 
-What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shader input, Vulkan, Sixel, hosted CI proof, and release bottles remain pending.
+What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shader input, Vulkan, live Sixel terminal proof, hosted CI proof, and release bottles remain pending.
 
 ## Build and run
 
@@ -32,7 +32,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-`CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan, shader cross-compilation, and Sixel are not linked in the current tree.
+`CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan and shader cross-compilation are not linked in the current tree.
 
 Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`), FreeType, and zlib. On macOS, install them with `brew install ffmpeg freetype zlib`; on Debian/Ubuntu, install the matching `libav*-dev`, `libfreetype-dev`, and shared runtime packages for packaged binaries.
 
@@ -77,6 +77,8 @@ Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to li
 Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`. Live capture requests 640x480 at 30 fps for low-latency structure analysis. Camera playback mirrors horizontally by default; pass `--no-mirror` for sensor-native orientation.
 
 Capability detection uses environment variables, an allowlist, and optional FreeType font cmap checks only; it does not issue terminal query escapes. `--caps dump` prints the resolved capability set; override specs are comma-separated, for example `--caps unicode=16,octant,truecolor`.
+
+Pixel render mode uses Kitty graphics, Sixel, or iTerm inline images when capability detection or `--caps` selects them. Kitty supports persistent delta uploads; iTerm and Sixel currently use full-frame uploads. Sixel output is bandwidth-heavy and best suited for stills or low-rate playback on terminals with Sixel enabled.
 
 Color defaults to truecolor when `COLORTERM=truecolor` or `24bit`, 256-color when `TERM` contains `256`, otherwise 16-color. `NO_COLOR` forces mono. `--color-mode` overrides detection; 256/16 output is palette-quantized. `--dither ordered` applies Bayer dithering; `--dither fs` applies CPU-side Floyd-Steinberg error diffusion, which is serial by design and not parallelized. `--diff-oklab-eps N` suppresses truecolor SGR re-emits when only sub-perceptual OKLab color deltas changed.
 

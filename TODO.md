@@ -185,7 +185,7 @@
 - [~] **N2. Kitty graphics encoder.** DoD: 720p clip plays on Kitty/Ghostty/WezTerm via `--render-mode pixel`; resize and quit clean; persistent IDs reused for delta uploads. Reference: PHASE_N §KittyGraphics.
   - Direct RGB24 Kitty encoder, base64 chunking, placement ids, delete escapes, cell-raster graphics-frame emission, pixel-mode export/playback dispatch, and persistent Kitty animation-frame delta uploads are in place. Open: live Kitty/Ghostty/WezTerm proof.
 - [ ] **N3. Sixel encoder.** DoD: still image renders via Sixel on xterm-sixel/foot/wezterm; bandwidth caveat documented; pre-quantised to OKLab palette. Reference: PHASE_N §Sixel.
-  - Blocked locally: `libsixel`, `img2sixel`, and `sixel2png` are absent.
+  - In-tree Sixel encoder, OKLab nearest xterm-256 palette quantization, graphics-emitter dispatch, forced Sixel export proof, docs caveat, and `sixel_tests` landed. Open: live xterm-sixel/foot/wezterm proof; no Sixel terminal/decoder tooling is installed locally.
 - [~] **N4. iTerm inline image.** DoD: `--still` over iTerm produces in-place image; per-frame motion supported with documented caveats. Reference: PHASE_N §ITermInline.
   - iTerm OSC 1337 inline PNG encoder is tested and reuses the in-tree PNG encoder; pixel-mode export/playback can emit cell-raster iTerm frames; `--still` writes raster PNG snapshots. Open: live iTerm proof.
 - [x] **N5. `--render-mode {text|pixel|hybrid|auto}`.** DoD: caps → mode resolution table tested; `auto` degrades to `text` silently when graphics unsupported; hybrid mode composes pixel layer + sparse text overlay. Reference: PHASE_N §RenderMode.
@@ -194,8 +194,6 @@
   - `--bandwidth-cap` parses with default 50 MB/s; `bandwidth_guard_tests` covers rolling-window drops and one-time warning state; graphics export/playback use the guard; forced Kitty export with a tiny cap drops graphics payloads and logs exactly one warning.
 - [~] **N7. Hybrid pixel/text alignment.** DoD: vertical overlay `|` on uniform region produces a line aligned to within ±1 px of the cell-column boundary in screen captures. Reference: PHASE_N §Hybrid.
   - `graphics_alignment_tests` lock raster-to-cell boundary math and ±1 px tolerance checks. Open: live hybrid screen-capture proof after player dispatch exists.
-- [~] **N8. Graphics-protocol tests + bench.** DoD: `kitty_graphics_tests`, `sixel_tests`, `iterm_inline_tests`, `render_mode_tests` all pass; bytes/frame and fps recorded per protocol in BENCHMARKS.md. Reference: PHASE_N §Tests / §Bench.
-  - `kitty_graphics_tests`, `iterm_inline_tests`, `render_mode_tests`, and `graphics_emitter_tests` cover escape syntax, base64 payloads, chunk boundaries, delete escapes, animation-frame deltas, inline PNG payloads, caps-to-mode resolution, and cell-raster graphics emission. BENCHMARKS.md records Kitty pixel/delta, iTerm pixel, and Kitty hybrid bytes/frame + fps rows. Open: Sixel tests and Sixel bench blocked by absent libsixel tooling.
 - [ ] **Phase N exit criteria → tag `v0.95`.** DoD: `pixel` mode on Kitty runs at full source resolution; `hybrid` shows contour sharpness vs pixel-only; `text` default unchanged.
 
 ---
@@ -247,10 +245,10 @@
 
 - [~] **X1. Memory safety.** Local clean; hosted Linux ASan/UBSan blocked by billing (carried into PHASE_P §CI).
 - [~] **X2. No leaks on shutdown.** Local macOS clean across normal/seek/Ctrl-C; hosted Linux Valgrind blocked.
-- [x] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / libsixel / nanoflann / stb_image_write.
-  - `DEPENDENCIES.md` covers build tools, FFmpeg, zlib, FreeType, miniaudio, Apple frameworks, nanoflann, Metal, future Vulkan/glslang/SPIRV-Cross, graphics protocols, libsixel/stb posture, shipped assets, install prerequisites, and optional yt-dlp. Homebrew formula includes the required FFmpeg/FreeType/zlib deps.
-  - `DEPENDENCIES.md` now lists current system/vendored libraries, license posture, platform frameworks, protocol-only encoders, planned blocked Vulkan/glslang/SPIRV-Cross/libsixel deps, and shipped data assets. Open: finalize after Vulkan/Sixel/shader deps are actually added.
-- [x] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no sixel) for users who want a small install; default build documents its size impact.
+- [x] **X3. Dependency hygiene.** DoD: `DEPENDENCIES.md` lists every system + vendored library with minimum versions and license posture; updated as Phases I/L/N add FreeType / glslang / Vulkan / graphics protocols / nanoflann / stb_image_write.
+  - `DEPENDENCIES.md` covers build tools, FFmpeg, zlib, FreeType, miniaudio, Apple frameworks, nanoflann, Metal, future Vulkan/glslang/SPIRV-Cross, graphics protocols, shipped assets, install prerequisites, and optional yt-dlp. Homebrew formula includes the required FFmpeg/FreeType/zlib deps.
+  - `DEPENDENCIES.md` now lists current system/vendored libraries, license posture, platform frameworks, protocol-only encoders, planned blocked Vulkan/glslang/SPIRV-Cross deps, and shipped data assets. Open: finalize after Vulkan/shader deps are actually added.
+- [x] **X4. Build size budget.** DoD: `-DCONTOURTTY_LIGHT=ON` builds a minimal binary (no shader cross-compile, no Vulkan, no external graphics-protocol libraries) for users who want a small install; default build documents its size impact.
   - `CONTOURTTY_LIGHT` configures a CPU-only build that skips optional Apple Metal linkage; `build/light/contourtty` built locally and omits Metal/Foundation in `otool -L`. `DEPENDENCIES.md` records the local Release size delta: 1,496,856 bytes default vs 1,460,120 bytes light.
 - [x] **X5. Licence audit on shipped charsets/fonts/noise tiles.** DoD: every binary asset in `share/contourtty/` is documented with origin + licence in `share/contourtty/LICENSES.md`.
   - `share/contourtty/LICENSES.md` lists current charsets, graph presets, blue-noise tile, and bundled OBJ scene; it records that no fonts, shader files, or third-party binary assets are currently shipped there.

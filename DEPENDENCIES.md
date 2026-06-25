@@ -109,7 +109,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 |---|---:|---|---|---|
 | Kitty graphics protocol | terminal protocol | no library | protocol documentation only | Implemented with in-tree encoder. |
 | iTerm2 inline images | terminal protocol | no library | protocol documentation only | Implemented with in-tree OSC 1337 encoder plus zlib PNG writer. |
-| libsixel | TBD | not linked | MIT-style | Not present locally; Sixel encoder remains blocked. |
+| Sixel graphics protocol | terminal protocol | no library | protocol documentation only | Implemented with in-tree encoder and OKLab nearest-palette quantization. |
 | stb_image_write | N/A | not used | N/A | Not vendored; PNG encoding is in-tree and uses zlib. |
 
 ## Shipped data assets
@@ -147,7 +147,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan, shader cross-compile, Sixel, or other graphics-protocol libraries.
+The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan, shader cross-compile, or external graphics-protocol libraries.
 
 Local macOS Release measurement on 2026-06-21:
 
