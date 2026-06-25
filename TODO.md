@@ -219,8 +219,6 @@
   - `--captions FILE.srt` parses; export and caption-only runs write deterministic frame-summary SRT cues from source PTS or `--fps`; `caption_summarise_tests` cover deterministic summaries, SRT formatting, and a literal two-cue SRT golden.
 - [x] **O7. Content-path tests + bench.** DoD: `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, `caption_summarise_tests` all pass; stdin plot fps and asciinema replay overhead in BENCHMARKS.md. Reference: PHASE_O §Tests / §Bench.
   - `image_grid_tests`, `stdin_data_tests`, `asciinema_in_tests`, and `caption_summarise_tests` pass locally; BENCHMARKS.md records stdin waveform plot fps and asciinema replay overhead from Release runs.
-- [ ] **Phase O exit criteria.** DoD: all four new `--input` types work end-to-end; no regression in video/camera/stream playback.
-
 ---
 
 ## PHASE P — Interactivity, demos, polish → **v1.0**
