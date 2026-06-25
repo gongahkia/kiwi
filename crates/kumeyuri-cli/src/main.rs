@@ -475,6 +475,11 @@ const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
         caveat_id: "compat-caveat-requirement",
     },
     CompatRoot {
+        label_id: "compat-label-cynefin",
+        roots: &["cynefin-beta"],
+        caveat_id: "compat-caveat-cynefin",
+    },
+    CompatRoot {
         label_id: "compat-label-c4",
         roots: &[
             "C4Context",
@@ -526,6 +531,16 @@ const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
         caveat_id: "compat-caveat-radar",
     },
     CompatRoot {
+        label_id: "compat-label-railroad",
+        roots: &["railroad-diagram"],
+        caveat_id: "compat-caveat-railroad",
+    },
+    CompatRoot {
+        label_id: "compat-label-swimlanes",
+        roots: &["swimlane"],
+        caveat_id: "compat-caveat-swimlanes",
+    },
+    CompatRoot {
         label_id: "compat-label-event-modeling",
         roots: &["eventmodeling"],
         caveat_id: "compat-caveat-event-modeling",
@@ -557,23 +572,7 @@ const STATIC_ONLY_ROOTS: &[CompatRoot] = &[
     },
 ];
 
-const UNSUPPORTED_ROOTS: &[CompatRoot] = &[
-    CompatRoot {
-        label_id: "compat-label-cynefin",
-        roots: &["cynefin-beta"],
-        caveat_id: "compat-caveat-cynefin",
-    },
-    CompatRoot {
-        label_id: "compat-label-railroad",
-        roots: &["railroad-diagram"],
-        caveat_id: "compat-caveat-railroad",
-    },
-    CompatRoot {
-        label_id: "compat-label-swimlanes",
-        roots: &["swimlane"],
-        caveat_id: "compat-caveat-swimlanes",
-    },
-];
+const UNSUPPORTED_ROOTS: &[CompatRoot] = &[];
 
 fn print_compat_report(mermaid_version: Option<&str>) -> Result<(), String> {
     let output = compat_report(mermaid_version);
@@ -2478,6 +2477,8 @@ fn diagram_kind_title(kind: &DiagramKind) -> Option<String> {
         DiagramKind::Journey(ast) => ast.title.as_ref(),
         DiagramKind::Timeline(ast) => ast.title.as_ref(),
         DiagramKind::C4(ast) => ast.title.as_ref(),
+        DiagramKind::Cynefin(ast) => ast.title.as_ref(),
+        DiagramKind::Railroad(ast) => ast.title.as_ref(),
         DiagramKind::Flowchart(_)
         | DiagramKind::Sequence(_)
         | DiagramKind::State(_)
@@ -2493,7 +2494,8 @@ fn diagram_kind_title(kind: &DiagramKind) -> Option<String> {
         | DiagramKind::TreeView(_)
         | DiagramKind::Mindmap(_)
         | DiagramKind::GitGraph(_)
-        | DiagramKind::Requirement(_) => None,
+        | DiagramKind::Requirement(_)
+        | DiagramKind::Swimlanes(_) => None,
     }
     .map(|label| normalize_inline_text(&label.text))
 }
@@ -2528,6 +2530,9 @@ fn diagram_kind_id(kind: &DiagramKind) -> &'static str {
         DiagramKind::Timeline(_) => "timeline",
         DiagramKind::Requirement(_) => "requirement",
         DiagramKind::C4(_) => "c4",
+        DiagramKind::Cynefin(_) => "cynefin",
+        DiagramKind::Railroad(_) => "railroad",
+        DiagramKind::Swimlanes(_) => "swimlanes",
     }
 }
 
@@ -2735,6 +2740,26 @@ fn diagram_kind_summary(kind: &DiagramKind) -> String {
             count_phrase(ast.elements.len(), "element", "elements"),
             count_phrase(ast.relationships.len(), "relationship", "relationships"),
             count_phrase(ast.boundaries.len(), "boundary", "boundaries")
+        ),
+        DiagramKind::Cynefin(ast) => format!(
+            "Cynefin framework diagram with {}, {}, and {}.",
+            count_phrase(ast.domains.len(), "domain block", "domain blocks"),
+            count_phrase(
+                ast.domains.iter().map(|domain| domain.items.len()).sum::<usize>(),
+                "item",
+                "items"
+            ),
+            count_phrase(ast.transitions.len(), "transition", "transitions")
+        ),
+        DiagramKind::Railroad(ast) => format!(
+            "Railroad diagram with {}.",
+            count_phrase(ast.rules.len(), "grammar rule", "grammar rules")
+        ),
+        DiagramKind::Swimlanes(ast) => format!(
+            "Swimlanes diagram with {}, {}, and {}.",
+            count_phrase(ast.graph.subgraphs.len(), "lane", "lanes"),
+            count_phrase(flowchart_node_count(&ast.graph), "node", "nodes"),
+            count_phrase(ast.graph.edges.len(), "edge", "edges")
         ),
     }
 }
@@ -4185,8 +4210,10 @@ muted = "#7d8590"
         assert!(output.contains("`graph`, `flowchart`"));
         assert!(output.contains("Supported roots - static-only partial"));
         assert!(output.contains("`quadrantChart`"));
-        assert!(output.contains("Unsupported roots"));
         assert!(output.contains("`cynefin-beta`"));
+        assert!(output.contains("`railroad-diagram`"));
+        assert!(output.contains("`swimlane`"));
+        assert!(output.contains("Unsupported roots"));
         assert!(output.contains("Partial: parser and renderer exist"));
         assert!(output.contains("Static-only: parser and renderer exist"));
     }
@@ -4202,8 +4229,8 @@ muted = "#7d8590"
     #[test]
     fn compat_tables_match_current_coverage_counts() {
         assert_eq!(ANIMATED_PARTIAL_ROOTS.len(), 11);
-        assert_eq!(STATIC_ONLY_ROOTS.len(), 17);
-        assert_eq!(UNSUPPORTED_ROOTS.len(), 3);
+        assert_eq!(STATIC_ONLY_ROOTS.len(), 20);
+        assert_eq!(UNSUPPORTED_ROOTS.len(), 0);
     }
 
     #[test]

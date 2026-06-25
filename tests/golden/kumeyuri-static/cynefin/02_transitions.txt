@@ -1,0 +1,25 @@
+ Strategy Categorization
+
+ +-complex----------------------------+  +-complicated------------------------+
+ |                                    |  |                                    |
+ | - Market research                  |  | - Competitive analysis             |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                           +-confusion----------+                           |
+ +---------------------------|                    |---------------------------+
+                             | - Ambiguous bet    |
+                             |                    |
+ +-chaotic-------------------|                    |---------------------------+
+ |                           +--------------------+                           |
+ | - Crisis management                |  | - Standard pricing                 |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ +------------------------------------+  +------------------------------------+
+
+ transitions   complex -> complicated : Pattern identified
+               complicated -> clear : Best practice codified
+               clear -> chaotic : Complacency
+               chaotic -> complex : Stabilized

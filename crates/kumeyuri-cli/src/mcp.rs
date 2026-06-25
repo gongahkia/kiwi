@@ -827,7 +827,7 @@ mod tests {
     }
 
     #[test]
-    fn list_diagram_types_tool_surface_reports_supported_and_unsupported_roots() {
+    fn list_diagram_types_tool_surface_reports_new_static_roots() {
         let response = list_diagram_types();
 
         assert_eq!(LIST_DIAGRAM_TYPES_TOOL_NAME, "list_diagram_types");
@@ -839,8 +839,18 @@ mod tests {
         }));
         assert!(response.diagram_types.iter().any(|diagram| {
             diagram.id == "cynefin"
-                && diagram.support == McpDiagramSupport::Unsupported
+                && diagram.support == McpDiagramSupport::StaticOnly
                 && diagram.roots == ["cynefin-beta"]
+        }));
+        assert!(response.diagram_types.iter().any(|diagram| {
+            diagram.id == "railroad"
+                && diagram.support == McpDiagramSupport::StaticOnly
+                && diagram.roots == ["railroad-diagram"]
+        }));
+        assert!(response.diagram_types.iter().any(|diagram| {
+            diagram.id == "swimlanes"
+                && diagram.support == McpDiagramSupport::StaticOnly
+                && diagram.roots == ["swimlane"]
         }));
     }
 

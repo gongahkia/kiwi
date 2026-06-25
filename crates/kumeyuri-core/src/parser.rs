@@ -9,10 +9,12 @@ use crate::ast::{
     C4DiagramType, C4Element, C4ElementKind, C4Header, C4LayoutConfig, C4Relationship,
     C4RelationshipKind, C4Statement, C4StyleUpdate, ClassAst, ClassHeader, ClassMember,
     ClassMemberAssignment, ClassMemberKind, ClassNode, ClassRelationship, ClassRelationshipLine,
-    ClassRelationshipMarker, ClassStatement, Diagram, DiagramKind, DiagramMetadata, Direction,
-    ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader, ErRelationship, ErStatement,
-    EventModelingAst, EventModelingData, EventModelingDataBlock, EventModelingEntityType,
-    EventModelingFrameKind, EventModelingHeader, EventModelingStatement, EventModelingTimeFrame,
+    ClassRelationshipMarker, ClassStatement, CynefinAst, CynefinDomain, CynefinDomainKind,
+    CynefinHeader, CynefinItem, CynefinStatement, CynefinTransition, Diagram, DiagramKind,
+    DiagramMetadata, Direction, ErAst, ErAttribute, ErCardinality, ErEntity, ErHeader,
+    ErRelationship, ErStatement, EventModelingAst, EventModelingData, EventModelingDataBlock,
+    EventModelingEntityType, EventModelingFrameKind, EventModelingHeader, EventModelingStatement,
+    EventModelingTimeFrame,
     FlowClassApply, FlowClassDef, FlowEdge, FlowEdgeLink, FlowEdgeStroke, FlowNode, FlowShape,
     FlowStatement, FlowStyleDeclaration, FlowSubgraph, FlowchartAst, FlowchartDirective,
     FlowchartHeader, GanttAst, GanttConfigStatement, GanttHeader, GanttStatement, GanttTask,
@@ -25,8 +27,9 @@ use crate::ast::{
     PacketHeader, PacketRange, PacketStatement, PieAst, PieConfig, PieHeader, PieLegendPosition,
     PieSlice, PieStatement, QuadrantAst, QuadrantAxis, QuadrantAxisKind, QuadrantHeader,
     QuadrantPoint, QuadrantSection, QuadrantStatement, RadarAst, RadarAxis, RadarCurve,
-    RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind, RadarStatement, RequirementAst,
-    RequirementElement, RequirementHeader, RequirementKind, RequirementNode,
+    RadarCurveValue, RadarHeader, RadarOption, RadarOptionKind, RadarStatement, RailroadAst,
+    RailroadHeader, RailroadRule, RailroadStatement, RequirementAst, RequirementElement,
+    RequirementHeader, RequirementKind, RequirementNode,
     RequirementRelationship, RequirementRelationshipKind, RequirementRisk, RequirementStatement,
     RequirementStyle, RequirementVerifyMethod, SankeyAst, SankeyHeader, SankeyLink,
     SankeyStatement, SequenceActivation, SequenceArrow, SequenceAst, SequenceAutoNumber,
@@ -34,10 +37,10 @@ use crate::ast::{
     SequenceHeader, SequenceMessage, SequenceNote, SequenceNotePlacement, SequenceParticipant,
     SequenceParticipantKind, SequenceStatement, Span, Spanned, StateAst, StateClassApply,
     StateDirective, StateHeader, StateNode, StateNodeKind, StateNote, StateStatement,
-    StateTransition, TimelineAst, TimelineHeader, TimelinePeriod, TimelineStatement, TreeViewAst,
-    TreeViewHeader, TreeViewNode, TreeViewStatement, TreemapAst, TreemapHeader, TreemapNode,
-    TreemapStatement, VennAst, VennHeader, VennSet, VennStatement, VennStyle, VennText,
-    VennTextOwner, VennUnion, WardleyAnnotation, WardleyAst, WardleyComponent,
+    StateTransition, SwimlanesAst, SwimlanesHeader, TimelineAst, TimelineHeader, TimelinePeriod,
+    TimelineStatement, TreeViewAst, TreeViewHeader, TreeViewNode, TreeViewStatement, TreemapAst,
+    TreemapHeader, TreemapNode, TreemapStatement, VennAst, VennHeader, VennSet, VennStatement,
+    VennStyle, VennText, VennTextOwner, VennUnion, WardleyAnnotation, WardleyAst, WardleyComponent,
     WardleyComponentKind, WardleyCoord, WardleyDecorator, WardleyEvolution, WardleyEvolutionStage,
     WardleyEvolve, WardleyForce, WardleyForceKind, WardleyHeader, WardleyLabelOffset, WardleyLink,
     WardleyLinkKind, WardleyNote, WardleySize, WardleyStatement, XyChartAst, XyChartAxis,
@@ -373,6 +376,20 @@ pub enum ParseErrorKind {
     ExpectedC4Name,
     /// Expected C4 relationship.
     ExpectedC4Relationship,
+    /// Expected cynefin header.
+    ExpectedCynefinHeader,
+    /// Unknown cynefin statement.
+    UnknownCynefinStatement,
+    /// Expected cynefin domain.
+    ExpectedCynefinDomain,
+    /// Expected railroad header.
+    ExpectedRailroadHeader,
+    /// Unknown railroad statement.
+    UnknownRailroadStatement,
+    /// Expected railroad rule.
+    ExpectedRailroadRule,
+    /// Expected swimlanes header.
+    ExpectedSwimlanesHeader,
     /// Unterminated accessibility description.
     UnterminatedAccessibilityDescription,
     /// Unsupported mermaid config.
@@ -534,6 +551,21 @@ impl Parser {
     /// Parse a C4 diagram.
     pub fn parse_c4(source: &str) -> Result<C4Ast, ParseError> {
         DiagramParser::new(source).parse_c4_only()
+    }
+
+    /// Parse a Cynefin framework diagram.
+    pub fn parse_cynefin(source: &str) -> Result<CynefinAst, ParseError> {
+        DiagramParser::new(source).parse_cynefin_only()
+    }
+
+    /// Parse a railroad diagram.
+    pub fn parse_railroad(source: &str) -> Result<RailroadAst, ParseError> {
+        DiagramParser::new(source).parse_railroad_only()
+    }
+
+    /// Parse a swimlanes diagram.
+    pub fn parse_swimlanes(source: &str) -> Result<SwimlanesAst, ParseError> {
+        DiagramParser::new(source).parse_swimlanes_only()
     }
 
     /// Lex a flowchart header into directive and direction tokens.
@@ -852,6 +884,26 @@ impl Parser {
     pub fn parse_c4_statement(source: &str) -> Result<C4Statement, ParseError> {
         C4StatementParser::new(source).parse()
     }
+
+    /// Parse a cynefin header.
+    pub fn parse_cynefin_header(source: &str) -> Result<CynefinHeader, ParseError> {
+        CynefinHeaderParser::new(source).parse()
+    }
+
+    /// Parse a railroad header.
+    pub fn parse_railroad_header(source: &str) -> Result<RailroadHeader, ParseError> {
+        RailroadHeaderParser::new(source).parse()
+    }
+
+    /// Parse a railroad statement.
+    pub fn parse_railroad_statement(source: &str) -> Result<RailroadStatement, ParseError> {
+        RailroadStatementParser::new(source).parse()
+    }
+
+    /// Parse a swimlanes header.
+    pub fn parse_swimlanes_header(source: &str) -> Result<SwimlanesHeader, ParseError> {
+        SwimlanesHeaderParser::new(source).parse()
+    }
 }
 
 struct DiagramParser<'source> {
@@ -1045,6 +1097,24 @@ impl<'source> DiagramParser<'source> {
             self.advance_past_header(header)?;
             let ast = self.parse_c4_body(shift_c4_header(c4_header, header.start))?;
             return Ok(self.diagram(DiagramKind::C4(Box::new(ast))));
+        }
+        if let Ok(cynefin_header) = Parser::parse_cynefin_header(header.text) {
+            self.advance_past_header(header)?;
+            let ast =
+                self.parse_cynefin_body(shift_cynefin_header(cynefin_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Cynefin(Box::new(ast))));
+        }
+        if let Ok(railroad_header) = Parser::parse_railroad_header(header.text) {
+            self.advance_past_header(header)?;
+            let ast =
+                self.parse_railroad_body(shift_railroad_header(railroad_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Railroad(Box::new(ast))));
+        }
+        if let Ok(swimlanes_header) = Parser::parse_swimlanes_header(header.text) {
+            self.advance_past_header(header)?;
+            let ast =
+                self.parse_swimlanes_body(shift_swimlanes_header(swimlanes_header, header.start))?;
+            return Ok(self.diagram(DiagramKind::Swimlanes(Box::new(ast))));
         }
 
         Err(ParseError {
@@ -1392,6 +1462,42 @@ impl<'source> DiagramParser<'source> {
         let c4_header = Parser::parse_c4_header(header.text)?;
         self.advance_past_header(header)?;
         self.parse_c4_body(shift_c4_header(c4_header, header.start))
+    }
+
+    fn parse_cynefin_only(mut self) -> Result<CynefinAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedCynefinHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let cynefin_header = Parser::parse_cynefin_header(header.text)?;
+        self.advance_past_header(header)?;
+        self.parse_cynefin_body(shift_cynefin_header(cynefin_header, header.start))
+    }
+
+    fn parse_railroad_only(mut self) -> Result<RailroadAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let railroad_header = Parser::parse_railroad_header(header.text)?;
+        self.advance_past_header(header)?;
+        self.parse_railroad_body(shift_railroad_header(railroad_header, header.start))
+    }
+
+    fn parse_swimlanes_only(mut self) -> Result<SwimlanesAst, ParseError> {
+        self.skip_preamble();
+        self.reject_frontmatter()?;
+        let header = self.current_trimmed_line().ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedSwimlanesHeader,
+            span: Span::new(self.source.len(), self.source.len()),
+        })?;
+        let swimlanes_header = Parser::parse_swimlanes_header(header.text)?;
+        self.advance_past_header(header)?;
+        self.parse_swimlanes_body(shift_swimlanes_header(swimlanes_header, header.start))
     }
 
     fn diagram(self, kind: DiagramKind) -> Diagram {
@@ -2586,6 +2692,171 @@ impl<'source> DiagramParser<'source> {
             statements,
             roots,
             span: Span::new(span_start, self.source.len()),
+        })
+    }
+
+    fn parse_cynefin_body(&mut self, header: CynefinHeader) -> Result<CynefinAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = CynefinAst {
+            header,
+            title: None,
+            domains: Vec::new(),
+            transitions: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+        let mut current_domain: Option<(usize, usize)> = None;
+
+        while let Some(line) = self.current_trimmed_line() {
+            if let Ok(directive) = Parser::parse_mermaid_directive(line.text) {
+                ast.statements
+                    .push(CynefinStatement::Directive(shift_directive(
+                        directive, line.start,
+                    )));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Ok(comment) = Parser::parse_mermaid_comment(line.text) {
+                ast.statements
+                    .push(CynefinStatement::Comment(shift_comment(comment, line.start)));
+                self.cursor = line.line.next;
+                continue;
+            }
+            if has_keyword(line.text, 0, "title") {
+                let title =
+                    label_from_trimmed(line.text, "title".len(), line.text.len()).ok_or({
+                        ParseError {
+                            kind: ParseErrorKind::UnknownCynefinStatement,
+                            span: Span::new(line.start, line.end),
+                        }
+                    })?;
+                let title = shift_label(title, line.start);
+                ast.title = Some(title.clone());
+                ast.statements.push(CynefinStatement::Title(title));
+                current_domain = None;
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Some(transition) = parse_cynefin_transition(line.text, line.start)? {
+                ast.transitions.push(transition.clone());
+                ast.statements
+                    .push(CynefinStatement::Transition(Box::new(transition)));
+                current_domain = None;
+                self.cursor = line.line.next;
+                continue;
+            }
+            if let Some(kind) = parse_cynefin_domain_header(line.text, line.start)? {
+                let domain = CynefinDomain {
+                    kind,
+                    items: Vec::new(),
+                    span: Span::new(line.start, line.end),
+                };
+                ast.domains.push(domain.clone());
+                let domain_index = ast.domains.len() - 1;
+                let statement_index = ast.statements.len();
+                ast.statements
+                    .push(CynefinStatement::Domain(Box::new(domain)));
+                current_domain = Some((domain_index, statement_index));
+                self.cursor = line.line.next;
+                continue;
+            }
+            let Some((domain_index, statement_index)) = current_domain else {
+                return Err(ParseError {
+                    kind: ParseErrorKind::UnknownCynefinStatement,
+                    span: Span::new(line.start, line.end),
+                });
+            };
+            let item = CynefinItem {
+                label: shift_label(label_from_body(line.text, 0, line.text.len()), line.start),
+                span: Span::new(line.start, line.end),
+            };
+            ast.domains[domain_index].items.push(item.clone());
+            ast.domains[domain_index].span =
+                Span::new(ast.domains[domain_index].span.start, line.end);
+            if let Some(CynefinStatement::Domain(domain)) = ast.statements.get_mut(statement_index)
+            {
+                domain.items.push(item);
+                domain.span = ast.domains[domain_index].span;
+            }
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_railroad_body(&mut self, header: RailroadHeader) -> Result<RailroadAst, ParseError> {
+        let span_start = header.span.start;
+        let mut ast = RailroadAst {
+            header,
+            title: None,
+            rules: Vec::new(),
+            statements: Vec::new(),
+            span: Span::new(span_start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            let statement = shift_railroad_statement(
+                Parser::parse_railroad_statement(line.text)
+                    .map_err(|error| shift_error(error, line.start))?,
+                line.start,
+            );
+            match &statement {
+                RailroadStatement::Title(title) => {
+                    ast.title = Some(title.clone());
+                }
+                RailroadStatement::Rule(rule) => {
+                    ast.rules.push((**rule).clone());
+                }
+                RailroadStatement::Comment(_) | RailroadStatement::Directive(_) => {}
+            }
+            ast.statements.push(statement);
+            self.cursor = line.line.next;
+        }
+
+        Ok(ast)
+    }
+
+    fn parse_swimlanes_body(
+        &mut self,
+        header: SwimlanesHeader,
+    ) -> Result<SwimlanesAst, ParseError> {
+        let flow_header = FlowchartHeader {
+            directive: Spanned::new(FlowchartDirective::Flowchart, header.span),
+            direction: header.direction,
+            span: header.span,
+        };
+        let mut graph = FlowchartAst {
+            header: flow_header,
+            statements: Vec::new(),
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            subgraphs: Vec::new(),
+            classes: Vec::new(),
+            span: Span::new(header.span.start, self.source.len()),
+        };
+
+        while let Some(line) = self.current_trimmed_line() {
+            if line.text.starts_with("subgraph") {
+                let (block_end, next_cursor) = collect_subgraph_span(self.source, line.start)?;
+                let subgraph = Parser::parse_flow_subgraph(&self.source[line.start..block_end])?;
+                push_flow_statement(
+                    &mut graph,
+                    FlowStatement::Subgraph(shift_subgraph(subgraph, line.start)),
+                );
+                self.cursor = next_cursor;
+                continue;
+            }
+
+            for statement in parse_flow_document_statements(line.text, line.start)? {
+                push_flow_statement(&mut graph, statement);
+            }
+            self.cursor = line.line.next;
+        }
+
+        Ok(SwimlanesAst {
+            header,
+            graph,
+            span: Span::new(header.span.start, self.source.len()),
         })
     }
 
@@ -5387,6 +5658,111 @@ impl<'source> TreeViewHeaderParser<'source> {
             });
         }
         Ok(TreeViewHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct CynefinHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> CynefinHeaderParser<'source> {
+    const fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<CynefinHeader, ParseError> {
+        let (start, end) = trim_ascii_range(self.source).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedCynefinHeader,
+            span: Span::new(0, self.source.len()),
+        })?;
+        if &self.source[start..end] != "cynefin-beta" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedCynefinHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(CynefinHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct RailroadHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RailroadHeaderParser<'source> {
+    const fn new(source: &'source str) -> Self {
+        Self { source }
+    }
+
+    fn parse(&self) -> Result<RailroadHeader, ParseError> {
+        let (start, end) = trim_ascii_range(self.source).ok_or(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadHeader,
+            span: Span::new(0, self.source.len()),
+        })?;
+        if &self.source[start..end] != "railroad-diagram" {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedRailroadHeader,
+                span: Span::new(start, end),
+            });
+        }
+        Ok(RailroadHeader {
+            span: Span::new(start, end),
+        })
+    }
+}
+
+struct SwimlanesHeaderParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> SwimlanesHeaderParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<SwimlanesHeader, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSwimlanesHeader,
+                span: Span::new(0, 0),
+            });
+        };
+        let root = "swimlane";
+        if !self.source[start..end].starts_with(root) {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSwimlanesHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let root_end = start + root.len();
+        if root_end < end && !self.source.as_bytes()[root_end].is_ascii_whitespace() {
+            return Err(ParseError {
+                kind: ParseErrorKind::ExpectedSwimlanesHeader,
+                span: Span::new(start, end),
+            });
+        }
+        let direction = if let Some((direction_start, direction_end)) =
+            trim_ascii_range(&self.source[root_end..end])
+        {
+            let direction_start = root_end + direction_start;
+            let direction_end = root_end + direction_end;
+            let direction = Direction::from_mermaid(&self.source[direction_start..direction_end])
+                .ok_or(ParseError {
+                    kind: ParseErrorKind::ExpectedSwimlanesHeader,
+                    span: Span::new(direction_start, direction_end),
+                })?;
+            Spanned::new(direction, Span::new(direction_start, direction_end))
+        } else {
+            Spanned::new(Direction::TopDown, Span::new(root_end, root_end))
+        };
+        Ok(SwimlanesHeader {
+            direction,
             span: Span::new(start, end),
         })
     }
@@ -12180,6 +12556,181 @@ fn build_tree_view_node(index: usize, parsed: &[ParsedTreeViewNode]) -> TreeView
     node
 }
 
+fn parse_cynefin_domain_header(
+    source: &str,
+    offset: usize,
+) -> Result<Option<Spanned<CynefinDomainKind>>, ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Ok(None);
+    };
+    let Some(kind) = cynefin_domain_kind(&source[start..end]) else {
+        return Ok(None);
+    };
+    Ok(Some(Spanned::new(kind, Span::new(offset + start, offset + end))))
+}
+
+fn parse_cynefin_transition(
+    source: &str,
+    offset: usize,
+) -> Result<Option<CynefinTransition>, ParseError> {
+    let Some((start, end)) = trimmed_statement_bounds(source) else {
+        return Ok(None);
+    };
+    let Some(arrow) = source[start..end].find("-->").map(|index| start + index) else {
+        return Ok(None);
+    };
+    let target_start = arrow + "-->".len();
+    let colon = source[target_start..end].find(':').map(|index| target_start + index);
+    let target_end = colon.unwrap_or(end);
+    let from = parse_cynefin_domain_ref(source, start, arrow, offset)?;
+    let to = parse_cynefin_domain_ref(source, target_start, target_end, offset)?;
+    let label = colon.and_then(|colon| label_from_trimmed(source, colon + 1, end));
+    Ok(Some(CynefinTransition {
+        from,
+        to,
+        label: label.map(|label| shift_label(label, offset)),
+        span: Span::new(offset + start, offset + end),
+    }))
+}
+
+fn parse_cynefin_domain_ref(
+    source: &str,
+    start: usize,
+    end: usize,
+    offset: usize,
+) -> Result<Spanned<CynefinDomainKind>, ParseError> {
+    let Some((trim_start, trim_end)) = trim_ascii_range(&source[start..end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedCynefinDomain,
+            span: Span::new(offset + start, offset + end),
+        });
+    };
+    let domain_start = start + trim_start;
+    let domain_end = start + trim_end;
+    let Some(kind) = cynefin_domain_kind(&source[domain_start..domain_end]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedCynefinDomain,
+            span: Span::new(offset + domain_start, offset + domain_end),
+        });
+    };
+    Ok(Spanned::new(
+        kind,
+        Span::new(offset + domain_start, offset + domain_end),
+    ))
+}
+
+fn cynefin_domain_kind(value: &str) -> Option<CynefinDomainKind> {
+    match value {
+        "complex" => Some(CynefinDomainKind::Complex),
+        "complicated" => Some(CynefinDomainKind::Complicated),
+        "clear" => Some(CynefinDomainKind::Clear),
+        "chaotic" => Some(CynefinDomainKind::Chaotic),
+        "confusion" => Some(CynefinDomainKind::Confusion),
+        _ => None,
+    }
+}
+
+struct RailroadStatementParser<'source> {
+    source: &'source str,
+}
+
+impl<'source> RailroadStatementParser<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source: first_line(source),
+        }
+    }
+
+    fn parse(&self) -> Result<RailroadStatement, ParseError> {
+        let Some((start, end)) = trim_ascii_range(self.source) else {
+            return Err(ParseError {
+                kind: ParseErrorKind::UnknownRailroadStatement,
+                span: Span::new(0, 0),
+            });
+        };
+        let trimmed = &self.source[start..end];
+        if let Ok(directive) = Parser::parse_mermaid_directive(trimmed) {
+            return Ok(RailroadStatement::Directive(shift_directive(
+                directive, start,
+            )));
+        }
+        if let Ok(comment) = Parser::parse_mermaid_comment(trimmed) {
+            return Ok(RailroadStatement::Comment(shift_comment(comment, start)));
+        }
+        if is_railroad_ebnf_comment(trimmed) {
+            return Ok(RailroadStatement::Comment(MermaidComment {
+                text: trimmed.to_owned(),
+                span: Span::new(start, end),
+            }));
+        }
+        if has_keyword(self.source, start, "title") {
+            let title =
+                label_from_trimmed(self.source, start + "title".len(), end).ok_or(ParseError {
+                    kind: ParseErrorKind::UnknownRailroadStatement,
+                    span: Span::new(start, end),
+                })?;
+            return Ok(RailroadStatement::Title(title));
+        }
+        parse_railroad_rule(self.source, start, end)
+            .map(|rule| RailroadStatement::Rule(Box::new(rule)))
+    }
+}
+
+fn is_railroad_ebnf_comment(value: &str) -> bool {
+    (value.starts_with("/*") && value.ends_with("*/"))
+        || (value.starts_with("(*") && value.ends_with("*)"))
+}
+
+fn parse_railroad_rule(source: &str, start: usize, end: usize) -> Result<RailroadRule, ParseError> {
+    let Some(equals) = source[start..end].find('=').map(|index| start + index) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadRule,
+            span: Span::new(start, end),
+        });
+    };
+    let Some(semicolon) = source[equals + 1..end]
+        .rfind(';')
+        .map(|index| equals + 1 + index)
+    else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadRule,
+            span: Span::new(start, end),
+        });
+    };
+    let Some((name_start, name_end)) = trim_ascii_range(&source[start..equals]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadRule,
+            span: Span::new(start, equals),
+        });
+    };
+    let name_start = start + name_start;
+    let name_end = start + name_end;
+    let name = parse_single_identifier(
+        source,
+        name_start,
+        name_end,
+        ParseErrorKind::ExpectedRailroadRule,
+    )?;
+    let Some((expr_start, expr_end)) = trim_ascii_range(&source[equals + 1..semicolon]) else {
+        return Err(ParseError {
+            kind: ParseErrorKind::ExpectedRailroadRule,
+            span: Span::new(equals + 1, semicolon),
+        });
+    };
+    let expr_start = equals + 1 + expr_start;
+    let expr_end = equals + 1 + expr_end;
+    let expression = Label {
+        text: source[expr_start..expr_end].to_owned(),
+        kind: LabelKind::Plain,
+        span: Span::new(expr_start, expr_end),
+    };
+    Ok(RailroadRule {
+        name,
+        expression,
+        span: Span::new(start, end),
+    })
+}
+
 #[derive(Debug, Clone)]
 struct ParsedMindmapNode {
     node: MindmapNode,
@@ -15084,6 +15635,48 @@ fn shift_tree_view_node(node: TreeViewNode, offset: usize) -> TreeViewNode {
     }
 }
 
+fn shift_cynefin_header(header: CynefinHeader, offset: usize) -> CynefinHeader {
+    CynefinHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_railroad_header(header: RailroadHeader, offset: usize) -> RailroadHeader {
+    RailroadHeader {
+        span: shift_span(header.span, offset),
+    }
+}
+
+fn shift_railroad_statement(statement: RailroadStatement, offset: usize) -> RailroadStatement {
+    match statement {
+        RailroadStatement::Title(title) => RailroadStatement::Title(shift_label(title, offset)),
+        RailroadStatement::Rule(rule) => {
+            RailroadStatement::Rule(Box::new(shift_railroad_rule(*rule, offset)))
+        }
+        RailroadStatement::Comment(comment) => {
+            RailroadStatement::Comment(shift_comment(comment, offset))
+        }
+        RailroadStatement::Directive(directive) => {
+            RailroadStatement::Directive(shift_directive(directive, offset))
+        }
+    }
+}
+
+fn shift_railroad_rule(rule: RailroadRule, offset: usize) -> RailroadRule {
+    RailroadRule {
+        name: shift_spanned(rule.name, offset),
+        expression: shift_label(rule.expression, offset),
+        span: shift_span(rule.span, offset),
+    }
+}
+
+fn shift_swimlanes_header(header: SwimlanesHeader, offset: usize) -> SwimlanesHeader {
+    SwimlanesHeader {
+        direction: shift_spanned(header.direction, offset),
+        span: shift_span(header.span, offset),
+    }
+}
+
 fn shift_mindmap_header(header: MindmapHeader, offset: usize) -> MindmapHeader {
     MindmapHeader {
         span: shift_span(header.span, offset),
@@ -16634,15 +17227,58 @@ cherry-pick id: "feat" parent: "base""#,
     }
 
     #[test]
-    fn rejects_unsupported_mermaid_roots_from_coverage_matrix() {
-        let cases: [(&str, &str); 0] = [];
+    fn parses_cynefin_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "cynefin-beta\ntitle Incident Response\ncomplex\n\"Investigate root cause\"\ncomplicated\n\"Expert review\"\nclear\n\"Known fix\"\nchaotic\n\"Page on-call\"\nconfusion\n\"Unknown failure mode\"\ncomplex --> complicated : \"Pattern identified\"",
+        )
+        .unwrap();
 
-        for (name, source) in cases {
-            let error = Parser::parse_diagram(source).unwrap_err();
+        let DiagramKind::Cynefin(ast) = diagram.kind else {
+            panic!("expected Cynefin diagram");
+        };
+        assert_eq!(ast.title.as_ref().unwrap().text, "Incident Response");
+        assert_eq!(ast.domains.len(), 5);
+        assert_eq!(ast.domains[0].kind.value, CynefinDomainKind::Complex);
+        assert_eq!(ast.domains[0].items[0].label.text, "Investigate root cause");
+        assert_eq!(ast.transitions.len(), 1);
+        assert_eq!(ast.transitions[0].from.value, CynefinDomainKind::Complex);
+        assert_eq!(ast.transitions[0].to.value, CynefinDomainKind::Complicated);
+        assert_eq!(
+            ast.transitions[0].label.as_ref().unwrap().text,
+            "Pattern identified"
+        );
+    }
 
-            assert_eq!(error.kind, ParseErrorKind::ExpectedDiagramHeader, "{name}");
-            assert_eq!(error.span, Span::new(0, source.len()), "{name}");
-        }
+    #[test]
+    fn parses_railroad_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "railroad-diagram\ntitle \"Number Grammar\"\nsign = \"+\" | \"-\" ;\nnumber = sign? digit+ ;\ndigit = \"0\" | \"1\" | \"2\" ;",
+        )
+        .unwrap();
+
+        let DiagramKind::Railroad(ast) = diagram.kind else {
+            panic!("expected Railroad diagram");
+        };
+        assert_eq!(ast.title.as_ref().unwrap().text, "Number Grammar");
+        assert_eq!(ast.rules.len(), 3);
+        assert_eq!(ast.rules[0].name.value, "sign");
+        assert_eq!(ast.rules[1].expression.text, "sign? digit+");
+    }
+
+    #[test]
+    fn parses_swimlanes_document_to_diagram() {
+        let diagram = Parser::parse_diagram(
+            "swimlane LR\nsubgraph Customer\nrequest[Request service]\nreceive[Receive update]\nend\nsubgraph Support\ntriage[Triage]\nanswer[Send answer]\nend\nrequest --> triage\ntriage -->|Known issue| answer\nanswer --> receive",
+        )
+        .unwrap();
+
+        let DiagramKind::Swimlanes(ast) = diagram.kind else {
+            panic!("expected Swimlanes diagram");
+        };
+        assert_eq!(ast.header.direction.value, Direction::LeftRight);
+        assert_eq!(ast.graph.subgraphs.len(), 2);
+        assert_eq!(ast.graph.nodes.len(), 4);
+        assert_eq!(ast.graph.edges.len(), 3);
     }
 
     #[test]

@@ -2,13 +2,14 @@
 
 use crate::ast::{
     ArrowHead, BlockArrowDirection, BlockDiagramAst, BlockShape, C4Ast, C4RelationshipKind,
-    ClassAst, ClassRelationshipLine, ClassRelationshipMarker, Diagram, DiagramKind, ErAst,
-    EventModelingAst, EventModelingEntityType, EventModelingFrameKind, FlowShape, FlowchartAst,
-    GanttAst, GanttTaskTag, GitGraphAst, GitGraphCommitKind, IshikawaAst, JourneyAst, KanbanAst,
-    MindmapAst, MindmapShape, PacketAst, PieAst, QuadrantAst, RadarAst, RequirementAst,
-    RequirementRelationshipKind, SankeyAst, SequenceAst, SequenceControlKind, StateAst,
-    TimelineAst, TreeViewAst, TreemapAst, VennAst, WardleyAst, WardleyComponentKind,
-    WardleyDecorator, WardleyLinkKind, XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
+    ClassAst, ClassRelationshipLine, ClassRelationshipMarker, CynefinAst, CynefinDomain,
+    CynefinDomainKind, Diagram, DiagramKind, ErAst, EventModelingAst, EventModelingEntityType,
+    EventModelingFrameKind, FlowShape, FlowchartAst, GanttAst, GanttTaskTag, GitGraphAst,
+    GitGraphCommitKind, IshikawaAst, JourneyAst, KanbanAst, MindmapAst, MindmapShape, PacketAst,
+    PieAst, QuadrantAst, RadarAst, RailroadAst, RequirementAst, RequirementRelationshipKind,
+    SankeyAst, SequenceAst, SequenceControlKind, StateAst, SwimlanesAst, TimelineAst, TreeViewAst,
+    TreemapAst, VennAst, WardleyAst, WardleyComponentKind, WardleyDecorator, WardleyLinkKind,
+    XyChartAst, XyChartSeriesKind, ZenUmlAst, ZenUmlMessageKind,
 };
 use crate::layout::{
     ArchitectureLayout, ArchitectureLayoutEngine, ArchitectureNodeKind, BlockLayout,
@@ -39,7 +40,7 @@ use crate::layout::{
     XyChartLayoutEngine, ZenUmlLayout, ZenUmlLayoutEngine,
 };
 use crate::theme::{Theme, ThemeRole};
-use crate::unicode::bidi_visual_order_line;
+use crate::unicode::{bidi_visual_order_line, truncate_display_width};
 
 /// Rectangular grid of styled glyph cells plus animation markers.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -660,6 +661,9 @@ impl StaticFrameRenderer {
             DiagramKind::Timeline(ast) => self.render_timeline(ast),
             DiagramKind::Requirement(ast) => self.render_requirement(ast),
             DiagramKind::C4(ast) => self.render_c4(ast),
+            DiagramKind::Cynefin(ast) => self.render_cynefin(ast),
+            DiagramKind::Railroad(ast) => self.render_railroad(ast),
+            DiagramKind::Swimlanes(ast) => self.render_swimlanes(ast),
         }
     }
 
@@ -703,6 +707,24 @@ impl StaticFrameRenderer {
     #[must_use]
     pub fn render_c4(&self, ast: &C4Ast) -> Frame {
         render_c4_layout(&self.c4.layout(ast), self.palette, self.theme)
+    }
+
+    /// Render a Cynefin framework diagram.
+    #[must_use]
+    pub fn render_cynefin(&self, ast: &CynefinAst) -> Frame {
+        render_cynefin_diagram(ast, self.palette, self.theme)
+    }
+
+    /// Render a railroad diagram.
+    #[must_use]
+    pub fn render_railroad(&self, ast: &RailroadAst) -> Frame {
+        render_railroad_diagram(ast, self.palette, self.theme)
+    }
+
+    /// Render a swimlanes diagram.
+    #[must_use]
+    pub fn render_swimlanes(&self, ast: &SwimlanesAst) -> Frame {
+        render_flow_layout(&self.flow.layout(&ast.graph), self.palette, self.theme)
     }
 
     /// Render a Gantt diagram.
@@ -2716,6 +2738,198 @@ fn draw_tree_view_node(
         let description = format!(" ## {description}");
         write_text_safe(frame, x, node.point.y, &description, muted_style);
     }
+}
+
+fn render_cynefin_diagram(ast: &CynefinAst, palette: GlyphPalette, theme: Theme) -> Frame {
+    let transition_rows = ast.transitions.len().min(6) as i32;
+    let mut frame = Frame::new_styled(
+        80,
+        (24 + transition_rows) as usize,
+        theme.style_for(ThemeRole::Background),
+    );
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    let node_style = theme.style_for(ThemeRole::Node);
+    if let Some(title) = &ast.title {
+        write_text_safe(&mut frame, 1, 0, &title.text, text_style.clone());
+    }
+
+    let domains = [
+        (CynefinDomainKind::Complex, Rect {
+            origin: Point { x: 1, y: 2 },
+            size: Size { width: 38, height: 8 },
+        }),
+        (CynefinDomainKind::Complicated, Rect {
+            origin: Point { x: 41, y: 2 },
+            size: Size { width: 38, height: 8 },
+        }),
+        (CynefinDomainKind::Chaotic, Rect {
+            origin: Point { x: 1, y: 12 },
+            size: Size { width: 38, height: 8 },
+        }),
+        (CynefinDomainKind::Clear, Rect {
+            origin: Point { x: 41, y: 12 },
+            size: Size { width: 38, height: 8 },
+        }),
+    ];
+    for (kind, rect) in domains {
+        draw_cynefin_domain(
+            &mut frame,
+            cynefin_domain(ast, kind),
+            kind,
+            rect,
+            palette,
+            text_style.clone(),
+            muted_style.clone(),
+            node_style.clone(),
+        );
+    }
+
+    let confusion = Rect {
+        origin: Point { x: 29, y: 8 },
+        size: Size { width: 22, height: 6 },
+    };
+    draw_cynefin_domain(
+        &mut frame,
+        cynefin_domain(ast, CynefinDomainKind::Confusion),
+        CynefinDomainKind::Confusion,
+        confusion,
+        palette,
+        text_style.clone(),
+        muted_style.clone(),
+        node_style,
+    );
+
+    if !ast.transitions.is_empty() {
+        write_text_safe(&mut frame, 1, 21, "transitions", muted_style.clone());
+        for (index, transition) in ast.transitions.iter().take(6).enumerate() {
+            let label = transition
+                .label
+                .as_ref()
+                .map(|label| format!(" : {}", label.text))
+                .unwrap_or_default();
+            let text = format!(
+                "{} -> {}{}",
+                cynefin_domain_label(transition.from.value),
+                cynefin_domain_label(transition.to.value),
+                label
+            );
+            write_text_safe(
+                &mut frame,
+                15,
+                21 + index as i32,
+                &truncate_display_width(&text, 63),
+                text_style.clone(),
+            );
+        }
+    }
+
+    frame
+}
+
+fn draw_cynefin_domain(
+    frame: &mut Frame,
+    domain: Option<&CynefinDomain>,
+    kind: CynefinDomainKind,
+    rect: Rect,
+    palette: GlyphPalette,
+    text_style: CellStyle,
+    muted_style: CellStyle,
+    node_style: CellStyle,
+) {
+    draw_box(frame, rect, palette, node_style);
+    write_text_safe(
+        frame,
+        rect.origin.x + 2,
+        rect.origin.y,
+        cynefin_domain_label(kind),
+        text_style.clone(),
+    );
+    let Some(domain) = domain else {
+        write_text_safe(frame, rect.origin.x + 2, rect.origin.y + 2, "empty", muted_style);
+        return;
+    };
+    for (index, item) in domain.items.iter().take((rect.size.height - 3) as usize).enumerate() {
+        let text = format!("- {}", item.label.text);
+        write_text_safe(
+            frame,
+            rect.origin.x + 2,
+            rect.origin.y + 2 + index as i32,
+            &truncate_display_width(&text, (rect.size.width - 4) as usize),
+            text_style.clone(),
+        );
+    }
+    if domain.items.len() > (rect.size.height - 3) as usize {
+        let more = format!("+{} more", domain.items.len() - (rect.size.height - 3) as usize);
+        write_text_safe(
+            frame,
+            rect.origin.x + 2,
+            rect.bottom() - 2,
+            &more,
+            muted_style,
+        );
+    }
+}
+
+fn cynefin_domain<'ast>(
+    ast: &'ast CynefinAst,
+    kind: CynefinDomainKind,
+) -> Option<&'ast CynefinDomain> {
+    ast.domains.iter().find(|domain| domain.kind.value == kind)
+}
+
+fn cynefin_domain_label(kind: CynefinDomainKind) -> &'static str {
+    match kind {
+        CynefinDomainKind::Complex => "complex",
+        CynefinDomainKind::Complicated => "complicated",
+        CynefinDomainKind::Clear => "clear",
+        CynefinDomainKind::Chaotic => "chaotic",
+        CynefinDomainKind::Confusion => "confusion",
+    }
+}
+
+fn render_railroad_diagram(ast: &RailroadAst, palette: GlyphPalette, theme: Theme) -> Frame {
+    let rule_width = ast
+        .rules
+        .iter()
+        .map(|rule| rule.name.value.chars().count() + rule.expression.text.chars().count() + 12)
+        .max()
+        .unwrap_or(40)
+        .clamp(40, 100);
+    let width = rule_width + 2;
+    let title_rows = usize::from(ast.title.is_some());
+    let height = 1 + title_rows + ast.rules.len().max(1) * 4;
+    let mut frame = Frame::new_styled(width, height, theme.style_for(ThemeRole::Background));
+    let text_style = theme.style_for(ThemeRole::Text);
+    let muted_style = theme.style_for(ThemeRole::Muted);
+    let node_style = theme.style_for(ThemeRole::Node);
+
+    let mut y = 0i32;
+    if let Some(title) = &ast.title {
+        write_text_safe(&mut frame, 0, y, &title.text, text_style.clone());
+        y += 2;
+    }
+    if ast.rules.is_empty() {
+        write_text_safe(&mut frame, 0, y, "no rules", muted_style);
+        return frame;
+    }
+    for rule in &ast.rules {
+        let rect = Rect {
+            origin: Point { x: 0, y },
+            size: Size {
+                width: rule_width as i32,
+                height: 3,
+            },
+        };
+        draw_box(&mut frame, rect, palette, node_style.clone());
+        write_text_safe(&mut frame, 2, y, &rule.name.value, text_style.clone());
+        let expression_width = rule_width.saturating_sub(12 + rule.name.value.chars().count());
+        let expression = truncate_display_width(&rule.expression.text, expression_width);
+        let rule_line = format!("o-- {} --o", expression);
+        write_text_safe(&mut frame, 4, y + 1, &rule_line, text_style.clone());
+        y += 4;
+    }
+    frame
 }
 
 fn render_class_layout(layout: &ClassLayout, palette: GlyphPalette, theme: Theme) -> Frame {

@@ -1,0 +1,20 @@
+ Incident Response
+
+ +-complex----------------------------+  +-complicated------------------------+
+ |                                    |  |                                    |
+ | - Investigate root cause           |  | - Analyze performance data         |
+ | - Run chaos experiment             |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                           +-confusion----------+                           |
+ +---------------------------|                    |---------------------------+
+                             | - Unknown failure  |
+                             |                    |
+ +-chaotic-------------------|                    |---------------------------+
+ |                           +--------------------+                           |
+ | - Page on-call immediately         |  | - Restart service                  |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ |                                    |  |                                    |
+ +------------------------------------+  +------------------------------------+

@@ -71,6 +71,12 @@ pub enum DiagramKind {
     Requirement(Box<RequirementAst>),
     /// c4.
     C4(Box<C4Ast>),
+    /// cynefin framework.
+    Cynefin(Box<CynefinAst>),
+    /// railroad diagram.
+    Railroad(Box<RailroadAst>),
+    /// swimlanes diagram.
+    Swimlanes(Box<SwimlanesAst>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2815,6 +2821,159 @@ pub struct TreeViewNode {
     pub description: Option<Label>,
     /// children.
     pub children: Vec<TreeViewNode>,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for cynefin ast.
+pub struct CynefinAst {
+    /// header.
+    pub header: CynefinHeader,
+    /// title.
+    pub title: Option<Label>,
+    /// domains.
+    pub domains: Vec<CynefinDomain>,
+    /// transitions.
+    pub transitions: Vec<CynefinTransition>,
+    /// statements.
+    pub statements: Vec<CynefinStatement>,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Parsed data for cynefin header.
+pub struct CynefinHeader {
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Variants for cynefin domain kind.
+pub enum CynefinDomainKind {
+    /// complex.
+    Complex,
+    /// complicated.
+    Complicated,
+    /// clear.
+    Clear,
+    /// chaotic.
+    Chaotic,
+    /// confusion.
+    Confusion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants for cynefin statement.
+pub enum CynefinStatement {
+    /// title.
+    Title(Label),
+    /// domain.
+    Domain(Box<CynefinDomain>),
+    /// transition.
+    Transition(Box<CynefinTransition>),
+    /// comment.
+    Comment(MermaidComment),
+    /// directive.
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for cynefin domain.
+pub struct CynefinDomain {
+    /// kind.
+    pub kind: Spanned<CynefinDomainKind>,
+    /// items.
+    pub items: Vec<CynefinItem>,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for cynefin item.
+pub struct CynefinItem {
+    /// label.
+    pub label: Label,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for cynefin transition.
+pub struct CynefinTransition {
+    /// from.
+    pub from: Spanned<CynefinDomainKind>,
+    /// to.
+    pub to: Spanned<CynefinDomainKind>,
+    /// label.
+    pub label: Option<Label>,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for railroad ast.
+pub struct RailroadAst {
+    /// header.
+    pub header: RailroadHeader,
+    /// title.
+    pub title: Option<Label>,
+    /// rules.
+    pub rules: Vec<RailroadRule>,
+    /// statements.
+    pub statements: Vec<RailroadStatement>,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Parsed data for railroad header.
+pub struct RailroadHeader {
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Variants for railroad statement.
+pub enum RailroadStatement {
+    /// title.
+    Title(Label),
+    /// rule.
+    Rule(Box<RailroadRule>),
+    /// comment.
+    Comment(MermaidComment),
+    /// directive.
+    Directive(MermaidDirective),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for railroad rule.
+pub struct RailroadRule {
+    /// name.
+    pub name: Spanned<String>,
+    /// expression.
+    pub expression: Label,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Parsed data for swimlanes ast.
+pub struct SwimlanesAst {
+    /// header.
+    pub header: SwimlanesHeader,
+    /// flow graph.
+    pub graph: FlowchartAst,
+    /// span.
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Parsed data for swimlanes header.
+pub struct SwimlanesHeader {
+    /// direction.
+    pub direction: Spanned<Direction>,
     /// span.
     pub span: Span,
 }

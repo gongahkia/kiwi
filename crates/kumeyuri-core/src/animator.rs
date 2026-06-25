@@ -1,14 +1,14 @@
 //! Animation configuration, timelines, and default diagram animators.
 
 use crate::ast::{
-    ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement, Diagram,
-    DiagramKind, ErAst, ErStatement, EventModelingStatement, FlowStatement, FlowchartAst, GanttAst,
-    GanttStatement, GitGraphAst, GitGraphStatement, IshikawaStatement, JourneyAst,
-    JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst, MindmapStatement,
-    PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement, RequirementStatement,
-    SankeyStatement, SequenceAst, SequenceStatement, StateAst, StateStatement, TimelineAst,
-    TimelineStatement, TreeViewStatement, TreemapStatement, VennStatement, WardleyStatement,
-    XyChartStatement, ZenUmlStatement,
+    ArchitectureStatement, BlockStatement, C4Statement, ClassAst, ClassStatement,
+    CynefinStatement, Diagram, DiagramKind, ErAst, ErStatement, EventModelingStatement,
+    FlowStatement, FlowchartAst, GanttAst, GanttStatement, GitGraphAst, GitGraphStatement,
+    IshikawaStatement, JourneyAst, JourneyStatement, KanbanStatement, MermaidDirective, MindmapAst,
+    MindmapStatement, PacketStatement, PieAst, PieStatement, QuadrantStatement, RadarStatement,
+    RailroadStatement, RequirementStatement, SankeyStatement, SequenceAst, SequenceStatement,
+    StateAst, StateStatement, TimelineAst, TimelineStatement, TreeViewStatement, TreemapStatement,
+    VennStatement, WardleyStatement, XyChartStatement, ZenUmlStatement,
 };
 use crate::frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind, StaticFrameRenderer};
 use crate::layout::{
@@ -197,6 +197,9 @@ impl Animator {
             (DiagramKind::Ishikawa(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::Wardley(_), _) => static_timeline(diagram, renderer),
             (DiagramKind::TreeView(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Cynefin(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Railroad(_), _) => static_timeline(diagram, renderer),
+            (DiagramKind::Swimlanes(_), _) => static_timeline(diagram, renderer),
             (kind, mode) => {
                 return Err(AnimationConfigParseError::UnsupportedMode {
                     mode,
@@ -411,6 +414,21 @@ impl AnimationConfig {
                     apply_c4_animation_directives(statement, &mut config)?;
                 }
             }
+            DiagramKind::Cynefin(ast) => {
+                for statement in &ast.statements {
+                    apply_cynefin_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::Railroad(ast) => {
+                for statement in &ast.statements {
+                    apply_railroad_animation_directives(statement, &mut config)?;
+                }
+            }
+            DiagramKind::Swimlanes(ast) => {
+                for statement in &ast.graph.statements {
+                    apply_flow_animation_directives(statement, &mut config)?;
+                }
+            }
         }
         Ok(config)
     }
@@ -562,6 +580,12 @@ pub enum AnimationDiagramKind {
     Requirement,
     /// C4 diagram.
     C4,
+    /// Cynefin framework diagram.
+    Cynefin,
+    /// Railroad diagram.
+    Railroad,
+    /// Swimlanes diagram.
+    Swimlanes,
 }
 
 impl From<&DiagramKind> for AnimationDiagramKind {
@@ -595,6 +619,9 @@ impl From<&DiagramKind> for AnimationDiagramKind {
             DiagramKind::Timeline(_) => Self::Timeline,
             DiagramKind::Requirement(_) => Self::Requirement,
             DiagramKind::C4(_) => Self::C4,
+            DiagramKind::Cynefin(_) => Self::Cynefin,
+            DiagramKind::Railroad(_) => Self::Railroad,
+            DiagramKind::Swimlanes(_) => Self::Swimlanes,
         }
     }
 }
@@ -1160,6 +1187,39 @@ fn apply_c4_animation_directives(
     Ok(())
 }
 
+fn apply_cynefin_animation_directives(
+    statement: &CynefinStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        CynefinStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        CynefinStatement::Title(_)
+        | CynefinStatement::Domain(_)
+        | CynefinStatement::Transition(_)
+        | CynefinStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
+fn apply_railroad_animation_directives(
+    statement: &RailroadStatement,
+    config: &mut Option<AnimationConfig>,
+) -> Result<(), AnimationConfigParseError> {
+    match statement {
+        RailroadStatement::Directive(directive) => {
+            if let Some(next) = AnimationConfig::from_directive(directive)? {
+                *config = Some(next);
+            }
+        }
+        RailroadStatement::Title(_) | RailroadStatement::Rule(_) | RailroadStatement::Comment(_) => {}
+    }
+    Ok(())
+}
+
 fn parse_animation_directive(raw: &str) -> Result<AnimationConfig, AnimationConfigParseError> {
     let mut mode = None;
     let mut speed = AnimationConfig::DEFAULT_SPEED;
@@ -1328,6 +1388,9 @@ fn default_animation_mode(kind: &DiagramKind) -> AnimationMode {
         DiagramKind::Timeline(_) => AnimationMode::Trace,
         DiagramKind::Requirement(_) => AnimationMode::None,
         DiagramKind::C4(_) => AnimationMode::None,
+        DiagramKind::Cynefin(_) => AnimationMode::None,
+        DiagramKind::Railroad(_) => AnimationMode::None,
+        DiagramKind::Swimlanes(_) => AnimationMode::None,
     }
 }
 
@@ -1368,6 +1431,9 @@ fn default_animation_duration(kind: &DiagramKind) -> Duration {
         DiagramKind::Timeline(_) => TimelineRevealAnimator::default_frame_duration(),
         DiagramKind::Requirement(_) => Duration::from_millis(700),
         DiagramKind::C4(_) => Duration::from_millis(700),
+        DiagramKind::Cynefin(_) => Duration::from_millis(700),
+        DiagramKind::Railroad(_) => Duration::from_millis(700),
+        DiagramKind::Swimlanes(_) => Duration::from_millis(700),
     }
 }
 

@@ -1,0 +1,9 @@
+%% railroad comment
+railroad-diagram
+title "Expression Grammar"
+expression = term ( ( "+" | "-" ) term )* ;
+term = factor ( ( "*" | "/" ) factor )* ;
+factor = number | "(" expression ")" ;
+number = digit+ ;
+digit = "0" | "1" | "2" | "3" ;
+
