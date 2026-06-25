@@ -117,7 +117,8 @@
 *Doc: `PHASE_I.md`. Goal: FreeType-driven glyph table, HoG features, SDF option, k-d tree lookup, evolved charsets.*
 
 - [x] **I1. FreeType dynamic glyph table.** DoD: `--font PATH` produces visibly different glyph choices on a fixed frame; `GlyphFont` raster is the single source consumed by HoG, SDF, overlap, MP4 export, and Phase N `raster_compose`. Reference: PHASE_I §FreeType.
-- [ ] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
+- [x] **Phase I exit criteria.** DoD: structure mode at 1080p is measurably sharper than v0.5 on the reference clip, at equal-or-better fps; glyph table rebuilds from any monospace font.
+  - Local Release proof on a generated 12-frame 1920x1080 testsrc2 clip: legacy overlap baseline edge MSE 0.139187 at 29.268 fps; HoG + `lineart-40` + SFNSMono edge MSE 0.103041 at 40.000 fps. Edge NCC was worse (-0.029221 to -0.078364) and is recorded in `BENCHMARKS.md`. Menlo rebuild smoke loaded `/System/Library/Fonts/Menlo.ttc` and exported frames.
 
 ---
 
