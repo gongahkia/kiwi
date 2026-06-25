@@ -1,5 +1,6 @@
 #include "png_writer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <stdexcept>
