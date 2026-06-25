@@ -36,7 +36,7 @@ const assetsDir = resolve(__dirname, "../../assets");
 const tapesDir = resolve(assetsDir, "tapes");
 export const PIE_WELCOME_TYPE = "pie:welcome";
 export const PIE_HISTORY_TYPE = "pie:history";
-export const PIE_LEADER_SHORTCUTS = [Key.ctrlAlt("p"), Key.ctrl("p")] as const;
+export const PIE_LEADER_SHORTCUTS = [Key.ctrlAlt("p")] as const;
 const configToolSchema = Type.Object({
 	action: Type.Union([
 		Type.Literal("read"),
@@ -937,9 +937,7 @@ function doctorLines(loaded: ReturnType<typeof loadConfig>, ctx: ExtensionContex
 }
 
 export function shortcutLines(): string[] {
-	const lines = PIE_SHORTCUT_ACTIONS.map((action) => `shortcut: ${PIE_LEADER_SHORTCUTS[0]} ${action.key} -> ${action.label}`);
-	lines.push(`shortcut: ${PIE_LEADER_SHORTCUTS[1]} registered; Pi default binds app.model.cycleForward to ctrl+p, so rebind that action before using ctrl+p as the leader`);
-	return lines;
+	return PIE_SHORTCUT_ACTIONS.map((action) => `shortcut: ${PIE_LEADER_SHORTCUTS[0]} ${action.key} -> ${action.label}`);
 }
 
 export function welcomeConflictLines(commands: string[], config: PieConfig): string[] {

@@ -133,15 +133,6 @@ Preset/import history is stored in `~/.pi/agent/pie-history.json` and appended a
 
 `ctrl+alt+p` opens the Fried Apple Pie leader. Then press `p` preset picker, `g` gallery, `s` footer segments, `e` editor, `d` doctor, or `c` capture.
 
-`ctrl+p` is also registered, but Pi's default `app.model.cycleForward` binding reserves `ctrl+p`, so Pi skips that extension shortcut until you rebind the model cycle action in `~/.pi/agent/keybindings.json` and run `/reload`.
-
-```json
-{
-  "app.model.cycleForward": "ctrl+alt+right",
-  "app.model.cycleBackward": "ctrl+alt+left"
-}
-```
-
 ## Agent tool
 
 The package registers `pie_config` so the Pi agent can change the UI without guessing file format.

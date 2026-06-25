@@ -513,7 +513,7 @@ test("shortcut leader registration and doctor lines cover every follow-up", () =
 	for (const action of PIE_SHORTCUT_ACTIONS) {
 		assert.ok(lines.some((line) => line.includes(`${PIE_LEADER_SHORTCUTS[0]} ${action.key}`) && line.includes(action.label)), action.id);
 	}
-	assert.match(lines.join("\n"), /app\.model\.cycleForward/);
+	assert.doesNotMatch(lines.join("\n"), /app\.model\.cycleForward/);
 });
 
 test("pie-preset flag applies a transient launch preset without writing config", () => {
