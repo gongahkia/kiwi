@@ -77,7 +77,9 @@ void applyAllowlist(std::string_view term_program, TerminalCaps* caps) {
   if (program.empty()) {
     return;
   }
-  if (program.find("kitty") != std::string::npos) {
+  if (program.find("kitty") != std::string::npos ||
+      program.find("wezterm") != std::string::npos ||
+      program.find("ghostty") != std::string::npos) {
     caps->kitty_graphics = true;
   }
   if (program.find("iterm") != std::string::npos) {

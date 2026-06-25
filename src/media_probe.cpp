@@ -3,6 +3,7 @@
 #include "frame.hpp"
 #include "media_input.hpp"
 #include "png_writer.hpp"
+#include "worker_count.hpp"
 
 #include <array>
 #include <algorithm>
@@ -208,7 +209,7 @@ CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
     throw std::runtime_error("failed to copy decoder parameters: " + ffmpegError(result));
   }
 
-  codec_context->thread_count = 0;
+  codec_context->thread_count = configuredWorkerLimit().value_or(0);
   result = avcodec_open2(codec_context.get(), decoder, nullptr);
   if (result < 0) {
     throw std::runtime_error("failed to open decoder: " + std::string(decoder->name) + ": " + ffmpegError(result));

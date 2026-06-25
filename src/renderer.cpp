@@ -26,6 +26,7 @@
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
 #include "warp_history.hpp"
+#include "worker_count.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -360,7 +361,7 @@ int renderWorkerCount(int cols, int rows) {
     return 1;
   }
   const unsigned hardware = std::thread::hardware_concurrency();
-  const int max_workers = static_cast<int>(hardware == 0 ? 2 : hardware);
+  const int max_workers = boundedWorkerCount(static_cast<int>(hardware == 0 ? 2 : hardware));
   return std::min(rows, max_workers);
 }
 

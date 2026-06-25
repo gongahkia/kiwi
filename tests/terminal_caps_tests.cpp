@@ -91,6 +91,24 @@ int main() {
 
   {
     const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+      .term_program = "Ghostty",
+    });
+    expect(caps.truecolor, "ghostty truecolor allowlist");
+    expect(caps.unicode_version == 16, "ghostty unicode allowlist");
+    expect(caps.kitty_graphics, "ghostty kitty graphics allowlist");
+  }
+
+  {
+    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+      .term_program = "WezTerm",
+    });
+    expect(caps.truecolor, "wezterm truecolor allowlist");
+    expect(caps.unicode_version == 16, "wezterm unicode allowlist");
+    expect(caps.kitty_graphics, "wezterm kitty graphics allowlist");
+  }
+
+  {
+    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
       .override_spec = "unicode=13,sextant,truecolor,no-kitty,sixel",
     });
     expect(caps.unicode_version == 13, "override unicode");

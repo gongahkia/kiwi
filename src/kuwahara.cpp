@@ -1,5 +1,7 @@
 #include "kuwahara.hpp"
 
+#include "worker_count.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -36,7 +38,7 @@ int workerCount(int rows, int items) {
     return 1;
   }
   const unsigned hardware = std::thread::hardware_concurrency();
-  const int max_workers = static_cast<int>(hardware == 0 ? 2 : hardware);
+  const int max_workers = boundedWorkerCount(static_cast<int>(hardware == 0 ? 2 : hardware));
   return std::min(rows, max_workers);
 }
 
