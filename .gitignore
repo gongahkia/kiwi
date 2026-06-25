@@ -1,5 +1,18 @@
-node_modules/
-*.tgz
-assets/share/
 CLAUDE.md
-.claude
+
+# Rust
+target/
+crates/*/Cargo.lock
+companion/*/Cargo.lock
+plugins/*/Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# Generated benchmark outputs
+bench/results.json
+benches/compare/results/
+
+# OS
+.DS_Store

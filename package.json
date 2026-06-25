@@ -1,84 +1,83 @@
 {
-  "name": "fried-apple-pie",
-  "version": "0.1.0",
-  "description": "Pi UI presets, themes, and agent-editable config.",
+  "name": "kumeyuri-repo",
+  "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./extensions/pie-ui/sdk.ts",
-      "import": "./extensions/pie-ui/sdk.ts",
-      "default": "./extensions/pie-ui/sdk.ts"
-    },
-    "./sdk": {
-      "types": "./extensions/pie-ui/sdk.ts",
-      "import": "./extensions/pie-ui/sdk.ts",
-      "default": "./extensions/pie-ui/sdk.ts"
-    },
-    "./package.json": "./package.json"
-  },
-  "bin": {
-    "fap": "./bin/fap.mjs"
-  },
-  "author": "gongahkia",
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "pi-theme",
-    "coding-agent",
-    "tui"
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/gongahkia/fried-apple-pie.git"
-  },
-  "homepage": "https://github.com/gongahkia/fried-apple-pie#readme",
-  "bugs": {
-    "url": "https://github.com/gongahkia/fried-apple-pie/issues"
-  },
-  "files": [
-    "assets",
-    "bin",
-    "examples",
-    "extensions",
-    "LICENSE",
-    "schema",
-    "themes",
-    "skills",
-    "README.md"
+  "workspaces": [
+    "packages/astro",
+    "packages/kumeyuri",
+    "packages/docusaurus-plugin-kumeyuri",
+    "packages/reveal-plugin-kumeyuri",
+    "packages/marp-plugin-kumeyuri",
+    "packages/slidev-addon-kumeyuri",
+    "packages/quartz-plugin-kumeyuri",
+    "packages/rehype-kumeyuri",
+    "packages/remark-kumeyuri"
   ],
   "scripts": {
-    "assets:build": "sips -s format png assets/fried-apple-pie-gallery.svg --out assets/fried-apple-pie-gallery.png >/dev/null && magick -delay 140 assets/fried-apple-pie-gallery.png -delay 140 assets/fried-apple-pie-gallery.png -loop 0 assets/fried-apple-pie-demo.gif",
-    "assets:tapes": "./scripts/gen-tapes.sh",
-    "assets:capture": "./scripts/capture.sh",
-    "smoke:pi": "pi -e . --offline --no-context-files --list-models >/dev/null",
-    "test": "node --import tsx --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm test"
-  },
-  "pi": {
-    "extensions": [
-      "./extensions/pie-ui"
-    ],
-    "skills": [
-      "./skills"
-    ],
-    "themes": [
-      "./themes"
-    ],
-    "image": "https://raw.githubusercontent.com/gongahkia/fried-apple-pie/main/assets/fried-apple-pie-gallery.png"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "typebox": "*"
+    "docs:build": "mdbook build",
+    "docs:pagefind": "npm run docs:build && npx -y pagefind --site target/mdbook",
+    "test:compat": "node scripts/check-mermaid-coverage.mjs",
+    "test:compat-versions": "node scripts/check-compat-doc-versions.mjs",
+    "test:mermaid-parity": "cargo build -q -p kumeyuri-cli && KUMEYURI_BIN=target/debug/kumeyuri node scripts/check-mermaid-parity.mjs --check",
+    "test:animation-quality": "node scripts/check-animation-quality.mjs --check",
+    "test:coverage-gate": "node scripts/check-coverage-snapshot-delta.mjs",
+    "test:render-action": "node scripts/test-render-action.mjs",
+    "test:mcp-server": "node scripts/test-mcp-server.mjs",
+    "import:official-mermaid": "node scripts/import-official-mermaid-fixtures.mjs",
+    "test:svg-sanitizer": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/verify-svg-sanitizer.mjs",
+    "test:svg-reduced-motion": "cargo run -q -p kumeyuri-render-svg --example sanitizer_fixture | node scripts/test-svg-reduced-motion.mjs",
+    "test:astro": "npm --workspace @kumeyuri/astro run test",
+    "test:ts-package": "npm --workspace kumeyuri run test",
+    "test:docusaurus-plugin": "npm --workspace @docusaurus/plugin-kumeyuri run test",
+    "test:reveal-plugin": "npm --workspace @kumeyuri/reveal-plugin run test",
+    "test:marp-plugin": "npm --workspace @kumeyuri/marp-plugin run test",
+    "test:slidev-addon": "npm --workspace slidev-addon-kumeyuri run test",
+    "test:obsidian-plugin": "node editors/obsidian/test/plugin.test.mjs",
+    "test:logseq-plugin": "node editors/logseq/test/plugin.test.mjs",
+    "test:quartz-plugin": "npm --workspace quartz-plugin-kumeyuri run test",
+    "test:zola-shortcode": "node integrations/zola/test/shortcode.test.mjs",
+    "test:remark-plugin": "npm --workspace remark-kumeyuri run test",
+    "test:wasm-budget": "scripts/check-wasm-budget.sh",
+    "test:reference-plugins": "cargo test --manifest-path plugins/kumeyuri-render-pdf/Cargo.toml && cargo test --manifest-path plugins/kumeyuri-diagram-sankey/Cargo.toml && node scripts/test-reference-plugins.mjs",
+    "test:web-component:browsers": "npm --workspace kumeyuri run build && node scripts/test-web-component-playwright.mjs",
+    "test:web-component:a11y": "npm --workspace kumeyuri run build && node scripts/test-web-component-a11y.mjs",
+    "test:web-component:keyboard": "npm --workspace kumeyuri run build && node scripts/test-web-component-keyboard.mjs",
+    "test:web-component:touch-targets": "npm --workspace kumeyuri run build && node scripts/test-web-component-touch-targets.mjs",
+    "test:web-component:perf": "npm --workspace kumeyuri run build && node scripts/test-web-component-perf.mjs",
+    "test:docs:a11y": "npm run docs:build && node scripts/test-docs-pa11y.mjs",
+    "test:perf-regression": "node scripts/check-metric-regressions.mjs",
+    "bench:compare:beautiful-mermaid": "node benches/compare/tools/beautiful-mermaid.mjs --allow-failures",
+    "test:bench:beautiful-mermaid": "node benches/compare/tools/beautiful-mermaid.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
+    "bench:compare:alexander-mermaid-ascii": "node benches/compare/tools/alexander-mermaid-ascii.mjs --allow-failures",
+    "test:bench:alexander-mermaid-ascii": "node benches/compare/tools/alexander-mermaid-ascii.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
+    "bench:compare:pgavlin-mermaid-ascii": "node benches/compare/tools/pgavlin-mermaid-ascii.mjs --allow-failures",
+    "test:bench:pgavlin-mermaid-ascii": "node benches/compare/tools/pgavlin-mermaid-ascii.mjs --input benches/compare/corpus/sequence-control.mmd --stdout",
+    "bench:compare:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --allow-failures",
+    "test:bench:mermaid2term": "node benches/compare/tools/mermaid2term.mjs --input benches/compare/corpus/flowchart-dense.mmd --stdout",
+    "bench:compare:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --allow-failures",
+    "test:bench:mermaid-cli": "node benches/compare/tools/mermaid-cli.mjs --input benches/compare/corpus/flowchart-dense.mmd",
+    "bench:compare:output-size": "node benches/compare/tools/measure-output-sizes.mjs",
+    "bench:compare:results": "node benches/compare/tools/measure-output-sizes.mjs --out bench/results.json",
+    "bench:compare:timing": "node benches/compare/tools/run-hyperfine.mjs",
+    "bench:compare:fidelity": "node benches/compare/tools/score-fidelity.mjs",
+    "metrics:poll": "node scripts/poll-daily-metrics.mjs",
+    "metrics:dashboard": "node scripts/generate-metrics-dashboard.mjs",
+    "metrics:weekly": "node scripts/aggregate-weekly-metrics.mjs",
+    "metrics:archive": "node scripts/archive-metrics-dashboard.mjs",
+    "integrity:site": "node scripts/generate-integrity.mjs",
+    "integrity:site:check": "node scripts/generate-integrity.mjs --check",
+    "release:trust": "node scripts/check-release-trust.mjs",
+    "site:verify": "node scripts/verify-site.mjs"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.79.10",
-    "@earendil-works/pi-tui": "0.79.10",
-    "@types/node": "^24.0.0",
-    "tsx": "^4.22.4",
-    "typebox": "^1.3.0",
-    "typescript": "^6.0.3"
+    "@mermaid-js/mermaid-cli": "11.15.0",
+    "axe-core": "^4.12.1",
+    "beautiful-mermaid": "1.1.3",
+    "dompurify": "3.4.11",
+    "jsdom": "29.1.1",
+    "mermaid2term": "0.1.0",
+    "pa11y": "^9.1.1",
+    "playwright": "1.61.0",
+    "typescript": "6.0.3"
   }
 }
