@@ -3,8 +3,7 @@ import Link from "next/link";
 
 import { TeamEntryCrud } from "@/components/team-entry-crud";
 import { getPersonalEntries } from "@/lib/personal-entries";
-
-const sessionCookie = "wat_session";
+import { sessionUserFromCookieStore } from "@/lib/session";
 
 interface PersonalPageProps {
   searchParams: Promise<{ term?: string }>;
@@ -12,7 +11,7 @@ interface PersonalPageProps {
 
 export default async function PersonalPage({ searchParams }: PersonalPageProps) {
   const cookieStore = await cookies();
-  const userId = cookieStore.get(sessionCookie)?.value ?? "anonymous";
+  const session = await sessionUserFromCookieStore(cookieStore);
   const { term = "" } = await searchParams;
 
   return (
@@ -35,7 +34,7 @@ export default async function PersonalPage({ searchParams }: PersonalPageProps) 
         <TeamEntryCrud
           apiPath="/personal/api"
           defaultDomains="private"
-          initialEntries={getPersonalEntries(userId)}
+          initialEntries={session ? await getPersonalEntries(session.id) : []}
           initialTerm={term}
           layerLabel="personal"
           sourceLicense="proprietary-personal"

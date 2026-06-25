@@ -35,11 +35,34 @@ Slack should request only the scopes needed for installed workflows.
 - `commands`: `/wat`, `/wat-define`, and `/wat-suggest`.
 - `chat:write`: ephemeral and thread replies.
 - `app_mentions:read`: direct bot mention handling.
-- `channels:history` and `groups:history`: selected-message shortcut support after install approval.
-- `users:read.email`: map installer identity to a wat team.
+- `channels:history` and `groups:history`: optional selected-message shortcut support after install approval.
 - `identity.basic` and `identity.email`: identify the installing user.
 
-Slack workspace identity must map to a wat team before team data is returned. `/wat-define` requires both Slack workspace admin status and wat team admin status. Slack install tokens and bot tokens must be encrypted at rest.
+Slack workspace identity must map to a wat team before team data is returned. `/wat-define` must require wat team-admin status before writing team entries; the Slack runtime resolves the user's email with `users.info` and checks wat admin scope through `/api/v1/team/admin-check`. `/wat-suggest` must require team scope before writing review rows. Slack install tokens and bot tokens must be encrypted at rest and deleted when Slack sends uninstall or token-revocation lifecycle events.
+
+## Teams Permissions
+
+The Teams API-based message extension is read-only.
+
+- It exposes one search command with one `q` parameter.
+- It uses API-secret service auth for `/api/v1/teams/search`.
+- It must not request channel history or message content access.
+- In self-host single-team mode, the bearer API secret maps to `WAT_TEAM_ID`.
+- If an integration gateway supplies `X-Wat-Teams-Tenant-Id`, wat resolves it through `teams_installs`; unknown supplied tenants fail closed.
+
+Do not add Teams define/suggest/admin writes until tenant mapping and user authorization are stronger than a shared API secret.
+
+## Discord Permissions
+
+Discord uses signed HTTP interactions.
+
+- Every interaction request must validate `X-Signature-Ed25519` and `X-Signature-Timestamp` against `DISCORD_PUBLIC_KEY`.
+- Responses should be ephemeral by default and set `allowed_mentions.parse=[]`.
+- Guild identity must map to a wat team through `discord_installs` or explicit `WAT_DISCORD_GUILD_MAP` before team data is returned.
+- `/wat-suggest` must require team scope before writing review rows.
+- `/wat-define` must require Discord Administrator permission, `DISCORD_ADMIN_USER_IDS`, `DISCORD_ADMIN_ROLE_IDS`, or install-scoped `admin_role_ids`.
+
+Discord interactions do not include member email, so this surface cannot use Slack's email-based wat admin check. Role/user allowlists must be treated as the Discord authorization boundary for writes.
 
 ## Browser Extension Privacy
 
@@ -63,6 +86,6 @@ Audit events should include:
 - member invite/accept/remove and role changes
 - team settings changes
 - API key create/revoke/rotate
-- Slack install/uninstall and extension token creation
+- Slack install/uninstall, Discord install/uninstall, and extension token creation
 
 Audit records should include actor ID, team ID, action, target, timestamp, and safe before/after summaries. They must not store raw API keys, OAuth tokens, session cookies, magic links, or private definition bodies beyond what is required to explain the mutation.

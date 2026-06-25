@@ -6,12 +6,12 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 - Email login and NextAuth scaffolding exist, but production hosted auth is not the single source for every surface yet.
 - Hosted multi-tenant API keys are not DB-backed per-team keys yet; the global `WAT_API_KEY` remains a self-host/dev path.
-- OAuth install flows for Slack and browser extension pairing are not complete.
+- Slack OAuth install exists; browser extension pairing is not complete.
 
 ## Persistence
 
-- Postgres schema and migrations exist, but some web product paths still use in-memory runtime stores for team entries, personal entries, suggestions, settings, audit logs, and related admin state.
-- Slack rate-limit counters can be file-backed, but Slack workspace installs and tokens are not persisted in DB yet.
+- Postgres schema and migrations exist, but some web product paths still use in-memory runtime stores for team entries, personal entries, settings, audit logs, and related admin state.
+- Slack rate-limit counters can be file-backed; Slack workspace installs and tokens can be persisted in DB through `slack_installs`.
 - MCP suggestions are file-backed when enabled and do not share the web review queue yet.
 
 ## Browser Extension
@@ -22,9 +22,23 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 ## Slack
 
-- The Slack package has signed-request HTTP scaffolding, Bolt handlers, tests, auth headers, and durable rate limits.
-- Production OAuth install, workspace-to-wat team mapping, DB-backed install storage, uninstall lifecycle, and App Directory submission are not complete.
-- Deployed `/wat`, `/wat-define`, and `/wat-suggest` flows are not wired end to end against DB-backed team entries yet.
+- The Slack package has a Socket Mode Bolt runtime, OAuth install callback, signed-request HTTP scaffolding, handlers, tests, auth headers, and durable rate limits.
+- OAuth install records are encrypted and can be stored in JSON locally or Postgres through `slack_installs`.
+- App Directory submission is not complete; repo-side manifest, checklist, install URLs, lifecycle handling, and metrics are present.
+- `/wat-define` uses wat team-admin checks before writing through `/api/v1/custom-entries`; `SLACK_ADMIN_USER_IDS` remains a dev override.
+- `/wat-suggest` writes team-scoped suggestions through `/api/v1/suggestions` into `suggested_edits.team_id`.
+
+## Teams
+
+- Teams support has an API-based message extension package for search only.
+- Tenant/team mapping supports the single-team `WAT_TEAM_ID` fallback and DB-backed `teams_installs` mappings when an integration gateway supplies `X-Wat-Teams-Tenant-Id`.
+- Entra SSO, automatic Microsoft tenant discovery from native Teams API-secret calls, define/suggest writes, and admin flows need later bot/auth work.
+
+## Discord
+
+- Discord support has a signed HTTP interactions runtime, slash commands, a message command, command registration, DB-backed `discord_installs` guild mapping, suggestions, and admin-gated team-entry writes.
+- Discord install UX is still operator-driven through `/api/v1/discord/installations`; there is no hosted in-product OAuth/install wizard yet.
+- Real App Directory packaging, review assets, and a live guild smoke test are not complete.
 
 ## MCP
 

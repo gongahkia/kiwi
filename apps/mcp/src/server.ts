@@ -1,11 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 
-import { requireApiKey } from "./auth.js";
+import { requireApiConfig } from "./auth.js";
 import { listAlternatives, listTeamEntries, lookupEntries, resultText } from "./search.js";
 import { writeSuggestion } from "./suggestions.js";
 
 const confidenceSchema = z.enum(["T1", "T2", "T3", "T4"]);
+
+function structured<T extends object>(value: T): T & Record<string, unknown> {
+  return value as T & Record<string, unknown>;
+}
 
 const resultSourceSchema = z.object({
   license: z.string(),
@@ -58,7 +62,6 @@ export function createWatMcpServer(): McpServer {
       },
       description: "Look up a sourced acronym or technical term in wat.",
       inputSchema: z.object({
-        api_key: z.string().min(1),
         context: z.string().optional(),
         limit: z.number().int().min(1).max(20).optional(),
         min_confidence: confidenceSchema.optional(),
@@ -69,16 +72,16 @@ export function createWatMcpServer(): McpServer {
         team_id: z.string()
       })
     },
-    async ({ api_key, context, limit, min_confidence, term }) => {
-      const auth = requireApiKey(api_key, undefined);
-      const matches = await lookupEntries({ auth, context, limit, min_confidence, term });
+    async ({ context, limit, min_confidence, term }) => {
+      const config = requireApiConfig();
+      const result = await lookupEntries({ config, context, limit, min_confidence, term });
 
       return {
-        content: [{ type: "text", text: resultText(matches) }],
-        structuredContent: {
-          matches,
-          team_id: auth.team_id
-        }
+        content: [{ type: "text", text: resultText(result.matches) }],
+        structuredContent: structured({
+          matches: result.matches,
+          team_id: result.team_id
+        })
       };
     }
   );
@@ -91,7 +94,6 @@ export function createWatMcpServer(): McpServer {
       },
       description: "List paged team-scoped wat acronyms for the API key.",
       inputSchema: z.object({
-        api_key: z.string().min(1),
         cursor: z.number().int().min(0).optional(),
         domain: z.string().min(1).optional(),
         limit: z.number().int().min(1).max(100).optional()
@@ -102,16 +104,15 @@ export function createWatMcpServer(): McpServer {
         team_id: z.string()
       })
     },
-    async ({ api_key, cursor, domain, limit }) => {
-      const auth = requireApiKey(api_key, domain);
-      const page = listTeamEntries({ auth, cursor, domain, limit });
+    async ({ cursor, domain, limit }) => {
+      const config = requireApiConfig();
+      const page = await listTeamEntries({ config, cursor, domain, limit });
 
       return {
         content: [{ type: "text", text: resultText(page.entries) }],
-        structuredContent: {
-          ...page,
-          team_id: auth.team_id
-        }
+        structuredContent: structured({
+          ...page
+        })
       };
     }
   );
@@ -125,21 +126,17 @@ export function createWatMcpServer(): McpServer {
       description:
         "List resolved peer alternatives for a wat term using the same auth model as lookup.",
       inputSchema: z.object({
-        api_key: z.string().min(1),
         term: z.string().min(1)
       }),
       outputSchema: alternativesSchema
     },
-    async ({ api_key, term }) => {
-      const auth = requireApiKey(api_key, undefined);
-      const result = await listAlternatives({ auth, term });
+    async ({ term }) => {
+      const config = requireApiConfig();
+      const result = await listAlternatives({ config, term });
 
       return {
         content: [{ type: "text", text: resultText(result.alternatives) }],
-        structuredContent: {
-          ...result,
-          team_id: auth.team_id
-        }
+        structuredContent: structured(result)
       };
     }
   );
@@ -154,7 +151,6 @@ export function createWatMcpServer(): McpServer {
       },
       description: "Propose a team-scoped wat definition when team policy allows writes.",
       inputSchema: z.object({
-        api_key: z.string().min(1),
         domains: z.array(z.string().min(1)).optional(),
         expansion: z.string().min(1),
         meaning: z.string().min(1),
@@ -164,10 +160,10 @@ export function createWatMcpServer(): McpServer {
       }),
       outputSchema: suggestionSchema
     },
-    async ({ api_key, domains, expansion, meaning, source_title, source_url, term }) => {
-      const auth = requireApiKey(api_key, undefined);
+    async ({ domains, expansion, meaning, source_title, source_url, term }) => {
+      const config = requireApiConfig();
       const suggestion = await writeSuggestion({
-        auth,
+        config,
         domains,
         expansion,
         meaning,
@@ -183,12 +179,12 @@ export function createWatMcpServer(): McpServer {
             text: `Suggestion ${suggestion.suggestion_id} queued for ${suggestion.team_id}.`
           }
         ],
-        structuredContent: {
+        structuredContent: structured({
           created_at: suggestion.created_at,
           status: suggestion.status,
           suggestion_id: suggestion.suggestion_id,
           team_id: suggestion.team_id
-        }
+        })
       };
     }
   );

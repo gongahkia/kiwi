@@ -1,4 +1,6 @@
-import { getPublicCorpusEntries } from "@/lib/public-corpus";
+import { authDb } from "@/lib/auth-db";
+import { listAuditLogPage } from "@/lib/audit-log";
+import { getPublicEntries } from "@/lib/search-data";
 import { getTeamMembers } from "@/lib/team-members";
 import { getTeamEntries } from "@/lib/team-entries";
 
@@ -19,35 +21,35 @@ export interface TeamDashboardSnapshot {
   teamName: string;
 }
 
-export async function getTeamDashboardSnapshot(): Promise<TeamDashboardSnapshot> {
-  const publicCount = (await getPublicCorpusEntries()).length;
-  const teamEntries = getTeamEntries();
-  const members = getTeamMembers();
+export async function getTeamDashboardSnapshot(teamId: string): Promise<TeamDashboardSnapshot> {
+  const [publicEntries, teamEntries, members, audit, team] = await Promise.all([
+    getPublicEntries(),
+    getTeamEntries(teamId),
+    getTeamMembers(teamId),
+    listAuditLogPage(teamId, 0, 3),
+    teamName(teamId)
+  ]);
 
   return {
     counts: {
       personal: 0,
-      public: publicCount,
+      public: publicEntries.length,
       team: teamEntries.length
     },
     memberCount: members.length,
-    recentActivity: [
-      {
-        actor: "Admin",
-        event: "Reviewed CAP suggestion",
-        time: "2026-06-19"
-      },
-      {
-        actor: "Platform",
-        event: "Imported team glossary fixture",
-        time: "2026-06-19"
-      },
-      {
-        actor: "wat",
-        event: "Refreshed public corpus baseline",
-        time: "2026-06-19"
-      }
-    ],
-    teamName: "example.com"
+    recentActivity: audit.audit.map((entry) => ({
+      actor: entry.actor_id,
+      event: entry.action,
+      time: entry.at.slice(0, 10)
+    })),
+    teamName: team
   };
+}
+
+async function teamName(teamId: string): Promise<string> {
+  if (process.env.NODE_ENV === "test") return "example.com";
+  const { rows } = await authDb().query<{ name: string }>("select name from teams where id = $1", [
+    teamId
+  ]);
+  return rows[0]?.name ?? teamId;
 }

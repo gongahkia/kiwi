@@ -1,3 +1,5 @@
+import { authDb } from "@/lib/auth-db";
+
 export type WriteRateLimitAction = "custom-entry" | "team-import";
 
 export interface WriteRateLimitDecision {
@@ -12,7 +14,11 @@ interface Bucket {
   day: string;
 }
 
-const buckets = new Map<string, Bucket>();
+const testBuckets = new Map<string, Bucket>();
+
+function useTestState(): boolean {
+  return process.env.NODE_ENV === "test";
+}
 
 function dayKey(now: Date): string {
   return now.toISOString().slice(0, 10);
@@ -29,40 +35,69 @@ function limitFor(action: WriteRateLimitAction, env: Record<string, string | und
   return numberFromEnv(env.WAT_IMPORT_WRITE_LIMIT, 5);
 }
 
-function resetAt(now: Date): string {
+function resetAt(now: Date): Date {
   const next = new Date(now);
   next.setUTCDate(next.getUTCDate() + 1);
   next.setUTCHours(0, 0, 0, 0);
-  return next.toISOString();
+  return next;
 }
 
-export function checkWriteRateLimit(
+export async function checkWriteRateLimit(
   action: WriteRateLimitAction,
   actorId: string,
   env: Record<string, string | undefined> = process.env,
   now = new Date()
-): WriteRateLimitDecision {
+): Promise<WriteRateLimitDecision> {
   const limit = limitFor(action, env);
   const key = `${action}:${actorId}`;
-  const day = dayKey(now);
-  const bucket = buckets.get(key);
-  const current = bucket?.day === day ? bucket : { count: 0, day };
-
-  if (current.count >= limit) {
-    buckets.set(key, current);
-    return { allowed: false, limit, remaining: 0, reset_at: resetAt(now) };
+  const reset = resetAt(now);
+  if (useTestState()) {
+    const day = dayKey(now);
+    const bucket = testBuckets.get(key);
+    const current = bucket?.day === day ? bucket : { count: 0, day };
+    if (current.count >= limit) {
+      testBuckets.set(key, current);
+      return { allowed: false, limit, remaining: 0, reset_at: reset.toISOString() };
+    }
+    current.count += 1;
+    testBuckets.set(key, current);
+    return {
+      allowed: true,
+      limit,
+      remaining: Math.max(0, limit - current.count),
+      reset_at: reset.toISOString()
+    };
   }
 
-  current.count += 1;
-  buckets.set(key, current);
+  const { rows } = await authDb().query<{ count: number; reset_at: Date }>(
+    `
+    insert into rate_limit_buckets (key, scope, count, reset_at, updated_at)
+    values ($1, $2, 1, $3, now())
+    on conflict (key) do update
+    set
+      count = case
+        when rate_limit_buckets.reset_at <= $4 then 1
+        else rate_limit_buckets.count + 1
+      end,
+      reset_at = case
+        when rate_limit_buckets.reset_at <= $4 then $3
+        else rate_limit_buckets.reset_at
+      end,
+      updated_at = now()
+    returning count, reset_at
+    `,
+    [key, action, reset, now]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("write rate limit upsert failed");
   return {
-    allowed: true,
+    allowed: row.count <= limit,
     limit,
-    remaining: Math.max(0, limit - current.count),
-    reset_at: resetAt(now)
+    remaining: Math.max(0, limit - row.count),
+    reset_at: row.reset_at.toISOString()
   };
 }
 
-export function resetWriteRateLimitsForTest() {
-  buckets.clear();
+export function resetWriteRateLimitsForTest(): void {
+  testBuckets.clear();
 }

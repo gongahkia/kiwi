@@ -209,6 +209,31 @@ export const verificationTokens = pgTable(
   (table) => [primaryKey({ columns: [table.identifier, table.token] })]
 );
 
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: text("id").primaryKey(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    scopes: text("scopes")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true })
+  },
+  (table) => [
+    index("api_keys_team_id_idx").on(table.teamId),
+    index("api_keys_key_prefix_idx").on(table.keyPrefix)
+  ]
+);
+
 export const teamEntries = pgTable(
   "team_entries",
   {
@@ -265,8 +290,30 @@ export const teamEntries = pgTable(
       "team_entries_confidence_tier_check",
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`
     ),
-    check("team_entries_layer_check", sql`${table.layer} = 'team'`)
+    check("team_entries_layer_check", sql`${table.layer} = 'team'`),
+    uniqueIndex("team_entries_team_term_expansion_active_idx")
+      .on(table.teamId, table.termNormalized, sql`(lower(coalesce("expansions"[1], '')))`)
+      .where(sql`${table.deprecated} = false`)
   ]
+);
+
+export const teamEntrySources = pgTable(
+  "team_entry_sources",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => teamEntries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    publisher: text("publisher").notNull(),
+    license: text("license").notNull(),
+    retrievedAt: timestamp("retrieved_at", { withTimezone: true }).notNull(),
+    snippet: text("snippet").notNull(),
+    sourceQuality: text("source_quality").notNull().default("community")
+  },
+  (table) => [index("team_entry_sources_entry_id_idx").on(table.entryId)]
 );
 
 export const personalEntries = pgTable(
@@ -325,13 +372,36 @@ export const personalEntries = pgTable(
       "personal_entries_confidence_tier_check",
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`
     ),
-    check("personal_entries_layer_check", sql`${table.layer} = 'personal'`)
+    check("personal_entries_layer_check", sql`${table.layer} = 'personal'`),
+    uniqueIndex("personal_entries_user_term_expansion_active_idx")
+      .on(table.userId, table.termNormalized, sql`(lower(coalesce("expansions"[1], '')))`)
+      .where(sql`${table.deprecated} = false`)
   ]
+);
+
+export const personalEntrySources = pgTable(
+  "personal_entry_sources",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => personalEntries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    publisher: text("publisher").notNull(),
+    license: text("license").notNull(),
+    retrievedAt: timestamp("retrieved_at", { withTimezone: true }).notNull(),
+    snippet: text("snippet").notNull(),
+    sourceQuality: text("source_quality").notNull().default("community")
+  },
+  (table) => [index("personal_entry_sources_entry_id_idx").on(table.entryId)]
 );
 
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   actorId: text("actor_id").references(() => users.id),
+  teamId: text("team_id").references(() => teams.id, { onDelete: "cascade" }),
   action: text("action").notNull(),
   targetType: text("target_type").notNull(),
   targetId: text("target_id").notNull(),
@@ -343,6 +413,7 @@ export const auditLog = pgTable("audit_log", {
 export const suggestedEdits = pgTable("suggested_edits", {
   id: text("id").primaryKey(),
   actorId: text("actor_id").references(() => users.id),
+  teamId: text("team_id").references(() => teams.id, { onDelete: "cascade" }),
   targetType: text("target_type").notNull(),
   targetId: text("target_id"),
   status: suggestedEditStatus("status").notNull().default("pending"),
@@ -352,3 +423,100 @@ export const suggestedEdits = pgTable("suggested_edits", {
   reviewedBy: text("reviewed_by").references(() => users.id),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true })
 });
+
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    key: text("key").primaryKey(),
+    scope: text("scope").notNull(),
+    count: integer("count").notNull().default(0),
+    resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [index("rate_limit_buckets_reset_at_idx").on(table.resetAt)]
+);
+
+export const slackInstalls = pgTable(
+  "slack_installs",
+  {
+    id: text("id").primaryKey(),
+    slackTeamId: text("slack_team_id").notNull(),
+    slackTeamName: text("slack_team_name"),
+    enterpriseId: text("enterprise_id"),
+    enterpriseName: text("enterprise_name"),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    appId: text("app_id").notNull(),
+    botUserId: text("bot_user_id").notNull(),
+    installerSlackUserId: text("installer_slack_user_id").notNull(),
+    botTokenEncrypted: jsonb("bot_token_encrypted").notNull(),
+    userTokenEncrypted: jsonb("user_token_encrypted"),
+    botScopes: text("bot_scopes")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    userScopes: text("user_scopes")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    installedAt: timestamp("installed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("slack_installs_slack_team_id_unique_idx").on(table.slackTeamId),
+    index("slack_installs_team_id_idx").on(table.teamId)
+  ]
+);
+
+export const teamsInstalls = pgTable(
+  "teams_installs",
+  {
+    id: text("id").primaryKey(),
+    microsoftTenantId: text("microsoft_tenant_id").notNull(),
+    tenantName: text("tenant_name"),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    appId: text("app_id").notNull(),
+    authType: text("auth_type").notNull(),
+    apiSecretRegistrationId: text("api_secret_registration_id"),
+    serviceUrl: text("service_url"),
+    installedBy: text("installed_by"),
+    installedAt: timestamp("installed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("teams_installs_microsoft_tenant_id_unique_idx").on(table.microsoftTenantId),
+    index("teams_installs_team_id_idx").on(table.teamId),
+    check(
+      "teams_installs_auth_type_check",
+      sql`${table.authType} in ('apiSecretServiceAuth', 'microsoftEntra')`
+    )
+  ]
+);
+
+export const discordInstalls = pgTable(
+  "discord_installs",
+  {
+    id: text("id").primaryKey(),
+    discordGuildId: text("discord_guild_id").notNull(),
+    guildName: text("guild_name"),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    applicationId: text("application_id").notNull(),
+    botUserId: text("bot_user_id"),
+    installerDiscordUserId: text("installer_discord_user_id"),
+    adminRoleIds: text("admin_role_ids")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    installedAt: timestamp("installed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    uniqueIndex("discord_installs_discord_guild_id_unique_idx").on(table.discordGuildId),
+    index("discord_installs_team_id_idx").on(table.teamId)
+  ]
+);

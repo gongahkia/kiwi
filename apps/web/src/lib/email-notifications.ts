@@ -35,8 +35,9 @@ function enabled(env: EmailEnv): boolean {
   return env.WAT_EMAIL_NOTIFICATIONS === "1" || env.WAT_EMAIL_NOTIFICATIONS === "true";
 }
 
-function recipientForActor(actorId: string): string | null {
-  const member = getTeamMember(actorId);
+async function recipientForActor(teamId: string | null, actorId: string | null): Promise<string | null> {
+  if (!actorId) return null;
+  const member = teamId ? await getTeamMember(teamId, actorId) : null;
   if (member) return member.email;
   return actorId.includes("@") ? actorId : null;
 }
@@ -168,7 +169,7 @@ export async function sendSuggestionOutcomeEmail(
 ): Promise<EmailNotification | null> {
   if (!enabled(env) || (status !== "approved" && status !== "rejected")) return null;
 
-  const recipient = recipientForActor(suggestion.actor_id);
+  const recipient = await recipientForActor(suggestion.team_id, suggestion.actor_id);
   if (!recipient) return null;
   if (!env.EMAIL_SERVER)
     throw new Error("EMAIL_SERVER is required when WAT_EMAIL_NOTIFICATIONS is enabled");

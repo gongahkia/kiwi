@@ -48,12 +48,70 @@ spec:
                 secretKeyRef:
                   name: {{ include "wat.fullname" . }}-slack
                   key: app-token
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: bot-token
+            - name: SLACK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: client-id
+            - name: SLACK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: client-secret
+            - name: SLACK_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: signing-secret
+            - name: SLACK_STATE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: state-secret
+            - name: SLACK_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: token-encryption-key
+            - name: SLACK_METRICS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: metrics-token
+            - name: WAT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-slack
+                  key: wat-api-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-postgres
+                  key: database-url
+            - name: SLACK_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-postgres
+                  key: database-url
+            - name: SLACK_REDIRECT_URI
+              value: {{ .Values.slack.redirectUri | quote }}
+            - name: SLACK_INSTALL_STORE
+              value: {{ .Values.slack.installStore | quote }}
             - name: SLACK_HTTP_MODE
               value: {{ .Values.slack.httpMode | quote }}
             - name: SLACK_SOCKET_MODE
               value: {{ .Values.slack.socketMode | quote }}
             - name: WAT_API_BASE_URL
               value: "http://{{ include "wat.fullname" . }}-web:{{ .Values.web.service.port }}"
+            - name: WAT_SLACK_TEAM_MAP
+              value: {{ .Values.slack.teamMap | quote }}
+            - name: WAT_TEAM_ID
+              value: {{ .Values.slack.teamId | quote }}
           readinessProbe:
             httpGet:
               path: /healthz

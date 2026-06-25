@@ -15,8 +15,9 @@ import {
 } from "./team-entries";
 
 describe("team export helpers", () => {
-  it("exports every team entry source in CSV", () => {
-    const csv = teamEntriesCsv();
+  it("exports every team entry source in CSV", async () => {
+    resetTeamEntriesForTest();
+    const csv = teamEntriesCsv(await getTeamEntries());
 
     expect(csv).toContain("team-example-cap");
     expect(csv).toContain("team-example-df");
@@ -27,24 +28,24 @@ describe("team export helpers", () => {
     }
   });
 
-  it("round-trips exported CSV and JSON into an empty team glossary", () => {
+  it("round-trips exported CSV and JSON into an empty team glossary", async () => {
     const csv = teamEntriesCsv(initialTeamEntries);
     const csvEntries = parseTeamImportCsv(csv)!;
 
     replaceTeamEntriesForTest([]);
-    expect(importTeamEntries(csvEntries).inserted).toEqual(initialTeamEntries);
-    expect(getTeamEntries()).toEqual(initialTeamEntries);
+    expect((await importTeamEntries("team_1", csvEntries)).inserted).toEqual(initialTeamEntries);
+    expect(await getTeamEntries()).toEqual(initialTeamEntries);
 
     const json = JSON.stringify({ entries: initialTeamEntries });
     const jsonEntries = (JSON.parse(json) as { entries: TeamEntry[] }).entries;
 
     replaceTeamEntriesForTest([]);
-    expect(importTeamEntries(jsonEntries).inserted).toEqual(initialTeamEntries);
-    expect(getTeamEntries()).toEqual(initialTeamEntries);
+    expect((await importTeamEntries("team_1", jsonEntries)).inserted).toEqual(initialTeamEntries);
+    expect(await getTeamEntries()).toEqual(initialTeamEntries);
     resetTeamEntriesForTest();
   });
 
-  it("imports valid new entries and dedups existing entries", () => {
+  it("imports valid new entries and dedups existing entries", async () => {
     resetTeamEntriesForTest();
     const imported: TeamEntry = {
       domains: ["reliability"],
@@ -63,15 +64,15 @@ describe("team export helpers", () => {
       ],
       term: "SLI"
     };
-    const result = importTeamEntries([initialTeamEntries[0] as TeamEntry, imported]);
+    const result = await importTeamEntries("team_1", [initialTeamEntries[0] as TeamEntry, imported]);
 
     expect(result.inserted).toEqual([imported]);
     expect(result.skipped).toEqual([initialTeamEntries[0]]);
-    expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
+    expect(await getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
     resetTeamEntriesForTest();
   });
 
-  it("validates custom entry source licenses", () => {
+  it("validates custom entry source licenses", async () => {
     resetTeamEntriesForTest();
     const entry: TeamEntry = {
       domains: ["security"],
@@ -91,17 +92,17 @@ describe("team export helpers", () => {
       term: "GNS"
     };
 
-    expect(createTeamEntry(entry)).toEqual(entry);
-    expect(() =>
-      createTeamEntry({
+    expect(await createTeamEntry("team_1", entry)).toEqual(entry);
+    await expect(
+      createTeamEntry("team_1", {
         ...entry,
         id: "team-generated-source-mit",
         sources: [{ ...entry.sources[0]!, license: "MIT" }],
         term: "GNM"
       })
-    ).toThrow(/public-compatible source license requires an external source url/);
+    ).rejects.toThrow(/public-compatible source license requires an external source url/);
     expect(
-      createTeamEntry({
+      await createTeamEntry("team_1", {
         ...entry,
         id: "team-external-source-mit",
         sources: [{ ...entry.sources[0]!, license: "MIT", url: "https://example.com/source" }],
@@ -111,7 +112,7 @@ describe("team export helpers", () => {
     resetTeamEntriesForTest();
   });
 
-  it("creates, edits, and deletes team entries", () => {
+  it("creates, edits, and deletes team entries", async () => {
     resetTeamEntriesForTest();
     const entry: TeamEntry = {
       domains: ["security"],
@@ -131,12 +132,12 @@ describe("team export helpers", () => {
       term: "CAP"
     };
 
-    expect(createTeamEntry(entry)).toEqual(entry);
-    expect(updateTeamEntry(entry.id, { meaning: "Updated access policy." })).toMatchObject({
+    expect(await createTeamEntry("team_1", entry)).toEqual(entry);
+    expect(await updateTeamEntry("team_1", entry.id, { meaning: "Updated access policy." })).toMatchObject({
       meaning: "Updated access policy."
     });
-    expect(deleteTeamEntry(entry.id)).toMatchObject({ id: entry.id });
-    expect(getTeamEntries().map((item) => item.id)).not.toContain(entry.id);
+    expect(await deleteTeamEntry("team_1", entry.id)).toMatchObject({ id: entry.id });
+    expect((await getTeamEntries()).map((item) => item.id)).not.toContain(entry.id);
     resetTeamEntriesForTest();
   });
 });

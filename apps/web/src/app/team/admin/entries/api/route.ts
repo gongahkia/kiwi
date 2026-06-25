@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
 import { pageInfo, paginationWindow } from "@/lib/pagination";
+import { sessionUserFromRequest } from "@/lib/session";
 import {
   createTeamEntry,
   deleteTeamEntry,
@@ -35,13 +36,21 @@ function isTeamEntry(value: unknown): value is TeamEntry {
   return validateTeamEntry(entry as TeamEntry).length === 0;
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const window = paginationWindow(request.nextUrl.searchParams);
-  const page = listTeamEntriesPage(window.offset, window.limit);
+  const page = await listTeamEntriesPage(session.teamId, window.offset, window.limit);
   return NextResponse.json({ entries: page.entries, page: pageInfo(page.total, window) });
 }
 
 export async function POST(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const body = (await request.json()) as unknown;
   if (!isTeamEntry(body)) {
     return apiErrorResponse(request, "invalid_team_entry", 400, {
@@ -50,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ entry: createTeamEntry(body) });
+    return NextResponse.json({ entry: await createTeamEntry(session.teamId, body) });
   } catch (error) {
     return apiErrorResponse(request, "team_entry_conflict", 409, {
       message: error instanceof Error ? error.message : "create failed"
@@ -59,6 +68,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const body = (await request.json()) as { id?: unknown; patch?: unknown };
   if (typeof body.id !== "string" || !body.patch || typeof body.patch !== "object") {
     return apiErrorResponse(request, "invalid_team_entry_update", 400, {
@@ -67,7 +80,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ entry: updateTeamEntry(body.id, body.patch as Partial<TeamEntry>) });
+    return NextResponse.json({
+      entry: await updateTeamEntry(session.teamId, body.id, body.patch as Partial<TeamEntry>)
+    });
   } catch (error) {
     return apiErrorResponse(request, "team_entry_not_found", 404, {
       message: error instanceof Error ? error.message : "update failed"
@@ -76,13 +91,17 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const id = request.nextUrl.searchParams.get("id");
   if (!id) {
     return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
   }
 
   try {
-    return NextResponse.json({ entry: deleteTeamEntry(id) });
+    return NextResponse.json({ entry: await deleteTeamEntry(session.teamId, id) });
   } catch (error) {
     return apiErrorResponse(request, "team_entry_not_found", 404, {
       message: error instanceof Error ? error.message : "delete failed"

@@ -36,24 +36,26 @@ describe("private glossary privacy defaults", () => {
   afterEach(() => {
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
+    replaceTeamEntriesForTest([], "team_private");
   });
 
-  it("keeps personal and team search entries out of public/open-source labels", () => {
+  it("keeps personal and team search entries out of public/open-source labels", async () => {
     resetPersonalEntriesForTest();
     replaceTeamEntriesForTest([]);
+    replaceTeamEntriesForTest([], "team_private");
 
-    createPersonalEntry(
+    await createPersonalEntry(
       "user_private",
       privateEntry("personal-private-cap", "proprietary-personal")
     );
-    createTeamEntry(privateEntry("team-private-cap", "proprietary-team"));
+    await createTeamEntry("team_private", privateEntry("team-private-cap", "proprietary-team"));
 
-    const personal = getScopedPersonalEntries({ type: "api", userId: "user_private" })[0];
-    const team = getScopedTeamEntries({
+    const personal = (await getScopedPersonalEntries({ type: "api", userId: "user_private" }))[0];
+    const team = (await getScopedTeamEntries({
       teamId: "team_private",
       type: "api",
       userId: "user_private"
-    })[0];
+    }))[0];
 
     expect(personal).toMatchObject({
       confidence_tier: "T4",

@@ -3,26 +3,26 @@ import { describe, expect, it } from "vitest";
 import { getTeamSettings, resetTeamSettingsForTest, updateTeamSettings } from "./team-settings";
 
 describe("team settings", () => {
-  it("persists default domain filter and public layer toggle", () => {
+  it("persists default domain filter and public layer toggle", async () => {
     resetTeamSettingsForTest();
-    updateTeamSettings({
+    await updateTeamSettings("team_1", {
       allow_public_layer: false,
       default_domain_filter: "Platform.Example"
     });
 
-    expect(getTeamSettings()).toMatchObject({
+    expect(await getTeamSettings()).toMatchObject({
       allow_public_layer: false,
       default_domain_filter: "platform.example"
     });
     resetTeamSettingsForTest();
   });
 
-  it("dedups normalized domain tags", () => {
+  it("dedups normalized domain tags", async () => {
     resetTeamSettingsForTest();
-    updateTeamSettings({ domain_tags: ["Security", "security", ""] });
+    await updateTeamSettings("team_1", { domain_tags: ["Security", "security", ""] });
 
-    expect(getTeamSettings().domain_tags).toContain("security");
-    expect(getTeamSettings().domain_tags.filter((tag) => tag === "security")).toHaveLength(1);
+    expect((await getTeamSettings()).domain_tags).toContain("security");
+    expect((await getTeamSettings()).domain_tags.filter((tag) => tag === "security")).toHaveLength(1);
     resetTeamSettingsForTest();
   });
 });

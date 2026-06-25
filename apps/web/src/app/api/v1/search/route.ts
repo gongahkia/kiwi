@@ -18,6 +18,8 @@ import { confidenceRank, scoreEntry, sortMatches } from "@/lib/search-core";
 
 export const runtime = "nodejs";
 
+type WatSearchResponse = SearchResponse & { team_id?: string };
+
 function hashQuery(query: string): string {
   return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");
 }
@@ -68,7 +70,7 @@ function withCorsHeaders(
 function withRateLimitHeaders(
   response: NextResponse,
   request: NextRequest,
-  decision: ReturnType<typeof checkRateLimit>,
+  decision: Awaited<ReturnType<typeof checkRateLimit>>,
   requestId = ensureRequestId(request.headers)
 ) {
   response.headers.set("retry-after", String(decision.retryAfter));
@@ -87,7 +89,7 @@ export function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const requestId = ensureRequestId(request.headers);
   const startedAt = performance.now();
-  const identity = resolveApiIdentity(request.headers);
+  const identity = await resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return withCorsHeaders(
       apiErrorResponse(request, identity.error, identity.status, { requestId }),
@@ -96,7 +98,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     { identity: identity.identity, ip: clientIp(request) },
     rateLimitConfigFromEnv()
   );
@@ -126,7 +128,11 @@ export async function GET(request: NextRequest) {
 
   if (!query.trim()) {
     return withRateLimitHeaders(
-      NextResponse.json<SearchResponse>({ matches: [], suggest_url: "/suggest?term=" }),
+      NextResponse.json<WatSearchResponse>({
+        matches: [],
+        suggest_url: "/suggest?term=",
+        team_id: identity.identity.teamId
+      }),
       request,
       rateLimit,
       requestId
@@ -135,8 +141,8 @@ export async function GET(request: NextRequest) {
 
   const entries = [
     ...(await getPublicEntries()),
-    ...getScopedTeamEntries(identity.identity),
-    ...getScopedPersonalEntries(identity.identity)
+    ...(await getScopedTeamEntries(identity.identity)),
+    ...(await getScopedPersonalEntries(identity.identity))
   ];
   const scoredMatches = entries
     .filter(
@@ -153,9 +159,10 @@ export async function GET(request: NextRequest) {
   logSearchEvent(requestId, query, startedAt, matches);
 
   return withRateLimitHeaders(
-    NextResponse.json<SearchResponse>({
+    NextResponse.json<WatSearchResponse>({
       matches,
-      suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined
+      suggest_url: matches.length === 0 ? `/suggest?term=${encodeURIComponent(query)}` : undefined,
+      team_id: identity.identity.teamId
     }),
     request,
     rateLimit,

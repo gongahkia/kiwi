@@ -2,9 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
 import { checkSuggestionRateLimit } from "@/lib/suggestion-rate-limit";
+import { sessionUserFromRequest } from "@/lib/session";
 import { submitNewEntrySuggestion, validateSuggestedEntry } from "@/lib/suggestions";
-
-const sessionCookie = "wat_session";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as unknown;
@@ -15,8 +14,10 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const actorId = request.cookies.get(sessionCookie)?.value ?? "anonymous";
-  const rateLimit = checkSuggestionRateLimit(actorId);
+  const session = await sessionUserFromRequest(request);
+  const actorId =
+    session?.id ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+  const rateLimit = await checkSuggestionRateLimit(actorId);
   if (!rateLimit.allowed) {
     return apiErrorResponse(request, "rate_limited", 429, {
       fields: { limit: rateLimit.limit, remaining: rateLimit.remaining },
@@ -24,5 +25,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ suggestion: submitNewEntrySuggestion(actorId, input) });
+  return NextResponse.json({
+    suggestion: await submitNewEntrySuggestion(session?.teamId ?? null, session?.id ?? null, input)
+  });
 }

@@ -11,7 +11,7 @@ import {
 } from "./personal-entries";
 
 describe("personal entries", () => {
-  it("scopes CRUD to the owning user", () => {
+  it("scopes CRUD to the owning user", async () => {
     resetPersonalEntriesForTest();
     const entry: PersonalEntry = {
       contemporaries: ["SAML", "OIDC"],
@@ -32,19 +32,19 @@ describe("personal entries", () => {
       term: "CAP"
     };
 
-    expect(createPersonalEntry("user_a", entry)).toEqual(entry);
-    expect(getPersonalEntries("user_b")).toEqual([]);
-    expect(getPersonalEntries("user_a")[0]?.contemporaries).toEqual(["SAML", "OIDC"]);
-    expect(personalEntriesCsv("user_a")).toContain("personal-cap");
-    expect(personalEntriesCsv("user_b")).not.toContain("personal-cap");
+    expect(await createPersonalEntry("user_a", entry)).toEqual(entry);
+    expect(await getPersonalEntries("user_b")).toEqual([]);
+    expect((await getPersonalEntries("user_a"))[0]?.contemporaries).toEqual(["SAML", "OIDC"]);
+    expect(personalEntriesCsv(await getPersonalEntries("user_a"))).toContain("personal-cap");
+    expect(personalEntriesCsv(await getPersonalEntries("user_b"))).not.toContain("personal-cap");
     expect(
-      updatePersonalEntry("user_a", entry.id, {
+      await updatePersonalEntry("user_a", entry.id, {
         contemporaries: ["Okta"],
         meaning: "Updated private note."
       })
     ).toMatchObject({ contemporaries: ["Okta"], meaning: "Updated private note." });
-    expect(deletePersonalEntry("user_a", entry.id)).toMatchObject({ id: entry.id });
-    expect(getPersonalEntries("user_a")).toEqual([]);
+    expect(await deletePersonalEntry("user_a", entry.id)).toMatchObject({ id: entry.id });
+    expect(await getPersonalEntries("user_a")).toEqual([]);
     resetPersonalEntriesForTest();
   });
 });

@@ -8,11 +8,10 @@ import {
   updatePersonalEntry,
   type PersonalEntry
 } from "@/lib/personal-entries";
+import { sessionUserFromRequest } from "@/lib/session";
 
-const sessionCookie = "wat_session";
-
-function userIdFromRequest(request: NextRequest): string | null {
-  return request.cookies.get(sessionCookie)?.value.trim() || null;
+async function userIdFromRequest(request: NextRequest): Promise<string | null> {
+  return (await sessionUserFromRequest(request))?.id ?? null;
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -34,17 +33,17 @@ function isPersonalEntry(value: unknown): value is PersonalEntry {
   );
 }
 
-export function GET(request: NextRequest) {
-  const userId = userIdFromRequest(request);
+export async function GET(request: NextRequest) {
+  const userId = await userIdFromRequest(request);
   if (!userId) {
     return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
 
-  return NextResponse.json({ entries: getPersonalEntries(userId) });
+  return NextResponse.json({ entries: await getPersonalEntries(userId) });
 }
 
 export async function POST(request: NextRequest) {
-  const userId = userIdFromRequest(request);
+  const userId = await userIdFromRequest(request);
   if (!userId) {
     return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
@@ -57,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ entry: createPersonalEntry(userId, body) });
+    return NextResponse.json({ entry: await createPersonalEntry(userId, body) });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_conflict", 409, {
       message: error instanceof Error ? error.message : "create failed"
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const userId = userIdFromRequest(request);
+  const userId = await userIdFromRequest(request);
   if (!userId) {
     return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
@@ -80,7 +79,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     return NextResponse.json({
-      entry: updatePersonalEntry(userId, body.id, body.patch as Partial<PersonalEntry>)
+      entry: await updatePersonalEntry(userId, body.id, body.patch as Partial<PersonalEntry>)
     });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_not_found", 404, {
@@ -90,7 +89,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const userId = userIdFromRequest(request);
+  const userId = await userIdFromRequest(request);
   if (!userId) {
     return apiErrorResponse(request, "login_required", 401, { message: "login required" });
   }
@@ -101,7 +100,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ entry: deletePersonalEntry(userId, id) });
+    return NextResponse.json({ entry: await deletePersonalEntry(userId, id) });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_not_found", 404, {
       message: error instanceof Error ? error.message : "delete failed"

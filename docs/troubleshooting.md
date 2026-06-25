@@ -87,6 +87,58 @@ Fix:
 
 Rotate the signing secret only after updating deployed env, redeploy the Slack service, then retry Slack URL verification.
 
+## Teams Message Extension Errors
+
+Symptoms:
+
+- Teams upload reports manifest or package validation errors
+- message extension search returns `401`
+- search opens but cards are blank
+
+Checks:
+
+- `pnpm --filter @wat/teams test` passes.
+- `apps/teams/dist/wat-teams-app.zip` was rendered with `TEAMS_PUBLIC_ORIGIN`, `TEAMS_APP_ID`, and `TEAMS_API_SECRET_REGISTRATION_ID`.
+- Teams Developer Portal API secret matches `WAT_API_KEY`.
+- `WAT_TEAM_ID` is set for single-team installs.
+- `TEAMS_PUBLIC_ORIGIN/api/v1/teams/search?q=API` returns `{ "results": [...] }`.
+
+Fix:
+
+Regenerate and re-upload the package after config changes:
+
+```sh
+TEAMS_PUBLIC_ORIGIN=https://wat.example.com \
+TEAMS_APP_ID=<teams-app-guid> \
+TEAMS_API_SECRET_REGISTRATION_ID=<secret-registration-guid> \
+pnpm --filter @wat/teams package:prod
+```
+
+## Discord Interaction Errors
+
+Symptoms:
+
+- Discord endpoint validation fails
+- interactions return `401`
+- slash commands reply `wat request failed`
+
+Checks:
+
+- `DISCORD_PUBLIC_KEY` matches the Discord application public key.
+- The request body is verified before JSON parsing.
+- Discord Interactions Endpoint URL points at `/discord/interactions`.
+- `/discord/install` redirects to `https://discord.com/oauth2/authorize`.
+- `discord_installs` or `WAT_DISCORD_GUILD_MAP` maps the guild before write commands are used.
+- `WAT_API_KEY` and `WAT_API_BASE_URL` are configured for suggestion/define writes.
+
+Fix:
+
+Redeploy the Discord runtime after env changes, then register or refresh commands:
+
+```sh
+DISCORD_GUILD_ID=<guild-id> pnpm --filter @wat/discord commands:register
+```
+
 ## No Search Results
 
 Symptoms:

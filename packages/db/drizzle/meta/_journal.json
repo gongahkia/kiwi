@@ -120,6 +120,41 @@
       "when": 1782223646362,
       "tag": "0016_broad_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782352800000,
+      "tag": "0017_slack_installs",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782355200000,
+      "tag": "0018_suggested_edits_team_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782357000000,
+      "tag": "0019_teams_installs",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782358800000,
+      "tag": "0020_discord_installs",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782360600000,
+      "tag": "0021_runtime_state",
+      "breakpoints": true
     }
   ]
 }

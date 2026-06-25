@@ -9,7 +9,7 @@ export const adminEmptyStates = {
   apiKeys: {
     actionHref: "/install/api",
     actionLabel: "Open API setup",
-    body: "Use the self-host/dev WAT_API_KEY path until DB-backed team keys are available.",
+    body: "Create a team-scoped key before connecting Slack, Teams, Discord, browser, or MCP clients.",
     title: "No API keys"
   },
   members: {

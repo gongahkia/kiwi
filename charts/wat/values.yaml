@@ -35,8 +35,45 @@ slack:
     tag: local
     pullPolicy: IfNotPresent
   appToken: xapp-local-dev
+  botToken: ""
+  signingSecret: ""
+  clientId: ""
+  clientSecret: ""
+  stateSecret: ""
+  tokenEncryptionKey: ""
+  metricsToken: ""
+  watApiKey: ""
+  redirectUri: http://localhost:3001/slack/oauth/callback
+  installStore: postgres
+  teamMap: ""
+  teamId: team_example
   httpMode: "true"
   socketMode: "true"
   service:
     type: ClusterIP
     port: 3001
+
+discord:
+  replicaCount: 1
+  image:
+    repository: wat-discord
+    tag: local
+    pullPolicy: IfNotPresent
+  publicKey: ""
+  applicationId: ""
+  botToken: ""
+  metricsToken: ""
+  watApiKey: ""
+  installStore: postgres
+  installScopes: applications.commands
+  installGuildId: ""
+  installDisableGuildSelect: "false"
+  installIntegrationType: "0"
+  botPermissions: ""
+  guildMap: ""
+  teamId: team_example
+  adminUserIds: ""
+  adminRoleIds: ""
+  service:
+    type: ClusterIP
+    port: 3002

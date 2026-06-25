@@ -55,6 +55,7 @@ export interface SearchResult {
 export interface SearchResponse {
   matches: SearchResult[];
   suggest_url?: string;
+  team_id?: string;
 }
 
 export type SearchApi = (request: SearchRequest) => Promise<SearchResponse>;

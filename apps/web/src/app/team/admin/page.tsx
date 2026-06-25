@@ -1,6 +1,9 @@
 import { Activity, BookOpen, CheckCircle2, Circle, Users } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { sessionUserFromCookieStore } from "@/lib/session";
 import { teamAdminChecklist, type TeamAdminChecklistItem } from "@/lib/team-admin-checklist";
 import { getTeamDashboardSnapshot } from "@/lib/team-dashboard";
 
@@ -44,7 +47,9 @@ function ChecklistItem({ item }: { item: TeamAdminChecklistItem }) {
 }
 
 export default async function TeamAdminPage() {
-  const dashboard = await getTeamDashboardSnapshot();
+  const session = await sessionUserFromCookieStore(await cookies());
+  if (!session?.teamId) redirect("/login?next=/team/admin");
+  const dashboard = await getTeamDashboardSnapshot(session.teamId);
   const checklist = teamAdminChecklist({
     memberCount: dashboard.memberCount,
     teamEntryCount: dashboard.counts.team

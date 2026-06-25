@@ -10,3 +10,4 @@ coverage/
 reports/corpus-refresh-pr.md
 playwright-report/
 test-results/
+.wat-slack-installs.json

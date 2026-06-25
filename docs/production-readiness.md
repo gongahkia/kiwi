@@ -9,7 +9,20 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 - `NEXT_PUBLIC_SITE_URL`
 - `WAT_API_KEY` for self-host/dev API access until DB-backed per-team keys replace it
 - `SLACK_TOKEN_ENCRYPTION_KEY` when Slack tokens are stored
-- Slack OAuth/signing values when Slack is enabled
+- `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `SLACK_SIGNING_SECRET` when Slack Socket Mode is enabled
+- `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`, and `SLACK_STATE_SECRET` when Slack OAuth install is enabled
+- `SLACK_INSTALL_STORE=postgres` and `SLACK_DATABASE_URL`/`DATABASE_URL` for hosted Slack installs
+- `SLACK_METRICS_TOKEN` when exposing Slack runtime `/metrics`
+- `WAT_SLACK_TEAM_MAP` or a DB-backed team mapping before accepting Slack installs
+- Slack OAuth values when distributed installs are enabled
+- `TEAMS_PUBLIC_ORIGIN`, `TEAMS_APP_ID`, and `TEAMS_API_SECRET_REGISTRATION_ID` when rendering the Teams app package
+- `TEAMS_METRICS_TOKEN` when exposing Teams metrics
+- `DISCORD_PUBLIC_KEY` when Discord interactions are enabled
+- `DISCORD_APPLICATION_ID` and `DISCORD_BOT_TOKEN` when registering Discord commands
+- `DISCORD_INSTALL_SCOPES`, `DISCORD_INSTALL_GUILD_ID`, and `DISCORD_BOT_PERMISSIONS` when exposing `/discord/install`
+- `DISCORD_INSTALL_STORE=postgres` and `DISCORD_DATABASE_URL`/`DATABASE_URL` for hosted Discord installs
+- `DISCORD_METRICS_TOKEN` when exposing Discord runtime `/metrics`
+- `WAT_DISCORD_GUILD_MAP` or DB-backed `discord_installs` rows before accepting Discord team writes
 - OAuth provider secrets when Google or Slack login is enabled
 
 Generate first-run values with:
@@ -75,9 +88,15 @@ Dashboard should show:
 - search no-result rate
 - migration/seed/import failures
 - Slack event failures
+- Slack OAuth callback failures
+- Slack lookup/write API failures
+- Slack uninstall cleanup count
+- Teams message-extension search failures
+- Discord interaction signature failures
+- Discord lookup/write API failures
 - scraper/corpus refresh failures
 
-Alert on `/readyz` failure, high API error rate, sustained search latency breach, DB saturation, backup failure, and Slack event failure spikes.
+Alert on `/readyz` failure, high API error rate, sustained search latency breach, DB saturation, backup failure, Slack event failure spikes, Teams search error spikes, and Discord interaction failure spikes.
 
 ## Release Verification
 
@@ -89,4 +108,45 @@ curl -f "$NEXT_PUBLIC_SITE_URL/readyz"
 curl -f "$NEXT_PUBLIC_SITE_URL/api/v1/search?q=API&limit=1"
 ```
 
-Then verify enabled surfaces: browser extension connection test, Slack URL verification or `/wat`, MCP lookup, and admin import/export if enabled.
+Then verify enabled surfaces: Slack `/wat`, Slack URL verification if HTTP mode is exposed, browser extension connection test, MCP lookup, and admin import/export if enabled.
+
+For Teams, render `apps/teams/dist/wat-teams-app.zip` with `TEAMS_PUBLIC_ORIGIN`, `TEAMS_APP_ID`, and `TEAMS_API_SECRET_REGISTRATION_ID`, upload through Teams Developer Portal or Agents Toolkit, and smoke-test compose-box search.
+
+```sh
+curl -f -H "Authorization: Bearer $WAT_API_KEY" "$NEXT_PUBLIC_SITE_URL/api/v1/teams/search?q=API"
+curl -f -H "Authorization: Bearer $TEAMS_METRICS_TOKEN" "$NEXT_PUBLIC_SITE_URL/api/v1/teams/metrics"
+```
+
+For Slack OAuth, also verify:
+
+```sh
+curl -I "$SLACK_PUBLIC_URL/slack/install"
+curl -f -H "Authorization: Bearer $SLACK_METRICS_TOKEN" "$SLACK_PUBLIC_URL/metrics"
+```
+
+Confirm the callback stores an encrypted install record in `slack_installs`, `app_uninstalled` or `tokens_revoked` removes that row, `/wat-suggest` creates a `suggested_edits` row with `team_id`, and no plaintext `xoxb-` or `xoxp-` token appears in logs or storage.
+
+For Discord, register commands, set the Interactions Endpoint URL, insert a guild mapping, and smoke-test lookup/write flows.
+
+```sh
+DISCORD_GUILD_ID="$DISCORD_GUILD_ID" pnpm --filter @wat/discord commands:register
+curl -f "$DISCORD_PUBLIC_URL/healthz"
+curl -f -H "Authorization: Bearer $DISCORD_METRICS_TOKEN" "$DISCORD_PUBLIC_URL/metrics"
+curl -f -X POST "$NEXT_PUBLIC_SITE_URL/api/v1/discord/installations" \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-Team-Id: team_123" \
+  --data '{"discord_guild_id":"guild_123","application_id":"discord-app-id"}'
+```
+
+Confirm `/wat-suggest` creates a `suggested_edits` row with `team_id`, `/wat-define` requires an allowed Discord admin role/user, and invalid Discord signatures return `401`.
+
+## Platform Rollout Order
+
+1. Slack production install path
+2. Teams API-based message-extension search
+3. Discord commands for companies that already use Discord internally
+4. MCP/editor polish
+5. Browser extension pairing and policy install
+
+Do not spend production-readiness effort on the web search UI unless it directly supports API/admin, install review, privacy, or platform-directory requirements.

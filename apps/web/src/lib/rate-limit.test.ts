@@ -17,23 +17,23 @@ describe("rate limit", () => {
     });
   });
 
-  it("limits anonymous requests by ip", () => {
+  it("limits anonymous requests by ip", async () => {
     const store = new Map();
     const subject = { identity: { type: "anonymous" as const }, ip: "203.0.113.10" };
     const config = { limits: { ip: 1, team: 10, user: 10 }, windowMs: 1000 };
 
-    expect(checkRateLimit(subject, config, store, 0)).toMatchObject({
+    expect(await checkRateLimit(subject, config, store, 0)).toMatchObject({
       allowed: true,
       remaining: 0,
       scope: "ip"
     });
-    expect(checkRateLimit(subject, config, store, 1)).toMatchObject({
+    expect(await checkRateLimit(subject, config, store, 1)).toMatchObject({
       allowed: false,
       scope: "ip"
     });
   });
 
-  it("limits api requests by user and team", () => {
+  it("limits api requests by user and team", async () => {
     const store = new Map();
     const subject = {
       identity: { teamId: "team_1", type: "api" as const, userId: "user_1" },
@@ -41,11 +41,11 @@ describe("rate limit", () => {
     };
     const config = { limits: { ip: 10, team: 1, user: 10 }, windowMs: 1000 };
 
-    expect(checkRateLimit(subject, config, store, 0)).toMatchObject({
+    expect(await checkRateLimit(subject, config, store, 0)).toMatchObject({
       allowed: true,
       scope: "team"
     });
-    expect(checkRateLimit(subject, config, store, 1)).toMatchObject({
+    expect(await checkRateLimit(subject, config, store, 1)).toMatchObject({
       allowed: false,
       scope: "team"
     });

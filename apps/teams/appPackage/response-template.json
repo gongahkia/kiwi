@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "jsonPath": "results",
+  "responseLayout": "list",
+  "responseCardTemplate": {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "${if(title, title, 'Result')}",
+        "weight": "Bolder",
+        "wrap": true
+      },
+      {
+        "type": "TextBlock",
+        "text": "${if(text, text, '')}",
+        "wrap": true
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          {
+            "title": "Layer",
+            "value": "${if(layer, layer, 'public')}"
+          },
+          {
+            "title": "Confidence",
+            "value": "${if(confidence, confidence, 'N/A')}"
+          }
+        ]
+      }
+    ]
+  },
+  "previewCardTemplate": {
+    "title": "${if(term, term, 'Result')}",
+    "subtitle": "${if(expansion, expansion, '')}",
+    "text": "${if(text, text, '')}"
+  }
+}

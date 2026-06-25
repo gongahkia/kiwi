@@ -1,0 +1,27 @@
+{
+  "name": "@wat/discord",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "commands:print": "tsx src/register-commands.ts --dry-run",
+    "commands:register": "node dist/register-commands.js",
+    "start": "node dist/server.js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/pg": "^8.20.0",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
+  }
+}

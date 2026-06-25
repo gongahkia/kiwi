@@ -1,4 +1,5 @@
-import type { ApiIdentity } from "./api-identity";
+import { authDb } from "@/lib/auth-db";
+import type { ApiIdentity } from "@/lib/api-identity";
 
 export type RateLimitScope = "ip" | "team" | "user";
 
@@ -26,7 +27,9 @@ interface Bucket {
   resetAt: number;
 }
 
-const buckets = new Map<string, Bucket>();
+export type RateLimitMemoryStore = Map<string, Bucket>;
+
+const testBuckets: RateLimitMemoryStore = new Map();
 
 interface RateLimitEnv {
   [key: string]: string | undefined;
@@ -54,54 +57,90 @@ export function rateLimitConfigFromEnv(env: RateLimitEnv = process.env): RateLim
 
 function subjectKeys(subject: RateLimitSubject): Array<{ key: string; scope: RateLimitScope }> {
   const keys: Array<{ key: string; scope: RateLimitScope }> = [
-    { key: `ip:${subject.ip}`, scope: "ip" }
+    { key: `search:ip:${subject.ip}`, scope: "ip" }
   ];
-
-  if (subject.identity.userId) {
-    keys.push({ key: `user:${subject.identity.userId}`, scope: "user" });
-  }
-  if (subject.identity.teamId) {
-    keys.push({ key: `team:${subject.identity.teamId}`, scope: "team" });
-  }
-
+  if (subject.identity.userId) keys.push({ key: `search:user:${subject.identity.userId}`, scope: "user" });
+  if (subject.identity.teamId) keys.push({ key: `search:team:${subject.identity.teamId}`, scope: "team" });
   return keys;
 }
 
-export function checkRateLimit(
+function memoryDecision(
+  key: string,
+  scope: RateLimitScope,
+  limit: number,
+  windowMs: number,
+  store: RateLimitMemoryStore,
+  now: number
+): RateLimitDecision {
+  const existing = store.get(key);
+  const bucket = existing && existing.resetAt > now ? existing : { count: 0, resetAt: now + windowMs };
+  const count = bucket.count + 1;
+  store.set(key, { count, resetAt: bucket.resetAt });
+  return {
+    allowed: count <= limit,
+    limit,
+    remaining: Math.max(0, limit - count),
+    resetAt: bucket.resetAt,
+    retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+    scope
+  };
+}
+
+async function dbDecision(
+  key: string,
+  scope: RateLimitScope,
+  limit: number,
+  windowMs: number,
+  now: number
+): Promise<RateLimitDecision> {
+  const resetAt = new Date(now + windowMs);
+  const { rows } = await authDb().query<{ count: number; reset_at: Date }>(
+    `
+    insert into rate_limit_buckets (key, scope, count, reset_at, updated_at)
+    values ($1, $2, 1, $3, now())
+    on conflict (key) do update
+    set
+      count = case
+        when rate_limit_buckets.reset_at <= $4 then 1
+        else rate_limit_buckets.count + 1
+      end,
+      reset_at = case
+        when rate_limit_buckets.reset_at <= $4 then $3
+        else rate_limit_buckets.reset_at
+      end,
+      updated_at = now()
+    returning count, reset_at
+    `,
+    [key, scope, resetAt, new Date(now)]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("rate limit upsert failed");
+  const resetMs = row.reset_at.getTime();
+  return {
+    allowed: row.count <= limit,
+    limit,
+    remaining: Math.max(0, limit - row.count),
+    resetAt: resetMs,
+    retryAfter: Math.max(1, Math.ceil((resetMs - now) / 1000)),
+    scope
+  };
+}
+
+export async function checkRateLimit(
   subject: RateLimitSubject,
   config: RateLimitConfig = rateLimitConfigFromEnv(),
-  store = buckets,
+  store: RateLimitMemoryStore | null = process.env.NODE_ENV === "test" ? testBuckets : null,
   now = Date.now()
-): RateLimitDecision {
+): Promise<RateLimitDecision> {
   const keys = subjectKeys(subject);
   let tightest: RateLimitDecision | null = null;
-
   for (const { key, scope } of keys) {
-    const existing = store.get(key);
-    const bucket =
-      existing && existing.resetAt > now ? existing : { count: 0, resetAt: now + config.windowMs };
-    const count = bucket.count + 1;
-    store.set(key, { count, resetAt: bucket.resetAt });
-
-    const limit = config.limits[scope];
-    const remaining = Math.max(0, limit - count);
-    const decision: RateLimitDecision = {
-      allowed: count <= limit,
-      limit,
-      remaining,
-      resetAt: bucket.resetAt,
-      retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
-      scope
-    };
-
-    if (!tightest || decision.remaining < tightest.remaining) {
-      tightest = decision;
-    }
-    if (!decision.allowed) {
-      return decision;
-    }
+    const decision = store
+      ? memoryDecision(key, scope, config.limits[scope], config.windowMs, store, now)
+      : await dbDecision(key, scope, config.limits[scope], config.windowMs, now);
+    if (!tightest || decision.remaining < tightest.remaining) tightest = decision;
+    if (!decision.allowed) return decision;
   }
-
   return (
     tightest ?? {
       allowed: true,
@@ -112,4 +151,8 @@ export function checkRateLimit(
       scope: "ip"
     }
   );
+}
+
+export function resetRateLimitsForTest(): void {
+  testBuckets.clear();
 }

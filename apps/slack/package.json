@@ -16,9 +16,11 @@
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
+    "@types/pg": "^8.20.0",
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@slack/bolt": "^4.7.3"
+    "@slack/bolt": "^4.7.3",
+    "pg": "^8.22.0"
   }
 }

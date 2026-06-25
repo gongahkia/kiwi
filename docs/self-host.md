@@ -25,7 +25,7 @@ Generate fresh auth/API/token-encryption secrets for new self-host installs:
 ./scripts/generate-secrets.sh
 ```
 
-Copy the generated `AUTH_SECRET`, `WAT_API_KEY`, and `SLACK_TOKEN_ENCRYPTION_KEY` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid.
+Copy the generated `AUTH_SECRET`, `WAT_API_KEY`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid.
 
 Optional values depend on enabled surfaces:
 
@@ -34,6 +34,19 @@ SLACK_CLIENT_ID=
 SLACK_CLIENT_SECRET=
 SLACK_SIGNING_SECRET=
 SLACK_APP_TOKEN=
+SLACK_BOT_TOKEN=
+SLACK_REDIRECT_URI=https://wat.example.com/slack/oauth/callback
+SLACK_INSTALL_STORE=postgres
+WAT_SLACK_TEAM_MAP=T123:team_123
+TEAMS_PUBLIC_ORIGIN=https://wat.example.com
+TEAMS_APP_ID=
+TEAMS_API_SECRET_REGISTRATION_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_APPLICATION_ID=
+DISCORD_BOT_TOKEN=
+DISCORD_INSTALL_SCOPES=applications.commands
+DISCORD_INSTALL_STORE=postgres
+WAT_DISCORD_GUILD_MAP=guild_123:team_123
 ```
 
 ## Docker Compose
@@ -44,7 +57,7 @@ For a local demo with Postgres, Mailpit, seed data, and the web app, run:
 pnpm demo:local
 ```
 
-The compose file starts Postgres, Mailpit, a one-shot migration/seed job, web, and Slack services:
+The compose file starts Postgres, Mailpit, a one-shot migration/seed job, web, Slack, and Discord services:
 
 ```sh
 docker compose up --build
@@ -54,10 +67,11 @@ Expected local endpoints:
 
 - web app: <http://localhost:3000>
 - Slack webhook health: <http://localhost:3001/healthz>
+- Discord interactions health: <http://localhost:3002/healthz>
 - Mailpit: <http://localhost:8025>
 - Postgres: `localhost:5432`
 
-The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, and Postgres readiness. On a clean volume, the migration job applies DB migrations and imports the public seed corpus before web starts. `/readyz` fails until Postgres is reachable, required migrations exist, and at least one public corpus entry is seeded.
+The stack includes persistent Postgres storage and health checks for `/readyz`, Slack `/healthz`, Discord `/healthz`, and Postgres readiness. On a clean volume, the migration job applies DB migrations and imports the public seed corpus before web starts. `/readyz` fails until Postgres is reachable, required migrations exist, and at least one public corpus entry is seeded.
 
 Local Compose defaults set `WAT_VALIDATE_ENV=false` because the default URLs and Mailpit SMTP endpoint are localhost-only. Before exposing a self-hosted deployment publicly, set production values in `.env` and run with `WAT_VALIDATE_ENV=true`.
 
@@ -83,11 +97,12 @@ Expected chart components:
 
 - `Deployment` for web
 - `Deployment` for Slack app when enabled
+- `Deployment` for Discord app when enabled
 - `StatefulSet` or external secret/config for Postgres
 - `Service` and `Ingress` for web
 - liveness probe on `/healthz`
 - readiness probe on `/readyz`
-- secret references for auth, Slack, and database credentials
+- secret references for auth, Slack, Discord, and database credentials
 
 ## Fly.io
 

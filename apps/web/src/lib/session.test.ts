@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { isAdminSession, sessionTeamRole, sessionUserId } from "./session";
+import { sessionUserFromToken, testSessionToken } from "./session";
 
 describe("session role helpers", () => {
-  it("maps dev session to admin", () => {
-    expect(sessionUserId("dev")).toBe("user_admin");
-    expect(isAdminSession("dev")).toBe(true);
+  it("parses test admin sessions", async () => {
+    await expect(sessionUserFromToken(testSessionToken())).resolves.toMatchObject({
+      id: "user_admin",
+      role: "admin",
+      teamId: "team_1"
+    });
   });
 
-  it("rejects member sessions for admin access", () => {
-    expect(sessionTeamRole("user_platform")).toBe("member");
-    expect(isAdminSession("user_platform")).toBe(false);
+  it("parses member sessions", async () => {
+    await expect(
+      sessionUserFromToken(testSessionToken({ role: "member", userId: "user_platform" }))
+    ).resolves.toMatchObject({
+      id: "user_platform",
+      role: "member"
+    });
   });
 });

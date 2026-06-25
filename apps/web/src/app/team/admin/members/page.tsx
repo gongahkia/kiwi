@@ -1,11 +1,16 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { AdminEmptyState } from "@/components/admin-empty-state";
 import { adminEmptyStates } from "@/lib/admin-empty-states";
+import { sessionUserFromCookieStore } from "@/lib/session";
 import { getTeamMembers } from "@/lib/team-members";
 
-export default function TeamMembersPage() {
-  const members = getTeamMembers();
+export default async function TeamMembersPage() {
+  const session = await sessionUserFromCookieStore(await cookies());
+  if (!session?.teamId) redirect("/login?next=/team/admin/members");
+  const members = await getTeamMembers(session.teamId);
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">

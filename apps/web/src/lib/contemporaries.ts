@@ -32,8 +32,8 @@ function normalizeKey(value: string): string {
 export async function getVisibleSearchEntries(identity: ApiIdentity): Promise<SearchEntry[]> {
   return [
     ...(await getPublicEntries()),
-    ...getScopedTeamEntries(identity),
-    ...getScopedPersonalEntries(identity)
+    ...(await getScopedTeamEntries(identity)),
+    ...(await getScopedPersonalEntries(identity))
   ];
 }
 

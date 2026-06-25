@@ -11,7 +11,7 @@ import {
 } from "./suggestions";
 
 describe("suggestions", () => {
-  it("validates and queues new entry suggestions", () => {
+  it("validates and queues new entry suggestions", async () => {
     resetSuggestedEditsForTest();
     const input = validateSuggestedEntry({
       domains: ["web"],
@@ -22,9 +22,9 @@ describe("suggestions", () => {
     });
 
     expect(input).not.toBeNull();
-    const suggestion = submitNewEntrySuggestion("user_admin", input!);
+    const suggestion = await submitNewEntrySuggestion("team_1", "user_admin", input!);
     expect(suggestion).toMatchObject({ actor_id: "user_admin", status: "pending" });
-    expect(getSuggestedEdits()).toHaveLength(1);
+    expect(await getSuggestedEdits()).toHaveLength(1);
     resetSuggestedEditsForTest();
   });
 
@@ -40,7 +40,7 @@ describe("suggestions", () => {
     ).toBeNull();
   });
 
-  it("queues edit suggestions against an existing entry", () => {
+  it("queues edit suggestions against an existing entry", async () => {
     resetSuggestedEditsForTest();
     const input = validateSuggestedEntryEdit({
       expansion: "Updated expansion",
@@ -49,18 +49,18 @@ describe("suggestions", () => {
     });
 
     expect(input).not.toBeNull();
-    const suggestion = submitEntryEditSuggestion("user_admin", "seed-dom", input!, {
+    const suggestion = await submitEntryEditSuggestion("team_1", "user_admin", "seed-dom", input!, {
       expansion: "Old expansion"
     });
     expect(suggestion).toMatchObject({
       status: "pending",
       target_id: "seed-dom"
     });
-    expect(getSuggestedEdits()).toHaveLength(1);
+    expect(await getSuggestedEdits()).toHaveLength(1);
     resetSuggestedEditsForTest();
   });
 
-  it("reviews and edits queued suggestions", () => {
+  it("reviews and edits queued suggestions", async () => {
     resetSuggestedEditsForTest();
     const input = validateSuggestedEntry({
       domains: ["web"],
@@ -69,8 +69,8 @@ describe("suggestions", () => {
       source_url: "https://example.com/dom",
       term: "DOM"
     });
-    const suggestion = submitNewEntrySuggestion("user_admin", input!);
-    const reviewed = reviewSuggestedEdit(suggestion.id, "reviewer", "approved", {
+    const suggestion = await submitNewEntrySuggestion("team_1", "user_admin", input!);
+    const reviewed = await reviewSuggestedEdit("team_1", suggestion.id, "reviewer", "approved", {
       ...input!,
       meaning: "Updated meaning."
     });

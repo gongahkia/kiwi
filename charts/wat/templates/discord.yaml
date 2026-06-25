@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wat.fullname" . }}-discord
+  labels:
+    {{- include "wat.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.discord.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.discord.service.port }}
+      targetPort: http
+  selector:
+    {{- include "wat.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: discord
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wat.fullname" . }}-discord
+  labels:
+    {{- include "wat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: discord
+spec:
+  replicas: {{ .Values.discord.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "wat.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: discord
+  template:
+    metadata:
+      labels:
+        {{- include "wat.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: discord
+    spec:
+      containers:
+        - name: discord
+          image: "{{ .Values.discord.image.repository }}:{{ .Values.discord.image.tag }}"
+          imagePullPolicy: {{ .Values.discord.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3002
+          env:
+            - name: PORT
+              value: "3002"
+            - name: DISCORD_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-discord
+                  key: public-key
+            - name: DISCORD_APPLICATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-discord
+                  key: application-id
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-discord
+                  key: bot-token
+            - name: DISCORD_METRICS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-discord
+                  key: metrics-token
+            - name: WAT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-discord
+                  key: wat-api-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-postgres
+                  key: database-url
+            - name: DISCORD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.fullname" . }}-postgres
+                  key: database-url
+            - name: DISCORD_INSTALL_STORE
+              value: {{ .Values.discord.installStore | quote }}
+            - name: DISCORD_INSTALL_SCOPES
+              value: {{ .Values.discord.installScopes | quote }}
+            - name: DISCORD_INSTALL_GUILD_ID
+              value: {{ .Values.discord.installGuildId | quote }}
+            - name: DISCORD_INSTALL_DISABLE_GUILD_SELECT
+              value: {{ .Values.discord.installDisableGuildSelect | quote }}
+            - name: DISCORD_INSTALL_INTEGRATION_TYPE
+              value: {{ .Values.discord.installIntegrationType | quote }}
+            - name: DISCORD_BOT_PERMISSIONS
+              value: {{ .Values.discord.botPermissions | quote }}
+            - name: DISCORD_ADMIN_USER_IDS
+              value: {{ .Values.discord.adminUserIds | quote }}
+            - name: DISCORD_ADMIN_ROLE_IDS
+              value: {{ .Values.discord.adminRoleIds | quote }}
+            - name: WAT_API_BASE_URL
+              value: "http://{{ include "wat.fullname" . }}-web:{{ .Values.web.service.port }}"
+            - name: WAT_DISCORD_GUILD_MAP
+              value: {{ .Values.discord.guildMap | quote }}
+            - name: WAT_TEAM_ID
+              value: {{ .Values.discord.teamId | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6

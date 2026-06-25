@@ -136,6 +136,7 @@ erDiagram
 
   suggested_edits {
     text id PK
+    text team_id FK
     text actor_id FK
     text target_type
     text target_id
@@ -147,8 +148,57 @@ erDiagram
     timestamptz reviewed_at
   }
 
+  slack_installs {
+    text id PK
+    text slack_team_id UK
+    text slack_team_name
+    text enterprise_id
+    text enterprise_name
+    text team_id FK
+    text app_id
+    text bot_user_id
+    text installer_slack_user_id
+    jsonb bot_token_encrypted
+    jsonb user_token_encrypted
+    text_array bot_scopes
+    text_array user_scopes
+    timestamptz installed_at
+    timestamptz updated_at
+  }
+
+  teams_installs {
+    text id PK
+    text microsoft_tenant_id UK
+    text tenant_name
+    text team_id FK
+    text app_id
+    text auth_type
+    text api_secret_registration_id
+    text service_url
+    text installed_by
+    timestamptz installed_at
+    timestamptz updated_at
+  }
+
+  discord_installs {
+    text id PK
+    text discord_guild_id UK
+    text guild_name
+    text team_id FK
+    text application_id
+    text bot_user_id
+    text installer_discord_user_id
+    text_array admin_role_ids
+    timestamptz installed_at
+    timestamptz updated_at
+  }
+
   teams ||--o{ users : owns
   teams ||--o{ team_entries : scopes
+  teams ||--o{ slack_installs : connects
+  teams ||--o{ teams_installs : connects
+  teams ||--o{ discord_installs : connects
+  teams ||--o{ suggested_edits : reviews
   users ||--o{ personal_entries : owns
   users ||--o{ audit_log : acts
   users ||--o{ suggested_edits : submits
@@ -177,12 +227,23 @@ erDiagram
 - `entries_embedding_hnsw_idx`: HNSW index on `entries.embedding` with `vector_cosine_ops`.
 - `entries_term_normalized_trgm_idx`: GIN trigram index on `entries.term_normalized`.
 - `entries_term_layer_team_unique_idx`: unique partial index on active `(term_normalized, layer, team_id)` rows, with `NULLS NOT DISTINCT`.
+- `slack_installs_slack_team_id_unique_idx`: unique index mapping one Slack workspace install to one wat team.
+- `slack_installs_team_id_idx`: lookup index for installs by wat team.
+- `teams_installs_microsoft_tenant_id_unique_idx`: unique index mapping one Microsoft tenant install to one wat team.
+- `teams_installs_team_id_idx`: lookup index for Teams installs by wat team.
+- `discord_installs_discord_guild_id_unique_idx`: unique index mapping one Discord guild install to one wat team.
+- `discord_installs_team_id_idx`: lookup index for Discord installs by wat team.
+- `suggested_edits_team_id_status_idx`: lookup index for team-scoped review queues by status.
 
 ## Constraints
 
 - `teams.email_domain` is unique.
 - `users.email` is unique.
 - `team_entries.team_id` cascades on team delete.
+- `slack_installs.team_id` cascades on team delete.
+- `teams_installs.team_id` cascades on team delete.
+- `discord_installs.team_id` cascades on team delete.
+- `suggested_edits.team_id` cascades on team delete.
 - `personal_entries.user_id` cascades on user delete.
 - Entry confidence tiers are constrained to `T1`, `T2`, `T3`, `T4`.
 - Source quality is constrained to `canonical`, `secondary`, `community`.

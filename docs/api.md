@@ -255,6 +255,70 @@ Errors:
 | `403` | `missing_team_scope` | Team-scope write without team scope. |
 | `409` | `custom_entry_conflict` | Duplicate term/expansion or ID in that layer when `mode` is `create`. |
 
+### `POST /suggestions`
+
+Queue a team-scoped, DB-backed glossary suggestion. This is the Slack and Discord `/wat-suggest` write path.
+
+Auth:
+
+- `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY` is required.
+- `X-Wat-Team-Id` is required.
+- `X-Wat-User-Id` is used for quota scope and is stored inside `after_jsonb`.
+
+Request body:
+
+| Name         | Type     | Required | Notes                                                |
+| ------------ | -------- | -------- | ---------------------------------------------------- |
+| `term`       | string   | yes      | Acronym or term to suggest.                          |
+| `expansion`  | string   | yes      | Suggested expansion.                                 |
+| `meaning`    | string   | yes      | Suggested meaning.                                   |
+| `domains`    | string[] | yes      | Team/domain context.                                 |
+| `source_url` | string   | yes      | Valid URL for provenance, e.g. a Slack redirect URL. |
+
+Example:
+
+```sh
+curl \
+  -X POST 'http://localhost:3000/api/v1/suggestions' \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-User-Id: slack:U123" \
+  -H "X-Wat-Team-Id: team_123" \
+  --data '{
+    "term": "RTO",
+    "expansion": "Recovery Time Objective",
+    "meaning": "Maximum acceptable restore time.",
+    "domains": ["example", "ops"],
+    "source_url": "https://slack.com/app_redirect?channel=C123"
+  }'
+```
+
+Response:
+
+```json
+{
+  "suggestion": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "actor_id": null,
+    "team_id": "team_123",
+    "target_type": "entry",
+    "target_id": null,
+    "status": "pending",
+    "before_jsonb": null,
+    "after_jsonb": {
+      "term": "RTO",
+      "expansion": "Recovery Time Objective",
+      "meaning": "Maximum acceptable restore time.",
+      "domains": ["example", "ops"],
+      "source_url": "https://slack.com/app_redirect?channel=C123",
+      "actor_id": "slack:U123",
+      "team_id": "team_123"
+    },
+    "created_at": "2026-06-25T00:00:00.000Z"
+  }
+}
+```
+
 ## Admin List And Export Pagination
 
 Team admin list/export endpoints accept `limit` and `cursor` query params:
@@ -319,6 +383,101 @@ curl \
   -H "X-Wat-User-Id: slack:U_ALICE" \
   -H "X-Wat-Team-Id: $WAT_TEAM_ID" \
   "$WAT_API_BASE_URL/api/v1/search?q=TLS&limit=5&context=docs"
+```
+
+### Microsoft Teams
+
+Teams API-based message-extension search uses the packaged OpenAPI operation `searchGlossary` and passes one query parameter, `q`, to `/api/v1/teams/search`.
+
+For single-team self-host installs, configure the Teams API secret to send `Authorization: Bearer $WAT_API_KEY` and set `WAT_TEAM_ID`; API-key requests without `X-Wat-Team-Id` use that fallback.
+
+Source package files live in `apps/teams/appPackage`; rendered upload output lives in `apps/teams/dist`.
+
+#### `GET /teams/search`
+
+Teams-ready search response for Adaptive Card rendering.
+
+```sh
+curl \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  "$WAT_API_BASE_URL/api/v1/teams/search?q=API"
+```
+
+Optional integration-gateway header:
+
+- `X-Wat-Teams-Tenant-Id`: resolves `team_id` through `teams_installs`. Unknown supplied tenants fail closed with `403`.
+
+#### `POST /teams/installations`
+
+Create or update a Microsoft tenant to wat team mapping.
+
+```sh
+curl \
+  -X POST "$WAT_API_BASE_URL/api/v1/teams/installations" \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-Team-Id: team_123" \
+  --data '{
+    "microsoft_tenant_id": "tenant_123",
+    "tenant_name": "Example Tenant",
+    "app_id": "teams-app-id",
+    "auth_type": "apiSecretServiceAuth",
+    "api_secret_registration_id": "secret-registration-id"
+  }'
+```
+
+#### `DELETE /teams/installations`
+
+Delete a Microsoft tenant mapping for the authenticated wat team.
+
+```sh
+curl \
+  -X DELETE "$WAT_API_BASE_URL/api/v1/teams/installations?tenant_id=tenant_123" \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "X-Wat-Team-Id: team_123"
+```
+
+### Discord
+
+Discord uses a separate signed interactions runtime at `/discord/interactions`. Runtime install redirect is `/discord/install`; the web API owns guild lifecycle mapping.
+
+#### `POST /discord/installations`
+
+Create or update a Discord guild to wat team mapping.
+
+```sh
+curl \
+  -X POST "$WAT_API_BASE_URL/api/v1/discord/installations" \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Wat-Team-Id: team_123" \
+  --data '{
+    "discord_guild_id": "guild_123",
+    "guild_name": "Example Guild",
+    "application_id": "discord-app-id",
+    "bot_user_id": "bot-user-id",
+    "admin_role_ids": ["role_admin"]
+  }'
+```
+
+#### `DELETE /discord/installations`
+
+Delete a Discord guild mapping for the authenticated wat team.
+
+```sh
+curl \
+  -X DELETE "$WAT_API_BASE_URL/api/v1/discord/installations?guild_id=guild_123" \
+  -H "Authorization: Bearer $WAT_API_KEY" \
+  -H "X-Wat-Team-Id: team_123"
+```
+
+#### `GET /discord/metrics`
+
+Protected web-side Discord lifecycle metrics.
+
+```sh
+curl -H "Authorization: Bearer $DISCORD_METRICS_TOKEN" \
+  "$WAT_API_BASE_URL/api/v1/discord/metrics"
 ```
 
 ### MCP

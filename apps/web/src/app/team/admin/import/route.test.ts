@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { testSessionToken } from "@/lib/session";
 import { resetTeamEntriesForTest, type TeamEntry } from "@/lib/team-entries";
 import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
 import { POST } from "./api/route";
@@ -32,7 +33,7 @@ function request(entries: TeamEntry[]) {
     body: JSON.stringify({ entries }),
     headers: {
       "content-type": "application/json",
-      cookie: "wat_session=dev"
+      cookie: `next-auth.session-token=${testSessionToken()}`
     },
     method: "POST"
   });
@@ -43,7 +44,7 @@ function csvRequest(body: string) {
     body,
     headers: {
       "content-type": "text/csv",
-      cookie: "wat_session=dev"
+      cookie: `next-auth.session-token=${testSessionToken()}`
     },
     method: "POST"
   });

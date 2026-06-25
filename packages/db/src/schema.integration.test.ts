@@ -242,6 +242,64 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
     );
     expect(rows[0]).toEqual({ reason: "update", status: "pending" });
   });
+
+  it("stores suggested edits by team", async () => {
+    await insertTeam("team_suggestion", "suggestion.example");
+    await client.query(
+      `
+      insert into suggested_edits (id, team_id, target_type, target_id, before_jsonb, after_jsonb)
+      values ('suggestion_team_scoped', 'team_suggestion', 'entry', null, null, $1)
+      `,
+      [{ term: "SLO" }]
+    );
+
+    const { rows } = await client.query<{ team_id: string }>(
+      "select team_id from suggested_edits where id = 'suggestion_team_scoped'"
+    );
+    expect(rows[0]?.team_id).toBe("team_suggestion");
+  });
+
+  it("stores Teams installs by Microsoft tenant", async () => {
+    await insertTeam("team_teams_install", "teams-install.example");
+    await client.query(
+      `
+      insert into teams_installs (
+        id, microsoft_tenant_id, tenant_name, team_id, app_id, auth_type, api_secret_registration_id
+      ) values (
+        'teams-install-tenant_123', 'tenant_123', 'Example Tenant', 'team_teams_install',
+        'teams-app-id', 'apiSecretServiceAuth', 'secret-registration-id'
+      )
+      `
+    );
+
+    const { rows } = await client.query<{ team_id: string }>(
+      "select team_id from teams_installs where microsoft_tenant_id = 'tenant_123'"
+    );
+    expect(rows[0]?.team_id).toBe("team_teams_install");
+  });
+
+  it("stores Discord installs by guild", async () => {
+    await insertTeam("team_discord_install", "discord-install.example");
+    await client.query(
+      `
+      insert into discord_installs (
+        id, discord_guild_id, guild_name, team_id, application_id, bot_user_id, installer_discord_user_id, admin_role_ids
+      ) values (
+        'discord-install-guild_123', 'guild_123', 'Example Guild', 'team_discord_install',
+        'discord-app-id', 'bot-user-id', 'installer-user-id', $1
+      )
+      `,
+      [["role_admin"]]
+    );
+
+    const { rows } = await client.query<{ admin_role_ids: string[]; team_id: string }>(
+      "select team_id, admin_role_ids from discord_installs where discord_guild_id = 'guild_123'"
+    );
+    expect(rows[0]).toEqual({
+      admin_role_ids: ["role_admin"],
+      team_id: "team_discord_install"
+    });
+  });
 });
 
 function hasDockerRuntime(): boolean {

@@ -8,19 +8,19 @@ import {
 } from "./team-members";
 
 describe("team members", () => {
-  it("promotes and demotes members", () => {
+  it("promotes and demotes members", async () => {
     resetTeamMembersForTest();
 
-    expect(setTeamMemberRole("user_platform", "admin")).toMatchObject({ role: "admin" });
-    expect(setTeamMemberRole("user_platform", "member")).toMatchObject({ role: "member" });
+    expect(await setTeamMemberRole("team_1", "user_platform", "admin")).toMatchObject({ role: "admin" });
+    expect(await setTeamMemberRole("team_1", "user_platform", "member")).toMatchObject({ role: "member" });
     resetTeamMembersForTest();
   });
 
-  it("removes members", () => {
+  it("removes members", async () => {
     resetTeamMembersForTest();
 
-    expect(removeTeamMember("user_ops")).toMatchObject({ id: "user_ops" });
-    expect(getTeamMembers().map((member) => member.id)).not.toContain("user_ops");
+    expect(await removeTeamMember("team_1", "user_ops")).toMatchObject({ id: "user_ops" });
+    expect((await getTeamMembers()).map((member) => member.id)).not.toContain("user_ops");
     resetTeamMembersForTest();
   });
 });

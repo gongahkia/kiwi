@@ -146,29 +146,34 @@ function withEntryId(entry: TeamEntry, id: string): TeamEntry {
   };
 }
 
-function upsertTeamEntry(entry: TeamEntry): { entry: TeamEntry; status: "created" | "updated" } {
-  const existing = getTeamEntries().find((item) => entryKey(item) === entryKey(entry));
+async function upsertTeamEntry(
+  teamId: string,
+  entry: TeamEntry
+): Promise<{ entry: TeamEntry; status: "created" | "updated" }> {
+  const existing = (await getTeamEntries(teamId)).find((item) => entryKey(item) === entryKey(entry));
   if (!existing) {
-    return { entry: createTeamEntry(entry), status: "created" };
+    return { entry: await createTeamEntry(teamId, entry), status: "created" };
   }
 
   return {
-    entry: updateTeamEntry(existing.id, withEntryId(entry, existing.id)),
+    entry: await updateTeamEntry(teamId, existing.id, withEntryId(entry, existing.id)),
     status: "updated"
   };
 }
 
-function upsertPersonalEntry(
+async function upsertPersonalEntry(
   userId: string,
   entry: TeamEntry
-): { entry: TeamEntry; status: "created" | "updated" } {
-  const existing = getPersonalEntries(userId).find((item) => entryKey(item) === entryKey(entry));
+): Promise<{ entry: TeamEntry; status: "created" | "updated" }> {
+  const existing = (await getPersonalEntries(userId)).find(
+    (item) => entryKey(item) === entryKey(entry)
+  );
   if (!existing) {
-    return { entry: createPersonalEntry(userId, entry), status: "created" };
+    return { entry: await createPersonalEntry(userId, entry), status: "created" };
   }
 
   return {
-    entry: updatePersonalEntry(userId, existing.id, withEntryId(entry, existing.id)),
+    entry: await updatePersonalEntry(userId, existing.id, withEntryId(entry, existing.id)),
     status: "updated"
   };
 }
@@ -181,7 +186,7 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const identity = resolveApiIdentity(request.headers);
+  const identity = await resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return apiErrorResponse(request, identity.error, identity.status, {
       headers: corsHeadersForRequest(request, { methods: "POST, OPTIONS" })
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
       message: "api token and x-wat-user-id are required"
     });
   }
-  const writeLimit = checkWriteRateLimit("custom-entry", identity.identity.teamId ?? userId);
+  const writeLimit = await checkWriteRateLimit("custom-entry", identity.identity.teamId ?? userId);
   if (!writeLimit.allowed) {
     return apiErrorResponse(request, "rate_limited", 429, {
       fields: {
@@ -226,8 +231,8 @@ export async function POST(request: NextRequest) {
     if (parsed.mode === "upsert") {
       const result =
         parsed.scope === "team"
-          ? upsertTeamEntry(parsed.entry)
-          : upsertPersonalEntry(userId, parsed.entry);
+          ? await upsertTeamEntry(identity.identity.teamId!, parsed.entry)
+          : await upsertPersonalEntry(userId, parsed.entry);
 
       return json(
         request,
@@ -238,8 +243,8 @@ export async function POST(request: NextRequest) {
 
     const entry =
       parsed.scope === "team"
-        ? createTeamEntry(parsed.entry)
-        : createPersonalEntry(userId, parsed.entry);
+        ? await createTeamEntry(identity.identity.teamId!, parsed.entry)
+        : await createPersonalEntry(userId, parsed.entry);
 
     return json(request, { entry, mode: "created", scope: parsed.scope }, { status: 201 });
   } catch (error) {

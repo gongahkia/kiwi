@@ -3,6 +3,7 @@
   "references": [
     { "path": "./apps/web" },
     { "path": "./apps/slack" },
+    { "path": "./apps/discord" },
     { "path": "./apps/mcp" },
     { "path": "./apps/lsp" },
     { "path": "./packages/core" },

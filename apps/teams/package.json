@@ -1,0 +1,12 @@
+{
+  "name": "@wat/teams",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/render-app-package.mjs && node scripts/validate-app-package.mjs dist/appPackage",
+    "package": "node scripts/render-app-package.mjs && node scripts/validate-app-package.mjs dist/appPackage && cd dist/appPackage && zip -qr ../wat-teams-app.zip manifest.json wat-openapi.yml response-template.json color.png outline.png",
+    "package:prod": "TEAMS_REQUIRE_PRODUCTION_CONFIG=true node scripts/render-app-package.mjs && node scripts/validate-app-package.mjs dist/appPackage --production && cd dist/appPackage && zip -qr ../wat-teams-app.zip manifest.json wat-openapi.yml response-template.json color.png outline.png",
+    "test": "node scripts/validate-app-package.mjs appPackage && node scripts/render-app-package.mjs && node scripts/validate-app-package.mjs dist/appPackage"
+  }
+}

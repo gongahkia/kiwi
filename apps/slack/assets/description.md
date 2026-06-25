@@ -15,3 +15,7 @@ Each result is designed to include the top expansion, domain labels, confidence 
 ## Privacy Summary
 
 wat should process only explicit commands, selected message text, mentions, or opted-in channel detection candidates. Channel history ingestion is not enabled by default.
+
+## Install And Lifecycle
+
+wat supports direct OAuth install through `/slack/install`, encrypted install storage, admin-gated team definitions, uninstall cleanup through Slack lifecycle events, and token-safe production metrics.

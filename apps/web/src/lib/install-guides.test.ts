@@ -5,9 +5,11 @@ import { installGuideById, installGuides } from "./install-guides";
 describe("install guides", () => {
   it("covers required surfaces with role, environment, and steps", () => {
     expect(installGuides.map((guide) => guide.id)).toEqual([
+      "slack",
+      "teams",
+      "discord",
       "web",
       "extension",
-      "slack",
       "mcp",
       "api",
       "self-host"

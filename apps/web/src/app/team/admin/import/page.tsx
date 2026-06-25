@@ -1,9 +1,16 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { TeamImportPanel } from "@/components/team-import-panel";
+import { sessionUserFromCookieStore } from "@/lib/session";
 import { getTeamEntries } from "@/lib/team-entries";
 
-export default function TeamImportPage() {
+export default async function TeamImportPage() {
+  const session = await sessionUserFromCookieStore(await cookies());
+  if (!session?.teamId) redirect("/login?next=/team/admin/import");
+  const entries = await getTeamEntries(session.teamId);
+
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
       <div className="mx-auto grid max-w-5xl gap-6">
@@ -30,7 +37,7 @@ export default function TeamImportPage() {
             </Link>
           </div>
         </header>
-        <TeamImportPanel existingEntries={getTeamEntries()} />
+        <TeamImportPanel existingEntries={entries} />
       </div>
     </main>
   );

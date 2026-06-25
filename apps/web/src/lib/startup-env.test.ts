@@ -14,8 +14,7 @@ const validProdEnv = {
   EMAIL_FROM: "Wat <security@example.com>",
   EMAIL_SERVER: "smtp://smtp.example.com:587",
   NEXT_PUBLIC_SITE_URL: "https://wat.example.com",
-  NODE_ENV: "production",
-  WAT_API_KEY: "wat_api_key_012345678901234567890123456789"
+  NODE_ENV: "production"
 };
 
 describe("startup env validation", () => {
@@ -45,8 +44,7 @@ describe("startup env validation", () => {
       DATABASE_URL: "postgres://wat:wat@localhost:5432/wat",
       EMAIL_FROM: "wat@localhost",
       EMAIL_SERVER: "smtp://localhost:1025",
-      NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
-      WAT_API_KEY: ""
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
     });
 
     expect(issues).toEqual(
@@ -58,8 +56,7 @@ describe("startup env validation", () => {
         }),
         expect.objectContaining({ key: "EMAIL_FROM", message: "missing or default sender" }),
         expect.objectContaining({ key: "EMAIL_SERVER", message: "missing or points at localhost" }),
-        expect.objectContaining({ key: "NEXT_PUBLIC_SITE_URL", message: "must use HTTPS" }),
-        expect.objectContaining({ key: "WAT_API_KEY", message: "missing" })
+        expect.objectContaining({ key: "NEXT_PUBLIC_SITE_URL", message: "must use HTTPS" })
       ])
     );
     expect(formatStartupEnvError(issues)).toContain("Invalid wat startup environment:");

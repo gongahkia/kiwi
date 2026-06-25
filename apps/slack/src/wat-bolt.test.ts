@@ -5,6 +5,8 @@ import { App, type Receiver, type ReceiverEvent } from "@slack/bolt";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { explainAcronymsShortcutId, registerWatBoltHandlers } from "./wat-bolt.js";
+import { encryptToken } from "./token-encryption.js";
+import { MemorySlackInstallStore, type SlackInstallStore } from "./slack-install-store.js";
 import {
   MemoryRateLimitStore,
   type SlackRateLimitStore,
@@ -231,7 +233,11 @@ describe("wat Bolt handlers", () => {
   });
 
   it("lets configured admins define team entries from Slack", async () => {
-    const receiver = createWatApp({ slackAdminUserIds: ["U_ALICE"] });
+    const receiver = createWatApp({
+      slackAdminUserIds: ["U_ALICE"],
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
 
     await receiver.dispatch({
       api_app_id: "A_WAT",
@@ -253,9 +259,56 @@ describe("wat Bolt handlers", () => {
       response_type: "ephemeral",
       text: "Defined SLO as Service Level Objective."
     });
-    expect(responsePayload("/team/admin/entries/api")).toMatchObject({
+    expect(responsePayload("/api/v1/custom-entries")).toMatchObject({
+      domains: ["example", "docs"],
       expansion: "Service Level Objective",
       meaning: "Reliability target for a service.",
+      mode: "upsert",
+      scope: "team",
+      term: "SLO"
+    });
+  });
+
+  it("lets wat team admins define entries from Slack", async () => {
+    const receiver = createWatApp({
+      fetchSlackUser: async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            user: { profile: { email: "admin@example.com" } }
+          })
+        ),
+      slackBotToken: "xoxb-test",
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-define",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "SLO as Service Level Objective -- Reliability target for a service.",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Defined SLO as Service Level Objective."
+    });
+    expect(capturedRequest("/api/v1/team/admin-check").headers).toEqual({
+      authorization: "Bearer wat-team-key",
+      xWatTeamId: "wat-team-123",
+      xWatUserId: "slack:U_ALICE"
+    });
+    expect(responsePayload("/api/v1/custom-entries")).toMatchObject({
+      scope: "team",
       term: "SLO"
     });
   });
@@ -283,20 +336,62 @@ describe("wat Bolt handlers", () => {
       response_type: "ephemeral",
       text: "Suggested RTO as Recovery Time Objective for admin review."
     });
-    expect(responsePayload("/suggest/api")).toMatchObject({
+    expect(responsePayload("/api/v1/suggestions")).toMatchObject({
       expansion: "Recovery Time Objective",
       meaning: "Maximum acceptable restore time.",
       term: "RTO"
     });
-    expect(capturedRequest("/suggest/api").headers).toEqual({
+    expect(capturedRequest("/api/v1/suggestions").headers).toEqual({
       authorization: "Bearer wat-team-key",
       xWatTeamId: "wat-team-123",
       xWatUserId: "slack:U_BOB"
     });
   });
 
+  it("uses Slack install mapping for workspace-scoped suggestions", async () => {
+    const installStore = new MemorySlackInstallStore();
+    await installStore.upsert({
+      appId: "A_WAT",
+      botScopes: ["commands"],
+      botToken: encryptToken("xoxb-token", "enc-key"),
+      botUserId: "U_BOT",
+      installedAt: "2026-06-25T00:00:00.000Z",
+      installerSlackUserId: "U_INSTALLER",
+      slackTeamId: "T_WAT",
+      updatedAt: "2026-06-25T00:00:00.000Z",
+      userScopes: [],
+      watTeamId: "team_from_install"
+    });
+    const receiver = createWatApp({ installStore, watApiKey: "wat-team-key" });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-suggest",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "RPO as Recovery Point Objective -- Maximum acceptable data loss.",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_BOB",
+      user_name: "bob"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(capturedRequest("/api/v1/suggestions").headers).toMatchObject({
+      authorization: "Bearer wat-team-key",
+      xWatTeamId: "team_from_install",
+      xWatUserId: "slack:U_BOB"
+    });
+  });
+
   it("rejects non-admin define attempts", async () => {
-    const receiver = createWatApp({ slackAdminUserIds: ["U_ALICE"] });
+    const receiver = createWatApp({
+      slackAdminUserIds: ["U_ALICE"],
+      watTeamId: "wat-team-123"
+    });
 
     await receiver.dispatch({
       api_app_id: "A_WAT",
@@ -316,9 +411,9 @@ describe("wat Bolt handlers", () => {
     expect(receiver.acked).toEqual([true]);
     expect(responsePayload("/response")).toMatchObject({
       response_type: "ephemeral",
-      text: "Only configured Slack workspace admins can define team entries."
+      text: "Only wat team admins can define team entries from Slack."
     });
-    expect(captured.some((item) => item.path === "/team/admin/entries/api")).toBe(false);
+    expect(captured.some((item) => item.path === "/api/v1/custom-entries")).toBe(false);
   });
 
   it("responds to the explain-acronyms message shortcut with detected entries", async () => {
@@ -431,9 +526,12 @@ describe("wat Bolt handlers", () => {
 
 function createWatApp(
   options: {
+    fetchSlackUser?: typeof fetch;
+    installStore?: SlackInstallStore;
     rateLimitConfig?: WorkspaceRateLimitConfig;
     rateLimitStore?: SlackRateLimitStore;
     slackAdminUserIds?: string[];
+    slackBotToken?: string;
     watApiKey?: string;
     watTeamId?: string;
   } = {}
@@ -459,7 +557,10 @@ function createWatApp(
       workspaceLimit: 100
     },
     rateLimitStore: options.rateLimitStore ?? new MemoryRateLimitStore(),
+    fetchSlackUser: options.fetchSlackUser,
+    installStore: options.installStore,
     slackAdminUserIds: options.slackAdminUserIds,
+    slackBotToken: options.slackBotToken,
     watApiKey: options.watApiKey,
     watApiBaseUrl: baseUrl,
     watTeamId: options.watTeamId
@@ -498,11 +599,21 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
+  if (url.pathname === "/api/v1/team/admin-check") {
+    captured.push({
+      body: { user: url.searchParams.get("user") },
+      headers: watHeaders(request),
+      path: url.pathname
+    });
+    writeJson(response, 200, { admin: url.searchParams.get("user") === "admin@example.com" });
+    return;
+  }
+
   if (
     url.pathname === "/response" ||
     url.pathname === "/api/chat.postMessage" ||
-    url.pathname === "/team/admin/entries/api" ||
-    url.pathname === "/suggest/api"
+    url.pathname === "/api/v1/custom-entries" ||
+    url.pathname === "/api/v1/suggestions"
   ) {
     captured.push({
       body: await readBody(request),

@@ -28,7 +28,7 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const identity = resolveApiIdentity(request.headers);
+  const identity = await resolveApiIdentity(request.headers);
   if (!identity.ok) {
     return apiErrorResponse(request, identity.error, identity.status, {
       headers: corsHeadersForRequest(request, { methods: "GET, OPTIONS" })

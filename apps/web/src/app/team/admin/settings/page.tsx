@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { sessionUserFromCookieStore } from "@/lib/session";
 import { getTeamSettings } from "@/lib/team-settings";
 
-export default function TeamSettingsPage() {
-  const settings = getTeamSettings();
+export default async function TeamSettingsPage() {
+  const session = await sessionUserFromCookieStore(await cookies());
+  if (!session?.teamId) redirect("/login?next=/team/admin/settings");
+  const settings = await getTeamSettings(session.teamId);
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">

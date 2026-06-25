@@ -14,15 +14,23 @@ import {
   type WorkspaceRateLimitConfig,
   type WorkspaceRateLimitDecision
 } from "./workspace-rate-limit.js";
+import type { SlackInstallStore } from "./slack-install-store.js";
+import type { SlackMonitor } from "./slack-monitoring.js";
 
 export const explainAcronymsShortcutId = "wat_explain_acronyms";
 
 export interface WatBoltDeps {
+  fetchAdminCheck?: typeof fetch;
   fetchLookup?: typeof fetch;
+  fetchSlackUser?: typeof fetch;
   fetchWrite?: typeof fetch;
+  installStore?: SlackInstallStore;
+  monitor?: SlackMonitor;
   rateLimitConfig?: WorkspaceRateLimitConfig;
   rateLimitStore?: SlackRateLimitStore;
   slackAdminUserIds?: string[];
+  slackBotToken?: string;
+  slackTeamWatTeamMap?: Record<string, string>;
   watApiKey?: string;
   watApiBaseUrl: string;
   watTeamId?: string;
@@ -63,6 +71,19 @@ interface SearchResponse {
   matches?: Array<{ entry?: SearchEntry }>;
 }
 
+interface SlackUserInfoResponse {
+  ok?: boolean;
+  user?: {
+    profile?: {
+      email?: string;
+    };
+  };
+}
+
+interface AdminCheckResponse {
+  admin?: boolean;
+}
+
 interface SlackMessage {
   blocks: SlackBlock[];
   response_type?: "ephemeral" | "in_channel";
@@ -101,6 +122,7 @@ export function registerWatBoltHandlers(
 
 async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  deps.monitor?.increment("wat_slack_command_total", { command: "/wat" });
   if (!(await allowCommand(args, deps))) return;
   const term = args.command.text.trim();
   if (!term) {
@@ -111,12 +133,20 @@ async function handleWatCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltD
     return;
   }
 
-  const result = await lookup(deps, term, args.command.channel_name, args.command.user_id);
+  const watTeamId = await resolveWatTeamId(deps, commandSlackTeamId(args.command));
+  const result = await lookup(
+    deps,
+    term,
+    args.command.channel_name,
+    args.command.user_id,
+    watTeamId
+  );
   await args.respond(renderLookupMessage(term, result, { response_type: "ephemeral" }));
 }
 
 async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  deps.monitor?.increment("wat_slack_command_total", { command: "/wat-alt" });
   if (!(await allowCommand(args, deps))) return;
   const term = args.command.text.trim();
   if (!term) {
@@ -127,12 +157,19 @@ async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
     return;
   }
 
-  const entries = await lookup(deps, term, args.command.channel_name, args.command.user_id);
+  const watTeamId = await resolveWatTeamId(deps, commandSlackTeamId(args.command));
+  const entries = await lookup(
+    deps,
+    term,
+    args.command.channel_name,
+    args.command.user_id,
+    watTeamId
+  );
   const top = entries[0];
   const alternatives = listAlternatives(top?.contemporaries);
   const resolved = await Promise.all(
     alternatives.map((alternative) =>
-      lookup(deps, alternative, args.command.channel_name, args.command.user_id)
+      lookup(deps, alternative, args.command.channel_name, args.command.user_id, watTeamId)
     )
   );
   await args.respond(
@@ -142,11 +179,20 @@ async function handleWatAltCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
 
 async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  deps.monitor?.increment("wat_slack_command_total", { command: "/wat-define" });
   if (!(await allowCommand(args, deps))) return;
-  if (!isAdminUser(args.command.user_id, deps)) {
+  const watTeamId = await resolveWatTeamId(deps, commandSlackTeamId(args.command));
+  if (!watTeamId) {
     await args.respond({
       response_type: "ephemeral",
-      text: "Only configured Slack workspace admins can define team entries."
+      text: "Slack workspace is not mapped to a wat team."
+    });
+    return;
+  }
+  if (!(await isAdminUser(args.command.user_id, deps, watTeamId))) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Only wat team admins can define team entries from Slack."
     });
     return;
   }
@@ -162,9 +208,10 @@ async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
 
   await writeJson(
     deps,
-    "/team/admin/entries/api",
-    teamEntryFromCommand(definition, args.command),
-    args.command.user_id
+    "/api/v1/custom-entries",
+    customEntryFromCommand(definition, args.command),
+    args.command.user_id,
+    watTeamId
   );
   await args.respond({
     response_type: "ephemeral",
@@ -174,7 +221,16 @@ async function handleDefineCommand(args: SlackCommandMiddlewareArgs, deps: WatBo
 
 async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
+  deps.monitor?.increment("wat_slack_command_total", { command: "/wat-suggest" });
   if (!(await allowCommand(args, deps))) return;
+  const watTeamId = await resolveWatTeamId(deps, commandSlackTeamId(args.command));
+  if (!watTeamId) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Slack workspace is not mapped to a wat team."
+    });
+    return;
+  }
   const definition = parseDefinition(args.command.text, fallbackMeaning(args.command.user_name));
   if (!definition) {
     await args.respond({
@@ -186,7 +242,7 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
 
   await writeJson(
     deps,
-    "/suggest/api",
+    "/api/v1/suggestions",
     {
       domains: domainsFor(args.command),
       expansion: definition.expansion,
@@ -194,7 +250,8 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
       source_url: slackSourceUrl(args.command),
       term: definition.term
     },
-    args.command.user_id
+    args.command.user_id,
+    watTeamId
   );
   await args.respond({
     response_type: "ephemeral",
@@ -218,8 +275,9 @@ async function handleExplainAcronymsShortcut(args: SlackShortcutMiddlewareArgs, 
     return;
   }
 
+  const watTeamId = await resolveWatTeamId(deps, shortcutSlackTeamId(args));
   const lookups = await Promise.all(
-    terms.map((term) => lookup(deps, term, messageText, args.shortcut.user.id))
+    terms.map((term) => lookup(deps, term, messageText, args.shortcut.user.id, watTeamId))
   );
   await args.respond(renderAcronymList(lookups));
 }
@@ -237,7 +295,8 @@ async function handleAppMention(args: SlackEventMiddlewareArgs<"app_mention">, d
     return;
   }
 
-  const result = await lookup(deps, term, text, args.event.user);
+  const watTeamId = await resolveWatTeamId(deps, mentionSlackTeamId(args));
+  const result = await lookup(deps, term, text, args.event.user, watTeamId);
   const threadTs = appMentionThreadTs(args.event);
   await args.say({
     ...renderLookupMessage(term, result),
@@ -301,6 +360,35 @@ function mentionSubject(args: SlackEventMiddlewareArgs<"app_mention">): SlackRat
   };
 }
 
+function commandSlackTeamId(command: SlackCommandMiddlewareArgs["command"]): string | undefined {
+  return command.team_id ?? undefined;
+}
+
+function shortcutSlackTeamId(args: SlackShortcutMiddlewareArgs): string | undefined {
+  return args.shortcut.team?.id ?? args.shortcut.user.team_id ?? undefined;
+}
+
+function mentionSlackTeamId(args: SlackEventMiddlewareArgs<"app_mention">): string | undefined {
+  return "team_id" in args.body && typeof args.body.team_id === "string"
+    ? args.body.team_id
+    : undefined;
+}
+
+async function resolveWatTeamId(
+  deps: WatBoltDeps,
+  slackTeamId: string | undefined
+): Promise<string | undefined> {
+  const normalizedSlackTeamId = slackTeamId?.trim();
+  if (normalizedSlackTeamId && deps.installStore) {
+    const install = await deps.installStore.getBySlackTeamId(normalizedSlackTeamId);
+    if (install?.watTeamId) return install.watTeamId;
+  }
+  if (normalizedSlackTeamId && deps.slackTeamWatTeamMap?.[normalizedSlackTeamId]) {
+    return deps.slackTeamWatTeamMap[normalizedSlackTeamId];
+  }
+  return deps.watTeamId;
+}
+
 function appMentionThreadTs(event: SlackEventMiddlewareArgs<"app_mention">["event"]): string {
   return "thread_ts" in event && typeof event.thread_ts === "string"
     ? event.thread_ts
@@ -326,14 +414,19 @@ async function writeJson(
   deps: WatBoltDeps,
   pathname: string,
   body: unknown,
-  userId: string
+  userId: string,
+  watTeamId?: string
 ): Promise<void> {
   const client = deps.fetchWrite ?? fetch;
   const url = new URL(pathname, deps.watApiBaseUrl);
   const response = await client(url, {
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json", ...watAuthHeaders(deps, userId) },
+    headers: { "content-type": "application/json", ...watAuthHeaders(deps, userId, watTeamId) },
     method: "POST"
+  });
+  deps.monitor?.increment("wat_slack_write_total", {
+    path: pathname,
+    status: response.status
   });
   if (!response.ok) throw new Error(`wat write failed: ${response.status}`);
 }
@@ -342,7 +435,8 @@ async function lookup(
   deps: WatBoltDeps,
   term: string,
   context = "",
-  userId?: string
+  userId?: string,
+  watTeamId?: string
 ): Promise<SearchEntry[]> {
   const client = deps.fetchLookup ?? fetch;
   const url = new URL("/api/v1/search", deps.watApiBaseUrl);
@@ -350,17 +444,22 @@ async function lookup(
   url.searchParams.set("limit", "5");
   if (context.trim()) url.searchParams.set("context", context.trim());
 
-  const response = await client(url, { headers: watAuthHeaders(deps, userId) });
+  const response = await client(url, { headers: watAuthHeaders(deps, userId, watTeamId) });
+  deps.monitor?.increment("wat_slack_lookup_total", { status: response.status });
   if (!response.ok) throw new Error(`wat lookup failed: ${response.status}`);
   const body = (await response.json()) as SearchResponse;
   return body.matches?.flatMap((match) => (match.entry ? [match.entry] : [])) ?? [];
 }
 
-function watAuthHeaders(deps: WatBoltDeps, userId?: string): Record<string, string> {
+function watAuthHeaders(
+  deps: WatBoltDeps,
+  userId?: string,
+  watTeamId = deps.watTeamId
+): Record<string, string> {
   const headers: Record<string, string> = {};
   if (!deps.watApiKey) return headers;
   headers.authorization = `Bearer ${deps.watApiKey}`;
-  if (deps.watTeamId) headers["x-wat-team-id"] = deps.watTeamId;
+  if (watTeamId) headers["x-wat-team-id"] = watTeamId;
   if (userId) headers["x-wat-user-id"] = `slack:${userId}`;
   return headers;
 }
@@ -384,25 +483,18 @@ function parseDefinition(text: string, defaultMeaning: string): ParsedDefinition
   };
 }
 
-function teamEntryFromCommand(
+function customEntryFromCommand(
   definition: ParsedDefinition,
   command: SlackCommandMiddlewareArgs["command"]
 ) {
   return {
     domains: domainsFor(command),
     expansion: definition.expansion,
-    id: `slack-${(command.team_id ?? "team").toLowerCase()}-${definition.term.toLowerCase()}`,
     meaning: definition.meaning,
-    sources: [
-      {
-        license: "proprietary-team",
-        publisher: command.team_domain ?? "Slack",
-        retrieved_at: new Date().toISOString(),
-        snippet: definition.meaning,
-        title: `Slack /wat-define by ${command.user_name}`,
-        url: slackSourceUrl(command)
-      }
-    ],
+    mode: "upsert",
+    scope: "team",
+    sourceTitle: `Slack /wat-define by ${command.user_name}`,
+    sourceUrl: slackSourceUrl(command),
     term: definition.term
   };
 }
@@ -417,8 +509,42 @@ function fallbackMeaning(userName: string): string {
   return `Defined from Slack by ${userName}.`;
 }
 
-function isAdminUser(userId: string, deps: WatBoltDeps): boolean {
-  return deps.slackAdminUserIds?.includes(userId) ?? false;
+async function isAdminUser(userId: string, deps: WatBoltDeps, watTeamId: string): Promise<boolean> {
+  if (deps.slackAdminUserIds?.includes(userId)) return true;
+  const email = await slackUserEmail(userId, deps);
+  if (!email) return false;
+  return watAdminCheck(email, deps, userId, watTeamId);
+}
+
+async function slackUserEmail(userId: string, deps: WatBoltDeps): Promise<string | null> {
+  if (!deps.slackBotToken) return null;
+  const client = deps.fetchSlackUser ?? fetch;
+  const url = new URL("https://slack.com/api/users.info");
+  url.searchParams.set("user", userId);
+  const response = await client(url, {
+    headers: { authorization: `Bearer ${deps.slackBotToken}` }
+  });
+  if (!response.ok) return null;
+  const body = (await response.json()) as SlackUserInfoResponse;
+  if (body.ok !== true || typeof body.user?.profile?.email !== "string") return null;
+  return body.user.profile.email.trim() || null;
+}
+
+async function watAdminCheck(
+  email: string,
+  deps: WatBoltDeps,
+  userId: string,
+  watTeamId: string
+): Promise<boolean> {
+  if (!deps.watApiKey) return false;
+  const client = deps.fetchAdminCheck ?? fetch;
+  const url = new URL("/api/v1/team/admin-check", deps.watApiBaseUrl);
+  url.searchParams.set("user", email);
+  const response = await client(url, { headers: watAuthHeaders(deps, userId, watTeamId) });
+  deps.monitor?.increment("wat_slack_admin_check_total", { status: response.status });
+  if (!response.ok) return false;
+  const body = (await response.json()) as AdminCheckResponse;
+  return body.admin === true;
 }
 
 function listAlternatives(values?: string[]): string[] {

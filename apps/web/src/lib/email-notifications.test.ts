@@ -79,7 +79,7 @@ describe("email notifications", () => {
       source_url: "https://example.com/dom",
       term: "DOM"
     });
-    const suggestion = submitNewEntrySuggestion("user_platform", input!);
+    const suggestion = await submitNewEntrySuggestion("team_1", "user_platform", input!);
 
     try {
       await expect(
@@ -109,7 +109,7 @@ describe("email notifications", () => {
       source_url: "https://example.com/dom",
       term: "DOM"
     });
-    const suggestion = submitNewEntrySuggestion("user_platform", input!);
+    const suggestion = await submitNewEntrySuggestion("team_1", "user_platform", input!);
 
     await expect(sendSuggestionOutcomeEmail(suggestion, "rejected", {})).resolves.toBeNull();
     expect(getEmailOutbox()).toHaveLength(0);

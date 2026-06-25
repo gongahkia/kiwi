@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { middleware } from "./middleware";
+import { testSessionToken } from "./lib/session";
 
 function nextRequest(method: string, headers: Record<string, string> = {}) {
   return new NextRequest("https://wat.example.com/team/admin/entries/api", {
@@ -12,9 +13,9 @@ function nextRequest(method: string, headers: Record<string, string> = {}) {
 
 describe("middleware csrf guard", () => {
   it("blocks cross-site cookie-authenticated mutations", async () => {
-    const response = middleware(
+    const response = await middleware(
       nextRequest("POST", {
-        cookie: "wat_session=dev",
+        cookie: `next-auth.session-token=${testSessionToken()}`,
         origin: "https://evil.example"
       })
     );
@@ -28,10 +29,10 @@ describe("middleware csrf guard", () => {
     expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
-  it("allows same-origin cookie-authenticated mutations to continue", () => {
-    const response = middleware(
+  it("allows same-origin cookie-authenticated mutations to continue", async () => {
+    const response = await middleware(
       nextRequest("POST", {
-        cookie: "wat_session=dev",
+        cookie: `next-auth.session-token=${testSessionToken()}`,
         origin: "https://wat.example.com"
       })
     );
@@ -41,7 +42,7 @@ describe("middleware csrf guard", () => {
   });
 
   it("returns REST error bodies instead of redirects for protected APIs", async () => {
-    const response = middleware(nextRequest("GET"));
+    const response = await middleware(nextRequest("GET"));
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({

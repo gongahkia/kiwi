@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
+import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
 import { getPersonalEntries, resetPersonalEntriesForTest } from "@/lib/personal-entries";
 import { getTeamEntries, initialTeamEntries, resetTeamEntriesForTest } from "@/lib/team-entries";
 import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
 import { POST } from "./route";
 
-const previousApiKey = process.env.WAT_API_KEY;
 const previousCustomEntryWriteLimit = process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
 
 function request(body: Record<string, unknown>, headers: Record<string, string> = {}) {
@@ -29,7 +29,7 @@ function request(body: Record<string, unknown>, headers: Record<string, string> 
 
 describe("POST /api/v1/custom-entries", () => {
   beforeEach(() => {
-    process.env.WAT_API_KEY = "test-key";
+    seedApiKeyForTest({ key: "test-key", teamId: "team_1" });
     delete process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
@@ -37,11 +37,7 @@ describe("POST /api/v1/custom-entries", () => {
   });
 
   afterEach(() => {
-    if (previousApiKey === undefined) {
-      delete process.env.WAT_API_KEY;
-    } else {
-      process.env.WAT_API_KEY = previousApiKey;
-    }
+    resetApiKeysForTest();
     if (previousCustomEntryWriteLimit === undefined) {
       delete process.env.WAT_CUSTOM_ENTRY_WRITE_LIMIT;
     } else {
@@ -70,7 +66,9 @@ describe("POST /api/v1/custom-entries", () => {
     expect(response.status).toBe(201);
     expect(body.scope).toBe("personal");
     expect(body.entry.sources[0]?.license).toBe("proprietary-personal");
-    expect(getPersonalEntries("user_1")[0]?.sources[0]?.license).toBe("proprietary-personal");
+    expect((await getPersonalEntries("user_1"))[0]?.sources[0]?.license).toBe(
+      "proprietary-personal"
+    );
   });
 
   it("marks team custom entries as proprietary", async () => {
@@ -94,8 +92,8 @@ describe("POST /api/v1/custom-entries", () => {
     expect(response.status).toBe(201);
     expect(body.scope).toBe("team");
     expect(body.entry.sources[0]?.license).toBe("proprietary-team");
-    expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
-    expect(getTeamEntries().at(-1)?.sources[0]?.license).toBe("proprietary-team");
+    expect(await getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
+    expect((await getTeamEntries()).at(-1)?.sources[0]?.license).toBe("proprietary-team");
   });
 
   it("rejects writes without user scope", async () => {
@@ -181,7 +179,7 @@ describe("POST /api/v1/custom-entries", () => {
     expect(secondBody.mode).toBe("updated");
     expect(secondBody.entry.id).toBe(firstBody.entry.id);
     expect(secondBody.entry.meaning).toBe("Updated meaning.");
-    expect(getPersonalEntries("user_1")).toHaveLength(1);
+    expect(await getPersonalEntries("user_1")).toHaveLength(1);
   });
 
   it("upserts team custom entries by term and expansion", async () => {
@@ -223,6 +221,6 @@ describe("POST /api/v1/custom-entries", () => {
     expect(secondBody.mode).toBe("updated");
     expect(secondBody.entry.id).toBe(firstBody.entry.id);
     expect(secondBody.entry.meaning).toBe("Updated team meaning.");
-    expect(getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
+    expect(await getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
   });
 });

@@ -45,9 +45,3 @@ export interface WatAlternativesResult {
   entry: WatResult | null;
   unresolved_terms: string[];
 }
-
-export interface AuthContext {
-  api_key_id: string;
-  domains: string[];
-  team_id: string;
-}

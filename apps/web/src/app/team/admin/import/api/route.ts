@@ -3,9 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiErrorResponse } from "@/lib/api-error";
 import { parseTeamImportCsv } from "@/lib/team-import-template";
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
+import { sessionUserFromRequest } from "@/lib/session";
 import { checkWriteRateLimit } from "@/lib/write-rate-limit";
-
-const sessionCookie = "wat_session";
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim());
@@ -49,11 +48,11 @@ async function entriesFromRequest(request: NextRequest): Promise<TeamEntry[] | n
 }
 
 export async function POST(request: NextRequest) {
-  const actorId =
-    request.cookies.get(sessionCookie)?.value ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "anonymous";
-  const writeLimit = checkWriteRateLimit("team-import", actorId);
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
+  const writeLimit = await checkWriteRateLimit("team-import", session.id);
   if (!writeLimit.allowed) {
     return apiErrorResponse(request, "rate_limited", 429, {
       fields: {
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const result = importTeamEntries(entries);
+  const result = await importTeamEntries(session.teamId, entries);
 
   return NextResponse.json({
     inserted: result.inserted.length,

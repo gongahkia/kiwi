@@ -17,14 +17,14 @@ Layer priority is `personal > team > public`. If the same term appears in multip
 ```mermaid
 flowchart TD
   public_import[reviewed corpus import] --> entries[(entries)]
-  team_write[team admin/API/Slack import] --> team_entries[(team_entries)]
+  team_write[team admin/API/Slack/Discord import] --> team_entries[(team_entries)]
   personal_write[web/extension personal save] --> personal_entries[(personal_entries)]
   entries --> repo[entry repositories]
   team_entries --> repo
   personal_entries --> repo
   repo --> search_api[/api/v1/search]
   search_api --> rank[@wat/search ranking]
-  rank --> surfaces[web, extension, Slack, MCP, LSP]
+  rank --> surfaces[web, extension, Slack, Discord, MCP, LSP]
   team_write --> audit[(audit_log)]
   personal_write --> audit
 ```
@@ -38,7 +38,7 @@ Search and write paths resolve identity before touching private data.
 - Anonymous identity can read only public entries.
 - API identity may include API key, user ID, and team ID headers.
 - Session identity should come from NextAuth for web routes.
-- Slack and extension requests should map to the same team/user model before reading private layers.
+- Slack, Discord, and extension requests should map to the same team/user model before reading private layers.
 - MCP currently accepts `api_key` tool input, but hosted mode should resolve DB-backed per-team keys.
 
 ## Search Route Shape
@@ -72,6 +72,7 @@ Audit summaries must not store raw API keys, OAuth tokens, magic links, session 
 - Web uses session auth for interactive admin, personal, suggestion, and search flows.
 - Browser extension sends term/context and auth headers to web API; it should not bypass route checks.
 - Slack handlers call the same hosted API and include scoped wat auth headers.
+- Discord handlers call the same hosted API, include scoped wat auth headers, and verify Discord signatures before parsing interactions.
 - MCP tools should use the same API or repository layer as web once hosted/DB-backed support lands.
 - LSP/editor surfaces should remain read-only unless a write flow gets explicit auth and audit coverage.
 

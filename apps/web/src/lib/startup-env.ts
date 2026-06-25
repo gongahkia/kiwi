@@ -11,7 +11,6 @@ export type StartupEnv = Record<string, string | undefined> & {
   NODE_ENV?: string;
   SLACK_CLIENT_ID?: string;
   SLACK_CLIENT_SECRET?: string;
-  WAT_API_KEY?: string;
   WAT_DATABASE_URL?: string;
   WAT_VALIDATE_ENV?: string;
 };
@@ -207,12 +206,6 @@ export function validateProductionEnv(env: StartupEnv): StartupEnvIssue[] {
     "AUTH_SECRET",
     authSecret,
     "Set AUTH_SECRET or NEXTAUTH_SECRET to a generated 32+ character value."
-  );
-  validateSecret(
-    issues,
-    "WAT_API_KEY",
-    value(env, "WAT_API_KEY"),
-    "Set WAT_API_KEY to a generated 32+ character API key."
   );
   validateSiteUrl(env, issues);
   validateEmail(env, issues);

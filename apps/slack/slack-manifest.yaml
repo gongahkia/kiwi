@@ -1,0 +1,53 @@
+display_information:
+  name: wat
+  description: Explain acronyms and team jargon in Slack.
+  background_color: "#111827"
+features:
+  bot_user:
+    display_name: wat
+    always_online: false
+  slash_commands:
+    - command: /wat
+      description: Look up an acronym or team term.
+      usage_hint: API
+      should_escape: false
+    - command: /wat-alt
+      description: Show alternatives and contemporaries for a term.
+      usage_hint: TLS
+      should_escape: false
+    - command: /wat-suggest
+      description: Suggest a new team definition for review.
+      usage_hint: RTO as Recovery Time Objective -- Maximum acceptable restore time.
+      should_escape: false
+    - command: /wat-define
+      description: Define a team term as a wat admin.
+      usage_hint: SLO as Service Level Objective -- Reliability target for a service.
+      should_escape: false
+  message_shortcuts:
+    - name: Explain acronyms
+      type: message
+      callback_id: wat_explain_acronyms
+      description: Explain acronyms in the selected message.
+oauth_config:
+  redirect_urls:
+    - https://wat.example.com/slack/oauth/callback
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - app_mentions:read
+      - users:read.email
+    user:
+      - identity.basic
+      - identity.email
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - app_uninstalled
+      - tokens_revoked
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiErrorResponse } from "@/lib/api-error";
 import { sendSuggestionOutcomeEmail } from "@/lib/email-notifications";
 import { pageInfo, paginationWindow } from "@/lib/pagination";
+import { sessionUserFromRequest } from "@/lib/session";
 import { approveSuggestion } from "@/lib/suggestion-approval";
 import {
   listSuggestedEditsPage,
@@ -10,19 +11,25 @@ import {
   type SuggestedEditStatus
 } from "@/lib/suggestions";
 
-const sessionCookie = "wat_session";
-
 function isStatus(value: unknown): value is SuggestedEditStatus {
   return value === "approved" || value === "pending" || value === "rejected";
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const window = paginationWindow(request.nextUrl.searchParams);
-  const page = listSuggestedEditsPage(window.offset, window.limit);
+  const page = await listSuggestedEditsPage(session.teamId, window.offset, window.limit);
   return NextResponse.json({ page: pageInfo(page.total, window), suggestions: page.suggestions });
 }
 
 export async function PATCH(request: NextRequest) {
+  const session = await sessionUserFromRequest(request);
+  if (!session?.teamId) {
+    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+  }
   const body = (await request.json()) as {
     after_jsonb?: unknown;
     id?: unknown;
@@ -33,9 +40,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const reviewerId = request.cookies.get(sessionCookie)?.value ?? "admin";
-    const suggestion = reviewSuggestedEdit(body.id, reviewerId, body.status, body.after_jsonb);
-    const approval = body.status === "approved" ? approveSuggestion(suggestion, reviewerId) : null;
+    const suggestion = await reviewSuggestedEdit(
+      session.teamId,
+      body.id,
+      session.id,
+      body.status,
+      body.after_jsonb
+    );
+    const approval =
+      body.status === "approved" ? await approveSuggestion(session.teamId, suggestion, session.id) : null;
     const notification = await sendSuggestionOutcomeEmail(suggestion, body.status);
 
     return NextResponse.json({
