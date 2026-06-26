@@ -4,11 +4,11 @@ Record reproducible decode/render measurements here as phases add real media wor
 
 ## Current Benchmark Host
 
-- Date: 2026-06-22.
+- Date: 2026-06-26.
 - Machine: MacBook Air `Mac15,12`, Apple M3, 8 cores (4 performance, 4 efficiency), 16 GB memory.
 - OS: macOS 26.5.1 (`25F80`), Darwin `25.5.0`, arm64.
 - Compiler: Apple clang `21.0.0`.
-- CMake: `4.3.3`.
+- CMake: `4.3.4`.
 - FFmpeg: `8.1.2`, Homebrew build with shared libraries and NEON enabled.
 - Note: direct `sysctl` CPU queries are denied in this environment; hardware fields above come from `system_profiler SPHardwareDataType`.
 
@@ -21,25 +21,80 @@ cmake -S . -B build/package -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_WARNINGS_AS_
 cmake --build build/package --parallel
 ```
 
-Generate the fixture:
+Run the primary 720p/1080p CPU/GPU sweep:
 
 ```sh
-ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=duration=0.4:size=1280x720:rate=30 -frames:v 12 -pix_fmt yuv420p -y /tmp/contourtty-g10-720p-12f.mp4
+scripts/final_benchmark_sweep.py --binary build/package/contourtty --work /tmp/contourtty-p8-final --out /tmp/contourtty-p8-final/P8_FINAL_BENCHMARKS.md --repeats 3 --warmups 1 --frames 12
 ```
 
-Run the suite:
+Rerun any primary rows above 10% render-time spread with pinned workers:
 
 ```sh
-/usr/bin/time -p ./build/package/contourtty --mode luminance --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-luminance.ansi --log /tmp/contourtty-g10-luminance.log /tmp/contourtty-g10-720p-12f.mp4
-/usr/bin/time -p ./build/package/contourtty --mode structure --edge-threshold 0.02 --dog-sigma 0 --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-structure.ansi --log /tmp/contourtty-g10-structure.log /tmp/contourtty-g10-720p-12f.mp4
-/usr/bin/time -p ./build/package/contourtty --mode halfblock --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-halfblock.ansi --log /tmp/contourtty-g10-halfblock.log /tmp/contourtty-g10-720p-12f.mp4
-/usr/bin/time -p ./build/package/contourtty --mode luminance --charset braille --width 160 --height 45 --fps 1000 --color-mode mono --export /tmp/contourtty-g10-braille.ansi --log /tmp/contourtty-g10-braille.log /tmp/contourtty-g10-720p-12f.mp4
-env -u NO_COLOR /usr/bin/time -p ./build/package/contourtty --mode blocks --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-blocks.ansi --log /tmp/contourtty-g10-blocks.log /tmp/contourtty-g10-720p-12f.mp4
-env -u NO_COLOR /usr/bin/time -p ./build/package/contourtty --mode octant --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-octant.ansi --log /tmp/contourtty-g10-octant.log /tmp/contourtty-g10-720p-12f.mp4
-env -u NO_COLOR /usr/bin/time -p ./build/package/contourtty --mode sextant --width 160 --height 45 --fps 1000 --color-mode truecolor --export /tmp/contourtty-g10-sextant.ansi --log /tmp/contourtty-g10-sextant.log /tmp/contourtty-g10-720p-12f.mp4
+scripts/final_benchmark_sweep.py --binary build/package/contourtty --work /tmp/contourtty-p8-final-workers4 --out /tmp/contourtty-p8-final-workers4/P8_FAILED_BENCHMARKS.md --repeats 3 --warmups 2 --frames 12 --workers 4 --only-failed-from /tmp/contourtty-p8-final/P8_FINAL_BENCHMARKS.csv
 ```
 
 GPU row: `--gpu` covers DoG, Sobel, per-cell gradient aggregation, shape-glyph selection, and per-cell RGB averaging through the macOS Metal backend when available; terminal emission remains CPU-side.
+
+## P8 Final Sweep
+
+Date: 2026-06-26. Commit: `c26a3ee` plus working tree. Fixture generation is owned by `scripts/final_benchmark_sweep.py`: 12-frame `testsrc2` H.264 at 1280x720 and 1920x1080. Repeatability is max deviation from median `render_us` across 3 measured runs. Rows with suite `workers=4` are the primary rows that exceeded 10% and were remeasured with the stabilization command above. Max published spread: 9.22%.
+
+| Source | Mode | Backend | Backend note | Suite | Cols x rows | Color | Frames | Median fps | Bytes/frame | Median render_us | render_us spread |
+|---|---|---|---|---|---:|---|---:|---:|---:|---:|---:|
+| 720p | luminance | cpu | cpu | primary | 160 x 45 | mono | 12 | 120.000 | 8756.00 | 69061 | 8.84% |
+| 720p | luminance | gpu | metal | primary | 160 x 45 | mono | 12 | 120.000 | 8756.00 | 49090 | 6.23% |
+| 720p | structure-HoG | cpu | cpu | primary | 160 x 45 | mono | 12 | 75.000 | 12279.92 | 117077 | 1.66% |
+| 720p | structure-HoG | gpu | metal | primary | 160 x 45 | mono | 12 | 75.000 | 12279.92 | 97729 | 2.20% |
+| 720p | structure-SDF | cpu | cpu | primary | 160 x 45 | mono | 12 | 48.000 | 12069.17 | 204833 | 6.52% |
+| 720p | structure-SDF | gpu | metal | primary | 160 x 45 | mono | 12 | 50.000 | 12069.17 | 174283 | 1.67% |
+| 720p | octant | cpu | cpu | workers=4 | 160 x 45 | truecolor | 12 | 200.000 | 7958.67 | 36849 | 0.05% |
+| 720p | octant | gpu | metal | primary | 160 x 45 | truecolor | 12 | 171.429 | 7958.67 | 19291 | 6.48% |
+| 720p | sextant | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 171.429 | 7915.75 | 42548 | 8.16% |
+| 720p | sextant | gpu | metal | primary | 160 x 45 | truecolor | 12 | 171.429 | 7915.75 | 16062 | 8.04% |
+| 720p | halfblock | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 200.000 | 6677.00 | 28855 | 4.92% |
+| 720p | halfblock | gpu | metal | primary | 160 x 45 | truecolor | 12 | 200.000 | 6677.00 | 6701 | 3.67% |
+| 720p | braille | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 171.429 | 8579.17 | 38921 | 2.29% |
+| 720p | braille | gpu | metal | primary | 160 x 45 | truecolor | 12 | 171.429 | 8579.17 | 17942 | 5.99% |
+| 720p | blocks | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 171.429 | 9482.50 | 43008 | 1.50% |
+| 720p | blocks | gpu | metal | primary | 160 x 45 | truecolor | 12 | 171.429 | 9482.50 | 22142 | 2.47% |
+| 720p | hatch | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 60.000 | 10928.17 | 163746 | 8.54% |
+| 720p | hatch | gpu | metal | primary | 160 x 45 | truecolor | 12 | 60.000 | 10928.17 | 145146 | 4.86% |
+| 720p | stipple | cpu | cpu | workers=4 | 160 x 45 | truecolor | 12 | 120.000 | 7677.08 | 76039 | 6.07% |
+| 720p | stipple | gpu | metal | primary | 160 x 45 | truecolor | 12 | 133.333 | 7677.08 | 42482 | 3.49% |
+| 720p | painterly | cpu | cpu | workers=4 | 160 x 45 | truecolor | 12 | 27.907 | 8762.00 | 397697 | 3.31% |
+| 720p | painterly | gpu | metal | primary | 160 x 45 | truecolor | 12 | 31.579 | 8762.00 | 322164 | 1.30% |
+| 720p | flow | cpu | cpu | primary | 160 x 45 | truecolor | 12 | 5.556 | 15407.83 | 2125291 | 1.99% |
+| 720p | flow | gpu | metal | primary | 160 x 45 | truecolor | 12 | 5.607 | 15407.83 | 2091796 | 0.46% |
+| 720p | pixel-Kitty | cpu | kitty-protocol | primary | 160 x 45 | truecolor | 12 | 60.000 | 2398549.58 | 59074 | 4.89% |
+| 720p | pixel-Kitty | gpu | metal | primary | 160 x 45 | truecolor | 12 | 60.000 | 2398549.58 | 40711 | 3.88% |
+| 1080p | luminance | cpu | cpu | primary | 240 x 90 | mono | 12 | 80.000 | 18049.17 | 106303 | 1.75% |
+| 1080p | luminance | gpu | metal | primary | 240 x 90 | mono | 12 | 80.000 | 18049.17 | 86772 | 2.43% |
+| 1080p | structure-HoG | cpu | cpu | primary | 240 x 90 | mono | 12 | 44.444 | 25891.75 | 208967 | 4.26% |
+| 1080p | structure-HoG | gpu | metal | primary | 240 x 90 | mono | 12 | 44.444 | 25891.75 | 189977 | 1.97% |
+| 1080p | structure-SDF | cpu | cpu | workers=4 | 240 x 90 | mono | 12 | 28.571 | 24644.25 | 358927 | 4.15% |
+| 1080p | structure-SDF | gpu | metal | workers=4 | 240 x 90 | mono | 12 | 28.571 | 24644.25 | 343511 | 6.03% |
+| 1080p | octant | cpu | cpu | workers=4 | 240 x 90 | truecolor | 12 | 120.000 | 17032.25 | 59113 | 1.70% |
+| 1080p | octant | gpu | metal | primary | 240 x 90 | truecolor | 12 | 120.000 | 17032.25 | 39329 | 1.53% |
+| 1080p | sextant | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 133.333 | 16977.50 | 55417 | 4.22% |
+| 1080p | sextant | gpu | metal | primary | 240 x 90 | truecolor | 12 | 133.333 | 16977.50 | 33715 | 0.77% |
+| 1080p | halfblock | cpu | cpu | workers=4 | 240 x 90 | truecolor | 12 | 171.429 | 15530.00 | 32738 | 2.36% |
+| 1080p | halfblock | gpu | metal | primary | 240 x 90 | truecolor | 12 | 171.429 | 15530.00 | 13428 | 2.20% |
+| 1080p | braille | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 120.000 | 18431.83 | 59289 | 6.01% |
+| 1080p | braille | gpu | metal | primary | 240 x 90 | truecolor | 12 | 109.091 | 18431.83 | 42665 | 7.05% |
+| 1080p | blocks | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 109.091 | 19606.25 | 67336 | 1.46% |
+| 1080p | blocks | gpu | metal | primary | 240 x 90 | truecolor | 12 | 120.000 | 19606.25 | 47844 | 1.45% |
+| 1080p | hatch | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 34.286 | 21435.50 | 300357 | 9.22% |
+| 1080p | hatch | gpu | metal | primary | 240 x 90 | truecolor | 12 | 34.286 | 21435.50 | 294799 | 6.90% |
+| 1080p | stipple | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 75.000 | 16678.42 | 116277 | 1.80% |
+| 1080p | stipple | gpu | metal | primary | 240 x 90 | truecolor | 12 | 75.000 | 16678.42 | 95605 | 6.40% |
+| 1080p | painterly | cpu | cpu | workers=4 | 240 x 90 | truecolor | 12 | 12.000 | 18046.83 | 964172 | 3.35% |
+| 1080p | painterly | gpu | metal | primary | 240 x 90 | truecolor | 12 | 15.190 | 18046.83 | 721399 | 4.21% |
+| 1080p | flow | cpu | cpu | primary | 240 x 90 | truecolor | 12 | 2.526 | 29883.58 | 4711705 | 0.51% |
+| 1080p | flow | gpu | metal | primary | 240 x 90 | truecolor | 12 | 2.532 | 29883.58 | 4683991 | 0.63% |
+| 1080p | pixel-Kitty | cpu | kitty-protocol | primary | 240 x 90 | truecolor | 12 | 30.000 | 4136561.00 | 115767 | 9.03% |
+| 1080p | pixel-Kitty | gpu | metal | workers=4 | 240 x 90 | truecolor | 12 | 27.907 | 4136561.00 | 109486 | 2.68% |
+
+## Historical Measurements
 
 | Date | Commit | Machine | OS | Source | Cols x rows | Mode | Color | Sustained fps | Bytes/frame | Command | Notes |
 |---|---|---|---|---|---:|---|---|---:|---:|---|---|
