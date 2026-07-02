@@ -9,6 +9,19 @@ kumeyuri mcp --transport stdio
 Do not write logs to stdout when wrapping this command. MCP stdio uses stdout
 for JSON-RPC frames.
 
+## Local smoke test
+
+Run the stdio smoke test from the repository root:
+
+```sh
+npm run test:mcp-server
+```
+
+The test starts `kumeyuri mcp --transport stdio`, performs the MCP initialize
+handshake, lists the advertised tools, and calls representative tools. Because
+stdio MCP reserves stdout for JSON-RPC messages, server diagnostics and wrapper
+logs must go to stderr or another log sink.
+
 HTTP+SSE transport is also available for clients that speak MCP Streamable HTTP:
 
 ```sh
