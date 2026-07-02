@@ -5,7 +5,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ check?: string; next?: string }>;
 }) {
-  const { check, next = "/" } = await searchParams;
+  const { check, next = "/team/admin" } = await searchParams;
 
   return (
     <main className="grid min-h-svh place-items-center bg-background p-6 text-foreground">

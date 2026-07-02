@@ -38,6 +38,7 @@ erDiagram
     timestamptz updated_at
     boolean deprecated
     text deprecated_reason
+    text review_status
     text_array aliases
     text_array related_terms
     text_array contemporaries
@@ -91,6 +92,7 @@ erDiagram
     timestamptz updated_at
     boolean deprecated
     text deprecated_reason
+    text review_status
     text_array aliases
     text_array related_terms
     text_array contemporaries
@@ -148,12 +150,26 @@ erDiagram
     timestamptz reviewed_at
   }
 
+  team_invites {
+    text id PK
+    text team_id FK
+    text email
+    user_role role
+    text token_hash UK
+    text invited_by FK
+    text accepted_by FK
+    timestamptz accepted_at
+    timestamptz expires_at
+    timestamptz created_at
+  }
+
   search_events {
     text id PK
     text team_id FK
     text actor_id
     text query_hash
     text_array layer_hits
+    text_array result_terms
     jsonb confidence_distribution
     integer result_count
     boolean no_result
@@ -212,6 +228,7 @@ erDiagram
   teams ||--o{ teams_installs : connects
   teams ||--o{ discord_installs : connects
   teams ||--o{ suggested_edits : reviews
+  teams ||--o{ team_invites : invites
   teams ||--o{ search_events : measures
   users ||--o{ personal_entries : owns
   users ||--o{ audit_log : acts
@@ -248,6 +265,8 @@ erDiagram
 - `discord_installs_discord_guild_id_unique_idx`: unique index mapping one Discord guild install to one wat team.
 - `discord_installs_team_id_idx`: lookup index for Discord installs by wat team.
 - `suggested_edits_team_id_status_idx`: lookup index for team-scoped review queues by status.
+- `team_invites_team_email_pending_idx`: lookup index for pending team invites by email.
+- `team_invites_email_pending_idx`: lookup index for signup-time pending invite assignment.
 - `search_events_team_created_idx`: lookup index for privacy-safe team search analytics by time.
 - `search_events_query_hash_idx`: lookup index for hashed query analytics.
 
@@ -260,9 +279,11 @@ erDiagram
 - `teams_installs.team_id` cascades on team delete.
 - `discord_installs.team_id` cascades on team delete.
 - `suggested_edits.team_id` cascades on team delete.
+- `team_invites.team_id` cascades on team delete.
 - `search_events.team_id` cascades on team delete.
 - `personal_entries.user_id` cascades on user delete.
 - Entry confidence tiers are constrained to `T1`, `T2`, `T3`, `T4`.
 - Source quality is constrained to `canonical`, `secondary`, `community`.
 - Embedding job reason is constrained to `insert`, `update`; status is constrained to `pending`, `processing`, `done`, `failed`.
 - Overlay layers are constrained to `team` and `personal` for their respective tables.
+- Overlay review status is constrained to `active`, `needs_review`, and `stale`.

@@ -9,6 +9,7 @@ import type {
 } from "next-auth/adapters";
 
 import { authDb } from "@/lib/auth-db";
+import { findPendingInviteForEmail, markInviteAccepted } from "@/lib/team-invites";
 
 type UserRow = {
   email: string;
@@ -67,7 +68,9 @@ export function watNextAuthAdapter(): Adapter {
 
     async createUser(user: Omit<AdapterUser, "id">) {
       const email = normalizeEmail(user.email);
-      const teamAssignment = await assignTeamForEmail(email);
+      const inviteAssignment = await findPendingInviteForEmail(email);
+      const teamAssignment = inviteAssignment ?? (await assignTeamForEmail(email));
+      const userId = randomUUID();
       const { rows } = await authDb().query<UserRow>(
         `
         insert into users (id, name, email, email_verified, image, team_id, role)
@@ -75,7 +78,7 @@ export function watNextAuthAdapter(): Adapter {
         returning id, name, email, email_verified, image, team_id, role
         `,
         [
-          randomUUID(),
+          userId,
           user.name ?? null,
           email,
           user.emailVerified ?? null,
@@ -84,6 +87,7 @@ export function watNextAuthAdapter(): Adapter {
           teamAssignment.role
         ]
       );
+      if (inviteAssignment) await markInviteAccepted(inviteAssignment.id, userId);
       return userFromRow(requireRow(rows[0], "user not created"));
     },
 

@@ -87,6 +87,7 @@ pnpm --filter @wat/ingest test
 - [Production readiness](docs/production-readiness.md)
 - [Security](docs/security.md)
 - [Security model](docs/security-model.md)
+- [Team admin guide](docs/team-admin-guide.md)
 - [Teams](docs/teams.md)
 - [Troubleshooting](docs/troubleshooting.md)
 

@@ -3,14 +3,19 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AdminEmptyState } from "@/components/admin-empty-state";
+import { TeamMembersPanel } from "@/components/team-members-panel";
 import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { sessionUserFromCookieStore } from "@/lib/session";
+import { listTeamInvites } from "@/lib/team-invites";
 import { getTeamMembers } from "@/lib/team-members";
 
 export default async function TeamMembersPage() {
   const session = await sessionUserFromCookieStore(await cookies());
   if (!session?.teamId) redirect("/login?next=/team/admin/members");
-  const members = await getTeamMembers(session.teamId);
+  const [members, invites] = await Promise.all([
+    getTeamMembers(session.teamId),
+    listTeamInvites(session.teamId)
+  ]);
 
   return (
     <main className="min-h-svh bg-background px-6 py-10 text-foreground">
@@ -24,27 +29,10 @@ export default async function TeamMembersPage() {
           </Link>
           <h1 className="text-4xl font-semibold">Team members</h1>
         </header>
-        {members.length === 0 ? (
+        {members.length === 0 && invites.length === 0 ? (
           <AdminEmptyState {...adminEmptyStates.members} />
         ) : (
-          <div className="overflow-x-auto rounded-md border border-input">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-secondary">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Email</th>
-                  <th className="px-3 py-2 font-medium">Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member) => (
-                  <tr className="border-t border-input" key={member.id}>
-                    <td className="px-3 py-2">{member.email}</td>
-                    <td className="px-3 py-2">{member.role}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TeamMembersPanel initialInvites={invites} initialMembers={members} />
         )}
       </div>
     </main>

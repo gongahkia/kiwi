@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { recordAuditLog } from "@/lib/audit-log";
 import {
   createPersonalEntry,
   deletePersonalEntry,
@@ -56,7 +57,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({ entry: await createPersonalEntry(userId, body) });
+    const entry = await createPersonalEntry(userId, body);
+    await recordAuditLog({
+      action: "personal_entry.create",
+      actor_id: userId,
+      after_jsonb: entry,
+      before_jsonb: null,
+      target_id: entry.id,
+      target_type: "personal_entry",
+      team_id: null
+    });
+    return NextResponse.json({ entry });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_conflict", 409, {
       message: error instanceof Error ? error.message : "create failed"
@@ -78,9 +89,19 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json({
-      entry: await updatePersonalEntry(userId, body.id, body.patch as Partial<PersonalEntry>)
+    const before = (await getPersonalEntries(userId)).find((entry) => entry.id === body.id);
+    if (!before) throw new Error("personal entry not found");
+    const entry = await updatePersonalEntry(userId, body.id, body.patch as Partial<PersonalEntry>);
+    await recordAuditLog({
+      action: "personal_entry.update",
+      actor_id: userId,
+      after_jsonb: entry,
+      before_jsonb: before,
+      target_id: entry.id,
+      target_type: "personal_entry",
+      team_id: null
     });
+    return NextResponse.json({ entry });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_not_found", 404, {
       message: error instanceof Error ? error.message : "update failed"
@@ -98,9 +119,24 @@ export async function DELETE(request: NextRequest) {
   if (!id) {
     return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
   }
+  if (request.nextUrl.searchParams.get("confirm") !== id) {
+    return apiErrorResponse(request, "confirmation_required", 400, {
+      message: "confirmation required"
+    });
+  }
 
   try {
-    return NextResponse.json({ entry: await deletePersonalEntry(userId, id) });
+    const entry = await deletePersonalEntry(userId, id);
+    await recordAuditLog({
+      action: "personal_entry.deprecate",
+      actor_id: userId,
+      after_jsonb: { deprecated: true, deprecated_reason: "user removed" },
+      before_jsonb: entry,
+      target_id: entry.id,
+      target_type: "personal_entry",
+      team_id: null
+    });
+    return NextResponse.json({ entry });
   } catch (error) {
     return apiErrorResponse(request, "personal_entry_not_found", 404, {
       message: error instanceof Error ? error.message : "delete failed"

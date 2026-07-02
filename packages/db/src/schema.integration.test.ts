@@ -264,18 +264,23 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
     await client.query(
       `
       insert into search_events (
-        id, team_id, query_hash, layer_hits, confidence_distribution, result_count, no_result, latency_ms
+        id, team_id, query_hash, layer_hits, result_terms, confidence_distribution, result_count, no_result, latency_ms
       ) values (
-        'search_event_1', 'team_search_event', 'hash_only', $1, $2, 0, true, 42
+        'search_event_1', 'team_search_event', 'hash_only', $1, $2, $3, 0, true, 42
       )
       `,
-      [["team"], { T4: 1 }]
+      [["team"], ["SLO"], { T4: 1 }]
     );
 
-    const { rows } = await client.query<{ count: number; has_raw_query: boolean }>(
+    const { rows } = await client.query<{
+      count: number;
+      has_raw_query: boolean;
+      result_terms: string[];
+    }>(
       `
       select
-        count(*)::int as count,
+        count(*) over ()::int as count,
+        result_terms,
         exists (
           select 1
           from information_schema.columns
@@ -285,7 +290,51 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
       where team_id = 'team_search_event' and query_hash = 'hash_only'
       `
     );
-    expect(rows[0]).toEqual({ count: 1, has_raw_query: false });
+    expect(rows[0]).toEqual({ count: 1, has_raw_query: false, result_terms: ["SLO"] });
+  });
+
+  it("stores team invites and overlay review status", async () => {
+    await insertTeam("team_invite", "invite.example");
+    await insertUser("user_inviter", "team_invite");
+    await client.query(
+      `
+      insert into team_invites (id, team_id, email, role, token_hash, invited_by, expires_at)
+      values (
+        'team_invite_1', 'team_invite', 'new@example.com', 'member', 'hash_token',
+        'user_inviter', now() + interval '7 days'
+      )
+      `
+    );
+    await client.query(
+      `
+      insert into team_entries (
+        id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+        confidence_tier, license, layer, team_id, aliases, related_terms, contemporaries, review_status
+      ) values (
+        'team_entry_review', 'RTO', 'rto', $1, $2, 'short', 'long', 'T4', 'MIT',
+        'team', 'team_invite', $3, $4, $5, 'needs_review'
+      )
+      `,
+      [["Recovery Time Objective"], ["ops"], [], [], []]
+    );
+
+    const { rows } = await client.query<{
+      email: string;
+      review_status: string;
+      role: string;
+    }>(
+      `
+      select i.email, i.role, e.review_status
+      from team_invites i
+      cross join team_entries e
+      where i.id = 'team_invite_1' and e.id = 'team_entry_review'
+      `
+    );
+    expect(rows[0]).toEqual({
+      email: "new@example.com",
+      review_status: "needs_review",
+      role: "member"
+    });
   });
 
   it("stores Teams installs by Microsoft tenant", async () => {

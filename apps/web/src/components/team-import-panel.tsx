@@ -39,6 +39,9 @@ export function TeamImportPanel({ existingEntries }: TeamImportPanelProps) {
   }
 
   async function importAccepted() {
+    if (rowsToUpdate.length > 0 && !window.confirm(`Update ${rowsToUpdate.length} entries?`)) {
+      return;
+    }
     setSubmitting(true);
     setResult("");
     try {

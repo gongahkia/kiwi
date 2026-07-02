@@ -13,6 +13,7 @@ type EntryRow = {
   expansions: string[];
   id: string;
   meaning_short: string;
+  review_status: NonNullable<TeamEntry["review_status"]>;
   term: string;
 };
 
@@ -98,6 +99,7 @@ function entryFromRows(row: EntryRow, sources: SourceRow[]): TeamEntry {
     expansion: row.expansions[0] ?? row.term,
     id: row.id,
     meaning: row.meaning_short,
+    review_status: row.review_status,
     sources: sources.map((source) => ({
       license: source.license,
       publisher: source.publisher,
@@ -158,7 +160,7 @@ export async function getTeamEntries(teamId = defaultTestTeamId): Promise<TeamEn
   if (useTestState()) return structuredClone(testEntries(teamId));
   const { rows } = await authDb().query<EntryRow>(
     `
-    select id, term, expansions, domains, meaning_short, contemporaries
+    select id, term, expansions, domains, meaning_short, contemporaries, review_status
     from team_entries
     where team_id = $1 and deprecated = false
     order by term_normalized, id
@@ -183,7 +185,7 @@ export async function listTeamEntriesPage(
   const [{ rows }, count] = await Promise.all([
     authDb().query<EntryRow>(
       `
-      select id, term, expansions, domains, meaning_short, contemporaries
+      select id, term, expansions, domains, meaning_short, contemporaries, review_status
       from team_entries
       where team_id = $1 and deprecated = false
       order by term_normalized, id
@@ -249,9 +251,9 @@ export async function createTeamEntry(teamId: string, entry: TeamEntry): Promise
       `
       insert into team_entries (
         id, team_id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
-        confidence_tier, license, layer, aliases, related_terms, contemporaries
-      ) values ($1, $2, $3, $4, $5, $6, $7, $7, 'T4', 'proprietary-team', 'team', ARRAY[]::text[], ARRAY[]::text[], $8)
-      returning id, term, expansions, domains, meaning_short, contemporaries
+        confidence_tier, license, layer, aliases, related_terms, contemporaries, review_status
+      ) values ($1, $2, $3, $4, $5, $6, $7, $7, 'T4', 'proprietary-team', 'team', ARRAY[]::text[], ARRAY[]::text[], $8, $9)
+      returning id, term, expansions, domains, meaning_short, contemporaries, review_status
       `,
       [
         entry.id,
@@ -261,7 +263,8 @@ export async function createTeamEntry(teamId: string, entry: TeamEntry): Promise
         [entry.expansion.trim()],
         entry.domains,
         entry.meaning.trim(),
-        entry.contemporaries ?? []
+        entry.contemporaries ?? [],
+        entry.review_status ?? "active"
       ]
     );
     await writeSources(client, entry.id, entry.sources);
@@ -322,9 +325,10 @@ export async function updateTeamEntry(
         meaning_short = $7,
         meaning_long = $7,
         contemporaries = $8,
+        review_status = $9,
         updated_at = now()
       where team_id = $1 and id = $2 and deprecated = false
-      returning id, term, expansions, domains, meaning_short, contemporaries
+      returning id, term, expansions, domains, meaning_short, contemporaries, review_status
       `,
       [
         teamId,
@@ -334,7 +338,8 @@ export async function updateTeamEntry(
         [next.expansion.trim()],
         next.domains,
         next.meaning.trim(),
-        next.contemporaries ?? []
+        next.contemporaries ?? [],
+        next.review_status ?? "active"
       ]
     );
     if (!rows[0]) throw new Error("team entry not found");
@@ -361,10 +366,10 @@ export async function deleteTeamEntry(teamId: string, entryId: string): Promise<
     entries.splice(index, 1);
     return structuredClone(existing);
   }
-  await authDb().query("delete from team_entries where team_id = $1 and id = $2", [
-    teamId,
-    entryId
-  ]);
+  await authDb().query(
+    "update team_entries set deprecated = true, deprecated_reason = 'admin removed', updated_at = now() where team_id = $1 and id = $2",
+    [teamId, entryId]
+  );
   return existing;
 }
 

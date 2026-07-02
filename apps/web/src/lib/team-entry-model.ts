@@ -7,12 +7,15 @@ export interface TeamEntrySource {
   url: string;
 }
 
+export type TeamEntryReviewStatus = "active" | "needs_review" | "stale";
+
 export interface TeamEntry {
   contemporaries?: string[];
   domains: string[];
   expansion: string;
   id: string;
   meaning: string;
+  review_status?: TeamEntryReviewStatus;
   sources: TeamEntrySource[];
   term: string;
 }
@@ -76,6 +79,12 @@ export function validateTeamEntry(entry: TeamEntry): string[] {
   if (!nonEmpty(entry.term)) issues.push("term is required");
   if (!nonEmpty(entry.expansion)) issues.push("expansion is required");
   if (!nonEmpty(entry.meaning)) issues.push("meaning is required");
+  if (
+    entry.review_status !== undefined &&
+    !["active", "needs_review", "stale"].includes(entry.review_status)
+  ) {
+    issues.push("review_status must be active, needs_review, or stale");
+  }
   if (entry.domains.length === 0) issues.push("at least one domain is required");
   if (!entry.domains.every(nonEmpty)) issues.push("domains are required");
   if (entry.contemporaries && !Array.isArray(entry.contemporaries)) {

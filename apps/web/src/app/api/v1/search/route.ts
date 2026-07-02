@@ -28,6 +28,7 @@ interface SearchAnalyticsFields {
   noResult: boolean;
   queryHash: string;
   resultCount: number;
+  resultTerms: string[];
 }
 
 function hashQuery(query: string): string {
@@ -52,7 +53,8 @@ function searchAnalyticsFields(
     layerHits,
     noResult: matches.length === 0,
     queryHash: hashQuery(query),
-    resultCount: matches.length
+    resultCount: matches.length,
+    resultTerms: Array.from(new Set(matches.map((match) => match.entry.term))).sort()
   };
 }
 
@@ -201,6 +203,7 @@ export async function GET(request: NextRequest) {
     noResult: analytics.noResult,
     queryHash: analytics.queryHash,
     resultCount: analytics.resultCount,
+    resultTerms: analytics.resultTerms,
     teamId: identity.identity.teamId ?? null
   });
 

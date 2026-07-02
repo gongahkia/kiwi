@@ -7,7 +7,7 @@ import { AdminEmptyState } from "@/components/admin-empty-state";
 import { Button } from "@/components/ui/button";
 import { adminEmptyStates } from "@/lib/admin-empty-states";
 import { validateTeamEntryDraft } from "@/lib/team-entry-form-validation";
-import type { TeamEntry } from "@/lib/team-entry-model";
+import type { TeamEntry, TeamEntryReviewStatus } from "@/lib/team-entry-model";
 
 interface TeamEntryCrudProps {
   apiPath?: string;
@@ -34,6 +34,7 @@ function emptyFormFor(defaultDomains: string, initialTerm = "") {
     domains: defaultDomains,
     expansion: "",
     meaning: "",
+    review_status: "active" as TeamEntryReviewStatus,
     source_url: "",
     term
   };
@@ -84,6 +85,7 @@ function entryFromForm(
     expansion: form.expansion,
     id,
     meaning: form.meaning,
+    review_status: form.review_status,
     sources: [
       {
         license: sourceLicense,
@@ -169,6 +171,7 @@ export function TeamEntryCrud({
       contemporaries: (entry.contemporaries ?? []).join(", "),
       expansion: entry.expansion,
       meaning: entry.meaning,
+      review_status: entry.review_status ?? "active",
       source_url: entry.sources[0]?.url ?? "",
       term: entry.term
     });
@@ -205,13 +208,42 @@ export function TeamEntryCrud({
   }
 
   async function remove(id: string) {
-    const response = await fetch(`${apiPath}?id=${encodeURIComponent(id)}`, {
-      headers: { "x-wat-same-origin": "1" },
-      method: "DELETE"
-    });
-    if (response.ok) {
-      setEntries((current) => current.filter((entry) => entry.id !== id));
+    if (!window.confirm(`Deprecate ${id}?`)) return;
+    const response = await fetch(
+      `${apiPath}?id=${encodeURIComponent(id)}&confirm=${encodeURIComponent(id)}`,
+      {
+        headers: { "x-wat-same-origin": "1" },
+        method: "DELETE"
+      }
+    );
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setServerError(payload?.message ?? payload?.error ?? "delete failed");
+      return;
     }
+    setEntries((current) => current.filter((entry) => entry.id !== id));
+  }
+
+  async function setReviewStatus(entry: TeamEntry, reviewStatus: TeamEntryReviewStatus) {
+    setServerError("");
+    const response = await fetch(apiPath, {
+      body: JSON.stringify({ id: entry.id, patch: { ...entry, review_status: reviewStatus } }),
+      headers: { "x-wat-same-origin": "1" },
+      method: "PATCH"
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      entry?: TeamEntry;
+      error?: string;
+      message?: string;
+    } | null;
+    if (!response.ok || !payload?.entry) {
+      setServerError(payload?.message ?? payload?.error ?? "review update failed");
+      return;
+    }
+    setEntries((current) => current.map((item) => (item.id === entry.id ? payload.entry! : item)));
   }
 
   return (
@@ -235,6 +267,17 @@ export function TeamEntryCrud({
             placeholder="meaning"
             value={form.meaning}
           />
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) =>
+              setField("review_status", event.target.value as TeamEntryReviewStatus)
+            }
+            value={form.review_status}
+          >
+            <option value="active">active</option>
+            <option value="needs_review">needs review</option>
+            <option value="stale">stale</option>
+          </select>
         </div>
         <p className="text-xs text-foreground/55">Generated ID: {preview.id || "term required"}</p>
         {visibleIssues.length > 0 ? (
@@ -281,8 +324,24 @@ export function TeamEntryCrud({
                       Alternatives: {entry.contemporaries.join(", ")}
                     </p>
                   ) : null}
+                  {entry.review_status && entry.review_status !== "active" ? (
+                    <p className="text-xs font-medium text-primary">
+                      Review: {entry.review_status.replace("_", " ")}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    onChange={(event) =>
+                      setReviewStatus(entry, event.target.value as TeamEntryReviewStatus)
+                    }
+                    value={entry.review_status ?? "active"}
+                  >
+                    <option value="active">active</option>
+                    <option value="needs_review">needs review</option>
+                    <option value="stale">stale</option>
+                  </select>
                   <Button onClick={() => edit(entry)} size="sm" type="button" variant="outline">
                     Edit
                   </Button>

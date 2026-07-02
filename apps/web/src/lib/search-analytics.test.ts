@@ -23,6 +23,7 @@ describe("search analytics", () => {
       noResult: false,
       queryHash: "hash_api",
       resultCount: 1,
+      resultTerms: ["API"],
       teamId: "team_1"
     });
     await recordSearchEvent({
@@ -41,6 +42,7 @@ describe("search analytics", () => {
       noResult: false,
       queryHash: "hash_other",
       resultCount: 1,
+      resultTerms: ["SDK"],
       teamId: "team_2"
     });
 
@@ -50,7 +52,9 @@ describe("search analytics", () => {
       noResultCount: 1,
       noResultRate: 0.5,
       p95LatencyMs: 80,
+      recentNoResultHashes: ["hash_unknown"],
       recentQueryHashes: ["hash_unknown", "hash_api"],
+      topTerms: [{ count: 1, term: "API" }],
       total: 2
     });
   });

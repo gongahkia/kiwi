@@ -10,6 +10,7 @@ export interface SearchAnalyticsEvent {
   noResult: boolean;
   queryHash: string;
   resultCount: number;
+  resultTerms?: string[];
   teamId?: string | null;
 }
 
@@ -19,7 +20,9 @@ export interface SearchAnalyticsSummary {
   noResultCount: number;
   noResultRate: number;
   p95LatencyMs: number;
+  recentNoResultHashes: string[];
   recentQueryHashes: string[];
+  topTerms: Array<{ count: number; term: string }>;
   total: number;
 }
 
@@ -31,6 +34,7 @@ interface SearchEventRow {
   no_result: boolean;
   query_hash: string;
   result_count: number;
+  result_terms: string[];
 }
 
 const testSearchEvents: SearchAnalyticsEvent[] = [];
@@ -54,6 +58,9 @@ function normalizeEvent(event: SearchAnalyticsEvent): SearchAnalyticsEvent {
     noResult: event.noResult,
     queryHash: event.queryHash,
     resultCount: Math.max(0, Math.round(event.resultCount)),
+    resultTerms: Array.from(
+      new Set((event.resultTerms ?? []).map((term) => term.trim()).filter(Boolean))
+    ).sort(),
     teamId: event.teamId ?? null
   };
 }
@@ -68,9 +75,9 @@ export async function recordSearchEvent(event: SearchAnalyticsEvent): Promise<vo
   await authDb().query(
     `
     insert into search_events (
-      id, team_id, actor_id, query_hash, layer_hits, confidence_distribution,
+      id, team_id, actor_id, query_hash, layer_hits, result_terms, confidence_distribution,
       result_count, no_result, latency_ms
-    ) values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
+    ) values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
     `,
     [
       randomUUID(),
@@ -78,6 +85,7 @@ export async function recordSearchEvent(event: SearchAnalyticsEvent): Promise<vo
       normalized.actorId,
       normalized.queryHash,
       normalized.layerHits,
+      normalized.resultTerms,
       JSON.stringify(normalized.confidenceDistribution),
       normalized.resultCount,
       normalized.noResult,
@@ -97,7 +105,7 @@ export async function getSearchAnalyticsSummary(teamId: string): Promise<SearchA
 async function loadRecentSearchEvents(teamId: string): Promise<SearchAnalyticsEvent[]> {
   const { rows } = await authDb().query<SearchEventRow>(
     `
-    select query_hash, layer_hits, confidence_distribution, result_count, no_result, latency_ms, created_at
+    select query_hash, layer_hits, result_terms, confidence_distribution, result_count, no_result, latency_ms, created_at
     from search_events
     where team_id = $1
     order by created_at desc
@@ -113,6 +121,7 @@ async function loadRecentSearchEvents(teamId: string): Promise<SearchAnalyticsEv
     noResult: row.no_result,
     queryHash: row.query_hash,
     resultCount: row.result_count,
+    resultTerms: row.result_terms,
     teamId
   }));
 }
@@ -120,15 +129,22 @@ async function loadRecentSearchEvents(teamId: string): Promise<SearchAnalyticsEv
 function summarizeSearchEvents(events: SearchAnalyticsEvent[]): SearchAnalyticsSummary {
   const confidenceDistribution: Record<string, number> = {};
   const layerHits: Record<string, number> = {};
+  const termHits: Record<string, number> = {};
   const latencies = events.map((event) => event.latencyMs).sort((a, b) => a - b);
   const recentQueryHashes = Array.from(new Set(events.map((event) => event.queryHash))).slice(
     0,
     10
   );
+  const recentNoResultHashes = Array.from(
+    new Set(events.filter((event) => event.noResult).map((event) => event.queryHash))
+  ).slice(0, 10);
 
   for (const event of events) {
     for (const layer of event.layerHits) {
       layerHits[layer] = (layerHits[layer] ?? 0) + 1;
+    }
+    for (const term of event.resultTerms ?? []) {
+      termHits[term] = (termHits[term] ?? 0) + 1;
     }
     for (const [tier, count] of Object.entries(event.confidenceDistribution)) {
       confidenceDistribution[tier] = (confidenceDistribution[tier] ?? 0) + count;
@@ -144,7 +160,12 @@ function summarizeSearchEvents(events: SearchAnalyticsEvent[]): SearchAnalyticsS
     noResultCount,
     noResultRate: events.length === 0 ? 0 : noResultCount / events.length,
     p95LatencyMs: p95Index < 0 ? 0 : latencies[p95Index]!,
+    recentNoResultHashes,
     recentQueryHashes,
+    topTerms: Object.entries(termHits)
+      .map(([term, count]) => ({ count, term }))
+      .sort((left, right) => right.count - left.count || left.term.localeCompare(right.term))
+      .slice(0, 10),
     total: events.length
   };
 }

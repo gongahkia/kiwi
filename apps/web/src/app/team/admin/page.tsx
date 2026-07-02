@@ -56,6 +56,35 @@ function AnalyticsList({ items }: { items: Record<string, number> }) {
   );
 }
 
+function TermList({ items }: { items: Array<{ count: number; term: string }> }) {
+  if (items.length === 0) return <p className="text-sm text-foreground/55">None</p>;
+
+  return (
+    <ul className="grid gap-2">
+      {items.map((item) => (
+        <li className="flex items-center justify-between gap-3 text-sm" key={item.term}>
+          <span>{item.term}</span>
+          <span className="tabular-nums text-foreground/65">{item.count}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function HashList({ items }: { items: string[] }) {
+  if (items.length === 0) return <p className="text-sm text-foreground/55">None</p>;
+
+  return (
+    <ul className="grid gap-2">
+      {items.map((hash) => (
+        <li className="truncate font-mono text-xs text-foreground/65" key={hash}>
+          {hash}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ChecklistItem({ item }: { item: TeamAdminChecklistItem }) {
   const Icon = item.complete ? CheckCircle2 : Circle;
 
@@ -135,6 +164,12 @@ export default async function TeamAdminPage() {
             <Link className="rounded-md border border-input px-3 py-2" href="/team/admin/review">
               Review
             </Link>
+            <Link
+              className="rounded-md border border-input px-3 py-2"
+              href="https://github.com/gongahkia/wat/blob/main/docs/team-admin-guide.md"
+            >
+              Admin guide
+            </Link>
           </div>
         </header>
         <div className="grid gap-4 md:grid-cols-4">
@@ -167,17 +202,34 @@ export default async function TeamAdminPage() {
             </div>
             <div className="grid gap-2">
               <h3 className="text-sm font-medium">Recent hashes</h3>
-              {dashboard.searchAnalytics.recentQueryHashes.length > 0 ? (
-                <ul className="grid gap-2">
-                  {dashboard.searchAnalytics.recentQueryHashes.map((hash) => (
-                    <li className="truncate font-mono text-xs text-foreground/65" key={hash}>
-                      {hash}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-foreground/55">None</p>
-              )}
+              <HashList items={dashboard.searchAnalytics.recentQueryHashes} />
+            </div>
+          </div>
+        </section>
+        <section className="grid gap-4 rounded-md border border-input p-4">
+          <h2 className="text-xl font-semibold">Glossary health</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <AnalyticsMetric
+              label="Pending suggestions"
+              value={String(dashboard.glossary.pendingSuggestions)}
+            />
+            <AnalyticsMetric
+              label="Stale entries"
+              value={String(dashboard.glossary.staleEntries)}
+            />
+            <AnalyticsMetric
+              label="Source coverage"
+              value={formatRate(dashboard.glossary.sourceCoverageRate)}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">Top searched acronyms</h3>
+              <TermList items={dashboard.glossary.topTerms} />
+            </div>
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">No-result gaps</h3>
+              <HashList items={dashboard.glossary.noResultGaps} />
             </div>
           </div>
         </section>

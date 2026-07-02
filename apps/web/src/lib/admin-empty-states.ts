@@ -15,7 +15,7 @@ export const adminEmptyStates = {
   members: {
     actionHref: "/install/web",
     actionLabel: "Open web setup",
-    body: "Add the invitation flow before production onboarding; local fixtures can still verify role screens.",
+    body: "Invite teammates by email and share the generated invite token through an approved channel.",
     title: "No members"
   },
   suggestions: {

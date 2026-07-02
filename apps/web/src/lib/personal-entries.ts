@@ -13,6 +13,7 @@ type EntryRow = {
   expansions: string[];
   id: string;
   meaning_short: string;
+  review_status: NonNullable<PersonalEntry["review_status"]>;
   term: string;
 };
 
@@ -60,6 +61,7 @@ function entryFromRows(row: EntryRow, sources: SourceRow[]): PersonalEntry {
     expansion: row.expansions[0] ?? row.term,
     id: row.id,
     meaning: row.meaning_short,
+    review_status: row.review_status,
     sources: sources.map((source) => ({
       license: source.license,
       publisher: source.publisher,
@@ -124,7 +126,7 @@ export async function getPersonalEntries(userId: string): Promise<PersonalEntry[
   if (useTestState()) return structuredClone(testEntries(userId));
   const { rows } = await authDb().query<EntryRow>(
     `
-    select id, term, expansions, domains, meaning_short, contemporaries
+    select id, term, expansions, domains, meaning_short, contemporaries, review_status
     from personal_entries
     where user_id = $1 and deprecated = false
     order by term_normalized, id
@@ -156,8 +158,8 @@ export async function createPersonalEntry(
       `
       insert into personal_entries (
         id, user_id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
-        confidence_tier, license, layer, aliases, related_terms, contemporaries
-      ) values ($1, $2, $3, $4, $5, $6, $7, $7, 'T4', 'proprietary-personal', 'personal', ARRAY[]::text[], ARRAY[]::text[], $8)
+        confidence_tier, license, layer, aliases, related_terms, contemporaries, review_status
+      ) values ($1, $2, $3, $4, $5, $6, $7, $7, 'T4', 'proprietary-personal', 'personal', ARRAY[]::text[], ARRAY[]::text[], $8, $9)
       `,
       [
         entry.id,
@@ -167,7 +169,8 @@ export async function createPersonalEntry(
         [entry.expansion.trim()],
         entry.domains,
         entry.meaning.trim(),
-        entry.contemporaries ?? []
+        entry.contemporaries ?? [],
+        entry.review_status ?? "active"
       ]
     );
     await writeSources(client, entry.id, entry.sources);
@@ -220,6 +223,7 @@ export async function updatePersonalEntry(
         meaning_short = $7,
         meaning_long = $7,
         contemporaries = $8,
+        review_status = $9,
         updated_at = now()
       where user_id = $1 and id = $2 and deprecated = false
       `,
@@ -231,7 +235,8 @@ export async function updatePersonalEntry(
         [next.expansion.trim()],
         next.domains,
         next.meaning.trim(),
-        next.contemporaries ?? []
+        next.contemporaries ?? [],
+        next.review_status ?? "active"
       ]
     );
     if (rowCount === 0) throw new Error("personal entry not found");
@@ -258,10 +263,10 @@ export async function deletePersonalEntry(userId: string, entryId: string): Prom
     entries.splice(index, 1);
     return structuredClone(existing);
   }
-  await authDb().query("delete from personal_entries where user_id = $1 and id = $2", [
-    userId,
-    entryId
-  ]);
+  await authDb().query(
+    "update personal_entries set deprecated = true, deprecated_reason = 'user removed', updated_at = now() where user_id = $1 and id = $2",
+    [userId, entryId]
+  );
   return existing;
 }
 

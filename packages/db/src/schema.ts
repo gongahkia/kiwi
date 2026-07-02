@@ -59,6 +59,7 @@ export const entries = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deprecated: boolean("deprecated").notNull().default(false),
     deprecatedReason: text("deprecated_reason"),
+    reviewStatus: text("review_status").notNull().default("active"),
     aliases: text("aliases")
       .array()
       .notNull()
@@ -262,6 +263,7 @@ export const teamEntries = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deprecated: boolean("deprecated").notNull().default(false),
     deprecatedReason: text("deprecated_reason"),
+    reviewStatus: text("review_status").notNull().default("active"),
     aliases: text("aliases")
       .array()
       .notNull()
@@ -291,6 +293,10 @@ export const teamEntries = pgTable(
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`
     ),
     check("team_entries_layer_check", sql`${table.layer} = 'team'`),
+    check(
+      "team_entries_review_status_check",
+      sql`${table.reviewStatus} in ('active', 'needs_review', 'stale')`
+    ),
     uniqueIndex("team_entries_team_term_expansion_active_idx")
       .on(table.teamId, table.termNormalized, sql`(lower(coalesce("expansions"[1], '')))`)
       .where(sql`${table.deprecated} = false`)
@@ -344,6 +350,7 @@ export const personalEntries = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deprecated: boolean("deprecated").notNull().default(false),
     deprecatedReason: text("deprecated_reason"),
+    reviewStatus: text("review_status").notNull().default("active"),
     aliases: text("aliases")
       .array()
       .notNull()
@@ -373,6 +380,10 @@ export const personalEntries = pgTable(
       sql`${table.confidenceTier} in ('T1', 'T2', 'T3', 'T4')`
     ),
     check("personal_entries_layer_check", sql`${table.layer} = 'personal'`),
+    check(
+      "personal_entries_review_status_check",
+      sql`${table.reviewStatus} in ('active', 'needs_review', 'stale')`
+    ),
     uniqueIndex("personal_entries_user_term_expansion_active_idx")
       .on(table.userId, table.termNormalized, sql`(lower(coalesce("expansions"[1], '')))`)
       .where(sql`${table.deprecated} = false`)
@@ -424,6 +435,33 @@ export const suggestedEdits = pgTable("suggested_edits", {
   reviewedAt: timestamp("reviewed_at", { withTimezone: true })
 });
 
+export const teamInvites = pgTable(
+  "team_invites",
+  {
+    id: text("id").primaryKey(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: userRole("role").notNull().default("member"),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedBy: text("invited_by").references(() => users.id, { onDelete: "set null" }),
+    acceptedBy: text("accepted_by").references(() => users.id, { onDelete: "set null" }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("team_invites_team_email_pending_idx").on(
+      table.teamId,
+      table.email,
+      table.acceptedAt,
+      table.expiresAt
+    ),
+    index("team_invites_email_pending_idx").on(table.email, table.acceptedAt, table.expiresAt)
+  ]
+);
+
 export const searchEvents = pgTable(
   "search_events",
   {
@@ -432,6 +470,10 @@ export const searchEvents = pgTable(
     actorId: text("actor_id"),
     queryHash: text("query_hash").notNull(),
     layerHits: text("layer_hits")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    resultTerms: text("result_terms")
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),

@@ -111,3 +111,13 @@ export async function removeTeamMember(teamId: string, memberId: string): Promis
   if (!rows[0]) throw new Error("member not found");
   return rowToMember(rows[0]);
 }
+
+export function addTeamMemberForTest(teamId: string, member: TeamMember): void {
+  const members = testMembers(teamId);
+  const index = members.findIndex((item) => item.id === member.id || item.email === member.email);
+  if (index === -1) {
+    members.push(structuredClone(member));
+    return;
+  }
+  members[index] = structuredClone(member);
+}
