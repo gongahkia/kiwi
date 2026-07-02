@@ -1,6 +1,7 @@
 import { lookupApiKey, type ApiKeyScope } from "@/lib/api-keys";
 
 export interface ApiIdentity {
+  createdBy?: string | null;
   scopes?: ApiKeyScope[];
   teamId?: string;
   tokenId?: string;
@@ -43,6 +44,7 @@ export async function resolveApiIdentity(headers: Headers): Promise<ApiIdentityR
   return {
     identity: {
       scopes: record.scopes,
+      createdBy: record.created_by,
       teamId: record.team_id,
       tokenId: record.id,
       type: "api",

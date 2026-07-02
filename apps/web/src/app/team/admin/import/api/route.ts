@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
 import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
+import { recordAuditLog } from "@/lib/audit-log";
 import { parseTeamImportCsv } from "@/lib/team-import-template";
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
 import { sessionUserFromRequest } from "@/lib/session";
@@ -9,6 +10,7 @@ import { checkWriteRateLimit } from "@/lib/write-rate-limit";
 
 interface ImportActor {
   actorId: string;
+  auditActorId: string | null;
   teamId: string;
 }
 
@@ -80,6 +82,7 @@ async function importActorFromRequest(
     return {
       actor: {
         actorId: identity.identity.userId ?? identity.identity.tokenId ?? "api",
+        auditActorId: identity.identity.userId ?? identity.identity.createdBy ?? null,
         teamId: identity.identity.teamId
       }
     };
@@ -97,7 +100,7 @@ async function importActorFromRequest(
     };
   }
 
-  return { actor: { actorId: session.id, teamId: session.teamId } };
+  return { actor: { actorId: session.id, auditActorId: session.id, teamId: session.teamId } };
 }
 
 export async function POST(request: NextRequest) {
@@ -124,6 +127,20 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await importTeamEntries(auth.actor.teamId, entries);
+  if (auth.actor.auditActorId) {
+    await recordAuditLog({
+      action: "team_entry.import",
+      actor_id: auth.actor.auditActorId,
+      after_jsonb: {
+        inserted: result.inserted.map((entry) => entry.id),
+        skipped: result.skipped.map((entry) => entry.id)
+      },
+      before_jsonb: null,
+      target_id: auth.actor.teamId,
+      target_type: "team_import",
+      team_id: auth.actor.teamId
+    });
+  }
 
   return NextResponse.json({
     inserted: result.inserted.length,

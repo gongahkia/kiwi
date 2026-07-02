@@ -23,6 +23,7 @@ describe("api identity", () => {
 
     expect(result).toEqual({
       identity: {
+        createdBy: "user_admin",
         scopes: ["admin", "search", "suggest", "write"],
         teamId: "team_1",
         tokenId: expect.stringContaining("test-api-key"),
@@ -39,6 +40,7 @@ describe("api identity", () => {
 
     expect(result).toEqual({
       identity: {
+        createdBy: "user_admin",
         scopes: ["admin", "search", "suggest", "write"],
         teamId: "team_default",
         tokenId: expect.stringContaining("test-api-key"),

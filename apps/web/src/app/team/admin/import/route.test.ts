@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
+import { getAuditLog, resetAuditLogForTest } from "@/lib/audit-log";
 import { testSessionToken } from "@/lib/session";
 import {
   getTeamEntries,
@@ -75,11 +76,13 @@ describe("POST /team/admin/import/api", () => {
     seedApiKeyForTest({ key: "import-key", scopes: ["admin"], teamId: "team_api" });
     resetTeamEntriesForTest();
     replaceTeamEntriesForTest([], "team_api");
+    resetAuditLogForTest();
     resetWriteRateLimitsForTest();
   });
 
   afterEach(() => {
     resetApiKeysForTest();
+    resetAuditLogForTest();
     if (previousImportWriteLimit === undefined) {
       delete process.env.WAT_IMPORT_WRITE_LIMIT;
     } else {
@@ -123,6 +126,9 @@ describe("POST /team/admin/import/api", () => {
     expect(response.status).toBe(200);
     expect(result).toEqual({ inserted: 1, skipped: 0 });
     await expect(getTeamEntries("team_api")).resolves.toHaveLength(1);
+    await expect(getAuditLog("team_api")).resolves.toContainEqual(
+      expect.objectContaining({ action: "team_entry.import" })
+    );
   });
 
   it("rejects import API keys without admin scope", async () => {
