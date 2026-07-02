@@ -7,7 +7,7 @@ use kumeyuri_core::{
     text::{TextOutputBackend, TextOutputConfig},
 };
 
-const SNAPSHOT_NAMES: [&str; 28] = [
+const SNAPSHOT_NAMES: [&str; 29] = [
     "01_single_node",
     "02_two_nodes_linked",
     "03_three_node_chain",
@@ -36,6 +36,7 @@ const SNAPSHOT_NAMES: [&str; 28] = [
     "26_long_labels",
     "27_disconnected_clusters",
     "28_dense_fan_in_out",
+    "29_quoted_punctuation",
 ];
 
 #[test]
