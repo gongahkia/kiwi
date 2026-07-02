@@ -10,13 +10,14 @@ import { DELETE, GET, PATCH, POST } from "./route";
 function request(
   method: string,
   body?: unknown,
-  url = "https://wat.example.com/team/admin/members/api"
+  url = "https://wat.example.com/team/admin/members/api",
+  token = testSessionToken()
 ) {
   return new NextRequest(url, {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: {
       "content-type": "application/json",
-      cookie: `next-auth.session-token=${testSessionToken()}`
+      cookie: `next-auth.session-token=${token}`
     },
     method
   });
@@ -82,5 +83,30 @@ describe("/team/admin/members/api", () => {
     );
 
     expect(response?.status).toBe(403);
+  });
+
+  it("does not expose or mutate members across teams", async () => {
+    const teamTwo = testSessionToken({ teamId: "team_2" });
+    const list = await GET(request("GET", undefined, undefined, teamTwo));
+    const body = (await list.json()) as { members: unknown[] };
+    expect(body.members).toEqual([]);
+
+    const crossTenantRole = await PATCH(
+      request("PATCH", { id: "user_platform", role: "admin" }, undefined, teamTwo)
+    );
+    expect(crossTenantRole?.status).toBe(404);
+
+    const crossTenantRemove = await DELETE(
+      request(
+        "DELETE",
+        undefined,
+        "https://wat.example.com/team/admin/members/api?id=user_platform&confirm=user_platform",
+        teamTwo
+      )
+    );
+    expect(crossTenantRemove?.status).toBe(404);
+    await expect(getTeamMembers()).resolves.toContainEqual(
+      expect.objectContaining({ id: "user_platform", role: "member" })
+    );
   });
 });

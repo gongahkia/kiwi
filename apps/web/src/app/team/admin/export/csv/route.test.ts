@@ -22,4 +22,18 @@ describe("GET /team/admin/export/csv", () => {
     expect(response.headers.get("x-page-total")).toBe(String(initialTeamEntries.length));
     expect(response.headers.get("x-next-cursor")).toBe("1");
   });
+
+  it("does not export another team's CSV entries", async () => {
+    const response = await GET(
+      new NextRequest("https://wat.example.com/team/admin/export/csv", {
+        headers: {
+          cookie: `next-auth.session-token=${testSessionToken({ teamId: "team_2" })}`
+        }
+      })
+    );
+    const csv = await response.text();
+
+    expect(csv).not.toContain("team-example-cap");
+    expect(response.headers.get("x-page-total")).toBe("0");
+  });
 });

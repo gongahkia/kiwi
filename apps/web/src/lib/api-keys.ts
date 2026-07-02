@@ -73,6 +73,21 @@ export async function createApiKey(input: {
 }): Promise<CreatedApiKey> {
   const key = `wat_${randomBytes(32).toString("base64url")}`;
   const scopes = assertScopes(input.scopes ?? defaultScopes);
+  if (process.env.NODE_ENV === "test") {
+    const record: ApiKeyRecord = {
+      created_at: new Date().toISOString(),
+      created_by: input.createdBy,
+      id: randomUUID(),
+      key_prefix: keyPrefix(key),
+      last_used_at: null,
+      name: input.name.trim() || "Team API key",
+      revoked_at: null,
+      scopes,
+      team_id: input.teamId
+    };
+    testKeys.set(hashApiKey(key), structuredClone(record));
+    return { ...structuredClone(record), key };
+  }
   const { rows } = await authDb().query<{
     created_at: Date;
     created_by: string | null;
@@ -105,6 +120,12 @@ export async function createApiKey(input: {
 }
 
 export async function listApiKeys(teamId: string): Promise<ApiKeyRecord[]> {
+  if (process.env.NODE_ENV === "test") {
+    return Array.from(testKeys.values())
+      .filter((record) => record.team_id === teamId)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .map((record) => structuredClone(record));
+  }
   const { rows } = await authDb().query<{
     created_at: Date;
     created_by: string | null;
@@ -128,6 +149,16 @@ export async function listApiKeys(teamId: string): Promise<ApiKeyRecord[]> {
 }
 
 export async function revokeApiKey(teamId: string, id: string): Promise<ApiKeyRecord> {
+  if (process.env.NODE_ENV === "test") {
+    for (const [hash, record] of testKeys.entries()) {
+      if (record.team_id === teamId && record.id === id && !record.revoked_at) {
+        const revoked = { ...record, revoked_at: new Date().toISOString() };
+        testKeys.set(hash, revoked);
+        return structuredClone(revoked);
+      }
+    }
+    throw new Error("api key not found");
+  }
   const { rows } = await authDb().query<{
     created_at: Date;
     created_by: string | null;

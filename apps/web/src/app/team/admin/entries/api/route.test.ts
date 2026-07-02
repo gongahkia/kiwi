@@ -32,13 +32,14 @@ const entry: TeamEntry = {
 function request(
   method: string,
   body?: unknown,
-  url = "https://wat.example.com/team/admin/entries/api"
+  url = "https://wat.example.com/team/admin/entries/api",
+  token = testSessionToken()
 ) {
   return new NextRequest(url, {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: {
       "content-type": "application/json",
-      cookie: `next-auth.session-token=${testSessionToken()}`
+      cookie: `next-auth.session-token=${token}`
     },
     method
   });
@@ -95,5 +96,36 @@ describe("GET /team/admin/entries/api", () => {
       "team_entry.update",
       "team_entry.deprecate"
     ]);
+  });
+
+  it("fails closed for cross-tenant and fuzzed entry ids", async () => {
+    const teamTwo = testSessionToken({ teamId: "team_2" });
+    const list = await GET(request("GET", undefined, undefined, teamTwo));
+    const body = (await list.json()) as { entries: unknown[]; page: { total: number } };
+    expect(body.entries).toEqual([]);
+    expect(body.page.total).toBe(0);
+
+    const crossTenantPatch = await PATCH(
+      request(
+        "PATCH",
+        { id: "team-example-cap", patch: { meaning: "<script>alert(1)</script>" } },
+        undefined,
+        teamTwo
+      )
+    );
+    expect(crossTenantPatch?.status).toBe(404);
+
+    const fuzzId = "' OR '1'='1<script>";
+    const fuzzDelete = await DELETE(
+      request(
+        "DELETE",
+        undefined,
+        `https://wat.example.com/team/admin/entries/api?id=${encodeURIComponent(fuzzId)}&confirm=${encodeURIComponent(fuzzId)}`
+      )
+    );
+    expect(fuzzDelete?.status).toBe(404);
+    expect((await getTeamEntries()).map((item) => item.id)).toEqual(
+      initialTeamEntries.map((item) => item.id)
+    );
   });
 });

@@ -49,11 +49,15 @@ export function ApiKeysPanel({ initialKeys }: ApiKeysPanelProps) {
   }
 
   async function revoke(id: string) {
+    if (!window.confirm(`Revoke API key ${id}?`)) return;
     setError("");
-    const response = await fetch(`/team/admin/api-keys/api?id=${encodeURIComponent(id)}`, {
-      headers: { "x-wat-same-origin": "1" },
-      method: "DELETE"
-    });
+    const response = await fetch(
+      `/team/admin/api-keys/api?id=${encodeURIComponent(id)}&confirm=${encodeURIComponent(id)}`,
+      {
+        headers: { "x-wat-same-origin": "1" },
+        method: "DELETE"
+      }
+    );
     const payload = (await response.json().catch(() => null)) as {
       key?: ApiKeyRecord;
       message?: string;

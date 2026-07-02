@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { recordAuditLog } from "@/lib/audit-log";
 import { createApiKey, listApiKeys, revokeApiKey, type ApiKeyScope } from "@/lib/api-keys";
 import { sessionUserFromRequest, type WatSessionUser } from "@/lib/session";
 
@@ -51,6 +52,15 @@ export async function POST(request: NextRequest) {
     scopes,
     teamId: auth.session.teamId
   });
+  await recordAuditLog({
+    action: "api_key.create",
+    actor_id: auth.session.id,
+    after_jsonb: { id: key.id, key_prefix: key.key_prefix, name: key.name, scopes: key.scopes },
+    before_jsonb: null,
+    target_id: key.id,
+    target_type: "api_key",
+    team_id: auth.session.teamId
+  });
   return NextResponse.json({ key }, { status: 201 });
 }
 
@@ -59,8 +69,23 @@ export async function DELETE(request: NextRequest) {
   if ("error" in auth) return auth.error;
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return apiErrorResponse(request, "missing_id", 400, { message: "id is required" });
+  if (request.nextUrl.searchParams.get("confirm") !== id) {
+    return apiErrorResponse(request, "confirmation_required", 400, {
+      message: "confirmation required"
+    });
+  }
   try {
-    return NextResponse.json({ key: await revokeApiKey(auth.session.teamId, id) });
+    const key = await revokeApiKey(auth.session.teamId, id);
+    await recordAuditLog({
+      action: "api_key.revoke",
+      actor_id: auth.session.id,
+      after_jsonb: { revoked_at: key.revoked_at },
+      before_jsonb: { id: key.id, key_prefix: key.key_prefix, name: key.name, scopes: key.scopes },
+      target_id: key.id,
+      target_type: "api_key",
+      team_id: auth.session.teamId
+    });
+    return NextResponse.json({ key });
   } catch (error) {
     return apiErrorResponse(request, "api_key_not_found", 404, {
       message: error instanceof Error ? error.message : "api key not found"
