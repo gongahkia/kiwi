@@ -15,17 +15,21 @@ An issue is triaged when it has:
 
 ## Current Check
 
-Checked on 2026-06-19 with:
+Checked on 2026-07-02 with:
 
 ```sh
 gh issue list --state open --limit 100 --json number,title,state,labels,comments,updatedAt,url
 ```
 
-Open issues:
+Open issue groups:
 
-| Issue | Labels | Triage state |
+| Issues | Labels | Triage state |
 | --- | --- | --- |
-| [#1 Public roadmap](https://github.com/gongahkia/kumeyuri/issues/1) | `documentation` | Triaged |
+| [#1 Public roadmap](https://github.com/gongahkia/kumeyuri/issues/1) | `documentation` | Living roadmap; keep open. |
+| [#5](https://github.com/gongahkia/kumeyuri/issues/5), [#6](https://github.com/gongahkia/kumeyuri/issues/6), [#8](https://github.com/gongahkia/kumeyuri/issues/8)-[#21](https://github.com/gongahkia/kumeyuri/issues/21) | `release` | Blocked on registry/release credentials or publish events. |
+| [#7](https://github.com/gongahkia/kumeyuri/issues/7), [#10](https://github.com/gongahkia/kumeyuri/issues/10), [#30](https://github.com/gongahkia/kumeyuri/issues/30) | `infra` | Blocked on domain/CDN/public directory registration access. |
+| [#22](https://github.com/gongahkia/kumeyuri/issues/22)-[#25](https://github.com/gongahkia/kumeyuri/issues/25), [#27](https://github.com/gongahkia/kumeyuri/issues/27)-[#29](https://github.com/gongahkia/kumeyuri/issues/29) | `security` | Blocked on external program/signing/provenance state. |
+| [#26](https://github.com/gongahkia/kumeyuri/issues/26) | `enhancement` | Needs manual screen-reader verification. |
 
 ## Cadence
 

@@ -2,13 +2,16 @@
 
 The project keeps a small GitHub Issues queue labeled `good first issue`.
 
-Current queue opened on 2026-06-19:
+Current queue checked on 2026-07-02: no open issues carry the
+`good first issue` label.
 
-| Issue | Scope |
-| --- | --- |
-| [#2](https://github.com/gongahkia/kumeyuri/issues/2) | Install troubleshooting docs |
-| [#3](https://github.com/gongahkia/kumeyuri/issues/3) | Flowchart quoted-label fixture |
-| [#4](https://github.com/gongahkia/kumeyuri/issues/4) | MCP smoke-test docs |
+Completed queue opened on 2026-06-19:
+
+| Issue | Scope | Closed by |
+| --- | --- | --- |
+| [#2](https://github.com/gongahkia/kumeyuri/issues/2) | Install troubleshooting docs | `b55b1f5` |
+| [#3](https://github.com/gongahkia/kumeyuri/issues/3) | Flowchart quoted-label fixture | `7e0d96d` |
+| [#4](https://github.com/gongahkia/kumeyuri/issues/4) | MCP smoke-test docs | `94216bb` |
 
 ## Response Policy
 
