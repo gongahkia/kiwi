@@ -39,6 +39,44 @@ npm --workspace kumeyuri run build
 `site/pkg` contains the generated wasm-bindgen files used by the static
 playground.
 
+## Troubleshooting
+
+If Cargo commands fail because Rust is missing or too old, install the stable
+toolchain and verify the active compiler:
+
+```bash
+brew install rustup
+rustup-init -y
+rustup default stable
+rustc --version
+cargo --version
+```
+
+If WASM budget checks fail because `wasm-pack` is missing, install the pinned
+tool:
+
+```bash
+cargo install wasm-pack --locked --version 0.13.1
+wasm-pack --version
+```
+
+If docs builds fail because `mdbook` is missing, install it before running the
+docs command:
+
+```bash
+cargo install mdbook --locked
+mdbook --version
+npm run docs:build
+```
+
+If npm workspace tests fail with missing packages or unresolved workspace
+imports, install dependencies from the repository root:
+
+```bash
+npm install
+npm run test:ts-package
+```
+
 ## Verify the checkout
 
 ```bash
