@@ -1,8 +1,14 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
 import { testSessionToken } from "@/lib/session";
-import { resetTeamEntriesForTest, type TeamEntry } from "@/lib/team-entries";
+import {
+  getTeamEntries,
+  replaceTeamEntriesForTest,
+  resetTeamEntriesForTest,
+  type TeamEntry
+} from "@/lib/team-entries";
 import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
 import { POST } from "./api/route";
 import { GET as CSV_TEMPLATE } from "./template/csv/route";
@@ -28,12 +34,25 @@ const entry: TeamEntry = {
   term: "RTO"
 };
 
-function request(entries: TeamEntry[]) {
+function request(entries: TeamEntry[], token = testSessionToken()) {
   return new NextRequest("https://wat.example.com/team/admin/import/api", {
     body: JSON.stringify({ entries }),
     headers: {
       "content-type": "application/json",
-      cookie: `next-auth.session-token=${testSessionToken()}`
+      cookie: `next-auth.session-token=${token}`
+    },
+    method: "POST"
+  });
+}
+
+function apiRequest(entries: TeamEntry[], headers: Record<string, string> = {}) {
+  return new NextRequest("https://wat.example.com/team/admin/import/api", {
+    body: JSON.stringify({ entries }),
+    headers: {
+      authorization: "Bearer import-key",
+      "content-type": "application/json",
+      "x-wat-team-id": "team_api",
+      ...headers
     },
     method: "POST"
   });
@@ -53,17 +72,21 @@ function csvRequest(body: string) {
 describe("POST /team/admin/import/api", () => {
   beforeEach(() => {
     process.env.WAT_IMPORT_WRITE_LIMIT = "1";
+    seedApiKeyForTest({ key: "import-key", scopes: ["admin"], teamId: "team_api" });
     resetTeamEntriesForTest();
+    replaceTeamEntriesForTest([], "team_api");
     resetWriteRateLimitsForTest();
   });
 
   afterEach(() => {
+    resetApiKeysForTest();
     if (previousImportWriteLimit === undefined) {
       delete process.env.WAT_IMPORT_WRITE_LIMIT;
     } else {
       process.env.WAT_IMPORT_WRITE_LIMIT = previousImportWriteLimit;
     }
     resetTeamEntriesForTest();
+    replaceTeamEntriesForTest([], "team_api");
     resetWriteRateLimitsForTest();
   });
 
@@ -80,6 +103,52 @@ describe("POST /team/admin/import/api", () => {
       message: "rate limit exceeded",
       remaining: 0
     });
+  });
+
+  it("requires a team admin session for browser imports", async () => {
+    const response = await POST(request([entry], testSessionToken({ role: "member" })));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "admin_required",
+      error: "admin_required",
+      message: "admin required"
+    });
+  });
+
+  it("imports with a team-scoped admin API key", async () => {
+    const response = await POST(apiRequest([entry]));
+    const result = (await response.json()) as { inserted: number; skipped: number };
+
+    expect(response.status).toBe(200);
+    expect(result).toEqual({ inserted: 1, skipped: 0 });
+    await expect(getTeamEntries("team_api")).resolves.toHaveLength(1);
+  });
+
+  it("rejects import API keys without admin scope", async () => {
+    resetApiKeysForTest();
+    seedApiKeyForTest({ key: "import-key", scopes: ["write"], teamId: "team_api" });
+
+    const response = await POST(apiRequest([entry]));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "insufficient_api_scope",
+      error: "insufficient_api_scope",
+      message: "admin scope is required"
+    });
+    await expect(getTeamEntries("team_api")).resolves.toHaveLength(0);
+  });
+
+  it("rejects import API team mismatches before writing", async () => {
+    const response = await POST(apiRequest([entry], { "x-wat-team-id": "team_other" }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "team_scope_mismatch",
+      error: "team_scope_mismatch"
+    });
+    await expect(getTeamEntries("team_api")).resolves.toHaveLength(0);
   });
 
   it("downloads and imports the JSON template", async () => {

@@ -1,10 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { parseTeamImportCsv } from "@/lib/team-import-template";
 import { importTeamEntries, type TeamEntry, validateTeamEntry } from "@/lib/team-entries";
 import { sessionUserFromRequest } from "@/lib/session";
 import { checkWriteRateLimit } from "@/lib/write-rate-limit";
+
+interface ImportActor {
+  actorId: string;
+  teamId: string;
+}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim());
@@ -47,12 +53,58 @@ async function entriesFromRequest(request: NextRequest): Promise<TeamEntry[] | n
   }
 }
 
-export async function POST(request: NextRequest) {
+async function importActorFromRequest(
+  request: NextRequest
+): Promise<{ actor: ImportActor } | { error: NextResponse }> {
+  const identity = await resolveApiIdentity(request.headers);
+  if (!identity.ok) {
+    return { error: apiErrorResponse(request, identity.error, identity.status) };
+  }
+
+  if (identity.identity.type === "api") {
+    if (!identity.identity.teamId) {
+      return {
+        error: apiErrorResponse(request, "missing_team_scope", 403, {
+          message: "team-scoped API key is required"
+        })
+      };
+    }
+    if (!hasApiScope(identity.identity, "admin")) {
+      return {
+        error: apiErrorResponse(request, "insufficient_api_scope", 403, {
+          message: "admin scope is required"
+        })
+      };
+    }
+
+    return {
+      actor: {
+        actorId: identity.identity.userId ?? identity.identity.tokenId ?? "api",
+        teamId: identity.identity.teamId
+      }
+    };
+  }
+
   const session = await sessionUserFromRequest(request);
   if (!session?.teamId) {
-    return apiErrorResponse(request, "login_required", 401, { message: "login required" });
+    return {
+      error: apiErrorResponse(request, "login_required", 401, { message: "login required" })
+    };
   }
-  const writeLimit = await checkWriteRateLimit("team-import", session.id);
+  if (session.role !== "admin") {
+    return {
+      error: apiErrorResponse(request, "admin_required", 403, { message: "admin required" })
+    };
+  }
+
+  return { actor: { actorId: session.id, teamId: session.teamId } };
+}
+
+export async function POST(request: NextRequest) {
+  const auth = await importActorFromRequest(request);
+  if ("error" in auth) return auth.error;
+
+  const writeLimit = await checkWriteRateLimit("team-import", auth.actor.actorId);
   if (!writeLimit.allowed) {
     return apiErrorResponse(request, "rate_limited", 429, {
       fields: {
@@ -71,7 +123,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const result = await importTeamEntries(session.teamId, entries);
+  const result = await importTeamEntries(auth.actor.teamId, entries);
 
   return NextResponse.json({
     inserted: result.inserted.length,

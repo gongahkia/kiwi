@@ -21,6 +21,10 @@ function isRestEndpoint(pathname: string): boolean {
   );
 }
 
+function hasApiKey(headers: Headers): boolean {
+  return Boolean(headers.get("x-api-key")?.trim() || headers.get("authorization")?.trim());
+}
+
 export async function middleware(request: NextRequest) {
   const requestId = ensureRequestId(request.headers);
   const requestHeaders = new Headers(request.headers);
@@ -33,13 +37,15 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith(prefix)
   );
   const needsAdmin = request.nextUrl.pathname.startsWith(adminPrefix);
+  const apiKeyImport =
+    request.nextUrl.pathname === "/team/admin/import/api" && hasApiKey(request.headers);
 
   if (session && !hasSameOriginMutationHeaders(request)) {
     response = apiErrorResponse(request, "same_origin_required", 403, {
       message: "same origin required",
       requestId
     });
-  } else if (needsSession && !session) {
+  } else if (needsSession && !session && !apiKeyImport) {
     if (isRestEndpoint(request.nextUrl.pathname)) {
       response = apiErrorResponse(request, "login_required", 401, {
         message: "login required",

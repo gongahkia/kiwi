@@ -4,8 +4,12 @@ import { describe, expect, it } from "vitest";
 import { middleware } from "./middleware";
 import { testSessionToken } from "./lib/session";
 
-function nextRequest(method: string, headers: Record<string, string> = {}) {
-  return new NextRequest("https://wat.example.com/team/admin/entries/api", {
+function nextRequest(
+  method: string,
+  headers: Record<string, string> = {},
+  path = "/team/admin/entries/api"
+) {
+  return new NextRequest(`https://wat.example.com${path}`, {
     headers,
     method
   });
@@ -50,5 +54,14 @@ describe("middleware csrf guard", () => {
       error: "login_required",
       message: "login required"
     });
+  });
+
+  it("lets API-key team imports reach route auth", async () => {
+    const response = await middleware(
+      nextRequest("POST", { authorization: "Bearer import-key" }, "/team/admin/import/api")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 });

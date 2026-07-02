@@ -1,5 +1,7 @@
 # API
 
+Machine-readable REST spec: [`docs/openapi.yml`](openapi.yml).
+
 ## REST
 
 Base path: `/api/v1`
@@ -341,6 +343,14 @@ Team admins can download import templates:
 - `GET /team/admin/import/template/csv`
 
 `POST /team/admin/import/api` accepts either JSON shaped as `{ "entries": [...] }` or CSV using the template headers. CSV `domains` are semicolon-separated, and each CSV row imports one source.
+
+Import authorization:
+
+- Browser imports require a signed-in team admin session.
+- API imports require `Authorization: Bearer $WAT_API_KEY` or `X-API-Key: $WAT_API_KEY`.
+- Import API keys must include `admin` scope.
+- `X-Wat-Team-Id` is optional for API imports and must match the key's team when supplied.
+- Import responses are `{ "inserted": number, "skipped": number }`; invalid shapes return `invalid_team_import`.
 
 ## Authenticated Surface Examples
 
