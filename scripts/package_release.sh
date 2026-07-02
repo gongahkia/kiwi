@@ -42,7 +42,11 @@ require_pkg freetype2
 cmake -S "$root" -B "$build_dir" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCONTOURTTY_WARNINGS_AS_ERRORS=ON
-cmake --build "$build_dir" --parallel
+build_args=(--build "$build_dir" --parallel)
+if [[ -n "${CONTOURTTY_PACKAGE_BUILD_JOBS:-}" ]]; then
+  build_args=(--build "$build_dir" --parallel "$CONTOURTTY_PACKAGE_BUILD_JOBS")
+fi
+cmake "${build_args[@]}"
 ctest --test-dir "$build_dir" --output-on-failure
 
 cpack --config "$build_dir/CPackConfig.cmake" -G TGZ

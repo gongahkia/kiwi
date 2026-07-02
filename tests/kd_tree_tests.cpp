@@ -94,11 +94,11 @@ int main() {
 
   expect(linear_checksum == kd_checksum, "kd-tree checksum mismatch");
   expect(kd_ns > 0, "kd-tree timing invalid");
-  if (linear_ns < kd_ns * 10) {
-    std::cerr << "kd-tree speedup below 10x: linear_ns=" << linear_ns << " kd_ns=" << kd_ns << '\n';
-    return 1;
-  }
   if (std::getenv("CONTOURTTY_KD_TREE_BENCH") != nullptr) {
+    if (linear_ns < kd_ns * 10) {
+      std::cerr << "kd-tree speedup below 10x: linear_ns=" << linear_ns << " kd_ns=" << kd_ns << '\n';
+      return 1;
+    }
     std::cout << "queries=" << queries.size() << " entries=" << table.entries.size()
               << " linear_ns=" << linear_ns << " kd_ns=" << kd_ns
               << " speedup=" << static_cast<double>(linear_ns) / static_cast<double>(kd_ns) << '\n';

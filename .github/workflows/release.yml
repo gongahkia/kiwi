@@ -12,6 +12,8 @@ jobs:
   package:
     name: package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      CONTOURTTY_PACKAGE_BUILD_JOBS: 2
     strategy:
       fail-fast: false
       matrix:
