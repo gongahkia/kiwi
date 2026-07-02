@@ -26,7 +26,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config \
+          sudo apt-get install -y cmake pkg-config ffmpeg \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Install macOS dependencies
@@ -59,7 +59,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config \
+          sudo apt-get install -y cmake pkg-config ffmpeg \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Configure
@@ -93,7 +93,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config valgrind \
+          sudo apt-get install -y cmake pkg-config ffmpeg valgrind \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Configure
