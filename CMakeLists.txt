@@ -822,13 +822,17 @@ add_test(NAME split COMMAND split_tests)
 
 add_executable(golden_frame_tests
   tests/golden_frame_tests.cpp
+  src/ansi.cpp
   src/asciinema_in.cpp
   src/asciinema_source.cpp
   src/asciinema_vte.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/color_dither.cpp
+  src/color_mode.cpp
   src/color_quantization.cpp
   src/crosshatch.cpp
+  src/diff_emitter.cpp
   src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
@@ -848,6 +852,7 @@ add_executable(golden_frame_tests
   src/octant_renderer.cpp
   src/optical_flow.cpp
   src/posterize.cpp
+  src/raster_compose.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp

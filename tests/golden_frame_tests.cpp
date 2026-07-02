@@ -1,19 +1,23 @@
 #include "asciinema_source.hpp"
+#include "diff_emitter.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "frame_sampling.hpp"
 #include "gpu_sobel.hpp"
 #include "graph_yaml.hpp"
 #include "image_grid.hpp"
+#include "raster_compose.hpp"
 #include "renderer.hpp"
 #include "scene_source.hpp"
 #include "stdin_data.hpp"
 
+#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -64,6 +68,141 @@ std::string serializeCells(const contourtty::CellBuffer& cells) {
   return out.str();
 }
 
+std::vector<int> parseCsiParams(std::string_view bytes, std::size_t* index, char* final) {
+  std::vector<int> params;
+  int value = 0;
+  bool have_value = false;
+  for (; *index < bytes.size(); ++*index) {
+    const unsigned char ch = static_cast<unsigned char>(bytes[*index]);
+    if (std::isdigit(ch) != 0) {
+      value = value * 10 + static_cast<int>(ch - '0');
+      have_value = true;
+      continue;
+    }
+    if (ch == ';') {
+      params.push_back(have_value ? value : 0);
+      value = 0;
+      have_value = false;
+      continue;
+    }
+    params.push_back(have_value ? value : 0);
+    *final = static_cast<char>(ch);
+    ++*index;
+    return params;
+  }
+  expect(false, "unterminated CSI");
+  return {};
+}
+
+char32_t decodeUtf8(std::string_view bytes, std::size_t* index) {
+  const auto lead = static_cast<unsigned char>(bytes.at(*index));
+  if (lead <= 0x7fU) {
+    ++*index;
+    return lead;
+  }
+  int extra = 0;
+  char32_t codepoint = 0;
+  if ((lead & 0xe0U) == 0xc0U) {
+    extra = 1;
+    codepoint = lead & 0x1fU;
+  } else if ((lead & 0xf0U) == 0xe0U) {
+    extra = 2;
+    codepoint = lead & 0x0fU;
+  } else if ((lead & 0xf8U) == 0xf0U) {
+    extra = 3;
+    codepoint = lead & 0x07U;
+  } else {
+    expect(false, "invalid UTF-8 lead byte");
+  }
+  ++*index;
+  for (int i = 0; i < extra; ++i) {
+    expect(*index < bytes.size(), "truncated UTF-8");
+    const auto next = static_cast<unsigned char>(bytes[*index]);
+    expect((next & 0xc0U) == 0x80U, "invalid UTF-8 continuation");
+    codepoint = (codepoint << 6U) | (next & 0x3fU);
+    ++*index;
+  }
+  return codepoint;
+}
+
+uint8_t sgrByte(int value, const char* label) {
+  expect(value >= 0 && value <= 255, label);
+  return static_cast<uint8_t>(value);
+}
+
+void applySgr(const std::vector<int>& params, contourtty::Rgb* fg, contourtty::Rgb* bg) {
+  for (std::size_t i = 0; i < params.size();) {
+    const int code = params[i];
+    if (code == 0) {
+      *fg = contourtty::Rgb{.r = 255, .g = 255, .b = 255};
+      *bg = contourtty::Rgb{};
+      ++i;
+    } else if ((code == 38 || code == 48) && i + 4 < params.size() && params[i + 1] == 2) {
+      contourtty::Rgb color{
+        .r = sgrByte(params[i + 2], "SGR red range"),
+        .g = sgrByte(params[i + 3], "SGR green range"),
+        .b = sgrByte(params[i + 4], "SGR blue range"),
+      };
+      if (code == 38) {
+        *fg = color;
+      } else {
+        *bg = color;
+      }
+      i += 5;
+    } else {
+      expect(false, "unexpected SGR code");
+    }
+  }
+}
+
+contourtty::CellBuffer captureAnsiCells(std::string_view bytes, int cols, int rows) {
+  contourtty::CellBuffer captured(cols, rows);
+  contourtty::Rgb fg{.r = 255, .g = 255, .b = 255};
+  contourtty::Rgb bg{};
+  int cursor_col = 0;
+  int cursor_row = 0;
+  for (std::size_t i = 0; i < bytes.size();) {
+    if (bytes[i] == '\x1b') {
+      expect(i + 1 < bytes.size() && bytes[i + 1] == '[', "expected CSI");
+      i += 2;
+      char final = 0;
+      const std::vector<int> params = parseCsiParams(bytes, &i, &final);
+      if (final == 'H') {
+        expect(params.size() >= 2, "cursor position params");
+        cursor_row = params[0] - 1;
+        cursor_col = params[1] - 1;
+        expect(cursor_row >= 0 && cursor_row < rows && cursor_col >= 0 && cursor_col < cols, "cursor position range");
+      } else if (final == 'm') {
+        applySgr(params, &fg, &bg);
+      } else if (final == 'J') {
+        expect(params.size() == 1 && params[0] == 2, "clear screen CSI");
+      } else {
+        expect(false, "unexpected CSI final byte");
+      }
+      continue;
+    }
+    const char32_t glyph = decodeUtf8(bytes, &i);
+    expect(cursor_row >= 0 && cursor_row < rows && cursor_col >= 0 && cursor_col < cols, "glyph cursor range");
+    captured.at(cursor_col, cursor_row) = contourtty::Cell{.glyph = glyph, .fg = fg, .bg = bg};
+    ++cursor_col;
+  }
+  return captured;
+}
+
+void expectSameRaster(const contourtty::RasterImage& lhs, const contourtty::RasterImage& rhs, const char* label) {
+  expect(lhs.width == rhs.width && lhs.height == rhs.height, label);
+  if (lhs.rgb != rhs.rgb) {
+    std::cerr << label << '\n';
+    for (std::size_t i = 0; i < lhs.rgb.size() && i < rhs.rgb.size(); ++i) {
+      if (lhs.rgb[i] != rhs.rgb[i]) {
+        std::cerr << "first differing byte " << i << ": " << static_cast<int>(lhs.rgb[i]) << " != " << static_cast<int>(rhs.rgb[i]) << '\n';
+        break;
+      }
+    }
+    std::exit(1);
+  }
+}
+
 contourtty::TerminalSize terminal(int cols, int rows) {
   return contourtty::TerminalSize{.cols = cols, .rows = rows, .xpixel = 0, .ypixel = 0};
 }
@@ -107,6 +246,28 @@ int main() {
                 "32:0,0,0:0,0,0|64:255,255,255:0,0,0|\n"
                 "64:255,255,255:0,0,0|32:0,0,0:0,0,0|\n",
                 "luminance golden frame");
+  }
+
+  {
+    const contourtty::Frame frame = frameFromPixels(4, 2, {
+      gray(0), gray(85), gray(170), gray(255),
+      contourtty::Rgb{.r = 255, .g = 32, .b = 0}, contourtty::Rgb{.r = 0, .g = 220, .b = 40}, contourtty::Rgb{.r = 32, .g = 64, .b = 255}, gray(20),
+    });
+    contourtty::CliOptions options;
+    options.width = 4;
+    options.height = 2;
+    options.cell_aspect = 1.0;
+    contourtty::CellBuffer rendered_cells;
+    contourtty::renderFrame(frame, U" .#@", options, terminal(4, 2), nullptr, &rendered_cells);
+
+    contourtty::DiffEmitter emitter;
+    const contourtty::EmissionResult terminal_output = emitter.emit(rendered_cells, contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Truecolor});
+    const contourtty::CellBuffer captured_cells = captureAnsiCells(terminal_output.bytes, rendered_cells.cols(), rendered_cells.rows());
+    expectEqual(serializeCells(captured_cells), serializeCells(rendered_cells), "terminal capture matches luminance cells");
+
+    const contourtty::RasterImage direct_raster = contourtty::rasterComposeCells(rendered_cells, contourtty::ColorMode::Truecolor, contourtty::DitherMode::None);
+    const contourtty::RasterImage captured_raster = contourtty::rasterComposeCells(captured_cells, contourtty::ColorMode::Truecolor, contourtty::DitherMode::None);
+    expectSameRaster(captured_raster, direct_raster, "raster compose matches captured terminal output");
   }
 
   {
