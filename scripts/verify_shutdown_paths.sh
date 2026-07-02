@@ -54,50 +54,35 @@ expect_log() {
   fi
 }
 
-send_quit_keys() {
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    sleep 0.5
-    printf q
-  done
-}
-
-send_seek_then_quit_keys() {
-  sleep 1
-  printf '\033[C'
-  sleep 2
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    printf q
-    sleep 0.5
-  done
-}
-
 "$bin" --mode structure --width 24 --height 12 --fps 5 \
   --export "$tmp/normal.ansi" --log "$tmp/normal.log" "$tmp/fixture.mp4" >/dev/null
 expect_log "$tmp/normal.log" "exported frames="
 expect_log "$tmp/normal.log" "render stats frames="
 
 set +e +o pipefail
-send_quit_keys | run_pty "$tmp/quit.typescript" \
+run_pty "$tmp/quit.typescript" \
   "$timeout_bin" 30 "$bin" --mode structure --width 24 --height 12 --fps 5 \
-  --log "$tmp/quit.log" "$tmp/fixture.mp4"
+  --input-keys q --log "$tmp/quit.log" "$tmp/fixture.mp4"
 quit_status=$?
 set -e -o pipefail
 if [[ "$quit_status" -ne 0 ]]; then
   echo "keyboard quit path failed with status $quit_status" >&2
   exit 1
 fi
+expect_log "$tmp/quit.log" "scripted input keys queued count=1"
 expect_log "$tmp/quit.log" "playback quit before eof"
 
 set +e +o pipefail
-send_seek_then_quit_keys | run_pty "$tmp/seek.typescript" \
+run_pty "$tmp/seek.typescript" \
   "$timeout_bin" 40 "$bin" --mode structure --width 24 --height 12 --fps 5 \
-  --log "$tmp/seek.log" "$tmp/fixture.mp4"
+  --input-keys $'\033[Cq' --log "$tmp/seek.log" "$tmp/fixture.mp4"
 seek_status=$?
 set -e -o pipefail
 if [[ "$seek_status" -ne 0 ]]; then
   echo "seek path failed with status $seek_status" >&2
   exit 1
 fi
+expect_log "$tmp/seek.log" "scripted input keys queued count=4"
 expect_log "$tmp/seek.log" "seek reset render state target_us="
 expect_log "$tmp/seek.log" "playback quit before eof"
 
