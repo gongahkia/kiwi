@@ -62,13 +62,12 @@ send_quit_keys() {
 }
 
 send_seek_then_quit_keys() {
-  for _ in 1 2 3 4 5 6 7 8; do
-    sleep 0.5
-    printf '\033[C'
-  done
-  for _ in 1 2 3 4 5 6 7 8; do
-    sleep 0.5
+  sleep 1
+  printf '\033[C'
+  sleep 2
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
     printf q
+    sleep 0.5
   done
 }
 
@@ -99,7 +98,7 @@ if [[ "$seek_status" -ne 0 ]]; then
   echo "seek path failed with status $seek_status" >&2
   exit 1
 fi
-expect_log "$tmp/seek.log" "seek target_us="
+expect_log "$tmp/seek.log" "seek reset render state target_us="
 expect_log "$tmp/seek.log" "playback quit before eof"
 
 set +e
