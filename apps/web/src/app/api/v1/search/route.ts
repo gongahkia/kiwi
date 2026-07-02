@@ -9,6 +9,7 @@ import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import { applyCorsHeaders } from "@/lib/cors";
 import { checkRateLimit, rateLimitConfigFromEnv } from "@/lib/rate-limit";
 import { ensureRequestId, requestIdHeader } from "@/lib/request-id";
+import { recordSearchEvent } from "@/lib/search-analytics";
 import {
   getPublicEntries,
   getScopedPersonalEntries,
@@ -20,30 +21,50 @@ export const runtime = "nodejs";
 
 type WatSearchResponse = SearchResponse & { team_id?: string };
 
+interface SearchAnalyticsFields {
+  confidenceDistribution: Record<string, number>;
+  latencyMs: number;
+  layerHits: string[];
+  noResult: boolean;
+  queryHash: string;
+  resultCount: number;
+}
+
 function hashQuery(query: string): string {
   return createHash("sha256").update(query.trim().toLowerCase()).digest("hex");
 }
 
-function logSearchEvent(
-  requestId: string,
+function searchAnalyticsFields(
   query: string,
-  startedAt: number,
+  latencyMs: number,
   matches: SearchResult[]
-) {
+): SearchAnalyticsFields {
   const confidenceDistribution = matches.reduce<Record<string, number>>((counts, match) => {
     const tier = match.entry.confidence_tier;
     counts[tier] = (counts[tier] ?? 0) + 1;
     return counts;
   }, {});
-  const layerHit = Array.from(new Set(matches.map((match) => match.entry.layer)));
+  const layerHits = Array.from(new Set(matches.map((match) => match.entry.layer)));
 
+  return {
+    confidenceDistribution,
+    latencyMs,
+    layerHits,
+    noResult: matches.length === 0,
+    queryHash: hashQuery(query),
+    resultCount: matches.length
+  };
+}
+
+function logSearchEvent(requestId: string, fields: SearchAnalyticsFields) {
   console.info(
     JSON.stringify({
-      confidence_distribution: confidenceDistribution,
+      confidence_distribution: fields.confidenceDistribution,
       event: "search",
-      latency_ms: Math.round(performance.now() - startedAt),
-      layer_hit: layerHit,
-      query_hash: hashQuery(query),
+      latency_ms: fields.latencyMs,
+      layer_hit: fields.layerHits,
+      no_result: fields.noResult,
+      query_hash: fields.queryHash,
       request_id: requestId
     })
   );
@@ -165,8 +186,23 @@ export async function GET(request: NextRequest) {
     ? sortMatches(applyDomainContextBoost(scoredMatches, { context, query }))
     : sortMatches(scoredMatches);
   const matches = rankedMatches.slice(0, Number.isFinite(limit) && limit > 0 ? limit : 10);
+  const analytics = searchAnalyticsFields(
+    query,
+    Math.round(performance.now() - startedAt),
+    matches
+  );
 
-  logSearchEvent(requestId, query, startedAt, matches);
+  logSearchEvent(requestId, analytics);
+  await recordSearchEvent({
+    actorId: identity.identity.userId ?? null,
+    confidenceDistribution: analytics.confidenceDistribution,
+    latencyMs: analytics.latencyMs,
+    layerHits: analytics.layerHits,
+    noResult: analytics.noResult,
+    queryHash: analytics.queryHash,
+    resultCount: analytics.resultCount,
+    teamId: identity.identity.teamId ?? null
+  });
 
   return withRateLimitHeaders(
     NextResponse.json<WatSearchResponse>({

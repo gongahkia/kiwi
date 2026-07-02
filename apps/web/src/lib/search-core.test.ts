@@ -52,4 +52,29 @@ describe("scoreEntry", () => {
 
     expect(matches.map((match) => match.entry.id)).toEqual(["kafka", "nats"]);
   });
+
+  it("can keep scoped entries visible below the public confidence threshold", () => {
+    const matches = searchEntries({
+      entries: [
+        entry({
+          confidence_tier: "T4",
+          id: "public-rto",
+          term: "RTO",
+          term_normalized: "rto"
+        }),
+        entry({
+          confidence_tier: "T4",
+          id: "team-rto",
+          layer: "team",
+          term: "RTO",
+          term_normalized: "rto"
+        })
+      ],
+      includeScopedBelowMinConfidence: true,
+      minConfidence: "T2",
+      query: "RTO"
+    });
+
+    expect(matches.map((match) => match.entry.id)).toEqual(["team-rto"]);
+  });
 });

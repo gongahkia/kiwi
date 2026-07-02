@@ -259,6 +259,35 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
     expect(rows[0]?.team_id).toBe("team_suggestion");
   });
 
+  it("stores search events without raw query text", async () => {
+    await insertTeam("team_search_event", "search-event.example");
+    await client.query(
+      `
+      insert into search_events (
+        id, team_id, query_hash, layer_hits, confidence_distribution, result_count, no_result, latency_ms
+      ) values (
+        'search_event_1', 'team_search_event', 'hash_only', $1, $2, 0, true, 42
+      )
+      `,
+      [["team"], { T4: 1 }]
+    );
+
+    const { rows } = await client.query<{ count: number; has_raw_query: boolean }>(
+      `
+      select
+        count(*)::int as count,
+        exists (
+          select 1
+          from information_schema.columns
+          where table_name = 'search_events' and column_name in ('query', 'raw_query')
+        ) as has_raw_query
+      from search_events
+      where team_id = 'team_search_event' and query_hash = 'hash_only'
+      `
+    );
+    expect(rows[0]).toEqual({ count: 1, has_raw_query: false });
+  });
+
   it("stores Teams installs by Microsoft tenant", async () => {
     await insertTeam("team_teams_install", "teams-install.example");
     await client.query(

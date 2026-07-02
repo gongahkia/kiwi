@@ -27,6 +27,35 @@ function Stat({
   );
 }
 
+function AnalyticsMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1 rounded-md border border-input p-3">
+      <p className="text-xs text-foreground/55">{label}</p>
+      <p className="text-2xl font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function formatRate(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function AnalyticsList({ items }: { items: Record<string, number> }) {
+  const entries = Object.entries(items).sort(([left], [right]) => left.localeCompare(right));
+  if (entries.length === 0) return <p className="text-sm text-foreground/55">None</p>;
+
+  return (
+    <ul className="grid gap-2">
+      {entries.map(([label, value]) => (
+        <li className="flex items-center justify-between gap-3 text-sm" key={label}>
+          <span>{label}</span>
+          <span className="tabular-nums text-foreground/65">{value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ChecklistItem({ item }: { item: TeamAdminChecklistItem }) {
   const Icon = item.complete ? CheckCircle2 : Circle;
 
@@ -114,6 +143,44 @@ export default async function TeamAdminPage() {
           <Stat icon={BookOpen} label="Personal entries" value={dashboard.counts.personal} />
           <Stat icon={Users} label="Members" value={dashboard.memberCount} />
         </div>
+        <section className="grid gap-4 rounded-md border border-input p-4">
+          <h2 className="text-xl font-semibold">Search analytics</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <AnalyticsMetric label="Searches" value={String(dashboard.searchAnalytics.total)} />
+            <AnalyticsMetric
+              label="No-result rate"
+              value={formatRate(dashboard.searchAnalytics.noResultRate)}
+            />
+            <AnalyticsMetric
+              label="p95 latency"
+              value={`${dashboard.searchAnalytics.p95LatencyMs} ms`}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">Layer hits</h3>
+              <AnalyticsList items={dashboard.searchAnalytics.layerHits} />
+            </div>
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">Confidence</h3>
+              <AnalyticsList items={dashboard.searchAnalytics.confidenceDistribution} />
+            </div>
+            <div className="grid gap-2">
+              <h3 className="text-sm font-medium">Recent hashes</h3>
+              {dashboard.searchAnalytics.recentQueryHashes.length > 0 ? (
+                <ul className="grid gap-2">
+                  {dashboard.searchAnalytics.recentQueryHashes.map((hash) => (
+                    <li className="truncate font-mono text-xs text-foreground/65" key={hash}>
+                      {hash}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-foreground/55">None</p>
+              )}
+            </div>
+          </div>
+        </section>
         <section className="grid gap-3 rounded-md border border-input p-4">
           <h2 className="text-xl font-semibold">Admin checklist</h2>
           <ul>

@@ -51,7 +51,7 @@ Target `/api/v1/search` sequence:
 4. Load team entries when identity has team scope.
 5. Load personal entries when identity has user scope.
 6. Rank visible entries with `@wat/search`.
-7. Log privacy-safe query hash, layer hits, confidence distribution, and latency.
+7. Store and log privacy-safe query hash, layer hits, confidence distribution, no-result flag, and latency.
 8. Return cited results with layer and confidence labels.
 
 Production search reads reviewed public entries plus DB-backed team and personal repositories through `apps/web/src/lib/search-data.ts`. Tests can still use fixture helpers.

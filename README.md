@@ -12,7 +12,7 @@ Layered glossary lookup for tech acronyms and team jargon. wat prioritizes in-wo
 | --- | --- | --- |
 | Local demo | Works | Run the web app against checked-in seed data. |
 | Self-host | Experimental | Compose/Postgres docs and scripts exist; some product state is still in-memory outside the Slack install path. |
-| Hosted beta | Not live | Hosted auth, DB-backed overlays, monitoring, and per-team keys are still TODO. |
+| Hosted beta | Not live | Hosted auth/provider verification, production monitoring evidence, and distribution smoke tests are still TODO; DB-backed overlays and per-team keys exist. |
 | Browser extension | Developer build | Build locally or deploy by enterprise policy; login/pairing and store releases are TODO. |
 | Slack | Priority app | Socket Mode runtime, OAuth callback, encrypted JSON/Postgres install storage, uninstall cleanup, metrics, Bolt handlers, auth headers, admin checks, DB-backed suggestions, and rate limits exist. |
 | Teams | P1 scaffold | API-based message-extension search package, DB tenant mapping, and protected metrics exist; SSO, writes, and admin flows need later bot/auth work. |
@@ -54,7 +54,8 @@ Self-host operators should also follow [Self-Host](docs/self-host.md) and [Migra
 ## Current Features
 
 - public seed corpus with cited entries
-- instant web search backed by local seed data
+- instant web search backed by public seed data plus signed-in team and personal overlays
+- privacy-safe search analytics dashboard with query hashes, layer hits, confidence buckets, no-result rate, and latency
 - disambiguated result cards with source counts and confidence chips
 - domain filtering and keyboard navigation
 - Markdown citation copy buttons

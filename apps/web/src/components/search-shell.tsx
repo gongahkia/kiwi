@@ -48,6 +48,7 @@ export function SearchShell({
     () =>
       searchEntries({
         entries,
+        includeScopedBelowMinConfidence: true,
         limit: 8,
         minConfidence: includeLowConfidence ? "T4" : "T2",
         query

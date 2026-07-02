@@ -15,6 +15,7 @@ const layerRank = {
 
 export interface SearchEntriesInput {
   entries: SearchEntry[];
+  includeScopedBelowMinConfidence?: boolean;
   limit?: number;
   minConfidence?: keyof typeof confidenceRank | null;
   query: string;
@@ -22,6 +23,7 @@ export interface SearchEntriesInput {
 
 export function searchEntries({
   entries,
+  includeScopedBelowMinConfidence = false,
   limit = 10,
   minConfidence,
   query
@@ -32,7 +34,9 @@ export function searchEntries({
     entries
       .filter(
         (entry) =>
-          !minConfidence || confidenceRank[entry.confidence_tier] <= confidenceRank[minConfidence]
+          !minConfidence ||
+          confidenceRank[entry.confidence_tier] <= confidenceRank[minConfidence] ||
+          (includeScopedBelowMinConfidence && entry.layer !== "public")
       )
       .map((entry) => scoreEntry(query, entry))
       .filter((result): result is SearchResult => result != null)

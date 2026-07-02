@@ -108,6 +108,7 @@ async function requiredMigrationsExist(client: Queryable): Promise<boolean> {
       and to_regclass('public.team_entries') is not null
       and to_regclass('public.personal_entries') is not null
       and to_regclass('public.suggested_edits') is not null
+      and to_regclass('public.search_events') is not null
       and to_regclass('public.audit_log') is not null
       and to_regclass('public.entry_embedding_jobs') is not null
       and (

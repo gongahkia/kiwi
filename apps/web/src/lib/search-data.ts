@@ -4,6 +4,7 @@ import type { ApiIdentity } from "@/lib/api-identity";
 import { authDb } from "@/lib/auth-db";
 import { getPersonalEntries } from "@/lib/personal-entries";
 import { getPublicCorpusEntries } from "@/lib/public-corpus";
+import type { WatSessionUser } from "@/lib/session";
 import { getTeamEntries, type TeamEntry } from "@/lib/team-entries";
 
 type PublicEntryRow = {
@@ -91,6 +92,22 @@ export async function getScopedPersonalEntries(identity: ApiIdentity): Promise<S
   return (await getPersonalEntries(identity.userId)).map((entry) =>
     layeredEntryToSearchEntry(entry, "personal")
   );
+}
+
+export async function getVisibleEntriesForSession(
+  session: WatSessionUser | null
+): Promise<SearchEntry[]> {
+  const [publicEntries, teamEntries, personalEntries] = await Promise.all([
+    getPublicEntries(),
+    session?.teamId ? getTeamEntries(session.teamId) : [],
+    session ? getPersonalEntries(session.id) : []
+  ]);
+
+  return [
+    ...publicEntries,
+    ...teamEntries.map((entry) => layeredEntryToSearchEntry(entry, "team")),
+    ...personalEntries.map((entry) => layeredEntryToSearchEntry(entry, "personal"))
+  ];
 }
 
 function layeredEntryToSearchEntry(entry: TeamEntry, layer: "personal" | "team"): SearchEntry {

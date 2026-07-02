@@ -424,6 +424,31 @@ export const suggestedEdits = pgTable("suggested_edits", {
   reviewedAt: timestamp("reviewed_at", { withTimezone: true })
 });
 
+export const searchEvents = pgTable(
+  "search_events",
+  {
+    id: text("id").primaryKey(),
+    teamId: text("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    actorId: text("actor_id"),
+    queryHash: text("query_hash").notNull(),
+    layerHits: text("layer_hits")
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
+    confidenceDistribution: jsonb("confidence_distribution")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    resultCount: integer("result_count").notNull().default(0),
+    noResult: boolean("no_result").notNull().default(false),
+    latencyMs: integer("latency_ms").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    index("search_events_team_created_idx").on(table.teamId, table.createdAt),
+    index("search_events_query_hash_idx").on(table.queryHash)
+  ]
+);
+
 export const rateLimitBuckets = pgTable(
   "rate_limit_buckets",
   {

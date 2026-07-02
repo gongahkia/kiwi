@@ -1,5 +1,6 @@
 import { authDb } from "@/lib/auth-db";
 import { listAuditLogPage } from "@/lib/audit-log";
+import { getSearchAnalyticsSummary, type SearchAnalyticsSummary } from "@/lib/search-analytics";
 import { getPublicEntries } from "@/lib/search-data";
 import { getTeamMembers } from "@/lib/team-members";
 import { getTeamEntries } from "@/lib/team-entries";
@@ -18,15 +19,17 @@ export interface TeamDashboardSnapshot {
   };
   memberCount: number;
   recentActivity: TeamActivity[];
+  searchAnalytics: SearchAnalyticsSummary;
   teamName: string;
 }
 
 export async function getTeamDashboardSnapshot(teamId: string): Promise<TeamDashboardSnapshot> {
-  const [publicEntries, teamEntries, members, audit, team] = await Promise.all([
+  const [publicEntries, teamEntries, members, audit, analytics, team] = await Promise.all([
     getPublicEntries(),
     getTeamEntries(teamId),
     getTeamMembers(teamId),
     listAuditLogPage(teamId, 0, 3),
+    getSearchAnalyticsSummary(teamId),
     teamName(teamId)
   ]);
 
@@ -42,6 +45,7 @@ export async function getTeamDashboardSnapshot(teamId: string): Promise<TeamDash
       event: entry.action,
       time: entry.at.slice(0, 10)
     })),
+    searchAnalytics: analytics,
     teamName: team
   };
 }
