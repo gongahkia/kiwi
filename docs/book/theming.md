@@ -96,7 +96,7 @@ Built-in themes are code changes, not runtime files. Add the theme in:
 | `crates/kumeyuri-core/src/theme.rs` | Add `BuiltInTheme` variant, name mapping, and `Theme` colors |
 | `crates/kumeyuri-cli/src/main.rs` | Add the CLI `RenderTheme` value |
 | `docs/book/themes.md` | Add the user-facing table row |
-| `TODO.md` / `COVERAGE.md` | Update status only when behavior or coverage changes |
+| GitHub issues / `COVERAGE.md` | Update status only when behavior or coverage changes |
 
 Before marking a built-in theme complete, run render snapshots or targeted
 theme tests and verify contrast for text-bearing roles.

@@ -38,7 +38,7 @@ Run this before any release that claims Mermaid compatibility:
    lands in the same release.
 4. If parser/render support changed, update the status row and snapshot count in
    `COVERAGE.md`.
-5. Run parser, renderer, WASM, docs, and sanitizer gates listed in `TODO.md`.
+5. Run parser, renderer, WASM, docs, and sanitizer gates listed in GitHub issues.
 
 ## Evidence commands
 

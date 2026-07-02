@@ -1,8 +1,7 @@
 # Theme Authoring
 
 This document describes the intended `.kumetheme.toml` shape for custom themes.
-Runtime loading and `kumeyuri theme` commands are tracked separately in
-`TODO.md`; the current renderer only ships built-in themes.
+Remaining theme work is tracked in GitHub issues; built-in themes live in core.
 
 ## Current built-ins
 

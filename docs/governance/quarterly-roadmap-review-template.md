@@ -93,6 +93,6 @@ Before closing the thread:
 
 * Post a decision summary.
 * Link every created issue or ADR.
-* Update `TODO.md` if priorities changed.
+* Update GitHub issues or milestones if priorities changed.
 * Update docs if a repeated question exposed a documentation gap.
 * Capture unresolved questions for the next quarterly review.

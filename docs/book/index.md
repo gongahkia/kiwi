@@ -2,8 +2,8 @@
 
 kumeyuri renders Mermaid diagrams as animated text artifacts.
 
-These docs describe the current source tree. The crates.io, npm, and CDN publish
-tasks are still pending in `TODO.md`, so install and embed examples use local
+These docs describe the current source tree. Crates.io, npm, and CDN publish
+tasks are tracked in GitHub issues, so install and embed examples use local
 source builds or generated assets.
 
 ## What it renders

@@ -85,8 +85,8 @@ kumeyuri render diagram.mmd --format svg --theme github --dark-theme tokyo-night
 
 Current built-ins are `default`, `mono`, `tokyo-night`, `github`, `dracula`,
 `solarized-light`, `solarized-dark`, `nord`, `catppuccin-mocha`,
-`high-contrast`, and `print-mono`. File-based custom themes are tracked
-separately in `TODO.md`.
+`high-contrast`, and `print-mono`. File-based custom theme work is tracked in
+GitHub issues.
 
 ## React migration
 

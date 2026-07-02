@@ -13,7 +13,7 @@ animated SVG, raster formats, and WASM embeds.
 | Runtime | Node + Chromium/Puppeteer | Rust CLI; browser only for WASM embed tests |
 | SVG | Mermaid-rendered SVG | Text-frame SVG with SMIL or CSS-keyframe animation |
 | Raster | PNG via browser rendering | GIF/APNG/WebP via frame timeline |
-| PDF | Built-in output target | Tracked as plugin work in `TODO.md` |
+| PDF | Built-in output target | Plugin-backed output path |
 | Markdown transform | Built into `mmdc` | Use remark/rehype/mdBook/Hugo integrations |
 
 ## CLI replacement

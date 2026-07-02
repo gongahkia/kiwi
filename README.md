@@ -5,7 +5,7 @@
 
 Mermaid, animated. Anywhere text renders.
 
-Project direction: [NORTHSTAR.md](./NORTHSTAR.md)
+Roadmap: [GitHub issues](https://github.com/gongahkia/kumeyuri/issues)
 
 Docs: [docs/book](./docs/book/index.md)
 
