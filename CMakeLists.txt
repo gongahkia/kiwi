@@ -1703,6 +1703,7 @@ add_executable(shader_source_tests
   src/shader_source.cpp
 )
 target_include_directories(shader_source_tests PRIVATE src)
+target_compile_definitions(shader_source_tests PRIVATE CONTOURTTY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_compile_features(shader_source_tests PRIVATE cxx_std_20)
 set_target_properties(shader_source_tests PROPERTIES
   CXX_STANDARD 20

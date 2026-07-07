@@ -122,6 +122,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 | `share/contourtty/charsets/*.json` | in-tree authored | MIT (`LICENSE`) | Evolved/curated glyph presets. |
 | `share/contourtty/scenes/cube.obj` | in-tree authored | MIT (`LICENSE`) | Simple bundled OBJ smoke asset. |
 | `share/contourtty/scenes/suzanne.obj` | Wikimedia Commons `File:Suzanne.stl`, converted to OBJ | GPL-3.0-or-later | Blender Suzanne test mesh by Willem-Paul van Overbruggen; source page: <https://commons.wikimedia.org/wiki/File:Suzanne.stl>. |
+| `share/contourtty/shaders/*.glsl` | in-tree authored | MIT (`LICENSE`) | Shadertoy-style shader smoke assets; runtime shader input is still pending. |
 
 The standalone asset audit is tracked in `share/contourtty/LICENSES.md`.
 

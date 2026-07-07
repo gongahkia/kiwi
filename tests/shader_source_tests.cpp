@@ -7,6 +7,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <unistd.h>
 
 namespace {
@@ -53,6 +54,14 @@ bool throwsSourceError(const std::function<void()>& body) {
   return false;
 }
 
+std::filesystem::path sourceRoot() {
+#ifdef CONTOURTTY_SOURCE_DIR
+  return CONTOURTTY_SOURCE_DIR;
+#else
+  return std::filesystem::current_path();
+#endif
+}
+
 }  // namespace
 
 int main() {
@@ -84,4 +93,13 @@ int main() {
   const auto path = writeFile(temp.path() / "shader.glsl", shadertoy);
   expect(contourtty::loadShaderSource(path) == shadertoy, "shader source loads");
   expect(throwsSourceError([&] { (void)contourtty::loadShaderSource(temp.path() / "missing.glsl"); }), "missing shader source reports error");
+
+  const auto shader_dir = sourceRoot() / "share" / "contourtty" / "shaders";
+  const std::vector<std::string> bundled = {"noise.glsl", "plasma.glsl", "feedback.glsl", "sdf_room.glsl"};
+  for (const std::string& name : bundled) {
+    const std::string source = contourtty::loadShaderSource(shader_dir / name);
+    expect(contourtty::isShadertoySource(source), "bundled shader defines mainImage");
+    const std::string wrapped_source = contourtty::wrapShadertoyFragmentShader(source);
+    expect(wrapped_source.find("contourttyFragColor") != std::string::npos, "bundled shader wraps as fragment output");
+  }
 }

@@ -12,5 +12,9 @@ All assets in this directory are authored for contourtty and covered by the repo
 | `noise/blue_noise_64.bin` | blue-noise rank tile | in-tree authored | MIT | Deterministic 64x64 toroidal rank tile for stipple thresholding. |
 | `scenes/cube.obj` | OBJ scene | in-tree authored | MIT | Minimal cube smoke asset. |
 | `scenes/suzanne.obj` | OBJ scene | Wikimedia Commons `File:Suzanne.stl`, converted to OBJ | GPL-3.0-or-later | Blender Suzanne test mesh by Willem-Paul van Overbruggen. Source: <https://commons.wikimedia.org/wiki/File:Suzanne.stl>. |
+| `shaders/feedback.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Feedback texture smoke shader using `iChannel0`. |
+| `shaders/noise.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Procedural value-noise smoke shader. |
+| `shaders/plasma.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Animated plasma smoke shader. |
+| `shaders/sdf_room.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Small raymarched SDF room smoke shader. |
 
-No fonts, shader files, or third-party binary assets are shipped under `share/contourtty` at this point.
+No fonts or third-party binary assets are shipped under `share/contourtty` at this point.
