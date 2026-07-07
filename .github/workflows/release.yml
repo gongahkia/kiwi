@@ -30,11 +30,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake pkg-config ffmpeg \
+            glslang-tools spirv-cross \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install cmake pkg-config ffmpeg freetype zlib
+        run: brew install cmake pkg-config ffmpeg freetype glslang spirv-cross zlib
 
       - name: Package
         run: scripts/package_release.sh

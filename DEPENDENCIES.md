@@ -87,6 +87,8 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 | Tool | Minimum | Strategy | License posture | Used for |
 |---|---:|---|---|---|
 | yt-dlp | any current release with `-g` | user-installed executable on `PATH`, overridable with `CONTOURTTY_YTDLP` | Unlicense/public-domain equivalent | Resolving YouTube URLs to direct FFmpeg-readable media URLs. |
+| glslangValidator | glslang 16.x target | user-installed executable on `PATH` | BSD-3-Clause | Optional GLSL-to-SPIR-V smoke and future runtime shader input. |
+| spirv-cross | SPIRV-Cross 1.4.x target | user-installed executable on `PATH` | Apache-2.0 | Optional SPIR-V-to-MSL smoke and future Metal shader input. |
 
 ## Glyph lookup
 

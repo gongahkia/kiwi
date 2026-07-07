@@ -1723,6 +1723,33 @@ else()
 endif()
 add_test(NAME shader_source COMMAND shader_source_tests)
 
+add_executable(shader_bundle_compile_tests
+  tests/shader_bundle_compile_tests.cpp
+  src/shader_compiler.cpp
+  src/shader_source.cpp
+)
+target_include_directories(shader_bundle_compile_tests PRIVATE src)
+target_compile_definitions(shader_bundle_compile_tests PRIVATE CONTOURTTY_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_compile_features(shader_bundle_compile_tests PRIVATE cxx_std_20)
+set_target_properties(shader_bundle_compile_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(shader_bundle_compile_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_bundle_compile_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(shader_bundle_compile_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_bundle_compile_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME shader_bundle_compile COMMAND shader_bundle_compile_tests)
+set_tests_properties(shader_bundle_compile PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp
 )
