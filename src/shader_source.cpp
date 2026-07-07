@@ -48,6 +48,22 @@ bool isShaderSourcePath(const std::filesystem::path& path) {
   return ext == ".glsl" || ext == ".frag" || ext == ".vert" || ext == ".comp";
 }
 
+std::optional<std::filesystem::path> resolveBundledShader(std::string_view input) {
+  constexpr std::string_view prefix = "contourtty:shader:";
+  if (!input.starts_with(prefix)) {
+    return std::nullopt;
+  }
+  const std::string name(input.substr(prefix.size()));
+  if (name.empty() || name.find('/') != std::string::npos || name.find('\\') != std::string::npos) {
+    throw ShaderSourceError("invalid bundled shader name");
+  }
+  std::filesystem::path path = std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "share" / "contourtty" / "shaders" / (name + ".glsl");
+  if (!std::filesystem::exists(path)) {
+    throw ShaderSourceError("unknown bundled shader: " + name);
+  }
+  return path;
+}
+
 bool isShadertoySource(std::string_view source) noexcept {
   return source.find("mainImage") != std::string_view::npos;
 }

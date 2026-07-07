@@ -104,8 +104,8 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 |---|---:|---|---|---|
 | Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` is set. |
 | Vulkan SDK / loader | 1.3 | system or future vendored SDK headers | Vulkan-Headers Apache-2.0; loader Apache-2.0/MIT-style | Not linked yet; Phase L Vulkan backend is locally blocked until SDK/tools are present. |
-| glslang | TBD | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper exists for GLSL-to-SPIR-V; runtime shader input is not wired yet. |
-| SPIRV-Cross | TBD | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` wrapper exists for SPIR-V-to-MSL; runtime shader input is not wired yet. |
+| glslang | 16.x target | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper compiles GLSL-to-SPIR-V for shader smokes and macOS runtime shader input. |
+| SPIRV-Cross | 1.4.x target | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` converts SPIR-V to MSL for shader smokes and macOS runtime shader input. |
 
 ## Graphics protocol and image helpers
 
@@ -124,7 +124,7 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 | `share/contourtty/charsets/*.json` | in-tree authored | MIT (`LICENSE`) | Evolved/curated glyph presets. |
 | `share/contourtty/scenes/cube.obj` | in-tree authored | MIT (`LICENSE`) | Simple bundled OBJ smoke asset. |
 | `share/contourtty/scenes/suzanne.obj` | Wikimedia Commons `File:Suzanne.stl`, converted to OBJ | GPL-3.0-or-later | Blender Suzanne test mesh by Willem-Paul van Overbruggen; source page: <https://commons.wikimedia.org/wiki/File:Suzanne.stl>. |
-| `share/contourtty/shaders/*.glsl` | in-tree authored | MIT (`LICENSE`) | Shadertoy-style shader smoke assets; runtime shader input is still pending. |
+| `share/contourtty/shaders/*.glsl` | in-tree authored | MIT (`LICENSE`) | Shadertoy-style shader smoke and macOS runtime shader assets. |
 
 The standalone asset audit is tracked in `share/contourtty/LICENSES.md`.
 
@@ -152,7 +152,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan, shader cross-compile, or external graphics-protocol libraries.
+The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan or runtime shader rendering.
 
 Local macOS Release measurement on 2026-06-21:
 

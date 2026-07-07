@@ -69,6 +69,10 @@ int main() {
   expect(contourtty::isShaderSourcePath("effect.FRAG"), "uppercase frag shader path");
   expect(contourtty::isShaderSourcePath("effect.comp"), "compute shader path");
   expect(!contourtty::isShaderSourcePath("movie.mp4"), "movie is not shader path");
+  const auto bundled_plasma = contourtty::resolveBundledShader("contourtty:shader:plasma");
+  expect(bundled_plasma.has_value() && bundled_plasma->filename() == "plasma.glsl", "bundled shader alias resolves");
+  expect(!contourtty::resolveBundledShader("movie.mp4").has_value(), "non shader alias ignored");
+  expect(throwsSourceError([&] { (void)contourtty::resolveBundledShader("contourtty:shader:missing"); }), "missing bundled shader rejected");
 
   const std::string shadertoy =
     "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n"

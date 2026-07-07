@@ -16,14 +16,17 @@ add_compile_definitions(
 )
 
 set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_stub.cpp)
+set(CONTOURTTY_SHADER_RUNTIME_SOURCE src/shader_runtime_stub.cpp)
 set(CONTOURTTY_GPU_LIBS)
 if(APPLE AND NOT CONTOURTTY_LIGHT)
   enable_language(OBJCXX)
   find_library(METAL_FRAMEWORK Metal REQUIRED)
   find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
   set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_metal.mm)
+  set(CONTOURTTY_SHADER_RUNTIME_SOURCE src/shader_runtime_metal.mm)
   set(CONTOURTTY_GPU_LIBS ${METAL_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
   set_source_files_properties(src/gpu_sobel_metal.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  set_source_files_properties(src/shader_runtime_metal.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -135,6 +138,7 @@ add_executable(contourtty
   src/scene_source.cpp
   src/sextant_renderer.cpp
   src/shader_compiler.cpp
+  ${CONTOURTTY_SHADER_RUNTIME_SOURCE}
   src/shader_source.cpp
   src/sixel.cpp
   src/split.cpp
@@ -1770,6 +1774,36 @@ else()
 endif()
 add_test(NAME shader_bundle_compile COMMAND shader_bundle_compile_tests)
 set_tests_properties(shader_bundle_compile PROPERTIES SKIP_RETURN_CODE 77)
+
+add_executable(shader_runtime_tests
+  tests/shader_runtime_tests.cpp
+  ${CONTOURTTY_SHADER_RUNTIME_SOURCE}
+  src/shader_compiler.cpp
+  src/shader_source.cpp
+)
+target_include_directories(shader_runtime_tests PRIVATE src)
+target_compile_features(shader_runtime_tests PRIVATE cxx_std_20)
+set_target_properties(shader_runtime_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(shader_runtime_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_runtime_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(shader_runtime_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_runtime_tests PRIVATE -Werror)
+  endif()
+endif()
+if(CONTOURTTY_GPU_LIBS)
+  target_link_libraries(shader_runtime_tests PRIVATE ${CONTOURTTY_GPU_LIBS})
+endif()
+add_test(NAME shader_runtime COMMAND shader_runtime_tests)
+set_tests_properties(shader_runtime PROPERTIES SKIP_RETURN_CODE 77)
 
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp

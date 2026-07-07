@@ -13,7 +13,7 @@ Demo source: generated FFmpeg test media; luminance is left, structure+hatch is 
 
 Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. CI smoke release artifacts exist; v1.0 release artifacts and bottles remain pending.
 
-What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shadertoy source wrapping, shader compiler plumbing, and bundled shader sources exist; runtime shader input, Vulkan, shader demo GIF, live Sixel terminal proof, and release bottles remain pending.
+What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, local package generation, and macOS Metal Shadertoy-style shader input. Vulkan, shader demo GIF, live Sixel terminal proof, and release bottles remain pending.
 
 ## Build and run
 
@@ -32,7 +32,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-`CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan and shader cross-compilation are not linked in the current tree.
+`CONTOURTTY_LIGHT=ON` skips optional Apple Metal linkage and uses the CPU analysis path; Vulkan and runtime shader input are not linked in the light build.
 
 Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`), FreeType, and zlib. On macOS, install them with `brew install ffmpeg freetype zlib`; on Debian/Ubuntu, install the matching `libav*-dev`, `libfreetype-dev`, and shared runtime packages for packaged binaries.
 
@@ -73,6 +73,8 @@ Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure`
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing. `--grid CxR` treats a globbed image input as a fitted contact sheet and keeps animated GIF tiles on their own timelines.
 
 Scene inputs: `.obj` files and bundled aliases such as `contourtty:scene:cube` and `contourtty:scene:suzanne` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
+
+Shader inputs: `.glsl`/`.frag` files and bundled aliases such as `contourtty:shader:plasma` run Shadertoy-style `mainImage` shaders through the macOS Metal runtime, then route through the normal renderer. The source file is hot-reloaded during playback. This path requires `glslangValidator` and `spirv-cross` on `PATH`; non-Metal and light builds report shader runtime unavailable.
 
 Data and terminal-recording inputs: `--input stdin --plot waveform|spectrum|heatmap` renders numeric streams, and `.cast` inputs replay asciinema v2 recordings through the same renderer.
 

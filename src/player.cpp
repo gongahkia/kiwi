@@ -33,6 +33,8 @@
 #include "render_layout.hpp"
 #include "renderer.hpp"
 #include "split.hpp"
+#include "shader_runtime.hpp"
+#include "shader_source.hpp"
 #include "structure_edges.hpp"
 #include "structure_overlay.hpp"
 #include "structure_sampling.hpp"
@@ -2260,8 +2262,11 @@ int writeCaptionSidecar(const CliOptions& options, Logger& logger) {
 }
 
 bool isSceneInputSource(std::string_view input);
+bool isShaderInputSource(std::string_view input);
 SceneMesh loadSceneInputMesh(std::string_view input);
+std::filesystem::path loadShaderInputPath(std::string_view input);
 SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us);
+Frame renderShaderInputFrame(ShaderFrameSource& source, const CliOptions& options, TerminalSize terminal, int64_t pts_us, int64_t frame_index, int64_t frame_us);
 
 int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   if (!options.input.has_value()) {
@@ -2292,6 +2297,29 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
     const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
     writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
     CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+                                  " width=" + std::to_string(raster.width) +
+                                  " height=" + std::to_string(raster.height));
+    return 0;
+  }
+
+  if (isShaderInputSource(*options.input)) {
+    std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+    const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+    const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+    std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+    const TerminalSize terminal = exportTerminalSize(options);
+    const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+    const DitherMode dither_mode = ditherModeFromString(options.dither);
+    ShaderFrameSource source(loadShaderInputPath(*options.input));
+    const int64_t pts_us = options.still_at_us.value_or(0);
+    Frame frame = renderShaderInputFrame(source, options, terminal, pts_us, 0, 33333);
+    CellBuffer cells;
+    RenderTemporalState temporal_state;
+    RenderStats render_stats;
+    renderFrame(frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
+    writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
+    CONTOURTTY_LOG_INFO(logger, "shader still snapshot path=" + *options.still_file +
                                   " width=" + std::to_string(raster.width) +
                                   " height=" + std::to_string(raster.height));
     return 0;
@@ -2341,11 +2369,22 @@ bool isSceneInputSource(std::string_view input) {
   return input.starts_with(prefix) || std::filesystem::path(std::string(input)).extension() == ".obj";
 }
 
+bool isShaderInputSource(std::string_view input) {
+  return resolveBundledShader(input).has_value() || isShaderSourcePath(std::filesystem::path(std::string(input)));
+}
+
 SceneMesh loadSceneInputMesh(std::string_view input) {
   if (std::optional<std::filesystem::path> bundled = resolveBundledScene(input); bundled.has_value()) {
     return loadObjScene(*bundled);
   }
   return loadObjScene(std::filesystem::path(std::string(input)));
+}
+
+std::filesystem::path loadShaderInputPath(std::string_view input) {
+  if (std::optional<std::filesystem::path> bundled = resolveBundledShader(input); bundled.has_value()) {
+    return *bundled;
+  }
+  return std::filesystem::path(std::string(input));
 }
 
 SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& options, TerminalSize terminal, int64_t pts_us) {
@@ -2361,6 +2400,13 @@ SceneGBuffer renderSceneGBufferFrame(const SceneMesh& mesh, const CliOptions& op
                                                   });
   gbuffer.albedo.pts_us = pts_us;
   return gbuffer;
+}
+
+Frame renderShaderInputFrame(ShaderFrameSource& source, const CliOptions& options, TerminalSize terminal, int64_t pts_us, int64_t frame_index, int64_t frame_us) {
+  const int cols = std::max(1, options.width.value_or(terminal.cols));
+  const int rows = std::max(1, options.height.value_or(terminal.rows));
+  const int pixel_rows = std::max(1, static_cast<int>(std::llround(static_cast<double>(rows) / options.cell_aspect)));
+  return source.renderFrame(cols, pixel_rows, pts_us, frame_index, frame_us);
 }
 
 bool isStdinInput(std::string_view input) noexcept {
@@ -2780,6 +2826,181 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   return quit ? 130 : 0;
 }
 
+int playShaderInput(const CliOptions& options, Logger& logger) {
+  if (!options.input.has_value()) {
+    throw std::runtime_error("missing input");
+  }
+  logGpuRequest(options, logger);
+
+  const std::filesystem::path shader_path = loadShaderInputPath(*options.input);
+  ShaderFrameSource source(shader_path);
+  CONTOURTTY_LOG_INFO(logger, "shader source=" + shader_path.string());
+  CONTOURTTY_LOG_INFO(logger, "no audio stream; using shader frame pacing");
+
+  resetQuitFlag();
+  g_pending_commands.clear();
+  enqueueScriptedInputKeys(options, logger);
+  installQuitSignalHandlers();
+  installResizeSignalHandler();
+  TerminalSession session;
+  CONTOURTTY_LOG_INFO(logger, "playback started");
+
+  std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
+  const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
+  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
+  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
+  if (shape_vectors.has_value()) {
+    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+                                  " features=" + std::to_string(kShapeRegionCount));
+  }
+
+  TerminalSize terminal = queryTerminalSize();
+  CellBuffer cells;
+  DiffEmitter emitter;
+  RenderTemporalState temporal_state;
+  FramePacer pacer(options);
+  const double fps = options.fps.value_or(options.max_fps.value_or(30.0));
+  const int64_t frame_us = std::max<int64_t>(1000, static_cast<int64_t>(std::llround(1000000.0 / fps)));
+  const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
+  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  const DitherMode dither_mode = ditherModeFromString(options.dither);
+  const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
+  std::optional<GraphicsFrameOptions> graphics_options;
+  if (options.render_mode != "text") {
+    graphics_options = graphicsOptionsFromResolution(options, detectGraphicsCaps(options), color_mode, dither_mode, glyph_font_ptr, logger);
+  }
+  std::optional<BandwidthGuard> graphics_bandwidth;
+  if (graphics_options.has_value()) {
+    graphics_bandwidth.emplace(options.bandwidth_cap_mb_s);
+  }
+  GraphicsFrameState graphics_state;
+  RenderStats render_stats;
+  RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
+  RuntimeDebugStats debug_stats(options, &logger);
+  bool quit = false;
+  bool paused = false;
+  int64_t frame_index = 0;
+
+  std::string clear = "\x1b[2J";
+  writeAll(STDOUT_FILENO, clear);
+  consumeResizeFlag();
+
+  while (!shouldQuit()) {
+    switch (pollKeyboardCommand()) {
+      case PlaybackCommand::None:
+        break;
+      case PlaybackCommand::Quit:
+        quit = true;
+        break;
+      case PlaybackCommand::TogglePause:
+        paused = !paused;
+        CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+        break;
+      case PlaybackCommand::SeekBackward:
+        frame_index = std::max<int64_t>(0, frame_index - static_cast<int64_t>(5.0 * fps));
+        pacer.reset();
+        emitter.reset();
+        graphics_state.reset();
+        temporal_state.reset();
+        break;
+      case PlaybackCommand::SeekForward:
+        frame_index += static_cast<int64_t>(5.0 * fps);
+        pacer.reset();
+        emitter.reset();
+        graphics_state.reset();
+        temporal_state.reset();
+        break;
+      case PlaybackCommand::ToggleOsd:
+      case PlaybackCommand::CycleStyle:
+      case PlaybackCommand::CycleMode:
+      case PlaybackCommand::CycleCharset:
+      case PlaybackCommand::CycleGlyphFeatures:
+      case PlaybackCommand::ToggleGpu:
+      case PlaybackCommand::EdgeThresholdDown:
+      case PlaybackCommand::EdgeThresholdUp:
+      case PlaybackCommand::DogSigmaDown:
+      case PlaybackCommand::DogSigmaUp:
+      case PlaybackCommand::ContrastDown:
+      case PlaybackCommand::ContrastUp:
+        break;
+    }
+    if (quit) {
+      break;
+    }
+    if (paused) {
+      if (!debug_stats.maybeReport(terminal)) {
+        quit = true;
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+
+    source.reloadIfChanged();
+    const int64_t pts_us = frame_index * frame_us;
+    Frame frame = renderShaderInputFrame(source, options, debugRenderTerminal(terminal, options), pts_us, frame_index, frame_us);
+    ++frame_index;
+    debug_stats.recordInputFrame();
+    pacer.waitForFrame(frame);
+    if (shouldQuit()) {
+      quit = true;
+      break;
+    }
+    if (consumeResizeFlag()) {
+      terminal = queryTerminalSize();
+      emitter.reset();
+      if (graphics_bandwidth.has_value()) {
+        graphics_bandwidth->reset();
+      }
+      graphics_state.reset();
+      temporal_state.reset();
+      std::string clear_resize = "\x1b[2J";
+      writeAll(STDOUT_FILENO, clear_resize);
+    }
+
+    const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
+    const CliOptions render_options = debugRenderOptions(options, terminal);
+    renderFrame(frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+    EmissionResult emission;
+    if (graphics_options.has_value()) {
+      emission = EmissionResult{
+        .bytes = renderedGraphicsFrameBytes(cells, options, *graphics_options, emission_options, render_terminal, &graphics_state),
+        .changed_cells = cells.size(),
+      };
+      const BandwidthDecision decision = graphics_bandwidth->recordFrame(emission.bytes.size(), std::chrono::steady_clock::now());
+      if (!decision.send) {
+        debug_stats.recordDroppedFrame();
+        if (decision.warn) {
+          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+        }
+        if (!debug_stats.maybeReport(terminal)) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+    } else {
+      emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
+    }
+    debug_stats.recordPresentedFrame(cells, emission);
+    if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
+      quit = true;
+      break;
+    }
+    if (!debug_stats.maybeReport(terminal)) {
+      quit = true;
+      break;
+    }
+  }
+
+  if (logger.enabled()) {
+    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+                                  " cells=" + std::to_string(render_stats.cells) +
+                                  " render_us=" + std::to_string(render_stats.render_ns / 1000));
+  }
+  return quit ? 130 : 0;
+}
+
 int playStdinPlot(const CliOptions& options, Logger& logger) {
   if (!options.plot.has_value()) {
     throw std::runtime_error("stdin input requires --plot");
@@ -2993,6 +3214,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   if (isSceneInputSource(*options.input)) {
     return playSceneInput(options, logger);
+  }
+  if (isShaderInputSource(*options.input)) {
+    return playShaderInput(options, logger);
   }
   logGpuRequest(options, logger);
 
