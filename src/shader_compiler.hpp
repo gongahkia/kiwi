@@ -40,7 +40,9 @@ class ShaderCompileError : public std::runtime_error {
 
 std::string_view shaderStageFlag(ShaderStage stage) noexcept;
 std::vector<std::uint8_t> compileGlslToSpirv(const std::filesystem::path& source, const ShaderCompileOptions& options = {});
+std::vector<std::uint8_t> compileGlslSourceToSpirv(std::string_view source, const ShaderCompileOptions& options = {});
 std::string compileSpirvToMsl(std::span<const std::uint8_t> spirv, const ShaderCompileOptions& options = {});
 ShaderCompileResult compileGlslToSpirvAndMsl(const std::filesystem::path& source, const ShaderCompileOptions& options = {});
+ShaderCompileResult compileShadertoyFragmentToSpirvAndMsl(std::string_view source, const ShaderCompileOptions& options = {});
 
 }  // namespace contourtty

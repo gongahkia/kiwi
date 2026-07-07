@@ -1,5 +1,7 @@
 #include "shader_compiler.hpp"
 
+#include "shader_source.hpp"
+
 #include <array>
 #include <cerrno>
 #include <cstring>
@@ -66,6 +68,17 @@ void writeBinary(const std::filesystem::path& path, std::span<const std::uint8_t
     throw ShaderCompileError("failed to write shader input: " + path.string());
   }
   output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  if (!output) {
+    throw ShaderCompileError("failed to write shader input: " + path.string());
+  }
+}
+
+void writeText(const std::filesystem::path& path, std::string_view text) {
+  std::ofstream output(path);
+  if (!output) {
+    throw ShaderCompileError("failed to write shader input: " + path.string());
+  }
+  output << text;
   if (!output) {
     throw ShaderCompileError("failed to write shader input: " + path.string());
   }
@@ -195,6 +208,16 @@ std::vector<std::uint8_t> compileGlslToSpirv(const std::filesystem::path& source
   return spirv;
 }
 
+std::vector<std::uint8_t> compileGlslSourceToSpirv(std::string_view source, const ShaderCompileOptions& options) {
+  if (source.empty()) {
+    throw ShaderCompileError("empty GLSL source");
+  }
+  TempDir temp(options.work_dir);
+  const std::filesystem::path source_path = temp.path() / "shader.glsl";
+  writeText(source_path, source);
+  return compileGlslToSpirv(source_path, options);
+}
+
 std::string compileSpirvToMsl(std::span<const std::uint8_t> spirv, const ShaderCompileOptions& options) {
   if (spirv.empty()) {
     throw ShaderCompileError("empty SPIR-V input");
@@ -220,6 +243,14 @@ std::string compileSpirvToMsl(std::span<const std::uint8_t> spirv, const ShaderC
 ShaderCompileResult compileGlslToSpirvAndMsl(const std::filesystem::path& source, const ShaderCompileOptions& options) {
   ShaderCompileResult result;
   result.spirv = compileGlslToSpirv(source, options);
+  result.msl = compileSpirvToMsl(result.spirv, options);
+  return result;
+}
+
+ShaderCompileResult compileShadertoyFragmentToSpirvAndMsl(std::string_view source, const ShaderCompileOptions& options) {
+  const std::string wrapped_source = wrapShadertoyFragmentShader(source);
+  ShaderCompileResult result;
+  result.spirv = compileGlslSourceToSpirv(wrapped_source, options);
   result.msl = compileSpirvToMsl(result.spirv, options);
   return result;
 }

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -49,10 +50,18 @@ std::filesystem::path writeFile(const std::filesystem::path& path, const std::st
   return path;
 }
 
+std::string readFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
 std::filesystem::path fakeGlslang(const std::filesystem::path& dir) {
   return writeFile(dir / "fake-glslangValidator",
                    "#!/bin/sh\n"
                    "out=''\n"
+                   "input=''\n"
                    "stage=''\n"
                    "entry=''\n"
                    "while [ \"$#\" -gt 0 ]; do\n"
@@ -60,12 +69,16 @@ std::filesystem::path fakeGlslang(const std::filesystem::path& dir) {
                    "    -o) shift; out=\"$1\" ;;\n"
                    "    -S) shift; stage=\"$1\" ;;\n"
                    "    -e) shift; entry=\"$1\" ;;\n"
+                   "    -*) ;;\n"
+                   "    *) input=\"$1\" ;;\n"
                    "  esac\n"
                    "  shift\n"
                    "done\n"
                    "[ \"$stage\" = frag ] || exit 42\n"
                    "[ \"$entry\" = mainImage ] || exit 43\n"
                    "[ -n \"$out\" ] || exit 44\n"
+                   "[ -n \"$input\" ] || exit 45\n"
+                   "[ -n \"$CONTOURTTY_FAKE_GLSLANG_SEEN\" ] && cp \"$input\" \"$CONTOURTTY_FAKE_GLSLANG_SEEN\"\n"
                    "printf 'SPV0fake' > \"$out\"\n",
                    true);
 }
@@ -125,9 +138,22 @@ int main() {
   expect(combined.spirv == spirv, "combined compile keeps spirv bytes");
   expect(combined.msl == msl, "combined compile keeps msl source");
 
+  const auto seen = temp.path() / "seen-wrapped.glsl";
+  setenv("CONTOURTTY_FAKE_GLSLANG_SEEN", seen.c_str(), 1);
+  const auto shadertoy = contourtty::compileShadertoyFragmentToSpirvAndMsl(
+    "void mainImage(out vec4 fragColor, in vec2 fragCoord) { fragColor = vec4(fragCoord, iTime, 1.0); }\n",
+    options);
+  unsetenv("CONTOURTTY_FAKE_GLSLANG_SEEN");
+  expect(shadertoy.spirv == spirv, "Shadertoy compile keeps spirv bytes");
+  expect(shadertoy.msl == msl, "Shadertoy compile keeps msl source");
+  const std::string seen_source = readFile(seen);
+  expect(seen_source.find("contourttyFragColor") != std::string::npos, "wrapped Shadertoy source passed to glslang");
+  expect(seen_source.find("mainImage(color, contourttyFragCoord);") != std::string::npos, "wrapped source has main bridge");
+
   contourtty::ShaderCompileOptions missing_tool = options;
   missing_tool.tools.glslang_validator = temp.path() / "missing-glslangValidator";
   expect(throwsShaderError([&] { (void)contourtty::compileGlslToSpirv(shader, missing_tool); }), "missing glslang reports shader error");
+  expect(throwsShaderError([&] { (void)contourtty::compileGlslSourceToSpirv("", options); }), "empty glsl source rejected");
   expect(throwsShaderError([&] { (void)contourtty::compileSpirvToMsl({}, options); }), "empty spirv rejected");
   expect(throwsShaderError([&] { (void)contourtty::compileGlslToSpirv(temp.path() / "missing.glsl", options); }), "missing shader source rejected");
 }

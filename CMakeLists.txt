@@ -1676,6 +1676,7 @@ add_test(NAME stream_resolver COMMAND stream_resolver_tests)
 add_executable(shader_compile_tests
   tests/shader_compile_tests.cpp
   src/shader_compiler.cpp
+  src/shader_source.cpp
 )
 target_include_directories(shader_compile_tests PRIVATE src)
 target_compile_features(shader_compile_tests PRIVATE cxx_std_20)
