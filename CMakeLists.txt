@@ -1957,6 +1957,10 @@ add_test(NAME auto_mode COMMAND auto_mode_tests)
 
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
+  add_test(NAME shader_toolchain_smoke
+    COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/shader_toolchain_smoke.sh"
+  )
+  set_tests_properties(shader_toolchain_smoke PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME input_keys_smoke
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/input_keys_smoke.sh" $<TARGET_FILE:contourtty>
   )
