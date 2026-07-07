@@ -102,8 +102,8 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 |---|---:|---|---|---|
 | Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` is set. |
 | Vulkan SDK / loader | 1.3 | system or future vendored SDK headers | Vulkan-Headers Apache-2.0; loader Apache-2.0/MIT-style | Not linked yet; Phase L Vulkan backend is locally blocked until SDK/tools are present. |
-| glslang | TBD | not vendored | BSD-3-Clause | Not vendored/linked yet; Phase L shader cross-compile blocked locally. |
-| SPIRV-Cross | TBD | not vendored | Apache-2.0 | Not vendored/linked yet; Phase L shader cross-compile blocked locally. |
+| glslang | TBD | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper exists for GLSL-to-SPIR-V; runtime shader input is not wired yet. |
+| SPIRV-Cross | TBD | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` wrapper exists for SPIR-V-to-MSL; runtime shader input is not wired yet. |
 
 ## Graphics protocol and image helpers
 

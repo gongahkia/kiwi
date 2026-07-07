@@ -134,6 +134,7 @@ add_executable(contourtty
   src/renderer.cpp
   src/scene_source.cpp
   src/sextant_renderer.cpp
+  src/shader_compiler.cpp
   src/sixel.cpp
   src/split.cpp
   src/stdin_data.cpp
@@ -1670,6 +1671,30 @@ else()
   endif()
 endif()
 add_test(NAME stream_resolver COMMAND stream_resolver_tests)
+
+add_executable(shader_compile_tests
+  tests/shader_compile_tests.cpp
+  src/shader_compiler.cpp
+)
+target_include_directories(shader_compile_tests PRIVATE src)
+target_compile_features(shader_compile_tests PRIVATE cxx_std_20)
+set_target_properties(shader_compile_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(shader_compile_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_compile_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(shader_compile_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_compile_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME shader_compile COMMAND shader_compile_tests)
 
 add_executable(cell_buffer_tests
   tests/cell_buffer_tests.cpp
