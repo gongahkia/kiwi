@@ -1723,6 +1723,32 @@ else()
 endif()
 add_test(NAME shader_compile COMMAND shader_compile_tests)
 
+add_executable(shader_spirv_golden_tests
+  tests/shader_spirv_golden_tests.cpp
+  src/shader_compiler.cpp
+  src/shader_source.cpp
+)
+target_include_directories(shader_spirv_golden_tests PRIVATE src)
+target_compile_features(shader_spirv_golden_tests PRIVATE cxx_std_20)
+set_target_properties(shader_spirv_golden_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(shader_spirv_golden_tests PRIVATE /W4)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_spirv_golden_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(shader_spirv_golden_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(CONTOURTTY_WARNINGS_AS_ERRORS)
+    target_compile_options(shader_spirv_golden_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME shader_spirv_golden COMMAND shader_spirv_golden_tests)
+set_tests_properties(shader_spirv_golden PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(shader_source_tests
   tests/shader_source_tests.cpp
   src/shader_source.cpp
