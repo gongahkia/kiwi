@@ -8,18 +8,34 @@
 #include <fstream>
 #include <sstream>
 #include <string_view>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 namespace contourtty {
 namespace {
+
+unsigned long processId() noexcept {
+#ifdef _WIN32
+  return GetCurrentProcessId();
+#else
+  return static_cast<unsigned long>(getpid());
+#endif
+}
 
 class TempDir {
  public:
   explicit TempDir(const std::optional<std::filesystem::path>& base) {
     const std::filesystem::path root = base.value_or(std::filesystem::temp_directory_path());
     for (int attempt = 0; attempt < 100; ++attempt) {
-      std::filesystem::path candidate = root / ("contourtty-shader-" + std::to_string(getpid()) + "-" + std::to_string(attempt));
+      std::filesystem::path candidate = root / ("contourtty-shader-" + std::to_string(processId()) + "-" + std::to_string(attempt));
       std::error_code ec;
       if (std::filesystem::create_directory(candidate, ec)) {
         path_ = std::move(candidate);
@@ -95,11 +111,135 @@ std::string commandLabel(const std::vector<std::string>& args) {
   return out.str();
 }
 
-void runTool(const std::vector<std::string>& args) {
-  if (args.empty()) {
-    throw ShaderCompileError("empty shader tool command");
+#ifdef _WIN32
+std::string windowsErrorMessage(DWORD code) {
+  char* message = nullptr;
+  const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+  const DWORD size = FormatMessageA(flags, nullptr, code, 0, reinterpret_cast<LPSTR>(&message), 0, nullptr);
+  std::string result = size > 0 && message != nullptr ? std::string(message, size) : "error " + std::to_string(code);
+  if (message != nullptr) {
+    LocalFree(message);
+  }
+  while (!result.empty() && (result.back() == '\r' || result.back() == '\n')) {
+    result.pop_back();
+  }
+  return result;
+}
+
+void appendWindowsQuotedArg(std::string& command, const std::string& arg) {
+  if (!command.empty()) {
+    command.push_back(' ');
+  }
+  command.push_back('"');
+  std::size_t backslashes = 0;
+  for (char c : arg) {
+    if (c == '\\') {
+      ++backslashes;
+      continue;
+    }
+    if (c == '"') {
+      command.append(backslashes * 2 + 1, '\\');
+      command.push_back('"');
+      backslashes = 0;
+      continue;
+    }
+    command.append(backslashes, '\\');
+    backslashes = 0;
+    command.push_back(c);
+  }
+  command.append(backslashes * 2, '\\');
+  command.push_back('"');
+}
+
+std::string windowsCommandLine(const std::vector<std::string>& args) {
+  std::string command;
+  for (const std::string& arg : args) {
+    appendWindowsQuotedArg(command, arg);
+  }
+  return command;
+}
+
+void runToolWindows(const std::vector<std::string>& args) {
+  SECURITY_ATTRIBUTES security {};
+  security.nLength = sizeof(security);
+  security.bInheritHandle = TRUE;
+
+  HANDLE read_pipe = nullptr;
+  HANDLE write_pipe = nullptr;
+  if (!CreatePipe(&read_pipe, &write_pipe, &security, 0)) {
+    throw ShaderCompileError("shader tool pipe failed: " + windowsErrorMessage(GetLastError()));
+  }
+  if (!SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0)) {
+    const DWORD error = GetLastError();
+    CloseHandle(read_pipe);
+    CloseHandle(write_pipe);
+    throw ShaderCompileError("shader tool pipe failed: " + windowsErrorMessage(error));
   }
 
+  STARTUPINFOA startup {};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  startup.hStdOutput = write_pipe;
+  startup.hStdError = write_pipe;
+
+  PROCESS_INFORMATION process {};
+  std::string command = windowsCommandLine(args);
+  if (!CreateProcessA(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
+    const DWORD error = GetLastError();
+    CloseHandle(read_pipe);
+    CloseHandle(write_pipe);
+    throw ShaderCompileError("shader tool failed: " + commandLabel(args) + ": " + windowsErrorMessage(error));
+  }
+
+  CloseHandle(write_pipe);
+  std::string output;
+  std::array<char, 4096> buffer {};
+  while (true) {
+    DWORD n = 0;
+    const BOOL read_ok = ReadFile(read_pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &n, nullptr);
+    if (read_ok) {
+      if (n == 0) {
+        break;
+      }
+      output.append(buffer.data(), n);
+      continue;
+    }
+    const DWORD error = GetLastError();
+    if (error == ERROR_BROKEN_PIPE) {
+      break;
+    }
+    CloseHandle(read_pipe);
+    TerminateProcess(process.hProcess, 1);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    throw ShaderCompileError("shader tool read failed: " + windowsErrorMessage(error));
+  }
+  CloseHandle(read_pipe);
+
+  WaitForSingleObject(process.hProcess, INFINITE);
+  DWORD exit_code = 1;
+  if (!GetExitCodeProcess(process.hProcess, &exit_code)) {
+    const DWORD error = GetLastError();
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    throw ShaderCompileError("shader tool wait failed: " + windowsErrorMessage(error));
+  }
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  if (exit_code == 0) {
+    return;
+  }
+
+  std::ostringstream error;
+  error << "shader tool failed: " << commandLabel(args) << " exit=" << exit_code;
+  if (!output.empty()) {
+    error << ": " << output.substr(0, 2048);
+  }
+  throw ShaderCompileError(error.str());
+}
+#else
+void runToolPosix(const std::vector<std::string>& args) {
   int pipefd[2] {};
   if (pipe(pipefd) != 0) {
     throw ShaderCompileError("shader tool pipe failed: " + std::string(std::strerror(errno)));
@@ -168,6 +308,18 @@ void runTool(const std::vector<std::string>& args) {
     error << ": " << output.substr(0, 2048);
   }
   throw ShaderCompileError(error.str());
+}
+#endif
+
+void runTool(const std::vector<std::string>& args) {
+  if (args.empty()) {
+    throw ShaderCompileError("empty shader tool command");
+  }
+#ifdef _WIN32
+  runToolWindows(args);
+#else
+  runToolPosix(args);
+#endif
 }
 
 }  // namespace

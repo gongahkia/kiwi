@@ -1,6 +1,7 @@
 #include "shader_compiler.hpp"
 #include "shader_source.hpp"
 
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -39,16 +40,22 @@ std::vector<std::filesystem::path> pathEntries() {
     return entries;
   }
   std::string_view rest(path);
+  constexpr char delimiter =
+#ifdef _WIN32
+    ';';
+#else
+    ':';
+#endif
   while (true) {
-    const std::size_t colon = rest.find(':');
-    const std::string_view entry = colon == std::string_view::npos ? rest : rest.substr(0, colon);
+    const std::size_t split = rest.find(delimiter);
+    const std::string_view entry = split == std::string_view::npos ? rest : rest.substr(0, split);
     if (!entry.empty()) {
       entries.emplace_back(entry);
     }
-    if (colon == std::string_view::npos) {
+    if (split == std::string_view::npos) {
       break;
     }
-    rest.remove_prefix(colon + 1);
+    rest.remove_prefix(split + 1);
   }
   return entries;
 }
@@ -69,6 +76,16 @@ bool toolAvailable(std::string_view name) {
     }
   }
   return false;
+}
+
+bool hasSpirvMagic(const std::vector<std::uint8_t>& spirv) {
+  constexpr std::array<std::uint8_t, 4> little_endian_magic {0x03, 0x02, 0x23, 0x07};
+  constexpr std::array<std::uint8_t, 4> big_endian_magic {0x07, 0x23, 0x02, 0x03};
+  if (spirv.size() < little_endian_magic.size()) {
+    return false;
+  }
+  const std::array<std::uint8_t, 4> prefix {spirv[0], spirv[1], spirv[2], spirv[3]};
+  return prefix == little_endian_magic || prefix == big_endian_magic;
 }
 
 int processId() {
@@ -118,6 +135,10 @@ int main() {
     const std::string source = contourtty::loadShaderSource(shader_dir / name);
     const auto compiled = contourtty::compileShadertoyFragmentToSpirvAndMsl(source, options);
     expect(!compiled.spirv.empty(), "bundled shader produced SPIR-V");
+    expect(hasSpirvMagic(compiled.spirv), "bundled shader produced SPIR-V magic");
     expect(!compiled.msl.empty(), "bundled shader produced MSL");
+    const auto repeated = contourtty::compileShadertoyFragmentToSpirvAndMsl(source, options);
+    expect(repeated.spirv == compiled.spirv, "bundled shader SPIR-V is deterministic");
+    expect(repeated.msl == compiled.msl, "bundled shader MSL is deterministic");
   }
 }

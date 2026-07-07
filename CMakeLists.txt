@@ -1673,12 +1673,33 @@ else()
 endif()
 add_test(NAME stream_resolver COMMAND stream_resolver_tests)
 
+add_executable(shader_fake_glslang tests/fake_glslang.cpp)
+target_compile_features(shader_fake_glslang PRIVATE cxx_std_20)
+set_target_properties(shader_fake_glslang PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+
+add_executable(shader_fake_spirv_cross tests/fake_spirv_cross.cpp)
+target_compile_features(shader_fake_spirv_cross PRIVATE cxx_std_20)
+set_target_properties(shader_fake_spirv_cross PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+
 add_executable(shader_compile_tests
   tests/shader_compile_tests.cpp
   src/shader_compiler.cpp
   src/shader_source.cpp
 )
 target_include_directories(shader_compile_tests PRIVATE src)
+target_compile_definitions(shader_compile_tests PRIVATE
+  CONTOURTTY_FAKE_GLSLANG="$<TARGET_FILE:shader_fake_glslang>"
+  CONTOURTTY_FAKE_SPIRV_CROSS="$<TARGET_FILE:shader_fake_spirv_cross>"
+)
+add_dependencies(shader_compile_tests shader_fake_glslang shader_fake_spirv_cross)
 target_compile_features(shader_compile_tests PRIVATE cxx_std_20)
 set_target_properties(shader_compile_tests PROPERTIES
   CXX_STANDARD 20

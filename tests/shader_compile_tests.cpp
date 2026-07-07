@@ -7,8 +7,12 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
-#include <sys/stat.h>
+
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace {
 
@@ -19,9 +23,17 @@ void expect(bool condition, const char* label) {
   }
 }
 
+int processId() {
+#ifdef _WIN32
+  return _getpid();
+#else
+  return getpid();
+#endif
+}
+
 class TempTree {
  public:
-  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-test-" + std::to_string(getpid()))) {
+  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-test-" + std::to_string(processId()))) {
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
   }
@@ -39,13 +51,10 @@ class TempTree {
   std::filesystem::path path_;
 };
 
-std::filesystem::path writeFile(const std::filesystem::path& path, const std::string& contents, bool executable = false) {
+std::filesystem::path writeFile(const std::filesystem::path& path, const std::string& contents) {
   {
     std::ofstream out(path);
     out << contents;
-  }
-  if (executable) {
-    chmod(path.c_str(), 0700);
   }
   return path;
 }
@@ -57,47 +66,20 @@ std::string readFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
-std::filesystem::path fakeGlslang(const std::filesystem::path& dir) {
-  return writeFile(dir / "fake-glslangValidator",
-                   "#!/bin/sh\n"
-                   "out=''\n"
-                   "input=''\n"
-                   "stage=''\n"
-                   "entry=''\n"
-                   "while [ \"$#\" -gt 0 ]; do\n"
-                   "  case \"$1\" in\n"
-                   "    -o) shift; out=\"$1\" ;;\n"
-                   "    -S) shift; stage=\"$1\" ;;\n"
-                   "    -e) shift; entry=\"$1\" ;;\n"
-                   "    -*) ;;\n"
-                   "    *) input=\"$1\" ;;\n"
-                   "  esac\n"
-                   "  shift\n"
-                   "done\n"
-                   "[ \"$stage\" = frag ] || exit 42\n"
-                   "[ \"$entry\" = mainImage ] || exit 43\n"
-                   "[ -n \"$out\" ] || exit 44\n"
-                   "[ -n \"$input\" ] || exit 45\n"
-                   "[ -n \"$CONTOURTTY_FAKE_GLSLANG_SEEN\" ] && cp \"$input\" \"$CONTOURTTY_FAKE_GLSLANG_SEEN\"\n"
-                   "printf 'SPV0fake' > \"$out\"\n",
-                   true);
+std::filesystem::path fakeGlslang() {
+#ifdef CONTOURTTY_FAKE_GLSLANG
+  return CONTOURTTY_FAKE_GLSLANG;
+#else
+  return "fake-glslangValidator";
+#endif
 }
 
-std::filesystem::path fakeSpirvCross(const std::filesystem::path& dir) {
-  return writeFile(dir / "fake-spirv-cross",
-                   "#!/bin/sh\n"
-                   "input=\"$1\"\n"
-                   "out=''\n"
-                   "while [ \"$#\" -gt 0 ]; do\n"
-                   "  case \"$1\" in\n"
-                   "    --output) shift; out=\"$1\" ;;\n"
-                   "  esac\n"
-                   "  shift\n"
-                   "done\n"
-                   "[ -s \"$input\" ] || exit 45\n"
-                   "[ -n \"$out\" ] || exit 46\n"
-                   "printf '// msl from fake\\nkernel void main0() {}\\n' > \"$out\"\n",
-                   true);
+std::filesystem::path fakeSpirvCross() {
+#ifdef CONTOURTTY_FAKE_SPIRV_CROSS
+  return CONTOURTTY_FAKE_SPIRV_CROSS;
+#else
+  return "fake-spirv-cross";
+#endif
 }
 
 bool throwsShaderError(const std::function<void()>& body) {
@@ -107,6 +89,22 @@ bool throwsShaderError(const std::function<void()>& body) {
     return true;
   }
   return false;
+}
+
+void setEnvPath(const char* name, const std::filesystem::path& path) {
+#ifdef _WIN32
+  _putenv_s(name, path.string().c_str());
+#else
+  setenv(name, path.c_str(), 1);
+#endif
+}
+
+void unsetEnv(const char* name) {
+#ifdef _WIN32
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
 }
 
 }  // namespace
@@ -124,8 +122,8 @@ int main() {
 
   contourtty::ShaderCompileOptions options;
   options.entry_point = "mainImage";
-  options.tools.glslang_validator = fakeGlslang(temp.path());
-  options.tools.spirv_cross = fakeSpirvCross(temp.path());
+  options.tools.glslang_validator = fakeGlslang();
+  options.tools.spirv_cross = fakeSpirvCross();
   options.work_dir = temp.path();
 
   const auto spirv = contourtty::compileGlslToSpirv(shader, options);
@@ -139,11 +137,11 @@ int main() {
   expect(combined.msl == msl, "combined compile keeps msl source");
 
   const auto seen = temp.path() / "seen-wrapped.glsl";
-  setenv("CONTOURTTY_FAKE_GLSLANG_SEEN", seen.c_str(), 1);
+  setEnvPath("CONTOURTTY_FAKE_GLSLANG_SEEN", seen);
   const auto shadertoy = contourtty::compileShadertoyFragmentToSpirvAndMsl(
     "void mainImage(out vec4 fragColor, in vec2 fragCoord) { fragColor = vec4(fragCoord, iTime, 1.0); }\n",
     options);
-  unsetenv("CONTOURTTY_FAKE_GLSLANG_SEEN");
+  unsetEnv("CONTOURTTY_FAKE_GLSLANG_SEEN");
   expect(shadertoy.spirv == spirv, "Shadertoy compile keeps spirv bytes");
   expect(shadertoy.msl == msl, "Shadertoy compile keeps msl source");
   const std::string seen_source = readFile(seen);
