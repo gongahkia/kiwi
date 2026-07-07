@@ -7,13 +7,15 @@ contourtty is a C++20 terminal media renderer for live video, webcam, and stream
 
 ![v1.0 split demo: luminance left, structure+hatch right](docs/v1.0-split-demo.gif)
 
-Demo source: generated FFmpeg test media; luminance is left, structure+hatch is right. See [docs/demo-source.md](docs/demo-source.md).
+![v1.0 shader demo: bundled plasma shader rendered as ASCII](docs/v1.0-shader-demo.gif)
+
+Demo sources: generated FFmpeg test media for split view and the bundled plasma shader for shader input. See [docs/demo-source.md](docs/demo-source.md).
 
 ## Status
 
 Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. CI smoke release artifacts exist; v1.0 release artifacts and bottles remain pending.
 
-What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, local package generation, and macOS Metal Shadertoy-style shader input. Vulkan, shader demo GIF, live Sixel terminal proof, and release bottles remain pending.
+What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, local package generation, and macOS Metal Shadertoy-style shader input. Vulkan, live Sixel terminal proof, and release bottles remain pending.
 
 ## Build and run
 
