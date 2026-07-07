@@ -24,6 +24,8 @@ contourtty keeps runtime dependencies explicit and avoids hidden package-manager
 
 Minimum FFmpeg target: 6.0. The send/receive decoder API exists in older FFmpeg releases, but 6.x is the support floor to reduce platform drift and deprecated-code pressure.
 
+Release packages dynamically link FFmpeg. Static-FFmpeg bundles are not shipped until the package build records FFmpeg configure flags and whether the resulting binary is LGPL-compatible, GPL-covered, or non-redistributable because of distributor options.
+
 Expected CMake discovery:
 
 ```cmake

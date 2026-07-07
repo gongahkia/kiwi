@@ -111,3 +111,23 @@ jobs:
           EOF
           chmod +x /tmp/contourtty-valgrind-wrapper
           scripts/verify_shutdown_paths.sh /tmp/contourtty-valgrind-wrapper
+
+  homebrew:
+    name: homebrew formula (macos-latest)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install formula from source
+        run: |
+          brew untap local/contourtty >/dev/null 2>&1 || true
+          brew tap-new local/contourtty
+          cp packaging/homebrew/contourtty.rb "$(brew --repo local/contourtty)/Formula/contourtty.rb"
+          brew install --HEAD --build-from-source local/contourtty/contourtty
+
+      - name: Test formula
+        run: |
+          contourtty --version
+          brew test local/contourtty/contourtty

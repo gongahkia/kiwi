@@ -11,9 +11,9 @@ Demo source: generated FFmpeg test media; luminance is left, structure+hatch is 
 
 ## Status
 
-Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. Published release artifacts are still pending.
+Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. CI smoke release artifacts exist; v1.0 release artifacts and bottles remain pending.
 
-What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shader input, Vulkan, live Sixel terminal proof, hosted CI proof, and release bottles remain pending.
+What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shader input, Vulkan, live Sixel terminal proof, and release bottles remain pending.
 
 ## Build and run
 
@@ -50,7 +50,13 @@ Package locally:
 scripts/package_release.sh
 ```
 
-The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. A head-only Homebrew formula is available at `packaging/homebrew/contourtty.rb`; install it with `brew install --HEAD ./packaging/homebrew/contourtty.rb`.
+The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. Static bundles are withheld until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations. A head-only Homebrew formula is available at `packaging/homebrew/contourtty.rb`:
+
+```sh
+brew tap-new local/contourtty
+cp packaging/homebrew/contourtty.rb "$(brew --repo local/contourtty)/Formula/contourtty.rb"
+brew install --HEAD --build-from-source local/contourtty/contourtty
+```
 
 Fresh-source install, one line: macOS `brew install cmake pkg-config ffmpeg freetype zlib && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && cmake --install build/release --prefix /usr/local`; Debian/Ubuntu `sudo apt-get install cmake pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && sudo cmake --install build/release --prefix /usr/local`.
 

@@ -39,7 +39,17 @@ jobs:
       - name: Package
         run: scripts/package_release.sh
 
+      - name: Install Linux package
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ./contourtty-*.deb
+          /usr/local/bin/contourtty --version
+
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           files: contourtty-*
+          body: |
+            contourtty release packages are dynamically linked against system FFmpeg, FreeType, and zlib.
+            Install those runtime libraries with the platform package manager before using `.tar.gz` artifacts; the Linux `.deb` declares shared-library dependencies through CPack shlibdeps.
+            Static-FFmpeg bundles are not shipped until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations.
