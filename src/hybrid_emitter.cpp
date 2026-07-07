@@ -41,10 +41,13 @@ void appendOverlayFg(std::string& out, Rgb color, int row, int col, EmissionOpti
 }  // namespace
 
 HybridFrameResult emitHybridFrame(const CellBuffer& cells, const HybridFrameOptions& options) {
-  GraphicsFrameResult graphics = emitGraphicsFrame(cells, options.graphics);
   const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, options.terminal);
+  GraphicsFrameResult graphics = emitGraphicsFrame(cells, options.graphics);
+  std::string bytes;
+  appendCursorMove(bytes, origin.row, origin.col);
+  bytes += graphics.bytes;
   HybridFrameResult result{
-    .bytes = std::move(graphics.bytes),
+    .bytes = std::move(bytes),
     .raster_bytes = graphics.raster_bytes,
   };
   std::optional<Rgb> active_fg;

@@ -37,7 +37,7 @@ int main() {
     });
     expect(frame.raster_bytes > 0, "hybrid emits raster bytes");
     expect(frame.overlay_cells == 1, "hybrid overlays nonblank cells only");
-    expect(frame.bytes.find("\x1b_Ga=T,t=d,f=24") == 0, "hybrid starts with graphics frame");
+    expect(frame.bytes.find("\x1b[3;5H\x1b_Ga=T,t=d,f=24") == 0, "hybrid starts graphics at centered origin");
     expect(frame.bytes.find("\x1b[3;5H") != std::string::npos, "hybrid overlays centered text cell");
     expect(frame.bytes.find("\x1b[38;2;255;0;0m|") != std::string::npos, "hybrid writes foreground glyph");
     expect(frame.bytes.find("\x1b[48;2;") == std::string::npos, "hybrid text overlay avoids background fill");
