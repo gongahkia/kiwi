@@ -13,7 +13,7 @@ Demo source: generated FFmpeg test media; luminance is left, structure+hatch is 
 
 Pre-alpha. Local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg stream URLs, and YouTube URLs via yt-dlp now play as paced luminance or structure ASCII with audio sync where audio is present. MP4 export writes rasterized ASCII video with muxed AAC audio when the source has audio; ANSI, asciinema, PNG still snapshots, sidecar captions, and Kitty/iTerm/Sixel pixel emitters are implemented and covered by local tests. CI smoke release artifacts exist; v1.0 release artifacts and bottles remain pending.
 
-What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shader input, Vulkan, live Sixel terminal proof, and release bottles remain pending.
+What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, temporal glyph stabilization, opt-in temporal supersampling for low-fps structure analysis, NPR styles, octant/sextant/braille blitters, graph YAML loading, new input paths, and local package generation. Shadertoy source wrapping and shader compiler plumbing exist; runtime shader input, Vulkan, live Sixel terminal proof, and release bottles remain pending.
 
 ## Build and run
 
