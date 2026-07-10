@@ -4,8 +4,14 @@ export interface WatOptions {
   apiToken: string;
   domainFilters: string[];
   teamId: string;
+  teams: WatTeamOption[];
   highlightMode: boolean;
   hoverMode: boolean;
+}
+
+export interface WatTeamOption {
+  id: string;
+  name: string;
 }
 
 export const optionsStorageKey = "watOptions";
@@ -16,11 +22,18 @@ export const defaultOptions: WatOptions = {
   apiToken: "",
   domainFilters: [],
   teamId: "",
+  teams: [],
   highlightMode: false,
   hoverMode: false
 };
 
-type ManagedOptionKey = "apiBaseUrl" | "domainFilters" | "highlightMode" | "hoverMode" | "teamId";
+type ManagedOptionKey =
+  | "apiBaseUrl"
+  | "domainFilters"
+  | "highlightMode"
+  | "hoverMode"
+  | "teamId"
+  | "teams";
 type ManagedOptions = Pick<WatOptions, ManagedOptionKey>;
 
 interface ManagedStorageArea {
@@ -45,19 +58,41 @@ function cleanBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
+export function cleanTeamOptions(value: unknown): WatTeamOption[] {
+  if (!Array.isArray(value)) return [];
+  const teams = new Map<string, WatTeamOption>();
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const id = cleanString(record.id);
+    if (!id) continue;
+    teams.set(id, { id, name: cleanString(record.name) ?? id });
+  }
+  return Array.from(teams.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export function upsertTeamOption(teams: WatTeamOption[], team: WatTeamOption): WatTeamOption[] {
+  return cleanTeamOptions([
+    ...teams.filter((item) => item.id !== team.id),
+    { id: team.id.trim(), name: team.name.trim() || team.id.trim() }
+  ]);
+}
+
 export function managedOptionsFromPolicy(policy: Record<string, unknown>): Partial<ManagedOptions> {
   const apiBaseUrl = cleanString(policy.apiBaseUrl);
   const domainFilters = cleanDomainFilters(policy.domainFilters);
   const highlightMode = cleanBoolean(policy.highlightMode);
   const hoverMode = cleanBoolean(policy.hoverMode);
   const teamId = cleanString(policy.teamId);
+  const teams = cleanTeamOptions(policy.teams);
 
   return {
     ...(apiBaseUrl ? { apiBaseUrl } : {}),
     ...(domainFilters ? { domainFilters } : {}),
     ...(highlightMode == null ? {} : { highlightMode }),
     ...(hoverMode == null ? {} : { hoverMode }),
-    ...(teamId ? { teamId } : {})
+    ...(teamId ? { teamId } : {}),
+    ...(teams.length > 0 ? { teams } : {})
   };
 }
 
@@ -95,7 +130,22 @@ export async function loadLocalWatOptions(): Promise<WatOptions> {
     string,
     Partial<WatOptions>
   >;
-  return { ...defaultOptions, ...(stored[optionsStorageKey] ?? {}) };
+  return normalizeWatOptions(stored[optionsStorageKey] ?? {});
+}
+
+export function normalizeWatOptions(options: Partial<WatOptions>): WatOptions {
+  return {
+    ...defaultOptions,
+    ...options,
+    accountEmail: cleanString(options.accountEmail) ?? "",
+    apiBaseUrl: cleanString(options.apiBaseUrl) ?? defaultOptions.apiBaseUrl,
+    apiToken: cleanString(options.apiToken) ?? "",
+    domainFilters: cleanDomainFilters(options.domainFilters) ?? [],
+    highlightMode: cleanBoolean(options.highlightMode) ?? defaultOptions.highlightMode,
+    hoverMode: cleanBoolean(options.hoverMode) ?? defaultOptions.hoverMode,
+    teamId: cleanString(options.teamId) ?? "",
+    teams: cleanTeamOptions(options.teams)
+  };
 }
 
 export async function testWatConnection(

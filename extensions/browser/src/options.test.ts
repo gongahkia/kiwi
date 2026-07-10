@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  cleanTeamOptions,
   defaultOptions,
   loadWatOptions,
   managedOptionsFromPolicy,
+  normalizeWatOptions,
   optionsStorageKey,
-  testWatConnection
+  testWatConnection,
+  upsertTeamOption
 } from "./options.js";
 
 describe("options privacy defaults", () => {
@@ -64,7 +67,11 @@ describe("options privacy defaults", () => {
       domainFilters: ["Docs.Example.test", "docs.example.test", " "],
       highlightMode: true,
       hoverMode: false,
-      teamId: "team_managed"
+      teamId: "team_managed",
+      teams: [
+        { id: "team_managed", name: "Managed" },
+        { id: "team_other", name: "Other" }
+      ]
     });
 
     await browser.storage.local.set({
@@ -73,7 +80,8 @@ describe("options privacy defaults", () => {
         domainFilters: ["local.example.test"],
         highlightMode: false,
         hoverMode: true,
-        teamId: "team_local"
+        teamId: "team_local",
+        teams: [{ id: "team_local", name: "Local" }]
       }
     });
 
@@ -82,7 +90,11 @@ describe("options privacy defaults", () => {
       domainFilters: ["docs.example.test"],
       highlightMode: true,
       hoverMode: false,
-      teamId: "team_managed"
+      teamId: "team_managed",
+      teams: [
+        { id: "team_managed", name: "Managed" },
+        { id: "team_other", name: "Other" }
+      ]
     });
   });
 
@@ -105,14 +117,50 @@ describe("options privacy defaults", () => {
         domainFilters: [" Docs.Example.test ", "", 42, "docs.example.test"],
         highlightMode: "true",
         hoverMode: true,
-        teamId: " team_1 "
+        teamId: " team_1 ",
+        teams: [
+          { id: " team_2 ", name: " Team Two " },
+          { id: "team_2", name: "Duplicate" },
+          { name: "Missing ID" }
+        ]
       })
     ).toEqual({
       apiBaseUrl: "https://wat.example.test",
       domainFilters: ["docs.example.test"],
       hoverMode: true,
-      teamId: "team_1"
+      teamId: "team_1",
+      teams: [{ id: "team_2", name: "Duplicate" }]
     });
+  });
+
+  it("sanitizes local team picker options", () => {
+    expect(
+      normalizeWatOptions({
+        highlightMode: "true" as unknown as boolean,
+        teamId: " team_b ",
+        teams: [
+          { id: " team_b ", name: " Beta " },
+          { id: "", name: "Empty" },
+          { id: "team_a", name: "" }
+        ]
+      })
+    ).toMatchObject({
+      highlightMode: false,
+      teamId: "team_b",
+      teams: [
+        { id: "team_b", name: "Beta" },
+        { id: "team_a", name: "team_a" }
+      ]
+    });
+  });
+
+  it("deduplicates team picker options by id", () => {
+    expect(
+      upsertTeamOption(cleanTeamOptions([{ id: "team_1", name: "One" }]), {
+        id: "team_1",
+        name: "Renamed"
+      })
+    ).toEqual([{ id: "team_1", name: "Renamed" }]);
   });
 
   it("fails connection testing for invalid API URLs", async () => {

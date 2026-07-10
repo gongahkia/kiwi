@@ -28,6 +28,25 @@
       "title": "wat team ID",
       "description": "Team scope sent with wat API requests.",
       "type": "string"
+    },
+    "teams": {
+      "title": "wat teams",
+      "description": "Known team scopes available in the extension picker.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "title": "Team ID",
+            "type": "string"
+          },
+          "name": {
+            "title": "Team name",
+            "type": "string"
+          }
+        },
+        "required": ["id"]
+      }
     }
   }
 }

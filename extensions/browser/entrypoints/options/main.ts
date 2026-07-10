@@ -3,6 +3,7 @@ import {
   loadWatOptions,
   optionsStorageKey,
   testWatConnection,
+  upsertTeamOption,
   type WatOptions
 } from "../../src/options.js";
 
@@ -31,28 +32,50 @@ const apiBaseUrl = byId<HTMLInputElement>("api-base-url");
 const accountEmail = byId<HTMLInputElement>("account-email");
 const apiToken = byId<HTMLInputElement>("api-token");
 const teamId = byId<HTMLInputElement>("team-id");
+const teamPicker = byId<HTMLSelectElement>("team-picker");
+const addTeam = byId<HTMLButtonElement>("add-team");
 const hoverMode = byId<HTMLInputElement>("hover-mode");
 const highlightMode = byId<HTMLInputElement>("highlight-mode");
 const domainFilters = byId<HTMLInputElement>("domain-filters");
 const status = byId<HTMLSpanElement>("status");
+let knownTeams: WatOptions["teams"] = [];
 
 function renderOptions(options: WatOptions) {
+  knownTeams = options.teams;
   apiBaseUrl.value = options.apiBaseUrl;
   accountEmail.value = options.accountEmail;
   apiToken.value = options.apiToken;
   teamId.value = options.teamId;
+  renderTeamPicker(options);
   hoverMode.checked = options.hoverMode;
   highlightMode.checked = options.highlightMode;
   domainFilters.value = domainFilterText(options.domainFilters);
 }
 
+function renderTeamPicker(options: WatOptions) {
+  teamPicker.replaceChildren();
+  teamPicker.append(new Option("No team", ""));
+  const teams =
+    options.teamId && !options.teams.some((team) => team.id === options.teamId)
+      ? upsertTeamOption(options.teams, { id: options.teamId, name: options.teamId })
+      : options.teams;
+  for (const team of teams) {
+    teamPicker.append(new Option(team.name, team.id));
+  }
+  teamPicker.value = options.teamId;
+}
+
 function optionsFromForm(): WatOptions {
+  const selectedTeamId = teamPicker.value.trim() || teamId.value.trim();
   return {
     accountEmail: accountEmail.value.trim(),
     apiBaseUrl: apiBaseUrl.value.trim() || defaultOptions.apiBaseUrl,
     apiToken: apiToken.value.trim(),
     domainFilters: parseDomainFilters(domainFilters.value),
-    teamId: teamId.value.trim(),
+    teamId: selectedTeamId,
+    teams: selectedTeamId
+      ? upsertTeamOption(knownTeams, { id: selectedTeamId, name: selectedTeamId })
+      : knownTeams,
     highlightMode: highlightMode.checked,
     hoverMode: hoverMode.checked
   };
@@ -75,6 +98,21 @@ form.addEventListener("submit", (event) => {
     await browser.storage.local.set({ [optionsStorageKey]: options });
     status.textContent = result.message;
   });
+});
+
+teamPicker.addEventListener("change", () => {
+  teamId.value = teamPicker.value;
+});
+
+addTeam.addEventListener("click", () => {
+  const id = teamId.value.trim();
+  if (!id) {
+    status.textContent = "Enter a team ID first.";
+    return;
+  }
+  knownTeams = upsertTeamOption(knownTeams, { id, name: id });
+  renderTeamPicker({ ...optionsFromForm(), teamId: id, teams: knownTeams });
+  status.textContent = "Team added. Save to keep it.";
 });
 
 void loadOptions();
