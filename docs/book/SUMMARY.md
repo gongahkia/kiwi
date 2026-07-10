@@ -2,6 +2,7 @@
 
 - [Overview](index.md)
 - [Install](install.md)
+- [Release publishing](release-publishing.md)
 - [Release verification](release-verification.md)
 - [Quickstart](quickstart.md)
 - [Syntax](syntax.md)
