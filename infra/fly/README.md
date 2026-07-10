@@ -31,6 +31,10 @@ After apply, verify readiness and a seeded public search:
 pnpm smoke:deployment -- --url "$(terraform output -raw web_url)"
 ```
 
+## Rollback
+
+To roll back a bad web/API deploy without changing data, set `web_image` to the last known-good pushed image and re-run `terraform apply`. Keep `database_url` unchanged, then run the smoke test above. For migration or data rollback, follow `docs/migration-runbook.md`.
+
 ## Notes
 
 - DNS/TLS for `*.fly.dev` is handled by Fly.io.

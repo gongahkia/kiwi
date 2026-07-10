@@ -78,6 +78,22 @@ curl -f 'http://localhost:3000/api/v1/search?q=API&limit=1'
 
 If a web/API deploy is bad but the database migration is compatible, roll back the web image and keep the current database.
 
+Hosted/Fly.io rollback:
+
+1. Freeze non-critical writes: corpus imports, bulk admin imports, and platform write smoke tests.
+2. Identify the last healthy image from the deployment record or Fly release history.
+3. Update `infra/fly` with the known-good `web_image` and run `terraform apply`; do not change `DATABASE_URL`.
+4. Restart Slack, Discord, MCP, or worker runtimes only if they were deployed from the bad revision.
+5. Verify the rolled-back web/API surface:
+
+```sh
+pnpm smoke:deployment -- --url "$NEXT_PUBLIC_SITE_URL"
+WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" pnpm smoke:platforms
+```
+
+6. Confirm no rollback data loss: compare `audit_log`, `suggested_edits`, `team_entries`, `api_keys`, `slack_installs`, `discord_installs`, and `teams_installs` row counts/timestamps before and after rollback when DB access is available.
+7. Keep the bad image tag, logs, and deploy ID for root-cause analysis; do not rerun migrations from the bad revision.
+
 If a migration is bad:
 
 1. Stop writes: imports, admin edits, suggestions, Slack write commands, and extension custom-entry saves.
