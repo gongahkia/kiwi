@@ -24,6 +24,7 @@ Public consumer email domains such as `gmail.com`, `outlook.com`, and `icloud.co
 - Admins can invite, promote, demote, and remove members from `/team/admin/members`.
 - Pending invites expire after 7 days.
 - Member role changes and removals write team audit events.
+- If a team has no admins, run `pnpm --filter @wat/db recover:admin -- --team-id <team_id> --user-email <member_email>` from an environment with DB access. The recovery command refuses to run while any admin exists unless `--force` is passed, and writes `member.admin_recover` to the team audit log.
 
 ## Review
 
