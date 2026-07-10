@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake pkg-config ffmpeg \
-            glslang-tools spirv-cross \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Install macOS dependencies
@@ -61,7 +61,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake pkg-config ffmpeg \
-            glslang-tools spirv-cross \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
       - name: Configure
@@ -96,7 +96,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake pkg-config ffmpeg valgrind \
-            glslang-tools spirv-cross \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libfreetype-dev zlib1g-dev
 
       - name: Configure

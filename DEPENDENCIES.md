@@ -102,9 +102,10 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 
 | Dependency | Minimum | Strategy | License posture | Status |
 |---|---:|---|---|---|
-| Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` is set. |
-| Vulkan SDK / loader | 1.3 | system or future vendored SDK headers | Vulkan-Headers Apache-2.0; loader Apache-2.0/MIT-style | Not linked yet; Phase L Vulkan backend is locally blocked until SDK/tools are present. |
-| glslang | 16.x target; local golden is 16.3.0 | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper compiles GLSL-to-SPIR-V for shader tests and runtime shader input; not linked or vendored. |
+| Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the default Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` or `-DCONTOURTTY_FORCE_VULKAN=ON` is set. |
+| Vulkan headers / loader | 1.3 | CMake `find_package(Vulkan)` | Vulkan-Headers Apache-2.0; Vulkan-Loader Apache-2.0/MIT-style | Optional `src/gpu_sobel_vulkan.cpp` backend for Sobel, DoG, structure glyphs, and per-cell RGB averages when Vulkan is found. |
+| Mesa Vulkan drivers / MoltenVK | Vulkan 1.3-capable ICD | system runtime ICD | Mesa/MIT-style or Apache-2.0 for MoltenVK | Runtime device provider for Linux software/hardware Vulkan or macOS forced-Vulkan validation. |
+| glslang | 16.x target; local golden is 16.3.0 | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper compiles GLSL-to-SPIR-V for shader tests, runtime shader input, and Vulkan backend compute modules; not linked or vendored. |
 | SPIRV-Cross | 1.4.x target; local Homebrew is 1.4.350.1 | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` converts SPIR-V to MSL for shader tests and macOS runtime shader input; not linked or vendored. |
 
 ## Graphics protocol and image helpers
@@ -152,6 +153,19 @@ brew install glslang spirv-cross
 sudo apt-get install -y glslang-tools spirv-cross
 ```
 
+Linux Vulkan builds additionally require the loader headers and an ICD:
+
+```sh
+sudo apt-get install -y libvulkan-dev vulkan-tools mesa-vulkan-drivers
+```
+
+macOS forced-Vulkan validation uses Homebrew's loader and MoltenVK:
+
+```sh
+brew install vulkan-headers vulkan-loader vulkan-tools molten-vk
+cmake -S . -B build/vulkan -DCMAKE_BUILD_TYPE=Debug -DCONTOURTTY_FORCE_VULKAN=ON
+```
+
 Minimal build:
 
 ```sh
@@ -159,7 +173,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan or runtime shader rendering. The shader compiler wrapper remains in the source build, but `glslangValidator` and `spirv-cross` are only required when shader-toolchain tests or shader input are exercised.
+The light build keeps required decode/font/audio dependencies, skips optional Apple Metal/Vulkan linkage, and does not add runtime shader rendering. The shader compiler wrapper remains in the source build, but `glslangValidator` and `spirv-cross` are only required when shader-toolchain tests, shader input, or the Vulkan backend are exercised.
 
 Local macOS Release measurement on 2026-06-21:
 

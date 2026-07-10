@@ -33,7 +33,19 @@ Rerun any primary rows above 10% render-time spread with pinned workers:
 scripts/final_benchmark_sweep.py --binary build/package/contourtty --work /tmp/contourtty-p8-final-workers4 --out /tmp/contourtty-p8-final-workers4/P8_FAILED_BENCHMARKS.md --repeats 3 --warmups 2 --frames 12 --workers 4 --only-failed-from /tmp/contourtty-p8-final/P8_FINAL_BENCHMARKS.csv
 ```
 
-GPU row: `--gpu` covers DoG, Sobel, per-cell gradient aggregation, shape-glyph selection, and per-cell RGB averaging through the macOS Metal backend when available; terminal emission remains CPU-side.
+GPU row: `--gpu` covers DoG, Sobel, per-cell gradient aggregation, shape-glyph selection, and per-cell RGB averaging through the macOS Metal backend or the optional Vulkan backend when built; terminal emission remains CPU-side.
+
+## Vulkan Backend Validation
+
+Date: 2026-07-10. Source: current Vulkan backend working tree. Host: same macOS/M3 machine above, forced through Homebrew Vulkan loader plus MoltenVK with `-DCONTOURTTY_FORCE_VULKAN=ON`.
+
+Command:
+
+```sh
+ctest --test-dir build/vulkan -R 'vulkan_backend|structure_edges|golden_frame' --output-on-failure
+```
+
+Result: 3/3 passed. `vulkan_backend` compares Vulkan Sobel and DoG against CPU output with `1e-5` tolerance and checks structure shape-glyph dispatch. `structure_edges` and `golden_frame` also pass with the Vulkan backend selected. Direct Linux hosted proof and direct Metal/Vulkan benchmark rows remain pending.
 
 ## P8 Final Sweep
 

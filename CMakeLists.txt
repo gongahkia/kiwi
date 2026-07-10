@@ -4,6 +4,8 @@ project(contourtty VERSION 0.0.0 LANGUAGES CXX)
 
 option(CONTOURTTY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(CONTOURTTY_LIGHT "Build without optional GPU/protocol backends" OFF)
+option(CONTOURTTY_VULKAN "Build the optional Vulkan compute backend when available" ON)
+option(CONTOURTTY_FORCE_VULKAN "Prefer Vulkan over Metal when both are available" OFF)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-missing-field-initializers>)
@@ -17,8 +19,16 @@ add_compile_definitions(
 
 set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_stub.cpp)
 set(CONTOURTTY_SHADER_RUNTIME_SOURCE src/shader_runtime_stub.cpp)
+set(CONTOURTTY_GPU_SUPPORT_SOURCES)
 set(CONTOURTTY_GPU_LIBS)
-if(APPLE AND NOT CONTOURTTY_LIGHT)
+if(NOT CONTOURTTY_LIGHT AND CONTOURTTY_VULKAN)
+  find_package(Vulkan QUIET)
+endif()
+if(NOT CONTOURTTY_LIGHT AND CONTOURTTY_VULKAN AND Vulkan_FOUND AND (NOT APPLE OR CONTOURTTY_FORCE_VULKAN))
+  set(CONTOURTTY_GPU_SOBEL_SOURCE src/gpu_sobel_vulkan.cpp)
+  set(CONTOURTTY_GPU_SUPPORT_SOURCES src/shader_compiler.cpp src/shader_source.cpp)
+  set(CONTOURTTY_GPU_LIBS Vulkan::Vulkan)
+elseif(APPLE AND NOT CONTOURTTY_LIGHT)
   enable_language(OBJCXX)
   find_library(METAL_FRAMEWORK Metal REQUIRED)
   find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
@@ -848,6 +858,7 @@ add_executable(golden_frame_tests
   src/glyph_shape.cpp
   src/graph_yaml.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
+  ${CONTOURTTY_GPU_SUPPORT_SOURCES}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
   src/image_grid.cpp
@@ -1936,6 +1947,7 @@ add_test(NAME structure_sampling COMMAND structure_sampling_tests)
 add_executable(structure_edges_tests
   tests/structure_edges_tests.cpp
   ${CONTOURTTY_GPU_SOBEL_SOURCE}
+  ${CONTOURTTY_GPU_SUPPORT_SOURCES}
   src/glyph_font.cpp
   src/glyph_shape.cpp
   src/luminance.cpp
@@ -1965,6 +1977,40 @@ if(CONTOURTTY_GPU_LIBS)
 endif()
 target_link_libraries(structure_edges_tests PRIVATE PkgConfig::FREETYPE)
 add_test(NAME structure_edges COMMAND structure_edges_tests)
+
+if(CONTOURTTY_GPU_SOBEL_SOURCE STREQUAL "src/gpu_sobel_vulkan.cpp")
+  add_executable(vulkan_backend_tests
+    tests/vulkan_backend_tests.cpp
+    ${CONTOURTTY_GPU_SOBEL_SOURCE}
+    ${CONTOURTTY_GPU_SUPPORT_SOURCES}
+    src/glyph_font.cpp
+    src/glyph_shape.cpp
+    src/luminance.cpp
+    src/structure_edges.cpp
+    src/structure_sampling.cpp
+  )
+  target_include_directories(vulkan_backend_tests PRIVATE src)
+  target_compile_features(vulkan_backend_tests PRIVATE cxx_std_20)
+  set_target_properties(vulkan_backend_tests PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+  )
+  if(MSVC)
+    target_compile_options(vulkan_backend_tests PRIVATE /W4)
+    if(CONTOURTTY_WARNINGS_AS_ERRORS)
+      target_compile_options(vulkan_backend_tests PRIVATE /WX)
+    endif()
+  else()
+    target_compile_options(vulkan_backend_tests PRIVATE -Wall -Wextra -Wpedantic)
+    if(CONTOURTTY_WARNINGS_AS_ERRORS)
+      target_compile_options(vulkan_backend_tests PRIVATE -Werror)
+    endif()
+  endif()
+  target_link_libraries(vulkan_backend_tests PRIVATE ${CONTOURTTY_GPU_LIBS} PkgConfig::FREETYPE)
+  add_test(NAME vulkan_backend COMMAND vulkan_backend_tests)
+  set_tests_properties(vulkan_backend PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 
 add_executable(line_ligatures_tests
   tests/line_ligatures_tests.cpp

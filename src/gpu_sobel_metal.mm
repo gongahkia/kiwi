@@ -395,6 +395,10 @@ bool gpuSobelAvailable() {
   return metalSobelContext().ready();
 }
 
+const char* gpuSobelBackendName() {
+  return "Metal";
+}
+
 std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField& field, DogOptions options) {
   if (!options.enabled()) {
     return field;

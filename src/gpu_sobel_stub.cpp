@@ -6,6 +6,10 @@ bool gpuSobelAvailable() {
   return false;
 }
 
+const char* gpuSobelBackendName() {
+  return "none";
+}
+
 std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField&, DogOptions) {
   return std::nullopt;
 }
