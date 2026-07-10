@@ -8,6 +8,9 @@ Report suspected vulnerabilities by email:
 angryapplegravy@gmail.com
 ```
 
+No PGP key is published for vulnerability reports. Do not send encrypted
+vulnerability details unless a PGP key is added to this policy.
+
 Include:
 
 * Affected version, commit, or branch.
