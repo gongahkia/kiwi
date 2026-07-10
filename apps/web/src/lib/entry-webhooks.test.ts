@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi } from "vitest";
 
 import { dispatchEntryWebhook, signWebhookPayload } from "./entry-webhooks";
@@ -44,4 +46,63 @@ describe("entry webhooks", () => {
       team_id: "team_1"
     });
   });
+
+  it("delivers signed payloads to a webhook receiver", async () => {
+    let received:
+      | {
+          body: string;
+          event: string | undefined;
+          signature: string | undefined;
+          timestamp: string;
+        }
+      | undefined;
+    const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      received = {
+        body: Buffer.concat(chunks).toString("utf8"),
+        event: firstHeader(request.headers["x-wat-event"]),
+        signature: firstHeader(request.headers["x-wat-signature"]),
+        timestamp: firstHeader(request.headers["x-wat-timestamp"]) ?? ""
+      };
+      response.writeHead(204);
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address() as AddressInfo;
+      await expect(
+        dispatchEntryWebhook(
+          { actor_id: "user_1", entry, event: "team_entry.updated", team_id: "team_1" },
+          {
+            WAT_WEBHOOK_SECRET: "secret",
+            WAT_WEBHOOK_URL: `http://127.0.0.1:${address.port}/webhook`
+          }
+        )
+      ).resolves.toEqual({ delivered: true });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+
+    expect(received?.event).toBe("team_entry.updated");
+    expect(JSON.parse(received?.body ?? "{}")).toMatchObject({
+      entry: { id: "team-route-rto" },
+      team_id: "team_1"
+    });
+    expect(received?.signature).toBe(
+      signWebhookPayload({
+        body: received?.body ?? "",
+        secret: "secret",
+        timestamp: received?.timestamp ?? ""
+      })
+    );
+  });
 });
+
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
