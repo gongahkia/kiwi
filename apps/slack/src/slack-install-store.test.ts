@@ -92,9 +92,12 @@ describe("Slack install stores", () => {
 
     await store.upsert(record);
     const restored = await store.getBySlackTeamId("T_WAT");
+    const upsertAudit = queries.find((query) => query.sql.includes("insert into audit_log"));
 
     expect(queries[0]?.sql).toContain("insert into slack_installs");
     expect(queries[0]?.values?.[0]).toBe("slack-install-t_wat");
+    expect(upsertAudit?.values?.[2]).toBe("slack_install.upsert");
+    expect(JSON.stringify(upsertAudit?.values)).not.toContain(record.botToken.ciphertext);
     expect(restored).toMatchObject({
       botScopes: ["commands"],
       slackTeamId: "T_WAT",
@@ -102,6 +105,10 @@ describe("Slack install stores", () => {
     });
 
     await store.deleteBySlackTeamId("T_WAT");
-    expect(queries.at(-1)?.sql).toContain("delete from slack_installs");
+    const deleteAudit = queries
+      .filter((query) => query.sql.includes("insert into audit_log"))
+      .at(-1);
+    expect(queries.some((query) => query.sql.includes("delete from slack_installs"))).toBe(true);
+    expect(deleteAudit?.values?.[2]).toBe("slack_install.delete");
   });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Pool } from "pg";
@@ -105,6 +106,7 @@ interface PgQueryable {
 }
 
 interface SlackInstallRow {
+  id?: string;
   app_id: string;
   bot_scopes: string[];
   bot_token_encrypted: unknown;
@@ -130,7 +132,21 @@ export class PgSlackInstallStore implements SlackInstallStore {
   }
 
   async deleteBySlackTeamId(slackTeamId: string): Promise<void> {
+    const existing = await this.client.query<{ id: string; team_id: string }>(
+      "select id, team_id from slack_installs where slack_team_id = $1",
+      [slackTeamId]
+    );
     await this.client.query("delete from slack_installs where slack_team_id = $1", [slackTeamId]);
+    const row = existing.rows[0];
+    if (row) {
+      await recordSlackInstallAudit(this.client, {
+        action: "slack_install.delete",
+        after: { deleted: true },
+        before: { slack_team_id: slackTeamId },
+        targetId: row.id,
+        teamId: row.team_id
+      });
+    }
   }
 
   async getBySlackTeamId(slackTeamId: string): Promise<SlackInstallRecord | null> {
@@ -213,7 +229,48 @@ export class PgSlackInstallStore implements SlackInstallStore {
         record.updatedAt
       ]
     );
+    await recordSlackInstallAudit(this.client, {
+      action: "slack_install.upsert",
+      after: {
+        app_id: record.appId,
+        bot_scopes: record.botScopes,
+        bot_user_id: record.botUserId,
+        slack_team_id: record.slackTeamId,
+        slack_team_name: record.slackTeamName ?? null,
+        user_scopes: record.userScopes
+      },
+      before: null,
+      targetId: `slack-install-${record.slackTeamId.toLowerCase()}`,
+      teamId: record.watTeamId
+    });
   }
+}
+
+async function recordSlackInstallAudit(
+  client: PgQueryable,
+  input: {
+    action: string;
+    after: unknown;
+    before: unknown;
+    targetId: string;
+    teamId: string;
+  }
+): Promise<void> {
+  await client.query(
+    `
+    insert into audit_log (
+      id, actor_id, team_id, action, target_type, target_id, before_jsonb, after_jsonb
+    ) values ($1, null, $2, $3, 'slack_install', $4, $5::jsonb, $6::jsonb)
+    `,
+    [
+      randomUUID(),
+      input.teamId,
+      input.action,
+      input.targetId,
+      JSON.stringify(input.before),
+      JSON.stringify(input.after)
+    ]
+  );
 }
 
 function bySlackTeamId(left: SlackInstallRecord, right: SlackInstallRecord): number {
