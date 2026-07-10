@@ -57,6 +57,16 @@ For multi-source refreshes, publish an aggregate review report with source count
 pnpm --filter @wat/ingest refresh:report reports/corpus-refresh/<date>.md data/deltas/<date>/*.json --benchmark reports/<date>/search-latency.json --errors reports/<date>/parser-errors.json
 ```
 
+GitHub repo glossaries can be imported from raw `GLOSSARY.md` tables or headings:
+
+```sh
+GITHUB_GLOSSARY_URL=https://raw.githubusercontent.com/org/repo/main/GLOSSARY.md \
+GITHUB_GLOSSARY_LICENSE=MIT \
+GITHUB_GLOSSARY_PUBLISHER=org/repo \
+GITHUB_GLOSSARY_DOMAINS=platform,ops \
+pnpm ingest run github-glossary
+```
+
 If a merged delta is bad, restore it from a known-good git ref with the [corpus delta rollback runbook](corpus-rollback.md).
 
 ## Rules

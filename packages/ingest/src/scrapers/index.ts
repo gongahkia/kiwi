@@ -7,6 +7,7 @@ import { cloudServiceComparisonScraper } from "./cloud-service-comparison.js";
 import { dEdgeFossAcronymsScraper } from "./d-edge-foss-acronyms.js";
 import { gcpServicesScraper } from "./gcp-services.js";
 import { exampleScraper } from "./example.js";
+import { githubGlossaryScraper } from "./github-glossary.js";
 import { ietfRfcIndexScraper } from "./ietf-rfc-index.js";
 import { jargonFileScraper } from "./jargon-file.js";
 import { kubernetesGlossaryScraper } from "./kubernetes-glossary.js";
@@ -29,6 +30,7 @@ export const scrapers = new Map<string, ScraperPlugin>([
   [dEdgeFossAcronymsScraper.name, dEdgeFossAcronymsScraper],
   [gcpServicesScraper.name, gcpServicesScraper],
   [exampleScraper.name, exampleScraper],
+  [githubGlossaryScraper.name, githubGlossaryScraper],
   [ietfRfcIndexScraper.name, ietfRfcIndexScraper],
   [jargonFileScraper.name, jargonFileScraper],
   [kubernetesGlossaryScraper.name, kubernetesGlossaryScraper],
