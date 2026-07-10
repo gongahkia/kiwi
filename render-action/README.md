@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.3
-      - uses: kumeyuri/render-action@v1
+      - uses: gongahkia/kumeyuri/render-action@v1
         with:
           source: |
             docs/**/*.mmd

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: kumeyuri/render-action@v1
+      - uses: gongahkia/kumeyuri/render-action@v1
         with:
           source: |
             docs/**/*.mmd
@@ -24,5 +24,4 @@ jobs:
           padding: 12
 ```
 
-Before the action is published, use the local `render-action/README.md` as the
-source of truth for development and testing.
+The action is published from the repository `v1` tag.
