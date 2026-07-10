@@ -8,6 +8,9 @@ export interface HeaderRule {
   headers: ResponseHeader[];
 }
 
+export const publicEntryCacheControl =
+  "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800";
+
 export function contentSecurityPolicyForEnvironment(environment = process.env.NODE_ENV): string {
   return [
     "default-src 'self'",
@@ -69,4 +72,17 @@ export function securityHeaderRules(environment = process.env.NODE_ENV): HeaderR
       headers: securityHeadersForEnvironment(environment)
     }
   ];
+}
+
+export function cacheHeaderRules(): HeaderRule[] {
+  return [
+    {
+      source: "/term/:path*",
+      headers: [{ key: "Cache-Control", value: publicEntryCacheControl }]
+    }
+  ];
+}
+
+export function nextHeaderRules(environment = process.env.NODE_ENV): HeaderRule[] {
+  return [...securityHeaderRules(environment), ...cacheHeaderRules()];
 }

@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
-import { securityHeaderRules } from "./src/lib/security-headers";
+import { nextHeaderRules } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
+  generateEtags: true,
   async headers() {
-    return securityHeaderRules();
+    return nextHeaderRules();
   },
   output: "standalone",
   outputFileTracingIncludes: {

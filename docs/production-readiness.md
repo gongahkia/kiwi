@@ -79,6 +79,7 @@ select extname from pg_extension where extname in ('pg_trgm', 'vector');
 
 - Serve web and API traffic only over HTTPS.
 - Terminate TLS at the platform load balancer or ingress.
+- Keep Next.js ETags enabled and CDN-cache public term pages with `Cache-Control`.
 - Restrict database access to app/runtime networks.
 - Configure `NEXT_PUBLIC_SITE_URL`, OAuth callback URLs, Slack request URLs, and extension origins to use the production HTTPS origin.
 

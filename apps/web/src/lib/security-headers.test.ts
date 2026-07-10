@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cacheHeaderRules,
   contentSecurityPolicyForEnvironment,
+  nextHeaderRules,
+  publicEntryCacheControl,
   securityHeaderRules,
   securityHeadersForEnvironment
 } from "./security-headers";
@@ -38,6 +41,20 @@ describe("security headers", () => {
         source: "/:path*",
         headers: securityHeadersForEnvironment("production")
       }
+    ]);
+  });
+
+  it("adds CDN cache headers to public term pages", () => {
+    expect(cacheHeaderRules()).toEqual([
+      {
+        source: "/term/:path*",
+        headers: [{ key: "Cache-Control", value: publicEntryCacheControl }]
+      }
+    ]);
+    expect(publicEntryCacheControl).toContain("s-maxage=86400");
+    expect(nextHeaderRules("production")).toEqual([
+      ...securityHeaderRules("production"),
+      ...cacheHeaderRules()
     ]);
   });
 });
