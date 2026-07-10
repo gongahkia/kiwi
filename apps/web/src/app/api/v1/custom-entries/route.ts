@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
-import { corsHeadersForRequest } from "@/lib/cors";
+import { recordAuditLog } from "@/lib/audit-log";
 import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
+import { corsHeadersForRequest } from "@/lib/cors";
 import {
   createPersonalEntry,
   getPersonalEntries,
@@ -150,15 +151,16 @@ function withEntryId(entry: TeamEntry, id: string): TeamEntry {
 async function upsertTeamEntry(
   teamId: string,
   entry: TeamEntry
-): Promise<{ entry: TeamEntry; status: "created" | "updated" }> {
+): Promise<{ before: TeamEntry | null; entry: TeamEntry; status: "created" | "updated" }> {
   const existing = (await getTeamEntries(teamId)).find(
     (item) => entryKey(item) === entryKey(entry)
   );
   if (!existing) {
-    return { entry: await createTeamEntry(teamId, entry), status: "created" };
+    return { before: null, entry: await createTeamEntry(teamId, entry), status: "created" };
   }
 
   return {
+    before: existing,
     entry: await updateTeamEntry(teamId, existing.id, withEntryId(entry, existing.id)),
     status: "updated"
   };
@@ -167,18 +169,38 @@ async function upsertTeamEntry(
 async function upsertPersonalEntry(
   userId: string,
   entry: TeamEntry
-): Promise<{ entry: TeamEntry; status: "created" | "updated" }> {
+): Promise<{ before: TeamEntry | null; entry: TeamEntry; status: "created" | "updated" }> {
   const existing = (await getPersonalEntries(userId)).find(
     (item) => entryKey(item) === entryKey(entry)
   );
   if (!existing) {
-    return { entry: await createPersonalEntry(userId, entry), status: "created" };
+    return { before: null, entry: await createPersonalEntry(userId, entry), status: "created" };
   }
 
   return {
+    before: existing,
     entry: await updatePersonalEntry(userId, existing.id, withEntryId(entry, existing.id)),
     status: "updated"
   };
+}
+
+async function auditCustomEntry(input: {
+  actorId: string | null;
+  before: TeamEntry | null;
+  entry: TeamEntry;
+  scope: CustomEntryScope;
+  status: "created" | "updated";
+  teamId: string | null;
+}) {
+  await recordAuditLog({
+    action: input.status === "created" ? "custom_entry.create" : "custom_entry.update",
+    actor_id: input.actorId,
+    after_jsonb: input.entry,
+    before_jsonb: input.before,
+    target_id: input.entry.id,
+    target_type: `${input.scope}_entry`,
+    team_id: input.teamId
+  });
 }
 
 export function OPTIONS(request: NextRequest) {
@@ -242,6 +264,14 @@ export async function POST(request: NextRequest) {
         parsed.scope === "team"
           ? await upsertTeamEntry(identity.identity.teamId!, parsed.entry)
           : await upsertPersonalEntry(userId, parsed.entry);
+      await auditCustomEntry({
+        actorId: identity.identity.createdBy ?? null,
+        before: result.before,
+        entry: result.entry,
+        scope: parsed.scope,
+        status: result.status,
+        teamId: parsed.scope === "team" ? identity.identity.teamId! : null
+      });
 
       return json(
         request,
@@ -254,6 +284,14 @@ export async function POST(request: NextRequest) {
       parsed.scope === "team"
         ? await createTeamEntry(identity.identity.teamId!, parsed.entry)
         : await createPersonalEntry(userId, parsed.entry);
+    await auditCustomEntry({
+      actorId: identity.identity.createdBy ?? null,
+      before: null,
+      entry,
+      scope: parsed.scope,
+      status: "created",
+      teamId: parsed.scope === "team" ? identity.identity.teamId! : null
+    });
 
     return json(request, { entry, mode: "created", scope: parsed.scope }, { status: 201 });
   } catch (error) {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
 import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
+import { getAuditLog, resetAuditLogForTest } from "@/lib/audit-log";
 import { getPersonalEntries, resetPersonalEntriesForTest } from "@/lib/personal-entries";
 import { getTeamEntries, initialTeamEntries, resetTeamEntriesForTest } from "@/lib/team-entries";
 import { resetWriteRateLimitsForTest } from "@/lib/write-rate-limit";
@@ -34,6 +35,7 @@ describe("POST /api/v1/custom-entries", () => {
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
     resetWriteRateLimitsForTest();
+    resetAuditLogForTest();
   });
 
   afterEach(() => {
@@ -46,6 +48,7 @@ describe("POST /api/v1/custom-entries", () => {
     resetPersonalEntriesForTest();
     resetTeamEntriesForTest();
     resetWriteRateLimitsForTest();
+    resetAuditLogForTest();
   });
 
   it("marks personal custom entries as proprietary", async () => {
@@ -68,6 +71,13 @@ describe("POST /api/v1/custom-entries", () => {
     expect(body.entry.sources[0]?.license).toBe("proprietary-personal");
     expect((await getPersonalEntries("user_1"))[0]?.sources[0]?.license).toBe(
       "proprietary-personal"
+    );
+    await expect(getAuditLog()).resolves.toContainEqual(
+      expect.objectContaining({
+        action: "custom_entry.create",
+        target_type: "personal_entry",
+        team_id: null
+      })
     );
   });
 
@@ -94,6 +104,29 @@ describe("POST /api/v1/custom-entries", () => {
     expect(body.entry.sources[0]?.license).toBe("proprietary-team");
     expect(await getTeamEntries()).toHaveLength(initialTeamEntries.length + 1);
     expect((await getTeamEntries()).at(-1)?.sources[0]?.license).toBe("proprietary-team");
+    await expect(getAuditLog("team_1")).resolves.toContainEqual(
+      expect.objectContaining({
+        action: "custom_entry.create",
+        target_type: "team_entry"
+      })
+    );
+  });
+
+  it("rejects team custom entries for mismatched API key teams", async () => {
+    const response = await POST(
+      request(
+        {
+          expansion: "Recovery Time Objective",
+          scope: "team",
+          term: "RTO"
+        },
+        { "x-wat-team-id": "team_2" }
+      )
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "team_scope_mismatch" });
+    await expect(getTeamEntries("team_2")).resolves.toEqual([]);
   });
 
   it("rejects writes without user scope", async () => {
@@ -196,6 +229,10 @@ describe("POST /api/v1/custom-entries", () => {
     expect(secondBody.entry.id).toBe(firstBody.entry.id);
     expect(secondBody.entry.meaning).toBe("Updated meaning.");
     expect(await getPersonalEntries("user_1")).toHaveLength(1);
+    expect((await getAuditLog()).map((entry) => entry.action)).toEqual([
+      "custom_entry.create",
+      "custom_entry.update"
+    ]);
   });
 
   it("upserts team custom entries by term and expansion", async () => {
