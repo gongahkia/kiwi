@@ -87,8 +87,8 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 | Tool | Minimum | Strategy | License posture | Used for |
 |---|---:|---|---|---|
 | yt-dlp | any current release with `-g` | user-installed executable on `PATH`, overridable with `CONTOURTTY_YTDLP` | Unlicense/public-domain equivalent | Resolving YouTube URLs to direct FFmpeg-readable media URLs. |
-| glslangValidator | glslang 16.x target | user-installed executable on `PATH` | BSD-3-Clause | Optional GLSL-to-SPIR-V smoke and future runtime shader input. |
-| spirv-cross | SPIRV-Cross 1.4.x target | user-installed executable on `PATH` | Apache-2.0 | Optional SPIR-V-to-MSL smoke and future Metal shader input. |
+| glslangValidator | glslang 16.x target; local golden is 16.3.0 | user-installed executable on `PATH` | BSD-3-Clause | Optional GLSL-to-SPIR-V tests and runtime shader input. |
+| spirv-cross | SPIRV-Cross 1.4.x target; local Homebrew is 1.4.350.1 | user-installed executable on `PATH` | Apache-2.0 | Optional SPIR-V-to-MSL tests and macOS Metal shader input. |
 
 ## Glyph lookup
 
@@ -104,8 +104,8 @@ The Phase A parser is hand-rolled and in-tree to avoid an early external depende
 |---|---:|---|---|---|
 | Metal / Foundation | macOS SDK | system frameworks | Apple SDK terms | Linked on Apple platforms for the current Metal Sobel backend unless `-DCONTOURTTY_LIGHT=ON` is set. |
 | Vulkan SDK / loader | 1.3 | system or future vendored SDK headers | Vulkan-Headers Apache-2.0; loader Apache-2.0/MIT-style | Not linked yet; Phase L Vulkan backend is locally blocked until SDK/tools are present. |
-| glslang | 16.x target | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper compiles GLSL-to-SPIR-V for shader smokes and macOS runtime shader input. |
-| SPIRV-Cross | 1.4.x target | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` converts SPIR-V to MSL for shader smokes and macOS runtime shader input. |
+| glslang | 16.x target; local golden is 16.3.0 | optional user-installed CLI | BSD-3-Clause | `glslangValidator` wrapper compiles GLSL-to-SPIR-V for shader tests and runtime shader input; not linked or vendored. |
+| SPIRV-Cross | 1.4.x target; local Homebrew is 1.4.350.1 | optional user-installed CLI | Apache-2.0 | `spirv-cross --msl` converts SPIR-V to MSL for shader tests and macOS runtime shader input; not linked or vendored. |
 
 ## Graphics protocol and image helpers
 
@@ -145,6 +145,13 @@ sudo apt-get install -y build-essential cmake pkg-config \
   libavdevice-dev zlib1g-dev libfreetype-dev
 ```
 
+Shader input and shader-toolchain tests also require the optional CLI tools:
+
+```sh
+brew install glslang spirv-cross
+sudo apt-get install -y glslang-tools spirv-cross
+```
+
 Minimal build:
 
 ```sh
@@ -152,7 +159,7 @@ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
 cmake --build build/light --target contourtty --parallel
 ```
 
-The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan or runtime shader rendering.
+The light build keeps required decode/font/audio dependencies, skips optional Apple Metal linkage, and does not add Vulkan or runtime shader rendering. The shader compiler wrapper remains in the source build, but `glslangValidator` and `spirv-cross` are only required when shader-toolchain tests or shader input are exercised.
 
 Local macOS Release measurement on 2026-06-21:
 
