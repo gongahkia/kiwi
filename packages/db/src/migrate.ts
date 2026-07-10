@@ -8,8 +8,12 @@ const databaseUrl = process.env.WAT_DATABASE_URL ?? process.env.DATABASE_URL;
 const connectionString = databaseUrl ?? "postgres://wat:wat@localhost:5432/wat";
 const migrationsFolder = fileURLToPath(new URL("../drizzle/", import.meta.url));
 
+export async function applyMigrationsFromFolder(pgClient: Client, folder: string): Promise<void> {
+  await runDrizzleMigrations(drizzle(pgClient), { migrationsFolder: folder });
+}
+
 export async function applyMigrations(pgClient: Client): Promise<void> {
-  await runDrizzleMigrations(drizzle(pgClient), { migrationsFolder });
+  await applyMigrationsFromFolder(pgClient, migrationsFolder);
 }
 
 async function main(): Promise<void> {

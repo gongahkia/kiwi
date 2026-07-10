@@ -1,13 +1,18 @@
 import { execFileSync } from "node:child_process";
+import { copyFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
-import { applyMigrations } from "./migrate.js";
+import { applyMigrations, applyMigrationsFromFolder } from "./migrate.js";
 import { seedPublicCorpus } from "./seed-public.js";
 
 let client: Client;
+let connectionString: string;
 let container: StartedTestContainer;
 
 const shouldRunContainerTests = process.env.CI === "true" || hasDockerRuntime();
@@ -24,9 +29,8 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
       .withWaitStrategy(Wait.forListeningPorts())
       .start();
 
-    client = await connectWithRetry(
-      `postgres://wat:wat@${container.getHost()}:${container.getMappedPort(5432)}/wat`
-    );
+    connectionString = `postgres://wat:wat@${container.getHost()}:${container.getMappedPort(5432)}/wat`;
+    client = await connectWithRetry(connectionString);
     await applyMigrations(client);
   }, 120_000);
 
@@ -50,6 +54,45 @@ describe.skipIf(!shouldRunContainerTests)("db schema integration", () => {
 
     expect(await migrationCount()).toBe(before);
   });
+
+  it("upgrades a previous release migration snapshot without losing private rows", async () => {
+    const dbName = `wat_previous_${Date.now()}`;
+    const previousClient = new Client({ connectionString: databaseUrlFor(dbName) });
+
+    await client.query(`create database ${quoteIdent(dbName)}`);
+    try {
+      await previousClient.connect();
+      await applyMigrationsFromFolder(
+        previousClient,
+        await copyMigrationSubsetThrough("0022_search_events")
+      );
+      await seedPreviousReleaseRows(previousClient);
+
+      await applyMigrations(previousClient);
+
+      await expect(
+        previousClient.query<{ review_status: string }>(
+          "select review_status from team_entries where id = 'team_entry_previous_release'"
+        )
+      ).resolves.toMatchObject({ rows: [{ review_status: "active" }] });
+      await expect(
+        previousClient.query<{ review_status: string }>(
+          "select review_status from personal_entries where id = 'personal_entry_previous_release'"
+        )
+      ).resolves.toMatchObject({ rows: [{ review_status: "active" }] });
+      await expect(
+        previousClient.query<{ result_terms: string[] }>(
+          "select result_terms from search_events where id = 'search_event_previous_release'"
+        )
+      ).resolves.toMatchObject({ rows: [{ result_terms: [] }] });
+      await expect(
+        previousClient.query("select to_regclass('team_invites') as table")
+      ).resolves.toMatchObject({ rows: [{ table: "team_invites" }] });
+    } finally {
+      await previousClient.end().catch(() => undefined);
+      await client.query(`drop database if exists ${quoteIdent(dbName)} with (force)`);
+    }
+  }, 120_000);
 
   it("seeds public corpus idempotently without deleting scoped overlays", async () => {
     await insertTeam("team_public_seed", "public-seed.example");
@@ -419,6 +462,87 @@ async function connectWithRetry(connectionString: string): Promise<Client> {
   }
 
   throw lastError;
+}
+
+function databaseUrlFor(database: string): string {
+  const url = new URL(connectionString);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+function quoteIdent(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+async function copyMigrationSubsetThrough(tag: string): Promise<string> {
+  const source = fileURLToPath(new URL("../drizzle/", import.meta.url));
+  const target = await mkdtemp(join(tmpdir(), "wat-db-migrations-"));
+  const targetMeta = join(target, "meta");
+  await mkdir(targetMeta, { recursive: true });
+
+  const journal = JSON.parse(await readFile(join(source, "meta", "_journal.json"), "utf8")) as {
+    entries: Array<{ tag: string }>;
+  };
+  const cutoff = journal.entries.findIndex((entry) => entry.tag === tag);
+  if (cutoff < 0) throw new Error(`migration tag not found: ${tag}`);
+  const entries = journal.entries.slice(0, cutoff + 1);
+
+  await writeFile(
+    join(targetMeta, "_journal.json"),
+    `${JSON.stringify({ ...journal, entries }, null, 2)}\n`,
+    "utf8"
+  );
+  await Promise.all(
+    entries.map((entry) =>
+      copyFile(join(source, `${entry.tag}.sql`), join(target, `${entry.tag}.sql`))
+    )
+  );
+  return target;
+}
+
+async function seedPreviousReleaseRows(pgClient: Client): Promise<void> {
+  await pgClient.query(
+    "insert into teams (id, name, email_domain) values ('team_previous_release', 'Previous Release', 'previous.example')"
+  );
+  await pgClient.query(
+    "insert into users (id, email, team_id, role) values ('user_previous_release', 'previous@example.com', 'team_previous_release', 'admin')"
+  );
+  await pgClient.query(
+    `
+    insert into team_entries (
+      id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+      confidence_tier, license, layer, team_id, aliases, related_terms, contemporaries
+    ) values (
+      'team_entry_previous_release', 'RTO', 'rto', $1, $2, 'short', 'long',
+      'T4', 'proprietary-team', 'team', 'team_previous_release', $3, $4, $5
+    )
+    `,
+    [["Recovery Time Objective"], ["ops"], [], [], []]
+  );
+  await pgClient.query(
+    `
+    insert into personal_entries (
+      id, term, term_normalized, expansions, domains, meaning_short, meaning_long,
+      confidence_tier, license, layer, user_id, aliases, related_terms, contemporaries
+    ) values (
+      'personal_entry_previous_release', 'CAP', 'cap', $1, $2, 'short', 'long',
+      'T4', 'proprietary-personal', 'personal', 'user_previous_release', $3, $4, $5
+    )
+    `,
+    [["Change Approval Process"], ["ops"], [], [], []]
+  );
+  await pgClient.query(
+    `
+    insert into search_events (
+      id, team_id, actor_id, query_hash, layer_hits, confidence_distribution,
+      result_count, no_result, latency_ms
+    ) values (
+      'search_event_previous_release', 'team_previous_release', 'user_previous_release',
+      'hash_previous_release', $1, $2, 0, true, 10
+    )
+    `,
+    [["team"], { T4: 1 }]
+  );
 }
 
 async function insertEntry(
