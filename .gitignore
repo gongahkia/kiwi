@@ -8,6 +8,7 @@ coverage/
 .wxt/
 .output/
 reports/corpus-refresh-pr.md
+artifacts/security/
 playwright-report/
 test-results/
 .wat-slack-installs.json

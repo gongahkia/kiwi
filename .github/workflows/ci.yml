@@ -72,6 +72,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit:deps
       - run: pnpm audit:licenses
+      - run: pnpm security:gates
+      - run: pnpm test:security-gates
 
   build:
     runs-on: ubuntu-latest
@@ -119,6 +121,10 @@ jobs:
       - run: pnpm db:migrate
       - run: pnpm db:seed:public
       - run: pnpm release:check
+      - run: pnpm audit:deps
+      - run: pnpm audit:licenses
+      - run: pnpm security:gates
+      - run: pnpm test:security-gates
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test

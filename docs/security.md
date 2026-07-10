@@ -45,6 +45,25 @@ Browser extension, Slack, and MCP requests should resolve to the same team/user 
 - Run dependency, license, SQL injection, and XSS checks in CI.
 - Cover glossary term, expansion, meaning, source, and domain rendering with XSS regression tests for web, browser extension, and Slack surfaces.
 
+## Security Scans
+
+CI runs local dependency and license checks:
+
+```sh
+pnpm audit:deps
+pnpm audit:licenses
+```
+
+Before a hosted release, run the external scans from an authenticated workstation or CI job:
+
+```sh
+SNYK_TOKEN="$SNYK_TOKEN" pnpm audit:deps:snyk
+FOSSA_API_KEY="$FOSSA_API_KEY" pnpm audit:licenses:fossa
+pnpm audit:licenses:scancode
+```
+
+Store the ScanCode output at `artifacts/security/scancode.json` and attach the Snyk/FOSSA result URLs to the release notes. Treat high dependency findings, FOSSA policy failures, or unexpected proprietary/copyleft license detections as release blockers until reviewed.
+
 ## Data Handling
 
 Do not log raw private glossary definitions, OAuth tokens, API keys, magic links, or session cookies. Web runtime logs must pass structured fields through the safe logging redactor before console, pino, or error-tracking delivery.

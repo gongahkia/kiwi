@@ -40,6 +40,7 @@ describe("release gate coverage", () => {
         "infra:fly:check: node scripts/validate-fly-config.mjs",
         "launch:metrics:check: node scripts/validate-launch-metrics.mjs",
         "load:search: k6 run scripts/k6-search.js",
+        "security:gates: node scripts/validate-security-gates.mjs",
         "smoke:deployment: node scripts/smoke-deployment.mjs",
         "smoke:error-tracking: node scripts/smoke-error-tracking.mjs",
         "smoke:platforms: node scripts/smoke-platforms.mjs all",
@@ -51,11 +52,14 @@ describe("release gate coverage", () => {
         "test:dashboard: node --test scripts/validate-monitoring-dashboard.test.mjs",
         "test:fly-config: node --test scripts/validate-fly-config.test.mjs",
         "test:launch-metrics: node --test scripts/validate-launch-metrics.test.mjs",
+        "test:security-gates: node --test scripts/validate-security-gates.test.mjs",
         "test:helm: node --test scripts/helm-chart.test.mjs"
       ]
     );
     assert.deepEqual(validateWorkflow("pnpm test\n"), [
       "pnpm alerts:check",
+      "pnpm audit:deps",
+      "pnpm audit:licenses",
       "pnpm build:all",
       "pnpm dashboard:check",
       "pnpm db:migrate",
@@ -63,6 +67,7 @@ describe("release gate coverage", () => {
       "pnpm infra:fly:check",
       "pnpm lint",
       "pnpm release:check",
+      "pnpm security:gates",
       "pnpm smoke:local-demo",
       "pnpm test:backup-verify",
       "pnpm test:dashboard",
@@ -71,6 +76,7 @@ describe("release gate coverage", () => {
       "pnpm test:e2e:web",
       "pnpm test:fly-config",
       "pnpm test:launch-metrics",
+      "pnpm test:security-gates",
       "pnpm test:helm",
       "pnpm typecheck"
     ]);
@@ -98,8 +104,21 @@ describe("release gate coverage", () => {
       "docs/production-readiness.md: pnpm smoke:error-tracking",
       "docs/production-readiness.md: pnpm smoke:deployment",
       "docs/production-readiness.md: pnpm smoke:platforms",
+      "docs/production-readiness.md: pnpm audit:deps",
+      "docs/production-readiness.md: pnpm audit:licenses",
+      "docs/production-readiness.md: pnpm audit:deps:snyk",
+      "docs/production-readiness.md: pnpm audit:licenses:fossa",
+      "docs/production-readiness.md: pnpm audit:licenses:scancode",
       "docs/production-readiness.md: browser extension",
       "docs/production-readiness.md: MCP",
+      "docs/security.md: pnpm audit:deps",
+      "docs/security.md: pnpm audit:deps:snyk",
+      "docs/security.md: pnpm audit:licenses",
+      "docs/security.md: pnpm audit:licenses:fossa",
+      "docs/security.md: pnpm audit:licenses:scancode",
+      "docs/security.md: SNYK_TOKEN",
+      "docs/security.md: FOSSA_API_KEY",
+      "docs/security.md: artifacts/security/scancode.json",
       "docs/self-host.md: Clean install acceptance",
       "docs/self-host.md: docker compose up --build",
       "docs/self-host.md: pnpm smoke:deployment -- --url http://localhost:3000"

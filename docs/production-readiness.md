@@ -123,6 +123,23 @@ pnpm smoke:error-tracking -- --url "$NEXT_PUBLIC_SITE_URL" --token "$ERROR_TEST_
 
 Then verify the matching `/api/error-test` event appears in the configured error-tracking dashboard.
 
+## Security Gate
+
+Run local CI security gates before promoting an artifact:
+
+```sh
+pnpm audit:deps
+pnpm audit:licenses
+```
+
+Run authenticated external scans for hosted releases:
+
+```sh
+SNYK_TOKEN="$SNYK_TOKEN" pnpm audit:deps:snyk
+FOSSA_API_KEY="$FOSSA_API_KEY" pnpm audit:licenses:fossa
+pnpm audit:licenses:scancode
+```
+
 ## Release Verification
 
 Before marking a deploy healthy:

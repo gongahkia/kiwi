@@ -9,6 +9,7 @@ export const requiredPackageScripts = {
   "infra:fly:check": "node scripts/validate-fly-config.mjs",
   "launch:metrics:check": "node scripts/validate-launch-metrics.mjs",
   "load:search": "k6 run scripts/k6-search.js",
+  "security:gates": "node scripts/validate-security-gates.mjs",
   "smoke:deployment": "node scripts/smoke-deployment.mjs",
   "smoke:error-tracking": "node scripts/smoke-error-tracking.mjs",
   "smoke:platforms": "node scripts/smoke-platforms.mjs all",
@@ -21,11 +22,14 @@ export const requiredPackageScripts = {
   "test:dashboard": "node --test scripts/validate-monitoring-dashboard.test.mjs",
   "test:fly-config": "node --test scripts/validate-fly-config.test.mjs",
   "test:launch-metrics": "node --test scripts/validate-launch-metrics.test.mjs",
+  "test:security-gates": "node --test scripts/validate-security-gates.test.mjs",
   "test:helm": "node --test scripts/helm-chart.test.mjs"
 };
 
 export const requiredWorkflowCommands = [
   "pnpm alerts:check",
+  "pnpm audit:deps",
+  "pnpm audit:licenses",
   "pnpm build:all",
   "pnpm dashboard:check",
   "pnpm db:migrate",
@@ -33,6 +37,7 @@ export const requiredWorkflowCommands = [
   "pnpm infra:fly:check",
   "pnpm lint",
   "pnpm release:check",
+  "pnpm security:gates",
   "pnpm smoke:local-demo",
   "pnpm test",
   "pnpm test:backup-verify",
@@ -42,6 +47,7 @@ export const requiredWorkflowCommands = [
   "pnpm test:e2e:web",
   "pnpm test:fly-config",
   "pnpm test:launch-metrics",
+  "pnpm test:security-gates",
   "pnpm test:helm",
   "pnpm typecheck"
 ];
@@ -74,8 +80,23 @@ export const requiredDocTokens = {
     "pnpm smoke:error-tracking",
     "pnpm smoke:deployment",
     "pnpm smoke:platforms",
+    "pnpm audit:deps",
+    "pnpm audit:licenses",
+    "pnpm audit:deps:snyk",
+    "pnpm audit:licenses:fossa",
+    "pnpm audit:licenses:scancode",
     "browser extension",
     "MCP"
+  ],
+  "docs/security.md": [
+    "pnpm audit:deps",
+    "pnpm audit:deps:snyk",
+    "pnpm audit:licenses",
+    "pnpm audit:licenses:fossa",
+    "pnpm audit:licenses:scancode",
+    "SNYK_TOKEN",
+    "FOSSA_API_KEY",
+    "artifacts/security/scancode.json"
   ],
   "docs/self-host.md": [
     "Clean install acceptance",
