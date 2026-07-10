@@ -1,0 +1,425 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "Runbook",
+      "type": "link",
+      "url": "docs/runbook.md"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_count[5m]))",
+          "legendFormat": "all requests",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) or sum(rate(http_request_duration_seconds_count{status=~\"5..\"}[5m]))",
+          "legendFormat": "5xx",
+          "refId": "B"
+        }
+      ],
+      "title": "Traffic and error rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "1000 * histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route=\"/api/v1/search\"}[5m])) by (le))",
+          "legendFormat": "search p95",
+          "refId": "C"
+        }
+      ],
+      "title": "Web and search latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(wat_search_no_result_total[5m])) / clamp_min(sum(rate(wat_search_total[5m])), 1)",
+          "legendFormat": "no-result rate",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (layer) (rate(wat_search_layer_hit_total[5m])) / clamp_min(sum(rate(wat_search_total[5m])), 1)",
+          "legendFormat": "{{layer}} hit share",
+          "refId": "B"
+        }
+      ],
+      "title": "Search quality",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_numbackends{datname=~\"$database\"})",
+          "legendFormat": "connections",
+          "refId": "A"
+        },
+        {
+          "expr": "max(postgres_cpu_percent) or max(cloudsql_database_cpu_utilization)",
+          "legendFormat": "db cpu",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(pg_database_size_bytes{datname=~\"$database\"})",
+          "legendFormat": "storage bytes",
+          "refId": "C"
+        },
+        {
+          "expr": "topk(10, pg_stat_statements_mean_time_seconds)",
+          "legendFormat": "slow query mean seconds",
+          "refId": "D"
+        }
+      ],
+      "title": "Database saturation and slow queries",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(wat_import_failed_total[1h]))",
+          "legendFormat": "import failures",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(wat_seed_failed_total[1h]))",
+          "legendFormat": "seed failures",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(wat_corpus_refresh_failed_total[1h]))",
+          "legendFormat": "corpus refresh failures",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (source) (increase(wat_scraper_failed_total[1h]))",
+          "legendFormat": "{{source}} scraper failures",
+          "refId": "D"
+        }
+      ],
+      "title": "Import, queue, and scraper failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "time() - wat_backup_last_success_timestamp_seconds",
+          "legendFormat": "seconds since last backup",
+          "refId": "A"
+        },
+        {
+          "expr": "increase(wat_backup_verify_success_total[30d])",
+          "legendFormat": "monthly verify successes",
+          "refId": "B"
+        }
+      ],
+      "title": "Backups",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(slack_http_request_total{path=\"/slack/events\",status!~\"2..\"}[5m]))",
+          "legendFormat": "event failures",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(slack_oauth_callback_total{outcome!=\"success\"}[5m]))",
+          "legendFormat": "oauth callback failures",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (status) (increase(wat_slack_lookup_total[5m]))",
+          "legendFormat": "lookup {{status}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (status) (increase(wat_slack_write_total[5m]))",
+          "legendFormat": "write {{status}}",
+          "refId": "D"
+        },
+        {
+          "expr": "sum(increase(slack_uninstall_total[1h]))",
+          "legendFormat": "uninstall cleanup",
+          "refId": "E"
+        }
+      ],
+      "title": "Slack runtime",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(teams_search_total{status!~\"2..\"}[5m]))",
+          "legendFormat": "search failures",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (status) (increase(teams_metrics_request_total[5m]))",
+          "legendFormat": "metrics {{status}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Teams message extension",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(discord_http_request_total{path=\"/interactions\",status!~\"2..\"}[5m]))",
+          "legendFormat": "interaction failures",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(discord_http_request_total{path=\"/interactions\",status=\"401\"}[5m]))",
+          "legendFormat": "signature failures",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (status) (increase(discord_lookup_total[5m]))",
+          "legendFormat": "lookup {{status}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (status) (increase(discord_write_total[5m]))",
+          "legendFormat": "write {{status}}",
+          "refId": "D"
+        }
+      ],
+      "title": "Discord runtime",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["wat", "production", "ops"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "datasource",
+        "multi": false,
+        "name": "datasource",
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "wat",
+          "value": "wat"
+        },
+        "hide": 0,
+        "label": "database",
+        "name": "database",
+        "query": "label_values(pg_stat_database_numbackends, datname)",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "wat production operations",
+  "uid": "wat-production-ops",
+  "version": 1
+}

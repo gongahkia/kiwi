@@ -106,9 +106,11 @@ Dashboard should show:
 - Discord lookup/write API failures
 - scraper/corpus refresh failures
 
+Grafana-compatible starter dashboard: `infra/monitoring/grafana-dashboard.json`.
+
 Alert on `/readyz` failure, high API error rate, sustained search latency breach, DB saturation, backup failure, Slack event failure spikes, Teams search error spikes, and Discord interaction failure spikes.
 
-Prometheus-compatible starter rules live at `infra/monitoring/prometheus-alerts.yml`. Validate required alert coverage with `pnpm alerts:check` before release.
+Prometheus-compatible starter rules live at `infra/monitoring/prometheus-alerts.yml`. Validate required alert coverage with `pnpm alerts:check` before release. Validate dashboard coverage with `pnpm dashboard:check` before release.
 
 ## Release Verification
 

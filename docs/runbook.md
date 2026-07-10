@@ -7,7 +7,7 @@
 3. Decide severity from user impact, data exposure risk, and rollback availability.
 4. Record timeline, owner, mitigation, and follow-up in the incident log.
 
-Prometheus alert rules are checked in at `infra/monitoring/prometheus-alerts.yml`. Run `pnpm alerts:check` after edits and import the rules into the production monitoring workspace before enabling paging.
+Prometheus alert rules are checked in at `infra/monitoring/prometheus-alerts.yml`. Grafana starter dashboard JSON is checked in at `infra/monitoring/grafana-dashboard.json`. Run `pnpm alerts:check` and `pnpm dashboard:check` after edits, then import both into the production monitoring workspace before enabling paging.
 
 ## DB Failover
 
