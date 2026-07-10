@@ -15,6 +15,7 @@
     "contemporaries:lint": "tsx src/contemporaries-lint.ts",
     "ingest": "tsx src/cli.ts",
     "lint:sources": "tsx src/source-coverage.ts seeds/manual.json",
+    "refresh:report": "tsx src/refresh-report.ts",
     "summarize:delta": "tsx src/delta-summary.ts",
     "test": "vitest run src"
   },

@@ -51,6 +51,12 @@ pnpm ingest run example
 
 The CLI writes a JSON delta to `data/deltas/<date>/<source>.json`.
 
+For multi-source refreshes, publish an aggregate review report with source counts, parser errors, and optional benchmark output:
+
+```sh
+pnpm --filter @wat/ingest refresh:report reports/corpus-refresh/<date>.md data/deltas/<date>/*.json --benchmark reports/<date>/search-latency.json --errors reports/<date>/parser-errors.json
+```
+
 If a merged delta is bad, restore it from a known-good git ref with the [corpus delta rollback runbook](corpus-rollback.md).
 
 ## Rules

@@ -20,6 +20,7 @@ The helper reads the checked-in delta from `<known-good-ref>` with `git show`, v
 
 ```sh
 pnpm --filter @wat/ingest summarize:delta data/deltas/<date>/<source>.json reports/corpus-refresh/<date>-<source>.md
+pnpm --filter @wat/ingest refresh:report reports/corpus-refresh/<date>.md data/deltas/<date>/*.json
 pnpm --filter @wat/ingest lint:sources
 pnpm --filter @wat/search bench
 pnpm typecheck

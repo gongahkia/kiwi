@@ -232,7 +232,7 @@ function escapeCell(value: string): string {
 
 const [, , inputPath, outputPath] = process.argv;
 
-if (inputPath && outputPath) {
+if (isDirectDeltaSummaryCli() && inputPath && outputPath) {
   const resolvedInputPath = resolveRepoPath(inputPath);
   const resolvedOutputPath = resolveRepoPath(outputPath);
   const current = JSON.parse(await readFile(resolvedInputPath, "utf8")) as DeltaFile;
@@ -244,8 +244,12 @@ if (inputPath && outputPath) {
   const markdown = renderDeltaSummary(summary, inputPath);
   await mkdir(dirname(resolvedOutputPath), { recursive: true });
   await writeFile(resolvedOutputPath, markdown);
-} else if (process.argv[1]?.endsWith("delta-summary.ts")) {
+} else if (isDirectDeltaSummaryCli()) {
   throw new Error("usage: tsx src/delta-summary.ts <delta-json> <output-md>");
+}
+
+function isDirectDeltaSummaryCli(): boolean {
+  return process.argv[1]?.endsWith("delta-summary.ts") === true;
 }
 
 function resolveRepoPath(path: string): string {
