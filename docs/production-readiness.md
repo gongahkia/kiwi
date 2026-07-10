@@ -23,6 +23,8 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 - `DISCORD_INSTALL_STORE=postgres` and `DISCORD_DATABASE_URL`/`DATABASE_URL` for hosted Discord installs
 - `DISCORD_METRICS_TOKEN` when exposing Discord runtime `/metrics`
 - `WAT_DISCORD_GUILD_MAP` or DB-backed `discord_installs` rows before accepting Discord team writes
+- `ERROR_TRACKING_WEBHOOK_URL` when server error forwarding is enabled
+- `ERROR_TEST_TOKEN` when using `/api/error-test` for production error-tracking smoke tests
 - OAuth provider secrets when Google or Slack login is enabled
 
 Post-deploy, create team API keys from `/team/admin/api-keys` for Slack, Teams, Discord, MCP, browser extension, and trusted automation. Do not configure the web app with a global API key.
@@ -111,6 +113,14 @@ Grafana-compatible starter dashboard: `infra/monitoring/grafana-dashboard.json`.
 Alert on `/readyz` failure, high API error rate, sustained search latency breach, DB saturation, backup failure, Slack event failure spikes, Teams search error spikes, and Discord interaction failure spikes.
 
 Prometheus-compatible starter rules live at `infra/monitoring/prometheus-alerts.yml`. Validate required alert coverage with `pnpm alerts:check` before release. Validate dashboard coverage with `pnpm dashboard:check` before release.
+
+Server request errors are forwarded through `ERROR_TRACKING_WEBHOOK_URL`. To smoke-test the production path, set `ERROR_TEST_TOKEN`, run:
+
+```sh
+pnpm smoke:error-tracking -- --url "$NEXT_PUBLIC_SITE_URL" --token "$ERROR_TEST_TOKEN"
+```
+
+Then verify the matching `/api/error-test` event appears in the configured error-tracking dashboard.
 
 ## Release Verification
 

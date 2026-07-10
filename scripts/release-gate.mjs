@@ -8,11 +8,13 @@ export const requiredPackageScripts = {
   "dashboard:check": "node scripts/validate-monitoring-dashboard.mjs",
   "load:search": "k6 run scripts/k6-search.js",
   "smoke:deployment": "node scripts/smoke-deployment.mjs",
+  "smoke:error-tracking": "node scripts/smoke-error-tracking.mjs",
   "smoke:platforms": "node scripts/smoke-platforms.mjs all",
   "test:e2e:auth": "sh scripts/e2e-auth-mailpit.sh",
   "test:e2e:extension":
     "pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",
   "test:e2e:web": "playwright test e2e/web-search.spec.ts",
+  "test:error-tracking-smoke": "node --test scripts/smoke-error-tracking.test.mjs",
   "test:backup-verify": "node --test scripts/verify-backup-archive.test.mjs",
   "test:dashboard": "node --test scripts/validate-monitoring-dashboard.test.mjs",
   "test:helm": "node --test scripts/helm-chart.test.mjs"
@@ -30,6 +32,7 @@ export const requiredWorkflowCommands = [
   "pnpm test",
   "pnpm test:backup-verify",
   "pnpm test:dashboard",
+  "pnpm test:error-tracking-smoke",
   "pnpm test:e2e:extension",
   "pnpm test:e2e:web",
   "pnpm test:helm",
@@ -42,7 +45,10 @@ export const requiredDocTokens = {
   "docs/production-readiness.md": [
     "pnpm dashboard:check",
     "infra/monitoring/grafana-dashboard.json",
+    "ERROR_TRACKING_WEBHOOK_URL",
+    "ERROR_TEST_TOKEN",
     "pnpm backup:verify",
+    "pnpm smoke:error-tracking",
     "pnpm smoke:deployment",
     "pnpm smoke:platforms",
     "browser extension",
