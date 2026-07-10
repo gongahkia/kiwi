@@ -45,7 +45,11 @@ Command:
 ctest --test-dir build/vulkan -R 'vulkan_backend|structure_edges|golden_frame' --output-on-failure
 ```
 
-Result: 3/3 passed. `vulkan_backend` compares Vulkan Sobel and DoG against CPU output with `1e-5` tolerance and checks structure shape-glyph dispatch. `structure_edges` and `golden_frame` also pass with the Vulkan backend selected. Direct Linux hosted proof and direct Metal/Vulkan benchmark rows remain pending.
+Result: 3/3 passed. `vulkan_backend` compares Vulkan Sobel and DoG against CPU output with `1e-5` tolerance and checks structure shape-glyph dispatch. `structure_edges` and `golden_frame` also pass with the Vulkan backend selected.
+
+Linux proof: Ubuntu 24.04 arm64 Docker with Mesa llvmpipe (`driverName=llvmpipe`) built the Vulkan backend with GCC 13.3 and ran the same targeted test set 3/3. It also ran `contourtty --gpu --mode structure --dog-sigma 0.5,1.4` end-to-end on a generated PPM fixture and logged `gpu analysis requested; using Vulkan structure backend`.
+
+Metal/Vulkan reference check: the generated 16x16 PPM cross fixture exported byte-identical ANSI on macOS Metal, macOS forced-Vulkan/MoltenVK, and Ubuntu llvmpipe Vulkan. SHA-256 for all three outputs: `9bb35a637b04cce55ca6c33a95da77dfd485b9eb884f669ba050595b1395a891`. Direct Linux hosted CI proof and full Vulkan benchmark sweep rows remain pending.
 
 ## P8 Final Sweep
 
