@@ -274,10 +274,8 @@ jobs:
         with:
           subject-path: artifacts/*
       - name: Install cosign
-        if: ${{ !github.event.repository.private }}
         uses: sigstore/cosign-installer@v4.0.0
       - name: Sign release artifacts
-        if: ${{ !github.event.repository.private }}
         shell: bash
         run: |
           set -euo pipefail

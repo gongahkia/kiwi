@@ -1,0 +1,75 @@
+name: Sign Release Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: GitHub release tag to sign
+        required: true
+        type: string
+      force:
+        description: Replace existing sigstore bundles
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  sign-release-artifacts:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.0.0
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          gh release download "${{ inputs.tag }}" --dir artifacts --clobber
+      - name: Sign release artifacts
+        env:
+          FORCE: ${{ inputs.force }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          release_artifacts=(artifacts/*)
+          if [ "${#release_artifacts[@]}" -eq 0 ]; then
+            echo "no release artifacts found" >&2
+            exit 1
+          fi
+          signed=0
+          for artifact in "${release_artifacts[@]}"; do
+            if [ ! -f "$artifact" ]; then
+              continue
+            fi
+            case "$artifact" in
+              *.sigstore.json) continue ;;
+            esac
+            bundle="${artifact}.sigstore.json"
+            if [ -f "$bundle" ] && [ "$FORCE" != "true" ]; then
+              continue
+            fi
+            cosign sign-blob "$artifact" --bundle "$bundle" --yes
+            signed=$((signed + 1))
+          done
+          if [ "$signed" -eq 0 ]; then
+            echo "no unsigned release artifacts found"
+          fi
+      - name: Upload sigstore bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bundles=(artifacts/*.sigstore.json)
+          if [ "${#bundles[@]}" -eq 0 ]; then
+            echo "no sigstore bundles found" >&2
+            exit 1
+          fi
+          gh release upload "${{ inputs.tag }}" "${bundles[@]}" --clobber
