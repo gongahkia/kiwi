@@ -105,6 +105,8 @@ Dashboard should show:
 
 Alert on `/readyz` failure, high API error rate, sustained search latency breach, DB saturation, backup failure, Slack event failure spikes, Teams search error spikes, and Discord interaction failure spikes.
 
+Prometheus-compatible starter rules live at `infra/monitoring/prometheus-alerts.yml`. Validate required alert coverage with `pnpm alerts:check` before release.
+
 ## Release Verification
 
 Before marking a deploy healthy:

@@ -6,6 +6,7 @@
   "scripts": {
     "audit:deps": "pnpm audit --audit-level high",
     "audit:licenses": "pnpm licenses list --prod",
+    "alerts:check": "node scripts/validate-alert-rules.mjs",
     "bench": "pnpm --filter @wat/search bench",
     "bootstrap:admin": "tsx packages/db/src/bootstrap-admin.ts",
     "build": "tsc -b",

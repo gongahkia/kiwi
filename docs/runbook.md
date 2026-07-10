@@ -7,6 +7,8 @@
 3. Decide severity from user impact, data exposure risk, and rollback availability.
 4. Record timeline, owner, mitigation, and follow-up in the incident log.
 
+Prometheus alert rules are checked in at `infra/monitoring/prometheus-alerts.yml`. Run `pnpm alerts:check` after edits and import the rules into the production monitoring workspace before enabling paging.
+
 ## DB Failover
 
 Signals:
