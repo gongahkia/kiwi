@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { describe, it } from "node:test";
+
+import {
+  requiredDocTokens,
+  validateDocs,
+  validatePackageScripts,
+  validateReleaseGate,
+  validateWorkflow
+} from "./release-gate.mjs";
+
+function readDocs() {
+  return Object.fromEntries(
+    Object.keys(requiredDocTokens).map((path) => [path, readFileSync(path, "utf8")])
+  );
+}
+
+describe("release gate coverage", () => {
+  it("covers local release acceptance commands and manual evidence docs", () => {
+    const result = validateReleaseGate({
+      docs: readDocs(),
+      packageJsonText: readFileSync("package.json", "utf8"),
+      workflowText: readFileSync(".github/workflows/ci.yml", "utf8")
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.missingPackageScripts, []);
+    assert.deepEqual(result.missingWorkflowCommands, []);
+    assert.deepEqual(result.missingDocTokens, []);
+  });
+
+  it("fails when required scripts, workflow commands, or doc tokens drift", () => {
+    assert.deepEqual(
+      validatePackageScripts(JSON.stringify({ scripts: { "test:helm": "node nope.mjs" } })),
+      [
+        "alerts:check: node scripts/validate-alert-rules.mjs",
+        "load:search: k6 run scripts/k6-search.js",
+        "smoke:deployment: node scripts/smoke-deployment.mjs",
+        "smoke:platforms: node scripts/smoke-platforms.mjs all",
+        "test:e2e:auth: sh scripts/e2e-auth-mailpit.sh",
+        "test:e2e:extension: pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",
+        "test:e2e:web: playwright test e2e/web-search.spec.ts",
+        "test:helm: node --test scripts/helm-chart.test.mjs"
+      ]
+    );
+    assert.deepEqual(validateWorkflow("pnpm test\n"), [
+      "pnpm alerts:check",
+      "pnpm build:all",
+      "pnpm db:migrate",
+      "pnpm db:seed:public",
+      "pnpm lint",
+      "pnpm release:check",
+      "pnpm smoke:local-demo",
+      "pnpm test:e2e:extension",
+      "pnpm test:e2e:web",
+      "pnpm test:helm",
+      "pnpm typecheck"
+    ]);
+    assert.deepEqual(validateDocs({ "docs/performance.md": "pnpm load:search" }), [
+      "docs/browser-extension-release.md: pnpm --filter @wat/ext build:stores",
+      "docs/performance.md: WAT_K6_P95_MS=150",
+      "docs/performance.md: WAT_K6_P95_MS=300",
+      "docs/production-readiness.md: pnpm smoke:deployment",
+      "docs/production-readiness.md: pnpm smoke:platforms",
+      "docs/production-readiness.md: browser extension",
+      "docs/production-readiness.md: MCP",
+      "docs/self-host.md: Clean install acceptance",
+      "docs/self-host.md: docker compose up --build",
+      "docs/self-host.md: pnpm smoke:deployment -- --url http://localhost:3000"
+    ]);
+  });
+});

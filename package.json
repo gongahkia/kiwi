@@ -26,6 +26,7 @@
     "lint": "eslint . && prettier --check .",
     "load:search": "k6 run scripts/k6-search.js",
     "prepare": "husky",
+    "release:check": "node scripts/release-gate.mjs",
     "rollback:delta": "node scripts/rollback-delta.mjs",
     "smoke:local-demo": "sh scripts/smoke-local-demo.sh",
     "smoke:discord": "node scripts/smoke-platforms.mjs discord",
@@ -38,6 +39,7 @@
     "test:e2e:extension": "pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",
     "test:e2e:web": "playwright test e2e/web-search.spec.ts",
     "test:helm": "node --test scripts/helm-chart.test.mjs",
+    "test:release-gate": "node --test scripts/release-gate.test.mjs",
     "typecheck": "tsc -b --noEmit",
     "version-packages": "changeset version"
   },

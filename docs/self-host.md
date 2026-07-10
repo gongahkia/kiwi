@@ -84,6 +84,12 @@ The stack includes persistent Postgres storage and health checks for `/readyz`, 
 
 Local Compose defaults set `WAT_VALIDATE_ENV=false` because the default URLs and Mailpit SMTP endpoint are localhost-only. Before exposing a self-hosted deployment publicly, set production values in `.env` and run with `WAT_VALIDATE_ENV=true`.
 
+Clean install acceptance requires timing `docker compose up --build` on each target OS, then proving ready/search on the fresh stack:
+
+```sh
+pnpm smoke:deployment -- --url http://localhost:3000
+```
+
 Compose backup and restore use the checked-in scripts:
 
 ```sh

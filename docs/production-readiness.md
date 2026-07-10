@@ -127,6 +127,8 @@ Credential-backed smoke scripts are available for platform/API checks:
 WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" pnpm smoke:teams
 WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" SLACK_PUBLIC_URL="$SLACK_PUBLIC_URL" pnpm smoke:slack
 WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" DISCORD_PUBLIC_URL="$DISCORD_PUBLIC_URL" pnpm smoke:discord
+WAT_API_BASE_URL="$NEXT_PUBLIC_SITE_URL" WAT_API_KEY="$WAT_API_KEY" pnpm smoke:platforms
+pnpm smoke:deployment -- --url "$NEXT_PUBLIC_SITE_URL" --api-key "$WAT_API_KEY"
 ```
 
 By default these scripts avoid writes where possible. Set `SMOKE_WRITE=true` to queue test suggestions, and set `DISCORD_SMOKE_INSTALL=true` with `DISCORD_SMOKE_GUILD_ID` to test Discord install mapping.

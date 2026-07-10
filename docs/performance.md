@@ -64,6 +64,30 @@ pnpm load:search
 
 For the P5 hosted gate, point `WAT_BENCHMARK_URL` at production and raise VUs until the run sustains 100 RPS while keeping p95 below 200 ms.
 
+## Release acceptance load gates
+
+Hosted search must attach k6 output with `p(95)<150`:
+
+```sh
+WAT_BENCHMARK_URL="$NEXT_PUBLIC_SITE_URL" \
+WAT_API_KEY="$WAT_API_KEY" \
+WAT_K6_VUS=50 \
+WAT_K6_DURATION=5m \
+WAT_K6_P95_MS=150 \
+pnpm load:search
+```
+
+Self-host search on a 2-core target must attach k6 output with `p(95)<300`:
+
+```sh
+WAT_BENCHMARK_URL=http://localhost:3000 \
+WAT_API_KEY="$WAT_API_KEY" \
+WAT_K6_VUS=25 \
+WAT_K6_DURATION=5m \
+WAT_K6_P95_MS=300 \
+pnpm load:search
+```
+
 For team-overlay load tests, pass a search-scoped team API key and team ID:
 
 ```sh
