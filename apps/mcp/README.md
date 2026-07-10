@@ -1,6 +1,6 @@
 # @wat/mcp
 
-stdio MCP server for wat lookup. It calls the wat web API with a team API key generated from the web admin API-key page. See [MCP Configuration](../../docs/mcp.md).
+MCP server for wat lookup over stdio or Streamable HTTP. It calls the wat web API with a team API key generated from the web admin API-key page. See [MCP Configuration](../../docs/mcp.md).
 
 Build before using the local config:
 
@@ -13,6 +13,19 @@ After publishing, users can run it with npm without cloning the repo:
 ```sh
 npx @wat/mcp@latest
 ```
+
+## Remote Streamable HTTP
+
+```sh
+WAT_API_BASE_URL=https://wat.example.com \
+WAT_API_KEY=wat_team_key \
+WAT_MCP_HTTP_TOKEN=remote_mcp_token \
+WAT_MCP_HOST=0.0.0.0 \
+WAT_MCP_PORT=8787 \
+node dist/index.js --http
+```
+
+`WAT_MCP_HOST` defaults to `127.0.0.1`. Binding to a non-loopback host requires `WAT_MCP_HTTP_TOKEN`; clients must send `Authorization: Bearer <token>`. Set `WAT_MCP_ALLOWED_ORIGINS` to a comma-separated allowlist if a browser-based MCP client sends an `Origin` header.
 
 ## Claude Desktop local stdio
 

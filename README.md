@@ -17,7 +17,7 @@ Layered glossary lookup for tech acronyms and team jargon. wat prioritizes in-wo
 | Slack | Priority app | Socket Mode runtime, OAuth callback, encrypted JSON/Postgres install storage, uninstall cleanup, metrics, Bolt handlers, auth headers, admin checks, DB-backed suggestions, and rate limits exist. |
 | Teams | P1 scaffold | API-based message-extension search package, DB tenant mapping, and protected metrics exist; SSO, writes, and admin flows need later bot/auth work. |
 | Discord | Integration-ready scaffold | Signed HTTP interactions, slash/message commands, DB guild mapping, suggestions, admin-gated defines, command registration, and metrics exist. |
-| MCP | Local stdio server | Works from a clone after build; npm package, hosted/API backing, and catalog listings are TODO. |
+| MCP | Local stdio + HTTP server | Works from a clone after build against the web API; npm package, hosted endpoint, and catalog listings are TODO. |
 
 See [Limitations](docs/limitations.md) for the current unsupported areas. Namespace/domain checks are recorded in [Project Identity](docs/project-identity.md).
 

@@ -42,9 +42,9 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 ## MCP
 
-- The MCP server is a local stdio server that proxies to the web API.
+- The MCP server supports local stdio and guarded Streamable HTTP, both proxying to the web API.
 - `@wat/mcp` is not published to npm yet.
-- Hosted remote MCP endpoint and catalog submissions are not complete.
+- Hosted remote MCP deployment, OAuth/user auth, and catalog submissions are not complete.
 
 ## Corpus Coverage
 

@@ -48,7 +48,11 @@ const suggestionSchema = z.object({
   team_id: z.string()
 });
 
-export function createWatMcpServer(): McpServer {
+export interface WatMcpServerOptions {
+  env?: Record<string, string | undefined>;
+}
+
+export function createWatMcpServer(options: WatMcpServerOptions = {}): McpServer {
   const server = new McpServer({
     name: "wat",
     version: "0.0.0"
@@ -73,7 +77,7 @@ export function createWatMcpServer(): McpServer {
       })
     },
     async ({ context, limit, min_confidence, term }) => {
-      const config = requireApiConfig();
+      const config = requireApiConfig(options.env);
       const result = await lookupEntries({ config, context, limit, min_confidence, term });
 
       return {
@@ -105,7 +109,7 @@ export function createWatMcpServer(): McpServer {
       })
     },
     async ({ cursor, domain, limit }) => {
-      const config = requireApiConfig();
+      const config = requireApiConfig(options.env);
       const page = await listTeamEntries({ config, cursor, domain, limit });
 
       return {
@@ -131,7 +135,7 @@ export function createWatMcpServer(): McpServer {
       outputSchema: alternativesSchema
     },
     async ({ term }) => {
-      const config = requireApiConfig();
+      const config = requireApiConfig(options.env);
       const result = await listAlternatives({ config, term });
 
       return {
@@ -161,7 +165,7 @@ export function createWatMcpServer(): McpServer {
       outputSchema: suggestionSchema
     },
     async ({ domains, expansion, meaning, source_title, source_url, term }) => {
-      const config = requireApiConfig();
+      const config = requireApiConfig(options.env);
       const suggestion = await writeSuggestion({
         config,
         domains,

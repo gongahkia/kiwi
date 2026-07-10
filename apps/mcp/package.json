@@ -22,6 +22,7 @@
   "scripts": {
     "build": "tsc -b",
     "prepack": "rm -rf dist && pnpm build && rm -f dist/tsconfig.tsbuildinfo",
+    "start:http": "node dist/index.js --http",
     "test": "pnpm build && vitest run src",
     "test:contract": "pnpm build && node scripts/contract.mjs"
   },
