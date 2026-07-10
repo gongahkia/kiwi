@@ -27,3 +27,21 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "wat.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{- define "wat.authSecretName" -}}
+{{- if .Values.auth.existingSecret -}}
+{{- .Values.auth.existingSecret -}}
+{{- else -}}
+{{- include "wat.fullname" . }}-auth
+{{- end -}}
+{{- end -}}
+
+{{- define "wat.postgresSecretName" -}}
+{{- if .Values.postgres.existingSecret -}}
+{{- .Values.postgres.existingSecret -}}
+{{- else if not .Values.postgres.enabled -}}
+{{- fail "postgres.existingSecret is required when postgres.enabled=false" -}}
+{{- else -}}
+{{- include "wat.fullname" . }}-postgres
+{{- end -}}
+{{- end -}}

@@ -1,7 +1,30 @@
 nameOverride: ""
 fullnameOverride: ""
 
+auth:
+  existingSecret: ""
+  secretKeys:
+    authSecret: auth-secret
+    emailFrom: email-from
+    emailServer: email-server
+    googleClientId: google-client-id
+    googleClientSecret: google-client-secret
+    slackClientId: slack-client-id
+    slackClientSecret: slack-client-secret
+  authSecret: ""
+  emailFrom: ""
+  emailServer: ""
+  googleClientId: ""
+  googleClientSecret: ""
+  slackClientId: ""
+  slackClientSecret: ""
+
 postgres:
+  enabled: true
+  existingSecret: ""
+  secretKeys:
+    password: password
+    databaseUrl: database-url
   image:
     repository: pgvector/pgvector
     tag: pg16
@@ -27,6 +50,17 @@ web:
     WAT_RATE_LIMIT_TEAM: "100000"
     WAT_RATE_LIMIT_USER: "100000"
     WAT_RATE_LIMIT_WINDOW_MS: "60000"
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: wat.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
 
 slack:
   replicaCount: 1

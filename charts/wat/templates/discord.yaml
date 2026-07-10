@@ -71,13 +71,13 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "wat.fullname" . }}-postgres
-                  key: database-url
+                  name: {{ include "wat.postgresSecretName" . }}
+                  key: {{ .Values.postgres.secretKeys.databaseUrl }}
             - name: DISCORD_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "wat.fullname" . }}-postgres
-                  key: database-url
+                  name: {{ include "wat.postgresSecretName" . }}
+                  key: {{ .Values.postgres.secretKeys.databaseUrl }}
             - name: DISCORD_INSTALL_STORE
               value: {{ .Values.discord.installStore | quote }}
             - name: DISCORD_INSTALL_SCOPES

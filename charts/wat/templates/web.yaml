@@ -44,8 +44,49 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "wat.fullname" . }}-postgres
-                  key: database-url
+                  name: {{ include "wat.postgresSecretName" . }}
+                  key: {{ .Values.postgres.secretKeys.databaseUrl }}
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.authSecret }}
+            - name: EMAIL_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.emailFrom }}
+                  optional: true
+            - name: EMAIL_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.emailServer }}
+                  optional: true
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.googleClientId }}
+                  optional: true
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.googleClientSecret }}
+                  optional: true
+            - name: SLACK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.slackClientId }}
+                  optional: true
+            - name: SLACK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.slackClientSecret }}
+                  optional: true
             {{- range $name, $value := .Values.web.env }}
             - name: {{ $name }}
               value: {{ $value | quote }}

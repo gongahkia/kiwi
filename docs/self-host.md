@@ -99,7 +99,9 @@ Target Kubernetes install path:
 ```sh
 helm install wat charts/wat \
   --set web.env.NEXT_PUBLIC_SITE_URL=https://wat.example.com \
-  --set postgresql.auth.database=wat
+  --set auth.authSecret='<32-plus-character-secret>' \
+  --set auth.emailFrom='Wat <ops@example.com>' \
+  --set auth.emailServer=smtp://smtp.example.com:587
 ```
 
 Expected chart components:
@@ -112,6 +114,28 @@ Expected chart components:
 - liveness probe on `/healthz`
 - readiness probe on `/readyz`
 - secret references for auth, Slack, Discord, and database credentials
+
+For an external Postgres service, create a Kubernetes secret that contains the database URL and install with the in-chart Postgres disabled:
+
+```sh
+kubectl create secret generic wat-db --from-literal=database-url='postgres://wat:strong-password@db.example.com:5432/wat'
+kubectl create secret generic wat-auth \
+  --from-literal=auth-secret='<32-plus-character-secret>' \
+  --from-literal=email-from='Wat <ops@example.com>' \
+  --from-literal=email-server='smtp://smtp.example.com:587'
+
+helm install wat charts/wat \
+  --set postgres.enabled=false \
+  --set postgres.existingSecret=wat-db \
+  --set postgres.secretKeys.databaseUrl=database-url \
+  --set auth.existingSecret=wat-auth \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set 'ingress.hosts[0].host=wat.example.com' \
+  --set web.env.NEXT_PUBLIC_SITE_URL=https://wat.example.com
+```
+
+Auth secret keys default to `auth-secret`, `email-from`, `email-server`, `google-client-id`, `google-client-secret`, `slack-client-id`, and `slack-client-secret`. Override them with `auth.secretKeys.*` when your secret manager uses different key names.
 
 ## Fly.io
 

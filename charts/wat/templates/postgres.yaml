@@ -1,3 +1,4 @@
+{{- if .Values.postgres.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -60,8 +61,8 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "wat.fullname" . }}-postgres
-                  key: password
+                  name: {{ include "wat.postgresSecretName" . }}
+                  key: {{ .Values.postgres.secretKeys.password }}
           readinessProbe:
             exec:
               command:
@@ -80,3 +81,4 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "wat.fullname" . }}-postgres
+{{- end }}
