@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
 import { recordAuditLog } from "@/lib/audit-log";
+import { dispatchEntryWebhookSafely } from "@/lib/entry-webhooks";
 import { pageInfo, paginationWindow } from "@/lib/pagination";
 import { sessionUserFromRequest, type WatSessionUser } from "@/lib/session";
 import {
@@ -84,6 +85,12 @@ export async function POST(request: NextRequest) {
       target_type: "team_entry",
       team_id: auth.session.teamId
     });
+    await dispatchEntryWebhookSafely({
+      actor_id: auth.session.id,
+      entry,
+      event: "team_entry.created",
+      team_id: auth.session.teamId
+    });
     return NextResponse.json({ entry });
   } catch (error) {
     return apiErrorResponse(request, "team_entry_conflict", 409, {
@@ -119,6 +126,12 @@ export async function PATCH(request: NextRequest) {
       before_jsonb: before,
       target_id: entry.id,
       target_type: "team_entry",
+      team_id: auth.session.teamId
+    });
+    await dispatchEntryWebhookSafely({
+      actor_id: auth.session.id,
+      entry,
+      event: "team_entry.updated",
       team_id: auth.session.teamId
     });
     return NextResponse.json({

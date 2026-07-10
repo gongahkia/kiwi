@@ -617,4 +617,19 @@ Output:
 
 REST endpoints use HTTP status codes and return `{ error, code, message, request_id }` on failures. Validation failures should return `400`, unauthorized requests `401`, forbidden requests `403`, rate limits `429`, and unexpected failures `500`.
 
+## Webhooks
+
+Set `WAT_WEBHOOK_URL` and `WAT_WEBHOOK_SECRET` to receive signed team-entry events:
+
+- `team_entry.created`
+- `team_entry.updated`
+
+Each delivery is a JSON POST with:
+
+- `X-Wat-Event`: event type
+- `X-Wat-Timestamp`: Unix timestamp seconds
+- `X-Wat-Signature`: `sha256=` plus HMAC-SHA256 of `<timestamp>.<raw body>` using `WAT_WEBHOOK_SECRET`
+
+Webhook delivery is non-blocking for entry writes. Receivers should reject stale timestamps and verify the signature before processing.
+
 MCP tools should return structured tool errors with the same categories: validation, unauthorized, forbidden, rate_limited, and internal.

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getAuditLog, resetAuditLogForTest } from "@/lib/audit-log";
 import { testSessionToken } from "@/lib/session";
@@ -46,9 +46,17 @@ function request(
 }
 
 describe("GET /team/admin/entries/api", () => {
+  const previousWebhookUrl = process.env.WAT_WEBHOOK_URL;
+  const previousWebhookSecret = process.env.WAT_WEBHOOK_SECRET;
+
   afterEach(() => {
     resetAuditLogForTest();
     resetTeamEntriesForTest();
+    vi.restoreAllMocks();
+    if (previousWebhookUrl === undefined) delete process.env.WAT_WEBHOOK_URL;
+    else process.env.WAT_WEBHOOK_URL = previousWebhookUrl;
+    if (previousWebhookSecret === undefined) delete process.env.WAT_WEBHOOK_SECRET;
+    else process.env.WAT_WEBHOOK_SECRET = previousWebhookSecret;
   });
 
   it("paginates team entries", async () => {
@@ -96,6 +104,29 @@ describe("GET /team/admin/entries/api", () => {
       "team_entry.update",
       "team_entry.deprecate"
     ]);
+  });
+
+  it("sends signed webhooks for entry creates and updates", async () => {
+    process.env.WAT_WEBHOOK_URL = "https://hooks.example.test/wat";
+    process.env.WAT_WEBHOOK_SECRET = "secret";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    expect((await POST(request("POST", entry)))?.status).toBe(200);
+    expect(
+      (await PATCH(request("PATCH", { id: entry.id, patch: { meaning: "Updated target." } })))
+        ?.status
+    ).toBe(200);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const first = fetchSpy.mock.calls[0]![1]!;
+    const second = fetchSpy.mock.calls[1]![1]!;
+    expect((first.headers as Record<string, string>)["x-wat-event"]).toBe("team_entry.created");
+    expect((second.headers as Record<string, string>)["x-wat-event"]).toBe("team_entry.updated");
+    expect((first.headers as Record<string, string>)["x-wat-signature"]).toMatch(
+      /^sha256=[a-f0-9]{64}$/u
+    );
   });
 
   it("fails closed for cross-tenant and fuzzed entry ids", async () => {
