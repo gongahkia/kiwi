@@ -1,0 +1,12 @@
+[package]
+name = "kumeyuri"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/gongahkia/kumeyuri"
+homepage = "https://github.com/gongahkia/kumeyuri"
+readme = "README.md"
+description = "Reserved crate name for kumeyuri."
+
+[lib]
+path = "src/lib.rs"
