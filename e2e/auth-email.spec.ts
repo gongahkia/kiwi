@@ -26,6 +26,19 @@ test("email magic-link login works with Mailpit and auto-joins same-domain users
   expect(memberSession.user?.teamId).toBe(ownerSession.user?.teamId);
 });
 
+test("email magic-link login does not auto-create teams for public domains", async ({
+  page,
+  request
+}) => {
+  const email = `public-${Date.now()}@gmail.com`;
+
+  const session = await signInWithEmail(page, request, email);
+
+  expect(session.user?.email).toBe(email);
+  expect(session.user?.role).toBe("member");
+  expect(session.user?.teamId).toBeNull();
+});
+
 async function signInWithEmail(
   page: Page,
   request: APIRequestContext,

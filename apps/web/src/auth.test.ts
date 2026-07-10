@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAuthProviders } from "./auth-providers";
+import { isPublicEmailDomain } from "./lib/next-auth-adapter";
 
 describe("createAuthProviders", () => {
   it("always includes email auth", () => {
@@ -34,5 +35,18 @@ describe("createAuthProviders", () => {
     });
 
     expect(providers.map((provider) => provider.id)).toEqual(["email"]);
+  });
+});
+
+describe("public email domain guardrail", () => {
+  it("blocks consumer email domains from auto-created teams", () => {
+    expect(isPublicEmailDomain("gmail.com")).toBe(true);
+    expect(isPublicEmailDomain("Outlook.com")).toBe(true);
+    expect(isPublicEmailDomain("icloud.com")).toBe(true);
+  });
+
+  it("allows organization domains to use email-domain team claim", () => {
+    expect(isPublicEmailDomain("example.com")).toBe(false);
+    expect(isPublicEmailDomain("engineering.example")).toBe(false);
   });
 });

@@ -2,6 +2,8 @@
 
 Use this flow after the first admin signs in at `/login?next=/team/admin`. The first user for a new email domain creates the team automatically and lands on the team dashboard checklist.
 
+Public consumer email domains such as `gmail.com`, `outlook.com`, and `icloud.com` do not auto-create shared teams. Use member invites or a manual admin review path for those accounts.
+
 ## 15-minute setup
 
 1. Open `/team/admin/import` and upload the JSON or CSV template after replacing sample rows with team acronyms.

@@ -52,6 +52,23 @@ type WatAdapterUser = AdapterUser & {
   teamId: string | null;
 };
 
+const publicEmailDomains = new Set([
+  "aol.com",
+  "gmail.com",
+  "googlemail.com",
+  "hotmail.com",
+  "icloud.com",
+  "live.com",
+  "mac.com",
+  "me.com",
+  "msn.com",
+  "outlook.com",
+  "proton.me",
+  "protonmail.com",
+  "yahoo.com",
+  "ymail.com"
+]);
+
 export function watNextAuthAdapter(): Adapter {
   return {
     async createSession(session) {
@@ -295,6 +312,10 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+export function isPublicEmailDomain(domain: string): boolean {
+  return publicEmailDomains.has(domain.trim().toLowerCase());
+}
+
 function requireRow<T>(row: T | undefined, message: string): T {
   if (!row) throw new Error(message);
   return row;
@@ -321,6 +342,7 @@ async function assignTeamForEmail(
 ): Promise<{ role: "admin" | "member"; teamId: string | null }> {
   const domain = email.split("@")[1]?.trim().toLowerCase();
   if (!domain) return { role: "member", teamId: null };
+  if (isPublicEmailDomain(domain)) return { role: "member", teamId: null };
 
   const { rows } = await authDb().query<{ created: boolean; id: string }>(
     `
