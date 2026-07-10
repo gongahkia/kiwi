@@ -31,6 +31,10 @@ require_pkg() {
 require_cmd cmake
 require_cmd cpack
 require_cmd pkg-config
+if [[ "$(uname -s)" == "Linux" ]]; then
+  require_cmd file
+  require_cmd dpkg-shlibdeps
+fi
 require_pkg libavformat
 require_pkg libavcodec
 require_pkg libavdevice

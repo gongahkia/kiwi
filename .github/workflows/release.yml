@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config ffmpeg \
+          sudo apt-get install -y cmake dpkg-dev file pkg-config ffmpeg \
             glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
@@ -44,7 +44,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y ./contourtty-*.deb
-          /usr/local/bin/contourtty --version
+          contourtty --version
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2

@@ -141,7 +141,7 @@ Ubuntu/Debian:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y build-essential cmake pkg-config \
+sudo apt-get install -y build-essential cmake dpkg-dev file pkg-config \
   libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev \
   libavdevice-dev zlib1g-dev libfreetype-dev
 ```

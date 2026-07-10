@@ -25,7 +25,7 @@ cmake --build --preset ci
 ./build/ci/contourtty <video-file>
 ```
 
-One-line dependency setup: macOS uses `brew install cmake pkg-config ffmpeg freetype zlib`; Debian/Ubuntu uses `sudo apt-get install cmake pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev`. Linux Vulkan builds additionally use `glslang-tools libvulkan-dev vulkan-tools mesa-vulkan-drivers`.
+One-line dependency setup: macOS uses `brew install cmake pkg-config ffmpeg freetype zlib`; Debian/Ubuntu uses `sudo apt-get install cmake dpkg-dev file pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev`. Linux Vulkan builds additionally use `glslang-tools libvulkan-dev vulkan-tools mesa-vulkan-drivers`.
 
 Minimal CPU-only build:
 
@@ -60,7 +60,7 @@ cp packaging/homebrew/contourtty.rb "$(brew --repo local/contourtty)/Formula/con
 brew install --HEAD --build-from-source local/contourtty/contourtty
 ```
 
-Fresh-source install, one line: macOS `brew install cmake pkg-config ffmpeg freetype zlib && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && cmake --install build/release --prefix /usr/local`; Debian/Ubuntu `sudo apt-get install cmake pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && sudo cmake --install build/release --prefix /usr/local`.
+Fresh-source install, one line: macOS `brew install cmake pkg-config ffmpeg freetype zlib && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && cmake --install build/release --prefix /usr/local`; Debian/Ubuntu `sudo apt-get install cmake dpkg-dev file pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && sudo cmake --install build/release --prefix /usr/local`.
 
 ## Runtime notes
 
