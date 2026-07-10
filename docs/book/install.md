@@ -45,8 +45,7 @@ If Cargo commands fail because Rust is missing or too old, install the stable
 toolchain and verify the active compiler:
 
 ```bash
-brew install rustup
-rustup-init -y
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 rustup default stable
 rustc --version
 cargo --version

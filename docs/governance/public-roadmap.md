@@ -11,7 +11,6 @@ Completed since the last review:
 - [#2](https://github.com/gongahkia/kumeyuri/issues/2): install troubleshooting docs, closed by `b55b1f5`.
 - [#3](https://github.com/gongahkia/kumeyuri/issues/3): quoted flowchart punctuation fixture, closed by `7e0d96d`.
 - [#4](https://github.com/gongahkia/kumeyuri/issues/4): MCP smoke-test docs, closed by `94216bb`.
-- [#13](https://github.com/gongahkia/kumeyuri/issues/13): Homebrew tap publishing, closed by `9ee4bc7`.
 - [#15](https://github.com/gongahkia/kumeyuri/issues/15): render action `v1` release, closed by `0dad50d`.
 - [#18](https://github.com/gongahkia/kumeyuri/issues/18): `v1.1.0-plugins` GitHub prerelease, closed by `45ea487`.
 - [#29](https://github.com/gongahkia/kumeyuri/issues/29): security PGP status verified, closed by `72d6de9`.
@@ -26,7 +25,6 @@ Verified current external state on 2026-07-10:
 - npm package dry-runs pass for `kumeyuri`, `remark-kumeyuri`, and
   `rehype-kumeyuri`; npm publish is blocked on authentication.
 - `kumeyuri.dev` has no DNS records.
-- `gongahkia/homebrew-kumeyuri` exists and `HOMEBREW_TAP_TOKEN` is configured.
 - `npm run release:trust` passes for repository release-trust metadata.
 - Official MCP Registry metadata is prepared in `c008fee`; directory
   submissions are blocked on public package/repository visibility.
