@@ -51,6 +51,50 @@ Repo: <REPO_URL> Demo: <DEMO_URL>
 - Convert bug reports into GitHub issues with source links.
 - Track stars, hosted searches, extension installs, Slack installs, MCP installs, and docs visits daily for 2 weeks.
 
+## GitHub Discussions setup
+
+Categories:
+
+- Announcements
+- Q&A
+- Ideas
+- Corpus/source requests
+- Self-host support
+- Integrations
+
+Pinned welcome post:
+
+```md
+# Welcome to wat discussions
+
+Use this space for corpus/source requests, integration ideas, self-host questions, and workflow feedback.
+
+Before posting, include:
+
+- surface: web, extension, Slack, Teams, Discord, MCP, API, self-host
+- term or workflow affected
+- expected meaning or behavior
+- source URL when proposing a definition
+
+Security issues should use private vulnerability reporting or the security contact, not public discussions.
+```
+
+## Monthly stats post template
+
+```md
+# wat monthly stats: <month>
+
+- Stars:
+- Hosted searches:
+- No-result rate:
+- Extension installs:
+- Slack installs:
+- MCP package downloads:
+- New corpus entries:
+- Top fixed issues:
+- Next focus:
+```
+
 ## Blog post outlines
 
 ### 1. wat: layered glossary for tech jargon
