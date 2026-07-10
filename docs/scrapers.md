@@ -51,6 +51,12 @@ pnpm ingest run example
 
 The CLI writes a JSON delta to `data/deltas/<date>/<source>.json`.
 
+Keep [Sources](sources.md) in sync with every registered scraper:
+
+```sh
+pnpm --filter @wat/ingest registry:check
+```
+
 For multi-source refreshes, publish an aggregate review report with source counts, parser errors, and optional benchmark output:
 
 ```sh

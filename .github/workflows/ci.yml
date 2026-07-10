@@ -17,6 +17,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm --filter @wat/ingest registry:check
       - run: pnpm --filter @wat/ingest contemporaries:lint
       - run: pnpm --filter @wat/ingest contemporaries:coverage
 
