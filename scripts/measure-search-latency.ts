@@ -20,6 +20,7 @@ interface LatencyReport {
   p95_ms: number;
   p99_ms: number;
   search_entries?: number;
+  team_entries?: number;
   target: string;
   warmup_requests: number;
 }
@@ -28,6 +29,7 @@ const baseUrl = (process.env.WAT_BENCHMARK_URL ?? "http://localhost:3000").repla
 const warmupRequests = numberFromEnv("WAT_BENCHMARK_WARMUP", 1000);
 const measuredRequests = numberFromEnv("WAT_BENCHMARK_REQUESTS", 1000);
 const concurrency = numberFromEnv("WAT_BENCHMARK_CONCURRENCY", 1);
+const teamEntryCount = numberFromEnv("WAT_BENCHMARK_TEAM_ENTRIES", 0);
 const outputPath = process.env.WAT_BENCHMARK_OUTPUT;
 const target = process.env.WAT_BENCHMARK_TARGET ?? "http";
 let corpus: QueryFixture[] = [];
@@ -42,7 +44,10 @@ async function main(): Promise<void> {
       "utf8"
     )
   ) as QueryFixture[];
-  coreEntries = target === "web-core" ? await getPublicCorpusEntries() : null;
+  coreEntries =
+    target === "web-core"
+      ? [...(await getPublicCorpusEntries()), ...syntheticTeamEntries(teamEntryCount)]
+      : null;
 
   await runPhase(warmupRequests, false);
   const latencies = await runPhase(measuredRequests, true);
@@ -62,6 +67,7 @@ async function main(): Promise<void> {
     report.base_url = baseUrl;
   } else if (coreEntries) {
     report.search_entries = coreEntries.length;
+    report.team_entries = teamEntryCount;
   }
 
   if (outputPath) {
@@ -101,6 +107,32 @@ function requestCoreSearch(query: string, entries: SearchEntry[]): number {
   const startedAt = performance.now();
   searchEntries({ entries, limit: 5, minConfidence: "T2", query });
   return performance.now() - startedAt;
+}
+
+function syntheticTeamEntries(count: number): SearchEntry[] {
+  return Array.from({ length: count }, (_, index) => ({
+    aliases: [],
+    confidence_tier: "T2",
+    contemporaries: [],
+    domains: ["benchmark-team", `team-domain-${index % 50}`],
+    expansions: [`Team Overlay Benchmark ${index}`],
+    id: `benchmark-team-${index}`,
+    layer: "team",
+    meaning_short: `Synthetic team glossary benchmark entry ${index}.`,
+    sources: [
+      {
+        license: "proprietary-team",
+        publisher: "wat benchmark",
+        retrieved_at: "2026-07-10T00:00:00.000Z",
+        snippet: "Synthetic benchmark fixture.",
+        source_quality: "community",
+        title: "Team benchmark fixture",
+        url: "https://example.test/wat/team-benchmark"
+      }
+    ],
+    term: `WATTEAM${index}`,
+    term_normalized: `watteam${index}`
+  }));
 }
 
 async function requestHttpSearch(query: string): Promise<number> {

@@ -4,6 +4,10 @@ import { Rate, Trend } from "k6/metrics";
 
 const baseUrl = (__ENV.WAT_BENCHMARK_URL || "http://localhost:3000").replace(/\/$/, "");
 const queries = JSON.parse(open("./packages/search/fixtures/dev-tooling-acronyms.json"));
+const apiKey = __ENV.WAT_API_KEY || "";
+const teamId = __ENV.WAT_TEAM_ID || "";
+const userId = __ENV.WAT_USER_ID || "k6:search";
+const context = __ENV.WAT_K6_CONTEXT || "";
 
 export const searchFailures = new Rate("search_failures");
 export const searchLatency = new Trend("search_latency_ms");
@@ -21,7 +25,15 @@ export const options = {
 
 export default function searchLoadTest() {
   const query = queries[(__VU + __ITER) % queries.length].query;
-  const response = http.get(`${baseUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=5`, {
+  const url = `${baseUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=5${
+    context ? `&context=${encodeURIComponent(context)}` : ""
+  }`;
+  const headers = {};
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  if (teamId) headers["x-wat-team-id"] = teamId;
+  if (userId) headers["x-wat-user-id"] = userId;
+  const response = http.get(url, {
+    headers,
     tags: { route: "/api/v1/search" }
   });
 
