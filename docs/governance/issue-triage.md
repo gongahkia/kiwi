@@ -28,8 +28,8 @@ Open issue groups:
 | [#1 Public roadmap](https://github.com/gongahkia/kumeyuri/issues/1) | `documentation` | Living roadmap; keep open. |
 | [#5](https://github.com/gongahkia/kumeyuri/issues/5), [#6](https://github.com/gongahkia/kumeyuri/issues/6), [#8](https://github.com/gongahkia/kumeyuri/issues/8)-[#12](https://github.com/gongahkia/kumeyuri/issues/12), [#14](https://github.com/gongahkia/kumeyuri/issues/14), [#16](https://github.com/gongahkia/kumeyuri/issues/16), [#17](https://github.com/gongahkia/kumeyuri/issues/17), [#19](https://github.com/gongahkia/kumeyuri/issues/19)-[#21](https://github.com/gongahkia/kumeyuri/issues/21) | `release` | Blocked on npm/crates credentials or future release scope. |
 | [#7](https://github.com/gongahkia/kumeyuri/issues/7), [#10](https://github.com/gongahkia/kumeyuri/issues/10), [#30](https://github.com/gongahkia/kumeyuri/issues/30) | `infra` | Blocked on domain/CDN access or public repository visibility. |
-| [#22](https://github.com/gongahkia/kumeyuri/issues/22)-[#25](https://github.com/gongahkia/kumeyuri/issues/25), [#27](https://github.com/gongahkia/kumeyuri/issues/27)-[#29](https://github.com/gongahkia/kumeyuri/issues/29) | `security` | Blocked on public repository visibility, external program submission, or signing/provenance state. |
-| [#26](https://github.com/gongahkia/kumeyuri/issues/26) | `enhancement` | Needs manual screen-reader verification. |
+| [#22](https://github.com/gongahkia/kumeyuri/issues/22)-[#25](https://github.com/gongahkia/kumeyuri/issues/25), [#27](https://github.com/gongahkia/kumeyuri/issues/27), [#28](https://github.com/gongahkia/kumeyuri/issues/28) | `security` | Blocked on public repository visibility, external program submission, or signing/provenance state. |
+| [#26](https://github.com/gongahkia/kumeyuri/issues/26) | `enhancement` | Automated a11y checks passed; needs manual screen-reader narration verification. |
 
 ## Cadence
 

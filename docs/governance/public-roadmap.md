@@ -14,6 +14,7 @@ Completed since the last review:
 - [#13](https://github.com/gongahkia/kumeyuri/issues/13): Homebrew tap publishing, closed by `9ee4bc7`.
 - [#15](https://github.com/gongahkia/kumeyuri/issues/15): render action `v1` release, closed by `0dad50d`.
 - [#18](https://github.com/gongahkia/kumeyuri/issues/18): `v1.1.0-plugins` GitHub prerelease, closed by `45ea487`.
+- [#29](https://github.com/gongahkia/kumeyuri/issues/29): security PGP status verified, closed by `72d6de9`.
 
 Verified current external state on 2026-07-10:
 
@@ -23,6 +24,10 @@ Verified current external state on 2026-07-10:
 - `kumeyuri.dev` has no DNS records.
 - `gongahkia/homebrew-kumeyuri` exists and `HOMEBREW_TAP_TOKEN` is configured.
 - `npm run release:trust` passes for repository release-trust metadata.
+- Web-component axe and keyboard accessibility checks pass; NVDA, VoiceOver,
+  and JAWS narration still need manual verification.
+- Current `v1.1.0-plugins` release assets do not yet have Sigstore bundles or
+  GitHub provenance attestations.
 - The repository is private; OSS-Fuzz and public MCP directory registration need
   public source visibility before submission.
 
@@ -31,7 +36,7 @@ Verified current external state on 2026-07-10:
 1. Finish release/distribution readiness: [#5](https://github.com/gongahkia/kumeyuri/issues/5), [#6](https://github.com/gongahkia/kumeyuri/issues/6), [#8](https://github.com/gongahkia/kumeyuri/issues/8)-[#12](https://github.com/gongahkia/kumeyuri/issues/12), [#14](https://github.com/gongahkia/kumeyuri/issues/14), [#16](https://github.com/gongahkia/kumeyuri/issues/16), [#17](https://github.com/gongahkia/kumeyuri/issues/17), [#19](https://github.com/gongahkia/kumeyuri/issues/19)-[#21](https://github.com/gongahkia/kumeyuri/issues/21).
 2. Finish infrastructure setup: [#7](https://github.com/gongahkia/kumeyuri/issues/7), [#10](https://github.com/gongahkia/kumeyuri/issues/10), [#30](https://github.com/gongahkia/kumeyuri/issues/30).
 3. Complete manual accessibility verification: [#26](https://github.com/gongahkia/kumeyuri/issues/26).
-4. Strengthen governance/security: [#22](https://github.com/gongahkia/kumeyuri/issues/22)-[#25](https://github.com/gongahkia/kumeyuri/issues/25), [#27](https://github.com/gongahkia/kumeyuri/issues/27)-[#29](https://github.com/gongahkia/kumeyuri/issues/29).
+4. Strengthen governance/security: [#22](https://github.com/gongahkia/kumeyuri/issues/22)-[#25](https://github.com/gongahkia/kumeyuri/issues/25), [#27](https://github.com/gongahkia/kumeyuri/issues/27), [#28](https://github.com/gongahkia/kumeyuri/issues/28).
 
 ## Monthly Update Checklist
 
