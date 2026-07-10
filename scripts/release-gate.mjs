@@ -6,6 +6,7 @@ export const requiredPackageScripts = {
   "alerts:check": "node scripts/validate-alert-rules.mjs",
   "backup:verify": "node scripts/verify-backup-archive.mjs",
   "dashboard:check": "node scripts/validate-monitoring-dashboard.mjs",
+  "infra:fly:check": "node scripts/validate-fly-config.mjs",
   "launch:metrics:check": "node scripts/validate-launch-metrics.mjs",
   "load:search": "k6 run scripts/k6-search.js",
   "smoke:deployment": "node scripts/smoke-deployment.mjs",
@@ -18,6 +19,7 @@ export const requiredPackageScripts = {
   "test:error-tracking-smoke": "node --test scripts/smoke-error-tracking.test.mjs",
   "test:backup-verify": "node --test scripts/verify-backup-archive.test.mjs",
   "test:dashboard": "node --test scripts/validate-monitoring-dashboard.test.mjs",
+  "test:fly-config": "node --test scripts/validate-fly-config.test.mjs",
   "test:launch-metrics": "node --test scripts/validate-launch-metrics.test.mjs",
   "test:helm": "node --test scripts/helm-chart.test.mjs"
 };
@@ -28,6 +30,7 @@ export const requiredWorkflowCommands = [
   "pnpm dashboard:check",
   "pnpm db:migrate",
   "pnpm db:seed:public",
+  "pnpm infra:fly:check",
   "pnpm lint",
   "pnpm release:check",
   "pnpm smoke:local-demo",
@@ -37,6 +40,7 @@ export const requiredWorkflowCommands = [
   "pnpm test:error-tracking-smoke",
   "pnpm test:e2e:extension",
   "pnpm test:e2e:web",
+  "pnpm test:fly-config",
   "pnpm test:launch-metrics",
   "pnpm test:helm",
   "pnpm typecheck"
@@ -54,6 +58,13 @@ export const requiredDocTokens = {
     "pnpm launch:metrics:check"
   ],
   "docs/performance.md": ["WAT_K6_P95_MS=150", "WAT_K6_P95_MS=300", "pnpm load:search"],
+  "infra/fly/README.md": [
+    "apps/slack/Dockerfile",
+    "slack_app_name",
+    "slack_image",
+    "slack_signing_secret",
+    'curl -f "$(terraform output -raw slack_url)/healthz"'
+  ],
   "docs/production-readiness.md": [
     "pnpm dashboard:check",
     "infra/monitoring/grafana-dashboard.json",
