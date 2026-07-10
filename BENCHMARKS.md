@@ -51,6 +51,16 @@ Linux proof: Ubuntu 24.04 arm64 Docker with Mesa llvmpipe (`driverName=llvmpipe`
 
 Metal/Vulkan reference check: the generated 16x16 PPM cross fixture exported byte-identical ANSI on macOS Metal, macOS forced-Vulkan/MoltenVK, and Ubuntu llvmpipe Vulkan. SHA-256 for all three outputs: `9bb35a637b04cce55ca6c33a95da77dfd485b9eb884f669ba050595b1395a891`. Direct Linux hosted CI proof and full Vulkan benchmark sweep rows remain pending.
 
+## Phase L Exit Validation
+
+Date: 2026-07-10. Commit: `74e102a` plus this validation record. Host: same macOS/M3 machine above. Build: `cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_WARNINGS_AS_ERRORS=ON && cmake --build build/release --target contourtty --parallel 4`. Targeted Debug tests: `ctest --test-dir build/ci -R 'shader_(source|runtime|compile|bundle|spirv)|scene_source|graph_yaml' --output-on-failure` passed 7/7.
+
+| Surface | Source | Cols x rows | Color | Frames | Render fps | Command | Notes |
+|---|---|---:|---|---:|---:|---|---|
+| shader playback | `share/contourtty/shaders/plasma.glsl` | 160 x 45 | truecolor | 60 | 229.038 | `env -u NO_COLOR COLORTERM=truecolor ./build/release/contourtty --input share/contourtty/shaders/plasma.glsl --width 160 --height 45 --fps 1000 --color-mode truecolor --input-keys "$(printf 'i%.0s' {1..60})q" --log /tmp/contourtty-phase-l-exact-shader/shader.log` under `script -q` | Log reports `shader source=share/contourtty/shaders/plasma.glsl`, `color mode truecolor`, `render stats frames=60 cells=432000 render_us=261965`; live PTY exit was 130 from scripted `q`. |
+| OBJ scene playback | `share/contourtty/scenes/cube.obj` | 160 x 45 | truecolor | 60 | 136.019 | `env -u NO_COLOR COLORTERM=truecolor ./build/release/contourtty --input share/contourtty/scenes/cube.obj --scene-camera orbit --style cell-shade --width 160 --height 45 --fps 1000 --color-mode truecolor --input-keys "$(printf 'i%.0s' {1..60})q" --log /tmp/contourtty-phase-l-exact-scene/scene.log` under `script -q` | Log reports `scene triangles=12`, `color mode truecolor`, `render stats frames=60 cells=432000 render_us=441115`; `--style cell-shade` uses scene normal and depth buffers. |
+| graph YAML export | `share/contourtty/graphs/structure.yaml` on generated 2-frame `testsrc2` MP4 | 24 x 12 | mono | 2 | 11.699 | `./build/release/contourtty --graph share/contourtty/graphs/structure.yaml --width 24 --height 12 --fps 1000 --color-mode mono --export /tmp/contourtty-phase-l-release-graph/graph.ansi --log /tmp/contourtty-phase-l-release-graph/graph.log /tmp/contourtty-phase-l-release-graph/input.mp4` | Export wrote 2,024 bytes and logged `exported frames=2` plus `render stats frames=2 cells=432 render_us=170950`. |
+
 ## P8 Final Sweep
 
 Date: 2026-06-26. Commit: `c26a3ee` plus working tree. Fixture generation is owned by `scripts/final_benchmark_sweep.py`: 12-frame `testsrc2` H.264 at 1280x720 and 1920x1080. Repeatability is max deviation from median `render_us` across 3 measured runs. Rows with suite `workers=4` are the primary rows that exceeded 10% and were remeasured with the stabilization command above. Max published spread: 9.22%.
