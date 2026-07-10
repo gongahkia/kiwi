@@ -74,6 +74,8 @@ interface SearchResponse {
 interface SlackUserInfoResponse {
   ok?: boolean;
   user?: {
+    is_admin?: boolean;
+    is_owner?: boolean;
     profile?: {
       email?: string;
     };
@@ -510,13 +512,19 @@ function fallbackMeaning(userName: string): string {
 }
 
 async function isAdminUser(userId: string, deps: WatBoltDeps, watTeamId: string): Promise<boolean> {
-  if (deps.slackAdminUserIds?.includes(userId)) return true;
-  const email = await slackUserEmail(userId, deps);
-  if (!email) return false;
-  return watAdminCheck(email, deps, userId, watTeamId);
+  const slackUser = await slackUserInfo(userId, deps);
+  const isSlackAdmin =
+    deps.slackAdminUserIds?.includes(userId) ||
+    slackUser?.isAdmin === true ||
+    slackUser?.isOwner === true;
+  if (!isSlackAdmin || !slackUser?.email) return false;
+  return watAdminCheck(slackUser.email, deps, userId, watTeamId);
 }
 
-async function slackUserEmail(userId: string, deps: WatBoltDeps): Promise<string | null> {
+async function slackUserInfo(
+  userId: string,
+  deps: WatBoltDeps
+): Promise<{ email: string | null; isAdmin: boolean; isOwner: boolean } | null> {
   if (!deps.slackBotToken) return null;
   const client = deps.fetchSlackUser ?? fetch;
   const url = new URL("https://slack.com/api/users.info");
@@ -526,8 +534,13 @@ async function slackUserEmail(userId: string, deps: WatBoltDeps): Promise<string
   });
   if (!response.ok) return null;
   const body = (await response.json()) as SlackUserInfoResponse;
-  if (body.ok !== true || typeof body.user?.profile?.email !== "string") return null;
-  return body.user.profile.email.trim() || null;
+  if (body.ok !== true) return null;
+  return {
+    email:
+      typeof body.user?.profile?.email === "string" ? body.user.profile.email.trim() || null : null,
+    isAdmin: body.user?.is_admin === true,
+    isOwner: body.user?.is_owner === true
+  };
 }
 
 async function watAdminCheck(

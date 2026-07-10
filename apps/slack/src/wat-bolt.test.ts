@@ -232,9 +232,17 @@ describe("wat Bolt handlers", () => {
     }
   });
 
-  it("lets configured admins define team entries from Slack", async () => {
+  it("lets Slack admins who are wat team admins define entries", async () => {
     const receiver = createWatApp({
+      fetchSlackUser: async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            user: { is_admin: true, profile: { email: "admin@example.com" } }
+          })
+        ),
       slackAdminUserIds: ["U_ALICE"],
+      slackBotToken: "xoxb-test",
       watApiKey: "wat-team-key",
       watTeamId: "wat-team-123"
     });
@@ -259,6 +267,11 @@ describe("wat Bolt handlers", () => {
       response_type: "ephemeral",
       text: "Defined SLO as Service Level Objective."
     });
+    expect(capturedRequest("/api/v1/team/admin-check").headers).toEqual({
+      authorization: "Bearer wat-team-key",
+      xWatTeamId: "wat-team-123",
+      xWatUserId: "slack:U_ALICE"
+    });
     expect(responsePayload("/api/v1/custom-entries")).toMatchObject({
       domains: ["example", "docs"],
       expansion: "Service Level Objective",
@@ -269,13 +282,50 @@ describe("wat Bolt handlers", () => {
     });
   });
 
-  it("lets wat team admins define entries from Slack", async () => {
+  it("rejects Slack admins who are not wat team admins", async () => {
     const receiver = createWatApp({
       fetchSlackUser: async () =>
         new Response(
           JSON.stringify({
             ok: true,
-            user: { profile: { email: "admin@example.com" } }
+            user: { is_admin: true, profile: { email: "member@example.com" } }
+          })
+        ),
+      slackAdminUserIds: ["U_ALICE"],
+      slackBotToken: "xoxb-test",
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-define",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "SLO as Service Level Objective -- Reliability target for a service.",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Only wat team admins can define team entries from Slack."
+    });
+    expect(captured.some((item) => item.path === "/api/v1/custom-entries")).toBe(false);
+  });
+
+  it("rejects wat team admins who are not Slack admins", async () => {
+    const receiver = createWatApp({
+      fetchSlackUser: async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            user: { is_admin: false, profile: { email: "admin@example.com" } }
           })
         ),
       slackBotToken: "xoxb-test",
@@ -300,17 +350,9 @@ describe("wat Bolt handlers", () => {
 
     expect(responsePayload("/response")).toMatchObject({
       response_type: "ephemeral",
-      text: "Defined SLO as Service Level Objective."
+      text: "Only wat team admins can define team entries from Slack."
     });
-    expect(capturedRequest("/api/v1/team/admin-check").headers).toEqual({
-      authorization: "Bearer wat-team-key",
-      xWatTeamId: "wat-team-123",
-      xWatUserId: "slack:U_ALICE"
-    });
-    expect(responsePayload("/api/v1/custom-entries")).toMatchObject({
-      scope: "team",
-      term: "SLO"
-    });
+    expect(captured.some((item) => item.path === "/api/v1/custom-entries")).toBe(false);
   });
 
   it("queues member suggestions from Slack", async () => {
