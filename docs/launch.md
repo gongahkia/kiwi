@@ -49,7 +49,7 @@ Repo: <REPO_URL> Demo: <DEMO_URL>
 - Reply within 30 minutes during the peak window.
 - Be transparent about limitations: corpus coverage, store review status, and hosted/self-host tradeoffs.
 - Convert bug reports into GitHub issues with source links.
-- Track stars, hosted searches, extension installs, Slack installs, MCP installs, and docs visits daily for 2 weeks.
+- Track stars, hosted searches, extension installs, Slack installs, MCP installs, and docs visits daily for 2 weeks; validate the CSV with [Launch Metrics](launch-metrics.md).
 
 ## GitHub Discussions setup
 

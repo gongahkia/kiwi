@@ -127,6 +127,7 @@ jobs:
       - run: pnpm test:error-tracking-smoke
       - run: pnpm test:backup-verify
       - run: pnpm test:dashboard
+      - run: pnpm test:launch-metrics
       - run: pnpm test:helm
       - run: pnpm alerts:check
       - run: pnpm dashboard:check

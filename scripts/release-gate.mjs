@@ -6,6 +6,7 @@ export const requiredPackageScripts = {
   "alerts:check": "node scripts/validate-alert-rules.mjs",
   "backup:verify": "node scripts/verify-backup-archive.mjs",
   "dashboard:check": "node scripts/validate-monitoring-dashboard.mjs",
+  "launch:metrics:check": "node scripts/validate-launch-metrics.mjs",
   "load:search": "k6 run scripts/k6-search.js",
   "smoke:deployment": "node scripts/smoke-deployment.mjs",
   "smoke:error-tracking": "node scripts/smoke-error-tracking.mjs",
@@ -17,6 +18,7 @@ export const requiredPackageScripts = {
   "test:error-tracking-smoke": "node --test scripts/smoke-error-tracking.test.mjs",
   "test:backup-verify": "node --test scripts/verify-backup-archive.test.mjs",
   "test:dashboard": "node --test scripts/validate-monitoring-dashboard.test.mjs",
+  "test:launch-metrics": "node --test scripts/validate-launch-metrics.test.mjs",
   "test:helm": "node --test scripts/helm-chart.test.mjs"
 };
 
@@ -35,12 +37,22 @@ export const requiredWorkflowCommands = [
   "pnpm test:error-tracking-smoke",
   "pnpm test:e2e:extension",
   "pnpm test:e2e:web",
+  "pnpm test:launch-metrics",
   "pnpm test:helm",
   "pnpm typecheck"
 ];
 
 export const requiredDocTokens = {
   "docs/browser-extension-release.md": ["pnpm --filter @wat/ext build:stores"],
+  "docs/launch-metrics.md": [
+    "github_stars",
+    "hosted_searches",
+    "extension_installs",
+    "slack_installs",
+    "mcp_installs",
+    "docs_visits",
+    "pnpm launch:metrics:check"
+  ],
   "docs/performance.md": ["WAT_K6_P95_MS=150", "WAT_K6_P95_MS=300", "pnpm load:search"],
   "docs/production-readiness.md": [
     "pnpm dashboard:check",
