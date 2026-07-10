@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
 import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
+import { getAuditLog, resetAuditLogForTest } from "@/lib/audit-log";
 import { resetTeamsMetricsForTest } from "@/lib/teams-monitoring";
 
 import { deleteTeamsInstallation, postTeamsInstallation } from "./handler";
@@ -30,6 +31,7 @@ const validInstall = {
 
 describe("Teams installations API", () => {
   afterEach(() => {
+    resetAuditLogForTest();
     resetTeamsMetricsForTest();
     resetApiKeysForTest();
   });
@@ -55,6 +57,9 @@ describe("Teams installations API", () => {
     const body = (await response.json()) as { install?: { team_id?: string } };
     expect(response.status).toBe(201);
     expect(body.install?.team_id).toBe("team_123");
+    await expect(getAuditLog("team_123")).resolves.toMatchObject([
+      { action: "teams_install.upsert", target_type: "teams_install" }
+    ]);
   });
 
   it("requires API and team scope", async () => {
@@ -97,5 +102,8 @@ describe("Teams installations API", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ deleted: true });
+    await expect(getAuditLog("team_123")).resolves.toMatchObject([
+      { action: "teams_install.delete", target_id: "tenant_123" }
+    ]);
   });
 });

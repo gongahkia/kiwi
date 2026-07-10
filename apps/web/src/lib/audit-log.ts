@@ -14,6 +14,10 @@ export interface AuditLogEntry {
   team_id: string | null;
 }
 
+type AuditLogInput = Omit<AuditLogEntry, "actor_id" | "at" | "id"> & {
+  actor_id: string | null;
+};
+
 const testAuditLog: AuditLogEntry[] = [];
 
 function useTestState(): boolean {
@@ -45,10 +49,15 @@ function rowToAudit(row: {
 }
 
 export async function recordAuditLog(
-  input: Omit<AuditLogEntry, "at" | "id">
+  input: AuditLogInput
 ): Promise<AuditLogEntry> {
   if (useTestState()) {
-    const entry: AuditLogEntry = { ...input, at: new Date().toISOString(), id: randomUUID() };
+    const entry: AuditLogEntry = {
+      ...input,
+      actor_id: input.actor_id ?? "system",
+      at: new Date().toISOString(),
+      id: randomUUID()
+    };
     testAuditLog.push(structuredClone(entry));
     return structuredClone(entry);
   }

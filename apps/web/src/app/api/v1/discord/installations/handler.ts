@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { recordAuditLog } from "@/lib/audit-log";
 import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import {
   deleteDiscordInstallByGuildId,
@@ -48,6 +49,22 @@ export async function postDiscordInstallation(request: NextRequest, deps: Discor
       ...parsed.input,
       installerDiscordUserId: parsed.input.installerDiscordUserId ?? identity.identity.userId
     });
+    await recordAuditLog({
+      action: "discord_install.upsert",
+      actor_id: identity.identity.createdBy ?? null,
+      after_jsonb: {
+        admin_role_ids: install.admin_role_ids,
+        application_id: install.application_id,
+        bot_user_id: install.bot_user_id,
+        discord_guild_id: install.discord_guild_id,
+        guild_name: install.guild_name,
+        id: install.id
+      },
+      before_jsonb: null,
+      target_id: install.id,
+      target_type: "discord_install",
+      team_id: identity.identity.teamId
+    });
     incrementDiscordMetric("discord_install_total", { outcome: "upserted" });
     return NextResponse.json({ install }, { status: 201 });
   } catch (error) {
@@ -92,6 +109,17 @@ export async function deleteDiscordInstallation(
     discordGuildId,
     identity.identity.teamId
   );
+  if (deleted) {
+    await recordAuditLog({
+      action: "discord_install.delete",
+      actor_id: identity.identity.createdBy ?? null,
+      after_jsonb: { deleted: true },
+      before_jsonb: { discord_guild_id: discordGuildId },
+      target_id: discordGuildId,
+      target_type: "discord_install",
+      team_id: identity.identity.teamId
+    });
+  }
   incrementDiscordMetric("discord_install_total", {
     outcome: deleted ? "deleted" : "not_found"
   });

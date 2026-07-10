@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
 import { resetApiKeysForTest, seedApiKeyForTest } from "@/lib/api-keys";
+import { getAuditLog, resetAuditLogForTest } from "@/lib/audit-log";
 import { resetDiscordMetricsForTest } from "@/lib/discord-monitoring";
 
 import { deleteDiscordInstallation, postDiscordInstallation } from "./handler";
@@ -30,6 +31,7 @@ const validInstall = {
 
 describe("Discord installations API", () => {
   afterEach(() => {
+    resetAuditLogForTest();
     resetDiscordMetricsForTest();
     resetApiKeysForTest();
   });
@@ -54,6 +56,9 @@ describe("Discord installations API", () => {
     const body = (await response.json()) as { install?: { admin_role_ids?: string[] } };
     expect(response.status).toBe(201);
     expect(body.install?.admin_role_ids).toEqual(["role_admin"]);
+    await expect(getAuditLog("team_123")).resolves.toMatchObject([
+      { action: "discord_install.upsert", target_type: "discord_install" }
+    ]);
   });
 
   it("requires API and team scope", async () => {
@@ -96,5 +101,8 @@ describe("Discord installations API", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ deleted: true });
+    await expect(getAuditLog("team_123")).resolves.toMatchObject([
+      { action: "discord_install.delete", target_id: "guild_123" }
+    ]);
   });
 });

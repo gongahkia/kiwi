@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { apiErrorResponse } from "@/lib/api-error";
+import { recordAuditLog } from "@/lib/audit-log";
 import { hasApiScope, resolveApiIdentity } from "@/lib/api-identity";
 import {
   deleteTeamsInstallByTenantId,
@@ -46,6 +47,22 @@ export async function postTeamsInstallation(request: NextRequest, deps: TeamsIns
       ...parsed.input,
       installedBy: identity.identity.userId
     });
+    await recordAuditLog({
+      action: "teams_install.upsert",
+      actor_id: identity.identity.createdBy ?? null,
+      after_jsonb: {
+        app_id: install.app_id,
+        auth_type: install.auth_type,
+        id: install.id,
+        microsoft_tenant_id: install.microsoft_tenant_id,
+        service_url: install.service_url,
+        tenant_name: install.tenant_name
+      },
+      before_jsonb: null,
+      target_id: install.id,
+      target_type: "teams_install",
+      team_id: identity.identity.teamId
+    });
     incrementTeamsMetric("teams_install_total", { outcome: "upserted" });
     return NextResponse.json({ install }, { status: 201 });
   } catch (error) {
@@ -87,6 +104,17 @@ export async function deleteTeamsInstallation(request: NextRequest, deps: TeamsI
     microsoftTenantId,
     identity.identity.teamId
   );
+  if (deleted) {
+    await recordAuditLog({
+      action: "teams_install.delete",
+      actor_id: identity.identity.createdBy ?? null,
+      after_jsonb: { deleted: true },
+      before_jsonb: { microsoft_tenant_id: microsoftTenantId },
+      target_id: microsoftTenantId,
+      target_type: "teams_install",
+      team_id: identity.identity.teamId
+    });
+  }
   incrementTeamsMetric("teams_install_total", {
     outcome: deleted ? "deleted" : "not_found"
   });
