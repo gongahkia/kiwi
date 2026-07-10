@@ -21,9 +21,15 @@ Verified current external state on 2026-07-10:
 - GitHub releases `v1` and `v1.1.0-plugins` are published.
 - `kumeyuri`, `remark-kumeyuri`, and `rehype-kumeyuri` are not published on npm.
 - `cargo search kumeyuri` returned no matching crate.
+- Placeholder `kumeyuri` crate metadata is prepared in `b53d61c`; crates.io
+  publish is blocked on credentials.
+- npm package dry-runs pass for `kumeyuri`, `remark-kumeyuri`, and
+  `rehype-kumeyuri`; npm publish is blocked on authentication.
 - `kumeyuri.dev` has no DNS records.
 - `gongahkia/homebrew-kumeyuri` exists and `HOMEBREW_TAP_TOKEN` is configured.
 - `npm run release:trust` passes for repository release-trust metadata.
+- Official MCP Registry metadata is prepared in `c008fee`; directory
+  submissions are blocked on public package/repository visibility.
 - Web-component axe and keyboard accessibility checks pass; NVDA, VoiceOver,
   and JAWS narration still need manual verification.
 - Current `v1.1.0-plugins` release assets do not yet have Sigstore bundles or
