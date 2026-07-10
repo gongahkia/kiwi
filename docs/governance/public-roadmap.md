@@ -30,6 +30,7 @@ Verified current external state on 2026-07-10:
 - `npm run release:trust` passes for repository release-trust metadata.
 - Official MCP Registry metadata is prepared in `c008fee`; directory
   submissions are blocked on public package/repository visibility.
+- Release publish order and credential gates are documented in `eeefaa4`.
 - Web-component axe and keyboard accessibility checks pass; NVDA, VoiceOver,
   and JAWS narration still need manual verification.
 - Current `v1.1.0-plugins` release assets do not yet have Sigstore bundles or
