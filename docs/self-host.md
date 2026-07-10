@@ -25,7 +25,7 @@ Generate fresh auth/token-encryption secrets for new self-host installs:
 ./scripts/generate-secrets.sh
 ```
 
-Copy the generated `AUTH_SECRET`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, `TEAMS_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid. Create team API keys from `/team/admin/api-keys` after login, then use those raw keys as `WAT_API_KEY` values for Slack, Teams, Discord, MCP, browser extensions, or trusted automation.
+Copy the generated `AUTH_SECRET`, `AUTH_TOKEN_ENCRYPTION_KEY`, `SLACK_TOKEN_ENCRYPTION_KEY`, `SLACK_STATE_SECRET`, `SLACK_METRICS_TOKEN`, `TEAMS_METRICS_TOKEN`, and `DISCORD_METRICS_TOKEN` values into your deployment secret store. Keep `AUTH_SECRET` stable across restarts so existing sessions remain valid, and keep `AUTH_TOKEN_ENCRYPTION_KEY` stable so OAuth account tokens remain decryptable. Create team API keys from `/team/admin/api-keys` after login, then use those raw keys as `WAT_API_KEY` values for Slack, Teams, Discord, MCP, browser extensions, or trusted automation.
 
 For first-run installs where no admin can log in yet, bootstrap the first team admin and API key directly against Postgres:
 
@@ -100,6 +100,7 @@ Target Kubernetes install path:
 helm install wat charts/wat \
   --set web.env.NEXT_PUBLIC_SITE_URL=https://wat.example.com \
   --set auth.authSecret='<32-plus-character-secret>' \
+  --set auth.authTokenEncryptionKey='<32-plus-character-secret>' \
   --set auth.emailFrom='Wat <ops@example.com>' \
   --set auth.emailServer=smtp://smtp.example.com:587
 ```
@@ -121,6 +122,7 @@ For an external Postgres service, create a Kubernetes secret that contains the d
 kubectl create secret generic wat-db --from-literal=database-url='postgres://wat:strong-password@db.example.com:5432/wat'
 kubectl create secret generic wat-auth \
   --from-literal=auth-secret='<32-plus-character-secret>' \
+  --from-literal=auth-token-encryption-key='<32-plus-character-secret>' \
   --from-literal=email-from='Wat <ops@example.com>' \
   --from-literal=email-server='smtp://smtp.example.com:587'
 
@@ -135,7 +137,7 @@ helm install wat charts/wat \
   --set web.env.NEXT_PUBLIC_SITE_URL=https://wat.example.com
 ```
 
-Auth secret keys default to `auth-secret`, `email-from`, `email-server`, `google-client-id`, `google-client-secret`, `slack-client-id`, and `slack-client-secret`. Override them with `auth.secretKeys.*` when your secret manager uses different key names.
+Auth secret keys default to `auth-secret`, `auth-token-encryption-key`, `email-from`, `email-server`, `google-client-id`, `google-client-secret`, `slack-client-id`, and `slack-client-secret`. Override them with `auth.secretKeys.*` when your secret manager uses different key names.
 
 ## Fly.io
 

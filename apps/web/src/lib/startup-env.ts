@@ -1,5 +1,6 @@
 export type StartupEnv = Record<string, string | undefined> & {
   AUTH_SECRET?: string;
+  AUTH_TOKEN_ENCRYPTION_KEY?: string;
   DATABASE_URL?: string;
   EMAIL_FROM?: string;
   EMAIL_SERVER?: string;
@@ -199,6 +200,9 @@ function validateProviderPair(
 export function validateProductionEnv(env: StartupEnv): StartupEnvIssue[] {
   const issues: StartupEnvIssue[] = [];
   const authSecret = value(env, "AUTH_SECRET") || value(env, "NEXTAUTH_SECRET");
+  const oauthConfigured =
+    (value(env, "GOOGLE_CLIENT_ID") && value(env, "GOOGLE_CLIENT_SECRET")) ||
+    (value(env, "SLACK_CLIENT_ID") && value(env, "SLACK_CLIENT_SECRET"));
 
   validateDatabaseUrl(env, issues);
   validateSecret(
@@ -211,6 +215,14 @@ export function validateProductionEnv(env: StartupEnv): StartupEnvIssue[] {
   validateEmail(env, issues);
   validateProviderPair(env, issues, "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "Google");
   validateProviderPair(env, issues, "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "Slack");
+  if (oauthConfigured) {
+    validateSecret(
+      issues,
+      "AUTH_TOKEN_ENCRYPTION_KEY",
+      value(env, "AUTH_TOKEN_ENCRYPTION_KEY"),
+      "Set AUTH_TOKEN_ENCRYPTION_KEY to a generated 32+ character value before enabling OAuth login."
+    );
+  }
 
   return issues;
 }

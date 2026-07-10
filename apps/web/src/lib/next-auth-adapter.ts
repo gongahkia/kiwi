@@ -10,6 +10,7 @@ import type {
 
 import { authDb } from "@/lib/auth-db";
 import { findPendingInviteForEmail, markInviteAccepted } from "@/lib/team-invites";
+import { decryptOAuthToken, encryptOAuthToken } from "./oauth-token-encryption";
 
 type UserRow = {
   email: string;
@@ -216,12 +217,12 @@ export function watNextAuthAdapter(): Adapter {
           account.type,
           account.provider,
           account.providerAccountId,
-          account.refresh_token ?? null,
-          account.access_token ?? null,
+          encryptOAuthToken(account.refresh_token),
+          encryptOAuthToken(account.access_token),
           account.expires_at ?? null,
           account.token_type ?? null,
           account.scope ?? null,
-          account.id_token ?? null,
+          encryptOAuthToken(account.id_token),
           account.session_state == null ? null : String(account.session_state)
         ]
       );
@@ -294,12 +295,12 @@ export function watNextAuthAdapter(): Adapter {
 
 function accountFromRow(row: AccountRow): AdapterAccount {
   return {
-    access_token: row.access_token ?? undefined,
+    access_token: decryptOAuthToken(row.access_token) ?? undefined,
     expires_at: row.expires_at ?? undefined,
-    id_token: row.id_token ?? undefined,
+    id_token: decryptOAuthToken(row.id_token) ?? undefined,
     provider: row.provider,
     providerAccountId: row.provider_account_id,
-    refresh_token: row.refresh_token ?? undefined,
+    refresh_token: decryptOAuthToken(row.refresh_token) ?? undefined,
     scope: row.scope ?? undefined,
     session_state: row.session_state ?? undefined,
     token_type: row.token_type ?? undefined,

@@ -7,6 +7,7 @@ Use this before exposing a hosted or self-hosted wat deployment to real team dat
 - `DATABASE_URL`
 - `AUTH_SECRET`
 - `NEXT_PUBLIC_SITE_URL`
+- `AUTH_TOKEN_ENCRYPTION_KEY` when Google or Slack login is enabled
 - `SLACK_TOKEN_ENCRYPTION_KEY` when Slack tokens are stored
 - `SLACK_APP_TOKEN`, `SLACK_BOT_TOKEN`, and `SLACK_SIGNING_SECRET` when Slack Socket Mode is enabled
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_REDIRECT_URI`, and `SLACK_STATE_SECRET` when Slack OAuth install is enabled

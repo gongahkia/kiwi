@@ -5,6 +5,7 @@ auth:
   existingSecret: ""
   secretKeys:
     authSecret: auth-secret
+    authTokenEncryptionKey: auth-token-encryption-key
     emailFrom: email-from
     emailServer: email-server
     googleClientId: google-client-id
@@ -12,6 +13,7 @@ auth:
     slackClientId: slack-client-id
     slackClientSecret: slack-client-secret
   authSecret: ""
+  authTokenEncryptionKey: ""
   emailFrom: ""
   emailServer: ""
   googleClientId: ""

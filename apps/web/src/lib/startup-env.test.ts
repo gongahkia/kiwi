@@ -77,6 +77,29 @@ describe("startup env validation", () => {
     );
   });
 
+  it("requires token encryption when OAuth providers are enabled", () => {
+    expect(
+      validateProductionEnv({
+        ...validProdEnv,
+        GOOGLE_CLIENT_ID: "google-client",
+        GOOGLE_CLIENT_SECRET: "google-secret"
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "AUTH_TOKEN_ENCRYPTION_KEY", message: "missing" })
+      ])
+    );
+
+    expect(
+      validateProductionEnv({
+        ...validProdEnv,
+        AUTH_TOKEN_ENCRYPTION_KEY: "oauth_token_key_012345678901234567890123456789",
+        GOOGLE_CLIENT_ID: "google-client",
+        GOOGLE_CLIENT_SECRET: "google-secret"
+      })
+    ).toEqual([]);
+  });
+
   it("throws a startup error when production env is invalid", () => {
     expect(() => assertValidStartupEnv({ NODE_ENV: "production" })).toThrow(
       "Invalid wat startup environment:"

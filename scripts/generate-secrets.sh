@@ -9,6 +9,7 @@ generate_secret() {
 
 cat <<EOF
 AUTH_SECRET=$(generate_secret)
+AUTH_TOKEN_ENCRYPTION_KEY=$(generate_secret)
 SLACK_TOKEN_ENCRYPTION_KEY=$(generate_secret)
 SLACK_STATE_SECRET=$(generate_secret)
 SLACK_METRICS_TOKEN=$(generate_secret)

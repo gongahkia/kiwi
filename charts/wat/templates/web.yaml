@@ -51,6 +51,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "wat.authSecretName" . }}
                   key: {{ .Values.auth.secretKeys.authSecret }}
+            - name: AUTH_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wat.authSecretName" . }}
+                  key: {{ .Values.auth.secretKeys.authTokenEncryptionKey }}
+                  optional: true
             - name: EMAIL_FROM
               valueFrom:
                 secretKeyRef:
