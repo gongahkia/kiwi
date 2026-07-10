@@ -64,4 +64,24 @@ describe("middleware csrf guard", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("x-request-id")).toBeTruthy();
   });
+
+  it("blocks obvious SQLi and XSS probes before route handling", async () => {
+    const response = await middleware(
+      nextRequest("GET", {}, "/api/v1/search?q=%27%20OR%20%271%27%3D%271%20%3Cscript%3E")
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "request_blocked",
+      error: "request_blocked",
+      reason: "suspicious_probe"
+    });
+  });
+
+  it("allows normal API searches through middleware", async () => {
+    const response = await middleware(nextRequest("GET", {}, "/api/v1/search?q=API&limit=1"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
 });

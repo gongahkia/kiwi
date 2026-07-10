@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import pino from "pino";
 
 import { apiErrorResponse } from "./lib/api-error";
+import { checkAbusiveRequest } from "./lib/abuse-guard";
 import { hasSameOriginMutationHeaders } from "./lib/csrf";
 import { ensureRequestId, requestIdHeader } from "./lib/request-id";
 import { safeLogFields } from "./lib/safe-logging";
@@ -31,8 +32,9 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set(requestIdHeader, requestId);
   const startedAt = Date.now();
   let response: NextResponse;
+  const abuse = checkAbusiveRequest(request.nextUrl);
 
-  const session = await sessionUserFromRequest(request);
+  const session = abuse.allowed ? await sessionUserFromRequest(request) : null;
   const needsSession = protectedPrefixes.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix)
   );
@@ -40,7 +42,13 @@ export async function middleware(request: NextRequest) {
   const apiKeyImport =
     request.nextUrl.pathname === "/team/admin/import/api" && hasApiKey(request.headers);
 
-  if (session && !hasSameOriginMutationHeaders(request)) {
+  if (!abuse.allowed) {
+    response = apiErrorResponse(request, "request_blocked", 403, {
+      fields: { reason: abuse.reason },
+      message: "request blocked",
+      requestId
+    });
+  } else if (session && !hasSameOriginMutationHeaders(request)) {
     response = apiErrorResponse(request, "same_origin_required", 403, {
       message: "same origin required",
       requestId

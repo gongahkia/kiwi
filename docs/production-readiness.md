@@ -84,6 +84,7 @@ select extname from pg_extension where extname in ('pg_trgm', 'vector');
 - Configure suggestion/custom-entry write limits.
 - Configure Slack workspace/channel/user limits.
 - Use Redis/Upstash/Postgres-backed limits for hosted multi-instance deployments; in-memory limits are dev-only.
+- App middleware blocks obvious SQLi/XSS/path probes with `request_blocked`; mirror these patterns in the hosting WAF or edge firewall before launch.
 
 ## Monitoring
 
