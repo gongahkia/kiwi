@@ -1,3 +1,4 @@
+export * from "./auto-detect-settings.js";
 export * from "./server.js";
 export * from "./slack-install-store.js";
 export * from "./slack-monitoring.js";

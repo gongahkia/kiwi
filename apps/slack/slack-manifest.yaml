@@ -23,6 +23,10 @@ features:
       description: Define a team term as a wat admin.
       usage_hint: SLO as Service Level Objective -- Reliability target for a service.
       should_escape: false
+    - command: /wat-auto
+      description: Enable or disable opt-in acronym auto-detect for a channel.
+      usage_hint: "on"
+      should_escape: false
   message_shortcuts:
     - name: Explain acronyms
       type: message
@@ -36,6 +40,8 @@ oauth_config:
       - commands
       - chat:write
       - app_mentions:read
+      - channels:history
+      - groups:history
       - users:read.email
     user:
       - identity.basic
@@ -45,6 +51,8 @@ settings:
     bot_events:
       - app_mention
       - app_uninstalled
+      - message.channels
+      - message.groups
       - tokens_revoked
   interactivity:
     is_enabled: true

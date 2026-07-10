@@ -5,6 +5,7 @@ import type {
   SlackShortcutMiddlewareArgs
 } from "@slack/bolt";
 
+import type { SlackAutoDetectStore } from "./auto-detect-settings.js";
 import {
   checkSlackRateLimit,
   defaultRateLimitStore,
@@ -24,6 +25,7 @@ export interface WatBoltDeps {
   fetchLookup?: typeof fetch;
   fetchSlackUser?: typeof fetch;
   fetchWrite?: typeof fetch;
+  autoDetectStore?: SlackAutoDetectStore;
   installStore?: SlackInstallStore;
   monitor?: SlackMonitor;
   rateLimitConfig?: WorkspaceRateLimitConfig;
@@ -93,6 +95,12 @@ interface SlackMessage {
   thread_ts?: string;
 }
 
+interface SlackPostEphemeralClient {
+  chat: {
+    postEphemeral(input: { channel: string; text: string; user: string }): Promise<unknown>;
+  };
+}
+
 export function registerWatBoltHandlers(
   app: Pick<App, "command" | "event" | "shortcut">,
   deps: WatBoltDeps
@@ -113,12 +121,20 @@ export function registerWatBoltHandlers(
     await handleSuggestCommand(args, deps);
   });
 
+  app.command("/wat-auto", async (args) => {
+    await handleAutoDetectCommand(args, deps);
+  });
+
   app.shortcut({ callback_id: explainAcronymsShortcutId, type: "message_action" }, async (args) => {
     await handleExplainAcronymsShortcut(args, deps);
   });
 
   app.event("app_mention", async (args) => {
     await handleAppMention(args, deps);
+  });
+
+  app.event("message", async (args) => {
+    await handleMessageEvent(args as SlackEventMiddlewareArgs<"message">, deps);
   });
 }
 
@@ -261,6 +277,62 @@ async function handleSuggestCommand(args: SlackCommandMiddlewareArgs, deps: WatB
   });
 }
 
+async function handleAutoDetectCommand(args: SlackCommandMiddlewareArgs, deps: WatBoltDeps) {
+  await args.ack();
+  deps.monitor?.increment("wat_slack_command_total", { command: "/wat-auto" });
+  if (!(await allowCommand(args, deps))) return;
+  if (!deps.autoDetectStore) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Slack auto-detect settings are not configured."
+    });
+    return;
+  }
+  const channelId = args.command.channel_id;
+  const workspaceId = commandSlackTeamId(args.command);
+  const watTeamId = await resolveWatTeamId(deps, workspaceId);
+  if (!workspaceId || !watTeamId) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Slack workspace is not mapped to a wat team."
+    });
+    return;
+  }
+  if (!(await isAdminUser(args.command.user_id, deps, watTeamId))) {
+    await args.respond({
+      response_type: "ephemeral",
+      text: "Only wat team admins can change Slack auto-detect settings."
+    });
+    return;
+  }
+
+  const action = args.command.text.trim().toLowerCase();
+  if (action === "on" || action === "enable") {
+    await deps.autoDetectStore.setEnabled(workspaceId, channelId, true);
+    await args.respond({
+      response_type: "ephemeral",
+      text: "wat auto-detect is on for this channel."
+    });
+    return;
+  }
+  if (action === "off" || action === "disable") {
+    await deps.autoDetectStore.setEnabled(workspaceId, channelId, false);
+    await args.respond({
+      response_type: "ephemeral",
+      text: "wat auto-detect is off for this channel."
+    });
+    return;
+  }
+
+  const enabled = await deps.autoDetectStore.isEnabled(workspaceId, channelId);
+  await args.respond({
+    response_type: "ephemeral",
+    text: enabled
+      ? "wat auto-detect is on for this channel."
+      : "wat auto-detect is off for this channel. Use `/wat-auto on` to enable it."
+  });
+}
+
 async function handleExplainAcronymsShortcut(args: SlackShortcutMiddlewareArgs, deps: WatBoltDeps) {
   await args.ack();
   if (!(await allowShortcut(args, deps))) return;
@@ -303,6 +375,47 @@ async function handleAppMention(args: SlackEventMiddlewareArgs<"app_mention">, d
   await args.say({
     ...renderLookupMessage(term, result),
     thread_ts: threadTs
+  });
+}
+
+async function handleMessageEvent(args: SlackEventMiddlewareArgs<"message">, deps: WatBoltDeps) {
+  if (!deps.autoDetectStore) return;
+  const event = args.event as unknown as Record<string, unknown>;
+  const channelId = typeof event.channel === "string" ? event.channel : "";
+  const userId = typeof event.user === "string" ? event.user : "";
+  const text = typeof event.text === "string" ? event.text : "";
+  const workspaceId = messageSlackTeamId(args);
+  if (
+    !channelId ||
+    !userId ||
+    !text.trim() ||
+    typeof event.subtype === "string" ||
+    typeof event.bot_id === "string" ||
+    !workspaceId ||
+    !(await deps.autoDetectStore.isEnabled(workspaceId, channelId))
+  ) {
+    return;
+  }
+
+  const terms = acronymsIn(text);
+  if (terms.length === 0) return;
+  const rateLimit = await rateLimitDecision({ channelId, userId, workspaceId }, deps);
+  if (!rateLimit.allowed) return;
+
+  const watTeamId = await resolveWatTeamId(deps, workspaceId);
+  const unknown: string[] = [];
+  for (const term of terms) {
+    const matches = await lookup(deps, term, text, userId, watTeamId);
+    if (matches.length === 0) unknown.push(term);
+  }
+  if (unknown.length === 0) return;
+
+  const client = (args as unknown as { client?: SlackPostEphemeralClient }).client;
+  if (!client) return;
+  await client.chat.postEphemeral({
+    channel: channelId,
+    text: `wat noticed ${unknown.map(escapeSlackText).join(", ")}. Use \`/wat-suggest <term> as <expansion> -- <meaning>\` if this is team jargon.`,
+    user: userId
   });
 }
 
@@ -371,6 +484,12 @@ function shortcutSlackTeamId(args: SlackShortcutMiddlewareArgs): string | undefi
 }
 
 function mentionSlackTeamId(args: SlackEventMiddlewareArgs<"app_mention">): string | undefined {
+  return "team_id" in args.body && typeof args.body.team_id === "string"
+    ? args.body.team_id
+    : undefined;
+}
+
+function messageSlackTeamId(args: SlackEventMiddlewareArgs<"message">): string | undefined {
   return "team_id" in args.body && typeof args.body.team_id === "string"
     ? args.body.team_id
     : undefined;

@@ -27,6 +27,8 @@ SLACK_SOCKET_MODE=true
 SLACK_ADMIN_USER_IDS=U123,U456
 SLACK_INSTALL_STORE=postgres
 SLACK_INSTALL_STORE_PATH=.wat-slack-installs.json
+SLACK_AUTO_DETECT_STORE=json
+SLACK_AUTO_DETECT_STORE_PATH=.wat-slack-auto-detect.json
 SLACK_METRICS_TOKEN=
 SLACK_TOKEN_ENCRYPTION_KEY=
 SLACK_DATABASE_URL=postgres://wat:wat@localhost:5432/wat
@@ -81,8 +83,10 @@ When `WAT_API_KEY` and `WAT_TEAM_ID` are set, wat lookup/write calls include `Au
 - `/wat-alt <term>` shows contemporaries/alternatives for the top match.
 - `/wat-suggest <term> as <expansion> -- <meaning>` queues a team-scoped DB-backed suggestion for review through `/api/v1/suggestions`.
 - `/wat-define <term> as <expansion> -- <meaning>` writes a team entry for configured Slack admins.
+- `/wat-auto on|off|status` changes opt-in auto-detect for the current channel.
 - The `wat_explain_acronyms` message shortcut explains acronyms in the selected message payload.
 - `app_mention` replies in-thread with a lookup.
+- In channels where `/wat-auto on` was set by a wat admin, message events are scanned for acronym-shaped tokens and unknown terms trigger an ephemeral suggestion.
 
 ## Permissions Model
 
@@ -90,7 +94,7 @@ Slash-command lookup is read-only. Admin definition commands check wat team-admi
 
 Command, shortcut, and mention bursts are rate-limited per workspace, channel, and user. Counters persist to `SLACK_RATE_LIMIT_STORE_PATH` so restarts do not reset active windows.
 
-Message shortcuts should process only the selected message payload Slack sends to the app. Channel-wide auto-detect should be opt-in per channel.
+Message shortcuts process only the selected message payload Slack sends to the app. Channel-wide auto-detect is off by default and is opt-in per channel.
 
 Tokens must be encrypted at rest. Workspace installs should map to wat teams through installer email domain, with manual override for ambiguous or public domains.
 

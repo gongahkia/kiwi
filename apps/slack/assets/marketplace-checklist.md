@@ -14,6 +14,8 @@ Bot scopes:
 - `commands`
 - `chat:write`
 - `app_mentions:read`
+- `channels:history`
+- `groups:history`
 - `users:read.email`
 
 User scopes:
@@ -21,12 +23,14 @@ User scopes:
 - `identity.basic`
 - `identity.email`
 
-Do not request `channels:history` or `groups:history` unless channel-wide ingestion is implemented and reviewed. The current message shortcut uses the selected message payload only.
+Request `channels:history` and `groups:history` only for channel-wide auto-detect. Auto-detect is off by default and must be enabled per channel with `/wat-auto on`.
 
 ## Events And Interactivity
 
 - `app_mention`
 - `app_uninstalled`
+- `message.channels`
+- `message.groups`
 - `tokens_revoked`
 - message shortcut callback: `wat_explain_acronyms`
 
@@ -38,13 +42,16 @@ Do not request `channels:history` or `groups:history` unless channel-wide ingest
 4. Run `/wat-suggest RTO as Recovery Time Objective -- Maximum acceptable restore time.`
 5. As a wat team admin, run `/wat-define SLO as Service Level Objective -- Reliability target for a service.`
 6. Use message shortcut "Explain acronyms" on a message containing `TLS` and `API`.
-7. Uninstall the app and confirm the `slack_installs` row is removed.
+7. Run `/wat-auto on`, send an unknown acronym, and verify the ephemeral suggestion.
+8. Run `/wat-auto off`.
+9. Uninstall the app and confirm the `slack_installs` row is removed.
 
 ## Data Handling
 
-- No passive channel history ingestion.
+- No passive channel history ingestion unless `/wat-auto on` is set for the channel.
 - Slash commands send only command text plus Slack user/workspace IDs.
 - Message shortcuts send only the selected message payload.
+- Auto-detect sends only acronym-shaped terms from opted-in channels.
 - `/wat-define` resolves the Slack user's email with `users.info` to check wat team-admin status.
 - OAuth bot/user tokens are encrypted at rest.
 - Install rows are deleted on `app_uninstalled` or `tokens_revoked`.

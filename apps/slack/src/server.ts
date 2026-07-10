@@ -11,6 +11,11 @@ import {
   verifySlackOAuthState
 } from "./slack-oauth.js";
 import {
+  JsonFileSlackAutoDetectStore,
+  MemorySlackAutoDetectStore,
+  type SlackAutoDetectStore
+} from "./auto-detect-settings.js";
+import {
   JsonFileSlackInstallStore,
   MemorySlackInstallStore,
   PgSlackInstallStore,
@@ -21,6 +26,8 @@ import { registerWatBoltHandlers } from "./wat-bolt.js";
 
 export interface SlackRuntimeConfig {
   appToken?: string;
+  autoDetectStore?: "json" | "memory";
+  autoDetectStorePath?: string;
   botToken?: string;
   clientId?: string;
   clientSecret?: string;
@@ -43,6 +50,7 @@ export interface SlackRuntimeConfig {
 }
 
 export interface SlackRuntimeDeps {
+  autoDetectStore?: SlackAutoDetectStore;
   fetchOAuth?: typeof fetch;
   installStore?: SlackInstallStore;
   monitor?: SlackMonitor;
@@ -52,6 +60,8 @@ export interface SlackRuntimeDeps {
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): SlackRuntimeConfig {
   return {
     appToken: env.SLACK_APP_TOKEN,
+    autoDetectStore: autoDetectStoreKind(env.SLACK_AUTO_DETECT_STORE),
+    autoDetectStorePath: env.SLACK_AUTO_DETECT_STORE_PATH ?? ".wat-slack-auto-detect.json",
     botToken: env.SLACK_BOT_TOKEN,
     clientId: env.SLACK_CLIENT_ID,
     clientSecret: env.SLACK_CLIENT_SECRET,
@@ -205,6 +215,7 @@ export async function startSlackRuntime(config = configFromEnv()): Promise<void>
 export function createWatSlackApp(config: SlackRuntimeConfig): App {
   validateConfig({ ...config, socketMode: true });
   const installStore = defaultInstallStore(config);
+  const autoDetectStore = defaultAutoDetectStore(config);
   const app = new App({
     appToken: config.appToken,
     socketMode: true,
@@ -212,6 +223,7 @@ export function createWatSlackApp(config: SlackRuntimeConfig): App {
   });
 
   registerWatBoltHandlers(app, {
+    autoDetectStore,
     installStore,
     monitor: defaultSlackMonitor(),
     slackAdminUserIds: config.slackAdminUserIds,
@@ -223,6 +235,13 @@ export function createWatSlackApp(config: SlackRuntimeConfig): App {
   });
 
   return app;
+}
+
+function defaultAutoDetectStore(config: SlackRuntimeConfig): SlackAutoDetectStore {
+  const storeKind = config.autoDetectStore ?? "json";
+  if (storeKind === "memory") return new MemorySlackAutoDetectStore();
+  if (!config.autoDetectStorePath) throw new Error("SLACK_AUTO_DETECT_STORE_PATH is required");
+  return new JsonFileSlackAutoDetectStore(config.autoDetectStorePath);
 }
 
 function csvEnv(value: string | undefined): string[] | undefined {
@@ -248,6 +267,13 @@ function installStoreKind(
   value: string | undefined
 ): NonNullable<SlackRuntimeConfig["installStore"]> {
   if (value === "postgres" || value === "memory" || value === "json") return value;
+  return "json";
+}
+
+function autoDetectStoreKind(
+  value: string | undefined
+): NonNullable<SlackRuntimeConfig["autoDetectStore"]> {
+  if (value === "memory" || value === "json") return value;
   return "json";
 }
 

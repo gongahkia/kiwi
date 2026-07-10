@@ -5,6 +5,7 @@ import { App, type Receiver, type ReceiverEvent } from "@slack/bolt";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { explainAcronymsShortcutId, registerWatBoltHandlers } from "./wat-bolt.js";
+import { MemorySlackAutoDetectStore, type SlackAutoDetectStore } from "./auto-detect-settings.js";
 import { encryptToken } from "./token-encryption.js";
 import { MemorySlackInstallStore, type SlackInstallStore } from "./slack-install-store.js";
 import {
@@ -429,6 +430,84 @@ describe("wat Bolt handlers", () => {
     });
   });
 
+  it("lets wat admins opt a Slack channel into auto-detect", async () => {
+    const autoDetectStore = new MemorySlackAutoDetectStore();
+    const receiver = createWatApp({
+      autoDetectStore,
+      fetchSlackUser: async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            user: { is_admin: true, profile: { email: "admin@example.com" } }
+          })
+        ),
+      slackAdminUserIds: ["U_ALICE"],
+      slackBotToken: "xoxb-test",
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-auto",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "on",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_ALICE",
+      user_name: "alice"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "wat auto-detect is on for this channel."
+    });
+    await expect(autoDetectStore.isEnabled("T_WAT", "C_DOCS")).resolves.toBe(true);
+  });
+
+  it("blocks non-admin Slack auto-detect changes", async () => {
+    const autoDetectStore = new MemorySlackAutoDetectStore();
+    const receiver = createWatApp({
+      autoDetectStore,
+      fetchSlackUser: async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            user: { is_admin: false, profile: { email: "member@example.com" } }
+          })
+        ),
+      slackBotToken: "xoxb-test",
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      channel_id: "C_DOCS",
+      channel_name: "docs",
+      command: "/wat-auto",
+      response_url: `${baseUrl}/response`,
+      team_domain: "example",
+      team_id: "T_WAT",
+      text: "on",
+      token: "legacy-token",
+      trigger_id: "trigger",
+      user_id: "U_BOB",
+      user_name: "bob"
+    });
+
+    expect(responsePayload("/response")).toMatchObject({
+      response_type: "ephemeral",
+      text: "Only wat team admins can change Slack auto-detect settings."
+    });
+    await expect(autoDetectStore.isEnabled("T_WAT", "C_DOCS")).resolves.toBe(false);
+  });
+
   it("rejects non-admin define attempts", async () => {
     const receiver = createWatApp({
       slackAdminUserIds: ["U_ALICE"],
@@ -529,6 +608,67 @@ describe("wat Bolt handlers", () => {
     expect(searchRequests.map((request) => request.q)).toEqual(["TLS"]);
   });
 
+  it("posts opt-in auto-detect suggestions for unknown acronyms", async () => {
+    const autoDetectStore = new MemorySlackAutoDetectStore();
+    await autoDetectStore.setEnabled("T_WAT", "C_DOCS", true);
+    const receiver = createWatApp({
+      autoDetectStore,
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      event: {
+        channel: "C_DOCS",
+        text: "TLS is known, ZDR needs a definition.",
+        ts: "1700000004.000000",
+        type: "message",
+        user: "U_ALICE"
+      },
+      event_id: "Ev2",
+      event_time: 1700000004,
+      team_id: "T_WAT",
+      token: "legacy-token",
+      type: "event_callback"
+    });
+
+    expect(receiver.acked).toEqual([true]);
+    expect(searchRequests.map((request) => request.q)).toEqual(["TLS", "ZDR"]);
+    expect(capturedRequest("/api/chat.postEphemeral").body).toMatchObject({
+      channel: "C_DOCS",
+      text: "wat noticed ZDR. Use `/wat-suggest <term> as <expansion> -- <meaning>` if this is team jargon.",
+      user: "U_ALICE"
+    });
+  });
+
+  it("ignores message events when auto-detect is off", async () => {
+    const receiver = createWatApp({
+      autoDetectStore: new MemorySlackAutoDetectStore(),
+      watApiKey: "wat-team-key",
+      watTeamId: "wat-team-123"
+    });
+
+    await receiver.dispatch({
+      api_app_id: "A_WAT",
+      event: {
+        channel: "C_DOCS",
+        text: "ZDR needs a definition.",
+        ts: "1700000005.000000",
+        type: "message",
+        user: "U_ALICE"
+      },
+      event_id: "Ev3",
+      event_time: 1700000005,
+      team_id: "T_WAT",
+      token: "legacy-token",
+      type: "event_callback"
+    });
+
+    expect(searchRequests).toEqual([]);
+    expect(captured.some((item) => item.path === "/api/chat.postEphemeral")).toBe(false);
+  });
+
   it("replies in-thread to app mentions", async () => {
     const receiver = createWatApp();
 
@@ -568,6 +708,7 @@ describe("wat Bolt handlers", () => {
 
 function createWatApp(
   options: {
+    autoDetectStore?: SlackAutoDetectStore;
     fetchSlackUser?: typeof fetch;
     installStore?: SlackInstallStore;
     rateLimitConfig?: WorkspaceRateLimitConfig;
@@ -591,6 +732,7 @@ function createWatApp(
     tokenVerificationEnabled: false
   });
   registerWatBoltHandlers(app, {
+    autoDetectStore: options.autoDetectStore,
     rateLimitConfig: options.rateLimitConfig ?? {
       channelLimit: 100,
       limit: 100,
@@ -654,6 +796,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   if (
     url.pathname === "/response" ||
     url.pathname === "/api/chat.postMessage" ||
+    url.pathname === "/api/chat.postEphemeral" ||
     url.pathname === "/api/v1/custom-entries" ||
     url.pathname === "/api/v1/suggestions"
   ) {
