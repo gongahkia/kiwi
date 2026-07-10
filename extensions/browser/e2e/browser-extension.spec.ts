@@ -29,7 +29,14 @@ interface ExtensionSession {
 
 let server: Server;
 let baseUrl: string;
-let searchRequests: Array<{ context: string; limit: string; q: string }> = [];
+let searchRequests: Array<{
+  auth: string;
+  context: string;
+  limit: string;
+  q: string;
+  teamId: string;
+  userId: string;
+}> = [];
 let customEntryRequests: Array<Record<string, unknown>> = [];
 let savedCustomEntries: Array<{
   expansion: string;
@@ -376,6 +383,61 @@ test("options page tests connection before saving settings", async () => {
   }
 });
 
+test("options page saves active team picker and lookup uses that team", async () => {
+  const session = await launchExtension();
+  try {
+    const page = await session.context.newPage();
+    await page.goto(`chrome-extension://${session.extensionId}/options.html`);
+
+    await page.locator("#api-base-url").fill(baseUrl);
+    await page.locator("#account-email").fill("user@example.test");
+    await page.locator("#api-token").fill("test-token");
+    await page.locator("#team-id").fill("team-alpha");
+    await page.getByRole("button", { name: "Add team" }).click();
+    await page.locator("#team-id").fill("team-beta");
+    await page.getByRole("button", { name: "Add team" }).click();
+    await page.locator("#team-picker").selectOption("team-alpha");
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByRole("status")).toHaveText("Connection verified. Saved.");
+    await expect(
+      readExtensionStorage<{
+        apiToken?: string;
+        teamId?: string;
+        teams?: Array<{ id: string; name: string }>;
+      }>(session.worker, optionsStorageKey)
+    ).resolves.toMatchObject({
+      apiToken: "test-token",
+      teamId: "team-alpha",
+      teams: [
+        { id: "team-alpha", name: "team-alpha" },
+        { id: "team-beta", name: "team-beta" }
+      ]
+    });
+    expect(searchRequests.at(-1)).toMatchObject({
+      auth: "Bearer test-token",
+      q: "API",
+      teamId: "team-alpha",
+      userId: "user@example.test"
+    });
+
+    const sidePanel = await session.context.newPage();
+    await sidePanel.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+    await sidePanel.locator("#query").fill("TLS");
+    await sidePanel.getByRole("button", { name: "Search" }).click();
+
+    await expect(sidePanel.getByText("TLS - Transport Layer Security")).toBeVisible();
+    expect(searchRequests.at(-1)).toMatchObject({
+      auth: "Bearer test-token",
+      q: "TLS",
+      teamId: "team-alpha",
+      userId: "user@example.test"
+    });
+  } finally {
+    await closeExtension(session);
+  }
+});
+
 async function launchExtension(): Promise<ExtensionSession> {
   const userDataDir = await mkdtemp(path.join(tmpdir(), "wat-ext-"));
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -490,9 +552,12 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
 
   if (url.pathname === "/api/v1/search") {
     searchRequests.push({
+      auth: request.headers.authorization ?? "",
       context: url.searchParams.get("context") ?? "",
       limit: url.searchParams.get("limit") ?? "",
-      q: url.searchParams.get("q") ?? ""
+      q: url.searchParams.get("q") ?? "",
+      teamId: headerValue(request.headers["x-wat-team-id"]),
+      userId: headerValue(request.headers["x-wat-user-id"])
     });
 
     if (request.headers.authorization === "Bearer bad-token") {
@@ -539,6 +604,10 @@ function handleRequest(request: IncomingMessage, response: ServerResponse) {
 
   response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
   response.end("not found");
+}
+
+function headerValue(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {

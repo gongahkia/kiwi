@@ -40,6 +40,7 @@ const heatmapMode = byId<HTMLInputElement>("heatmap-mode");
 const domainFilters = byId<HTMLInputElement>("domain-filters");
 const status = byId<HTMLSpanElement>("status");
 let knownTeams: WatOptions["teams"] = [];
+let formDirty = false;
 
 function renderOptions(options: WatOptions) {
   knownTeams = options.teams;
@@ -85,8 +86,17 @@ function optionsFromForm(): WatOptions {
 }
 
 async function loadOptions() {
-  renderOptions(await loadWatOptions());
+  const options = await loadWatOptions();
+  if (!formDirty) renderOptions(options);
 }
+
+form.addEventListener("input", () => {
+  formDirty = true;
+});
+
+form.addEventListener("change", () => {
+  formDirty = true;
+});
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
