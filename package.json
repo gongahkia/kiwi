@@ -28,6 +28,7 @@
     "rollback:delta": "node scripts/rollback-delta.mjs",
     "smoke:local-demo": "sh scripts/smoke-local-demo.sh",
     "smoke:discord": "node scripts/smoke-platforms.mjs discord",
+    "smoke:deployment": "node scripts/smoke-deployment.mjs",
     "smoke:platforms": "node scripts/smoke-platforms.mjs all",
     "smoke:slack": "node scripts/smoke-platforms.mjs slack",
     "smoke:teams": "node scripts/smoke-platforms.mjs teams",

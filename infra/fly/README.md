@@ -23,6 +23,14 @@ terraform apply \
   -var auth_secret="$AUTH_SECRET"
 ```
 
+## Smoke test
+
+After apply, verify readiness and a seeded public search:
+
+```sh
+pnpm smoke:deployment -- --url "$(terraform output -raw web_url)"
+```
+
 ## Notes
 
 - DNS/TLS for `*.fly.dev` is handled by Fly.io.

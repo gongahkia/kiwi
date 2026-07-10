@@ -125,6 +125,12 @@ terraform apply
 
 The module in `infra/fly` provisions a single-region web machine, Fly app IPs, health checks, and secrets for auth/OAuth/database configuration. It expects a prebuilt web image and an external Postgres DSN.
 
+After apply, smoke-test the Terraform output URL:
+
+```sh
+pnpm smoke:deployment -- --terraform-dir infra/fly
+```
+
 ## Backups
 
 Postgres backups should use `pg_dump` for logical exports and should include any uploaded/generated assets once file storage exists.
