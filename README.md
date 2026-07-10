@@ -19,7 +19,7 @@ Layered glossary lookup for tech acronyms and team jargon. wat prioritizes in-wo
 | Discord | Integration-ready scaffold | Signed HTTP interactions, slash/message commands, DB guild mapping, suggestions, admin-gated defines, command registration, and metrics exist. |
 | MCP | Local stdio server | Works from a clone after build; npm package, hosted/API backing, and catalog listings are TODO. |
 
-See [Limitations](docs/limitations.md) for the current unsupported areas.
+See [Limitations](docs/limitations.md) for the current unsupported areas. Namespace/domain checks are recorded in [Project Identity](docs/project-identity.md).
 
 ## Local Demo
 
