@@ -94,6 +94,7 @@ Compose backup and restore use the checked-in scripts:
 
 ```sh
 DATABASE_URL=postgres://wat:wat@localhost:5432/wat BACKUP_DIR=backups ./scripts/backup.sh
+pnpm backup:verify -- backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz
 DATABASE_URL=postgres://wat:wat@localhost:5432/wat BACKUP_ARCHIVE=backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz ./scripts/restore.sh
 curl -f 'http://localhost:3000/api/v1/search?q=API&limit=1'
 ```

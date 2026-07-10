@@ -19,7 +19,11 @@ create extension if not exists vector;
 DATABASE_URL="$DATABASE_URL" BACKUP_DIR=backups ./scripts/backup.sh
 ```
 
-5. Keep the produced archive path with the deployment record.
+5. Verify and keep the produced archive path with the deployment record:
+
+```sh
+pnpm backup:verify -- backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz
+```
 
 ## Run Migrations And Public Seed
 
@@ -53,6 +57,12 @@ Required env:
 DATABASE_URL=postgres://...
 BACKUP_DIR=backups
 UPLOADS_DIR=uploads
+```
+
+Verify a script-produced archive before restore:
+
+```sh
+pnpm backup:verify -- backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
 ## Restore

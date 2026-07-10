@@ -69,7 +69,8 @@ select extname from pg_extension where extname in ('pg_trgm', 'vector');
 
 - Schedule `scripts/backup.sh` or provider-native Postgres backups daily.
 - Store backup archives outside the primary app host.
-- Run a restore drill into a new database at least monthly.
+- Verify script-produced archives before restore: `pnpm backup:verify -- backups/wat-backup-YYYYMMDDTHHMMSSZ.tar.gz`.
+- Run a restore drill into a new database at least monthly and record the verified archive name.
 - After restore, rerun migrations and verify `/readyz` plus search.
 
 ## TLS And Network

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const requiredPackageScripts = {
   "alerts:check": "node scripts/validate-alert-rules.mjs",
+  "backup:verify": "node scripts/verify-backup-archive.mjs",
   "load:search": "k6 run scripts/k6-search.js",
   "smoke:deployment": "node scripts/smoke-deployment.mjs",
   "smoke:platforms": "node scripts/smoke-platforms.mjs all",
@@ -11,6 +12,7 @@ export const requiredPackageScripts = {
   "test:e2e:extension":
     "pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",
   "test:e2e:web": "playwright test e2e/web-search.spec.ts",
+  "test:backup-verify": "node --test scripts/verify-backup-archive.test.mjs",
   "test:helm": "node --test scripts/helm-chart.test.mjs"
 };
 
@@ -23,6 +25,7 @@ export const requiredWorkflowCommands = [
   "pnpm release:check",
   "pnpm smoke:local-demo",
   "pnpm test",
+  "pnpm test:backup-verify",
   "pnpm test:e2e:extension",
   "pnpm test:e2e:web",
   "pnpm test:helm",
@@ -33,6 +36,7 @@ export const requiredDocTokens = {
   "docs/browser-extension-release.md": ["pnpm --filter @wat/ext build:stores"],
   "docs/performance.md": ["WAT_K6_P95_MS=150", "WAT_K6_P95_MS=300", "pnpm load:search"],
   "docs/production-readiness.md": [
+    "pnpm backup:verify",
     "pnpm smoke:deployment",
     "pnpm smoke:platforms",
     "browser extension",

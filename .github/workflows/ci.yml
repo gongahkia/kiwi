@@ -124,6 +124,7 @@ jobs:
       - run: pnpm test
       - run: pnpm test:e2e:web
       - run: pnpm test:e2e:extension
+      - run: pnpm test:backup-verify
       - run: pnpm test:helm
       - run: pnpm alerts:check
       - run: pnpm build:all

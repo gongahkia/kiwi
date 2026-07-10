@@ -35,12 +35,14 @@ describe("release gate coverage", () => {
       validatePackageScripts(JSON.stringify({ scripts: { "test:helm": "node nope.mjs" } })),
       [
         "alerts:check: node scripts/validate-alert-rules.mjs",
+        "backup:verify: node scripts/verify-backup-archive.mjs",
         "load:search: k6 run scripts/k6-search.js",
         "smoke:deployment: node scripts/smoke-deployment.mjs",
         "smoke:platforms: node scripts/smoke-platforms.mjs all",
         "test:e2e:auth: sh scripts/e2e-auth-mailpit.sh",
         "test:e2e:extension: pnpm --filter @wat/ext build && playwright test -c playwright.extension.config.ts",
         "test:e2e:web: playwright test e2e/web-search.spec.ts",
+        "test:backup-verify: node --test scripts/verify-backup-archive.test.mjs",
         "test:helm: node --test scripts/helm-chart.test.mjs"
       ]
     );
@@ -52,6 +54,7 @@ describe("release gate coverage", () => {
       "pnpm lint",
       "pnpm release:check",
       "pnpm smoke:local-demo",
+      "pnpm test:backup-verify",
       "pnpm test:e2e:extension",
       "pnpm test:e2e:web",
       "pnpm test:helm",
@@ -61,6 +64,7 @@ describe("release gate coverage", () => {
       "docs/browser-extension-release.md: pnpm --filter @wat/ext build:stores",
       "docs/performance.md: WAT_K6_P95_MS=150",
       "docs/performance.md: WAT_K6_P95_MS=300",
+      "docs/production-readiness.md: pnpm backup:verify",
       "docs/production-readiness.md: pnpm smoke:deployment",
       "docs/production-readiness.md: pnpm smoke:platforms",
       "docs/production-readiness.md: browser extension",
