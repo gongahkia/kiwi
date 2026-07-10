@@ -5,6 +5,7 @@ export interface WatOptions {
   domainFilters: string[];
   teamId: string;
   teams: WatTeamOption[];
+  heatmapMode: boolean;
   highlightMode: boolean;
   hoverMode: boolean;
 }
@@ -23,6 +24,7 @@ export const defaultOptions: WatOptions = {
   domainFilters: [],
   teamId: "",
   teams: [],
+  heatmapMode: false,
   highlightMode: false,
   hoverMode: false
 };
@@ -30,6 +32,7 @@ export const defaultOptions: WatOptions = {
 type ManagedOptionKey =
   | "apiBaseUrl"
   | "domainFilters"
+  | "heatmapMode"
   | "highlightMode"
   | "hoverMode"
   | "teamId"
@@ -81,6 +84,7 @@ export function upsertTeamOption(teams: WatTeamOption[], team: WatTeamOption): W
 export function managedOptionsFromPolicy(policy: Record<string, unknown>): Partial<ManagedOptions> {
   const apiBaseUrl = cleanString(policy.apiBaseUrl);
   const domainFilters = cleanDomainFilters(policy.domainFilters);
+  const heatmapMode = cleanBoolean(policy.heatmapMode);
   const highlightMode = cleanBoolean(policy.highlightMode);
   const hoverMode = cleanBoolean(policy.hoverMode);
   const teamId = cleanString(policy.teamId);
@@ -89,6 +93,7 @@ export function managedOptionsFromPolicy(policy: Record<string, unknown>): Parti
   return {
     ...(apiBaseUrl ? { apiBaseUrl } : {}),
     ...(domainFilters ? { domainFilters } : {}),
+    ...(heatmapMode == null ? {} : { heatmapMode }),
     ...(highlightMode == null ? {} : { highlightMode }),
     ...(hoverMode == null ? {} : { hoverMode }),
     ...(teamId ? { teamId } : {}),
@@ -141,6 +146,7 @@ export function normalizeWatOptions(options: Partial<WatOptions>): WatOptions {
     apiBaseUrl: cleanString(options.apiBaseUrl) ?? defaultOptions.apiBaseUrl,
     apiToken: cleanString(options.apiToken) ?? "",
     domainFilters: cleanDomainFilters(options.domainFilters) ?? [],
+    heatmapMode: cleanBoolean(options.heatmapMode) ?? defaultOptions.heatmapMode,
     highlightMode: cleanBoolean(options.highlightMode) ?? defaultOptions.highlightMode,
     hoverMode: cleanBoolean(options.hoverMode) ?? defaultOptions.hoverMode,
     teamId: cleanString(options.teamId) ?? "",

@@ -19,6 +19,11 @@
       "description": "Whether the extension should underline acronym-looking tokens on allowed pages.",
       "type": "boolean"
     },
+    "heatmapMode": {
+      "title": "Enable acronym density heatmap",
+      "description": "Whether the extension should show acronym density indicators on page paragraphs.",
+      "type": "boolean"
+    },
     "hoverMode": {
       "title": "Enable hover lookup",
       "description": "Whether hovering over acronym-looking tokens should request wat lookups on allowed pages.",

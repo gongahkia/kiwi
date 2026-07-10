@@ -1,5 +1,6 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 
+import { acronymDensityForText, heatmapAlpha } from "../src/acronym-heatmap.js";
 import { formatAlternativesLine } from "../src/alternatives.js";
 import { type LookupResponse } from "../src/messages.js";
 import { loadLocalWatOptions, type WatOptions } from "../src/options.js";
@@ -23,9 +24,11 @@ interface TextHit {
 
 let activeToken = "";
 let behaviorInstalled = false;
+let heatmapInstalled = false;
 let highlightInstalled = false;
 let hoverTimer: number | undefined;
 let tooltip: HTMLDivElement | null = null;
+const heatmapElements = new Set<HTMLElement>();
 
 function domainAllowed(filters: string[]): boolean {
   if (filters.length === 0) return true;
@@ -69,6 +72,7 @@ function setLookupListeners(enabled: boolean) {
 function applyOptions(options: WatOptions) {
   if (!domainAllowed(options.domainFilters)) {
     setLookupListeners(false);
+    setHeatmap(false);
     return;
   }
 
@@ -76,6 +80,7 @@ function applyOptions(options: WatOptions) {
     highlightAcronyms();
     highlightInstalled = true;
   }
+  setHeatmap(options.heatmapMode);
   setLookupListeners(options.hoverMode || options.highlightMode);
 }
 
@@ -200,6 +205,68 @@ function highlightAcronyms(limit = 300) {
   for (const node of nodes) {
     count += highlightTextNode(node);
     if (count >= limit) return;
+  }
+}
+
+function installHeatmapStyle() {
+  if (document.getElementById("wat-heatmap-style")) return;
+
+  const style = document.createElement("style");
+  style.id = "wat-heatmap-style";
+  style.textContent =
+    ".wat-acronym-heatmap{--wat-heatmap-alpha:0.1;background:linear-gradient(90deg,rgb(37 99 235 / var(--wat-heatmap-alpha)),transparent 70%);box-shadow:inset 4px 0 0 rgb(37 99 235);border-radius:4px;}";
+  document.documentElement.append(style);
+}
+
+function canHeatmapElement(element: Element): element is HTMLElement {
+  return (
+    element instanceof HTMLElement &&
+    !element.closest("script, style, textarea, input, [contenteditable='true']") &&
+    !element.closest(".wat-acronym-highlight")
+  );
+}
+
+function applyAcronymHeatmap(limit = 200) {
+  installHeatmapStyle();
+  const candidates = Array.from(document.querySelectorAll("p,li,blockquote")).filter(
+    canHeatmapElement
+  );
+  let count = 0;
+  for (const element of candidates) {
+    const density = acronymDensityForText(element.textContent ?? "");
+    if (density.level === 0) continue;
+    element.classList.add("wat-acronym-heatmap");
+    element.dataset.watAcronymCount = String(density.count);
+    element.dataset.watOriginalTitle = element.title;
+    element.style.setProperty("--wat-heatmap-alpha", heatmapAlpha(density.level));
+    element.title = element.title
+      ? `${element.title} - wat acronym count: ${density.count}`
+      : `wat acronym count: ${density.count}`;
+    heatmapElements.add(element);
+    count += 1;
+    if (count >= limit) return;
+  }
+}
+
+function clearAcronymHeatmap() {
+  for (const element of heatmapElements) {
+    element.classList.remove("wat-acronym-heatmap");
+    element.style.removeProperty("--wat-heatmap-alpha");
+    element.title = element.dataset.watOriginalTitle ?? "";
+    delete element.dataset.watAcronymCount;
+    delete element.dataset.watOriginalTitle;
+  }
+  heatmapElements.clear();
+  heatmapInstalled = false;
+}
+
+function setHeatmap(enabled: boolean) {
+  if (enabled && !heatmapInstalled) {
+    applyAcronymHeatmap();
+    heatmapInstalled = true;
+  }
+  if (!enabled && heatmapInstalled) {
+    clearAcronymHeatmap();
   }
 }
 

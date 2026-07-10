@@ -36,6 +36,7 @@ const teamPicker = byId<HTMLSelectElement>("team-picker");
 const addTeam = byId<HTMLButtonElement>("add-team");
 const hoverMode = byId<HTMLInputElement>("hover-mode");
 const highlightMode = byId<HTMLInputElement>("highlight-mode");
+const heatmapMode = byId<HTMLInputElement>("heatmap-mode");
 const domainFilters = byId<HTMLInputElement>("domain-filters");
 const status = byId<HTMLSpanElement>("status");
 let knownTeams: WatOptions["teams"] = [];
@@ -49,6 +50,7 @@ function renderOptions(options: WatOptions) {
   renderTeamPicker(options);
   hoverMode.checked = options.hoverMode;
   highlightMode.checked = options.highlightMode;
+  heatmapMode.checked = options.heatmapMode;
   domainFilters.value = domainFilterText(options.domainFilters);
 }
 
@@ -76,6 +78,7 @@ function optionsFromForm(): WatOptions {
     teams: selectedTeamId
       ? upsertTeamOption(knownTeams, { id: selectedTeamId, name: selectedTeamId })
       : knownTeams,
+    heatmapMode: heatmapMode.checked,
     highlightMode: highlightMode.checked,
     hoverMode: hoverMode.checked
   };

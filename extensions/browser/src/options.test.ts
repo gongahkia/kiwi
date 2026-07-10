@@ -65,6 +65,7 @@ describe("options privacy defaults", () => {
     stubStorage({
       apiBaseUrl: "https://wat.example.test",
       domainFilters: ["Docs.Example.test", "docs.example.test", " "],
+      heatmapMode: true,
       highlightMode: true,
       hoverMode: false,
       teamId: "team_managed",
@@ -78,6 +79,7 @@ describe("options privacy defaults", () => {
       [optionsStorageKey]: {
         apiBaseUrl: "https://local.example.test",
         domainFilters: ["local.example.test"],
+        heatmapMode: false,
         highlightMode: false,
         hoverMode: true,
         teamId: "team_local",
@@ -88,6 +90,7 @@ describe("options privacy defaults", () => {
     expect(await loadWatOptions()).toMatchObject({
       apiBaseUrl: "https://wat.example.test",
       domainFilters: ["docs.example.test"],
+      heatmapMode: true,
       highlightMode: true,
       hoverMode: false,
       teamId: "team_managed",
@@ -115,6 +118,7 @@ describe("options privacy defaults", () => {
       managedOptionsFromPolicy({
         apiBaseUrl: " https://wat.example.test ",
         domainFilters: [" Docs.Example.test ", "", 42, "docs.example.test"],
+        heatmapMode: false,
         highlightMode: "true",
         hoverMode: true,
         teamId: " team_1 ",
@@ -127,6 +131,7 @@ describe("options privacy defaults", () => {
     ).toEqual({
       apiBaseUrl: "https://wat.example.test",
       domainFilters: ["docs.example.test"],
+      heatmapMode: false,
       hoverMode: true,
       teamId: "team_1",
       teams: [{ id: "team_2", name: "Duplicate" }]
@@ -137,6 +142,7 @@ describe("options privacy defaults", () => {
     expect(
       normalizeWatOptions({
         highlightMode: "true" as unknown as boolean,
+        heatmapMode: "true" as unknown as boolean,
         teamId: " team_b ",
         teams: [
           { id: " team_b ", name: " Beta " },
@@ -146,6 +152,7 @@ describe("options privacy defaults", () => {
       })
     ).toMatchObject({
       highlightMode: false,
+      heatmapMode: false,
       teamId: "team_b",
       teams: [
         { id: "team_b", name: "Beta" },

@@ -18,7 +18,7 @@ pnpm --filter @wat/ext build
 pnpm --filter @wat/ext zip
 ```
 
-The options page stores API base URL, account email/token, hover mode, auto-highlight mode, and domain filters in extension storage. When hover or auto-highlight mode is enabled, the content script asks the background worker for uppercase-token lookups and renders a sourced tooltip. The action button opens a Chrome side panel that searches through the same background lookup path using the active tab hostname as context.
+The options page stores API base URL, account email/token, hover mode, auto-highlight mode, acronym density heatmap mode, and domain filters in extension storage. When hover or auto-highlight mode is enabled, the content script asks the background worker for uppercase-token lookups and renders a sourced tooltip. When heatmap mode is enabled, the content script adds a visual acronym-density indicator to acronym-heavy paragraphs without sending paragraph text to the API. The action button opens a Chrome side panel that searches through the same background lookup path using the active tab hostname as context.
 
 ## Enterprise Deployment
 
@@ -30,6 +30,7 @@ Managed Chrome and Edge deployments can preconfigure shared extension settings t
 - `domainFilters`
 - `hoverMode`
 - `highlightMode`
+- `heatmapMode`
 
 Use the browser extension ID assigned by Chrome Web Store, Edge Add-ons, or the self-hosted CRX. Force-install examples:
 
@@ -63,7 +64,8 @@ Managed settings example:
         "teams": [{ "id": "team_123", "name": "Platform" }],
         "domainFilters": ["example.com"],
         "hoverMode": true,
-        "highlightMode": false
+        "highlightMode": false,
+        "heatmapMode": false
       }
     }
   }
@@ -89,6 +91,8 @@ The hover/highlight context is limited to the current hostname, document title, 
 
 Custom-entry saves send the selected term, expansion, meaning, scope, domains, source URL, and source title only after user confirmation.
 
-The extension stores `apiBaseUrl`, `accountEmail`, `apiToken`, `teamId`, known `teams`, domain filters, hover/highlight settings, and recent lookup cache in browser storage. Local cache data should be bounded by an LRU limit. Telemetry should be off by default.
+Heatmap mode runs locally and uses only paragraph text already present in the page DOM. It does not call the wat API.
+
+The extension stores `apiBaseUrl`, `accountEmail`, `apiToken`, `teamId`, known `teams`, domain filters, hover/highlight/heatmap settings, and recent lookup cache in browser storage. Local cache data should be bounded by an LRU limit. Telemetry should be off by default.
 
 Team entries require account sync. Authentication tokens should be stored through browser extension storage APIs and scoped to wat API calls only.
