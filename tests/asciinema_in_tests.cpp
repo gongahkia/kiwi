@@ -17,14 +17,14 @@ void expect(bool condition, const char* label) {
 
 int main() {
   {
-    const contourtty::AsciinemaHeader header = contourtty::parseAsciinemaHeader(R"({"version":2,"width":80,"height":24,"timestamp":1})");
+    const strok::AsciinemaHeader header = strok::parseAsciinemaHeader(R"({"version":2,"width":80,"height":24,"timestamp":1})");
     expect(header.version == 2, "header version");
     expect(header.width == 80, "header width");
     expect(header.height == 24, "header height");
   }
 
   {
-    const contourtty::AsciinemaEvent event = contourtty::parseAsciinemaEvent(R"([1.250000,"o","hello\n\u001b?"])");
+    const strok::AsciinemaEvent event = strok::parseAsciinemaEvent(R"([1.250000,"o","hello\n\u001b?"])");
     expect(event.time == 1.25, "event time");
     expect(event.type == "o", "event type");
     expect(event.data == "hello\n\x1b?", "event data escapes");
@@ -33,7 +33,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::parseAsciinemaHeader(R"({"version":1,"width":80,"height":24})");
+      (void)strok::parseAsciinemaHeader(R"({"version":1,"width":80,"height":24})");
     } catch (const std::invalid_argument&) {
       threw = true;
     }
@@ -43,7 +43,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::parseAsciinemaEvent(R"([0,"o","unterminated])");
+      (void)strok::parseAsciinemaEvent(R"([0,"o","unterminated])");
     } catch (const std::invalid_argument&) {
       threw = true;
     }

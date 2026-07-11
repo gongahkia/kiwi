@@ -15,13 +15,13 @@ void expect(bool condition, const char* label) {
 }  // namespace
 
 int main() {
-  contourtty::CellBuffer buffer(4, 3);
+  strok::CellBuffer buffer(4, 3);
   expect(buffer.cols() == 4, "cols");
   expect(buffer.rows() == 3, "rows");
   expect(buffer.size() == 12, "size");
 
   buffer.at(2, 1).glyph = U'#';
-  buffer.at(2, 1).fg = contourtty::Rgb{.r = 1, .g = 2, .b = 3};
+  buffer.at(2, 1).fg = strok::Rgb{.r = 1, .g = 2, .b = 3};
   expect(buffer.at(2, 1).glyph == U'#', "glyph write");
   expect(buffer.at(2, 1).fg.g == 2, "fg write");
 

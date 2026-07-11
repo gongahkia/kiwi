@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-build_dir="${CONTOURTTY_PACKAGE_BUILD_DIR:-"$root/build/package"}"
+build_dir="${STROK_PACKAGE_BUILD_DIR:-"$root/build/package"}"
 tmp_dir=""
 
 cleanup() {
@@ -45,10 +45,10 @@ require_pkg freetype2
 
 cmake -S "$root" -B "$build_dir" \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCONTOURTTY_WARNINGS_AS_ERRORS=ON
+  -DSTROK_WARNINGS_AS_ERRORS=ON
 build_args=(--build "$build_dir" --parallel)
-if [[ -n "${CONTOURTTY_PACKAGE_BUILD_JOBS:-}" ]]; then
-  build_args=(--build "$build_dir" --parallel "$CONTOURTTY_PACKAGE_BUILD_JOBS")
+if [[ -n "${STROK_PACKAGE_BUILD_JOBS:-}" ]]; then
+  build_args=(--build "$build_dir" --parallel "$STROK_PACKAGE_BUILD_JOBS")
 fi
 cmake "${build_args[@]}"
 ctest --test-dir "$build_dir" --output-on-failure
@@ -58,9 +58,9 @@ package_base="$(sed -n 's/^set(CPACK_PACKAGE_FILE_NAME "\(.*\)")$/\1/p' "$build_
 tgz="$root/${package_base}.tar.gz"
 tmp_dir="$(mktemp -d)"
 tar -xzf "$tgz" -C "$tmp_dir"
-packaged_bin="$(find "$tmp_dir" -type f -path "*/bin/contourtty" -print -quit)"
+packaged_bin="$(find "$tmp_dir" -type f -path "*/bin/strok" -print -quit)"
 if [[ -z "$packaged_bin" ]]; then
-  echo "packaged contourtty binary not found in $tgz" >&2
+  echo "packaged strok binary not found in $tgz" >&2
   exit 1
 fi
 "$packaged_bin" --version >/dev/null

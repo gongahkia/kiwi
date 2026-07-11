@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::optional<SplitSpec> parsePair(std::string_view value, char separator) {
@@ -122,4 +122,4 @@ void composeSplitCells(const CellBuffer& left, const CellBuffer& right, const Sp
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

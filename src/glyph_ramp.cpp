@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 namespace fs = std::filesystem;
@@ -50,16 +50,16 @@ bool isCharsetName(std::string_view name) {
 
 std::vector<fs::path> charsetDirs() {
   std::vector<fs::path> dirs;
-  if (const char* data_dir = std::getenv("CONTOURTTY_DATA_DIR"); data_dir != nullptr && *data_dir != '\0') {
+  if (const char* data_dir = std::getenv("STROK_DATA_DIR"); data_dir != nullptr && *data_dir != '\0') {
     dirs.push_back(fs::path(data_dir) / "charsets");
   }
-#ifdef CONTOURTTY_SOURCE_DIR
-  dirs.push_back(fs::path(CONTOURTTY_SOURCE_DIR) / "share" / "contourtty" / "charsets");
+#ifdef STROK_SOURCE_DIR
+  dirs.push_back(fs::path(STROK_SOURCE_DIR) / "share" / "strok" / "charsets");
 #endif
-#ifdef CONTOURTTY_DATA_DIR
-  dirs.push_back(fs::path(CONTOURTTY_DATA_DIR) / "charsets");
+#ifdef STROK_DATA_DIR
+  dirs.push_back(fs::path(STROK_DATA_DIR) / "charsets");
 #endif
-  dirs.push_back(fs::path("share") / "contourtty" / "charsets");
+  dirs.push_back(fs::path("share") / "strok" / "charsets");
   return dirs;
 }
 
@@ -220,4 +220,4 @@ char32_t glyphForLuminance(double luminance, std::u32string_view ramp) {
   return ramp[index];
 }
 
-}  // namespace contourtty
+}  // namespace strok

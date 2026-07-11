@@ -18,15 +18,15 @@
 #include <immintrin.h>
 #endif
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
 #if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
-#define CONTOURTTY_X86_AVX2_TARGET __attribute__((target("avx2")))
+#define STROK_X86_AVX2_TARGET __attribute__((target("avx2")))
 #else
-#define CONTOURTTY_X86_AVX2_TARGET
+#define STROK_X86_AVX2_TARGET
 #endif
 
 double sampleClamped(const LuminanceField& field, int x, int y) {
@@ -114,7 +114,7 @@ bool avx2Available() {
   return __builtin_cpu_supports("avx2");
 }
 
-CONTOURTTY_X86_AVX2_TARGET void computeSobelAvx2Row(const LuminanceField& field, int y, GradientField* gradients) {
+STROK_X86_AVX2_TARGET void computeSobelAvx2Row(const LuminanceField& field, int y, GradientField* gradients) {
   if (field.width < 5 || y == 0 || y == field.height - 1) {
     computeSobelScalarRow(field, y, gradients);
     return;
@@ -474,4 +474,4 @@ std::optional<char32_t> directionalGlyphForGradient(const CellGradient& gradient
   return best->glyph;
 }
 
-}  // namespace contourtty
+}  // namespace strok

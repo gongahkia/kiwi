@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct SourceRegion {
   int x0 = 0;
@@ -49,4 +49,4 @@ LuminanceField makeLuminanceField(const Frame& frame);
 SourceRegion cellSourceRegion(int source_width, int source_height, int cols, int rows, int col, int row);
 CellLuminanceRegion sampleCellRegion(const LuminanceField& field, int cols, int rows, int col, int row);
 
-}  // namespace contourtty
+}  // namespace strok

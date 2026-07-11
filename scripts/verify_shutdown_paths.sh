@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bin="${1:-./build/ci/contourtty}"
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/contourtty-shutdown.XXXXXX")"
+bin="${1:-./build/ci/strok}"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/strok-shutdown.XXXXXX")"
 
 cleanup() {
   rm -rf "$tmp"

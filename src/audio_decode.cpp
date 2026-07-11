@@ -19,7 +19,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct FormatContextDeleter {
@@ -318,4 +318,4 @@ DecodedAudio decodeAudioFile(const std::filesystem::path& input, const AudioDeco
   return decoded;
 }
 
-}  // namespace contourtty
+}  // namespace strok

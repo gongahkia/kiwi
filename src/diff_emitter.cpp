@@ -7,7 +7,7 @@
 #include <cmath>
 #include <optional>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool sameColor(Rgb lhs, Rgb rhs) noexcept {
@@ -150,4 +150,4 @@ void DiffEmitter::reset() {
   previous_ = CellBuffer{};
 }
 
-}  // namespace contourtty
+}  // namespace strok

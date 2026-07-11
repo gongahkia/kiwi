@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct MediaProbeInfo {
   std::filesystem::path input;
@@ -46,4 +46,4 @@ struct MediaProbeOptions {
 MediaProbeInfo probeMedia(const std::filesystem::path& input, const MediaProbeOptions& options = {});
 std::string formatMediaProbeInfo(const MediaProbeInfo& info);
 
-}  // namespace contourtty
+}  // namespace strok

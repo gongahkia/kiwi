@@ -3,7 +3,7 @@
 #include <span>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 struct CliOptionSpec {
   std::string_view syntax;
@@ -12,4 +12,4 @@ struct CliOptionSpec {
 
 std::span<const CliOptionSpec> cliOptionSpecs() noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool isCsiFinal(unsigned char ch) noexcept {
@@ -321,4 +321,4 @@ void AsciinemaVteScreen::applySgr(std::string_view params_text) {
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

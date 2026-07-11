@@ -30,7 +30,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct FormatContextDeleter {
@@ -608,4 +608,4 @@ std::string formatMediaProbeInfo(const MediaProbeInfo& info) {
   return out.str();
 }
 
-}  // namespace contourtty
+}  // namespace strok

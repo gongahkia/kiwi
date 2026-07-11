@@ -14,7 +14,7 @@
 #include <system_error>
 #include <utility>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool hasValue(std::string_view value) noexcept {
@@ -258,4 +258,4 @@ std::string summarizeTerminalCaps(const TerminalCaps& caps) {
   return summary;
 }
 
-}  // namespace contourtty
+}  // namespace strok

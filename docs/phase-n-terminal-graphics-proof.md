@@ -10,7 +10,7 @@ Protocol reference: https://sw.kovidgoyal.net/kitty/graphics-protocol/
 Generated source frame:
 
 ```sh
-ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=duration=1:size=320x180:rate=1 -frames:v 1 -y /tmp/contourtty-kitty-proof-src.png
+ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=duration=1:size=320x180:rate=1 -frames:v 1 -y /tmp/strok-kitty-proof-src.png
 ```
 
 `--width 40 --height 15 --cell-aspect 0.6666667` maps the proof frame to 40 x 15 cells. With the in-tree 8 x 12 raster cell size, the graphics upload is 320 x 180 px.
@@ -22,7 +22,7 @@ Live proof:
 ```sh
 unset NO_COLOR
 export COLORTERM=truecolor TERM=xterm-ghostty
-./build/ci/contourtty --render-mode pixel --caps kitty,truecolor --width 40 --height 15 --cell-aspect 0.6666667 --color-mode truecolor --log /tmp/contourtty-kitty-pixel-fullres-live.log /tmp/contourtty-kitty-proof-src.png
+./build/ci/strok --render-mode pixel --caps kitty,truecolor --width 40 --height 15 --cell-aspect 0.6666667 --color-mode truecolor --log /tmp/strok-kitty-pixel-fullres-live.log /tmp/strok-kitty-proof-src.png
 ```
 
 Screen capture:
@@ -43,7 +43,7 @@ Live proof:
 ```sh
 unset NO_COLOR
 export COLORTERM=truecolor TERM=xterm-ghostty
-./build/ci/contourtty --render-mode hybrid --mode structure --edge-threshold 0.02 --dog-sigma 0 --caps kitty,truecolor --width 40 --height 15 --cell-aspect 0.6666667 --color-mode truecolor --log /tmp/contourtty-kitty-hybrid-fullres-live.log /tmp/contourtty-kitty-proof-src.png
+./build/ci/strok --render-mode hybrid --mode structure --edge-threshold 0.02 --dog-sigma 0 --caps kitty,truecolor --width 40 --height 15 --cell-aspect 0.6666667 --color-mode truecolor --log /tmp/strok-kitty-hybrid-fullres-live.log /tmp/strok-kitty-proof-src.png
 ```
 
 Screen capture:

@@ -1,6 +1,6 @@
 #include "structure_overlay.hpp"
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool graphImpliesStructure(const CliOptions& options) {
@@ -40,4 +40,4 @@ bool structureOverlayEnabled(const CliOptions& options) {
   return structureOverlayImplied(options);
 }
 
-}  // namespace contourtty
+}  // namespace strok

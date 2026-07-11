@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 
 GraphicsAlignment graphicsAlignmentForRaster(int cols, int rows, int pixel_width, int pixel_height) {
   if (cols <= 0 || rows <= 0 || pixel_width <= 0 || pixel_height <= 0) {
@@ -43,4 +43,4 @@ bool pixelAlignedToCellColumn(const GraphicsAlignment& alignment, int col, int p
   return std::abs(pixel_x - cellLeftPixel(alignment, col)) <= tolerance_px;
 }
 
-}  // namespace contourtty
+}  // namespace strok

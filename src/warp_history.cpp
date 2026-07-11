@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 void validateWarpInputs(std::size_t count, int cols, int rows, const FlowField& flow, const char* label) {
@@ -65,4 +65,4 @@ std::vector<CellLuminanceRegion> warpCellShapeHistory(std::span<const CellLumina
   return warped;
 }
 
-}  // namespace contourtty
+}  // namespace strok

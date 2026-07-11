@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 class AsciinemaFrameSource {
  public:
@@ -31,4 +31,4 @@ class AsciinemaFrameSource {
 
 Frame asciinemaCellsToFrame(const CellBuffer& cells, int64_t pts_us);
 
-}  // namespace contourtty
+}  // namespace strok

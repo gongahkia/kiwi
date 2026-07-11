@@ -3,7 +3,7 @@
 #include "frame.hpp"
 #include "luminance.hpp"
 
-namespace contourtty {
+namespace strok {
 
 struct Oklab {
   double l = 0.0;
@@ -16,4 +16,4 @@ Rgb oklabToRgb(Oklab color) noexcept;
 Rgb posterizeOklab(Rgb rgb, int levels);
 Frame posterizeFrameOklab(const Frame& frame, int levels);
 
-}  // namespace contourtty
+}  // namespace strok

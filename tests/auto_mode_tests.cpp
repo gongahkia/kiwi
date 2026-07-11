@@ -12,8 +12,8 @@ void expect(bool condition, const char* label) {
   }
 }
 
-contourtty::CliOptions autoOptions() {
-  contourtty::CliOptions options;
+strok::CliOptions autoOptions() {
+  strok::CliOptions options;
   options.mode = "auto";
   return options;
 }
@@ -22,61 +22,61 @@ contourtty::CliOptions autoOptions() {
 
 int main() {
   {
-    contourtty::CliOptions options = autoOptions();
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{.truecolor = true, .font_has_octants = true});
+    strok::CliOptions options = autoOptions();
+    strok::resolveAutoMode(&options, strok::TerminalCaps{.truecolor = true, .font_has_octants = true});
     expect(options.mode == "octant", "auto picks octant");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{.truecolor = true, .font_has_sextants = true});
+    strok::CliOptions options = autoOptions();
+    strok::resolveAutoMode(&options, strok::TerminalCaps{.truecolor = true, .font_has_sextants = true});
     expect(options.mode == "sextant", "auto picks sextant");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{.truecolor = true, .font_has_braille = true});
+    strok::CliOptions options = autoOptions();
+    strok::resolveAutoMode(&options, strok::TerminalCaps{.truecolor = true, .font_has_braille = true});
     expect(options.mode == "braille", "auto picks packed braille mode");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{.truecolor = true});
+    strok::CliOptions options = autoOptions();
+    strok::resolveAutoMode(&options, strok::TerminalCaps{.truecolor = true});
     expect(options.mode == "halfblock", "auto truecolor fallback");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
+    strok::CliOptions options = autoOptions();
     options.edge_threshold = 0.2;
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    strok::resolveAutoMode(&options, strok::TerminalCaps{});
     expect(options.mode == "structure", "auto structure fallback");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
+    strok::CliOptions options = autoOptions();
     options.structure_overlay = "off";
     options.edge_threshold = 0.2;
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    strok::resolveAutoMode(&options, strok::TerminalCaps{});
     expect(options.mode == "luminance", "auto overlay off fallback");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
+    strok::CliOptions options = autoOptions();
     options.structure_overlay = "on";
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    strok::resolveAutoMode(&options, strok::TerminalCaps{});
     expect(options.mode == "structure", "auto overlay on fallback");
   }
 
   {
-    contourtty::CliOptions options = autoOptions();
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    strok::CliOptions options = autoOptions();
+    strok::resolveAutoMode(&options, strok::TerminalCaps{});
     expect(options.mode == "luminance", "auto luminance fallback");
   }
 
   {
-    contourtty::CliOptions options;
+    strok::CliOptions options;
     options.mode = "octant";
-    contourtty::resolveAutoMode(&options, contourtty::TerminalCaps{});
+    strok::resolveAutoMode(&options, strok::TerminalCaps{});
     expect(options.mode == "octant", "non-auto unchanged");
   }
 }

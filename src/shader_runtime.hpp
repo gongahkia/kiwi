@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <memory>
 
-namespace contourtty {
+namespace strok {
 
 bool shaderRuntimeAvailable();
 
@@ -27,4 +27,4 @@ class ShaderFrameSource {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace contourtty
+}  // namespace strok

@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 enum class ColorMode {
   Truecolor,
@@ -16,4 +16,4 @@ ColorMode resolveColorMode(std::string_view requested, const char* term, const c
 bool emitsTruecolor(ColorMode mode) noexcept;
 std::string_view colorModeName(ColorMode mode) noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

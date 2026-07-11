@@ -17,30 +17,30 @@ void expectEqual(const std::string& actual, const std::string& expected, const c
 
 int main() {
   std::string out;
-  contourtty::appendSgrFg(out, contourtty::Rgb{.r = 1, .g = 2, .b = 3});
+  strok::appendSgrFg(out, strok::Rgb{.r = 1, .g = 2, .b = 3});
   expectEqual(out, "\x1b[38;2;1;2;3m", "fg sgr");
 
   out.clear();
-  contourtty::appendSgrBg(out, contourtty::Rgb{.r = 4, .g = 5, .b = 6});
+  strok::appendSgrBg(out, strok::Rgb{.r = 4, .g = 5, .b = 6});
   expectEqual(out, "\x1b[48;2;4;5;6m", "bg sgr");
 
   out.clear();
-  contourtty::appendSgrFg256(out, 196);
-  contourtty::appendSgrBg256(out, 16);
+  strok::appendSgrFg256(out, 196);
+  strok::appendSgrBg256(out, 16);
   expectEqual(out, "\x1b[38;5;196m\x1b[48;5;16m", "256 sgr");
 
   out.clear();
-  contourtty::appendSgrFg16(out, 9);
-  contourtty::appendSgrBg16(out, 4);
+  strok::appendSgrFg16(out, 9);
+  strok::appendSgrBg16(out, 4);
   expectEqual(out, "\x1b[91m\x1b[44m", "16 sgr");
 
   out.clear();
-  contourtty::appendCursorMove(out, 12, 34);
+  strok::appendCursorMove(out, 12, 34);
   expectEqual(out, "\x1b[12;34H", "cursor");
 
   out.clear();
-  contourtty::appendUtf8(out, U'@');
-  contourtty::appendUtf8(out, U'█');
-  contourtty::appendSgrReset(out);
+  strok::appendUtf8(out, U'@');
+  strok::appendUtf8(out, U'█');
+  strok::appendSgrReset(out);
   expectEqual(out, "@\xe2\x96\x88\x1b[0m", "utf8 reset");
 }

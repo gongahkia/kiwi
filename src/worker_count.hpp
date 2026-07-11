@@ -4,10 +4,10 @@
 #include <cstdlib>
 #include <optional>
 
-namespace contourtty {
+namespace strok {
 
 inline std::optional<int> configuredWorkerLimit() {
-  const char* value = std::getenv("CONTOURTTY_WORKERS");
+  const char* value = std::getenv("STROK_WORKERS");
   if (value == nullptr || *value == '\0') {
     return std::nullopt;
   }
@@ -27,4 +27,4 @@ inline int boundedWorkerCount(int fallback) {
   return std::max(1, std::min(fallback, *configured));
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 uint8_t blendChannel(uint8_t bg, uint8_t fg, double alpha) noexcept {
@@ -38,4 +38,4 @@ Frame composeDepthOverlay(const Frame& base, const SceneGBuffer& overlay, DepthO
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

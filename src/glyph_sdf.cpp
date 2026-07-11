@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kInsideThreshold = 0.5;
@@ -169,4 +169,4 @@ GlyphShapeTable buildSdfGlyphShapeTable(const GlyphFont& font, std::u32string_vi
   });
 }
 
-}  // namespace contourtty
+}  // namespace strok

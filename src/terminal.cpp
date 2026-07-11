@@ -7,7 +7,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 volatile std::sig_atomic_t g_should_quit = 0;
@@ -129,4 +129,4 @@ bool consumeResizeFlag() noexcept {
   return true;
 }
 
-}  // namespace contourtty
+}  // namespace strok

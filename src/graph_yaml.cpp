@@ -8,7 +8,7 @@
 #include <string>
 #include <unordered_set>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::string trim(std::string_view value) {
@@ -227,4 +227,4 @@ void applyGraphYamlToOptions(const GraphYaml& graph, CliOptions* options) {
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

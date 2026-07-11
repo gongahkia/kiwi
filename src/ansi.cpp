@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 void appendSgrFg(std::string& out, Rgb color) {
   out += "\x1b[38;2;";
@@ -87,4 +87,4 @@ void appendUtf8(std::string& out, char32_t codepoint) {
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

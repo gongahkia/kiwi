@@ -4,7 +4,7 @@
 #include "frame.hpp"
 #include "terminal.hpp"
 
-namespace contourtty {
+namespace strok {
 
 struct RenderSize {
   int cols = 0;
@@ -19,4 +19,4 @@ struct RenderOrigin {
 RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal);
 RenderOrigin centeredOrigin(RenderSize size, TerminalSize terminal);
 
-}  // namespace contourtty
+}  // namespace strok

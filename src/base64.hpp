@@ -4,8 +4,8 @@
 #include <span>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 std::string base64Encode(std::span<const uint8_t> bytes);
 
-}  // namespace contourtty
+}  // namespace strok

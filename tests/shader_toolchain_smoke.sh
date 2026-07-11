@@ -10,7 +10,7 @@ if ! command -v spirv-cross >/dev/null 2>&1; then
   exit 77
 fi
 
-tmp="${TMPDIR:-/tmp}/contourtty-shader-toolchain-$$"
+tmp="${TMPDIR:-/tmp}/strok-shader-toolchain-$$"
 rm -rf "$tmp"
 mkdir -p "$tmp"
 trap 'rm -rf "$tmp"' EXIT

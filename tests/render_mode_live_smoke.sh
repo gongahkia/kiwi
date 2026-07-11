@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bin="${1:?contourtty binary required}"
+bin="${1:?strok binary required}"
 
 if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "ffmpeg CLI unavailable; skipping render-mode live smoke"
@@ -12,7 +12,7 @@ if ! command -v script >/dev/null 2>&1; then
   exit 77
 fi
 
-tmp="${TMPDIR:-/tmp}/contourtty-render-mode-live-$$"
+tmp="${TMPDIR:-/tmp}/strok-render-mode-live-$$"
 mkdir -p "$tmp"
 trap 'rm -rf "$tmp"' EXIT
 

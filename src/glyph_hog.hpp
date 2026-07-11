@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 class GlyphFont;
 
@@ -22,4 +22,4 @@ std::vector<double> hogVectorForCell(const CellLuminanceRegion& region);
 GlyphShapeTable buildHogGlyphShapeTable(std::u32string_view glyphs, int cell_width, int cell_height);
 GlyphShapeTable buildHogGlyphShapeTable(const GlyphFont& font, std::u32string_view glyphs, int cell_width, int cell_height);
 
-}  // namespace contourtty
+}  // namespace strok

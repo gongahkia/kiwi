@@ -6,7 +6,7 @@
 #include <optional>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct GlyphHysteresisDecision {
   char32_t glyph = U' ';
@@ -56,4 +56,4 @@ class OrientationHysteresisState {
   std::vector<Entry> entries_;
 };
 
-}  // namespace contourtty
+}  // namespace strok

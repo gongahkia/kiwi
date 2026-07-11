@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct BlockCandidate {
@@ -81,4 +81,4 @@ void renderBlockSadFrame(const Frame& frame, int cols, int rows, CellBuffer* cel
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

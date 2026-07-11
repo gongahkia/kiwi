@@ -1,6 +1,6 @@
 #include "cli_spec.hpp"
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr CliOptionSpec kCliOptionSpecs[] = {
@@ -79,4 +79,4 @@ std::span<const CliOptionSpec> cliOptionSpecs() noexcept {
   return kCliOptionSpecs;
 }
 
-}  // namespace contourtty
+}  // namespace strok

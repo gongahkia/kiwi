@@ -1,4 +1,4 @@
-class Contourtty < Formula
+class Strok < Formula
   desc "Structure-aware ASCII terminal media renderer"
   homepage "https://github.com/gongahkia/strok"
   license "MIT"
@@ -19,6 +19,6 @@ class Contourtty < Formula
   end
 
   test do
-    assert_match "contourtty", shell_output("#{bin}/contourtty --version")
+    assert_match "strok", shell_output("#{bin}/strok --version")
   end
 end

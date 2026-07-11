@@ -7,7 +7,7 @@
 
 #include "nanoflann.hpp"
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct GlyphFeatureDataset {
@@ -81,4 +81,4 @@ void attachGlyphKdTree(GlyphShapeTable* table) {
   table->index = std::make_shared<GlyphKdTreeIndex>(*table);
 }
 
-}  // namespace contourtty
+}  // namespace strok

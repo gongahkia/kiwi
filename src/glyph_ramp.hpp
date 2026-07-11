@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 constexpr std::u32string_view kDefaultGlyphRamp = U" .:-=+*#%@";
 
@@ -13,4 +13,4 @@ bool isValidCharset(std::string_view charset) noexcept;
 bool isBrailleCharset(std::string_view charset) noexcept;
 char32_t glyphForLuminance(double luminance, std::u32string_view ramp = kDefaultGlyphRamp);
 
-}  // namespace contourtty
+}  // namespace strok

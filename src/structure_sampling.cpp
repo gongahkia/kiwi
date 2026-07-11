@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 int workerCount(int rows, int items) {
@@ -116,4 +116,4 @@ CellLuminanceRegion sampleCellRegion(const LuminanceField& field, int cols, int 
   return region;
 }
 
-}  // namespace contourtty
+}  // namespace strok

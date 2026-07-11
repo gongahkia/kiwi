@@ -12,15 +12,15 @@ int main(int argc, char** argv) {
     if (argc != 2) {
       throw std::runtime_error("usage: audio_file_smoke <media-file>");
     }
-    const auto decoded = contourtty::decodeAudioFile(std::filesystem::path(argv[1]));
+    const auto decoded = strok::decodeAudioFile(std::filesystem::path(argv[1]));
     std::cout << "decoded audio: frames=" << (decoded.samples.size() / static_cast<std::size_t>(decoded.channels))
               << " decoded_frames=" << decoded.decoded_frames
               << " sample_rate=" << decoded.sample_rate
               << " channels=" << decoded.channels
               << " duration_us=" << decoded.duration_us << '\n';
-    const auto playback = contourtty::playPcm(
+    const auto playback = strok::playPcm(
       decoded.samples,
-      contourtty::PcmPlaybackOptions{
+      strok::PcmPlaybackOptions{
         .sample_rate = static_cast<uint32_t>(decoded.sample_rate),
         .channels = static_cast<uint32_t>(decoded.channels),
       });

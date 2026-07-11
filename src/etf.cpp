@@ -9,7 +9,7 @@
 #include <thread>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kEpsilon = 1e-12;
@@ -187,4 +187,4 @@ LuminanceField coherentLineField(const GradientField& gradients, double threshol
   return field;
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -2,8 +2,8 @@
 
 #include "frame.hpp"
 
-namespace contourtty {
+namespace strok {
 
 Frame applyKuwaharaFilter(const Frame& frame, int radius);
 
-}  // namespace contourtty
+}  // namespace strok

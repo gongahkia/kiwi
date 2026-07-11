@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct PackedGradient {
@@ -705,4 +705,4 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame& frame, 
   return computeStructureGlyphsGpuImpl(&frame, field, cols, rows, edge_threshold, shape_table);
 }
 
-}  // namespace contourtty
+}  // namespace strok

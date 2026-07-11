@@ -41,7 +41,7 @@ export function parseRecording(text: string, options?: ParseOptions): Recording;
 export function renderRecordingFrame(recording: Recording, time?: number): AnsiScreen;
 export function recordingToHtml(recording: Recording, time?: number): string;
 
-export class ContourttyPlayerElement extends HTMLElement {
+export class StrokPlayerElement extends HTMLElement {
   readonly duration: number;
   currentTime: number;
   readonly speed: number;
@@ -53,4 +53,4 @@ export class ContourttyPlayerElement extends HTMLElement {
   seek(time: number): void;
 }
 
-export function defineContourttyPlayer(tagName?: string): typeof ContourttyPlayerElement | undefined;
+export function defineStrokPlayer(tagName?: string): typeof StrokPlayerElement | undefined;

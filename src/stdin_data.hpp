@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 enum class PlotKind {
   Waveform,
@@ -33,4 +33,4 @@ PlotRaster renderHeatmapPlot(std::span<const double> samples, int width, int hei
 PlotRaster renderPlot(PlotKind kind, std::span<const double> samples, int width, int height);
 Frame plotRasterToFrame(const PlotRaster& raster, int64_t pts_us = 0, Rgb ink = Rgb{.r = 0, .g = 255, .b = 128}, Rgb background = Rgb{});
 
-}  // namespace contourtty
+}  // namespace strok

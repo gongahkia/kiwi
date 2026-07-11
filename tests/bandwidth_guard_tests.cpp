@@ -21,7 +21,7 @@ int main() {
   const auto start = clock::time_point{};
 
   {
-    contourtty::BandwidthGuard guard(0.00001);
+    strok::BandwidthGuard guard(0.00001);
     const auto first = guard.recordFrame(6, start);
     expect(first.send, "first frame under cap sends");
     expect(first.window_bytes == 6, "first frame counted");
@@ -41,7 +41,7 @@ int main() {
   }
 
   {
-    contourtty::BandwidthGuard guard(0.00001);
+    strok::BandwidthGuard guard(0.00001);
     (void)guard.recordFrame(11, start);
     guard.reset();
     const auto after_reset = guard.recordFrame(6, start);
@@ -52,7 +52,7 @@ int main() {
   {
     bool threw = false;
     try {
-      contourtty::BandwidthGuard guard(0.0);
+      strok::BandwidthGuard guard(0.0);
     } catch (const std::invalid_argument&) {
       threw = true;
     }

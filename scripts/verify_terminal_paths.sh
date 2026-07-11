@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bin="${1:-./build/ci/contourtty}"
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/contourtty-terminal.XXXXXX")"
+bin="${1:-./build/ci/strok}"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/strok-terminal.XXXXXX")"
 
 cleanup() {
   rm -rf "$tmp"
@@ -85,7 +85,7 @@ expect_file "$tmp/ctrlc.log" "terminal session started"
 expect_file "$tmp/ctrlc.log" "quit requested by signal"
 
 run_pty "$tmp/exception.typescript" /bin/sh -c \
-  'before=$(stty -g); CONTOURTTY_THROW_AFTER_TERMINAL=1 "$0" --log "$1"; rc=$?; after=$(stty -g); echo "before=$before"; echo "after=$after"; [ "$before" = "$after" ] || exit 20; [ "$rc" -eq 1 ]' \
+  'before=$(stty -g); STROK_THROW_AFTER_TERMINAL=1 "$0" --log "$1"; rc=$?; after=$(stty -g); echo "before=$before"; echo "after=$after"; [ "$before" = "$after" ] || exit 20; [ "$rc" -eq 1 ]' \
   "$bin" "$tmp/exception.log"
 expect_file "$tmp/exception.log" "terminal session started"
 expect_file "$tmp/exception.typescript" "fatal: forced terminal exception"

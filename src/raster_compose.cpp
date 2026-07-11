@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstddef>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::array<uint8_t, 7> asciiGlyphPattern(char32_t glyph) {
@@ -189,4 +189,4 @@ RasterImage rasterComposeCells(const CellBuffer& cells, ColorMode color_mode, Di
   return image;
 }
 
-}  // namespace contourtty
+}  // namespace strok

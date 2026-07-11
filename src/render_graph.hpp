@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 enum class BufferKind {
   RgbFrame,
@@ -114,4 +114,4 @@ Graph buildGraph(std::vector<Pass> passes, const GraphBuildOptions& options = {}
 std::string_view bufferKindName(BufferKind kind) noexcept;
 std::string_view backendName(Backend backend) noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

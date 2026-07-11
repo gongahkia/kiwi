@@ -3,7 +3,7 @@
 #include "frame.hpp"
 #include "scene_source.hpp"
 
-namespace contourtty {
+namespace strok {
 
 struct DepthOverlayOptions {
   double alpha = 0.65;
@@ -12,4 +12,4 @@ struct DepthOverlayOptions {
 
 Frame composeDepthOverlay(const Frame& base, const SceneGBuffer& overlay, DepthOverlayOptions options = {});
 
-}  // namespace contourtty
+}  // namespace strok

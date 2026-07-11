@@ -6,7 +6,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 
 std::string summariseFrameCaption(const Frame& frame) {
   if (frame.w <= 0 || frame.h <= 0 || frame.rgb.size() != static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h) * 3U) {
@@ -105,4 +105,4 @@ int CaptionSrtBuilder::cueCount() const noexcept {
   return cue_count_;
 }
 
-}  // namespace contourtty
+}  // namespace strok

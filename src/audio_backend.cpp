@@ -15,7 +15,7 @@
 #include <string>
 #include <thread>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -274,4 +274,4 @@ SineSmokeResult playSineSmoke(const SineSmokeOptions& options) {
   };
 }
 
-}  // namespace contourtty
+}  // namespace strok

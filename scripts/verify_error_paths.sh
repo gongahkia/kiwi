@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-bin="${1:-./build/ci/contourtty}"
-tmp="${TMPDIR:-/tmp}/contourtty-error-paths"
+bin="${1:-./build/ci/strok}"
+tmp="${TMPDIR:-/tmp}/strok-error-paths"
 mkdir -p "$tmp"
 
 expect_error() {

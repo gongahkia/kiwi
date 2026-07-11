@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr uint8_t kUp = 0x01;
@@ -134,4 +134,4 @@ void applyLineLigatures(CellBuffer* cells) {
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

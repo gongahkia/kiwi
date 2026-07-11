@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 class ShaderSourceError : public std::runtime_error {
  public:
@@ -19,4 +19,4 @@ bool isShadertoySource(std::string_view source) noexcept;
 std::string loadShaderSource(const std::filesystem::path& path);
 std::string wrapShadertoyFragmentShader(std::string_view source);
 
-}  // namespace contourtty
+}  // namespace strok

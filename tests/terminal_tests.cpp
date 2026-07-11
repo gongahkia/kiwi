@@ -16,19 +16,19 @@ void expect(bool condition, const char* label) {
 }  // namespace
 
 int main() {
-  contourtty::resetQuitFlag();
-  expect(!contourtty::shouldQuit(), "quit flag starts clear");
+  strok::resetQuitFlag();
+  expect(!strok::shouldQuit(), "quit flag starts clear");
 
-  contourtty::installQuitSignalHandlers();
+  strok::installQuitSignalHandlers();
   std::raise(SIGINT);
-  expect(contourtty::shouldQuit(), "SIGINT sets quit flag");
-  contourtty::resetQuitFlag();
-  expect(!contourtty::shouldQuit(), "quit flag resets");
+  expect(strok::shouldQuit(), "SIGINT sets quit flag");
+  strok::resetQuitFlag();
+  expect(!strok::shouldQuit(), "quit flag resets");
 
-  contourtty::installResizeSignalHandler();
-  (void)contourtty::consumeResizeFlag();
-  expect(!contourtty::consumeResizeFlag(), "resize flag drains");
+  strok::installResizeSignalHandler();
+  (void)strok::consumeResizeFlag();
+  expect(!strok::consumeResizeFlag(), "resize flag drains");
   std::raise(SIGWINCH);
-  expect(contourtty::consumeResizeFlag(), "SIGWINCH sets resize flag");
-  expect(!contourtty::consumeResizeFlag(), "resize flag drains after SIGWINCH");
+  expect(strok::consumeResizeFlag(), "SIGWINCH sets resize flag");
+  expect(!strok::consumeResizeFlag(), "resize flag drains after SIGWINCH");
 }

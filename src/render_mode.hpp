@@ -5,7 +5,7 @@
 
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 enum class ResolvedRenderMode {
   Text,
@@ -31,4 +31,4 @@ RenderModeResolution resolveRenderMode(const CliOptions& options, const Terminal
 std::string_view toString(ResolvedRenderMode mode);
 std::string_view toString(GraphicsProtocol protocol);
 
-}  // namespace contourtty
+}  // namespace strok

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-namespace contourtty {
+namespace strok {
 
 struct Rgb {
   uint8_t r = 0;
@@ -15,4 +15,4 @@ double srgbToLinear(uint8_t value) noexcept;
 double relativeLuminance(Rgb rgb) noexcept;
 double cellLuminance(std::span<const Rgb> samples) noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

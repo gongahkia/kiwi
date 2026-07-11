@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <deque>
 
-namespace contourtty {
+namespace strok {
 
 struct BandwidthDecision {
   bool send = true;
@@ -27,4 +27,4 @@ class BandwidthGuard {
   bool warned_ = false;
 };
 
-}  // namespace contourtty
+}  // namespace strok

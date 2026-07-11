@@ -3,8 +3,8 @@
 #include "cell_buffer.hpp"
 #include "frame.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void renderHalfBlockFrame(const Frame& frame, int cols, int rows, CellBuffer* cells);
 
-}  // namespace contourtty
+}  // namespace strok

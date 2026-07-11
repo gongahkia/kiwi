@@ -1,7 +1,7 @@
 import type { ForwardedRef, ReactElement } from "react";
-import type { ContourttyPlayerElement } from "../dist/contourtty-embed.js";
+import type { StrokPlayerElement } from "../dist/strok-embed.js";
 
-export interface ContourttyPlayerProps {
+export interface StrokPlayerProps {
   src?: string;
   format?: "auto" | "cast" | "ansi";
   cols?: number | string;
@@ -13,8 +13,8 @@ export interface ContourttyPlayerProps {
   speed?: number | string;
   className?: string;
   style?: Record<string, unknown>;
-  ref?: ForwardedRef<ContourttyPlayerElement>;
+  ref?: ForwardedRef<StrokPlayerElement>;
 }
 
-export function ContourttyPlayer(props: ContourttyPlayerProps): ReactElement;
-export default ContourttyPlayer;
+export function StrokPlayer(props: StrokPlayerProps): ReactElement;
+export default StrokPlayer;

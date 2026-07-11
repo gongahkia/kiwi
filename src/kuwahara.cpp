@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -159,4 +159,4 @@ Frame applyKuwaharaFilter(const Frame& frame, int radius) {
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

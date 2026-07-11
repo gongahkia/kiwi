@@ -26,8 +26,8 @@ void expect(bool condition, const char* label) {
 }
 
 std::filesystem::path sourceRoot() {
-#ifdef CONTOURTTY_SOURCE_DIR
-  return CONTOURTTY_SOURCE_DIR;
+#ifdef STROK_SOURCE_DIR
+  return STROK_SOURCE_DIR;
 #else
   return std::filesystem::current_path();
 #endif
@@ -98,7 +98,7 @@ int processId() {
 
 class TempTree {
  public:
-  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-bundle-compile-" + std::to_string(processId()))) {
+  TempTree() : path_(std::filesystem::temp_directory_path() / ("strok-shader-bundle-compile-" + std::to_string(processId()))) {
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
   }
@@ -125,19 +125,19 @@ int main() {
   }
 
   TempTree temp;
-  contourtty::ShaderCompileOptions options;
+  strok::ShaderCompileOptions options;
   options.entry_point = "main";
   options.work_dir = temp.path();
 
-  const auto shader_dir = sourceRoot() / "share" / "contourtty" / "shaders";
+  const auto shader_dir = sourceRoot() / "share" / "strok" / "shaders";
   const std::vector<std::string> bundled = {"noise.glsl", "plasma.glsl", "feedback.glsl", "sdf_room.glsl"};
   for (const std::string& name : bundled) {
-    const std::string source = contourtty::loadShaderSource(shader_dir / name);
-    const auto compiled = contourtty::compileShadertoyFragmentToSpirvAndMsl(source, options);
+    const std::string source = strok::loadShaderSource(shader_dir / name);
+    const auto compiled = strok::compileShadertoyFragmentToSpirvAndMsl(source, options);
     expect(!compiled.spirv.empty(), "bundled shader produced SPIR-V");
     expect(hasSpirvMagic(compiled.spirv), "bundled shader produced SPIR-V magic");
     expect(!compiled.msl.empty(), "bundled shader produced MSL");
-    const auto repeated = contourtty::compileShadertoyFragmentToSpirvAndMsl(source, options);
+    const auto repeated = strok::compileShadertoyFragmentToSpirvAndMsl(source, options);
     expect(repeated.spirv == compiled.spirv, "bundled shader SPIR-V is deterministic");
     expect(repeated.msl == compiled.msl, "bundled shader MSL is deterministic");
   }

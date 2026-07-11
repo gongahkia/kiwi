@@ -1,19 +1,19 @@
 {
-  "name": "@contourtty/embed",
+  "name": "@strok/embed",
   "version": "0.0.0",
-  "description": "Embeddable contourtty ANSI/asciinema player as a Web Component with a React wrapper.",
+  "description": "Embeddable strok ANSI/asciinema player as a Web Component with a React wrapper.",
   "type": "module",
   "sideEffects": [
-    "./dist/contourtty-embed.js"
+    "./dist/strok-embed.js"
   ],
-  "main": "./dist/contourtty-embed.js",
-  "module": "./dist/contourtty-embed.js",
-  "types": "./dist/contourtty-embed.d.ts",
+  "main": "./dist/strok-embed.js",
+  "module": "./dist/strok-embed.js",
+  "types": "./dist/strok-embed.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/contourtty-embed.d.ts",
-      "import": "./dist/contourtty-embed.js",
-      "default": "./dist/contourtty-embed.js"
+      "types": "./dist/strok-embed.d.ts",
+      "import": "./dist/strok-embed.js",
+      "default": "./dist/strok-embed.js"
     },
     "./react": {
       "types": "./react/index.d.ts",

@@ -18,16 +18,16 @@
 #include <immintrin.h>
 #endif
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr int kBitmapWidth = 5;
 constexpr int kBitmapHeight = 7;
 
 #if defined(__x86_64__) && (defined(__clang__) || defined(__GNUC__))
-#define CONTOURTTY_X86_AVX2_TARGET __attribute__((target("avx2")))
+#define STROK_X86_AVX2_TARGET __attribute__((target("avx2")))
 #else
-#define CONTOURTTY_X86_AVX2_TARGET
+#define STROK_X86_AVX2_TARGET
 #endif
 
 using BitmapRows = std::array<std::string_view, kBitmapHeight>;
@@ -183,7 +183,7 @@ bool avx2Available() {
   return __builtin_cpu_supports("avx2");
 }
 
-CONTOURTTY_X86_AVX2_TARGET DotNorm dotAndEntryNormAvx2(std::span<const double> features, std::span<const double> entry_features) {
+STROK_X86_AVX2_TARGET DotNorm dotAndEntryNormAvx2(std::span<const double> features, std::span<const double> entry_features) {
   double dot_products[kShapeRegionCount];
   double norm_products[kShapeRegionCount];
   for (std::size_t i = 0; i < 8; i += 4) {
@@ -390,4 +390,4 @@ char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable
   return matchGlyphShapeLinear(features, table);
 }
 
-}  // namespace contourtty
+}  // namespace strok

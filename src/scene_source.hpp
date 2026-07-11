@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct SceneVec3 {
   double x = 0.0;
@@ -57,4 +57,4 @@ SceneMesh parseObjScene(std::string_view text);
 SceneMesh loadObjScene(const std::filesystem::path& path);
 SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions options);
 
-}  // namespace contourtty
+}  // namespace strok

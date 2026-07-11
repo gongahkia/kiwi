@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace contourtty {
+namespace strok {
 
 RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal) {
   int max_cols = std::max(1, options.width.value_or(terminal.cols));
@@ -34,4 +34,4 @@ RenderOrigin centeredOrigin(RenderSize size, TerminalSize terminal) {
   };
 }
 
-}  // namespace contourtty
+}  // namespace strok

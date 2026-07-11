@@ -1,6 +1,6 @@
-# contourtty data asset licenses
+# strok data asset licenses
 
-All assets in this directory are authored for contourtty and covered by the repository root MIT `LICENSE`, unless a row below says otherwise.
+All assets in this directory are authored for strok and covered by the repository root MIT `LICENSE`, unless a row below says otherwise.
 
 | Path | Type | Origin | License | Notes |
 |---|---|---|---|---|
@@ -17,4 +17,4 @@ All assets in this directory are authored for contourtty and covered by the repo
 | `shaders/plasma.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Animated plasma smoke shader. |
 | `shaders/sdf_room.glsl` | Shadertoy-style GLSL fragment shader | in-tree authored | MIT | Small raymarched SDF room smoke shader. |
 
-No fonts or third-party binary assets are shipped under `share/contourtty` at this point.
+No fonts or third-party binary assets are shipped under `share/strok` at this point.

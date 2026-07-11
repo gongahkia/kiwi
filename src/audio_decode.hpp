@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct AudioDecodeOptions {
   int sample_rate = 48000;
@@ -28,4 +28,4 @@ class NoAudioStreamError : public std::runtime_error {
 
 DecodedAudio decodeAudioFile(const std::filesystem::path& input, const AudioDecodeOptions& options = {});
 
-}  // namespace contourtty
+}  // namespace strok

@@ -1,6 +1,6 @@
 #include "media_input.hpp"
 
-namespace contourtty {
+namespace strok {
 
 std::optional<CameraInputSpec> cameraInputSpec(std::string_view input) {
   if (input.starts_with("avfoundation:")) {
@@ -33,4 +33,4 @@ bool isCameraInput(std::string_view input) noexcept {
   return cameraInputSpec(input).has_value();
 }
 
-}  // namespace contourtty
+}  // namespace strok

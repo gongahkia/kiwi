@@ -79,7 +79,7 @@ bool toolAvailable(std::string_view name) {
 
 class TempTree {
  public:
-  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-runtime-" + std::to_string(processId()))) {
+  TempTree() : path_(std::filesystem::temp_directory_path() / ("strok-shader-runtime-" + std::to_string(processId()))) {
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
   }
@@ -104,7 +104,7 @@ void writeShader(const std::filesystem::path& path, std::string_view rgb) {
       << "}\n";
 }
 
-bool firstPixelNear(const contourtty::Frame& frame, uint8_t r, uint8_t g, uint8_t b) {
+bool firstPixelNear(const strok::Frame& frame, uint8_t r, uint8_t g, uint8_t b) {
   if (frame.rgb.size() < 3) {
     return false;
   }
@@ -122,7 +122,7 @@ int main() {
     std::cout << "glslangValidator or spirv-cross unavailable; skipping shader runtime smoke\n";
     return 77;
   }
-  if (!contourtty::shaderRuntimeAvailable()) {
+  if (!strok::shaderRuntimeAvailable()) {
     std::cout << "shader runtime unavailable; skipping shader runtime smoke\n";
     return 77;
   }
@@ -130,14 +130,14 @@ int main() {
   TempTree temp;
   const auto shader_path = temp.path() / "runtime.glsl";
   writeShader(shader_path, "1.0, 0.0, 0.0");
-  contourtty::ShaderFrameSource source(shader_path);
-  const contourtty::Frame red = source.renderFrame(8, 4, 0, 0, 33333);
+  strok::ShaderFrameSource source(shader_path);
+  const strok::Frame red = source.renderFrame(8, 4, 0, 0, 33333);
   expect(red.w == 8 && red.h == 4, "shader runtime dimensions");
   expect(firstPixelNear(red, 255, 0, 0), "shader runtime red frame");
 
   writeShader(shader_path, "0.0, 0.0, 1.0");
   std::filesystem::last_write_time(shader_path, std::filesystem::file_time_type::clock::now() + std::chrono::seconds(2));
   source.reloadIfChanged();
-  const contourtty::Frame blue = source.renderFrame(8, 4, 33333, 1, 33333);
+  const strok::Frame blue = source.renderFrame(8, 4, 33333, 1, 33333);
   expect(firstPixelNear(blue, 0, 0, 255), "shader runtime hot reload frame");
 }

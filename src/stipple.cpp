@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 namespace fs = std::filesystem;
@@ -33,16 +33,16 @@ constexpr std::array<std::array<uint8_t, 2>, 4> kBrailleBits {{
 
 std::vector<fs::path> blueNoiseTilePaths() {
   std::vector<fs::path> paths;
-  if (const char* data_dir = std::getenv("CONTOURTTY_DATA_DIR"); data_dir != nullptr && *data_dir != '\0') {
+  if (const char* data_dir = std::getenv("STROK_DATA_DIR"); data_dir != nullptr && *data_dir != '\0') {
     paths.push_back(fs::path(data_dir) / "noise" / "blue_noise_64.bin");
   }
-#ifdef CONTOURTTY_SOURCE_DIR
-  paths.push_back(fs::path(CONTOURTTY_SOURCE_DIR) / "share" / "contourtty" / "noise" / "blue_noise_64.bin");
+#ifdef STROK_SOURCE_DIR
+  paths.push_back(fs::path(STROK_SOURCE_DIR) / "share" / "strok" / "noise" / "blue_noise_64.bin");
 #endif
-#ifdef CONTOURTTY_DATA_DIR
-  paths.push_back(fs::path(CONTOURTTY_DATA_DIR) / "noise" / "blue_noise_64.bin");
+#ifdef STROK_DATA_DIR
+  paths.push_back(fs::path(STROK_DATA_DIR) / "noise" / "blue_noise_64.bin");
 #endif
-  paths.push_back(fs::path("share") / "contourtty" / "noise" / "blue_noise_64.bin");
+  paths.push_back(fs::path("share") / "strok" / "noise" / "blue_noise_64.bin");
   return paths;
 }
 
@@ -63,7 +63,7 @@ std::array<uint8_t, kTilePixels> loadBlueNoiseTile() {
     }
     return ranks;
   }
-  throw std::invalid_argument("missing blue noise tile: share/contourtty/noise/blue_noise_64.bin");
+  throw std::invalid_argument("missing blue noise tile: share/strok/noise/blue_noise_64.bin");
 }
 
 const std::array<uint8_t, kTilePixels>& blueNoiseTile() {
@@ -220,4 +220,4 @@ void applyStipple(CellBuffer* cells, StippleCarrier carrier, const Frame* source
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

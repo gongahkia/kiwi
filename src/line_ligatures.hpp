@@ -2,8 +2,8 @@
 
 #include "cell_buffer.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void applyLineLigatures(CellBuffer* cells);
 
-}  // namespace contourtty
+}  // namespace strok

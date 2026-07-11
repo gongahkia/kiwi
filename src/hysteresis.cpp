@@ -4,7 +4,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -88,4 +88,4 @@ OrientationHysteresisDecision OrientationHysteresisState::choose(std::size_t ind
   return decision;
 }
 
-}  // namespace contourtty
+}  // namespace strok

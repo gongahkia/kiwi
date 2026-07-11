@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#ifndef CONTOURTTY_SOURCE_DIR
-#define CONTOURTTY_SOURCE_DIR "."
+#ifndef STROK_SOURCE_DIR
+#define STROK_SOURCE_DIR "."
 #endif
 
 namespace {
@@ -23,7 +23,7 @@ void expect(bool condition, const char* label) {
 }
 
 std::vector<std::string> helpOptionLines() {
-  std::istringstream input(contourtty::helpText("contourtty"));
+  std::istringstream input(strok::helpText("strok"));
   std::vector<std::string> lines;
   std::string line;
   bool in_options = false;
@@ -70,7 +70,7 @@ std::string readFile(const std::filesystem::path& path) {
 }  // namespace
 
 int main() {
-  const std::string man = readFile(std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "docs" / "contourtty.1");
+  const std::string man = readFile(std::filesystem::path(STROK_SOURCE_DIR) / "docs" / "strok.1");
   const std::vector<std::string> options = helpOptionLines();
   const std::vector<std::string> man_options = manOptionLines(man);
   expect(!options.empty(), "help exposes options");

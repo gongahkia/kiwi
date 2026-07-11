@@ -1,13 +1,13 @@
 import React, { forwardRef } from "react";
-import { defineContourttyPlayer } from "../dist/contourtty-embed.js";
+import { defineStrokPlayer } from "../dist/strok-embed.js";
 
-defineContourttyPlayer();
+defineStrokPlayer();
 
 function booleanAttr(value) {
   return value ? "" : undefined;
 }
 
-export const ContourttyPlayer = forwardRef(function ContourttyPlayer(props, ref) {
+export const StrokPlayer = forwardRef(function StrokPlayer(props, ref) {
   const {
     autoPlay,
     autoplay,
@@ -15,7 +15,7 @@ export const ContourttyPlayer = forwardRef(function ContourttyPlayer(props, ref)
     controls,
     ...rest
   } = props;
-  return React.createElement("contourtty-player", {
+  return React.createElement("strok-player", {
     ...rest,
     ref,
     autoplay: booleanAttr(autoPlay ?? autoplay),
@@ -24,4 +24,4 @@ export const ContourttyPlayer = forwardRef(function ContourttyPlayer(props, ref)
   });
 });
 
-export default ContourttyPlayer;
+export default StrokPlayer;

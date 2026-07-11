@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 enum class StippleCarrier {
   Cell,
@@ -19,4 +19,4 @@ StippleCarrier stippleCarrierFromMode(std::string_view mode) noexcept;
 char32_t stippleGlyphForLuminance(double luminance, uint8_t noise_rank);
 void applyStipple(CellBuffer* cells, StippleCarrier carrier = StippleCarrier::Cell, const Frame* source_frame = nullptr);
 
-}  // namespace contourtty
+}  // namespace strok

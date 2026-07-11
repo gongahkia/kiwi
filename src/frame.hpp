@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct Frame {
   int w = 0;
@@ -12,4 +12,4 @@ struct Frame {
   int64_t pts_us = 0;
 };
 
-}  // namespace contourtty
+}  // namespace strok

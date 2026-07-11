@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct Gradient {
   double gx = 0.0;
@@ -47,4 +47,4 @@ LuminanceField gradientMagnitudeField(const GradientField& gradients, double thr
 CellGradient cellGradient(const GradientField& gradients, int cols, int rows, int col, int row);
 std::optional<char32_t> directionalGlyphForGradient(const CellGradient& gradient, double threshold);
 
-}  // namespace contourtty
+}  // namespace strok

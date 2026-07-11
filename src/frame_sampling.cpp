@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 
 Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
   const int x0 = (col * frame.w) / cols;
@@ -50,4 +50,4 @@ void mirrorFrameHorizontally(Frame& frame) {
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

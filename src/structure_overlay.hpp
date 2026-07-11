@@ -2,9 +2,9 @@
 
 #include "cli.hpp"
 
-namespace contourtty {
+namespace strok {
 
 bool structureOverlayImplied(const CliOptions& options);
 bool structureOverlayEnabled(const CliOptions& options);
 
-}  // namespace contourtty
+}  // namespace strok

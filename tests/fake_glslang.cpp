@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     return 45;
   }
 
-  if (const char* seen = std::getenv("CONTOURTTY_FAKE_GLSLANG_SEEN"); seen != nullptr && *seen != '\0') {
+  if (const char* seen = std::getenv("STROK_FAKE_GLSLANG_SEEN"); seen != nullptr && *seen != '\0') {
     std::error_code ec;
     std::filesystem::copy_file(input, seen, std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {

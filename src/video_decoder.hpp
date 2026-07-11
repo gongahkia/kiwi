@@ -7,7 +7,7 @@
 #include <memory>
 #include <optional>
 
-namespace contourtty {
+namespace strok {
 
 class VideoDecoder {
  public:
@@ -30,4 +30,4 @@ class VideoDecoder {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace contourtty
+}  // namespace strok

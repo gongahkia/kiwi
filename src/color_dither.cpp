@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct ChannelError {
@@ -126,4 +126,4 @@ CellBuffer applyFloydSteinbergDither(const CellBuffer& input, ColorMode mode) {
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

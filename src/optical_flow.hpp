@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct FlowVector {
   double dx = 0.0;
@@ -25,4 +25,4 @@ struct FlowField {
 
 FlowField computeBlockOpticalFlow(const LuminanceField& previous, const LuminanceField& current, int block_size = 8, int search_radius = 8);
 
-}  // namespace contourtty
+}  // namespace strok

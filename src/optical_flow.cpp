@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 void validateFieldPair(const LuminanceField& previous, const LuminanceField& current) {
@@ -81,4 +81,4 @@ FlowField computeBlockOpticalFlow(const LuminanceField& previous, const Luminanc
   return field;
 }
 
-}  // namespace contourtty
+}  // namespace strok

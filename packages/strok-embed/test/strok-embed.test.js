@@ -3,14 +3,14 @@ import test from "node:test";
 
 import {
   AnsiScreen,
-  defineContourttyPlayer,
+  defineStrokPlayer,
   parseCast,
   parseRecording,
   recordingToHtml,
-} from "../dist/contourtty-embed.js";
+} from "../dist/strok-embed.js";
 
 test("module imports without a DOM", () => {
-  assert.equal(defineContourttyPlayer(), undefined);
+  assert.equal(defineStrokPlayer(), undefined);
 });
 
 test("ANSI screen handles SGR, cursor movement, and clearing", () => {

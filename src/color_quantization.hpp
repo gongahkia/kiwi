@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 enum class DitherMode {
   None,
@@ -20,4 +20,4 @@ uint8_t quantizeAnsi16(Rgb color);
 Rgb xterm256Color(uint8_t index);
 Rgb ansi16Color(uint8_t index);
 
-}  // namespace contourtty
+}  // namespace strok

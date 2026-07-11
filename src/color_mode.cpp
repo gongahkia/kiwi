@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::string lower(std::string_view value) {
@@ -78,4 +78,4 @@ std::string_view colorModeName(ColorMode mode) noexcept {
   return "mono";
 }
 
-}  // namespace contourtty
+}  // namespace strok

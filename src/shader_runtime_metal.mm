@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct PackedFloat3 {
@@ -51,17 +51,17 @@ constexpr char kVertexMetalSource[] = R"METAL(
 #include <simd/simd.h>
 using namespace metal;
 
-struct ContourttyVertexParams {
+struct StrokVertexParams {
   float2 resolution;
 };
 
-struct ContourttyVertexOut {
+struct StrokVertexOut {
   float4 position [[position]];
-  float2 contourttyFragCoord [[user(locn0)]];
+  float2 strokFragCoord [[user(locn0)]];
 };
 
-vertex ContourttyVertexOut contourtty_vertex(uint vertex_id [[vertex_id]],
-                                             constant ContourttyVertexParams& params [[buffer(0)]]) {
+vertex StrokVertexOut strok_vertex(uint vertex_id [[vertex_id]],
+                                             constant StrokVertexParams& params [[buffer(0)]]) {
   const float2 positions[3] = {
     float2(-1.0, -1.0),
     float2(3.0, -1.0),
@@ -69,9 +69,9 @@ vertex ContourttyVertexOut contourtty_vertex(uint vertex_id [[vertex_id]],
   };
   const float2 position = positions[vertex_id];
   const float2 uv = (position + float2(1.0)) * 0.5;
-  ContourttyVertexOut out;
+  StrokVertexOut out;
   out.position = float4(position, 0.0, 1.0);
-  out.contourttyFragCoord = uv * params.resolution;
+  out.strokFragCoord = uv * params.resolution;
   return out;
 }
 )METAL";
@@ -140,7 +140,7 @@ struct ShaderFrameSource::Impl {
       if (next_library == nil) {
         throw std::runtime_error("failed to compile Metal shader: " + nsErrorMessage(error));
       }
-      id<MTLFunction> vertex = [next_library newFunctionWithName:@"contourtty_vertex"];
+      id<MTLFunction> vertex = [next_library newFunctionWithName:@"strok_vertex"];
       id<MTLFunction> fragment = [next_library newFunctionWithName:@"main0"];
       if (vertex == nil || fragment == nil) {
         throw std::runtime_error("compiled shader is missing Metal entry points");
@@ -257,4 +257,4 @@ Frame ShaderFrameSource::renderFrame(int width, int height, int64_t pts_us, int6
   return impl_->renderFrame(width, height, pts_us, frame_index, frame_delta_us);
 }
 
-}  // namespace contourtty
+}  // namespace strok

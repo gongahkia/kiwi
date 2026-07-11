@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 enum class ShaderStage {
   Vertex,
@@ -45,4 +45,4 @@ std::string compileSpirvToMsl(std::span<const std::uint8_t> spirv, const ShaderC
 ShaderCompileResult compileGlslToSpirvAndMsl(const std::filesystem::path& source, const ShaderCompileOptions& options = {});
 ShaderCompileResult compileShadertoyFragmentToSpirvAndMsl(std::string_view source, const ShaderCompileOptions& options = {});
 
-}  // namespace contourtty
+}  // namespace strok

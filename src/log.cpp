@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 Logger::Logger(const std::filesystem::path& path) : sink_(path, std::ios::out | std::ios::app) {
   if (!sink_) {
@@ -35,4 +35,4 @@ void Logger::write(std::string_view level, std::string_view message) {
   sink_.flush();
 }
 
-}  // namespace contourtty
+}  // namespace strok

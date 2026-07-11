@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 double sample(std::span<const double> values, int width, int height, int x, int y) {
@@ -118,4 +118,4 @@ GlyphShapeTable buildHogGlyphShapeTable(const GlyphFont& font, std::u32string_vi
   });
 }
 
-}  // namespace contourtty
+}  // namespace strok

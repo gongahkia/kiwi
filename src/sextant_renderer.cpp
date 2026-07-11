@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr std::array<uint8_t, 4> kReusedMasks {0, 21, 42, 63};
@@ -96,4 +96,4 @@ void renderSextantFrame(const Frame& frame, int cols, int rows, CellBuffer* cell
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct Cell {
   char32_t glyph = U' ';
@@ -74,4 +74,4 @@ class CellBuffer {
   std::vector<Cell> cells_;
 };
 
-}  // namespace contourtty
+}  // namespace strok

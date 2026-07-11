@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 constexpr int kRasterCellPixelWidth = 8;
 constexpr int kRasterCellPixelHeight = 12;
@@ -21,4 +21,4 @@ struct RasterImage {
 
 RasterImage rasterComposeCells(const CellBuffer& cells, ColorMode color_mode, DitherMode dither_mode, const GlyphFont* glyph_font = nullptr);
 
-}  // namespace contourtty
+}  // namespace strok

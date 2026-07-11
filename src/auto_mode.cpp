@@ -2,7 +2,7 @@
 
 #include "structure_overlay.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
   if (options->mode != "auto") {
@@ -27,4 +27,4 @@ void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
   options->mode = structureOverlayEnabled(*options) ? "structure" : "luminance";
 }
 
-}  // namespace contourtty
+}  // namespace strok

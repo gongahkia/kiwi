@@ -8,7 +8,7 @@
 #include <optional>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct GpuStructureGlyphs {
   std::vector<char32_t> glyphs;
@@ -23,4 +23,4 @@ std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& fiel
 std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table);
 std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame& frame, const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table);
 
-}  // namespace contourtty
+}  // namespace strok

@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -206,4 +206,4 @@ void applyLicMotionFlow(CellBuffer* cells, const FlowField& flow, int cols, int 
   applyLicCellGradients(cells, makeMotionCellGradients(flow, cols, rows), cols, rows, length, threshold, seed);
 }
 
-}  // namespace contourtty
+}  // namespace strok

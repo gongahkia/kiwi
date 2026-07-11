@@ -5,7 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr std::array<int, 6> kXtermCubeLevels {0, 95, 135, 175, 215, 255};
@@ -143,4 +143,4 @@ Rgb ansi16Color(uint8_t index) {
   return kAnsi16Palette[index % kAnsi16Palette.size()];
 }
 
-}  // namespace contourtty
+}  // namespace strok

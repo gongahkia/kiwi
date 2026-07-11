@@ -2,7 +2,7 @@
 
 #include <termios.h>
 
-namespace contourtty {
+namespace strok {
 
 struct TerminalSize {
   int cols = 0;
@@ -35,4 +35,4 @@ bool shouldQuit() noexcept;
 void resetQuitFlag() noexcept;
 bool consumeResizeFlag() noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

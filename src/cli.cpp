@@ -17,7 +17,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool isOneOf(std::string_view value, std::initializer_list<std::string_view> allowed) {
@@ -218,10 +218,10 @@ std::optional<CliAction> earlyAction(int argc, char** argv) {
 
 std::optional<std::filesystem::path> defaultConfigPath() {
   if (const char* xdg_config_home = std::getenv("XDG_CONFIG_HOME"); xdg_config_home != nullptr && *xdg_config_home != '\0') {
-    return std::filesystem::path(xdg_config_home) / "contourtty" / "config";
+    return std::filesystem::path(xdg_config_home) / "strok" / "config";
   }
   if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
-    return std::filesystem::path(home) / ".config" / "contourtty" / "config";
+    return std::filesystem::path(home) / ".config" / "strok" / "config";
   }
   return std::nullopt;
 }
@@ -764,7 +764,7 @@ CliParseResult loadConfigDefaults() {
     return result;
   }
 
-  std::vector<std::string> args {"contourtty-config"};
+  std::vector<std::string> args {"strok-config"};
   std::string line;
   int line_number = 0;
   while (std::getline(input, line)) {
@@ -833,4 +833,4 @@ std::string helpText(std::string_view program_name) {
   return out.str();
 }
 
-}  // namespace contourtty
+}  // namespace strok

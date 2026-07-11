@@ -1,9 +1,9 @@
-# contourtty
+# strok
 
 ![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
 ![CI](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
 
-contourtty is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
+strok is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
 
 ![v1.0 split demo: luminance left, structure+hatch right](docs/v1.0-split-demo.gif)
 
@@ -22,7 +22,7 @@ What's new on the v1.0 track: live OSD tuning, A/B split view, still snapshots, 
 ```sh
 cmake --preset ci
 cmake --build --preset ci
-./build/ci/contourtty <video-file>
+./build/ci/strok <video-file>
 ```
 
 One-line dependency setup: macOS uses `brew install cmake pkg-config ffmpeg freetype zlib`; Debian/Ubuntu uses `sudo apt-get install cmake dpkg-dev file pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev`. Linux Vulkan builds additionally use `glslang-tools libvulkan-dev vulkan-tools mesa-vulkan-drivers`.
@@ -30,13 +30,13 @@ One-line dependency setup: macOS uses `brew install cmake pkg-config ffmpeg free
 Minimal CPU-only build:
 
 ```sh
-cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DCONTOURTTY_LIGHT=ON
-cmake --build build/light --target contourtty --parallel
+cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DSTROK_LIGHT=ON
+cmake --build build/light --target strok --parallel
 ```
 
-`CONTOURTTY_LIGHT=ON` skips optional Apple Metal/Vulkan linkage and uses the CPU analysis path; runtime shader input is not linked in the light build.
+`STROK_LIGHT=ON` skips optional Apple Metal/Vulkan linkage and uses the CPU analysis path; runtime shader input is not linked in the light build.
 
-Runtime dependency: contourtty links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`), FreeType, and zlib. On macOS, install them with `brew install ffmpeg freetype zlib`; on Debian/Ubuntu, install the matching `libav*-dev`, `libfreetype-dev`, and shared runtime packages for packaged binaries.
+Runtime dependency: strok links against system FFmpeg libraries (`libavformat`, `libavcodec`, `libavdevice`, `libavutil`, `libswscale`, `libswresample`), FreeType, and zlib. On macOS, install them with `brew install ffmpeg freetype zlib`; on Debian/Ubuntu, install the matching `libav*-dev`, `libfreetype-dev`, and shared runtime packages for packaged binaries.
 
 Install from source:
 
@@ -52,12 +52,12 @@ Package locally:
 scripts/package_release.sh
 ```
 
-The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. Static bundles are withheld until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations. A head-only Homebrew formula is available at `packaging/homebrew/contourtty.rb`:
+The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. Static bundles are withheld until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations. A head-only Homebrew formula is available at `packaging/homebrew/strok.rb`:
 
 ```sh
-brew tap-new local/contourtty
-cp packaging/homebrew/contourtty.rb "$(brew --repo local/contourtty)/Formula/contourtty.rb"
-brew install --HEAD --build-from-source local/contourtty/contourtty
+brew tap-new local/strok
+cp packaging/homebrew/strok.rb "$(brew --repo local/strok)/Formula/strok.rb"
+brew install --HEAD --build-from-source local/strok/strok
 ```
 
 Fresh-source install, one line: macOS `brew install cmake pkg-config ffmpeg freetype zlib && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && cmake --install build/release --prefix /usr/local`; Debian/Ubuntu `sudo apt-get install cmake dpkg-dev file pkg-config libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev && cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release && sudo cmake --install build/release --prefix /usr/local`.
@@ -74,15 +74,15 @@ Structure knobs: `--mode luminance` uses the brightness ramp, `--mode structure`
 
 Image inputs: PNG/JPG/WebP render once and hold until `q`; animated GIFs loop with source frame timing. `--grid CxR` treats a globbed image input as a fitted contact sheet and keeps animated GIF tiles on their own timelines.
 
-Scene inputs: `.obj` files and bundled aliases such as `contourtty:scene:cube` and `contourtty:scene:suzanne` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
+Scene inputs: `.obj` files and bundled aliases such as `strok:scene:cube` and `strok:scene:suzanne` render through the tiny CPU rasterizer. `--scene-camera turntable|orbit|fly` selects the rotation preset; `--style cell-shade` uses the scene depth and normal buffers.
 
-Shader inputs: `.glsl`/`.frag` files and bundled aliases such as `contourtty:shader:plasma` run Shadertoy-style `mainImage` shaders through the macOS Metal runtime, then route through the normal renderer. The source file is hot-reloaded during playback. This path requires `glslangValidator` and `spirv-cross` on `PATH`; non-Metal and light builds report shader runtime unavailable.
+Shader inputs: `.glsl`/`.frag` files and bundled aliases such as `strok:shader:plasma` run Shadertoy-style `mainImage` shaders through the macOS Metal runtime, then route through the normal renderer. The source file is hot-reloaded during playback. This path requires `glslangValidator` and `spirv-cross` on `PATH`; non-Metal and light builds report shader runtime unavailable.
 
 Data and terminal-recording inputs: `--input stdin --plot waveform|spectrum|heatmap` renders numeric streams, and `.cast` inputs replay asciinema v2 recordings through the same renderer.
 
 Layout: `--width` and `--height` set render bounds, `--fit` clamps those bounds to the current terminal, output is centered, resize recomputes the fit and repaints, and `--loop` restarts video input at EOF.
 
-Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to libav. YouTube URLs require `yt-dlp`; contourtty resolves them with `yt-dlp -g` and fails with a clear install/direct-URL message when it is missing. Set `CONTOURTTY_YTDLP` to override the resolver binary path.
+Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to libav. YouTube URLs require `yt-dlp`; strok resolves them with `yt-dlp -g` and fails with a clear install/direct-URL message when it is missing. Set `STROK_YTDLP` to override the resolver binary path.
 
 Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`. Live capture requests 640x480 at 30 fps for low-latency structure analysis. Camera playback mirrors horizontally by default; pass `--no-mirror` for sensor-native orientation.
 
@@ -98,17 +98,17 @@ Controls: `space` pauses/resumes audio and video together, left/right arrows see
 
 Export: `--export out.mp4` writes rasterized ASCII video and muxes source audio as AAC when present; `--export out.ansi` writes the raw ANSI escape stream, replayable with `cat out.ansi`; `--export out.cast` writes asciinema v2 output. `--still hero.png` writes one rasterized PNG snapshot, optionally seeking first with `--still-at HH:MM:SS`. `--captions out.srt` writes deterministic frame-summary captions. Export uses the same renderer and honors width/height, mode, charset, color, and dither flags.
 
-Web embeds: `packages/contourtty-embed` contains the unpublished `@contourtty/embed` package, a zero-build Web Component plus React wrapper for replaying exported `.cast` and `.ansi` files in JS-enabled HTML/docs sites. Static Markdown can embed exported GIF/PNG/MP4, but GitHub Markdown does not execute custom elements or scripts. Example:
+Web embeds: `packages/strok-embed` contains the unpublished `@strok/embed` package, a zero-build Web Component plus React wrapper for replaying exported `.cast` and `.ansi` files in JS-enabled HTML/docs sites. Static Markdown can embed exported GIF/PNG/MP4, but GitHub Markdown does not execute custom elements or scripts. Example:
 
 ```html
 <script type="module">
-  import { defineContourttyPlayer } from "@contourtty/embed";
-  defineContourttyPlayer();
+  import { defineStrokPlayer } from "@strok/embed";
+  defineStrokPlayer();
 </script>
-<contourtty-player src="/demo.cast" controls autoplay loop></contourtty-player>
+<strok-player src="/demo.cast" controls autoplay loop></strok-player>
 ```
 
-Config: defaults are read from `$XDG_CONFIG_HOME/contourtty/config`, or `~/.config/contourtty/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/contourtty/graphs/`.
+Config: defaults are read from `$XDG_CONFIG_HOME/strok/config`, or `~/.config/strok/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/strok/graphs/`.
 
 ## Flag reference
 
@@ -191,18 +191,18 @@ When shape matching is enabled, the edge magnitude field inside the cell is samp
 
 Benchmarks: [BENCHMARKS.md](BENCHMARKS.md).
 
-`--graph dump --mode structure` prints the resolved pass DAG with each pass backend and typed inputs/outputs, matching the pipeline documented above. `--graph share/contourtty/graphs/structure.yaml` loads the default structure graph; `share/contourtty/graphs/painterly_hatch_stipple.yaml` shows multi-pass style composition.
+`--graph dump --mode structure` prints the resolved pass DAG with each pass backend and typed inputs/outputs, matching the pipeline documented above. `--graph share/strok/graphs/structure.yaml` loads the default structure graph; `share/strok/graphs/painterly_hatch_stipple.yaml` shows multi-pass style composition.
 
 ## Name
 
-Chosen name: `contourtty`.
+Chosen name: `strok`.
 
 Public namespace checks on 2026-06-18:
 
-- GitHub user/org path: `https://github.com/contourtty` returned 404.
-- GitHub public repository search: no exact `contourtty` repository name in the first 100 `in:name` matches.
-- Homebrew Formula API: `https://formulae.brew.sh/api/formula/contourtty.json` returned 404.
-- Homebrew Cask API: `https://formulae.brew.sh/api/cask/contourtty.json` returned 404.
+- GitHub user/org path: `https://github.com/strok` returned 404.
+- GitHub public repository search: no exact `strok` repository name in the first 100 `in:name` matches.
+- Homebrew Formula API: `https://formulae.brew.sh/api/formula/strok.json` returned 404.
+- Homebrew Cask API: `https://formulae.brew.sh/api/cask/strok.json` returned 404.
 - Saturated names rejected: `timg`, `tplay`, `chafa`, `ascii-video-player`.
 - Alternatives rejected: `strok` (`https://github.com/strok` exists), `glyph`/`hatch` (Homebrew collisions), `glyphstream`/`etch`/`inkterm` (GitHub exact-repo collisions).
 

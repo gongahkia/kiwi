@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr std::array<std::array<uint8_t, 2>, 4> kBrailleBits {{
@@ -71,4 +71,4 @@ void renderBrailleFrame(const Frame& frame, int cols, int rows, CellBuffer* cell
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

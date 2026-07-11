@@ -15,25 +15,25 @@ void expect(bool condition, const char* label) {
 }  // namespace
 
 int main() {
-  contourtty::CellBuffer cells(2, 1);
-  cells.at(0, 0) = contourtty::Cell{
+  strok::CellBuffer cells(2, 1);
+  cells.at(0, 0) = strok::Cell{
     .glyph = U'|',
-    .fg = contourtty::Rgb{.r = 255, .g = 0, .b = 0},
+    .fg = strok::Rgb{.r = 255, .g = 0, .b = 0},
   };
-  cells.at(1, 0) = contourtty::Cell{
+  cells.at(1, 0) = strok::Cell{
     .glyph = U' ',
-    .fg = contourtty::Rgb{.r = 0, .g = 255, .b = 0},
+    .fg = strok::Rgb{.r = 0, .g = 255, .b = 0},
   };
 
   {
-    const contourtty::HybridFrameResult frame = contourtty::emitHybridFrame(cells, contourtty::HybridFrameOptions{
-      .graphics = contourtty::GraphicsFrameOptions{
-        .protocol = contourtty::GraphicsProtocol::Kitty,
+    const strok::HybridFrameResult frame = strok::emitHybridFrame(cells, strok::HybridFrameOptions{
+      .graphics = strok::GraphicsFrameOptions{
+        .protocol = strok::GraphicsProtocol::Kitty,
         .image_id = 9,
         .placement_id = 10,
       },
-      .text = contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Truecolor},
-      .terminal = contourtty::TerminalSize{.cols = 10, .rows = 5},
+      .text = strok::EmissionOptions{.color_mode = strok::ColorMode::Truecolor},
+      .terminal = strok::TerminalSize{.cols = 10, .rows = 5},
     });
     expect(frame.raster_bytes > 0, "hybrid emits raster bytes");
     expect(frame.overlay_cells == 1, "hybrid overlays nonblank cells only");
@@ -44,10 +44,10 @@ int main() {
   }
 
   {
-    const contourtty::HybridFrameResult frame = contourtty::emitHybridFrame(cells, contourtty::HybridFrameOptions{
-      .graphics = contourtty::GraphicsFrameOptions{.protocol = contourtty::GraphicsProtocol::ITermInline},
-      .text = contourtty::EmissionOptions{.color_mode = contourtty::ColorMode::Mono},
-      .terminal = contourtty::TerminalSize{.cols = 2, .rows = 1},
+    const strok::HybridFrameResult frame = strok::emitHybridFrame(cells, strok::HybridFrameOptions{
+      .graphics = strok::GraphicsFrameOptions{.protocol = strok::GraphicsProtocol::ITermInline},
+      .text = strok::EmissionOptions{.color_mode = strok::ColorMode::Mono},
+      .terminal = strok::TerminalSize{.cols = 2, .rows = 1},
     });
     expect(frame.overlay_cells == 1, "mono hybrid overlay count");
     expect(frame.bytes.find("\x1b[38;") == std::string::npos, "mono hybrid overlay omits sgr");

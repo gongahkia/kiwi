@@ -21,7 +21,7 @@ void expect(bool condition, const char* label) {
 
 class TempTree {
  public:
-  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-source-test-" + std::to_string(getpid()))) {
+  TempTree() : path_(std::filesystem::temp_directory_path() / ("strok-shader-source-test-" + std::to_string(getpid()))) {
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
   }
@@ -48,15 +48,15 @@ std::filesystem::path writeFile(const std::filesystem::path& path, const std::st
 bool throwsSourceError(const std::function<void()>& body) {
   try {
     body();
-  } catch (const contourtty::ShaderSourceError&) {
+  } catch (const strok::ShaderSourceError&) {
     return true;
   }
   return false;
 }
 
 std::filesystem::path sourceRoot() {
-#ifdef CONTOURTTY_SOURCE_DIR
-  return CONTOURTTY_SOURCE_DIR;
+#ifdef STROK_SOURCE_DIR
+  return STROK_SOURCE_DIR;
 #else
   return std::filesystem::current_path();
 #endif
@@ -65,45 +65,45 @@ std::filesystem::path sourceRoot() {
 }  // namespace
 
 int main() {
-  expect(contourtty::isShaderSourcePath("effect.glsl"), "glsl shader path");
-  expect(contourtty::isShaderSourcePath("effect.FRAG"), "uppercase frag shader path");
-  expect(contourtty::isShaderSourcePath("effect.comp"), "compute shader path");
-  expect(!contourtty::isShaderSourcePath("movie.mp4"), "movie is not shader path");
-  const auto bundled_plasma = contourtty::resolveBundledShader("contourtty:shader:plasma");
+  expect(strok::isShaderSourcePath("effect.glsl"), "glsl shader path");
+  expect(strok::isShaderSourcePath("effect.FRAG"), "uppercase frag shader path");
+  expect(strok::isShaderSourcePath("effect.comp"), "compute shader path");
+  expect(!strok::isShaderSourcePath("movie.mp4"), "movie is not shader path");
+  const auto bundled_plasma = strok::resolveBundledShader("strok:shader:plasma");
   expect(bundled_plasma.has_value() && bundled_plasma->filename() == "plasma.glsl", "bundled shader alias resolves");
-  expect(!contourtty::resolveBundledShader("movie.mp4").has_value(), "non shader alias ignored");
-  expect(throwsSourceError([&] { (void)contourtty::resolveBundledShader("contourtty:shader:missing"); }), "missing bundled shader rejected");
+  expect(!strok::resolveBundledShader("movie.mp4").has_value(), "non shader alias ignored");
+  expect(throwsSourceError([&] { (void)strok::resolveBundledShader("strok:shader:missing"); }), "missing bundled shader rejected");
 
   const std::string shadertoy =
     "void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n"
     "  vec2 uv = fragCoord / iResolution.xy;\n"
     "  fragColor = texture(iChannel0, uv) + vec4(iTimeDelta + float(iFrame));\n"
     "}\n";
-  expect(contourtty::isShadertoySource(shadertoy), "mainImage source detected");
-  const std::string wrapped = contourtty::wrapShadertoyFragmentShader(shadertoy);
+  expect(strok::isShadertoySource(shadertoy), "mainImage source detected");
+  const std::string wrapped = strok::wrapShadertoyFragmentShader(shadertoy);
   expect(wrapped.starts_with("#version 450\n"), "default version emitted");
-  expect(wrapped.find("layout(location = 0) out vec4 contourttyFragColor;") != std::string::npos, "fragment output emitted");
-  expect(wrapped.find("#define iResolution contourttyUniforms.iResolution") != std::string::npos, "iResolution macro emitted");
+  expect(wrapped.find("layout(location = 0) out vec4 strokFragColor;") != std::string::npos, "fragment output emitted");
+  expect(wrapped.find("#define iResolution strokUniforms.iResolution") != std::string::npos, "iResolution macro emitted");
   expect(wrapped.find("uniform sampler2D iChannel3;") != std::string::npos, "channel sampler emitted");
-  expect(wrapped.find("mainImage(color, contourttyFragCoord);") != std::string::npos, "main delegates to mainImage");
+  expect(wrapped.find("mainImage(color, strokFragCoord);") != std::string::npos, "main delegates to mainImage");
 
   const std::string versioned = "#version 460\nvoid mainImage(out vec4 fragColor, in vec2 fragCoord) { fragColor = vec4(fragCoord, 0.0, 1.0); }\n";
-  const std::string versioned_wrapped = contourtty::wrapShadertoyFragmentShader(versioned);
+  const std::string versioned_wrapped = strok::wrapShadertoyFragmentShader(versioned);
   expect(versioned_wrapped.starts_with("#version 460\n"), "source version preserved");
   expect(versioned_wrapped.find("#version 450") == std::string::npos, "default version not duplicated");
-  expect(throwsSourceError([&] { (void)contourtty::wrapShadertoyFragmentShader("void main() {}\n"); }), "missing mainImage rejected");
+  expect(throwsSourceError([&] { (void)strok::wrapShadertoyFragmentShader("void main() {}\n"); }), "missing mainImage rejected");
 
   TempTree temp;
   const auto path = writeFile(temp.path() / "shader.glsl", shadertoy);
-  expect(contourtty::loadShaderSource(path) == shadertoy, "shader source loads");
-  expect(throwsSourceError([&] { (void)contourtty::loadShaderSource(temp.path() / "missing.glsl"); }), "missing shader source reports error");
+  expect(strok::loadShaderSource(path) == shadertoy, "shader source loads");
+  expect(throwsSourceError([&] { (void)strok::loadShaderSource(temp.path() / "missing.glsl"); }), "missing shader source reports error");
 
-  const auto shader_dir = sourceRoot() / "share" / "contourtty" / "shaders";
+  const auto shader_dir = sourceRoot() / "share" / "strok" / "shaders";
   const std::vector<std::string> bundled = {"noise.glsl", "plasma.glsl", "feedback.glsl", "sdf_room.glsl"};
   for (const std::string& name : bundled) {
-    const std::string source = contourtty::loadShaderSource(shader_dir / name);
-    expect(contourtty::isShadertoySource(source), "bundled shader defines mainImage");
-    const std::string wrapped_source = contourtty::wrapShadertoyFragmentShader(source);
-    expect(wrapped_source.find("contourttyFragColor") != std::string::npos, "bundled shader wraps as fragment output");
+    const std::string source = strok::loadShaderSource(shader_dir / name);
+    expect(strok::isShadertoySource(source), "bundled shader defines mainImage");
+    const std::string wrapped_source = strok::wrapShadertoyFragmentShader(source);
+    expect(wrapped_source.find("strokFragColor") != std::string::npos, "bundled shader wraps as fragment output");
   }
 }

@@ -4,7 +4,7 @@
 
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 class AsciinemaVteScreen {
  public:
@@ -33,4 +33,4 @@ class AsciinemaVteScreen {
   Rgb bg_ {};
 };
 
-}  // namespace contourtty
+}  // namespace strok

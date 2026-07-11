@@ -45,9 +45,9 @@ jobs:
 
       - name: Smoke test
         run: |
-          ./build/ci/contourtty --version
-          ./build/ci/contourtty --help >/dev/null
-          scripts/verify_terminal_paths.sh ./build/ci/contourtty
+          ./build/ci/strok --version
+          ./build/ci/strok --help >/dev/null
+          scripts/verify_terminal_paths.sh ./build/ci/strok
 
   sanitize:
     name: asan-ubsan (ubuntu-latest)
@@ -75,14 +75,14 @@ jobs:
 
       - name: Decode/render smoke
         run: |
-          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/contourtty-sanitize.mp4
-          ./build/asan-ubsan/contourtty --width 16 --height 8 --dump-frame 1 --dump-png /tmp/contourtty-sanitize.png /tmp/contourtty-sanitize.mp4 >/tmp/contourtty-sanitize.probe
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/strok-sanitize.mp4
+          ./build/asan-ubsan/strok --width 16 --height 8 --dump-frame 1 --dump-png /tmp/strok-sanitize.png /tmp/strok-sanitize.mp4 >/tmp/strok-sanitize.probe
 
       - name: Shutdown path smoke
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1
-        run: scripts/verify_shutdown_paths.sh ./build/asan-ubsan/contourtty
+        run: scripts/verify_shutdown_paths.sh ./build/asan-ubsan/strok
 
   valgrind:
     name: valgrind (ubuntu-latest)
@@ -103,17 +103,17 @@ jobs:
         run: cmake --preset ci
 
       - name: Build
-        run: cmake --build --preset ci --target contourtty
+        run: cmake --build --preset ci --target strok
 
       - name: Shutdown path leak checks
         run: |
-          cat >/tmp/contourtty-valgrind-wrapper <<'EOF'
+          cat >/tmp/strok-valgrind-wrapper <<'EOF'
           #!/usr/bin/env bash
           exec valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=99 \
-            ./build/ci/contourtty "$@"
+            ./build/ci/strok "$@"
           EOF
-          chmod +x /tmp/contourtty-valgrind-wrapper
-          scripts/verify_shutdown_paths.sh /tmp/contourtty-valgrind-wrapper
+          chmod +x /tmp/strok-valgrind-wrapper
+          scripts/verify_shutdown_paths.sh /tmp/strok-valgrind-wrapper
 
   homebrew:
     name: homebrew formula (macos-latest)
@@ -125,12 +125,12 @@ jobs:
 
       - name: Install formula from source
         run: |
-          brew untap local/contourtty >/dev/null 2>&1 || true
-          brew tap-new local/contourtty
-          cp packaging/homebrew/contourtty.rb "$(brew --repo local/contourtty)/Formula/contourtty.rb"
-          brew install --HEAD --build-from-source local/contourtty/contourtty
+          brew untap local/strok >/dev/null 2>&1 || true
+          brew tap-new local/strok
+          cp packaging/homebrew/strok.rb "$(brew --repo local/strok)/Formula/strok.rb"
+          brew install --HEAD --build-from-source local/strok/strok
 
       - name: Test formula
         run: |
-          contourtty --version
-          brew test local/contourtty/contourtty
+          strok --version
+          brew test local/strok/strok

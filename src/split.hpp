@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 struct SplitSpec {
   std::string left;
@@ -29,4 +29,4 @@ int defaultSplitSeam(int total_cols);
 SplitLayout splitLayout(int total_cols, int seam_col);
 void composeSplitCells(const CellBuffer& left, const CellBuffer& right, const SplitLayout& layout, CellBuffer* output);
 
-}  // namespace contourtty
+}  // namespace strok

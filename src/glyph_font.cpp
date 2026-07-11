@@ -13,7 +13,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct RasterKey {
@@ -171,4 +171,4 @@ std::u32string sortRampByInkDensity(std::u32string_view ramp, const GlyphFont& f
   return sorted;
 }
 
-}  // namespace contourtty
+}  // namespace strok

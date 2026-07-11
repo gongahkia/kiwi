@@ -2,7 +2,7 @@
 
 #include "frame_sampling.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void renderHalfBlockFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
   cells->resize(cols, rows);
@@ -17,4 +17,4 @@ void renderHalfBlockFrame(const Frame& frame, int cols, int rows, CellBuffer* ce
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

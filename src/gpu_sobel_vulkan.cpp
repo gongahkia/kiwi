@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct PackedGradient {
@@ -580,9 +580,9 @@ class VulkanContext {
 
     VkApplicationInfo app_info{
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-      .pApplicationName = "contourtty",
+      .pApplicationName = "strok",
       .applicationVersion = VK_MAKE_VERSION(0, 0, 0),
-      .pEngineName = "contourtty",
+      .pEngineName = "strok",
       .engineVersion = VK_MAKE_VERSION(0, 0, 0),
       .apiVersion = VK_API_VERSION_1_3,
     };
@@ -978,4 +978,4 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame& frame, 
   return computeStructureGlyphsGpuImpl(&frame, field, cols, rows, edge_threshold, shape_table);
 }
 
-}  // namespace contourtty
+}  // namespace strok

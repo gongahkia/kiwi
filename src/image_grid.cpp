@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::optional<int> parsePositiveInt(std::string_view value) {
@@ -150,4 +150,4 @@ Frame composeImageGridFrame(const std::vector<Frame>& frames, ImageGridSpec grid
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

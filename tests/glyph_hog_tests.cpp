@@ -36,8 +36,8 @@ std::vector<double> diagonalLine(int width, int height) {
 
 double binTotal(const std::vector<double>& hog, std::size_t bin) {
   double sum = 0.0;
-  for (std::size_t block = 0; block < contourtty::kHogBlocksX * contourtty::kHogBlocksY; ++block) {
-    sum += hog[block * contourtty::kHogBins + bin];
+  for (std::size_t block = 0; block < strok::kHogBlocksX * strok::kHogBlocksY; ++block) {
+    sum += hog[block * strok::kHogBins + bin];
   }
   return sum;
 }
@@ -45,7 +45,7 @@ double binTotal(const std::vector<double>& hog, std::size_t bin) {
 std::size_t strongestBin(const std::vector<double>& hog) {
   std::size_t best = 0;
   double best_value = -1.0;
-  for (std::size_t bin = 0; bin < contourtty::kHogBins; ++bin) {
+  for (std::size_t bin = 0; bin < strok::kHogBins; ++bin) {
     const double value = binTotal(hog, bin);
     if (value > best_value) {
       best_value = value;
@@ -67,24 +67,24 @@ double norm(const std::vector<double>& values) {
 
 int main() {
   {
-    const std::vector<double> hog = contourtty::hogVectorForValues(horizontalLine(9, 9), 9, 9);
-    expect(hog.size() == contourtty::kHogFeatureCount, "HoG feature count");
+    const std::vector<double> hog = strok::hogVectorForValues(horizontalLine(9, 9), 9, 9);
+    expect(hog.size() == strok::kHogFeatureCount, "HoG feature count");
     expect(std::abs(norm(hog) - 1.0) < 1e-12, "HoG vector normalized");
     expect(strongestBin(hog) == 4, "horizontal line produces vertical-gradient bin");
   }
 
   {
-    const std::vector<double> hog = contourtty::hogVectorForValues(diagonalLine(9, 9), 9, 9);
+    const std::vector<double> hog = strok::hogVectorForValues(diagonalLine(9, 9), 9, 9);
     expect(std::abs(norm(hog) - 1.0) < 1e-12, "diagonal HoG normalized");
     expect(strongestBin(hog) != 0 && strongestBin(hog) != 4, "diagonal line produces diagonal-gradient bin");
   }
 
   {
-    const std::vector<double> first = contourtty::hogVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14);
-    const std::vector<double> second = contourtty::hogVectorForValues(contourtty::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14);
+    const std::vector<double> first = strok::hogVectorForValues(strok::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14);
+    const std::vector<double> second = strok::hogVectorForValues(strok::renderPrecomputedGlyphBitmap(U'/', 10, 14), 10, 14);
     expect(first == second, "identical glyphs yield identical HoG vectors");
-    const contourtty::GlyphShapeTable table = contourtty::buildHogGlyphShapeTable(contourtty::kDefaultStructureShapeGlyphs, 10, 14);
-    expect(table.feature_count == contourtty::kHogFeatureCount, "HoG table feature count");
-    expect(contourtty::matchGlyphShape(first, table) == U'/', "HoG slash matches slash glyph");
+    const strok::GlyphShapeTable table = strok::buildHogGlyphShapeTable(strok::kDefaultStructureShapeGlyphs, 10, 14);
+    expect(table.feature_count == strok::kHogFeatureCount, "HoG table feature count");
+    expect(strok::matchGlyphShape(first, table) == U'/', "HoG slash matches slash glyph");
   }
 }

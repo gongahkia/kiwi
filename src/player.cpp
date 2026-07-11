@@ -87,7 +87,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 class FramePacer {
@@ -496,7 +496,7 @@ class RuntimeDebugStats {
     const ProcessMetrics metrics = sampleProcessMetrics();
     const std::string line = formatLine(now, metrics, std::max(window_elapsed.count(), 0.001));
     if (logger_ != nullptr && logger_->enabled()) {
-      CONTOURTTY_LOG_INFO(*logger_, line);
+      STROK_LOG_INFO(*logger_, line);
     }
     last_sample_ = now;
     last_metrics_ = metrics;
@@ -627,7 +627,7 @@ void enqueueScriptedInputKeys(const CliOptions& options, Logger& logger) {
     return;
   }
   enqueueKeyboardBytes(*options.input_keys);
-  CONTOURTTY_LOG_INFO(logger, "scripted input keys queued count=" + std::to_string(options.input_keys->size()));
+  STROK_LOG_INFO(logger, "scripted input keys queued count=" + std::to_string(options.input_keys->size()));
 }
 
 PlaybackCommand pollKeyboardCommand() {
@@ -1272,7 +1272,7 @@ std::optional<GlyphFont> glyphFontFromOptions(const CliOptions& options, Logger&
   }
   std::optional<GlyphFont> font;
   font.emplace(*options.font_path);
-  CONTOURTTY_LOG_INFO(logger, "font loaded path=" + font->path().string());
+  STROK_LOG_INFO(logger, "font loaded path=" + font->path().string());
   return font;
 }
 
@@ -1328,9 +1328,9 @@ void writeCastEvent(std::ofstream& out, double timestamp, std::string_view bytes
 void logGpuRequest(const CliOptions& options, Logger& logger) {
   if (options.gpu) {
     if (gpuSobelAvailable()) {
-      CONTOURTTY_LOG_INFO(logger, std::string("gpu analysis requested; using ") + gpuSobelBackendName() + " structure backend");
+      STROK_LOG_INFO(logger, std::string("gpu analysis requested; using ") + gpuSobelBackendName() + " structure backend");
     } else {
-      CONTOURTTY_LOG_WARN(logger, "gpu analysis requested but unavailable; using cpu renderer");
+      STROK_LOG_WARN(logger, "gpu analysis requested but unavailable; using cpu renderer");
     }
   }
 }
@@ -1353,17 +1353,17 @@ std::optional<GraphicsFrameOptions> graphicsOptionsFromResolution(const CliOptio
   }
   const RenderModeResolution resolution = resolveRenderMode(options, caps);
   if (resolution.degraded_to_text) {
-    CONTOURTTY_LOG_INFO(logger, "render mode " + options.render_mode + " degraded to text");
+    STROK_LOG_INFO(logger, "render mode " + options.render_mode + " degraded to text");
     return std::nullopt;
   }
   if (resolution.mode != ResolvedRenderMode::Pixel && resolution.mode != ResolvedRenderMode::Hybrid) {
     return std::nullopt;
   }
   if (resolution.protocol == GraphicsProtocol::None) {
-    CONTOURTTY_LOG_INFO(logger, "graphics protocol " + std::string(toString(resolution.protocol)) + " not implemented; using text");
+    STROK_LOG_INFO(logger, "graphics protocol " + std::string(toString(resolution.protocol)) + " not implemented; using text");
     return std::nullopt;
   }
-  CONTOURTTY_LOG_INFO(logger, "render mode " + std::string(toString(resolution.mode)) + " protocol=" + std::string(toString(resolution.protocol)));
+  STROK_LOG_INFO(logger, "render mode " + std::string(toString(resolution.mode)) + " protocol=" + std::string(toString(resolution.protocol)));
   return GraphicsFrameOptions{
     .protocol = resolution.protocol,
     .color_mode = color_mode,
@@ -1601,7 +1601,7 @@ LoadedImageGrid loadImageGridTiles(const CliOptions& options, Logger& logger) {
     }
     grid.tiles.push_back(std::move(loaded_tile));
   }
-  CONTOURTTY_LOG_INFO(logger, "image grid tiles=" + std::to_string(grid.tiles.size()) +
+  STROK_LOG_INFO(logger, "image grid tiles=" + std::to_string(grid.tiles.size()) +
                                 " grid=" + std::to_string(grid.spec.cols) + "x" + std::to_string(grid.spec.rows) +
                                 (grid.animated ? " animated duration_us=" + std::to_string(grid.duration_us) : ""));
   return grid;
@@ -1708,7 +1708,7 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
     }
     writer.finish();
     caption_writer.finish();
-    CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+    STROK_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
     return 0;
   }
 
@@ -1734,7 +1734,7 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
       if (!decision.send) {
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         return std::nullopt;
       }
@@ -1784,9 +1784,9 @@ int exportImageGridMedia(const CliOptions& options, Logger& logger) {
     throw std::runtime_error("failed to write export file: " + output_path.string());
   }
   caption_writer.finish();
-  CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+  STROK_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
   if (logger.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000));
   }
@@ -1816,7 +1816,7 @@ int writeImageGridStillSnapshot(const CliOptions& options, Logger& logger) {
   renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
   writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
-  CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+  STROK_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
                                 " size=" + std::to_string(raster.width) + "x" + std::to_string(raster.height));
   return 0;
 }
@@ -1876,7 +1876,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
-  CONTOURTTY_LOG_INFO(logger, "image grid playback started");
+  STROK_LOG_INFO(logger, "image grid playback started");
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
@@ -1944,7 +1944,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
     }
     if (command == PlaybackCommand::TogglePause) {
       paused = !paused;
-      CONTOURTTY_LOG_INFO(logger, paused ? "image grid playback paused" : "image grid playback resumed");
+      STROK_LOG_INFO(logger, paused ? "image grid playback paused" : "image grid playback resumed");
     } else if (command == PlaybackCommand::SeekBackward && grid.animated) {
       frame_index = std::max<int64_t>(0, frame_index - seek_frames);
       pacer.reset();
@@ -1992,7 +1992,7 @@ int playImageGrid(const CliOptions& options, Logger& logger) {
     }
   }
   if (render_stats.frames > 0) {
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000));
   }
@@ -2024,7 +2024,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   const int temporal_supersample = effectiveTemporalSupersample(options, source_fps);
   const CliOptions render_options = withTemporalSupersample(options, temporal_supersample);
   if (options.temporal_supersample > 1) {
-    CONTOURTTY_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(options.temporal_supersample) +
+    STROK_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(options.temporal_supersample) +
                                   " active=" + std::to_string(temporal_supersample) +
                                   (source_fps.has_value() ? " source_fps=" + std::to_string(*source_fps) : " source_fps=unknown"));
   }
@@ -2048,7 +2048,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   GraphicsFrameState graphics_state;
   SceneOverlaySource overlay_source(options);
   if (overlay_source.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
+    STROK_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
   }
   CellBuffer cells;
   DiffEmitter emitter;
@@ -2060,16 +2060,16 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   double last_timestamp = 0.0;
   CaptionSidecarWriter caption_writer(options.captions_file, defaultCaptionDurationUs(options));
   const auto log_export = [&] {
-    CONTOURTTY_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
+    STROK_LOG_INFO(logger, "exported frames=" + std::to_string(exported_frames) + " path=" + output_path.string());
     if (caption_writer.enabled()) {
-      CONTOURTTY_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
+      STROK_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
     }
     if (logger.enabled()) {
       const int64_t shape_match_us = render_stats.shape_match_ns / 1000;
       const double avg_shape_match_ns = render_stats.shape_match_cells > 0
                                           ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
                                           : 0.0;
-      CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+      STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                     " cells=" + std::to_string(render_stats.cells) +
                                     " render_us=" + std::to_string(render_stats.render_ns / 1000) +
                                     " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
@@ -2112,10 +2112,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     std::optional<DecodedAudio> export_audio;
     try {
       export_audio = decodeAudioFile(std::filesystem::path(*options.input));
-      CONTOURTTY_LOG_INFO(logger, "export audio decoded frames=" + std::to_string(export_audio->decoded_frames) +
+      STROK_LOG_INFO(logger, "export audio decoded frames=" + std::to_string(export_audio->decoded_frames) +
                                     " duration_us=" + std::to_string(export_audio->duration_us));
     } catch (const NoAudioStreamError&) {
-      CONTOURTTY_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
+      STROK_LOG_INFO(logger, "export input has no audio stream; writing silent MP4");
     }
     fill_lookahead();
     std::optional<Frame> overlay_frame;
@@ -2174,7 +2174,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
       const BandwidthDecision decision = graphics_bandwidth->recordFrame(bytes.size(), exportTimepoint(timestamp));
       if (!decision.send) {
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         return std::nullopt;
       }
@@ -2257,7 +2257,7 @@ int writeCaptionSidecar(const CliOptions& options, Logger& logger) {
     frame = video_decoder.nextFrame();
   } while (frame.has_value());
   caption_writer.finish();
-  CONTOURTTY_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
+  STROK_LOG_INFO(logger, "captions cues=" + std::to_string(caption_writer.cueCount()) + " path=" + caption_writer.pathString());
   return 0;
 }
 
@@ -2296,7 +2296,7 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
     renderFrame(gbuffer.albedo, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state, &gbuffer);
     const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
     writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
-    CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+    STROK_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
                                   " width=" + std::to_string(raster.width) +
                                   " height=" + std::to_string(raster.height));
     return 0;
@@ -2319,7 +2319,7 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
     renderFrame(frame, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
     writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
-    CONTOURTTY_LOG_INFO(logger, "shader still snapshot path=" + *options.still_file +
+    STROK_LOG_INFO(logger, "shader still snapshot path=" + *options.still_file +
                                   " width=" + std::to_string(raster.width) +
                                   " height=" + std::to_string(raster.height));
     return 0;
@@ -2343,7 +2343,7 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   const DitherMode dither_mode = ditherModeFromString(options.dither);
   SceneOverlaySource overlay_source(options);
   if (overlay_source.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
+    STROK_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
   }
   CellBuffer cells;
   RenderTemporalState temporal_state;
@@ -2354,7 +2354,7 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
   renderFrame(render_input, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
   writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
-  CONTOURTTY_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
+  STROK_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
                                 " width=" + std::to_string(raster.width) +
                                 " height=" + std::to_string(raster.height));
   return 0;
@@ -2365,7 +2365,7 @@ bool isAsciinemaCastInput(std::string_view input) {
 }
 
 bool isSceneInputSource(std::string_view input) {
-  constexpr std::string_view prefix = "contourtty:scene:";
+  constexpr std::string_view prefix = "strok:scene:";
   return input.starts_with(prefix) || std::filesystem::path(std::string(input)).extension() == ".obj";
 }
 
@@ -2457,9 +2457,9 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
   logGpuRequest(options, logger);
 
   AsciinemaFrameSource source = AsciinemaFrameSource::fromFile(*options.input);
-  CONTOURTTY_LOG_INFO(logger, "asciinema cast width=" + std::to_string(source.header().width) +
+  STROK_LOG_INFO(logger, "asciinema cast width=" + std::to_string(source.header().width) +
                                 " height=" + std::to_string(source.header().height));
-  CONTOURTTY_LOG_INFO(logger, "no audio stream; using cast event pacing");
+  STROK_LOG_INFO(logger, "no audio stream; using cast event pacing");
 
   resetQuitFlag();
   g_pending_commands.clear();
@@ -2467,14 +2467,14 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
-  CONTOURTTY_LOG_INFO(logger, "playback started");
+  STROK_LOG_INFO(logger, "playback started");
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   if (shape_vectors.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+    STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }
 
@@ -2484,7 +2484,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
   RenderTemporalState temporal_state;
   FramePacer pacer(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  STROK_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
@@ -2515,7 +2515,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
         break;
       case PlaybackCommand::TogglePause:
         paused = !paused;
-        CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+        STROK_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
         break;
       case PlaybackCommand::SeekBackward:
       case PlaybackCommand::SeekForward:
@@ -2558,7 +2558,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
         temporal_state.reset();
         std::string clear_loop = "\x1b[2J";
         writeAll(STDOUT_FILENO, clear_loop);
-        CONTOURTTY_LOG_INFO(logger, "asciinema cast loop restarted");
+        STROK_LOG_INFO(logger, "asciinema cast loop restarted");
         continue;
       }
       break;
@@ -2595,7 +2595,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
       if (!decision.send) {
         debug_stats.recordDroppedFrame();
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         if (!debug_stats.maybeReport(terminal)) {
           quit = true;
@@ -2625,7 +2625,7 @@ int playAsciinemaCast(const CliOptions& options, Logger& logger) {
     const double avg_shape_match_ns = render_stats.shape_match_cells > 0
                                         ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
                                         : 0.0;
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000) +
                                   " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
@@ -2648,8 +2648,8 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   logGpuRequest(options, logger);
 
   SceneMesh mesh = loadSceneInputMesh(*options.input);
-  CONTOURTTY_LOG_INFO(logger, "scene triangles=" + std::to_string(mesh.triangles.size()));
-  CONTOURTTY_LOG_INFO(logger, "no audio stream; using scene frame pacing");
+  STROK_LOG_INFO(logger, "scene triangles=" + std::to_string(mesh.triangles.size()));
+  STROK_LOG_INFO(logger, "no audio stream; using scene frame pacing");
 
   resetQuitFlag();
   g_pending_commands.clear();
@@ -2657,14 +2657,14 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
-  CONTOURTTY_LOG_INFO(logger, "playback started");
+  STROK_LOG_INFO(logger, "playback started");
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   if (shape_vectors.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+    STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }
 
@@ -2676,7 +2676,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
   const double fps = options.fps.value_or(options.max_fps.value_or(30.0));
   const int64_t frame_us = std::max<int64_t>(1000, static_cast<int64_t>(std::llround(1000000.0 / fps)));
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  STROK_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
@@ -2708,7 +2708,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
         break;
       case PlaybackCommand::TogglePause:
         paused = !paused;
-        CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+        STROK_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
         break;
       case PlaybackCommand::SeekBackward:
         frame_index = std::max<int64_t>(0, frame_index - static_cast<int64_t>(5.0 * fps));
@@ -2785,7 +2785,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
       if (!decision.send) {
         debug_stats.recordDroppedFrame();
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         if (!debug_stats.maybeReport(terminal)) {
           quit = true;
@@ -2812,7 +2812,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
     const double avg_shape_match_ns = render_stats.shape_match_cells > 0
                                         ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
                                         : 0.0;
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000) +
                                   " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
@@ -2834,8 +2834,8 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
 
   const std::filesystem::path shader_path = loadShaderInputPath(*options.input);
   ShaderFrameSource source(shader_path);
-  CONTOURTTY_LOG_INFO(logger, "shader source=" + shader_path.string());
-  CONTOURTTY_LOG_INFO(logger, "no audio stream; using shader frame pacing");
+  STROK_LOG_INFO(logger, "shader source=" + shader_path.string());
+  STROK_LOG_INFO(logger, "no audio stream; using shader frame pacing");
 
   resetQuitFlag();
   g_pending_commands.clear();
@@ -2843,14 +2843,14 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
-  CONTOURTTY_LOG_INFO(logger, "playback started");
+  STROK_LOG_INFO(logger, "playback started");
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   if (shape_vectors.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+    STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }
 
@@ -2862,7 +2862,7 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
   const double fps = options.fps.value_or(options.max_fps.value_or(30.0));
   const int64_t frame_us = std::max<int64_t>(1000, static_cast<int64_t>(std::llround(1000000.0 / fps)));
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  STROK_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
@@ -2894,7 +2894,7 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
         break;
       case PlaybackCommand::TogglePause:
         paused = !paused;
-        CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+        STROK_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
         break;
       case PlaybackCommand::SeekBackward:
         frame_index = std::max<int64_t>(0, frame_index - static_cast<int64_t>(5.0 * fps));
@@ -2971,7 +2971,7 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
       if (!decision.send) {
         debug_stats.recordDroppedFrame();
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         if (!debug_stats.maybeReport(terminal)) {
           quit = true;
@@ -2994,7 +2994,7 @@ int playShaderInput(const CliOptions& options, Logger& logger) {
   }
 
   if (logger.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000));
   }
@@ -3017,7 +3017,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   values.reserve(static_cast<std::size_t>(std::max(1, options.plot_window)));
   std::size_t sample_count = 1;
   logGpuRequest(options, logger);
-  CONTOURTTY_LOG_INFO(logger, "stdin plot streaming");
+  STROK_LOG_INFO(logger, "stdin plot streaming");
 
   resetQuitFlag();
   g_pending_commands.clear();
@@ -3028,16 +3028,16 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   if (interactive) {
     session = std::make_unique<TerminalSession>();
   } else {
-    CONTOURTTY_LOG_INFO(logger, "stdin plot keyboard controls disabled");
+    STROK_LOG_INFO(logger, "stdin plot keyboard controls disabled");
   }
-  CONTOURTTY_LOG_INFO(logger, "playback started");
+  STROK_LOG_INFO(logger, "playback started");
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
   const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
   std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   if (shape_vectors.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+    STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                   " features=" + std::to_string(kShapeRegionCount));
   }
 
@@ -3049,7 +3049,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
   pacing_options.fps = options.plot_rate_hz;
   FramePacer pacer(pacing_options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  STROK_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
@@ -3081,7 +3081,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
           break;
         case PlaybackCommand::TogglePause:
           paused = !paused;
-          CONTOURTTY_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
+          STROK_LOG_INFO(logger, paused ? "playback paused" : "playback resumed");
           break;
         case PlaybackCommand::SeekBackward:
         case PlaybackCommand::SeekForward:
@@ -3117,7 +3117,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
         }
         if (command == PlaybackCommand::TogglePause) {
           paused = false;
-          CONTOURTTY_LOG_INFO(logger, "playback resumed");
+          STROK_LOG_INFO(logger, "playback resumed");
         }
       }
     }
@@ -3155,7 +3155,7 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
       if (!decision.send) {
         debug_stats.recordDroppedFrame();
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         if (!debug_stats.maybeReport(terminal)) {
           quit = true;
@@ -3191,8 +3191,8 @@ int playStdinPlot(const CliOptions& options, Logger& logger) {
     writeAll(STDOUT_FILENO, reset);
   }
   if (logger.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "stdin plot samples=" + std::to_string(sample_count));
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "stdin plot samples=" + std::to_string(sample_count));
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_stats.render_ns / 1000));
   }
@@ -3225,17 +3225,17 @@ int playMedia(const CliOptions& options, Logger& logger) {
   const bool remote_input = isUrlInput(*options.input);
   const bool mirror_camera = camera_input && options.mirror;
   if (camera_input) {
-    CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
-    CONTOURTTY_LOG_INFO(logger, mirror_camera ? "camera mirror enabled" : "camera mirror disabled");
+    STROK_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+    STROK_LOG_INFO(logger, mirror_camera ? "camera mirror enabled" : "camera mirror disabled");
   } else if (remote_input) {
-    CONTOURTTY_LOG_INFO(logger, "remote audio predecode skipped; using wall-clock pacing");
+    STROK_LOG_INFO(logger, "remote audio predecode skipped; using wall-clock pacing");
   } else {
     try {
       decoded_audio = decodeAudioFile(*options.input);
-      CONTOURTTY_LOG_INFO(logger, "audio decoded frames=" + std::to_string(decoded_audio->decoded_frames) +
+      STROK_LOG_INFO(logger, "audio decoded frames=" + std::to_string(decoded_audio->decoded_frames) +
                                     " duration_us=" + std::to_string(decoded_audio->duration_us));
     } catch (const NoAudioStreamError&) {
-      CONTOURTTY_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
+      STROK_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
     }
   }
 
@@ -3245,12 +3245,12 @@ int playMedia(const CliOptions& options, Logger& logger) {
   installQuitSignalHandlers();
   installResizeSignalHandler();
   TerminalSession session;
-  CONTOURTTY_LOG_INFO(logger, "playback started");
+  STROK_LOG_INFO(logger, "playback started");
 
   CliOptions live_options = options;
   std::optional<SplitPlaybackConfig> split_config = splitPlaybackConfigFromOptions(live_options);
   if (split_config.has_value()) {
-    CONTOURTTY_LOG_INFO(logger, "split enabled left=" + split_config->spec.left + " right=" + split_config->spec.right);
+    STROK_LOG_INFO(logger, "split enabled left=" + split_config->spec.left + " right=" + split_config->spec.right);
   }
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(live_options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
@@ -3260,7 +3260,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     ramp = rampFromOptions(live_options, glyph_font_ptr);
     shape_vectors = shapeTableFromOptions(live_options, glyph_font_ptr);
     if (shape_vectors.has_value()) {
-      CONTOURTTY_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
+      STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
                                     " features=" + std::to_string(kShapeRegionCount));
     }
   };
@@ -3271,7 +3271,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   const std::optional<double> source_fps = video_decoder.averageFps();
   const int temporal_supersample = effectiveTemporalSupersample(live_options, source_fps);
   if (live_options.temporal_supersample > 1) {
-    CONTOURTTY_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(live_options.temporal_supersample) +
+    STROK_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(live_options.temporal_supersample) +
                                   " active=" + std::to_string(temporal_supersample) +
                                   (source_fps.has_value() ? " source_fps=" + std::to_string(*source_fps) : " source_fps=unknown"));
     live_options.temporal_supersample = temporal_supersample;
@@ -3294,7 +3294,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       });
   }
   const ColorMode color_mode = resolveColorMode(live_options.color_mode, std::getenv("TERM"), std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
-  CONTOURTTY_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
+  STROK_LOG_INFO(logger, "color mode " + std::string(colorModeName(color_mode)));
   const DitherMode dither_mode = ditherModeFromString(live_options.dither);
   const EmissionOptions emission_options{.color_mode = color_mode, .dither_mode = dither_mode, .diff_oklab_eps = live_options.diff_oklab_eps.value_or(0.0)};
   std::optional<GraphicsFrameOptions> graphics_options;
@@ -3308,7 +3308,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   GraphicsFrameState graphics_state;
   SceneOverlaySource overlay_source(live_options);
   if (overlay_source.enabled()) {
-    CONTOURTTY_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
+    STROK_LOG_INFO(logger, "overlay scene=" + overlay_source.pathString());
   }
   DriftStats drift_stats;
   RenderStats render_stats;
@@ -3355,7 +3355,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
     reset_render_state();
-    CONTOURTTY_LOG_INFO(logger, "seek reset render state target_us=" + std::to_string(clamped_us));
+    STROK_LOG_INFO(logger, "seek reset render state target_us=" + std::to_string(clamped_us));
   };
 
   const auto apply_command = [&](PlaybackCommand command) {
@@ -3366,7 +3366,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     const auto apply_live_change = [&](std::string_view label) {
       rebuild_glyph_state();
       reset_render_state();
-      CONTOURTTY_LOG_INFO(logger, "live " + std::string(label) +
+      STROK_LOG_INFO(logger, "live " + std::string(label) +
                                     " mode=" + live_options.mode +
                                     " style=" + live_options.style +
                                     " charset=" + osdCharsetLabel(live_options) +
@@ -3385,10 +3385,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
       case PlaybackCommand::TogglePause:
         if (audio_player != nullptr) {
           audio_player->setPaused(!audio_player->paused());
-          CONTOURTTY_LOG_INFO(logger, audio_player->paused() ? "playback paused" : "playback resumed");
+          STROK_LOG_INFO(logger, audio_player->paused() ? "playback paused" : "playback resumed");
         } else {
           paused_without_audio = !paused_without_audio;
-          CONTOURTTY_LOG_INFO(logger, paused_without_audio ? "playback paused" : "playback resumed");
+          STROK_LOG_INFO(logger, paused_without_audio ? "playback paused" : "playback resumed");
         }
         return true;
       case PlaybackCommand::SeekBackward:
@@ -3397,7 +3397,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
           if (cols >= 3) {
             split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(cols)) - 2, cols);
             reset_render_state();
-            CONTOURTTY_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
+            STROK_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
           }
           return true;
         }
@@ -3409,7 +3409,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
           if (cols >= 3) {
             split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(cols)) + 2, cols);
             reset_render_state();
-            CONTOURTTY_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
+            STROK_LOG_INFO(logger, "split seam col=" + std::to_string(*split_seam_col));
           }
           return true;
         }
@@ -3418,7 +3418,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       case PlaybackCommand::ToggleOsd:
         osd_active = !osd_active;
         reset_render_state();
-        CONTOURTTY_LOG_INFO(logger, osd_active ? "osd shown" : "osd hidden");
+        STROK_LOG_INFO(logger, osd_active ? "osd shown" : "osd hidden");
         return true;
       case PlaybackCommand::CycleStyle:
         live_options.style = cycleStringValue(live_options.style, style_cycle);
@@ -3506,7 +3506,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         lookahead_frame.reset();
         pacer.reset();
         reset_render_state();
-        CONTOURTTY_LOG_INFO(logger, "animated image loop restarted");
+        STROK_LOG_INFO(logger, "animated image loop restarted");
         continue;
       }
       if (live_options.loop && !video_decoder.isStillImage()) {
@@ -3519,7 +3519,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         resetSyncForSeek(&audio_sync);
         current_video_us = 0;
         reset_render_state();
-        CONTOURTTY_LOG_INFO(logger, "input loop restarted");
+        STROK_LOG_INFO(logger, "input loop restarted");
         continue;
       }
       if (video_decoder.isStillImage() && still_frame.has_value()) {
@@ -3567,7 +3567,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (consumeResizeFlag()) {
       terminal = queryTerminalSize();
       reset_render_state();
-      CONTOURTTY_LOG_INFO(logger, "resize reset render state terminal=" + std::to_string(terminal.cols) + "x" + std::to_string(terminal.rows));
+      STROK_LOG_INFO(logger, "resize reset render state terminal=" + std::to_string(terminal.cols) + "x" + std::to_string(terminal.rows));
     }
 
     const TerminalSize render_terminal = liveRenderTerminal(terminal, live_options, osd_active);
@@ -3620,7 +3620,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       if (!decision.send) {
         debug_stats.recordDroppedFrame();
         if (decision.warn) {
-          CONTOURTTY_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
+          STROK_LOG_WARN(logger, "graphics bandwidth cap hit; dropping frames");
         }
         if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
           quit = true;
@@ -3654,7 +3654,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   if (drift_stats.samples > 0 || drift_stats.dropped_frames > 0 || drift_stats.rendered_frames > 0) {
     const int64_t avg_abs_us = drift_stats.samples > 0 ? drift_stats.sum_abs_us / drift_stats.samples : 0;
-    CONTOURTTY_LOG_INFO(logger, "audio sync drift samples=" + std::to_string(drift_stats.samples) +
+    STROK_LOG_INFO(logger, "audio sync drift samples=" + std::to_string(drift_stats.samples) +
                                   " max_abs_us=" + std::to_string(drift_stats.max_abs_us) +
                                   " avg_abs_us=" + std::to_string(avg_abs_us) +
                                   " rendered_frames=" + std::to_string(drift_stats.rendered_frames) +
@@ -3666,7 +3666,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
     const double avg_shape_match_ns = render_stats.shape_match_cells > 0
                                         ? static_cast<double>(render_stats.shape_match_ns) / static_cast<double>(render_stats.shape_match_cells)
                                         : 0.0;
-    CONTOURTTY_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
+    STROK_LOG_INFO(logger, "render stats frames=" + std::to_string(render_stats.frames) +
                                   " cells=" + std::to_string(render_stats.cells) +
                                   " render_us=" + std::to_string(render_us) +
                                   " shape_match_cells=" + std::to_string(render_stats.shape_match_cells) +
@@ -3679,9 +3679,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   }
   (void)debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active), true);
   if (quit || shouldQuit()) {
-    CONTOURTTY_LOG_INFO(logger, "playback quit before eof");
+    STROK_LOG_INFO(logger, "playback quit before eof");
   } else {
-    CONTOURTTY_LOG_INFO(logger, "playback reached eof");
+    STROK_LOG_INFO(logger, "playback reached eof");
   }
   if (graphics_options.has_value() && graphics_options->protocol == GraphicsProtocol::Kitty) {
     (void)writeAll(STDOUT_FILENO, deleteKittyImage(graphics_options->image_id, graphics_options->placement_id));
@@ -3689,4 +3689,4 @@ int playMedia(const CliOptions& options, Logger& logger) {
   return 0;
 }
 
-}  // namespace contourtty
+}  // namespace strok

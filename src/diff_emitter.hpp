@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct EmissionResult {
   std::string bytes;
@@ -34,4 +34,4 @@ class DiffEmitter {
   bool has_previous_ = false;
 };
 
-}  // namespace contourtty
+}  // namespace strok

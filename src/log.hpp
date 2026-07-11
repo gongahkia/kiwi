@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 class Logger {
  public:
@@ -22,8 +22,8 @@ class Logger {
   std::ofstream sink_;
 };
 
-}  // namespace contourtty
+}  // namespace strok
 
-#define CONTOURTTY_LOG_INFO(logger, message) (logger).info(message)
-#define CONTOURTTY_LOG_WARN(logger, message) (logger).warn(message)
-#define CONTOURTTY_LOG_ERROR(logger, message) (logger).error(message)
+#define STROK_LOG_INFO(logger, message) (logger).info(message)
+#define STROK_LOG_WARN(logger, message) (logger).warn(message)
+#define STROK_LOG_ERROR(logger, message) (logger).error(message)

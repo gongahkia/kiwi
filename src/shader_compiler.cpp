@@ -19,7 +19,7 @@
 #include <unistd.h>
 #endif
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 unsigned long processId() noexcept {
@@ -35,7 +35,7 @@ class TempDir {
   explicit TempDir(const std::optional<std::filesystem::path>& base) {
     const std::filesystem::path root = base.value_or(std::filesystem::temp_directory_path());
     for (int attempt = 0; attempt < 100; ++attempt) {
-      std::filesystem::path candidate = root / ("contourtty-shader-" + std::to_string(processId()) + "-" + std::to_string(attempt));
+      std::filesystem::path candidate = root / ("strok-shader-" + std::to_string(processId()) + "-" + std::to_string(attempt));
       std::error_code ec;
       if (std::filesystem::create_directory(candidate, ec)) {
         path_ = std::move(candidate);
@@ -407,4 +407,4 @@ ShaderCompileResult compileShadertoyFragmentToSpirvAndMsl(std::string_view sourc
   return result;
 }
 
-}  // namespace contourtty
+}  // namespace strok

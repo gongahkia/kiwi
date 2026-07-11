@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool validDimension(const std::string& value) {
@@ -71,4 +71,4 @@ std::string encodeITermInlineRgb24(const RasterImage& image, const ITermInlineOp
   return encodeITermInlineRgb24(image.rgb, image.width, image.height, options);
 }
 
-}  // namespace contourtty
+}  // namespace strok

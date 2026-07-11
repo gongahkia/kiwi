@@ -15,7 +15,7 @@ void expect(bool condition, const char* label) {
   }
 }
 
-bool anyFiniteDepth(const contourtty::SceneGBuffer& buffer) {
+bool anyFiniteDepth(const strok::SceneGBuffer& buffer) {
   for (const double depth : buffer.depth) {
     if (std::isfinite(depth)) {
       return true;
@@ -24,8 +24,8 @@ bool anyFiniteDepth(const contourtty::SceneGBuffer& buffer) {
   return false;
 }
 
-bool anyNormal(const contourtty::SceneGBuffer& buffer) {
-  for (const contourtty::SceneVec3 normal : buffer.normals) {
+bool anyNormal(const strok::SceneGBuffer& buffer) {
+  for (const strok::SceneVec3 normal : buffer.normals) {
     if (std::abs(normal.x) > 0.0 || std::abs(normal.y) > 0.0 || std::abs(normal.z) > 0.0) {
       return true;
     }
@@ -33,30 +33,30 @@ bool anyNormal(const contourtty::SceneGBuffer& buffer) {
   return false;
 }
 
-bool albedoDiffers(const contourtty::SceneGBuffer& lhs, const contourtty::SceneGBuffer& rhs) {
+bool albedoDiffers(const strok::SceneGBuffer& lhs, const strok::SceneGBuffer& rhs) {
   return lhs.albedo.rgb != rhs.albedo.rgb;
 }
 
 }  // namespace
 
 int main() {
-  expect(contourtty::parseSceneCameraPreset("turntable") == contourtty::SceneCameraPreset::Turntable, "turntable camera parses");
-  expect(contourtty::parseSceneCameraPreset("orbit") == contourtty::SceneCameraPreset::Orbit, "orbit camera parses");
-  expect(contourtty::parseSceneCameraPreset("fly") == contourtty::SceneCameraPreset::Fly, "fly camera parses");
-  expect(!contourtty::parseSceneCameraPreset("bad").has_value(), "bad camera rejected");
+  expect(strok::parseSceneCameraPreset("turntable") == strok::SceneCameraPreset::Turntable, "turntable camera parses");
+  expect(strok::parseSceneCameraPreset("orbit") == strok::SceneCameraPreset::Orbit, "orbit camera parses");
+  expect(strok::parseSceneCameraPreset("fly") == strok::SceneCameraPreset::Fly, "fly camera parses");
+  expect(!strok::parseSceneCameraPreset("bad").has_value(), "bad camera rejected");
 
-  const std::optional<std::filesystem::path> bundled = contourtty::resolveBundledScene("contourtty:scene:cube");
+  const std::optional<std::filesystem::path> bundled = strok::resolveBundledScene("strok:scene:cube");
   expect(bundled.has_value(), "bundled cube resolves");
-  const contourtty::SceneMesh cube = contourtty::loadObjScene(*bundled);
+  const strok::SceneMesh cube = strok::loadObjScene(*bundled);
   expect(cube.triangles.size() == 12, "bundled cube loads");
 
-  const std::optional<std::filesystem::path> suzanne_path = contourtty::resolveBundledScene("contourtty:scene:suzanne");
+  const std::optional<std::filesystem::path> suzanne_path = strok::resolveBundledScene("strok:scene:suzanne");
   expect(suzanne_path.has_value(), "bundled suzanne resolves");
-  const contourtty::SceneMesh suzanne = contourtty::loadObjScene(*suzanne_path);
+  const strok::SceneMesh suzanne = strok::loadObjScene(*suzanne_path);
   expect(suzanne.positions.size() == 505, "bundled suzanne vertex count");
   expect(suzanne.triangles.size() == 968, "bundled suzanne triangle count");
 
-  const contourtty::SceneMesh triangle = contourtty::parseObjScene(
+  const strok::SceneMesh triangle = strok::parseObjScene(
     "v -1 -1 0\n"
     "v 1 -1 0\n"
     "v 0 1 0\n"
@@ -66,7 +66,7 @@ int main() {
   expect(triangle.normals.size() == 1, "OBJ parser stores normals");
   expect(triangle.triangles.size() == 1, "OBJ parser stores triangle");
 
-  const contourtty::SceneMesh quad = contourtty::parseObjScene(
+  const strok::SceneMesh quad = strok::parseObjScene(
     "v -1 -1 0\n"
     "v 1 -1 0\n"
     "v 1 1 0\n"
@@ -74,7 +74,7 @@ int main() {
     "f 1 2 3 4\n");
   expect(quad.triangles.size() == 2, "OBJ parser triangulates quad");
 
-  const contourtty::SceneGBuffer rendered = contourtty::renderSceneGBuffer(triangle, contourtty::SceneRenderOptions{.width = 16, .height = 16});
+  const strok::SceneGBuffer rendered = strok::renderSceneGBuffer(triangle, strok::SceneRenderOptions{.width = 16, .height = 16});
   expect(rendered.albedo.w == 16 && rendered.albedo.h == 16, "scene render output dimensions");
   expect(rendered.albedo.rgb.size() == 16U * 16U * 3U, "scene render albedo size");
   expect(rendered.depth.size() == 16U * 16U, "scene render depth size");
@@ -82,17 +82,17 @@ int main() {
   expect(anyFiniteDepth(rendered), "scene render writes depth");
   expect(anyNormal(rendered), "scene render writes normals");
 
-  const contourtty::SceneGBuffer rotated = contourtty::renderSceneGBuffer(triangle, contourtty::SceneRenderOptions{.width = 16, .height = 16, .time_seconds = 0.5});
+  const strok::SceneGBuffer rotated = strok::renderSceneGBuffer(triangle, strok::SceneRenderOptions{.width = 16, .height = 16, .time_seconds = 0.5});
   expect(anyFiniteDepth(rotated), "rotated scene render writes depth");
 
-  const contourtty::SceneGBuffer turntable = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Turntable});
-  const contourtty::SceneGBuffer orbit = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Orbit});
-  const contourtty::SceneGBuffer fly = contourtty::renderSceneGBuffer(cube, contourtty::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = contourtty::SceneCameraPreset::Fly});
+  const strok::SceneGBuffer turntable = strok::renderSceneGBuffer(cube, strok::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = strok::SceneCameraPreset::Turntable});
+  const strok::SceneGBuffer orbit = strok::renderSceneGBuffer(cube, strok::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = strok::SceneCameraPreset::Orbit});
+  const strok::SceneGBuffer fly = strok::renderSceneGBuffer(cube, strok::SceneRenderOptions{.width = 20, .height = 18, .time_seconds = 0.75, .camera_preset = strok::SceneCameraPreset::Fly});
   expect(anyFiniteDepth(turntable) && anyFiniteDepth(orbit) && anyFiniteDepth(fly), "camera presets render depth");
   expect(albedoDiffers(turntable, orbit), "orbit camera changes rendered view");
   expect(albedoDiffers(turntable, fly), "fly camera changes rendered view");
 
-  const contourtty::SceneGBuffer suzanne_render = contourtty::renderSceneGBuffer(suzanne, contourtty::SceneRenderOptions{.width = 48, .height = 32, .time_seconds = 0.25, .camera_preset = contourtty::SceneCameraPreset::Turntable});
+  const strok::SceneGBuffer suzanne_render = strok::renderSceneGBuffer(suzanne, strok::SceneRenderOptions{.width = 48, .height = 32, .time_seconds = 0.25, .camera_preset = strok::SceneCameraPreset::Turntable});
   expect(anyFiniteDepth(suzanne_render), "bundled suzanne renders depth");
   expect(anyNormal(suzanne_render), "bundled suzanne renders normals");
 }

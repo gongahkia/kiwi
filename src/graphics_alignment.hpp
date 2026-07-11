@@ -1,6 +1,6 @@
 #pragma once
 
-namespace contourtty {
+namespace strok {
 
 struct GraphicsAlignment {
   int cols = 0;
@@ -16,4 +16,4 @@ int cellLeftPixel(const GraphicsAlignment& alignment, int col);
 int cellTopPixel(const GraphicsAlignment& alignment, int row);
 bool pixelAlignedToCellColumn(const GraphicsAlignment& alignment, int col, int pixel_x, int tolerance_px = 1);
 
-}  // namespace contourtty
+}  // namespace strok

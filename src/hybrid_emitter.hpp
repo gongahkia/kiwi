@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct HybridFrameOptions {
   GraphicsFrameOptions graphics;
@@ -23,4 +23,4 @@ struct HybridFrameResult {
 
 HybridFrameResult emitHybridFrame(const CellBuffer& cells, const HybridFrameOptions& options);
 
-}  // namespace contourtty
+}  // namespace strok

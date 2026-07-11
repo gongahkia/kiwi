@@ -1,6 +1,6 @@
 #include "gpu_sobel.hpp"
 
-namespace contourtty {
+namespace strok {
 
 bool gpuSobelAvailable() {
   return false;
@@ -26,4 +26,4 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpu(const Frame&, const 
   return std::nullopt;
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -1,6 +1,6 @@
 #include "base64.hpp"
 
-namespace contourtty {
+namespace strok {
 
 std::string base64Encode(std::span<const uint8_t> bytes) {
   constexpr char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -19,4 +19,4 @@ std::string base64Encode(std::span<const uint8_t> bytes) {
   return encoded;
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 std::string summariseFrameCaption(const Frame& frame);
 std::string formatSrtTimestamp(int64_t pts_us);
@@ -34,4 +34,4 @@ class CaptionSrtBuilder {
   std::string srt_;
 };
 
-}  // namespace contourtty
+}  // namespace strok

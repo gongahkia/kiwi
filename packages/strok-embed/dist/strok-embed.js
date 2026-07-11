@@ -405,15 +405,15 @@ export function recordingToHtml(recording, time = 0) {
 
 const templateCss = `
 :host{display:block;contain:content;color-scheme:dark light}
-.frame{font:var(--contourtty-font,12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);background:var(--contourtty-bg,#050505);color:var(--contourtty-fg,#f4f4f4);border:1px solid var(--contourtty-border,#262626);border-radius:6px;overflow:auto}
-pre{box-sizing:border-box;margin:0;padding:var(--contourtty-padding,12px);white-space:pre;tab-size:8}
-.controls{display:flex;gap:8px;align-items:center;margin-top:6px;font:12px ui-sans-serif,system-ui,sans-serif;color:var(--contourtty-control-fg,#555)}
-button{font:inherit;border:1px solid var(--contourtty-border,#bbb);border-radius:4px;background:var(--contourtty-button-bg,#fff);color:inherit;padding:2px 8px}
+.frame{font:var(--strok-font,12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);background:var(--strok-bg,#050505);color:var(--strok-fg,#f4f4f4);border:1px solid var(--strok-border,#262626);border-radius:6px;overflow:auto}
+pre{box-sizing:border-box;margin:0;padding:var(--strok-padding,12px);white-space:pre;tab-size:8}
+.controls{display:flex;gap:8px;align-items:center;margin-top:6px;font:12px ui-sans-serif,system-ui,sans-serif;color:var(--strok-control-fg,#555)}
+button{font:inherit;border:1px solid var(--strok-border,#bbb);border-radius:4px;background:var(--strok-button-bg,#fff);color:inherit;padding:2px 8px}
 input[type=range]{flex:1;min-width:80px}
 .hidden{display:none}
 `;
 
-export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? class {} : class extends HTMLElement {
+export const StrokPlayerElement = typeof HTMLElement === "undefined" ? class {} : class extends HTMLElement {
   static observedAttributes = ["src", "format", "cols", "rows", "autoplay", "loop", "controls", "speed"];
 
   constructor() {
@@ -492,7 +492,7 @@ export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? clas
       });
     } catch (error) {
       this.pre.textContent = String(error?.message ?? error);
-      this.dispatchEvent(new CustomEvent("contourtty-error", { detail: { error } }));
+      this.dispatchEvent(new CustomEvent("strok-error", { detail: { error } }));
     }
   }
 
@@ -508,7 +508,7 @@ export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? clas
     this.timeline.max = String(this.duration);
     this.controlsEl.classList.toggle("hidden", !this.hasAttribute("controls"));
     this.seek(0);
-    this.dispatchEvent(new CustomEvent("contourtty-load", { detail: { recording: this.recording } }));
+    this.dispatchEvent(new CustomEvent("strok-load", { detail: { recording: this.recording } }));
     if (this.hasAttribute("autoplay")) {
       this.play();
     }
@@ -533,7 +533,7 @@ export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? clas
     this.pre.innerHTML = this.screen.toHtml();
     this.timeline.value = String(target);
     this.timeLabel.textContent = `${target.toFixed(3)} / ${this.duration.toFixed(3)}`;
-    this.dispatchEvent(new CustomEvent("contourtty-timeupdate", { detail: { currentTime: target, duration: this.duration } }));
+    this.dispatchEvent(new CustomEvent("strok-timeupdate", { detail: { currentTime: target, duration: this.duration } }));
   }
 
   play() {
@@ -559,7 +559,7 @@ export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? clas
         } else {
           this.seek(this.duration);
           this.pause();
-          this.dispatchEvent(new CustomEvent("contourtty-ended"));
+          this.dispatchEvent(new CustomEvent("strok-ended"));
           return;
         }
       } else {
@@ -587,17 +587,17 @@ export const ContourttyPlayerElement = typeof HTMLElement === "undefined" ? clas
   }
 };
 
-export function defineContourttyPlayer(tagName = "contourtty-player") {
+export function defineStrokPlayer(tagName = "strok-player") {
   if (typeof customElements === "undefined") {
     return undefined;
   }
   if (customElements.get(tagName)) {
     return customElements.get(tagName);
   }
-  customElements.define(tagName, ContourttyPlayerElement);
-  return ContourttyPlayerElement;
+  customElements.define(tagName, StrokPlayerElement);
+  return StrokPlayerElement;
 }
 
 if (typeof window !== "undefined" && typeof window.customElements !== "undefined") {
-  defineContourttyPlayer();
+  defineStrokPlayer();
 }

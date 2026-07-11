@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 struct AsciinemaHeader {
   int version = 0;
@@ -20,4 +20,4 @@ struct AsciinemaEvent {
 AsciinemaHeader parseAsciinemaHeader(std::string_view line);
 AsciinemaEvent parseAsciinemaEvent(std::string_view line);
 
-}  // namespace contourtty
+}  // namespace strok

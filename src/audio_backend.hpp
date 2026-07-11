@@ -4,7 +4,7 @@
 #include <memory>
 #include <span>
 
-namespace contourtty {
+namespace strok {
 
 struct SineSmokeOptions {
   double seconds = 0.5;
@@ -55,4 +55,4 @@ class PcmPlayer {
 PcmPlaybackResult playPcm(std::span<const float> samples, const PcmPlaybackOptions& options);
 SineSmokeResult playSineSmoke(const SineSmokeOptions& options = {});
 
-}  // namespace contourtty
+}  // namespace strok

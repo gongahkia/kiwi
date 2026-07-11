@@ -50,7 +50,7 @@ std::optional<fs::path> findFont() {
 int main() {
   {
     const auto start = std::chrono::steady_clock::now();
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term = "xterm-256color",
       .colorterm = "truecolor",
     });
@@ -61,7 +61,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term = "xterm-256color",
       .colorterm = "truecolor",
       .no_color = "1",
@@ -73,7 +73,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term = "screen-256color",
     });
     expect(!caps.truecolor, "256 color is not truecolor");
@@ -81,7 +81,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term_program = "kitty",
     });
     expect(caps.truecolor, "kitty truecolor allowlist");
@@ -90,7 +90,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term_program = "Ghostty",
     });
     expect(caps.truecolor, "ghostty truecolor allowlist");
@@ -99,7 +99,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .term_program = "WezTerm",
     });
     expect(caps.truecolor, "wezterm truecolor allowlist");
@@ -108,7 +108,7 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+    const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
       .override_spec = "unicode=13,sextant,truecolor,no-kitty,sixel",
     });
     expect(caps.unicode_version == 13, "override unicode");
@@ -121,7 +121,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+      (void)strok::detectTerminalCaps(strok::TerminalCapsProbe{
         .override_spec = "unknown",
       });
     } catch (const std::invalid_argument&) {
@@ -136,7 +136,7 @@ int main() {
       if (!fs::exists(path)) {
         continue;
       }
-      const contourtty::TerminalCaps caps = contourtty::detectTerminalCaps(contourtty::TerminalCapsProbe{
+      const strok::TerminalCaps caps = strok::detectTerminalCaps(strok::TerminalCapsProbe{
         .font_path = path,
       });
       if (caps.font_has_braille) {
@@ -150,16 +150,16 @@ int main() {
   }
 
   {
-    const contourtty::TerminalCaps caps = contourtty::TerminalCaps{
+    const strok::TerminalCaps caps = strok::TerminalCaps{
       .truecolor = true,
       .ansi_colors = 24,
       .unicode_version = 16,
       .font_has_octants = true,
       .term_program = "Ghostty",
     };
-    const std::string dump = contourtty::formatTerminalCaps(caps);
+    const std::string dump = strok::formatTerminalCaps(caps);
     expect(dump.find("truecolor=true\n") != std::string::npos, "format truecolor");
     expect(dump.find("unicode_version=16\n") != std::string::npos, "format unicode");
-    expect(contourtty::summarizeTerminalCaps(caps).find('\n') == std::string::npos, "summary one line");
+    expect(strok::summarizeTerminalCaps(caps).find('\n') == std::string::npos, "summary one line");
   }
 }

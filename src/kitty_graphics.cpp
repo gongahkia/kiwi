@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr char kEsc[] = "\x1b_G";
@@ -196,4 +196,4 @@ std::string deleteKittyImage(uint32_t image_id, uint32_t placement_id, bool supp
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

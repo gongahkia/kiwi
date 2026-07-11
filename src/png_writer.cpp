@@ -8,7 +8,7 @@
 #include <vector>
 #include <zlib.h>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 void appendU32(std::vector<uint8_t>& bytes, uint32_t value) {
@@ -89,4 +89,4 @@ void writePngRgb24(const std::filesystem::path& path, int width, int height, std
   }
 }
 
-}  // namespace contourtty
+}  // namespace strok

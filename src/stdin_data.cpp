@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kPi = 3.141592653589793238462643383279502884;
@@ -275,4 +275,4 @@ Frame plotRasterToFrame(const PlotRaster& raster, int64_t pts_us, Rgb ink, Rgb b
   return frame;
 }
 
-}  // namespace contourtty
+}  // namespace strok

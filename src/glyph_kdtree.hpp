@@ -2,8 +2,8 @@
 
 #include "glyph_shape.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void attachGlyphKdTree(GlyphShapeTable* table);
 
-}  // namespace contourtty
+}  // namespace strok

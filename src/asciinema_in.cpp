@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 void skipSpace(std::string_view line, std::size_t* index) {
@@ -160,4 +160,4 @@ AsciinemaEvent parseAsciinemaEvent(std::string_view line) {
   return AsciinemaEvent{.time = time, .type = std::move(type), .data = std::move(data)};
 }
 
-}  // namespace contourtty
+}  // namespace strok

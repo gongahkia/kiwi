@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kBytesPerMegabyte = 1000000.0;
@@ -40,4 +40,4 @@ void BandwidthGuard::reset() {
   warned_ = false;
 }
 
-}  // namespace contourtty
+}  // namespace strok

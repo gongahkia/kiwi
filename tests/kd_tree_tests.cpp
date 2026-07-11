@@ -34,14 +34,14 @@ std::vector<double> normalizedVector(std::size_t seed, std::size_t dims) {
   return values;
 }
 
-contourtty::GlyphShapeTable syntheticHogTable(std::size_t count) {
-  contourtty::GlyphShapeTable table;
+strok::GlyphShapeTable syntheticHogTable(std::size_t count) {
+  strok::GlyphShapeTable table;
   table.cell_width = 10;
   table.cell_height = 14;
   table.feature_count = 32;
-  table.feature_kind = contourtty::GlyphFeatureKind::Hog;
+  table.feature_kind = strok::GlyphFeatureKind::Hog;
   for (std::size_t i = 0; i < count; ++i) {
-    table.entries.push_back(contourtty::GlyphShapeVector{
+    table.entries.push_back(strok::GlyphShapeVector{
       .glyph = static_cast<char32_t>(0x2500U + i),
       .features = normalizedVector(i, table.feature_count),
     });
@@ -59,16 +59,16 @@ int64_t timeNs(Body body, uint64_t* checksum) {
 }  // namespace
 
 int main() {
-  contourtty::GlyphShapeTable table = syntheticHogTable(64);
+  strok::GlyphShapeTable table = syntheticHogTable(64);
   std::vector<std::vector<double>> queries;
   for (std::size_t i = 0; i < 4096; ++i) {
     queries.push_back(table.entries[i % table.entries.size()].features);
   }
 
-  contourtty::attachGlyphKdTree(&table);
+  strok::attachGlyphKdTree(&table);
   int matches = 0;
   for (const std::vector<double>& query : queries) {
-    if (contourtty::matchGlyphShape(query, table) == contourtty::matchGlyphShapeLinear(query, table)) {
+    if (strok::matchGlyphShape(query, table) == strok::matchGlyphShapeLinear(query, table)) {
       ++matches;
     }
   }
@@ -78,7 +78,7 @@ int main() {
   const int64_t linear_ns = timeNs([&] {
     uint64_t sum = 0;
     for (const std::vector<double>& query : queries) {
-      sum += static_cast<uint32_t>(contourtty::matchGlyphShapeLinear(query, table));
+      sum += static_cast<uint32_t>(strok::matchGlyphShapeLinear(query, table));
     }
     return sum;
   }, &linear_checksum);
@@ -87,14 +87,14 @@ int main() {
   const int64_t kd_ns = timeNs([&] {
     uint64_t sum = 0;
     for (const std::vector<double>& query : queries) {
-      sum += static_cast<uint32_t>(contourtty::matchGlyphShape(query, table));
+      sum += static_cast<uint32_t>(strok::matchGlyphShape(query, table));
     }
     return sum;
   }, &kd_checksum);
 
   expect(linear_checksum == kd_checksum, "kd-tree checksum mismatch");
   expect(kd_ns > 0, "kd-tree timing invalid");
-  if (std::getenv("CONTOURTTY_KD_TREE_BENCH") != nullptr) {
+  if (std::getenv("STROK_KD_TREE_BENCH") != nullptr) {
     if (linear_ns < kd_ns * 10) {
       std::cerr << "kd-tree speedup below 10x: linear_ns=" << linear_ns << " kd_ns=" << kd_ns << '\n';
       return 1;

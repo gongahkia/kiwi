@@ -12,7 +12,7 @@
 #include <optional>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct GraphicsFrameOptions {
   GraphicsProtocol protocol = GraphicsProtocol::Kitty;
@@ -49,4 +49,4 @@ struct GraphicsFrameState {
 GraphicsFrameResult emitGraphicsFrame(const CellBuffer& cells, const GraphicsFrameOptions& options);
 GraphicsFrameResult emitGraphicsFrame(const CellBuffer& cells, const GraphicsFrameOptions& options, GraphicsFrameState* state);
 
-}  // namespace contourtty
+}  // namespace strok

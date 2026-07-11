@@ -36,7 +36,7 @@ int processId() {
 
 class TempTree {
  public:
-  TempTree() : path_(std::filesystem::temp_directory_path() / ("contourtty-shader-spirv-golden-" + std::to_string(processId()))) {
+  TempTree() : path_(std::filesystem::temp_directory_path() / ("strok-shader-spirv-golden-" + std::to_string(processId()))) {
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
   }
@@ -167,11 +167,11 @@ int main() {
                                 "  fragColor = vec4(0.125, 0.25, 0.5, 1.0);\n"
                                 "}\n");
 
-  contourtty::ShaderCompileOptions options;
+  strok::ShaderCompileOptions options;
   options.entry_point = "main";
   options.work_dir = temp.path();
-  const auto first = contourtty::compileGlslToSpirv(shader, options);
-  const auto second = contourtty::compileGlslToSpirv(shader, options);
+  const auto first = strok::compileGlslToSpirv(shader, options);
+  const auto second = strok::compileGlslToSpirv(shader, options);
 
   expect(first == second, "fixed shader SPIR-V is deterministic");
   expect(hasSpirvMagic(first), "fixed shader SPIR-V magic");

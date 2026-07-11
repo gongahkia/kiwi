@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace contourtty {
+namespace strok {
 
 double srgbToLinear(uint8_t value) noexcept {
   const double channel = static_cast<double>(value) / 255.0;
@@ -39,4 +39,4 @@ double cellLuminance(std::span<const Rgb> samples) noexcept {
   });
 }
 
-}  // namespace contourtty
+}  // namespace strok

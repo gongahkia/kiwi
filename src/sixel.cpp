@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct PaletteColor {
@@ -218,4 +218,4 @@ std::string encodeSixelRgb24(const RasterImage& image) {
   return encodeSixelRgb24(image.rgb, image.width, image.height);
 }
 
-}  // namespace contourtty
+}  // namespace strok

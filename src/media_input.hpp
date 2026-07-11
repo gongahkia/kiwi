@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 struct CameraInputSpec {
   std::string format;
@@ -14,4 +14,4 @@ struct CameraInputSpec {
 std::optional<CameraInputSpec> cameraInputSpec(std::string_view input);
 bool isCameraInput(std::string_view input) noexcept;
 
-}  // namespace contourtty
+}  // namespace strok

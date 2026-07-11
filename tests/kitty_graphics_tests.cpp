@@ -20,7 +20,7 @@ void expect(bool condition, const char* label) {
 int main() {
   {
     const std::vector<uint8_t> rgb{255, 0, 0};
-    const std::string escape = contourtty::encodeKittyRgb24(rgb, 1, 1, contourtty::KittyImageOptions{
+    const std::string escape = strok::encodeKittyRgb24(rgb, 1, 1, strok::KittyImageOptions{
       .image_id = 7,
       .placement_id = 9,
       .columns = 2,
@@ -30,12 +30,12 @@ int main() {
   }
 
   {
-    const contourtty::RasterImage image{
+    const strok::RasterImage image{
       .width = 1,
       .height = 2,
       .rgb = {255, 0, 0, 0, 255, 0},
     };
-    const std::string escape = contourtty::encodeKittyRgb24(image, contourtty::KittyImageOptions{
+    const std::string escape = strok::encodeKittyRgb24(image, strok::KittyImageOptions{
       .image_id = 3,
       .placement_id = 4,
       .chunk_size = 4,
@@ -45,12 +45,12 @@ int main() {
   }
 
   {
-    const std::string escape = contourtty::deleteKittyImage(12, 5);
+    const std::string escape = strok::deleteKittyImage(12, 5);
     expect(escape == "\x1b_Ga=d,d=i,i=12,p=5,q=2;\x1b\\", "delete image placement escape");
   }
 
   {
-    const std::string escape = contourtty::encodeKittyAnimationFrameRgb24(std::vector<uint8_t>{1, 2, 3}, contourtty::KittyAnimationFrameOptions{
+    const std::string escape = strok::encodeKittyAnimationFrameRgb24(std::vector<uint8_t>{1, 2, 3}, strok::KittyAnimationFrameOptions{
                                                                                                       .image_id = 7,
                                                                                                       .frame_number = 1,
                                                                                                       .x = 2,
@@ -59,13 +59,13 @@ int main() {
                                                                                                       .height = 1,
                                                                                                     });
     expect(escape == "\x1b_Ga=f,t=d,f=24,i=7,r=1,x=2,y=3,s=1,v=1,X=1,q=2,m=0;AQID\x1b\\", "animation delta frame escape");
-    expect(contourtty::controlKittyAnimationFrame(7, 1) == "\x1b_Ga=a,i=7,c=1,q=2;\x1b\\", "animation current-frame control escape");
+    expect(strok::controlKittyAnimationFrame(7, 1) == "\x1b_Ga=a,i=7,c=1,q=2;\x1b\\", "animation current-frame control escape");
   }
 
   {
     bool threw = false;
     try {
-      (void)contourtty::encodeKittyRgb24(std::vector<uint8_t>{255, 0}, 1, 1);
+      (void)strok::encodeKittyRgb24(std::vector<uint8_t>{255, 0}, 1, 1);
     } catch (const std::invalid_argument&) {
       threw = true;
     }
@@ -75,7 +75,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::encodeKittyRgb24(std::vector<uint8_t>{255, 0, 0}, 1, 1, contourtty::KittyImageOptions{.chunk_size = 5});
+      (void)strok::encodeKittyRgb24(std::vector<uint8_t>{255, 0, 0}, 1, 1, strok::KittyImageOptions{.chunk_size = 5});
     } catch (const std::invalid_argument&) {
       threw = true;
     }

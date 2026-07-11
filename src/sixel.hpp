@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct SixelImage {
   int width = 0;
@@ -20,4 +20,4 @@ SixelImage quantizeSixelOklab(std::span<const uint8_t> rgb, int width, int heigh
 std::string encodeSixelRgb24(std::span<const uint8_t> rgb, int width, int height);
 std::string encodeSixelRgb24(const RasterImage& image);
 
-}  // namespace contourtty
+}  // namespace strok

@@ -8,7 +8,7 @@
 
 #include "structure_sampling.hpp"
 
-namespace contourtty {
+namespace strok {
 
 class GlyphFont;
 
@@ -70,4 +70,4 @@ char32_t matchGlyphShapeLinear(std::span<const double> features, const GlyphShap
 GlyphShapeMatch matchGlyphShapeWithScore(std::span<const double> features, const GlyphShapeTable& table);
 char32_t matchGlyphShape(std::span<const double> features, const GlyphShapeTable& table);
 
-}  // namespace contourtty
+}  // namespace strok

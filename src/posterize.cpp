@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 double linearToSrgb(double value) noexcept {
@@ -101,4 +101,4 @@ Frame posterizeFrameOklab(const Frame& frame, int levels) {
   return output;
 }
 
-}  // namespace contourtty
+}  // namespace strok

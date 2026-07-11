@@ -1,6 +1,6 @@
 #include "render_mode.hpp"
 
-namespace contourtty {
+namespace strok {
 
 GraphicsProtocol bestGraphicsProtocol(const TerminalCaps& caps) {
   if (caps.kitty_graphics) {
@@ -64,4 +64,4 @@ std::string_view toString(GraphicsProtocol protocol) {
   return "none";
 }
 
-}  // namespace contourtty
+}  // namespace strok

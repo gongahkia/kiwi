@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct GraphYamlPass {
   std::string id;
@@ -30,4 +30,4 @@ GraphYaml parseGraphYaml(std::string_view text);
 GraphYaml loadGraphYamlFile(const std::filesystem::path& path);
 void applyGraphYamlToOptions(const GraphYaml& graph, CliOptions* options);
 
-}  // namespace contourtty
+}  // namespace strok

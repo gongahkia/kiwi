@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct RasterDirtyRect {
@@ -156,4 +156,4 @@ GraphicsFrameResult emitGraphicsFrame(const CellBuffer& cells, const GraphicsFra
   return frame;
 }
 
-}  // namespace contourtty
+}  // namespace strok

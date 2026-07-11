@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace contourtty {
+namespace strok {
 
 bool shaderRuntimeAvailable() {
   return false;
@@ -25,4 +25,4 @@ Frame ShaderFrameSource::renderFrame(int, int, int64_t, int64_t, int64_t) {
   throw std::runtime_error("shader runtime is unavailable on this build");
 }
 
-}  // namespace contourtty
+}  // namespace strok

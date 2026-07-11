@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace contourtty {
+namespace strok {
 
 struct TerminalCaps {
   bool truecolor = false;
@@ -35,4 +35,4 @@ TerminalCaps detectTerminalCapsFromEnvironment(std::optional<std::filesystem::pa
 std::string formatTerminalCaps(const TerminalCaps& caps);
 std::string summarizeTerminalCaps(const TerminalCaps& caps);
 
-}  // namespace contourtty
+}  // namespace strok

@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool sameRgb(Rgb lhs, Rgb rhs) noexcept {
@@ -117,4 +117,4 @@ Frame asciinemaCellsToFrame(const CellBuffer& cells, int64_t pts_us) {
   return frame;
 }
 
-}  // namespace contourtty
+}  // namespace strok

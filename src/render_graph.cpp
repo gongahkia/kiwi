@@ -8,7 +8,7 @@
 #include <sstream>
 #include <unordered_set>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::unordered_map<std::string, std::any>::iterator findBuffer(std::unordered_map<std::string, std::any>& buffers, std::string_view name) {
@@ -252,4 +252,4 @@ std::string_view backendName(Backend backend) noexcept {
   return "auto";
 }
 
-}  // namespace contourtty
+}  // namespace strok

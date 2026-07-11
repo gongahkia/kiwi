@@ -14,8 +14,8 @@ void expect(bool condition, const char* label) {
 
 bool throwsUnknownPass() {
   try {
-    (void)contourtty::parseGraphYaml("passes:\n  - id: nope\n");
-  } catch (const contourtty::GraphYamlError&) {
+    (void)strok::parseGraphYaml("passes:\n  - id: nope\n");
+  } catch (const strok::GraphYamlError&) {
     return true;
   }
   return false;
@@ -24,7 +24,7 @@ bool throwsUnknownPass() {
 }  // namespace
 
 int main() {
-  const contourtty::GraphYaml graph = contourtty::parseGraphYaml(
+  const strok::GraphYaml graph = strok::parseGraphYaml(
     "passes:\n"
     "  - id: kuwahara\n"
     "  - id: etf\n"
@@ -34,8 +34,8 @@ int main() {
   expect(graph.passes.size() == 4, "graph yaml pass count");
   expect(graph.passes[1].params.at("iters") == "4", "graph yaml inline params");
 
-  contourtty::CliOptions options;
-  contourtty::applyGraphYamlToOptions(graph, &options);
+  strok::CliOptions options;
+  strok::applyGraphYamlToOptions(graph, &options);
   expect(options.graph_passes.size() == 4, "graph yaml stores pass ids");
   expect(options.etf_iters.has_value() && *options.etf_iters == 4, "graph yaml applies etf params");
   expect(throwsUnknownPass(), "graph yaml rejects unknown pass");

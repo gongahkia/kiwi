@@ -14,16 +14,16 @@ void expect(bool condition, const char* label) {
   }
 }
 
-contourtty::PassPort port(std::string name, contourtty::BufferKind kind) {
-  return contourtty::PassPort{
+strok::PassPort port(std::string name, strok::BufferKind kind) {
+  return strok::PassPort{
     .name = std::move(name),
-    .desc = contourtty::BufferDesc{.kind = kind},
+    .desc = strok::BufferDesc{.kind = kind},
   };
 }
 
-std::vector<std::string> ids(const contourtty::Graph& graph) {
+std::vector<std::string> ids(const strok::Graph& graph) {
   std::vector<std::string> result;
-  for (const contourtty::Pass& pass : graph.ordered) {
+  for (const strok::Pass& pass : graph.ordered) {
     result.push_back(pass.id);
   }
   return result;
@@ -32,7 +32,7 @@ std::vector<std::string> ids(const contourtty::Graph& graph) {
 bool throwsGraphError(const std::function<void()>& body) {
   try {
     body();
-  } catch (const contourtty::GraphError&) {
+  } catch (const strok::GraphError&) {
     return true;
   }
   return false;
@@ -42,141 +42,141 @@ bool throwsGraphError(const std::function<void()>& body) {
 
 int main() {
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "sobel",
-      .inputs = {port("luma", contourtty::BufferKind::LuminanceField)},
-      .outputs = {port("gradient", contourtty::BufferKind::GradientField)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("luma", strok::BufferKind::LuminanceField)},
+      .outputs = {port("gradient", strok::BufferKind::GradientField)},
+      .supports = {strok::Backend::Cpu},
     });
-    passes.push_back(contourtty::Pass{
+    passes.push_back(strok::Pass{
       .id = "luminance",
-      .inputs = {port("frame", contourtty::BufferKind::RgbFrame)},
-      .outputs = {port("luma", contourtty::BufferKind::LuminanceField)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("frame", strok::BufferKind::RgbFrame)},
+      .outputs = {port("luma", strok::BufferKind::LuminanceField)},
+      .supports = {strok::Backend::Cpu},
     });
-    passes.push_back(contourtty::Pass{
+    passes.push_back(strok::Pass{
       .id = "decode",
-      .outputs = {port("frame", contourtty::BufferKind::RgbFrame)},
-      .supports = {contourtty::Backend::Cpu},
+      .outputs = {port("frame", strok::BufferKind::RgbFrame)},
+      .supports = {strok::Backend::Cpu},
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes));
+    const strok::Graph graph = strok::buildGraph(std::move(passes));
     expect(ids(graph) == std::vector<std::string>({"decode", "luminance", "sobel"}), "topological sort orders dependencies");
   }
 
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "a",
-      .inputs = {port("b-out", contourtty::BufferKind::Custom)},
-      .outputs = {port("a-out", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("b-out", strok::BufferKind::Custom)},
+      .outputs = {port("a-out", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Cpu},
     });
-    passes.push_back(contourtty::Pass{
+    passes.push_back(strok::Pass{
       .id = "b",
-      .inputs = {port("a-out", contourtty::BufferKind::Custom)},
-      .outputs = {port("b-out", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("a-out", strok::BufferKind::Custom)},
+      .outputs = {port("b-out", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Cpu},
     });
-    expect(throwsGraphError([&] { (void)contourtty::buildGraph(std::move(passes)); }), "cycle detection rejects cyclic graph");
+    expect(throwsGraphError([&] { (void)strok::buildGraph(std::move(passes)); }), "cycle detection rejects cyclic graph");
   }
 
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "reader",
-      .inputs = {port("external-frame", contourtty::BufferKind::RgbFrame)},
-      .outputs = {port("luma", contourtty::BufferKind::LuminanceField)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("external-frame", strok::BufferKind::RgbFrame)},
+      .outputs = {port("luma", strok::BufferKind::LuminanceField)},
+      .supports = {strok::Backend::Cpu},
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{.external_inputs = {"external-frame"}});
+    const strok::Graph graph = strok::buildGraph(std::move(passes), strok::GraphBuildOptions{.external_inputs = {"external-frame"}});
     expect(ids(graph) == std::vector<std::string>({"reader"}), "declared external input accepted");
     expect(throwsGraphError([&] {
-      std::vector<contourtty::Pass> missing;
-      missing.push_back(contourtty::Pass{
+      std::vector<strok::Pass> missing;
+      missing.push_back(strok::Pass{
         .id = "reader",
-        .inputs = {port("missing-frame", contourtty::BufferKind::RgbFrame)},
-        .outputs = {port("luma", contourtty::BufferKind::LuminanceField)},
-        .supports = {contourtty::Backend::Cpu},
+        .inputs = {port("missing-frame", strok::BufferKind::RgbFrame)},
+        .outputs = {port("luma", strok::BufferKind::LuminanceField)},
+        .supports = {strok::Backend::Cpu},
       });
-      (void)contourtty::buildGraph(std::move(missing));
+      (void)strok::buildGraph(std::move(missing));
     }), "missing input rejected");
   }
 
   {
     std::vector<std::string> executed;
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "first",
-      .outputs = {port("x", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Cpu},
-      .run = [&](contourtty::PassContext& context) {
+      .outputs = {port("x", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Cpu},
+      .run = [&](strok::PassContext& context) {
         executed.push_back("first");
         context.setBuffer("x", 7);
       },
     });
-    passes.push_back(contourtty::Pass{
+    passes.push_back(strok::Pass{
       .id = "second",
-      .inputs = {port("x", contourtty::BufferKind::Custom)},
-      .outputs = {port("y", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Cpu},
-      .run = [&](contourtty::PassContext& context) {
+      .inputs = {port("x", strok::BufferKind::Custom)},
+      .outputs = {port("y", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Cpu},
+      .run = [&](strok::PassContext& context) {
         executed.push_back("second");
         context.setBuffer("y", context.buffer<int>("x") + 5);
       },
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes));
-    contourtty::PassContext context;
+    const strok::Graph graph = strok::buildGraph(std::move(passes));
+    strok::PassContext context;
     graph.run(context);
     expect(executed == std::vector<std::string>({"first", "second"}), "graph run follows topological order");
     expect(context.buffer<int>("y") == 12, "pass context stores buffers");
   }
 
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "gpu-capable",
-      .outputs = {port("x", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+      .outputs = {port("x", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Metal, strok::Backend::Cpu},
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{.backend_preference = {contourtty::Backend::Vulkan, contourtty::Backend::Cpu}});
-    expect(graph.ordered.front().backend == contourtty::Backend::Cpu, "backend fallback picks supported preferred backend");
+    const strok::Graph graph = strok::buildGraph(std::move(passes), strok::GraphBuildOptions{.backend_preference = {strok::Backend::Vulkan, strok::Backend::Cpu}});
+    expect(graph.ordered.front().backend == strok::Backend::Cpu, "backend fallback picks supported preferred backend");
     expect(graph.dump() == "gpu-capable(cpu)   -> x:Custom\n", "deterministic graph dump");
   }
 
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "gpu-capable",
-      .outputs = {port("x", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+      .outputs = {port("x", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Metal, strok::Backend::Cpu},
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{
-      .backend_preference = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
-      .available_backends = {contourtty::Backend::Cpu},
+    const strok::Graph graph = strok::buildGraph(std::move(passes), strok::GraphBuildOptions{
+      .backend_preference = {strok::Backend::Metal, strok::Backend::Cpu},
+      .available_backends = {strok::Backend::Cpu},
     });
-    expect(graph.ordered.front().backend == contourtty::Backend::Cpu, "unavailable requested gpu falls back to cpu");
+    expect(graph.ordered.front().backend == strok::Backend::Cpu, "unavailable requested gpu falls back to cpu");
   }
 
   {
-    std::vector<contourtty::Pass> passes;
-    passes.push_back(contourtty::Pass{
+    std::vector<strok::Pass> passes;
+    passes.push_back(strok::Pass{
       .id = "gpu-capable",
-      .outputs = {port("x", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
+      .outputs = {port("x", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Metal, strok::Backend::Cpu},
     });
-    passes.push_back(contourtty::Pass{
+    passes.push_back(strok::Pass{
       .id = "cpu-only",
-      .inputs = {port("x", contourtty::BufferKind::Custom)},
-      .outputs = {port("y", contourtty::BufferKind::Custom)},
-      .supports = {contourtty::Backend::Cpu},
+      .inputs = {port("x", strok::BufferKind::Custom)},
+      .outputs = {port("y", strok::BufferKind::Custom)},
+      .supports = {strok::Backend::Cpu},
     });
-    const contourtty::Graph graph = contourtty::buildGraph(std::move(passes), contourtty::GraphBuildOptions{
-      .backend_preference = {contourtty::Backend::Metal, contourtty::Backend::Cpu},
-      .available_backends = {contourtty::Backend::Cpu, contourtty::Backend::Metal},
+    const strok::Graph graph = strok::buildGraph(std::move(passes), strok::GraphBuildOptions{
+      .backend_preference = {strok::Backend::Metal, strok::Backend::Cpu},
+      .available_backends = {strok::Backend::Cpu, strok::Backend::Metal},
     });
-    expect(graph.ordered[0].backend == contourtty::Backend::Metal, "gpu-capable pass binds metal");
-    expect(graph.ordered[1].backend == contourtty::Backend::Cpu, "cpu-only pass stays cpu");
+    expect(graph.ordered[0].backend == strok::Backend::Metal, "gpu-capable pass binds metal");
+    expect(graph.ordered[1].backend == strok::Backend::Cpu, "cpu-only pass stays cpu");
     expect(graph.dump() ==
              "gpu-capable(metal)   -> x:Custom\n"
              "cpu-only(cpu)  x:Custom -> y:Custom\n",

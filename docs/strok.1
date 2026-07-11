@@ -1,11 +1,11 @@
-.TH CONTOURTTY 1 "2026-06-25" "contourtty 0.0.0" "User Commands"
+.TH STROK 1 "2026-06-25" "strok 0.0.0" "User Commands"
 .SH NAME
-contourtty \- structure-aware ASCII terminal media renderer
+strok \- structure-aware ASCII terminal media renderer
 .SH SYNOPSIS
-.B contourtty
+.B strok
 [options] [input]
 .SH DESCRIPTION
-contourtty renders local files, images, GIFs, streams, and camera inputs
+strok renders local files, images, GIFs, streams, and camera inputs
 as terminal ASCII.
 Structure mode chooses glyphs from edge orientation and shape instead of
 brightness alone.
@@ -83,18 +83,18 @@ options:
   --dump-png FILE                write dumped frame as RGB PNG
 .fi
 .SH CONFIGURATION
-Defaults are read from $XDG_CONFIG_HOME/contourtty/config, or
-~/.config/contourtty/config when XDG_CONFIG_HOME is unset.
+Defaults are read from $XDG_CONFIG_HOME/strok/config, or
+~/.config/strok/config when XDG_CONFIG_HOME is unset.
 The file uses key=value entries matching long flag names without leading dashes.
 Command-line flags override config values.
 .SH EXAMPLES
 .nf
-contourtty --mode structure movie.mp4
-contourtty --width 120 --height 40 --color-mode 256 stream.m3u8
-contourtty --export out.mp4 --mode structure movie.mp4
-contourtty --export out.cast --mode structure movie.mp4
+strok --mode structure movie.mp4
+strok --width 120 --height 40 --color-mode 256 stream.m3u8
+strok --export out.mp4 --mode structure movie.mp4
+strok --export out.cast --mode structure movie.mp4
 .fi
 .SH FILES
-.I ~/.config/contourtty/config
+.I ~/.config/strok/config
 .SH SEE ALSO
 ffmpeg(1), asciinema(1)

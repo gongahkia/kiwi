@@ -29,7 +29,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 struct FormatContextDeleter {
@@ -433,4 +433,4 @@ std::optional<double> VideoDecoder::averageFps() const noexcept {
   return impl_->average_fps;
 }
 
-}  // namespace contourtty
+}  // namespace strok

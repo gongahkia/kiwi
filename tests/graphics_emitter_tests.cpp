@@ -42,27 +42,27 @@ std::string repeatString(std::string_view text, int count) {
   return out;
 }
 
-contourtty::CellBuffer oneCell() {
-  contourtty::CellBuffer cells(1, 1);
-  cells.at(0, 0) = contourtty::Cell{
+strok::CellBuffer oneCell() {
+  strok::CellBuffer cells(1, 1);
+  cells.at(0, 0) = strok::Cell{
     .glyph = U'█',
-    .fg = contourtty::Rgb{.r = 255, .g = 0, .b = 0},
-    .bg = contourtty::Rgb{},
+    .fg = strok::Rgb{.r = 255, .g = 0, .b = 0},
+    .bg = strok::Rgb{},
   };
   return cells;
 }
 
-contourtty::CellBuffer twoCells(contourtty::Rgb right) {
-  contourtty::CellBuffer cells(2, 1);
-  cells.at(0, 0) = contourtty::Cell{
+strok::CellBuffer twoCells(strok::Rgb right) {
+  strok::CellBuffer cells(2, 1);
+  cells.at(0, 0) = strok::Cell{
     .glyph = U'█',
-    .fg = contourtty::Rgb{.r = 255, .g = 0, .b = 0},
-    .bg = contourtty::Rgb{},
+    .fg = strok::Rgb{.r = 255, .g = 0, .b = 0},
+    .bg = strok::Rgb{},
   };
-  cells.at(1, 0) = contourtty::Cell{
+  cells.at(1, 0) = strok::Cell{
     .glyph = U'█',
     .fg = right,
-    .bg = contourtty::Rgb{},
+    .bg = strok::Rgb{},
   };
   return cells;
 }
@@ -71,12 +71,12 @@ contourtty::CellBuffer twoCells(contourtty::Rgb right) {
 
 int main() {
   {
-    const auto frame = contourtty::emitGraphicsFrame(oneCell(), contourtty::GraphicsFrameOptions{
-      .protocol = contourtty::GraphicsProtocol::Kitty,
+    const auto frame = strok::emitGraphicsFrame(oneCell(), strok::GraphicsFrameOptions{
+      .protocol = strok::GraphicsProtocol::Kitty,
       .image_id = 5,
       .placement_id = 6,
     });
-    expect(frame.raster_bytes == 1U * contourtty::kRasterCellPixelWidth * contourtty::kRasterCellPixelHeight * 3U, "kitty raster byte count");
+    expect(frame.raster_bytes == 1U * strok::kRasterCellPixelWidth * strok::kRasterCellPixelHeight * 3U, "kitty raster byte count");
     expect(frame.bytes.find("\x1b_Ga=T,t=d,f=24,s=8,v=12,i=5,p=6") == 0, "kitty frame escape prefix");
     expect(frame.bytes.find(",c=1,r=1,") != std::string::npos, "kitty cell placement dimensions");
     const std::string expected_hex = "1b5f47613d542c743d642c663d32342c733d382c763d31322c693d352c703d362c713d322c633d312c723d312c433d312c6d3d303b" +
@@ -87,21 +87,21 @@ int main() {
   }
 
   {
-    contourtty::GraphicsFrameState state;
-    const auto first = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 0, .b = 255}), contourtty::GraphicsFrameOptions{
-                                                                                                       .protocol = contourtty::GraphicsProtocol::Kitty,
+    strok::GraphicsFrameState state;
+    const auto first = strok::emitGraphicsFrame(twoCells(strok::Rgb{.r = 0, .g = 0, .b = 255}), strok::GraphicsFrameOptions{
+                                                                                                       .protocol = strok::GraphicsProtocol::Kitty,
                                                                                                        .image_id = 8,
                                                                                                        .placement_id = 9,
                                                                                                      },
                                                      &state);
-    const auto second = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 255, .b = 0}), contourtty::GraphicsFrameOptions{
-                                                                                                        .protocol = contourtty::GraphicsProtocol::Kitty,
+    const auto second = strok::emitGraphicsFrame(twoCells(strok::Rgb{.r = 0, .g = 255, .b = 0}), strok::GraphicsFrameOptions{
+                                                                                                        .protocol = strok::GraphicsProtocol::Kitty,
                                                                                                         .image_id = 8,
                                                                                                         .placement_id = 9,
                                                                                                       },
                                                       &state);
-    const auto third = contourtty::emitGraphicsFrame(twoCells(contourtty::Rgb{.r = 0, .g = 255, .b = 0}), contourtty::GraphicsFrameOptions{
-                                                                                                       .protocol = contourtty::GraphicsProtocol::Kitty,
+    const auto third = strok::emitGraphicsFrame(twoCells(strok::Rgb{.r = 0, .g = 255, .b = 0}), strok::GraphicsFrameOptions{
+                                                                                                       .protocol = strok::GraphicsProtocol::Kitty,
                                                                                                        .image_id = 8,
                                                                                                        .placement_id = 9,
                                                                                                      },
@@ -114,10 +114,10 @@ int main() {
   }
 
   {
-    const auto frame = contourtty::emitGraphicsFrame(oneCell(), contourtty::GraphicsFrameOptions{
-      .protocol = contourtty::GraphicsProtocol::ITermInline,
+    const auto frame = strok::emitGraphicsFrame(oneCell(), strok::GraphicsFrameOptions{
+      .protocol = strok::GraphicsProtocol::ITermInline,
     });
-    expect(frame.raster_bytes == 1U * contourtty::kRasterCellPixelWidth * contourtty::kRasterCellPixelHeight * 3U, "iTerm raster byte count");
+    expect(frame.raster_bytes == 1U * strok::kRasterCellPixelWidth * strok::kRasterCellPixelHeight * 3U, "iTerm raster byte count");
     expect(frame.bytes.find("\x1b]1337;File=inline=1") == 0, "iTerm frame escape prefix");
     expect(frame.bytes.find(";width=1;height=1;") != std::string::npos, "iTerm cell dimensions");
     expectEqual(hexBytes(frame.bytes),
@@ -130,8 +130,8 @@ int main() {
   }
 
   {
-    const auto frame = contourtty::emitGraphicsFrame(oneCell(), contourtty::GraphicsFrameOptions{.protocol = contourtty::GraphicsProtocol::Sixel});
-    expect(frame.raster_bytes == 1U * contourtty::kRasterCellPixelWidth * contourtty::kRasterCellPixelHeight * 3U, "sixel raster byte count");
+    const auto frame = strok::emitGraphicsFrame(oneCell(), strok::GraphicsFrameOptions{.protocol = strok::GraphicsProtocol::Sixel});
+    expect(frame.raster_bytes == 1U * strok::kRasterCellPixelWidth * strok::kRasterCellPixelHeight * 3U, "sixel raster byte count");
     expect(frame.bytes.find("\x1bPq") == 0, "sixel frame escape prefix");
     expect(frame.bytes.find("#9;2;100;0;0") != std::string::npos, "sixel palette defines red register");
     expect(frame.bytes.find("#9!8~") != std::string::npos, "sixel red full-cell run encoded");

@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 struct ImageGridSpec {
   int cols = 0;
@@ -27,4 +27,4 @@ std::vector<std::filesystem::path> expandImageGridPattern(const std::filesystem:
 std::vector<ImageGridTile> layoutImageGridTiles(const std::vector<std::filesystem::path>& paths, ImageGridSpec grid);
 Frame composeImageGridFrame(const std::vector<Frame>& frames, ImageGridSpec grid, int tile_width, int tile_height, int64_t pts_us = 0);
 
-}  // namespace contourtty
+}  // namespace strok

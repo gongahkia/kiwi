@@ -21,8 +21,8 @@ void expect(bool condition, const char* label) {
 
 int main() {
   {
-    const std::vector<uint8_t> png = contourtty::encodePngRgb24(1, 1, std::vector<uint8_t>{255, 0, 0});
-    const std::string escape = contourtty::encodeITermInlinePng(png, contourtty::ITermInlineOptions{
+    const std::vector<uint8_t> png = strok::encodePngRgb24(1, 1, std::vector<uint8_t>{255, 0, 0});
+    const std::string escape = strok::encodeITermInlinePng(png, strok::ITermInlineOptions{
       .name = "red.png",
       .width = "1px",
       .height = "1px",
@@ -31,16 +31,16 @@ int main() {
                                         ";width=1px;height=1px;preserveAspectRatio=0:";
     expect(escape.rfind(expected_prefix, 0) == 0, "iTerm inline prefix");
     expect(escape.ends_with("\a"), "iTerm inline BEL terminator");
-    expect(escape.substr(expected_prefix.size(), escape.size() - expected_prefix.size() - 1U) == contourtty::base64Encode(png), "iTerm inline PNG payload");
+    expect(escape.substr(expected_prefix.size(), escape.size() - expected_prefix.size() - 1U) == strok::base64Encode(png), "iTerm inline PNG payload");
   }
 
   {
-    const contourtty::RasterImage image{
+    const strok::RasterImage image{
       .width = 1,
       .height = 1,
       .rgb = {0, 255, 0},
     };
-    const std::string escape = contourtty::encodeITermInlineRgb24(image, contourtty::ITermInlineOptions{
+    const std::string escape = strok::encodeITermInlineRgb24(image, strok::ITermInlineOptions{
       .height = "auto",
       .preserve_aspect_ratio = true,
       .use_st_terminator = true,
@@ -53,7 +53,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::encodeITermInlinePng({}, {});
+      (void)strok::encodeITermInlinePng({}, {});
     } catch (const std::invalid_argument&) {
       threw = true;
     }
@@ -63,7 +63,7 @@ int main() {
   {
     bool threw = false;
     try {
-      (void)contourtty::encodeITermInlinePng(std::vector<uint8_t>{1}, contourtty::ITermInlineOptions{.width = "1;bad"});
+      (void)strok::encodeITermInlinePng(std::vector<uint8_t>{1}, strok::ITermInlineOptions{.width = "1;bad"});
     } catch (const std::invalid_argument&) {
       threw = true;
     }

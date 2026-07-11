@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::string lowerExtension(std::filesystem::path path) {
@@ -49,7 +49,7 @@ bool isShaderSourcePath(const std::filesystem::path& path) {
 }
 
 std::optional<std::filesystem::path> resolveBundledShader(std::string_view input) {
-  constexpr std::string_view prefix = "contourtty:shader:";
+  constexpr std::string_view prefix = "strok:shader:";
   if (!input.starts_with(prefix)) {
     return std::nullopt;
   }
@@ -57,7 +57,7 @@ std::optional<std::filesystem::path> resolveBundledShader(std::string_view input
   if (name.empty() || name.find('/') != std::string::npos || name.find('\\') != std::string::npos) {
     throw ShaderSourceError("invalid bundled shader name");
   }
-  std::filesystem::path path = std::filesystem::path(CONTOURTTY_SOURCE_DIR) / "share" / "contourtty" / "shaders" / (name + ".glsl");
+  std::filesystem::path path = std::filesystem::path(STROK_SOURCE_DIR) / "share" / "strok" / "shaders" / (name + ".glsl");
   if (!std::filesystem::exists(path)) {
     throw ShaderSourceError("unknown bundled shader: " + name);
   }
@@ -90,10 +90,10 @@ std::string wrapShadertoyFragmentShader(std::string_view source) {
     out << '\n';
   }
   out << R"GLSL(
-layout(location = 0) in vec2 contourttyFragCoord;
-layout(location = 0) out vec4 contourttyFragColor;
+layout(location = 0) in vec2 strokFragCoord;
+layout(location = 0) out vec4 strokFragColor;
 
-layout(set = 0, binding = 0) uniform ContourttyShaderUniforms {
+layout(set = 0, binding = 0) uniform StrokShaderUniforms {
   vec3 iResolution;
   float iTime;
   float iTimeDelta;
@@ -103,17 +103,17 @@ layout(set = 0, binding = 0) uniform ContourttyShaderUniforms {
   float iSampleRate;
   vec3 iChannelResolution[4];
   float iChannelTime[4];
-} contourttyUniforms;
+} strokUniforms;
 
-#define iResolution contourttyUniforms.iResolution
-#define iTime contourttyUniforms.iTime
-#define iTimeDelta contourttyUniforms.iTimeDelta
-#define iFrame contourttyUniforms.iFrame
-#define iMouse contourttyUniforms.iMouse
-#define iDate contourttyUniforms.iDate
-#define iSampleRate contourttyUniforms.iSampleRate
-#define iChannelResolution contourttyUniforms.iChannelResolution
-#define iChannelTime contourttyUniforms.iChannelTime
+#define iResolution strokUniforms.iResolution
+#define iTime strokUniforms.iTime
+#define iTimeDelta strokUniforms.iTimeDelta
+#define iFrame strokUniforms.iFrame
+#define iMouse strokUniforms.iMouse
+#define iDate strokUniforms.iDate
+#define iSampleRate strokUniforms.iSampleRate
+#define iChannelResolution strokUniforms.iChannelResolution
+#define iChannelTime strokUniforms.iChannelTime
 
 layout(set = 0, binding = 1) uniform sampler2D iChannel0;
 layout(set = 0, binding = 2) uniform sampler2D iChannel1;
@@ -128,11 +128,11 @@ layout(set = 0, binding = 4) uniform sampler2D iChannel3;
   out << R"GLSL(
 void main() {
   vec4 color = vec4(0.0);
-  mainImage(color, contourttyFragCoord);
-  contourttyFragColor = color;
+  mainImage(color, strokFragCoord);
+  strokFragColor = color;
 }
 )GLSL";
   return out.str();
 }
 
-}  // namespace contourtty
+}  // namespace strok

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 enum class CliAction {
   Run,
@@ -83,4 +83,4 @@ struct CliParseResult {
 CliParseResult parseArgs(int argc, char** argv);
 std::string helpText(std::string_view program_name);
 
-}  // namespace contourtty
+}  // namespace strok

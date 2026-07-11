@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 
 class GlyphFont;
 
@@ -23,4 +23,4 @@ std::vector<double> sdfVectorForCell(const CellLuminanceRegion& region);
 GlyphShapeTable buildSdfGlyphShapeTable(std::u32string_view glyphs, int cell_width, int cell_height);
 GlyphShapeTable buildSdfGlyphShapeTable(const GlyphFont& font, std::u32string_view glyphs, int cell_width, int cell_height);
 
-}  // namespace contourtty
+}  // namespace strok

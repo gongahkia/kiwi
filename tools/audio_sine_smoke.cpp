@@ -23,9 +23,9 @@ double parseSeconds(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   try {
-    contourtty::SineSmokeOptions options;
+    strok::SineSmokeOptions options;
     options.seconds = parseSeconds(argc, argv);
-    const auto result = contourtty::playSineSmoke(options);
+    const auto result = strok::playSineSmoke(options);
     std::cout << "played sine: frames=" << result.frames_generated
               << " sample_rate=" << result.sample_rate
               << " channels=" << result.channels << '\n';

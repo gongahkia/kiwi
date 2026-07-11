@@ -3,8 +3,8 @@
 #include "cli.hpp"
 #include "terminal_caps.hpp"
 
-namespace contourtty {
+namespace strok {
 
 void resolveAutoMode(CliOptions* options, const TerminalCaps& caps);
 
-}  // namespace contourtty
+}  // namespace strok

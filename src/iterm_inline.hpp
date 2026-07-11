@@ -6,10 +6,10 @@
 #include <span>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct ITermInlineOptions {
-  std::string name = "contourtty.png";
+  std::string name = "strok.png";
   std::string width;
   std::string height;
   bool preserve_aspect_ratio = false;
@@ -20,4 +20,4 @@ std::string encodeITermInlinePng(std::span<const uint8_t> png, const ITermInline
 std::string encodeITermInlineRgb24(std::span<const uint8_t> rgb, int width, int height, const ITermInlineOptions& options = {});
 std::string encodeITermInlineRgb24(const RasterImage& image, const ITermInlineOptions& options = {});
 
-}  // namespace contourtty
+}  // namespace strok

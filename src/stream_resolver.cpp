@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 std::string firstNonEmptyLine(std::string_view output) {
@@ -36,7 +36,7 @@ std::string firstNonEmptyLine(std::string_view output) {
 }
 
 std::string ytDlpExecutable() {
-  if (const char* override = std::getenv("CONTOURTTY_YTDLP"); override != nullptr && override[0] != '\0') {
+  if (const char* override = std::getenv("STROK_YTDLP"); override != nullptr && override[0] != '\0') {
     return override;
   }
   return "yt-dlp";
@@ -123,4 +123,4 @@ std::string resolveMediaInput(std::string_view input) {
   return resolveWithYtDlp(input);
 }
 
-}  // namespace contourtty
+}  // namespace strok

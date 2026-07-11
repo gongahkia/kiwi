@@ -39,7 +39,7 @@
 #include <thread>
 #include <vector>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 constexpr double kDefaultDogThreshold = 0.02;
@@ -1279,4 +1279,4 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   finish_stats();
 }
 
-}  // namespace contourtty
+}  // namespace strok

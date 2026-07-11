@@ -13,8 +13,8 @@ void expect(bool condition, const char* label) {
   }
 }
 
-contourtty::CellGradient gradient(double gx, double gy) {
-  return contourtty::CellGradient{
+strok::CellGradient gradient(double gx, double gy) {
+  return strok::CellGradient{
     .gx = gx,
     .gy = gy,
     .magnitude = std::hypot(gx, gy),
@@ -28,38 +28,38 @@ contourtty::CellGradient gradient(double gx, double gy) {
 
 int main() {
   {
-    const auto glyph = contourtty::crosshatchGlyphForCell(gradient(1.0, 0.0), 0.1, 0.8, 0, 0);
+    const auto glyph = strok::crosshatchGlyphForCell(gradient(1.0, 0.0), 0.1, 0.8, 0, 0);
     expect(glyph == U'│', "vertical edge hatches vertical");
   }
 
   {
-    const auto glyph = contourtty::crosshatchGlyphForCell(gradient(0.0, 1.0), 0.1, 0.8, 0, 0);
+    const auto glyph = strok::crosshatchGlyphForCell(gradient(0.0, 1.0), 0.1, 0.8, 0, 0);
     expect(glyph == U'─', "horizontal edge hatches horizontal");
   }
 
   {
-    const auto glyph = contourtty::crosshatchGlyphForCell(gradient(1.0, 1.0), 0.1, 0.8, 0, 0);
+    const auto glyph = strok::crosshatchGlyphForCell(gradient(1.0, 1.0), 0.1, 0.8, 0, 0);
     expect(glyph == U'╱', "positive diagonal hatches slash");
   }
 
   {
-    const auto glyph = contourtty::crosshatchGlyphForCell(gradient(1.0, -1.0), 0.1, 0.8, 0, 0);
+    const auto glyph = strok::crosshatchGlyphForCell(gradient(1.0, -1.0), 0.1, 0.8, 0, 0);
     expect(glyph == U'╲', "negative diagonal hatches backslash");
   }
 
   {
-    const auto glyph = contourtty::crosshatchGlyphForCell(contourtty::CellGradient{}, 0.1, 0.1, 0, 0);
+    const auto glyph = strok::crosshatchGlyphForCell(strok::CellGradient{}, 0.1, 0.1, 0, 0);
     expect(glyph == U'╳', "dark flat cell gets dense crosshatch");
   }
 
   {
-    contourtty::CellBuffer cells(1, 1);
-    cells.at(0, 0).fg = contourtty::Rgb{.r = 20, .g = 20, .b = 20};
-    contourtty::GradientField gradients;
+    strok::CellBuffer cells(1, 1);
+    cells.at(0, 0).fg = strok::Rgb{.r = 20, .g = 20, .b = 20};
+    strok::GradientField gradients;
     gradients.width = 1;
     gradients.height = 1;
-    gradients.values = {contourtty::Gradient{.gx = 1.0, .gy = 0.0}};
-    contourtty::applyCrosshatch(&cells, gradients, 1, 1, 0.1);
+    gradients.values = {strok::Gradient{.gx = 1.0, .gy = 0.0}};
+    strok::applyCrosshatch(&cells, gradients, 1, 1, 0.1);
     expect(cells.at(0, 0).glyph == U'╳', "applyCrosshatch writes dense dark glyph");
   }
 }

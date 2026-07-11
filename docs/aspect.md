@@ -1,6 +1,6 @@
 # Aspect Correction
 
-Terminal cells are taller than they are wide. contourtty uses `cell_aspect = cell_width / cell_height`, default `0.5`.
+Terminal cells are taller than they are wide. strok uses `cell_aspect = cell_width / cell_height`, default `0.5`.
 
 Given source size `src_w x src_h` and target columns `cols`:
 
@@ -15,4 +15,4 @@ If only rows are fixed:
 cols = round(rows * img_aspect / cell_aspect)
 ```
 
-If both columns and rows are fixed, contourtty fits inside the requested bounds while preserving this corrected aspect ratio.
+If both columns and rows are fixed, strok fits inside the requested bounds while preserving this corrected aspect ratio.

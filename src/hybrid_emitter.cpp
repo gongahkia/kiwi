@@ -6,7 +6,7 @@
 
 #include <optional>
 
-namespace contourtty {
+namespace strok {
 namespace {
 
 bool sameColor(Rgb lhs, Rgb rhs) noexcept {
@@ -73,4 +73,4 @@ HybridFrameResult emitHybridFrame(const CellBuffer& cells, const HybridFrameOpti
   return result;
 }
 
-}  // namespace contourtty
+}  // namespace strok

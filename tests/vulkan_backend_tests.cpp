@@ -26,19 +26,19 @@ void expectNear(double actual, double expected, double tolerance, const char* la
   }
 }
 
-contourtty::LuminanceField fieldFromValues(int width, int height, const std::vector<double>& values) {
-  return contourtty::LuminanceField{.width = width, .height = height, .values = values};
+strok::LuminanceField fieldFromValues(int width, int height, const std::vector<double>& values) {
+  return strok::LuminanceField{.width = width, .height = height, .values = values};
 }
 
 }  // namespace
 
 int main() {
-  if (!contourtty::gpuSobelAvailable()) {
+  if (!strok::gpuSobelAvailable()) {
     std::cout << "Vulkan backend unavailable; skipping Vulkan backend smoke\n";
     return 77;
   }
 
-  const contourtty::LuminanceField field = fieldFromValues(5, 5, {
+  const strok::LuminanceField field = fieldFromValues(5, 5, {
     0.0, 0.0, 1.0, 0.0, 0.0,
     0.0, 0.2, 1.0, 0.2, 0.0,
     0.0, 0.4, 1.0, 0.4, 0.0,
@@ -46,8 +46,8 @@ int main() {
     0.0, 0.0, 1.0, 0.0, 0.0,
   });
 
-  const auto cpu_gradients = contourtty::computeSobelGradients(field);
-  const auto gpu_gradients = contourtty::computeSobelGradientsGpu(field);
+  const auto cpu_gradients = strok::computeSobelGradients(field);
+  const auto gpu_gradients = strok::computeSobelGradientsGpu(field);
   expect(gpu_gradients.has_value(), "Vulkan Sobel result");
   expect(gpu_gradients->values.size() == cpu_gradients.values.size(), "Vulkan Sobel value count");
   for (std::size_t index = 0; index < cpu_gradients.values.size(); ++index) {
@@ -55,17 +55,17 @@ int main() {
     expectNear(gpu_gradients->values[index].gy, cpu_gradients.values[index].gy, 1e-5, "Vulkan Sobel gy");
   }
 
-  const contourtty::DogOptions dog_options{.sigma1 = 0.5, .sigma2 = 1.4, .threshold = 0.02};
-  const auto cpu_dog = contourtty::differenceOfGaussians(field, dog_options);
-  const auto gpu_dog = contourtty::differenceOfGaussiansGpu(field, dog_options);
+  const strok::DogOptions dog_options{.sigma1 = 0.5, .sigma2 = 1.4, .threshold = 0.02};
+  const auto cpu_dog = strok::differenceOfGaussians(field, dog_options);
+  const auto gpu_dog = strok::differenceOfGaussiansGpu(field, dog_options);
   expect(gpu_dog.has_value(), "Vulkan DoG result");
   expect(gpu_dog->values.size() == cpu_dog.values.size(), "Vulkan DoG value count");
   for (std::size_t index = 0; index < cpu_dog.values.size(); ++index) {
     expectNear(gpu_dog->values[index], cpu_dog.values[index], 1e-5, "Vulkan DoG value");
   }
 
-  const contourtty::GlyphShapeTable table = contourtty::buildGlyphShapeTable(contourtty::kDefaultStructureShapeGlyphs, 5, 5);
-  const auto gpu_glyphs = contourtty::computeStructureGlyphsGpu(field, 5, 5, 0.02, &table);
+  const strok::GlyphShapeTable table = strok::buildGlyphShapeTable(strok::kDefaultStructureShapeGlyphs, 5, 5);
+  const auto gpu_glyphs = strok::computeStructureGlyphsGpu(field, 5, 5, 0.02, &table);
   expect(gpu_glyphs.has_value(), "Vulkan structure glyph result");
   expect(gpu_glyphs->glyphs.size() == 25U, "Vulkan structure glyph count");
   expect(gpu_glyphs->shape_match_cells > 0, "Vulkan structure shape cells");

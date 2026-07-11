@@ -7,7 +7,7 @@
 #include <span>
 #include <string>
 
-namespace contourtty {
+namespace strok {
 
 struct KittyImageOptions {
   uint32_t image_id = 1;
@@ -37,4 +37,4 @@ std::string encodeKittyAnimationFrameRgb24(std::span<const uint8_t> rgb, const K
 std::string controlKittyAnimationFrame(uint32_t image_id, uint32_t frame_number, bool suppress_response = true);
 std::string deleteKittyImage(uint32_t image_id, uint32_t placement_id = 0, bool suppress_response = true);
 
-}  // namespace contourtty
+}  // namespace strok
