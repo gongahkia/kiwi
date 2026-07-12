@@ -11,6 +11,12 @@ describe("checkSourceCoverage", () => {
     ).toEqual([{ entryId: "api", reason: "missing acceptable provenance" }]);
   });
 
+  it("treats normalized delta entries without a layer as public", () => {
+    expect(checkSourceCoverage({ entries: [{ term: "API", sources: [] }] })).toEqual([
+      { entryId: "API", reason: "missing acceptable provenance" }
+    ]);
+  });
+
   it("allows unsourced public entries only when marked review-only", () => {
     expect(
       checkSourceCoverage({
