@@ -15,6 +15,8 @@ Use the pushed images as `web_image` and `slack_image`, for example `registry.fl
 
 ## Apply
 
+`terraform apply` uses `flyctl secrets set` for runtime secrets because the Fly Terraform provider does not manage secrets. Install `flyctl` and export `FLY_API_TOKEN` before applying.
+
 ```sh
 cd infra/fly
 terraform init

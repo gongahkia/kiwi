@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export const requiredFlyTokens = {
+  "infra/fly/versions.tf": ["fly-apps/fly", '~> 0.0.23'],
   "infra/fly/README.md": [
     "apps/slack/Dockerfile",
     "slack_app_name",
@@ -13,8 +14,9 @@ export const requiredFlyTokens = {
   "infra/fly/main.tf": [
     'resource "fly_app" "slack"',
     'resource "fly_machine" "slack"',
-    'resource "fly_secrets" "slack"',
+    'resource "terraform_data" "slack_secrets"',
     "SLACK_HTTP_MODE",
+    "flyctl secrets set",
     "SLACK_SIGNING_SECRET",
     "SLACK_INSTALL_STORE",
     "WAT_API_BASE_URL",

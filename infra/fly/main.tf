@@ -21,19 +21,36 @@ resource "fly_ip" "web_v6" {
   depends_on = [fly_app.web]
 }
 
-resource "fly_secrets" "web" {
-  app = fly_app.web.name
+resource "terraform_data" "web_secrets" {
+  input = {
+    app         = fly_app.web.name
+    fingerprint = sha256(join("|", [var.auth_secret, var.database_url, var.google_client_id, var.google_client_secret, local.site_url, var.slack_client_id, var.slack_client_secret]))
+  }
 
-  secrets = {
-    AUTH_SECRET          = var.auth_secret
-    DATABASE_URL         = var.database_url
-    GOOGLE_CLIENT_ID     = var.google_client_id
-    GOOGLE_CLIENT_SECRET = var.google_client_secret
-    NEXTAUTH_SECRET      = var.auth_secret
-    NEXTAUTH_URL         = local.site_url
-    NEXT_PUBLIC_SITE_URL = local.site_url
-    SLACK_CLIENT_ID      = var.slack_client_id
-    SLACK_CLIENT_SECRET  = var.slack_client_secret
+  provisioner "local-exec" {
+    command = <<-EOT
+      flyctl secrets set --app "$FLY_APP" \
+        AUTH_SECRET="$AUTH_SECRET" \
+        DATABASE_URL="$DATABASE_URL" \
+        GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+        GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+        NEXTAUTH_SECRET="$AUTH_SECRET" \
+        NEXTAUTH_URL="$SITE_URL" \
+        NEXT_PUBLIC_SITE_URL="$SITE_URL" \
+        SLACK_CLIENT_ID="$SLACK_CLIENT_ID" \
+        SLACK_CLIENT_SECRET="$SLACK_CLIENT_SECRET"
+    EOT
+
+    environment = {
+      AUTH_SECRET          = var.auth_secret
+      DATABASE_URL         = var.database_url
+      FLY_APP              = fly_app.web.name
+      GOOGLE_CLIENT_ID     = var.google_client_id
+      GOOGLE_CLIENT_SECRET = var.google_client_secret
+      SITE_URL             = local.site_url
+      SLACK_CLIENT_ID      = var.slack_client_id
+      SLACK_CLIENT_SECRET  = var.slack_client_secret
+    }
   }
 }
 
@@ -83,7 +100,7 @@ resource "fly_machine" "web" {
     }
   ]
 
-  depends_on = [fly_secrets.web]
+  depends_on = [terraform_data.web_secrets]
 }
 
 resource "fly_app" "slack" {
@@ -106,26 +123,50 @@ resource "fly_ip" "slack_v6" {
   depends_on = [fly_app.slack]
 }
 
-resource "fly_secrets" "slack" {
+resource "terraform_data" "slack_secrets" {
   count = local.slack_enabled ? 1 : 0
-  app   = fly_app.slack[0].name
 
-  secrets = {
-    DATABASE_URL               = var.database_url
-    SLACK_BOT_TOKEN            = var.slack_bot_token
-    SLACK_CLIENT_ID            = var.slack_client_id
-    SLACK_CLIENT_SECRET        = var.slack_client_secret
-    SLACK_DATABASE_URL         = var.database_url
-    SLACK_INSTALL_STORE        = "postgres"
-    SLACK_METRICS_TOKEN        = var.slack_metrics_token
-    SLACK_REDIRECT_URI         = coalesce(var.slack_redirect_uri, "${local.slack_url}/slack/oauth/callback")
-    SLACK_SIGNING_SECRET       = var.slack_signing_secret
-    SLACK_STATE_SECRET         = var.slack_state_secret
-    SLACK_TOKEN_ENCRYPTION_KEY = var.slack_token_encryption_key
-    WAT_API_BASE_URL           = local.site_url
-    WAT_API_KEY                = var.slack_wat_api_key
-    WAT_SLACK_TEAM_MAP         = var.wat_slack_team_map
-    WAT_TEAM_ID                = var.slack_wat_team_id
+  input = {
+    app         = fly_app.slack[0].name
+    fingerprint = sha256(join("|", [var.database_url, var.slack_bot_token, var.slack_client_id, var.slack_client_secret, var.slack_metrics_token, coalesce(var.slack_redirect_uri, "${local.slack_url}/slack/oauth/callback"), var.slack_signing_secret, var.slack_state_secret, var.slack_token_encryption_key, local.site_url, var.slack_wat_api_key, var.wat_slack_team_map, var.slack_wat_team_id]))
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      flyctl secrets set --app "$FLY_APP" \
+        DATABASE_URL="$DATABASE_URL" \
+        SLACK_BOT_TOKEN="$SLACK_BOT_TOKEN" \
+        SLACK_CLIENT_ID="$SLACK_CLIENT_ID" \
+        SLACK_CLIENT_SECRET="$SLACK_CLIENT_SECRET" \
+        SLACK_DATABASE_URL="$DATABASE_URL" \
+        SLACK_INSTALL_STORE="postgres" \
+        SLACK_METRICS_TOKEN="$SLACK_METRICS_TOKEN" \
+        SLACK_REDIRECT_URI="$SLACK_REDIRECT_URI" \
+        SLACK_SIGNING_SECRET="$SLACK_SIGNING_SECRET" \
+        SLACK_STATE_SECRET="$SLACK_STATE_SECRET" \
+        SLACK_TOKEN_ENCRYPTION_KEY="$SLACK_TOKEN_ENCRYPTION_KEY" \
+        WAT_API_BASE_URL="$WAT_API_BASE_URL" \
+        WAT_API_KEY="$WAT_API_KEY" \
+        WAT_SLACK_TEAM_MAP="$WAT_SLACK_TEAM_MAP" \
+        WAT_TEAM_ID="$WAT_TEAM_ID"
+    EOT
+
+    environment = {
+      DATABASE_URL               = var.database_url
+      FLY_APP                    = fly_app.slack[0].name
+      SLACK_BOT_TOKEN            = var.slack_bot_token
+      SLACK_CLIENT_ID            = var.slack_client_id
+      SLACK_CLIENT_SECRET        = var.slack_client_secret
+      SLACK_METRICS_TOKEN        = var.slack_metrics_token
+      SLACK_REDIRECT_URI         = coalesce(var.slack_redirect_uri, "${local.slack_url}/slack/oauth/callback")
+      SLACK_SIGNING_SECRET       = var.slack_signing_secret
+      SLACK_STATE_SECRET         = var.slack_state_secret
+      SLACK_TOKEN_ENCRYPTION_KEY = var.slack_token_encryption_key
+      WAT_API_BASE_URL           = local.site_url
+      WAT_API_KEY                = var.slack_wat_api_key
+      WAT_SLACK_TEAM_MAP         = var.wat_slack_team_map
+      WAT_TEAM_ID                = var.slack_wat_team_id
+    }
   }
 }
 
@@ -175,5 +216,5 @@ resource "fly_machine" "slack" {
     }
   ]
 
-  depends_on = [fly_secrets.slack]
+  depends_on = [terraform_data.slack_secrets]
 }
