@@ -18,9 +18,12 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV SLACK_HTTP_MODE=true
 
-COPY --from=deps /app/dist ./dist
+COPY --from=deps /app/dist ./apps/slack/dist
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/slack/package.json ./package.json
+COPY --from=deps /app/apps/slack/node_modules ./apps/slack/node_modules
+COPY --from=deps /app/apps/slack/package.json ./apps/slack/package.json
+
+WORKDIR /app/apps/slack
 
 EXPOSE 3001
 
