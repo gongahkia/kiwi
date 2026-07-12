@@ -49,7 +49,7 @@ Register a scraper in `packages/ingest/src/scrapers/index.ts`, then run:
 pnpm ingest run example
 ```
 
-The CLI writes a JSON delta to `data/deltas/<date>/<source>.json`.
+The CLI writes a JSON delta to `data/deltas/<date>/<source>.json`. On seed/deploy, the DB importer reads the latest checked-in non-fixture delta for each source, so a reviewed and merged refresh becomes public-searchable without a source-code edit.
 
 Keep [Sources](sources.md) in sync with every registered scraper:
 

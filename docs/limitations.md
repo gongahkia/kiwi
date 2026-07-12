@@ -48,6 +48,6 @@ wat is not yet a hosted production beta. The current repo is useful for local de
 
 ## Corpus Coverage
 
-- The public corpus is still seed-sized and should be treated as demo coverage.
-- Scraper utilities exist, but scraper outputs are not yet imported into a production-searchable reviewed corpus.
+- Public seed imports include the latest checked-in, non-fixture delta for every source, plus the manually curated seed. Merged corpus-refresh deltas are therefore loaded into the DB-backed public search corpus on the next seed/deploy.
+- Corpus quality and launch-coverage gates remain incomplete; no claim is made that current coverage meets a production launch benchmark.
 - Bad-delta rollback and broader benchmark gates are not complete.

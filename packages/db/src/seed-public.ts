@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { Client } from "pg";
 
 type CorpusFile = {
   entries?: Partial<PublicSeedEntry>[];
   generated_at?: string;
+  source?: string;
 };
 
 type PublicSeedEntry = {
@@ -51,13 +52,11 @@ type SeedPublicCorpusResult = {
 
 const databaseUrl = process.env.WAT_DATABASE_URL ?? process.env.DATABASE_URL;
 const connectionString = databaseUrl ?? "postgres://wat:wat@localhost:5432/wat";
-const corpusPathCandidates = [
-  ["../../ingest/seeds/manual.json", "../../../ingest/seeds/manual.json"],
-  [
-    "../../../data/deltas/2026-06-23/contemporaries-seed.json",
-    "../../../../data/deltas/2026-06-23/contemporaries-seed.json"
-  ]
+const manualCorpusPathCandidates = [
+  "../../ingest/seeds/manual.json",
+  "../../../ingest/seeds/manual.json"
 ];
+const deltaDirectoryCandidates = ["../../../data/deltas", "../../../../data/deltas"];
 
 const entriesSql = `
 insert into entries (
@@ -194,14 +193,63 @@ export async function seedPublicCorpus(
   }
 }
 
-async function readPublicCorpusEntries(): Promise<PublicSeedEntry[]> {
-  const files = await Promise.all(corpusPathCandidates.map(readCorpusFile));
+export async function readPublicCorpusEntries(): Promise<PublicSeedEntry[]> {
+  const files = [
+    await readCorpusFile(manualCorpusPathCandidates),
+    ...(await readLatestReviewedDeltas())
+  ];
   const entries = files
     .flatMap((file) =>
       (file.entries ?? []).map((entry) => normalizeEntry(entry, file.generated_at))
     )
     .filter((entry) => entry.layer === "public");
   return overlaySeedContemporaries(entries);
+}
+
+export async function readLatestReviewedDeltas(): Promise<CorpusFile[]> {
+  const directory = await resolveDeltaDirectory();
+  const latestBySource = new Map<string, { date: string; file: CorpusFile; path: string }>();
+  const dates = (await readdir(directory, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+
+  for (const date of dates) {
+    const dateDirectory = new URL(`${date}/`, directory);
+    const entries = (await readdir(dateDirectory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      const path = new URL(entry.name, dateDirectory);
+      const file = JSON.parse(await readFile(path, "utf8")) as CorpusFile;
+      if (!file.source || file.source === "example") continue;
+      const previous = latestBySource.get(file.source);
+      if (
+        !previous ||
+        date > previous.date ||
+        (date === previous.date && path.href > previous.path)
+      ) {
+        latestBySource.set(file.source, { date, file, path: path.href });
+      }
+    }
+  }
+
+  return [...latestBySource.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, value]) => value.file);
+}
+
+async function resolveDeltaDirectory(): Promise<URL> {
+  for (const relativePath of deltaDirectoryCandidates) {
+    const directory = new URL(`${relativePath}/`, import.meta.url);
+    try {
+      await readdir(directory);
+      return directory;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error(`reviewed delta directory not found: ${deltaDirectoryCandidates.join(", ")}`);
 }
 
 async function readCorpusFile(relativePaths: string[]): Promise<CorpusFile> {
