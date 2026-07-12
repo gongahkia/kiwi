@@ -19,6 +19,7 @@ ENV PORT=3001
 ENV SLACK_HTTP_MODE=true
 
 COPY --from=deps /app/dist ./dist
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/slack/package.json ./package.json
 
 EXPOSE 3001
