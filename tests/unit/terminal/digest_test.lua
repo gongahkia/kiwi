@@ -38,6 +38,19 @@ return {
     end,
   },
   {
+    name = "terminal digest includes partial UTF-8 decoder state",
+    run = function()
+      local split = assert(Terminal.new({ columns = 1, rows = 1 }))
+      local whole = assert(Terminal.new({ columns = 1, rows = 1 }))
+      local baseline = assert(split:digest())
+      assert(split:feed_output("\195"))
+      assertions.falsy(baseline == assert(split:digest()))
+      assert(split:feed_output("\169"))
+      assert(whole:feed_output("\195\169"))
+      assertions.equal(assert(whole:digest()), assert(split:digest()))
+    end,
+  },
+  {
     name = "terminal digest rejects malformed state",
     run = function()
       local digest, error_value = Digest.terminal({})

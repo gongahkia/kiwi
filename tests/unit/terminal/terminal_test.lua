@@ -131,4 +131,18 @@ return {
       assertions.equal("x", cell.text)
     end,
   },
+  {
+    name = "terminal preserves split UTF-8 and replaces malformed input",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
+      assertions.equal(0, #assert(terminal:feed_output("\195")))
+      assertions.equal(1, terminal.utf8_decoder:snapshot().remaining)
+      assert(terminal:feed_output("\169"))
+      assertions.equal("é", terminal.primary_screen.rows[1].cells[1].text)
+
+      assert(terminal:feed_output("\195x"))
+      assertions.equal("\239\191\189", terminal.primary_screen.rows[1].cells[2].text)
+      assertions.equal("x", terminal.primary_screen.rows[1].cells[3].text)
+    end,
+  },
 }
