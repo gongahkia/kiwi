@@ -101,6 +101,14 @@ A bundle contains:
 
 Bytecode must not contain Python code objects, import paths, callables, or pickled values.
 
+Milestone 3 encodes the bytecode payload with the `KWI-BC\0` binary format,
+encoding version `1`. It has fixed big-endian integer fields and ordered
+length-prefixed collections; its source map inherits source-file ID from the
+module header. The payload decoder has explicit size, collection, text,
+integer, and type-nesting limits, rejects trailing bytes, and validates decoded
+bytecode before returning it. See `DSL_SPEC.md` section 16.1 for the complete
+canonical layout.
+
 ## 7. Mission content
 
 Suggested extension: `.dmission.json`
