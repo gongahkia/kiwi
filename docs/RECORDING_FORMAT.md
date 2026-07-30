@@ -103,6 +103,8 @@ The plain-Lua writer accepts an injected sink table with `write(bytes)`, `flush(
 
 The reader accepts an injected source table with `read(byte_count)` and `close()` methods. It reads only the bounded preamble, metadata, frame header, payload, and checksum required for the next result; short source reads are assembled, but a source must not return more than requested or an empty string before EOF. Metadata and frame bounds may only be reduced from the documented defaults. EOF at a frame boundary is clean; every other premature EOF, invalid header, noncanonical metadata, checksum mismatch, or source failure is returned as a typed error and the reader stops accepting data.
 
+The reader rejects every major version other than `1` with `recording_unsupported_version` before reading metadata. Its `version()` method retains a higher minor version as inspection metadata and accepts only its v1.0-compatible framing: unknown metadata keys and zero-flag unknown frame kinds are preserved for callers to skip or inspect, while unrecognised structural fields remain rejected.
+
 ## 6. Frame kinds
 
 Initial kinds:

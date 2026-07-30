@@ -150,4 +150,18 @@ return {
       assertions.equal("recording_corrupt", error_value.kind)
     end,
   },
+  {
+    name = "recording format negotiates matching majors and rejects unsupported majors",
+    run = function()
+      local version = assert(Format.negotiate_version({ major_version = 1, minor_version = 3 }))
+      assertions.equal(1, version.major_version)
+      assertions.equal(0, version.reader_minor_version)
+      assertions.equal(3, version.recording_minor_version)
+      local value, error_value = Format.negotiate_version({ major_version = 2, minor_version = 0 })
+      assertions.falsy(value)
+      assertions.equal("recording_unsupported_version", error_value.kind)
+      assertions.equal(1, error_value.detail.supported_major_version)
+      assertions.equal(2, error_value.detail.provided_major_version)
+    end,
+  },
 }

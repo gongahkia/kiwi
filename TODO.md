@@ -96,7 +96,7 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 - [x] Implement output, input, resize, mark, and checkpoint frames.
 - [x] Implement streaming writer semantics with safe close/finalisation.
 - [x] Implement streaming reader semantics with clear corruption errors.
-- [ ] Implement recording version negotiation and rejection of unsupported major versions.
+- [x] Implement recording version negotiation and rejection of unsupported major versions.
 - [ ] Add a human-readable inspection command or tool.
 
 ### Replay backend

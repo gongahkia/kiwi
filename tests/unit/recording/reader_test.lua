@@ -24,14 +24,15 @@ local function source(bytes, chunk_size)
   return value
 end
 
-local function recording(frames)
-  local metadata = '{"format":"stanczyk-recording"}'
+local function recording(frames, options)
+  options = options or {}
+  local metadata = options.metadata or '{"format":"stanczyk-recording"}'
   local prefix = assert(Format.encode_preamble({
     flags = 0,
-    major_version = 1,
+    major_version = options.major_version or 1,
     metadata_checksum = assert(Checksum.crc32(metadata)),
     metadata_length = #metadata,
-    minor_version = 0,
+    minor_version = options.minor_version or 0,
   }))
   local encoded = { prefix, metadata }
   for _, frame in ipairs(frames or {}) do
@@ -136,6 +137,44 @@ return {
       local value, error_value = reader:metadata()
       assertions.falsy(value)
       assertions.equal("recording_io_error", error_value.kind)
+    end,
+  },
+  {
+    name = "recording reader rejects unsupported major versions before metadata reads",
+    run = function()
+      local input_source = source(recording({}, { major_version = 2 }))
+      local reader = assert(RecordingReader.new(input_source))
+      local value, error_value = reader:metadata()
+      assertions.falsy(value)
+      assertions.equal("recording_unsupported_version", error_value.kind)
+      assertions.equal(Format.preamble_size + 1, input_source.offset)
+      assertions.truthy(reader:close())
+    end,
+  },
+  {
+    name = "recording reader accepts compatible minor extensions without interpreting them",
+    run = function()
+      local unknown = {
+        checksum = 0,
+        delta_us = 0,
+        flags = 0,
+        kind = 0x80,
+        payload = "extension",
+        payload_length = #"extension",
+        reserved = 0,
+      }
+      unknown.checksum = assert(Checksum.crc32(assert(Format.frame_checksum_bytes(unknown))))
+      local reader = assert(RecordingReader.new(source(recording({ unknown }, {
+        metadata = '{"extension":"enabled","format":"stanczyk-recording"}',
+        minor_version = 1,
+      }))))
+      local metadata = assert(reader:metadata())
+      assertions.equal("enabled", metadata.extension)
+      assertions.equal(1, assert(reader:version()).recording_minor_version)
+      local frame = assert(reader:read_next())
+      assertions.equal(0x80, frame.kind)
+      assertions.equal("extension", frame.payload)
+      assertions.truthy(reader:close())
     end,
   },
   {
