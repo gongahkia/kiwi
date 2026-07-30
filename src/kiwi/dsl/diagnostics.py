@@ -21,6 +21,7 @@ class DiagnosticStage(StrEnum):
     LEXER = "lexer"
     PARSER = "parser"
     RESOLVER = "resolver"
+    CHECKER = "checker"
 
 
 @dataclass(frozen=True, slots=True)

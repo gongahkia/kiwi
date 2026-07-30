@@ -349,9 +349,9 @@ Functions are first-class within budget and representation limits.
 
 The Milestone 2 compiler type algebra has immutable `Int`, `Bool`, and `Unit`
 primitive types, unresolved named types, and ordered function types. Its stable
-debug rendering uses `A -> B` for one parameter, `(A, B) -> C` for multiple
-parameters, parentheses for a function-typed parameter, and right-associative
-function returns.
+debug rendering uses `() -> A` for no parameters, `A -> B` for one parameter,
+`(A, B) -> C` for multiple parameters, parentheses for a function-typed
+parameter, and right-associative function returns.
 
 ### 9.6 Type inference
 
@@ -619,6 +619,14 @@ Check:
 - entry-point signatures;
 - memory shape;
 - intent availability.
+
+For the Milestone 2 subset, `Int`, `Bool`, and `Unit` annotations resolve to
+the primitive type algebra. `let` values are inferred, direct application
+checks function arity and argument types, negation requires `Int`, and `if`
+requires a `Bool` condition with equal branch types. The checker emits
+`E400_UNKNOWN_TYPE`, `E401_TYPE_MISMATCH`, `E402_BRANCH_TYPE_MISMATCH`, and
+`E403_INVALID_CALL`; each diagnostic has a source span and uses the `checker`
+stage.
 
 ### 15.5 Capability checking
 
