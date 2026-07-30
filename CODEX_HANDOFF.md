@@ -1,33 +1,5 @@
 # Codex Handoff
 
-## Initial repository prompt
-
-Use this after placing the documentation files in a new repository:
-
-```text
-Read AGENTS.md, README.md, PRD.md, DECISIONS.md, ARCHITECTURE.md, DSL_SPEC.md,
-SIMULATION_SPEC.md, CAUSAL_DEBUGGER.md, TESTING.md, and TODO.md.
-
-This repository is a fresh implementation of Kiwi: a Python and pygame-ce
-real-time squad tactics game where player-authored programs are written in a
-separate functional DSL. The compiler, deterministic VM, headless simulation,
-replay verifier, and causal debugger are the primary systems. Do not implement
-player programs with Python eval/exec, and do not make pygame authoritative.
-
-Begin with Milestone 0 only. Inspect the local environment and initialise the
-smallest repository skeleton that satisfies Milestone 0. Select and document the
-canonical Python environment, formatting, linting, type-checking, testing, and
-command-entry workflow. Prefer a src layout and pyproject.toml. Add architecture
-boundary tests. Do not implement later DSL or game features beyond minimal stubs
-needed to prove the skeleton.
-
-Before editing, state the Milestone 0 plan and verification commands. After the
-work, run every Milestone 0 exit check, update TODO.md only for tasks genuinely
-completed, review the diff, and create a descriptive git commit. If a genuine
-blocking product, licensing, dependency, or irreversible format decision arises,
-stop before making it and report the options and trade-offs.
-```
-
 ## Continuing after the first prompt
 
 Use a milestone-driven goal rather than an undifferentiated request to “finish the game.” The active agent should:
