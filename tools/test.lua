@@ -49,6 +49,7 @@ local modules = {
   "unit.recording.frames_test",
   "unit.recording.metadata_test",
   "unit.recording.reader_test",
+  "unit.recording.writer_test",
   "unit.renderer.renderer_test",
   "unit.effects.effect_test",
 }
