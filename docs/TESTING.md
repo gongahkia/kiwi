@@ -165,6 +165,8 @@ Testable renderer components:
 - parameter validation;
 - deterministic effect-state evolution.
 
+Renderer unit tests use deterministic fixture fonts for ascent, height, width, and glyph coverage. They do not depend on host-installed fonts or screenshot output.
+
 Visual regression tests may be added for stable environments, but should be limited and reviewed carefully.
 
 ## 7. Performance tests
