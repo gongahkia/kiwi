@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The causal debugger is the main differentiator of Doctrine. It explains how program logic, incomplete information, simulation rules, and adversarial events combined to produce an outcome.
+The causal debugger is the main differentiator of Kiwi. It explains how program logic, incomplete information, simulation rules, and adversarial events combined to produce an outcome.
 
 It must not pretend every consequence has one cause. It should expose a structured causal chain with decisive and contributing factors.
 

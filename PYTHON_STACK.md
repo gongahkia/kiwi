@@ -52,7 +52,7 @@ Select exact versions and lock them in Milestone 0. Do not encode current versio
 
 Use a src layout and `pyproject.toml`. Avoid running code from repository-relative import accidents.
 
-The package should be installable in editable mode for development, and CLI tools should work through `python -m doctrine.cli` or registered console scripts.
+The package should be installable in editable mode for development, and CLI tools should work through `python -m kiwi.cli` or registered console scripts.
 
 ## 5. Data structures
 

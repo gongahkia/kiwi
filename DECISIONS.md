@@ -6,7 +6,7 @@ This file is the authoritative record of settled product and technical decisions
 
 ### D-001: The project is a programmable squad tactics game
 
-The project uses an XCOM-like mission and squad-persistence structure but replaces direct turn-by-turn tactical control with programmable doctrine executed in real time.
+The project uses an XCOM-like mission and squad-persistence structure but replaces direct turn-by-turn tactical control with programmable kiwi executed in real time.
 
 ### D-002: Python is the host implementation language
 
@@ -42,7 +42,7 @@ The simulation validates, arbitrates, and resolves intentions. Returning `Fire t
 
 ### D-008: Missions run in real time
 
-Doctrine evaluation and simulation continue on fixed ticks. The player may inspect, accelerate, slow, or pause only where the game mode explicitly permits it. The core fantasy is designing systems that operate under pressure, not issuing discrete turns.
+Kiwi evaluation and simulation continue on fixed ticks. The player may inspect, accelerate, slow, or pause only where the game mode explicitly permits it. The core fantasy is designing systems that operate under pressure, not issuing discrete turns.
 
 ### D-009: Direct control is prohibited
 
@@ -50,7 +50,7 @@ The player cannot normally select an operative and directly command movement, at
 
 ### D-010: Deterministic replay is required
 
-Given the same build, content versions, mission input, doctrine bytecode, command log, and seed, headless reruns must produce identical canonical state hashes at defined checkpoints.
+Given the same build, content versions, mission input, kiwi bytecode, command log, and seed, headless reruns must produce identical canonical state hashes at defined checkpoints.
 
 Cross-version replay is not guaranteed unless a migration or compatibility runner is explicitly provided.
 
@@ -79,7 +79,7 @@ The compiler, VM, simulation, replay verifier, trace queries, and content valida
 
 ### D-015: The first vertical slice contains one mission
 
-The first complete mission is the working scenario `Glasshouse`: a small squad must enter a hostile structure, locate or recover an objective, and extract while incomplete information and flawed doctrine create an explainable failure.
+The first complete mission is the working scenario `Glasshouse`: a small squad must enter a hostile structure, locate or recover an objective, and extract while incomplete information and flawed kiwi create an explainable failure.
 
 ### D-016: The visual terminal uses bitmap fonts
 
@@ -130,7 +130,7 @@ The following are not acceptable implementation substitutions:
 
 ### O-001: Public project name
 
-`Doctrine` is a working title only.
+`Kiwi` is a working title only.
 
 ### O-002: Operative fiction
 
@@ -174,7 +174,7 @@ Candidate desktop packaging approaches must be benchmarked after the vertical sl
 
 A proposed feature should proceed only if it strengthens at least one of these:
 
-1. Programming doctrine is expressive but learnable.
+1. Programming kiwi is expressive but learnable.
 2. Autonomous squad behaviour creates meaningful tactical consequences.
 3. The debugger makes those consequences legible.
 4. Deterministic reruns support learning and comparison.

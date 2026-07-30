@@ -16,7 +16,7 @@ Main menu
  -> campaign or fixture
  -> briefing
  -> squad and equipment
- -> doctrine workbench
+ -> kiwi workbench
  -> compile and validation
  -> mission
  -> debrief and causal debugger
@@ -25,7 +25,7 @@ Main menu
 
 The vertical slice may expose `Run fixture`, `Edit policy`, and `Compare runs` directly for development.
 
-## 3. Doctrine workbench
+## 3. Kiwi workbench
 
 Recommended layout:
 
@@ -122,7 +122,7 @@ Recipients: squad coordinator
 Delivery: next simulation tick
 ```
 
-The UI should never say “Move squad here” unless the doctrine actually interprets it that way.
+The UI should never say “Move squad here” unless the kiwi actually interprets it that way.
 
 ## 5. Overlays
 
@@ -162,7 +162,7 @@ Selecting an injury may show:
 Immediate cause
   Projectile P19 impacted Operative A2 at tick 418.
 
-Doctrine contribution
+Kiwi contribution
   `continue_advance` was selected because danger 62% was below 65%.
 
 Information limitation

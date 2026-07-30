@@ -46,7 +46,7 @@ The architecture should remain simple enough for one developer and coding agents
 ├── AGENTS.md
 ├── docs/
 ├── src/
-│   └── doctrine/
+│   └── kiwi/
 │       ├── __init__.py
 │       ├── cli.py
 │       ├── domain/
@@ -383,7 +383,7 @@ A replay package contains:
 - format version;
 - application build identifier;
 - mission content hashes;
-- doctrine bundle hashes;
+- kiwi bundle hashes;
 - initial state or fixture reference;
 - deterministic seed manifest;
 - command log;

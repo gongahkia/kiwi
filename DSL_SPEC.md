@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The Doctrine language lets players define how squads and operatives transform incomplete observations into explicit memory and tactical intentions. It is designed for gameplay, causal explanation, deterministic execution, and progressive learning—not for general-purpose computing.
+The Kiwi language lets players define how squads and operatives transform incomplete observations into explicit memory and tactical intentions. It is designed for gameplay, causal explanation, deterministic execution, and progressive learning—not for general-purpose computing.
 
 The language should feel functional and compact without requiring prior Haskell, OCaml, or Elm experience. It may borrow familiar concepts, but syntax and diagnostics should favour readability in a small bitmap-font terminal.
 

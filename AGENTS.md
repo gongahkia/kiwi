@@ -2,7 +2,7 @@
 
 ## Project intent
 
-Doctrine is a Python and pygame-ce real-time squad tactics game in which players program autonomous squad logic using a small functional DSL. The compiler, deterministic VM, tactical simulation, replay system, and causal debugger are the core engineering work. The graphical client is a consumer of snapshots, not the authority.
+Kiwi is a Python and pygame-ce real-time squad tactics game in which players program autonomous squad logic using a small functional DSL. The compiler, deterministic VM, tactical simulation, replay system, and causal debugger are the core engineering work. The graphical client is a consumer of snapshots, not the authority.
 
 Read `PRD.md`, `DECISIONS.md`, `ARCHITECTURE.md`, and the active milestone in `TODO.md` before making architectural changes.
 
@@ -43,11 +43,11 @@ domain <- dsl <- simulation <- replay/debugger <- application adapters
 
 More precisely:
 
-- `doctrine.domain` depends only on the Python standard library.
-- `doctrine.dsl` may depend on `domain` value definitions but not pygame.
-- `doctrine.sim` may depend on `domain` and compiled DSL interfaces but not pygame.
-- `doctrine.replay` and `doctrine.trace` may depend on simulation event schemas.
-- `doctrine.app` and `doctrine.render` may depend on all read-only public interfaces.
+- `kiwi.domain` depends only on the Python standard library.
+- `kiwi.dsl` may depend on `domain` value definitions but not pygame.
+- `kiwi.sim` may depend on `domain` and compiled DSL interfaces but not pygame.
+- `kiwi.replay` and `kiwi.trace` may depend on simulation event schemas.
+- `kiwi.app` and `kiwi.render` may depend on all read-only public interfaces.
 - Authoritative packages must not import from presentation packages.
 
 Use architecture tests or import checks to enforce this boundary.
@@ -113,9 +113,9 @@ python -m pytest
 python -m ruff check .
 python -m ruff format --check .
 python -m mypy src tests
-python -m doctrine.cli compile examples/policies/basic.dtr
-python -m doctrine.cli simulate fixtures/glasshouse.json --headless
-python -m doctrine.cli replay verify runs/example.drun
+python -m kiwi.cli compile examples/policies/basic.dtr
+python -m kiwi.cli simulate fixtures/glasshouse.json --headless
+python -m kiwi.cli replay verify runs/example.drun
 ```
 
 Use only commands actually configured in the repository. Update this file and `README.md` when the canonical commands change.
