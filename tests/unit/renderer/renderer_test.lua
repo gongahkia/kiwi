@@ -1,4 +1,5 @@
 local assertions = require("support.assertions")
+local GlyphCache = require("renderer.glyph_cache")
 local LoveFont = require("renderer.love_font")
 local Metrics = require("renderer.metrics")
 local Renderer = require("renderer.renderer")
@@ -15,7 +16,13 @@ local function font()
       if text == "M" then
         return 8.2
       end
-      return 0
+      if text == "A" then
+        return 7
+      end
+      if text == "é" then
+        return 9
+      end
+      return #text
     end,
   }
 end
@@ -75,6 +82,32 @@ return {
       assertions.equal(17, metrics.cell_height)
       assertions.equal(9, metrics.cell_width)
       assertions.equal(metrics.cell_width, assert(renderer:cell_metrics()).cell_width)
+    end,
+  },
+  {
+    name = "renderer glyph cache expands lazily across ASCII and Unicode",
+    run = function()
+      local cache = assert(GlyphCache.new(font(), {
+        baseline = 12,
+        cell_height = 17,
+        cell_width = 9,
+      }, { max_entries = 2 }))
+      local ascii = assert(cache:get("A"))
+      assertions.equal(7, ascii.advance)
+      local unicode = assert(cache:get("é", "bold"))
+      assertions.equal(9, unicode.advance)
+      assertions.equal("bold", unicode.style)
+      assertions.equal(2, cache:stats().entries)
+      assert(cache:get("A"))
+      assert(cache:get("B"))
+      assertions.equal(2, cache:stats().entries)
+      assertions.equal(1, cache:stats().hits)
+      assertions.equal(3, cache:stats().misses)
+
+      local renderer = assert(Renderer.new({ max_glyph_entries = 2 }))
+      assertions.falsy(renderer:glyph("A"))
+      assert(renderer:load_font(graphics()))
+      assertions.equal(7, assert(renderer:glyph("A")).advance)
     end,
   },
 }

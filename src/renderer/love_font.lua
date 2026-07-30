@@ -13,6 +13,7 @@ local allowed_options = {
   cell_width = true,
   font_path = true,
   font_size = true,
+  max_glyph_entries = true,
 }
 
 local function config_error(message, detail)
