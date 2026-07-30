@@ -446,6 +446,21 @@ return {
     end,
   },
   {
+    name = "renderer reuses cached glyphs for unchanged damage presentation",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      assert(renderer:draw(snapshot()))
+      local before = renderer.glyph_cache:stats()
+      assert(renderer:draw(snapshot(), { { first_column = 2, last_column = 2, row = 1 } }))
+      local after = renderer.glyph_cache:stats()
+      assertions.equal(before.entries, after.entries)
+      assertions.equal(before.misses, after.misses)
+      assertions.equal(before.hits + 1, after.hits)
+    end,
+  },
+  {
     name = "renderer redraws old and new cursor cells from empty damage",
     run = function()
       local api = graphics()

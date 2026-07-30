@@ -94,6 +94,8 @@ Options include:
 
 The first implementation should prefer clarity and measurement over a complex retained-mode engine.
 
+The v1 clean renderer is immediate-mode and creates no vertex or sprite data. It limits work to declared damage ranges and reuses bounded glyph-cache entries, so unchanged cells do not rebuild presentation geometry.
+
 ## 5. Damage-driven rendering
 
 Renderer updates should be driven by terminal damage and visual-effect needs.
