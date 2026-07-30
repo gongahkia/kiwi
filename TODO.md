@@ -79,7 +79,7 @@ Type-check the language and compile it into a small core representation.
 ### Tasks
 
 - [x] Implement primitive and domain type representations.
-- [ ] Implement function types.
+- [x] Implement function types.
 - [ ] Implement `Option`, `Result`, and selected domain unions.
 - [ ] Implement name resolution and lexical scopes.
 - [ ] Implement local type inference.
