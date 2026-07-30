@@ -103,9 +103,9 @@ Resolve names and reject invalid programs before execution.
 - [x] Detect unknown names, duplicates, invalid arity, and prohibited shadowing.
 - [x] Implement type checking for literals, names, application, `let`, and `if`.
 - [x] Define typed AST or typed surface representation.
-- [ ] Define minimal core IR with stable expression IDs.
-- [ ] Lower typed syntax into core IR.
-- [ ] Preserve source-map links through lowering.
+- [x] Define minimal core IR with stable expression IDs.
+- [x] Lower typed syntax into core IR.
+- [x] Preserve source-map links through lowering.
 - [x] Add diagnostics for type mismatch, branch mismatch, unknown name, and invalid call.
 - [ ] Add golden typed-core fixtures.
 - [ ] Add CLI `check` command.

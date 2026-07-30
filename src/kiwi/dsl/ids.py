@@ -25,3 +25,14 @@ class SymbolId:
     def __post_init__(self) -> None:
         if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
             raise ValueError("symbol ID must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class ExpressionId:
+    """The canonical identity of a lowered core expression."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
+            raise ValueError("expression ID must be a non-negative integer")
