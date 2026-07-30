@@ -97,6 +97,10 @@ checksum:u32
 
 The checksum is CRC-32/ISO-HDLC over the frame fields after `kind`: `flags`, `reserved`, `delta_us`, `payload_length`, and the raw payload. It excludes `kind` and the checksum field itself.
 
+### 5.1 Bootstrap writer boundary
+
+The plain-Lua writer accepts an injected sink table with `write(bytes)`, `flush()`, and `close()` methods. It writes the preamble and canonical metadata at construction, validates each frame checksum before writing it, and requires a successful `flush()` followed by `close()` to finalise. Sink failures are returned as `recording_io_error`; after one, no further frames are accepted and close is not retried. This is streaming finalisation, not an atomic file-publication protocol.
+
 ## 6. Frame kinds
 
 Initial kinds:

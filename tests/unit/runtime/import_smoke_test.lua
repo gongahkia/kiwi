@@ -28,6 +28,7 @@ return {
         "recording.frames",
         "recording.metadata",
         "recording.reader",
+        "recording.writer",
       }
       for _, module_name in ipairs(modules) do
         package.loaded[module_name] = nil
