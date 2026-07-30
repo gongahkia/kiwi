@@ -49,6 +49,15 @@ local function recording(frames)
   return table.concat(chunks)
 end
 
+local function apply_directly(terminal, events)
+  for _, event in ipairs(events) do
+    local normalised = assert(Event.validate(event))
+    if normalised.kind == "output" then
+      assert(terminal:feed_output(normalised.data))
+    end
+  end
+end
+
 return {
   {
     name = "coordinator frame stepping applies replay events outside the backend",
@@ -106,6 +115,34 @@ return {
       assertions.equal("a", terminal.primary_screen.rows[1].cells[1].text)
       assertions.equal("b", terminal.primary_screen.rows[1].cells[2].text)
       assertions.equal(5, coordinator:status().terminal_time_us)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
+    name = "replay matches direct application for a representative event stream",
+    run = function()
+      local events = {
+        assert(Event.output("one\n\27[31mred", 3)),
+        assert(Event.input("typed", 2)),
+        assert(Event.mark("phase", { number = 1 }, 1)),
+        assert(Event.clock_advance(4)),
+        assert(Event.output("\27[0m\n\195", 5)),
+        assert(Event.output("\169 \27[?1049halt\27[?1049l", 0)),
+      }
+      local direct = assert(Terminal.new({ columns = 8, rows = 3, scrollback_limit = 4 }))
+      apply_directly(direct, events)
+
+      local frames = {}
+      for _, event in ipairs(events) do
+        frames[#frames + 1] = assert(Frames.from_event(event))
+      end
+      local replayed = assert(Terminal.new({ columns = 8, rows = 3, scrollback_limit = 4 }))
+      local coordinator =
+        assert(Coordinator.new(replayed, assert(Replay.new(source(recording(frames))))))
+      local applied = assert(coordinator:update(15))
+      assertions.equal(#events, #applied)
+      assertions.equal(15, coordinator:status().terminal_time_us)
+      assertions.equal(assert(direct:digest()), assert(replayed:digest()))
       assertions.truthy(coordinator:stop())
     end,
   },
