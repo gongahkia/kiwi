@@ -32,6 +32,9 @@ Format.contract = {
   encode_frame_header = "encode_frame_header(frame) -> bytes | nil, error",
   encode_preamble = "encode_preamble(preamble) -> bytes | nil, error",
   frame_checksum_bytes = "frame_checksum_bytes(frame) -> bytes | nil, error",
+  normalise_limits = "normalise_limits(limits?) -> normalised_limits | nil, error",
+  validate_frame_header = "validate_frame_header(frame_header, limits?) -> true | nil, error",
+  validate_preamble = "validate_preamble(preamble, limits?) -> true | nil, error",
 }
 
 local function config_error(message, detail)
@@ -69,6 +72,35 @@ local function limit(limits, name, default)
   return required_unsigned(value, name, 0xFFFFFFFF)
 end
 
+function Format.normalise_limits(limits)
+  local max_metadata_bytes, metadata_error =
+    limit(limits, "max_metadata_bytes", Format.default_max_metadata_bytes)
+  if not max_metadata_bytes then
+    return nil, metadata_error
+  end
+  if max_metadata_bytes > Format.default_max_metadata_bytes then
+    return config_error("max_metadata_bytes may only reduce the default bound", {
+      limit = Format.default_max_metadata_bytes,
+      provided = max_metadata_bytes,
+    })
+  end
+  local max_frame_payload_bytes, payload_error =
+    limit(limits, "max_frame_payload_bytes", Format.default_max_frame_payload_bytes)
+  if not max_frame_payload_bytes then
+    return nil, payload_error
+  end
+  if max_frame_payload_bytes > Format.default_max_frame_payload_bytes then
+    return config_error("max_frame_payload_bytes may only reduce the default bound", {
+      limit = Format.default_max_frame_payload_bytes,
+      provided = max_frame_payload_bytes,
+    })
+  end
+  return {
+    max_frame_payload_bytes = max_frame_payload_bytes,
+    max_metadata_bytes = max_metadata_bytes,
+  }
+end
+
 local function current_preamble(preamble)
   if type(preamble) ~= "table" then
     return config_error("recording preamble must be a table")
@@ -95,6 +127,69 @@ local function current_frame(header)
   end
   if header.reserved ~= 0 then
     return nil, Errors.new("recording_corrupt", "bootstrap frame reserved field must be zero")
+  end
+  return true
+end
+
+function Format.validate_preamble(preamble, limits)
+  local metadata_length, metadata_checksum = current_preamble(preamble)
+  if not metadata_length then
+    return nil, metadata_checksum
+  end
+  local normalised, limits_error = Format.normalise_limits(limits)
+  if not normalised then
+    return nil, limits_error
+  end
+  if metadata_length > normalised.max_metadata_bytes then
+    return nil,
+      Errors.new("recording_corrupt", "recording metadata exceeds configured bound", {
+        limit = normalised.max_metadata_bytes,
+        provided = metadata_length,
+      })
+  end
+  return true
+end
+
+function Format.validate_frame_header(header, limits)
+  if type(header) ~= "table" then
+    return config_error("recording frame header must be a table")
+  end
+  local kind, kind_error = required_unsigned(header.kind, "frame kind", 0xFF)
+  if not kind then
+    return nil, kind_error
+  end
+  local flags, flags_error = required_unsigned(header.flags, "frame flags", 0xFF)
+  if not flags then
+    return nil, flags_error
+  end
+  local reserved, reserved_error =
+    required_unsigned(header.reserved, "frame reserved field", 0xFFFF)
+  if not reserved then
+    return nil, reserved_error
+  end
+  local delta_us, delta_error = required_unsigned(header.delta_us, "frame delta_us", 0xFFFFFFFF)
+  if not delta_us then
+    return nil, delta_error
+  end
+  local payload_length, payload_error =
+    required_unsigned(header.payload_length, "frame payload length", 0xFFFFFFFF)
+  if not payload_length then
+    return nil, payload_error
+  end
+  local current, current_error = current_frame(header)
+  if not current then
+    return nil, current_error
+  end
+  local normalised, limits_error = Format.normalise_limits(limits)
+  if not normalised then
+    return nil, limits_error
+  end
+  if payload_length > normalised.max_frame_payload_bytes then
+    return nil,
+      Errors.new("recording_corrupt", "recording frame payload exceeds configured bound", {
+        limit = normalised.max_frame_payload_bytes,
+        provided = payload_length,
+      })
   end
   return true
 end
@@ -283,22 +378,12 @@ function Format.decode_metadata(bytes, offset, preamble, limits)
   if not start then
     return nil, offset_error
   end
-  local metadata_length, metadata_checksum = current_preamble(preamble)
-  if not metadata_length then
-    return nil, metadata_checksum
+  local valid, preamble_error = Format.validate_preamble(preamble, limits)
+  if not valid then
+    return nil, preamble_error
   end
-  local maximum, limit_error =
-    limit(limits, "max_metadata_bytes", Format.default_max_metadata_bytes)
-  if not maximum then
-    return nil, limit_error
-  end
-  if metadata_length > maximum then
-    return nil,
-      Errors.new("recording_corrupt", "recording metadata exceeds configured bound", {
-        limit = maximum,
-        provided = metadata_length,
-      })
-  end
+  local metadata_length = preamble.metadata_length
+  local metadata_checksum = preamble.metadata_checksum
   local finish = start + metadata_length - 1
   if finish > #bytes then
     return nil,
@@ -335,21 +420,9 @@ function Format.decode_frame(bytes, offset, limits)
   if not header then
     return nil, payload_offset
   end
-  local current, current_error = current_frame(header)
-  if not current then
-    return nil, current_error
-  end
-  local maximum, limit_error =
-    limit(limits, "max_frame_payload_bytes", Format.default_max_frame_payload_bytes)
-  if not maximum then
-    return nil, limit_error
-  end
-  if header.payload_length > maximum then
-    return nil,
-      Errors.new("recording_corrupt", "recording frame payload exceeds configured bound", {
-        limit = maximum,
-        provided = header.payload_length,
-      })
+  local valid, header_error = Format.validate_frame_header(header, limits)
+  if not valid then
+    return nil, header_error
   end
   local payload_end = payload_offset + header.payload_length - 1
   local checksum_offset = payload_end + 1
