@@ -3,7 +3,7 @@ STYLUA ?= stylua
 LOVE ?= love
 TEST_SEED ?= 20260730
 
-.PHONY: bootstrap check lint run test
+.PHONY: bootstrap check inspect lint run test
 
 bootstrap:
 	zsh tools/bootstrap.sh
@@ -15,6 +15,9 @@ lint:
 
 run:
 	$(LOVE) .
+
+inspect:
+	$(LUAJIT) tools/inspect_recording.lua "$(RECORDING)"
 
 test:
 	STANCZYK_TEST_SEED="$(TEST_SEED)" $(LUAJIT) tools/test.lua
