@@ -1,4 +1,5 @@
 local Errors = require("runtime.errors")
+local Config = require("terminal.config")
 
 local Terminal = {}
 local terminal_mt = {}
@@ -17,7 +18,11 @@ function Terminal.new(config)
   if type(config) ~= "table" then
     return nil, Errors.new("config_error", "terminal config must be a table")
   end
-  return setmetatable({ config = config, state = "bootstrap" }, terminal_mt)
+  local terminal_config, config_error = Config.new(config)
+  if not terminal_config then
+    return nil, config_error
+  end
+  return setmetatable({ config = terminal_config, state = "bootstrap" }, terminal_mt)
 end
 
 function terminal_mt:start()

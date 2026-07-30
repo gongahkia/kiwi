@@ -47,7 +47,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 
 ### Data model
 
-- [ ] Implement immutable configuration for columns, rows, scrollback limit, and compatibility profile.
+- [x] Implement immutable configuration for columns, rows, scrollback limit, and compatibility profile.
 - [ ] Implement `Cell` with text, width role, rendition attributes, and hyperlink placeholder.
 - [ ] Implement row storage with dirty-range tracking.
 - [ ] Implement primary and alternate screen buffers.

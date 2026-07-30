@@ -25,6 +25,7 @@ local modules = {
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
   "unit.runtime.import_smoke_test",
+  "unit.terminal.config_test",
   "unit.terminal.terminal_test",
   "unit.backend.interface_test",
   "unit.recording.reader_test",
