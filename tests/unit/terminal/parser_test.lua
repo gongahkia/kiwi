@@ -57,6 +57,8 @@ return {
       assertions.equal(string.byte("h"), events[1].final)
       assertions.equal("?25", events[1].parameters)
       assertions.equal("", events[1].intermediates)
+      assertions.equal("csi_parameter", events[1].state_before)
+      assertions.equal("ground", events[1].state_after)
       assertions.equal("ground", parser:snapshot().state)
       assertions.equal(7, parser:snapshot().byte_offset)
     end,

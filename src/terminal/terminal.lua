@@ -25,7 +25,7 @@ Terminal.contract = {
   constructor = "new(config) -> terminal | nil, error",
   digest = "digest() -> canonical_digest | nil, error",
   start = "start() -> nil, error",
-  feed_output = "feed_output(bytes) -> semantic_events | nil, error",
+  feed_output = "feed_output(bytes) -> semantic_events, parser_events | nil, error",
   resize = "resize(columns, rows) -> nil, error",
   snapshot = "snapshot() -> nil, error",
   destroy = "destroy()",
@@ -867,7 +867,7 @@ function terminal_mt:feed_output(bytes)
       }
     end
   end
-  return semantic_events
+  return semantic_events, parser_events
 end
 
 function terminal_mt:resize(columns, rows)

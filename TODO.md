@@ -65,7 +65,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Implement the first CSI movement, erase, scroll, and SGR subset.
 - [x] Implement DEC save/restore cursor and mode changes required for alternate screen operation.
 - [x] Implement unknown-sequence reporting without state corruption.
-- [ ] Emit structured parser/debug events.
+- [x] Emit structured parser/debug events.
 
 ### Tests
 

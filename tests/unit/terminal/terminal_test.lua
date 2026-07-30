@@ -326,4 +326,20 @@ return {
       assertions.equal("ground", terminal.parser:snapshot().state)
     end,
   },
+  {
+    name = "terminal returns structured parser trace events",
+    run = function()
+      local terminal = assert(Terminal.new({}))
+      local semantic_events, parser_events = assert(terminal:feed_output("A\27[2J"))
+      assertions.truthy(has_event(semantic_events, "output"))
+      assertions.equal(2, #parser_events)
+      assertions.equal("print", parser_events[1].kind)
+      assertions.equal("ground", parser_events[1].state_before)
+      assertions.equal("ground", parser_events[1].state_after)
+      assertions.equal("csi", parser_events[2].kind)
+      assertions.equal("csi_parameter", parser_events[2].state_before)
+      assertions.equal("ground", parser_events[2].state_after)
+      assertions.equal("2", parser_events[2].parameters)
+    end,
+  },
 }
