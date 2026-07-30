@@ -4,7 +4,22 @@ local Event = require("runtime.event")
 local Frames = require("recording.frames")
 local RecordingWriter = require("recording.writer")
 local Replay = require("backend.replay")
+local Renderer = require("renderer.renderer")
 local Terminal = require("terminal.terminal")
+
+local function graphics()
+  local font = require("fixtures.renderer.font").new()
+  return {
+    line = function() end,
+    newFont = function()
+      return font
+    end,
+    print = function() end,
+    rectangle = function() end,
+    setColor = function() end,
+    setFont = function() end,
+  }
+end
 
 local function sink()
   local value = { chunks = {} }
@@ -92,6 +107,9 @@ return {
       local direct = assert(Terminal.new(config))
       apply_directly(direct, events)
       assertions.equal(assert(direct:digest()), assert(terminal:digest()))
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(graphics()))
+      assertions.truthy(renderer:draw_terminal(terminal))
       assertions.equal(1, replay:status().checkpoint_status.indexed)
       assertions.truthy(reopened_source.seek_calls > 0)
       assert(coordinator:seek(8))

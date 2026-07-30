@@ -41,6 +41,7 @@ return {
         "renderer.grid",
         "renderer.love_font",
         "renderer.renderer",
+        "renderer.snapshot",
       }
       for _, module_name in ipairs(modules) do
         package.loaded[module_name] = nil

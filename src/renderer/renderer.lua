@@ -7,6 +7,7 @@ local GlyphResolver = require("renderer.glyph_resolver")
 local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
 local Event = require("runtime.event")
+local Snapshot = require("renderer.snapshot")
 
 local Renderer = {}
 local renderer_mt = {}
@@ -17,6 +18,7 @@ Renderer.contract = {
   cell_metrics = "cell_metrics() -> cell_metrics | nil, error",
   draw = "draw(snapshot, damage?) -> nil, error?",
   draw_empty = "draw_empty() -> true | nil, error",
+  draw_terminal = "draw_terminal(terminal, damage?) -> true | nil, error",
   glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
   preset = "preset() -> preset",
@@ -563,6 +565,14 @@ function renderer_mt:draw_empty()
   self.graphics.setColor(0.035, 0.045, 0.07, 1)
   self.graphics.rectangle("fill", 0, 0, self.grid.window_width, self.grid.window_height)
   return true
+end
+
+function renderer_mt:draw_terminal(terminal, damage)
+  local snapshot, snapshot_error = Snapshot.from_terminal(terminal)
+  if not snapshot then
+    return nil, snapshot_error
+  end
+  return self:draw(snapshot, damage)
 end
 
 function renderer_mt:resize(window_width, window_height, pixel_width, pixel_height)
