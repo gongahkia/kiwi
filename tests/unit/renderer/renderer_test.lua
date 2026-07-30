@@ -288,6 +288,18 @@ return {
     end,
   },
   {
+    name = "renderer passes combining graphemes to the font unchanged",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      local value = snapshot()
+      value.screen.rows[1].cells[1].text = "é"
+      assert(renderer:draw(value))
+      assertions.equal("é", operation(api, "print", 1)[1])
+    end,
+  },
+  {
     name = "renderer draws block beam and underline cursors",
     run = function()
       for _, style in ipairs({ "block", "beam", "underline" }) do

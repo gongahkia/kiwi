@@ -144,7 +144,7 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 ### Unicode rendering
 
 - [x] Implement width-aware placement for single-width and double-width cells.
-- [ ] Implement combining-mark composition or a documented approximation.
+- [x] Implement combining-mark composition or a documented approximation.
 - [ ] Implement placeholder rendering for missing glyphs.
 - [ ] Add deterministic font-metric fixtures for tests where possible.
 

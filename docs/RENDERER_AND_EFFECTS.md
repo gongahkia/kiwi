@@ -52,7 +52,9 @@ The clean draw input is an internal table with positive `columns` and `rows`, pl
 
 An optional clean-render damage argument is a dense array of `{ row, first_column, last_column }` ranges. Ranges must be within the supplied grid; overlapping ranges on a row are merged. A damaged cursor cell, or either endpoint of a cursor move, is redrawn with its cell range. Damage is presentation input and never mutates terminal state.
 
-A width-two lead cell and its required continuation cell render as one two-column background, glyph, and decoration span. A range touching either coordinate redraws the complete span. Combining-mark handling and missing-glyph fallback remain separate renderer work.
+A width-two lead cell and its required continuation cell render as one two-column background, glyph, and decoration span. A range touching either coordinate redraws the complete span. Missing-glyph fallback remains separate renderer work.
+
+For v1 combining-mark handling, each cell’s UTF-8 grapheme bytes are cached and passed unchanged to the configured LÖVE font. The renderer does not separately position or precompose combining marks; their composition is the font’s responsibility. This preserves deterministic terminal cell coordinates while providing a bounded, documented approximation.
 
 Window dimensions are converted to a centered grid from the loaded integer cell metrics and optional pixel padding. `renderer:resize(window_width, window_height, pixel_width?, pixel_height?)` returns the derived layout and a normalised resize event for the runtime boundary; it does not mutate terminal state. A changed layout forces one full presentation redraw after the caller applies that event to terminal semantics.
 
