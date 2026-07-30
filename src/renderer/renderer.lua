@@ -15,6 +15,7 @@ Renderer.contract = {
   constructor = "new(config) -> renderer | nil, error",
   cell_metrics = "cell_metrics() -> cell_metrics | nil, error",
   draw = "draw(snapshot, damage?) -> nil, error?",
+  draw_empty = "draw_empty() -> true | nil, error",
   glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
   preset = "preset() -> preset",
@@ -505,6 +506,24 @@ function renderer_mt:draw(snapshot, damage)
   end
   self.last_cursor = current_cursor
   self.needs_full_redraw = false
+  return true
+end
+
+function renderer_mt:draw_empty()
+  if self.state == "destroyed" then
+    return nil, Errors.new("renderer_resource_error", "renderer is destroyed")
+  end
+  if not self.graphics or not self.grid then
+    return nil, Errors.new("renderer_resource_error", "renderer window is not initialised")
+  end
+  for _, name in ipairs({ "rectangle", "setColor" }) do
+    local method, method_error = graphics_method(self.graphics, name)
+    if not method then
+      return nil, method_error
+    end
+  end
+  self.graphics.setColor(0.035, 0.045, 0.07, 1)
+  self.graphics.rectangle("fill", 0, 0, self.grid.window_width, self.grid.window_height)
   return true
 end
 

@@ -139,7 +139,7 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 - [x] Implement window-to-grid sizing and resize events.
 - [x] Implement high-DPI handling.
 - [x] Implement a clean renderer preset with no post-processing.
-- [ ] Keep all LÖVE calls below the renderer boundary.
+- [x] Keep all LÖVE calls below the renderer boundary.
 
 ### Unicode rendering
 

@@ -279,6 +279,19 @@ return {
     end,
   },
   {
+    name = "renderer owns the bootstrap empty canvas draw",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assertions.falsy(renderer:draw_empty())
+      assert(renderer:load_font(api))
+      assert(renderer:resize(28, 27))
+      local rectangles_before = operation_count(api, "rectangle")
+      assert(renderer:draw_empty())
+      assertions.equal(rectangles_before + 1, operation_count(api, "rectangle"))
+    end,
+  },
+  {
     name = "renderer keeps grid units separate from high-DPI event pixels",
     run = function()
       local api = graphics()
