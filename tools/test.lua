@@ -22,6 +22,7 @@ math.randomseed(numeric_seed)
 print("test seed: " .. seed)
 
 local modules = {
+  "property.terminal_chunking_test",
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
   "unit.runtime.import_smoke_test",
