@@ -61,6 +61,7 @@ Bootstrap control contract:
 - `pause()`, `play()`/`resume()`, `stop(reason)`, and `set_speed(multiplier)` control the replay state;
 - `poll` processes at most the configured `max_events_per_poll` recording frames (default `1024`), retaining due frames for the next call;
 - `step_frame()` pauses replay and returns exactly one decoded recording frame plus its normalised event, without mutating terminal state;
+- seekable sources are indexed by bounded checkpoint offsets; `seek(target_terminal_us)` restores the nearest indexed checkpoint and leaves replay paused at the requested terminal time;
 - INPUT frames remain informational events and are never sent to a host process.
 
 ## 5. Direct backend

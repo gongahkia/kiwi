@@ -9,6 +9,7 @@ coordinator_mt.__index = coordinator_mt
 Coordinator.contract = {
   constructor = "new(terminal, backend) -> coordinator | nil, error",
   start = "start() -> true | nil, error",
+  seek = "seek(target_terminal_us) -> applied_events | nil, error",
   step_control_sequence = "step_control_sequence() -> step | nil, error?",
   step_frame = "step_frame() -> step | nil, error?",
   stop = "stop(reason?) -> true | nil, error",
@@ -253,6 +254,50 @@ function coordinator_mt:step_control_sequence()
     parser_events = parser_events,
     semantic_events = semantic_events,
   }
+end
+
+function coordinator_mt:seek(target_terminal_us)
+  if self.pending_output then
+    return config_error("cannot seek while a control-sequence step has pending output")
+  end
+  local started, start_error = self:start()
+  if not started then
+    return nil, start_error
+  end
+  if type(self.backend.seek) ~= "function" then
+    return unavailable("backend does not support seek")
+  end
+  local plan, seek_error = self.backend:seek(target_terminal_us)
+  if not plan then
+    return nil, seek_error
+  end
+  self.terminal = plan.terminal
+  self.terminal_time_us = plan.checkpoint_terminal_us
+  self.event_sequence = plan.frame_index
+  local resumed, resume_error = self.backend:resume()
+  if not resumed then
+    return nil, resume_error
+  end
+  local applied = {}
+  while true do
+    local batch, update_error = self:update(0)
+    if not batch then
+      return nil, update_error
+    end
+    append_events(applied, batch)
+    if #batch == 0 then
+      break
+    end
+  end
+  local paused, pause_error = self.backend:pause()
+  if not paused and self.backend:status().state ~= "exhausted" then
+    return nil, pause_error
+  end
+  return applied
+end
+
+function coordinator_mt:terminal_instance()
+  return self.terminal
 end
 
 function coordinator_mt:stop(reason)

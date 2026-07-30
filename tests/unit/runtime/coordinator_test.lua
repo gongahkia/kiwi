@@ -7,7 +7,7 @@ local Replay = require("backend.replay")
 local Terminal = require("terminal.terminal")
 local Event = require("runtime.event")
 
-local function source(bytes)
+local function source(bytes, seekable)
   local value = { bytes = bytes, offset = 1 }
   function value:read(count)
     if self.offset > #self.bytes then
@@ -20,6 +20,15 @@ local function source(bytes)
   end
   function value:close()
     return true
+  end
+  if seekable then
+    function value:seek(offset)
+      if offset < 0 or offset > #self.bytes then
+        return nil, "invalid offset"
+      end
+      self.offset = offset + 1
+      return offset
+    end
   end
   return value
 end
@@ -96,6 +105,28 @@ return {
       assertions.equal(2, #applied)
       assertions.equal("a", terminal.primary_screen.rows[1].cells[1].text)
       assertions.equal("b", terminal.primary_screen.rows[1].cells[2].text)
+      assertions.equal(5, coordinator:status().terminal_time_us)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
+    name = "coordinator restores an indexed checkpoint and replays its suffix",
+    run = function()
+      local checkpoint_terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
+      assert(checkpoint_terminal:feed_output("A"))
+      local checkpoint = assert(Frames.checkpoint(checkpoint_terminal, 0))
+      local initial = assert(Terminal.new({ columns = 4, rows = 1 }))
+      local replay = assert(Replay.new(source(recording({
+        assert(Frames.from_event(assert(Event.output("A", 2)))),
+        checkpoint,
+        assert(Frames.from_event(assert(Event.output("B", 3)))),
+      }), true)))
+      local coordinator = assert(Coordinator.new(initial, replay))
+      local applied = assert(coordinator:seek(5))
+      assertions.equal(1, #applied)
+      local restored = coordinator:terminal_instance()
+      assertions.equal("A", restored.primary_screen.rows[1].cells[1].text)
+      assertions.equal("B", restored.primary_screen.rows[1].cells[2].text)
       assertions.equal(5, coordinator:status().terminal_time_us)
       assertions.truthy(coordinator:stop())
     end,
