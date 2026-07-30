@@ -29,11 +29,70 @@ end
 
 local function graphics()
   local value = { calls = {} }
+  local function record(name, ...)
+    value.calls[#value.calls + 1] = { name = name, ... }
+  end
   function value.newFont(path_or_size, size)
-    value.calls[#value.calls + 1] = { path_or_size, size }
+    record("newFont", path_or_size, size)
     return font()
   end
+  function value.setColor(red, green, blue, alpha)
+    record("setColor", red, green, blue, alpha)
+  end
+  function value.setFont(selected)
+    record("setFont", selected)
+  end
+  function value.rectangle(mode, x, y, width, height)
+    record("rectangle", mode, x, y, width, height)
+  end
+  function value.print(text, x, y)
+    record("print", text, x, y)
+  end
+  function value.line(x1, y1, x2, y2)
+    record("line", x1, y1, x2, y2)
+  end
   return value
+end
+
+local function operation_count(api, name)
+  local count = 0
+  for _, operation in ipairs(api.calls) do
+    if operation.name == name then
+      count = count + 1
+    end
+  end
+  return count
+end
+
+local function snapshot()
+  return {
+    columns = 2,
+    rows = 1,
+    screen = {
+      rows = {
+        {
+          cells = {
+            {
+              attributes = 1 + 2 + 8 + 32,
+              background = { blue = 6, green = 5, kind = "rgb", red = 4 },
+              continuation = false,
+              foreground = { blue = 3, green = 2, kind = "rgb", red = 1 },
+              text = "A",
+              width = 1,
+            },
+            {
+              attributes = 64 + 128,
+              background = "default",
+              continuation = false,
+              foreground = "default",
+              text = "B",
+              width = 1,
+            },
+          },
+        },
+      },
+    },
+  }
 end
 
 return {
@@ -108,6 +167,25 @@ return {
       assertions.falsy(renderer:glyph("A"))
       assert(renderer:load_font(graphics()))
       assertions.equal(7, assert(renderer:glyph("A")).advance)
+    end,
+  },
+  {
+    name = "renderer clean pass draws terminal cell presentation attributes",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      assertions.truthy(renderer:draw(snapshot()))
+      assertions.equal(1, operation_count(api, "setFont"))
+      assertions.equal(2, operation_count(api, "rectangle"))
+      assertions.equal(3, operation_count(api, "print"))
+      assertions.equal(2, operation_count(api, "line"))
+
+      local calls_before = #api.calls
+      local value, error_value = renderer:draw({ columns = 1, rows = 1, screen = { rows = {} } })
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.equal(calls_before, #api.calls)
     end,
   },
 }

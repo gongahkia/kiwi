@@ -133,7 +133,7 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 
 - [x] Implement font loading and explicit cell metrics.
 - [x] Implement a glyph atlas or cache suitable for ASCII and incremental Unicode expansion.
-- [ ] Implement clean rendering of backgrounds, glyphs, underline, strike, inverse, conceal, faint, and bold approximation.
+- [x] Implement clean rendering of backgrounds, glyphs, underline, strike, inverse, conceal, faint, and bold approximation.
 - [ ] Implement block, beam, and underline cursors.
 - [ ] Implement dirty-row or dirty-range redraw.
 - [ ] Implement window-to-grid sizing and resize events.
