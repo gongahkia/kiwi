@@ -28,7 +28,6 @@ case "$MODE" in
   --verify|verify)
     true
     ;;
-    ;;
   *)
     echo "usage: $0 [run|--debug|--verify]" >&2
     exit 2
