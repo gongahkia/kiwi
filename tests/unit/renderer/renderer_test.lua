@@ -1,5 +1,6 @@
 local assertions = require("support.assertions")
 local GlyphCache = require("renderer.glyph_cache")
+local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
 local Metrics = require("renderer.metrics")
 local Renderer = require("renderer.renderer")
@@ -201,6 +202,50 @@ return {
         assert(renderer:draw(value))
         assertions.equal(3, operation_count(api, "rectangle"), style)
       end
+    end,
+  },
+  {
+    name = "renderer derives a centered grid from integer font metrics",
+    run = function()
+      local layout =
+        assert(Grid.layout({ cell_height = 17, cell_width = 9 }, 28, 27, { padding = 5 }))
+      assertions.equal(2, layout.columns)
+      assertions.equal(1, layout.rows)
+      assertions.equal(18, layout.grid_width)
+      assertions.equal(17, layout.grid_height)
+      assertions.equal(5, layout.x)
+      assertions.equal(5, layout.y)
+      local value, error_value = Grid.layout({ cell_height = 17, cell_width = 9 }, -1, 27)
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+    end,
+  },
+  {
+    name = "renderer turns window resizes into grid resize events",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({ padding = 5 }))
+      assertions.falsy(renderer:resize(28, 27))
+      assert(renderer:load_font(api))
+      local layout, event = assert(renderer:resize(28, 27))
+      assertions.equal(2, layout.columns)
+      assertions.equal(1, layout.rows)
+      assertions.equal(2, event.columns)
+      assertions.equal(1, event.rows)
+      assertions.equal(28, event.pixel_width)
+      assertions.equal(27, event.pixel_height)
+      local rectangles_before = operation_count(api, "rectangle")
+      assert(renderer:draw(snapshot(), {}))
+      assertions.equal(rectangles_before + 2, operation_count(api, "rectangle"))
+      layout, event = assert(renderer:resize(28, 27))
+      assertions.equal(nil, event)
+      layout, event = assert(renderer:resize(19, 27))
+      assertions.equal(1, event.columns)
+      local calls_before = #api.calls
+      local value, error_value = renderer:draw(snapshot(), {})
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.equal(calls_before, #api.calls)
     end,
   },
   {

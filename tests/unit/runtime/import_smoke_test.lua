@@ -35,6 +35,7 @@ return {
         "renderer.metrics",
         "renderer.colour",
         "renderer.glyph_cache",
+        "renderer.grid",
         "renderer.love_font",
         "renderer.renderer",
       }
