@@ -12,6 +12,7 @@ return {
         "terminal.cell",
         "terminal.config",
         "terminal.cursor",
+        "terminal.digest",
         "terminal.rendition",
         "terminal.row",
         "terminal.screen",

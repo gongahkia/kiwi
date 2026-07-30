@@ -1,6 +1,7 @@
 local Errors = require("runtime.errors")
 local Config = require("terminal.config")
 local Cursor = require("terminal.cursor")
+local Digest = require("terminal.digest")
 local Rendition = require("terminal.rendition")
 local Scrollback = require("terminal.scrollback")
 local Screen = require("terminal.screen")
@@ -19,6 +20,7 @@ end
 
 Terminal.contract = {
   constructor = "new(config) -> terminal | nil, error",
+  digest = "digest() -> canonical_digest | nil, error",
   start = "start() -> nil, error",
   feed_output = "feed_output(bytes) -> nil, error",
   resize = "resize(columns, rows) -> nil, error",
@@ -76,6 +78,10 @@ end
 
 function terminal_mt:start()
   return nil, Errors.new("internal_invariant_error", "terminal start is not implemented")
+end
+
+function terminal_mt:digest()
+  return Digest.terminal(self)
 end
 
 function terminal_mt:feed_output(bytes)
