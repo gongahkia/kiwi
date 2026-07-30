@@ -25,6 +25,22 @@ return {
     end,
   },
   {
+    name = "screen scrolls a region and marks moved rows dirty",
+    run = function()
+      local screen = assert(Screen.new(1, 3))
+      screen.rows[1].cells[1].text = "a"
+      screen.rows[2].cells[1].text = "b"
+      screen:clear_damage()
+      local displaced = assert(screen:scroll_up(1, 2))
+      assertions.equal("a", displaced.cells[1].text)
+      assertions.equal("b", screen.rows[1].cells[1].text)
+      assertions.equal("", screen.rows[2].cells[1].text)
+      assertions.equal(1, select(1, screen.rows[1]:dirty_range()))
+      assertions.equal(1, select(1, screen.rows[2]:dirty_range()))
+      assertions.falsy(screen.rows[3]:dirty_range())
+    end,
+  },
+  {
     name = "screen rejects invalid dimensions and row indexes",
     run = function()
       local screen, screen_error = Screen.new(2)

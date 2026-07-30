@@ -10,6 +10,7 @@ Screen.contract = {
   clear_damage = "clear_damage()",
   new = "new(columns, rows) -> screen | nil, error",
   row = "row(index) -> row | nil, error",
+  scroll_up = "scroll_up(top, bottom) -> displaced_row | nil, error",
 }
 
 local function config_error(message, detail)
@@ -58,6 +59,33 @@ function screen_mt:clear_damage()
   for _, row in ipairs(self.rows) do
     row:clear_damage()
   end
+end
+
+function screen_mt:scroll_up(top, bottom)
+  local valid_top, top_error = valid_index(self, top)
+  if not valid_top then
+    return nil, top_error
+  end
+  local valid_bottom, bottom_error = valid_index(self, bottom)
+  if not valid_bottom then
+    return nil, bottom_error
+  end
+  if valid_top > valid_bottom then
+    return config_error("scroll region top must not exceed bottom")
+  end
+  local displaced = self.rows[valid_top]
+  for index = valid_top, valid_bottom - 1 do
+    self.rows[index] = self.rows[index + 1]
+  end
+  local blank, blank_error = Row.new(self.columns)
+  if not blank then
+    return nil, blank_error
+  end
+  self.rows[valid_bottom] = blank
+  for index = valid_top, valid_bottom do
+    self.rows[index]:mark_all_dirty()
+  end
+  return displaced
 end
 
 return Screen

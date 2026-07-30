@@ -11,12 +11,12 @@ return {
     end,
   },
   {
-    name = "terminal bootstrap instance reports unimplemented parser",
+    name = "terminal feed validates output bytes",
     run = function()
       local terminal = assert(Terminal.new({}))
-      local value, error_value = terminal:feed_output("hello")
+      local value, error_value = terminal:feed_output(nil)
       assertions.falsy(value)
-      assertions.equal("internal_invariant_error", error_value.kind)
+      assertions.equal("config_error", error_value.kind)
     end,
   },
   {
@@ -58,6 +58,42 @@ return {
     run = function()
       local terminal = assert(Terminal.new({ scrollback_limit = 2 }))
       assertions.equal(2, terminal.scrollback.limit)
+      assertions.equal(0, terminal.scrollback.count)
+    end,
+  },
+  {
+    name = "terminal applies required C0 control semantics",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 10, rows = 2, scrollback_limit = 2 }))
+      local events = assert(terminal:feed_output("\0\7"))
+      assertions.equal(1, #events)
+      assertions.equal("bell", events[1].kind)
+
+      assert(terminal:feed_output("\t"))
+      assertions.equal(9, terminal.cursor.column)
+      assert(terminal:feed_output("\t"))
+      assertions.equal(10, terminal.cursor.column)
+      assert(terminal:feed_output("\b\r"))
+      assertions.equal(1, terminal.cursor.column)
+
+      terminal.primary_screen.rows[1].cells[1].text = "a"
+      assert(terminal:feed_output("\n"))
+      assertions.equal(2, terminal.cursor.row)
+      events = assert(terminal:feed_output("\v"))
+      assertions.equal(1, #events)
+      assertions.equal("scrolled", events[1].kind)
+      assertions.equal(1, terminal.scrollback.count)
+      assertions.equal("a", assert(terminal.scrollback:at(1)).cells[1].text)
+      assertions.equal(2, terminal.cursor.row)
+    end,
+  },
+  {
+    name = "alternate-screen line feeds do not enter primary scrollback",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 1, rows = 1, scrollback_limit = 1 }))
+      terminal.active_buffer = "alternate"
+      local events = assert(terminal:feed_output("\f"))
+      assertions.equal("scrolled", events[1].kind)
       assertions.equal(0, terminal.scrollback.count)
     end,
   },
