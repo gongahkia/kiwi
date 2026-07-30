@@ -1,0 +1,288 @@
+local Cell = require("terminal.cell")
+local Errors = require("runtime.errors")
+local Rendition = require("terminal.rendition")
+
+local Digest = {}
+
+Digest.contract = {
+  terminal = "terminal(terminal) -> canonical_digest | nil, error",
+}
+
+local function invariant_error(message, detail)
+  return nil, Errors.new("internal_invariant_error", message, detail)
+end
+
+local function hex(bytes)
+  local encoded = {}
+  for index = 1, #bytes do
+    encoded[index] = string.format("%02X", string.byte(bytes, index))
+  end
+  return table.concat(encoded)
+end
+
+local function boolean(value, name)
+  if type(value) ~= "boolean" then
+    return invariant_error(name .. " must be a boolean", { provided = value })
+  end
+  return value
+end
+
+local function positive_integer(value, name)
+  if type(value) ~= "number" or value % 1 ~= 0 or value < 1 then
+    return invariant_error(name .. " must be a positive integer", { provided = value })
+  end
+  return value
+end
+
+local function colour(value)
+  if value == "default" then
+    return "default"
+  end
+  if value.kind == "indexed" then
+    return "indexed:" .. value.index
+  end
+  return "rgb:" .. value.red .. "," .. value.green .. "," .. value.blue
+end
+
+local function cell_digest(cell)
+  if type(cell) ~= "table" then
+    return invariant_error("screen cell is malformed")
+  end
+  local normalised, cell_error = Cell.new(cell)
+  if not normalised then
+    return invariant_error("screen cell is invalid", { cause = cell_error })
+  end
+  return table.concat({
+    "text=" .. hex(normalised.text),
+    "width=" .. normalised.width,
+    "continuation=" .. tostring(normalised.continuation),
+    "attributes=" .. normalised.attributes,
+    "foreground=" .. colour(normalised.foreground),
+    "background=" .. colour(normalised.background),
+    "hyperlink=nil",
+  }, ",")
+end
+
+local function row_digest(row, columns)
+  if type(row) ~= "table" or type(row.cells) ~= "table" or row.columns ~= columns then
+    return invariant_error("screen row is malformed")
+  end
+  local wrapped, wrapped_error = boolean(row.wrapped, "row wrapped state")
+  if wrapped == nil then
+    return nil, wrapped_error
+  end
+  local cells = {}
+  for column = 1, columns do
+    local digest, cell_error = cell_digest(row.cells[column])
+    if not digest then
+      return nil, cell_error
+    end
+    cells[column] = digest
+  end
+  return "wrapped=" .. tostring(wrapped) .. ";cells=[" .. table.concat(cells, "|") .. "]"
+end
+
+local function screen_digest(name, screen, expected_columns, expected_rows)
+  if type(screen) ~= "table" or type(screen.rows) ~= "table" then
+    return invariant_error(name .. " screen is malformed")
+  end
+  if screen.columns ~= expected_columns or screen.height ~= expected_rows then
+    return invariant_error(name .. " screen dimensions disagree with terminal config")
+  end
+  local rows = {}
+  for index = 1, expected_rows do
+    local digest, row_error = row_digest(screen.rows[index], expected_columns)
+    if not digest then
+      return nil, row_error
+    end
+    rows[index] = digest
+  end
+  return name .. "=[" .. table.concat(rows, ";") .. "]"
+end
+
+local function cursor_digest(name, cursor, columns, rows)
+  if type(cursor) ~= "table" then
+    return invariant_error(name .. " cursor is malformed")
+  end
+  local column, column_error = positive_integer(cursor.column, name .. " cursor column")
+  if not column then
+    return nil, column_error
+  end
+  if column > columns then
+    return invariant_error(name .. " cursor column is outside the terminal")
+  end
+  local row, row_error = positive_integer(cursor.row, name .. " cursor row")
+  if not row then
+    return nil, row_error
+  end
+  if row > rows then
+    return invariant_error(name .. " cursor row is outside the terminal")
+  end
+  local pending_wrap, pending_wrap_error =
+    boolean(cursor.pending_wrap, name .. " cursor pending_wrap")
+  if pending_wrap == nil then
+    return nil, pending_wrap_error
+  end
+  return name
+    .. "=row:"
+    .. row
+    .. ",column:"
+    .. column
+    .. ",pending_wrap:"
+    .. tostring(pending_wrap)
+end
+
+local function rendition_digest(rendition)
+  if type(rendition) ~= "table" then
+    return invariant_error("terminal rendition is malformed")
+  end
+  local normalised, rendition_error = Rendition.copy(rendition)
+  if not normalised then
+    return invariant_error("terminal rendition is invalid", { cause = rendition_error })
+  end
+  return table.concat({
+    "attributes=" .. normalised.attributes,
+    "foreground=" .. colour(normalised.foreground),
+    "background=" .. colour(normalised.background),
+  }, ",")
+end
+
+local function tab_stops_digest(tab_stops, columns)
+  if type(tab_stops) ~= "table" then
+    return invariant_error("tab stops are malformed")
+  end
+  local columns_with_stops = {}
+  for column = 1, columns do
+    if tab_stops[column] ~= nil and type(tab_stops[column]) ~= "boolean" then
+      return invariant_error("tab stop value must be a boolean", { column = column })
+    end
+    if tab_stops[column] then
+      columns_with_stops[#columns_with_stops + 1] = column
+    end
+  end
+  return table.concat(columns_with_stops, ",")
+end
+
+local function scrollback_digest(scrollback)
+  if
+    type(scrollback) ~= "table"
+    or type(scrollback.count) ~= "number"
+    or type(scrollback.limit) ~= "number"
+    or type(scrollback.at) ~= "function"
+  then
+    return invariant_error("scrollback is malformed")
+  end
+  if
+    scrollback.count < 0
+    or scrollback.count % 1 ~= 0
+    or scrollback.limit < 0
+    or scrollback.limit % 1 ~= 0
+    or scrollback.count > scrollback.limit
+  then
+    return invariant_error("scrollback count is invalid")
+  end
+  local rows = {}
+  for index = 1, scrollback.count do
+    local row, row_error = scrollback:at(index)
+    if not row then
+      return nil, row_error
+    end
+    local digest, digest_error = row_digest(row, row.columns)
+    if not digest then
+      return nil, digest_error
+    end
+    rows[index] = digest
+  end
+  return "limit=" .. scrollback.limit .. ";rows=[" .. table.concat(rows, ";") .. "]"
+end
+
+function Digest.terminal(terminal)
+  if type(terminal) ~= "table" or type(terminal.config) ~= "table" then
+    return invariant_error("terminal is malformed")
+  end
+  local columns, columns_error = positive_integer(terminal.config.columns, "terminal columns")
+  if not columns then
+    return nil, columns_error
+  end
+  local rows, rows_error = positive_integer(terminal.config.rows, "terminal rows")
+  if not rows then
+    return nil, rows_error
+  end
+  if type(terminal.config.compatibility_profile) ~= "string" then
+    return invariant_error("terminal compatibility profile is malformed")
+  end
+  if terminal.active_buffer ~= "primary" and terminal.active_buffer ~= "alternate" then
+    return invariant_error("terminal active buffer is invalid")
+  end
+  if
+    type(terminal.config.scrollback_limit) ~= "number"
+    or terminal.config.scrollback_limit % 1 ~= 0
+    or terminal.config.scrollback_limit < 0
+  then
+    return invariant_error("terminal scrollback limit is malformed")
+  end
+  if type(terminal.margins) ~= "table" then
+    return invariant_error("terminal margins are invalid")
+  end
+  local margin_top, margin_top_error = positive_integer(terminal.margins.top, "terminal margin top")
+  if not margin_top then
+    return nil, margin_top_error
+  end
+  local margin_bottom, margin_bottom_error =
+    positive_integer(terminal.margins.bottom, "terminal margin bottom")
+  if not margin_bottom then
+    return nil, margin_bottom_error
+  end
+  if margin_top > margin_bottom or margin_bottom > rows then
+    return invariant_error("terminal margins are invalid")
+  end
+  local cursor, cursor_error = cursor_digest("cursor", terminal.cursor, columns, rows)
+  if not cursor then
+    return nil, cursor_error
+  end
+  local saved_cursor, saved_cursor_error =
+    cursor_digest("saved_cursor", terminal.saved_cursor, columns, rows)
+  if not saved_cursor then
+    return nil, saved_cursor_error
+  end
+  local rendition, rendition_error = rendition_digest(terminal.rendition)
+  if not rendition then
+    return nil, rendition_error
+  end
+  local tab_stops, tab_stops_error = tab_stops_digest(terminal.tab_stops, columns)
+  if not tab_stops then
+    return nil, tab_stops_error
+  end
+  local primary_screen, primary_screen_error =
+    screen_digest("primary", terminal.primary_screen, columns, rows)
+  if not primary_screen then
+    return nil, primary_screen_error
+  end
+  local alternate_screen, alternate_screen_error =
+    screen_digest("alternate", terminal.alternate_screen, columns, rows)
+  if not alternate_screen then
+    return nil, alternate_screen_error
+  end
+  local scrollback, scrollback_error = scrollback_digest(terminal.scrollback)
+  if not scrollback then
+    return nil, scrollback_error
+  end
+  if terminal.scrollback.limit ~= terminal.config.scrollback_limit then
+    return invariant_error("terminal scrollback limit disagrees with terminal config")
+  end
+  return table.concat({
+    "profile=" .. terminal.config.compatibility_profile,
+    "size=" .. columns .. "x" .. rows,
+    "active_buffer=" .. terminal.active_buffer,
+    cursor,
+    saved_cursor,
+    "margins=top:" .. margin_top .. ",bottom:" .. margin_bottom,
+    "tab_stops=" .. tab_stops,
+    "rendition=" .. rendition,
+    primary_screen,
+    alternate_screen,
+    "scrollback=" .. scrollback,
+  }, "\n")
+end
+
+return Digest

@@ -53,7 +53,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Implement primary and alternate screen buffers.
 - [x] Implement cursor state, saved cursor state, margins, tab stops, and active rendition.
 - [x] Implement bounded scrollback storage.
-- [ ] Implement a stable state digest for tests and replay verification.
+- [x] Implement a stable state digest for tests and replay verification.
 
 ### Parser
 

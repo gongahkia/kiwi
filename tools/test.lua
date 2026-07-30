@@ -28,6 +28,7 @@ local modules = {
   "unit.terminal.cell_test",
   "unit.terminal.config_test",
   "unit.terminal.cursor_test",
+  "unit.terminal.digest_test",
   "unit.terminal.rendition_test",
   "unit.terminal.row_test",
   "unit.terminal.scrollback_test",
