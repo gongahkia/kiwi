@@ -68,7 +68,7 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 - [x] Define structured diagnostic model with stable codes.
 - [x] Add a stable debug printer for tokens and AST.
 - [x] Add lexer and parser golden fixtures.
-- [ ] Add source-span edge-case tests for multiline and invalid input.
+- [x] Add source-span edge-case tests for multiline and invalid input.
 - [ ] Add CLI `parse` command.
 
 ### Exit criteria
