@@ -19,4 +19,12 @@ return {
       assertions.equal("internal_invariant_error", error_value.kind)
     end,
   },
+  {
+    name = "terminal constructor owns an immutable semantic config",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 100, rows = 40 }))
+      assertions.equal(100, terminal.config.columns)
+      assertions.equal(40, terminal.config.rows)
+    end,
+  },
 }
