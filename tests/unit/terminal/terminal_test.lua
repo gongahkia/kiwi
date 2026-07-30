@@ -50,6 +50,7 @@ return {
       assertions.falsy(terminal.tab_stops[1])
       assertions.equal(0, terminal.rendition.attributes)
       assertions.equal("default", terminal.rendition.foreground)
+      assertions.equal("ground", terminal.parser:snapshot().state)
     end,
   },
   {
