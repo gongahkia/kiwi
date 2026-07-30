@@ -11,6 +11,7 @@ Screen.contract = {
   delete_lines = "delete_lines(row, count, top, bottom, blank_cell) -> removed_rows | nil, error",
   insert_lines = "insert_lines(row, count, top, bottom, blank_cell) -> removed_rows | nil, error",
   new = "new(columns, rows) -> screen | nil, error",
+  reset = "reset(blank_cell) -> true | nil, error",
   row = "row(index) -> row | nil, error",
   scroll_down = "scroll_down(top, bottom, count, blank_cell) -> displaced_rows | nil, error",
   scroll_up = "scroll_up(top, bottom) -> displaced_row | nil, error",
@@ -105,6 +106,19 @@ function screen_mt:clear_damage()
   for _, row in ipairs(self.rows) do
     row:clear_damage()
   end
+end
+
+function screen_mt:reset(blank_cell)
+  local rows = {}
+  for index = 1, self.height do
+    local row, row_error = blank_row(self, blank_cell)
+    if not row then
+      return nil, row_error
+    end
+    rows[index] = row
+  end
+  self.rows = rows
+  return true
 end
 
 function screen_mt:scroll_up(top, bottom, blank_cell)

@@ -51,6 +51,10 @@ function Terminal.new(config)
   if not rendition then
     return nil, rendition_error
   end
+  local saved_rendition, saved_rendition_error = Rendition.copy(rendition)
+  if not saved_rendition then
+    return nil, saved_rendition_error
+  end
   local parser, parser_error = Parser.new()
   if not parser then
     return nil, parser_error
@@ -75,10 +79,12 @@ function Terminal.new(config)
     config = terminal_config,
     cursor = cursor,
     margins = { bottom = terminal_config.rows, top = 1 },
+    modes = { auto_wrap = true, cursor_visible = true },
     parser = parser,
     primary_screen = primary_screen,
     rendition = rendition,
     saved_cursor = saved_cursor,
+    saved_rendition = saved_rendition,
     scrollback = scrollback,
     state = "bootstrap",
     tab_stops = default_tab_stops(terminal_config.columns),
@@ -220,7 +226,7 @@ local function write_printable(terminal, events, offset, byte, text)
     row = cursor.row,
   }
   if cursor.column == terminal.config.columns then
-    cursor.pending_wrap = true
+    cursor.pending_wrap = terminal.modes.auto_wrap
   else
     cursor.column = cursor.column + 1
     cursor_event(terminal, events, offset)
@@ -418,9 +424,159 @@ local function apply_sgr(terminal, events, offset, values)
   return true
 end
 
+local function save_cursor(terminal, events, offset)
+  local cursor, cursor_error = Cursor.copy(terminal.cursor)
+  if not cursor then
+    return nil, cursor_error
+  end
+  local rendition, rendition_error = Rendition.copy(terminal.rendition)
+  if not rendition then
+    return nil, rendition_error
+  end
+  terminal.saved_cursor = cursor
+  terminal.saved_rendition = rendition
+  events[#events + 1] = { kind = "cursor_saved", offset = offset }
+  return true
+end
+
+local function restore_cursor(terminal, events, offset)
+  local cursor, cursor_error = Cursor.copy(terminal.saved_cursor)
+  if not cursor then
+    return nil, cursor_error
+  end
+  local rendition, rendition_error = Rendition.copy(terminal.saved_rendition)
+  if not rendition then
+    return nil, rendition_error
+  end
+  terminal.cursor = cursor
+  terminal.rendition = rendition
+  events[#events + 1] = { kind = "cursor_restored", offset = offset }
+  cursor_event(terminal, events, offset)
+  return true
+end
+
+local function enter_alternate(terminal, events, offset, clear)
+  if clear then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    local reset, reset_error = terminal.alternate_screen:reset(blank)
+    if not reset then
+      return nil, reset_error
+    end
+    terminal.cursor.column = 1
+    terminal.cursor.pending_wrap = false
+    terminal.cursor.row = 1
+    cursor_event(terminal, events, offset)
+  end
+  terminal.active_buffer = "alternate"
+  events[#events + 1] = { active_buffer = "alternate", kind = "buffer_changed", offset = offset }
+  return true
+end
+
+local function leave_alternate(terminal, events, offset)
+  terminal.active_buffer = "primary"
+  events[#events + 1] = { active_buffer = "primary", kind = "buffer_changed", offset = offset }
+  return true
+end
+
+local function apply_private_modes(terminal, events, event)
+  if event.parameters:sub(1, 1) ~= "?" then
+    return nil
+  end
+  local values = parse_csi_parameters(event.parameters:sub(2))
+  if not values then
+    return true
+  end
+  local set = event.final == string.byte("h")
+  local reset = event.final == string.byte("l")
+  if not set and not reset then
+    return nil
+  end
+  for _, mode in ipairs(values) do
+    if mode == 7 then
+      terminal.modes.auto_wrap = set
+      if not set then
+        terminal.cursor.pending_wrap = false
+      end
+    elseif mode == 25 then
+      terminal.modes.cursor_visible = set
+    elseif mode == 47 then
+      local changed, changed_error
+      if set then
+        changed, changed_error = enter_alternate(terminal, events, event.offset, false)
+      else
+        changed, changed_error = leave_alternate(terminal, events, event.offset)
+      end
+      if not changed then
+        return nil, changed_error
+      end
+    elseif mode == 1047 then
+      local changed, changed_error
+      if set then
+        changed, changed_error = enter_alternate(terminal, events, event.offset, true)
+      else
+        changed, changed_error = leave_alternate(terminal, events, event.offset)
+      end
+      if not changed then
+        return nil, changed_error
+      end
+    elseif mode == 1048 then
+      local changed, changed_error
+      if set then
+        changed, changed_error = save_cursor(terminal, events, event.offset)
+      else
+        changed, changed_error = restore_cursor(terminal, events, event.offset)
+      end
+      if not changed then
+        return nil, changed_error
+      end
+    elseif mode == 1049 then
+      if set then
+        local saved, save_error = save_cursor(terminal, events, event.offset)
+        if not saved then
+          return nil, save_error
+        end
+        local entered, enter_error = enter_alternate(terminal, events, event.offset, true)
+        if not entered then
+          return nil, enter_error
+        end
+      else
+        local left, leave_error = leave_alternate(terminal, events, event.offset)
+        if not left then
+          return nil, leave_error
+        end
+        local restored, restore_error = restore_cursor(terminal, events, event.offset)
+        if not restored then
+          return nil, restore_error
+        end
+      end
+    end
+  end
+  return true
+end
+
+local function apply_escape(terminal, events, event)
+  if event.intermediates ~= "" then
+    return true
+  end
+  if event.final == string.byte("7") then
+    return save_cursor(terminal, events, event.offset)
+  end
+  if event.final == string.byte("8") then
+    return restore_cursor(terminal, events, event.offset)
+  end
+  return true
+end
+
 local function apply_csi(terminal, events, event)
   if event.intermediates ~= "" then
     return true
+  end
+  local private_modes = apply_private_modes(terminal, events, event)
+  if private_modes ~= nil then
+    return private_modes
   end
   local values = parse_csi_parameters(event.parameters)
   if not values then
@@ -608,6 +764,11 @@ function terminal_mt:feed_output(bytes)
       end
     elseif event.kind == "csi" then
       local applied, apply_error = apply_csi(self, semantic_events, event)
+      if not applied then
+        return nil, apply_error
+      end
+    elseif event.kind == "esc" then
+      local applied, apply_error = apply_escape(self, semantic_events, event)
       if not applied then
         return nil, apply_error
       end
