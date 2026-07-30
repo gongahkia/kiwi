@@ -796,6 +796,11 @@ Examples:
 The initial VM also reports `R009_CALL_DEPTH_BUDGET`, `R010_TYPE`,
 `R011_CALL`, `R012_UNINITIALIZED_LOCAL`, and `R013_ENTRY`. A bytecode
 validation failure returns `R001_INVALID_BYTECODE` before any instruction runs.
+Every fault raised after execution begins carries its function ID, instruction
+index, and immutable instruction source-map entry. Instruction-budget exhaustion
+links to the next instruction that would run; other execution faults link to
+the instruction being executed. Entry and pre-execution validation faults have
+no instruction source entry.
 
 Normal well-typed source should make most faults impossible. Faults remain necessary for corrupted bytecode, content mismatch, or implementation defects.
 

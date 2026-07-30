@@ -10,6 +10,8 @@ from kiwi.dsl.bytecode import (
     BytecodeFunction,
     BytecodeModule,
     Call,
+    InstructionIndex,
+    InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
     LoadLocal,
@@ -82,6 +84,7 @@ class VMFault:
     message: str
     function_id: FunctionId | None = None
     instruction_index: int | None = None
+    source_map_entry: InstructionSourceMapEntry | None = None
     validation_errors: tuple[BytecodeValidationError, ...] = ()
 
 
@@ -151,77 +154,105 @@ def run_vm(
     while frames:
         frame = frames[-1]
         if executed >= budgets.instruction_limit:
-            return _fault(VMFaultCode.INSTRUCTION_BUDGET, "instruction budget exhausted", frame)
+            return _fault(
+                module,
+                VMFaultCode.INSTRUCTION_BUDGET,
+                "instruction budget exhausted",
+                frame,
+                instruction_index=frame.instruction_index,
+            )
         instruction = frame.function.instructions[frame.instruction_index]
         executed += 1
         frame.instruction_index += 1
         if isinstance(instruction, PushConstant):
             if not _push(stack, module.constants.values[instruction.constant_id.value], budgets):
-                return _fault(VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, PushFunction):
             if allocations >= budgets.allocation_limit:
-                return _fault(VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame)
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
             allocations += 1
             if not _push(stack, FunctionValue(instruction.function_id), budgets):
-                return _fault(VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, LoadLocal):
             value = frame.locals_[instruction.slot.value]
             if value is None:
-                return _fault(VMFaultCode.UNINITIALIZED_LOCAL, "local slot is uninitialized", frame)
+                return _fault(
+                    module, VMFaultCode.UNINITIALIZED_LOCAL, "local slot is uninitialized", frame
+                )
             if not _push(stack, value, budgets):
-                return _fault(VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, StoreLocal):
             value = _pop(stack, frame.stack_base)
             if value is None:
-                return _fault(VMFaultCode.INVALID_BYTECODE, "store has no stack value", frame)
+                return _fault(
+                    module, VMFaultCode.INVALID_BYTECODE, "store has no stack value", frame
+                )
             frame.locals_[instruction.slot.value] = value
         elif isinstance(instruction, Negate):
             value = _pop(stack, frame.stack_base)
             if not isinstance(value, IntegerValue):
-                return _fault(VMFaultCode.TYPE, "negate requires an integer value", frame)
+                return _fault(module, VMFaultCode.TYPE, "negate requires an integer value", frame)
             if allocations >= budgets.allocation_limit:
-                return _fault(VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame)
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
             allocations += 1
             if not _push(stack, IntegerValue(-value.value), budgets):
-                return _fault(VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, Call):
             start = len(stack) - instruction.argument_count - 1
             if start < frame.stack_base:
                 return _fault(
-                    VMFaultCode.INVALID_BYTECODE, "call has insufficient stack values", frame
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "call has insufficient stack values",
+                    frame,
                 )
             callee = stack[start]
             call_arguments = tuple(stack[start + 1 :])
             del stack[start:]
             if not isinstance(callee, FunctionValue):
-                return _fault(VMFaultCode.CALL, "call requires a function value", frame)
+                return _fault(module, VMFaultCode.CALL, "call requires a function value", frame)
             if callee.function_id.value >= len(module.functions):
-                return _fault(VMFaultCode.CALL, "function value is outside the module", frame)
+                return _fault(
+                    module, VMFaultCode.CALL, "function value is outside the module", frame
+                )
             target = module.functions[callee.function_id.value]
             if len(call_arguments) != target.arity:
                 return _fault(
-                    VMFaultCode.CALL, "call argument count does not match function arity", frame
+                    module,
+                    VMFaultCode.CALL,
+                    "call argument count does not match function arity",
+                    frame,
                 )
             if len(frames) >= budgets.call_depth_limit:
-                return _fault(VMFaultCode.CALL_DEPTH_BUDGET, "call-depth budget exhausted", frame)
+                return _fault(
+                    module, VMFaultCode.CALL_DEPTH_BUDGET, "call-depth budget exhausted", frame
+                )
             frames.append(_frame(target, call_arguments, len(stack)))
         elif isinstance(instruction, Jump):
             frame.instruction_index = instruction.target.value
         elif isinstance(instruction, JumpIfFalse):
             value = _pop(stack, frame.stack_base)
             if not isinstance(value, BooleanValue):
-                return _fault(VMFaultCode.TYPE, "conditional jump requires a boolean value", frame)
+                return _fault(
+                    module, VMFaultCode.TYPE, "conditional jump requires a boolean value", frame
+                )
             if not value.value:
                 frame.instruction_index = instruction.target.value
         elif isinstance(instruction, Return):
             value = _pop(stack, frame.stack_base)
             if value is None or len(stack) != frame.stack_base:
-                return _fault(VMFaultCode.INVALID_BYTECODE, "return frame stack is invalid", frame)
+                return _fault(
+                    module, VMFaultCode.INVALID_BYTECODE, "return frame stack is invalid", frame
+                )
             frames.pop()
             if not frames:
                 return VMRunResult(value)
             if not _push(stack, value, budgets):
-                return _fault(VMFaultCode.STACK_BUDGET, "stack budget exhausted", frames[-1])
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, TraceExpression):
             continue
     raise AssertionError("VM exited without a return or fault")
@@ -265,8 +296,21 @@ def _pop(stack: list[RuntimeValue], stack_base: int) -> RuntimeValue | None:
     return stack.pop()
 
 
-def _fault(code: VMFaultCode, message: str, frame: _Frame) -> VMRunResult:
+def _fault(
+    module: BytecodeModule,
+    code: VMFaultCode,
+    message: str,
+    frame: _Frame,
+    *,
+    instruction_index: int | None = None,
+) -> VMRunResult:
+    """Build a source-linked fault for the active or attempted instruction."""
+    index = frame.instruction_index - 1 if instruction_index is None else instruction_index
+    source_map_entry = module.source_map.entry_for(
+        frame.function.function_id,
+        InstructionIndex(index),
+    )
     return VMRunResult(
         None,
-        VMFault(code, message, frame.function.function_id, frame.instruction_index - 1),
+        VMFault(code, message, frame.function.function_id, index, source_map_entry),
     )
