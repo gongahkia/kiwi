@@ -36,7 +36,8 @@ act view memory =
     test.equals(ast.at(declaration.body.body.alternatives, 1).pattern.kind, "ConstructorPattern")
     test.equals(ast.at(declaration.body.body.alternatives, 1).body.kind, "IfExpression")
     test.equals(declaration.span.start_byte, source:find("act view", 1, true) - 1)
-    test.equals(declaration.span.end_byte, #source - 1)
+    local final_memory = source:find("memory", source:find("engageOrAdvance", 1, true), true)
+    test.equals(declaration.span.end_byte, final_memory + #"memory" - 1)
 
     local node_write_ok = pcall(function()
       declaration.kind = "Mutated"
@@ -50,10 +51,23 @@ act view memory =
     test.equals(node_write_ok, false)
     test.equals(list_write_ok, false)
     test.equals(span_write_ok, false)
+
+    local mutable_span = {
+      start_byte = 0,
+      end_byte = 1,
+      start_line = 1,
+      start_column = 1,
+      end_line = 1,
+      end_column = 2,
+    }
+    local detached = ast.node("TestNode", mutable_span, { value = "stable" })
+    mutable_span.start_byte = 99
+    test.equals(detached.span.start_byte, 0)
   end)
 
   test.case("parser preserves record list field and pipeline syntax", function()
-    local source = "act view = { destination = view.assignment.destination, plan = [Move view, Wait 5ms] } |> choose"
+    local source =
+      "act view = { destination = view.assignment.destination, plan = [Move view, Wait 5ms] } |> choose"
     local program, diagnostics = parser.parse(source)
     local declaration = ast.at(program.declarations, 1)
 
