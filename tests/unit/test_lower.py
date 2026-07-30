@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass
+
 import pytest
 
 from kiwi.dsl.checker import check
@@ -41,6 +43,7 @@ def test_lowering_assigns_preorder_expression_ids_and_source_maps() -> None:
         ByteOffset(call_start),
         ByteOffset(call_start + len("helper(1)")),
     )
+    _assert_has_no_python_type_values(first)
 
 
 def test_source_map_rejects_noncanonical_expression_ids() -> None:
@@ -65,3 +68,13 @@ def _lower(source: SourceFile) -> LowerResult:
     assert checked.module is not None
     assert checked.diagnostics == ()
     return lower(checked.module)
+
+
+def _assert_has_no_python_type_values(value: object) -> None:
+    assert not isinstance(value, type)
+    if isinstance(value, tuple):
+        for item in value:
+            _assert_has_no_python_type_values(item)
+    elif is_dataclass(value):
+        for field in fields(value):
+            _assert_has_no_python_type_values(getattr(value, field.name))

@@ -112,11 +112,11 @@ Resolve names and reject invalid programs before execution.
 
 ### Exit criteria
 
-- [ ] Valid proof policy produces typed core.
-- [ ] Invalid calls and mismatched branches fail with source diagnostics.
-- [ ] Core expression IDs and ordering are deterministic.
-- [ ] No Python type objects leak into durable compiler output.
-- [ ] All checks pass and milestone is committed.
+- [x] Valid proof policy produces typed core.
+- [x] Invalid calls and mismatched branches fail with source diagnostics.
+- [x] Core expression IDs and ordering are deterministic.
+- [x] No Python type objects leak into durable compiler output.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 3 — Bytecode, runtime values, and deterministic VM
 
