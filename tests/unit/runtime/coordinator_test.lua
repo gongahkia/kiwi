@@ -171,4 +171,43 @@ return {
       assertions.truthy(coordinator:stop())
     end,
   },
+  {
+    name = "indexed checkpoint restoration matches replay from the beginning",
+    run = function()
+      local config = { columns = 8, rows = 3, scrollback_limit = 4 }
+      local checkpoint_terminal = assert(Terminal.new(config))
+      local prefix = {
+        assert(Event.output("one\n\27[32mgreen", 2)),
+        assert(Event.output("\27[0m\27[?1049halt\27[?1049l", 3)),
+      }
+      apply_directly(checkpoint_terminal, prefix)
+      local suffix = {
+        assert(Event.output("\27[31mred\27[0m\n\195", 5)),
+        assert(Event.mark("suffix", { complete = true }, 2)),
+        assert(Event.clock_advance(1)),
+        assert(Event.output("\169", 0)),
+      }
+      local frames = {
+        assert(Frames.from_event(prefix[1])),
+        assert(Frames.from_event(prefix[2])),
+        assert(Frames.checkpoint(checkpoint_terminal, 1)),
+      }
+      for _, event in ipairs(suffix) do
+        frames[#frames + 1] = assert(Frames.from_event(event))
+      end
+      local bytes = recording(frames)
+
+      local replayed = assert(Terminal.new(config))
+      local full = assert(Coordinator.new(replayed, assert(Replay.new(source(bytes, true)))))
+      assert(full:update(14))
+
+      local restored = assert(Terminal.new(config))
+      local sought = assert(Coordinator.new(restored, assert(Replay.new(source(bytes, true)))))
+      assert(sought:seek(14))
+      assertions.equal(assert(replayed:digest()), assert(sought:terminal_instance():digest()))
+      assertions.equal(14, sought:status().terminal_time_us)
+      assertions.truthy(full:stop())
+      assertions.truthy(sought:stop())
+    end,
+  },
 }
