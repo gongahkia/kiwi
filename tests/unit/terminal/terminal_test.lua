@@ -36,4 +36,20 @@ return {
       assertions.equal("", terminal.alternate_screen.rows[1].cells[1].text)
     end,
   },
+  {
+    name = "terminal initialises cursor margins tabs and rendition",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 20, rows = 5 }))
+      assertions.equal(1, terminal.cursor.column)
+      assertions.equal(1, terminal.cursor.row)
+      assertions.equal(1, terminal.saved_cursor.column)
+      assertions.equal(1, terminal.margins.top)
+      assertions.equal(5, terminal.margins.bottom)
+      assertions.truthy(terminal.tab_stops[9])
+      assertions.truthy(terminal.tab_stops[17])
+      assertions.falsy(terminal.tab_stops[1])
+      assertions.equal(0, terminal.rendition.attributes)
+      assertions.equal("default", terminal.rendition.foreground)
+    end,
+  },
 }
