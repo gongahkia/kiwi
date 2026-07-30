@@ -644,7 +644,8 @@ Milestone 2 core keeps literals, resolved references, negation, calls, `let`,
 and `if`. Expression IDs start at zero and follow definition source order then
 expression pre-order. Each ID has one `SourceMapEntry` containing its enclosing
 `DefinitionId` and source span. Parentheses do not create core nodes because
-they have no runtime semantics.
+they have no runtime semantics. The `format_lower_result` debug renderer is a
+stable inspection format for core golden fixtures, not a bytecode format.
 
 ### 15.8 Bytecode generation
 
