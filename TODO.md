@@ -36,7 +36,7 @@ Goal: establish a plain-Lua core that can be tested without a running LÖVE appl
 
 ### Exit criteria
 
-- [ ] A clean checkout can run tests using documented commands.
+- [x] A clean checkout can run tests using documented commands.
 - [x] Core modules load under plain LuaJIT.
 - [x] The LÖVE app opens a blank terminal viewport without runtime errors.
 - [ ] CI passes on the initial skeleton.
