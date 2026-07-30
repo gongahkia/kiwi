@@ -651,6 +651,11 @@ stable inspection format for core golden fixtures, not a bytecode format.
 
 Compile to deterministic bytecode. Constant-pool and function ordering must be canonical.
 
+For the initial core, definitions compile by ascending `DefinitionId`.
+Parameters occupy local slots from zero in parameter order; each `let` receives
+the next slot on its explicit pre-order visit. Core conditionals emit a
+`JUMP_IF_FALSE` over their then branch and a `JUMP` over their else branch.
+
 ## 16. Bytecode model
 
 Every bytecode module begins with immutable compatibility metadata: its source
