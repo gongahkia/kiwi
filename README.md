@@ -71,3 +71,5 @@ make smoke     # launch then immediately quit the LÖVE shell
 Canonical serialization is format version 1. It emits string-keyed maps in sorted key order and contiguous positive-integer tables as arrays; empty tables serialize as maps. Hashes use FNV-1a 32 over that representation.
 
 The original documentation remains at the repository root. Milestone-specific code is added only when its milestone starts: `src/app`, `src/util`, `content/*`, `tests/unit`, and `tools` exist now; simulation, DSL, trace, rendering, UI, and campaign directories are intentionally deferred.
+
+Milestone 1 loads the fixed `content/doctrines/initial_policy.dsl` fixture at application startup; no editable source widget exists yet.

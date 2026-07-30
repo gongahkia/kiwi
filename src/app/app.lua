@@ -1,4 +1,5 @@
 local scene_manager = require("src.app.scene_manager")
+local source_loader = require("src.dsl.source_loader")
 
 local app = {}
 app.__index = app
@@ -29,10 +30,18 @@ function app.new(arguments)
   return setmetatable({
     scene_manager = manager,
     smoke = has_argument(arguments, "--smoke"),
+    doctrine_source = nil,
+    source_error = nil,
   }, app)
 end
 
-function app:load() end
+function app:load()
+  local source, err = source_loader.load(source_loader.DEFAULT_FIXTURE, function(path)
+    return love.filesystem.read(path)
+  end)
+  self.doctrine_source = source
+  self.source_error = err
+end
 
 function app:update(delta_time)
   self.scene_manager:update(delta_time)
