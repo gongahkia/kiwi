@@ -162,4 +162,23 @@ return {
       assertions.equal("recording_corrupt", error_value.kind)
     end,
   },
+  {
+    name = "replay backend steps one raw frame independently of playback speed",
+    run = function()
+      local replay = assert(Replay.new(
+        source(recording({
+          assert(Frames.from_event(assert(Event.output("later", 20)))),
+        })),
+        { speed = 0.5 }
+      ))
+      local step = assert(replay:step_frame())
+      assertions.equal(1, step.frame_index)
+      assertions.equal("output", step.event.kind)
+      assertions.equal(20, step.elapsed_terminal_us)
+      assertions.equal(20, replay:status().playhead_us)
+      assertions.equal("paused", replay:status().state)
+      assertions.falsy(replay:step_frame())
+      assertions.equal("exhausted", replay:status().state)
+    end,
+  },
 }

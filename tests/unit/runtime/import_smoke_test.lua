@@ -9,6 +9,7 @@ return {
       local modules = {
         "runtime.errors",
         "runtime.event",
+        "runtime.coordinator",
         "terminal.cell",
         "terminal.config",
         "terminal.cursor",

@@ -60,6 +60,7 @@ Bootstrap control contract:
 - `poll(advance_us)` advances only by its explicit microsecond argument, never host time;
 - `pause()`, `play()`/`resume()`, `stop(reason)`, and `set_speed(multiplier)` control the replay state;
 - `poll` processes at most the configured `max_events_per_poll` recording frames (default `1024`), retaining due frames for the next call;
+- `step_frame()` pauses replay and returns exactly one decoded recording frame plus its normalised event, without mutating terminal state;
 - INPUT frames remain informational events and are never sent to a host process.
 
 ## 5. Direct backend

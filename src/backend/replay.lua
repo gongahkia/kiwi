@@ -12,6 +12,7 @@ Replay.contract = {
   play = "play() -> true | nil, error",
   resume = "resume() -> true | nil, error",
   set_speed = "set_speed(multiplier) -> true | nil, error",
+  step_frame = "step_frame() -> step | nil, error?",
 }
 
 local function config_error(message, detail)
@@ -118,6 +119,37 @@ local function replayable_event(frame)
   return nil, event_error
 end
 
+local function consume_frame(replay, force)
+  local loaded, load_error = load_next(replay)
+  if not loaded then
+    return nil, load_error
+  end
+  if replay.ended then
+    return nil
+  end
+  local due_us = replay.elapsed_terminal_us + replay.next_frame.delta_us
+  if not force and replay.playhead_us < due_us then
+    return false
+  end
+  if force and replay.playhead_us < due_us then
+    replay.playhead_us = due_us
+  end
+  local frame = replay.next_frame
+  replay.next_frame = nil
+  replay.current_frame = replay.current_frame + 1
+  replay.elapsed_terminal_us = due_us
+  local event, event_error = replayable_event(frame)
+  if event_error then
+    return fail(replay, event_error)
+  end
+  return {
+    elapsed_terminal_us = replay.elapsed_terminal_us,
+    event = event,
+    frame = frame,
+    frame_index = replay.current_frame,
+  }
+end
+
 function Replay.new(source, config)
   local settings, settings_error = config_for(config)
   if not settings then
@@ -195,6 +227,24 @@ function replay_mt:set_speed(multiplier)
   return true
 end
 
+function replay_mt:step_frame()
+  if self.state == "idle" then
+    local started, start_error = self:start()
+    if not started then
+      return nil, start_error
+    end
+  end
+  local valid, valid_error = state_error(self)
+  if not valid then
+    return nil, valid_error
+  end
+  if self.state == "exhausted" then
+    return nil
+  end
+  self.state = "paused"
+  return consume_frame(self, true)
+end
+
 function replay_mt:poll(advance_us)
   local valid, valid_error = state_error(self)
   if not valid then
@@ -211,28 +261,19 @@ function replay_mt:poll(advance_us)
   local events = {}
   local processed_frames = 0
   while processed_frames < self.config.max_events_per_poll do
-    local loaded, load_error = load_next(self)
-    if not loaded then
-      return nil, load_error
-    end
-    if self.ended then
+    local step, step_error = consume_frame(self, false)
+    if step == false then
       break
     end
-    local due_us = self.elapsed_terminal_us + self.next_frame.delta_us
-    if self.playhead_us < due_us then
+    if not step then
+      if step_error then
+        return nil, step_error
+      end
       break
     end
-    local frame = self.next_frame
-    self.next_frame = nil
-    self.current_frame = self.current_frame + 1
-    self.elapsed_terminal_us = due_us
     processed_frames = processed_frames + 1
-    local event, event_error = replayable_event(frame)
-    if event_error then
-      return fail(self, event_error)
-    end
-    if event then
-      events[#events + 1] = event
+    if step.event then
+      events[#events + 1] = step.event
     end
   end
   return events
