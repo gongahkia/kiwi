@@ -50,7 +50,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Implement immutable configuration for columns, rows, scrollback limit, and compatibility profile.
 - [x] Implement `Cell` with text, width role, rendition attributes, and hyperlink placeholder.
 - [x] Implement row storage with dirty-range tracking.
-- [ ] Implement primary and alternate screen buffers.
+- [x] Implement primary and alternate screen buffers.
 - [ ] Implement cursor state, saved cursor state, margins, tab stops, and active rendition.
 - [ ] Implement bounded scrollback storage.
 - [ ] Implement a stable state digest for tests and replay verification.

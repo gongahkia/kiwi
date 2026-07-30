@@ -1,5 +1,6 @@
 local Errors = require("runtime.errors")
 local Config = require("terminal.config")
+local Screen = require("terminal.screen")
 
 local Terminal = {}
 local terminal_mt = {}
@@ -22,7 +23,22 @@ function Terminal.new(config)
   if not terminal_config then
     return nil, config_error
   end
-  return setmetatable({ config = terminal_config, state = "bootstrap" }, terminal_mt)
+  local primary_screen, primary_error = Screen.new(terminal_config.columns, terminal_config.rows)
+  if not primary_screen then
+    return nil, primary_error
+  end
+  local alternate_screen, alternate_error =
+    Screen.new(terminal_config.columns, terminal_config.rows)
+  if not alternate_screen then
+    return nil, alternate_error
+  end
+  return setmetatable({
+    active_buffer = "primary",
+    alternate_screen = alternate_screen,
+    config = terminal_config,
+    primary_screen = primary_screen,
+    state = "bootstrap",
+  }, terminal_mt)
 end
 
 function terminal_mt:start()
