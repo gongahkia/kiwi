@@ -11,6 +11,7 @@ local allowed_options = {
   baseline = true,
   cell_height = true,
   cell_width = true,
+  cursor_style = true,
   font_path = true,
   font_size = true,
   max_glyph_entries = true,
