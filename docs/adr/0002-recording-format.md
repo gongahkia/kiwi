@@ -39,6 +39,12 @@ The bootstrap format fixes the following byte-level details:
 
 CRC-32/ISO-HDLC uses reflected input and output, initial value `0xFFFFFFFF`, reflected polynomial `0xEDB88320`, and final XOR `0xFFFFFFFF`.
 
+### Bootstrap metadata canonicalization
+
+Bootstrap metadata uses a restricted canonical JSON profile. The top-level value and nested values are objects with ASCII identifier keys, sorted bytewise by key. Values are UTF-8 strings, booleans, signed 32-bit integers, `null`, or nested objects. Arrays and floating-point values are not part of the bootstrap metadata profile.
+
+The encoder emits no whitespace. It uses JSON's short escapes for backspace, tab, line feed, form feed, and carriage return; escapes other control bytes as lowercase `\\u00xx`; and otherwise writes validated UTF-8 directly. This constrains metadata to values that LuaJIT can serialize reproducibly without relying on a host JSON library.
+
 ## Consequences
 
 Positive:

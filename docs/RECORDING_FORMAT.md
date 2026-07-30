@@ -77,6 +77,8 @@ Rules:
 - metadata key ordering must be canonical for stable test fixtures;
 - readers ignore unknown metadata fields.
 
+Bootstrap metadata is canonical JSON with no whitespace. Objects use ASCII identifier keys sorted bytewise. Values are UTF-8 strings, booleans, signed 32-bit integers, `null`, and nested objects; arrays and floating-point values are not supported in bootstrap metadata. Strings use JSON short escapes for backspace, tab, line feed, form feed, and carriage return, lowercase `\\u00xx` escapes for other control bytes, and direct validated UTF-8 otherwise.
+
 ## 5. Frame structure
 
 Each frame is length-delimited:
