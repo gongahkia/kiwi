@@ -26,6 +26,8 @@ local attributes = {
   underline = 8,
 }
 
+local cursor_styles = { beam = true, block = true, underline = true }
+
 local function config_error(message, detail)
   return nil, Errors.new("config_error", message, detail)
 end
@@ -119,6 +121,27 @@ local function validate_snapshot(snapshot)
       end
     end
   end
+  if snapshot.cursor ~= nil then
+    if type(snapshot.cursor) ~= "table" then
+      return config_error("renderer snapshot cursor is invalid")
+    end
+    local cursor_column, cursor_column_error =
+      positive_integer(snapshot.cursor.column, "renderer snapshot cursor column")
+    if not cursor_column then
+      return nil, cursor_column_error
+    end
+    local cursor_row, cursor_row_error =
+      positive_integer(snapshot.cursor.row, "renderer snapshot cursor row")
+    if not cursor_row then
+      return nil, cursor_row_error
+    end
+    if cursor_column > columns or cursor_row > rows then
+      return config_error("renderer snapshot cursor is outside the screen")
+    end
+  end
+  if snapshot.cursor_visible ~= nil and type(snapshot.cursor_visible) ~= "boolean" then
+    return config_error("renderer snapshot cursor visibility is invalid")
+  end
   return columns, rows
 end
 
@@ -160,6 +183,41 @@ local function draw_decorations(graphics, cell, foreground, x, y, width, height)
   if has_attribute(cell.attributes, attributes.strike) then
     graphics.setColor(foreground.red, foreground.green, foreground.blue, 1)
     graphics.line(x, y + math.floor(height / 2), x + width, y + math.floor(height / 2))
+  end
+  return true
+end
+
+local function cursor_style(config)
+  local style = config.cursor_style or "block"
+  if not cursor_styles[style] then
+    return config_error("renderer cursor style is unsupported", { provided = style })
+  end
+  return style
+end
+
+local function draw_cursor(graphics, metrics, snapshot, config)
+  if snapshot.cursor == nil or snapshot.cursor_visible == false then
+    return true
+  end
+  local style, style_error = cursor_style(config)
+  if not style then
+    return nil, style_error
+  end
+  local x = (snapshot.cursor.column - 1) * metrics.cell_width
+  local y = (snapshot.cursor.row - 1) * metrics.cell_height
+  graphics.setColor(0.9, 0.92, 0.98, 0.8)
+  if style == "block" then
+    graphics.rectangle("fill", x, y, metrics.cell_width, metrics.cell_height)
+  elseif style == "beam" then
+    graphics.rectangle(
+      "fill",
+      x,
+      y,
+      math.max(1, math.floor(metrics.cell_width / 6)),
+      metrics.cell_height
+    )
+  else
+    graphics.rectangle("fill", x, y + metrics.cell_height - 2, metrics.cell_width, 2)
   end
   return true
 end
@@ -267,6 +325,10 @@ function renderer_mt:draw(snapshot, damage)
         return nil, decoration_error
       end
     end
+  end
+  local drawn_cursor, cursor_error = draw_cursor(self.graphics, metrics, snapshot, self.config)
+  if not drawn_cursor then
+    return nil, cursor_error
   end
   return true
 end

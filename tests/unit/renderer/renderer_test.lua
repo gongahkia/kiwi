@@ -188,4 +188,19 @@ return {
       assertions.equal(calls_before, #api.calls)
     end,
   },
+  {
+    name = "renderer draws block beam and underline cursors",
+    run = function()
+      for _, style in ipairs({ "block", "beam", "underline" }) do
+        local api = graphics()
+        local renderer = assert(Renderer.new({ cursor_style = style }))
+        assert(renderer:load_font(api))
+        local value = snapshot()
+        value.cursor = { column = 2, row = 1 }
+        value.cursor_visible = true
+        assert(renderer:draw(value))
+        assertions.equal(3, operation_count(api, "rectangle"), style)
+      end
+    end,
+  },
 }
