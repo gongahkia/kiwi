@@ -104,10 +104,10 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 - [x] Implement play, pause, resume, stop, and speed controls.
 - [x] Implement single-frame and single-control-sequence stepping.
 - [x] Implement deterministic replay time independent of wall-clock rendering time.
-- [ ] Implement checkpoint creation and restoration.
-- [ ] Implement a seek index with bounded memory.
+- [x] Implement checkpoint creation and restoration.
+- [x] Implement a seek index with bounded memory.
 - [ ] Implement marks/bookmarks.
-- [ ] Expose current frame, elapsed terminal time, total duration, and checkpoint status.
+- [x] Expose current frame, elapsed terminal time, total duration, and checkpoint status.
 
 ### Tests
 

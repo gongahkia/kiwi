@@ -11,6 +11,7 @@ Replay.contract = {
   pause = "pause() -> true | nil, error",
   play = "play() -> true | nil, error",
   resume = "resume() -> true | nil, error",
+  seek = "seek(target_terminal_us) -> checkpoint_plan | nil, error",
   set_speed = "set_speed(multiplier) -> true | nil, error",
   step_frame = "step_frame() -> step | nil, error?",
 }
@@ -62,11 +63,92 @@ local function config_for(config)
   if reader_limits ~= nil and type(reader_limits) ~= "table" then
     return config_error("replay reader limits must be a table")
   end
+  local max_checkpoint_entries, checkpoints_error =
+    uint32(config.max_checkpoint_entries or 1024, "maximum checkpoint index entries")
+  if not max_checkpoint_entries or max_checkpoint_entries < 2 then
+    return nil,
+      checkpoints_error
+        or Errors.new("config_error", "maximum checkpoint index entries must be at least two")
+  end
   return {
+    max_checkpoint_entries = max_checkpoint_entries,
     max_events_per_poll = max_events,
     reader_limits = reader_limits,
     speed = speed,
   }
+end
+
+local function add_checkpoint_index_entry(replay, entry)
+  local entries = replay.checkpoint_index
+  entries[#entries + 1] = entry
+  while #entries > replay.config.max_checkpoint_entries do
+    replay.checkpoint_stride = replay.checkpoint_stride * 2
+    local compacted = { entries[1] }
+    for index = 2, #entries do
+      local candidate = entries[index]
+      if candidate.ordinal % replay.checkpoint_stride == 0 or index == #entries then
+        if compacted[#compacted] ~= candidate then
+          compacted[#compacted + 1] = candidate
+        end
+      end
+    end
+    replay.checkpoint_index = compacted
+    entries = compacted
+  end
+end
+
+local function build_index(replay)
+  if replay.index_state == "ready" then
+    return true
+  end
+  if type(replay.reader.source.seek) ~= "function" then
+    replay.index_state = "unavailable"
+    return true
+  end
+  local first_frame_offset, position_error = replay.reader:position()
+  if not first_frame_offset then
+    return fail(replay, position_error)
+  end
+  local rewound, rewind_error = replay.reader:seek_frame(first_frame_offset)
+  if not rewound then
+    return fail(replay, rewind_error)
+  end
+  replay.checkpoint_index = {}
+  replay.checkpoint_count = 0
+  replay.checkpoint_stride = 1
+  local elapsed_terminal_us = 0
+  local frame_index = 0
+  while true do
+    local frame_offset, offset_error = replay.reader:position()
+    if not frame_offset then
+      return fail(replay, offset_error)
+    end
+    local frame, frame_error = replay.reader:read_next()
+    if not frame then
+      if frame_error then
+        return fail(replay, frame_error)
+      end
+      break
+    end
+    frame_index = frame_index + 1
+    elapsed_terminal_us = elapsed_terminal_us + frame.delta_us
+    if frame.kind == 0x05 then
+      replay.checkpoint_count = replay.checkpoint_count + 1
+      add_checkpoint_index_entry(replay, {
+        elapsed_terminal_us = elapsed_terminal_us,
+        frame_index = frame_index,
+        offset = frame_offset,
+        ordinal = replay.checkpoint_count,
+      })
+    end
+  end
+  local reset, reset_error = replay.reader:seek_frame(first_frame_offset)
+  if not reset then
+    return fail(replay, reset_error)
+  end
+  replay.index_state = "ready"
+  replay.total_duration_us = elapsed_terminal_us
+  return true
 end
 
 local function state_error(replay)
@@ -162,6 +244,9 @@ function Replay.new(source, config)
   return setmetatable({
     config = settings,
     current_frame = 0,
+    checkpoint_count = 0,
+    checkpoint_index = {},
+    checkpoint_stride = 1,
     elapsed_terminal_us = 0,
     ended = false,
     failure = nil,
@@ -171,6 +256,8 @@ function Replay.new(source, config)
     speed = settings.speed,
     state = "idle",
     stop_reason = nil,
+    index_state = "unbuilt",
+    total_duration_us = nil,
   }, replay_mt)
 end
 
@@ -180,6 +267,10 @@ function replay_mt:start()
   end
   if self.state == "failed" then
     return nil, self.failure
+  end
+  local indexed, index_error = build_index(self)
+  if not indexed then
+    return nil, index_error
   end
   if self.state == "idle" then
     self.state = "playing"
@@ -245,6 +336,71 @@ function replay_mt:step_frame()
   return consume_frame(self, true)
 end
 
+function replay_mt:seek(target_terminal_us)
+  if self.state == "idle" then
+    local started, start_error = self:start()
+    if not started then
+      return nil, start_error
+    end
+  end
+  local valid, valid_error = state_error(self)
+  if not valid and self.state ~= "exhausted" then
+    return nil, valid_error
+  end
+  local target, target_error = uint32(target_terminal_us, "replay seek target")
+  if not target then
+    return nil, target_error
+  end
+  if self.index_state ~= "ready" then
+    return unavailable("replay seeking requires a seekable recording source")
+  end
+  if target > self.total_duration_us then
+    return config_error("replay seek target exceeds recording duration", {
+      duration_us = self.total_duration_us,
+      provided = target,
+    })
+  end
+  local selected
+  for _, entry in ipairs(self.checkpoint_index) do
+    if entry.elapsed_terminal_us <= target then
+      selected = entry
+    else
+      break
+    end
+  end
+  if not selected then
+    return unavailable("replay seek target has no indexed checkpoint")
+  end
+  local positioned, position_error = self.reader:seek_frame(selected.offset)
+  if not positioned then
+    return fail(self, position_error)
+  end
+  local frame, frame_error = self.reader:read_next()
+  if not frame then
+    return fail(self, frame_error or Errors.new("recording_corrupt", "indexed checkpoint is truncated"))
+  end
+  if frame.kind ~= 0x05 then
+    return fail(self, Errors.new("internal_invariant_error", "checkpoint index points to another frame"))
+  end
+  local terminal, checkpoint_error = Frames.restore_checkpoint(frame, self.config.reader_limits)
+  if not terminal then
+    return fail(self, checkpoint_error)
+  end
+  self.current_frame = selected.frame_index
+  self.elapsed_terminal_us = selected.elapsed_terminal_us
+  self.ended = false
+  self.failure = nil
+  self.next_frame = nil
+  self.playhead_us = target
+  self.state = "paused"
+  return {
+    checkpoint_terminal_us = selected.elapsed_terminal_us,
+    frame_index = selected.frame_index,
+    target_terminal_us = target,
+    terminal = terminal,
+  }
+end
+
 function replay_mt:poll(advance_us)
   local valid, valid_error = state_error(self)
   if not valid then
@@ -307,18 +463,25 @@ function replay_mt:capabilities()
     pause = true,
     resume = true,
     resize = false,
+    seek = self.index_state == "ready",
     speed = true,
   }
 end
 
 function replay_mt:status()
   return {
+    checkpoint_status = {
+      indexed = #self.checkpoint_index,
+      state = self.index_state,
+      total = self.checkpoint_count,
+    },
     current_frame = self.current_frame,
     elapsed_terminal_us = self.elapsed_terminal_us,
     next_frame_pending = self.next_frame ~= nil,
     playhead_us = self.playhead_us,
     speed = self.speed,
     state = self.state,
+    total_duration_us = self.total_duration_us,
   }
 end
 

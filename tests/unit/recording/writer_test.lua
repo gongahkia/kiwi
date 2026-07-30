@@ -3,6 +3,7 @@ local Checksum = require("recording.checksum")
 local Format = require("recording.format")
 local Frames = require("recording.frames")
 local RecordingWriter = require("recording.writer")
+local Terminal = require("terminal.terminal")
 local Event = require("runtime.event")
 
 local function sink()
@@ -123,6 +124,23 @@ return {
       )
       assertions.truthy(writer:append(frame))
       assertions.truthy(writer:close())
+    end,
+  },
+  {
+    name = "recording writer appends canonical checkpoint frames",
+    run = function()
+      local target = sink()
+      local writer = assert(RecordingWriter.new(target, {}))
+      local terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
+      assert(terminal:feed_output("state"))
+      assertions.truthy(writer:append_checkpoint(terminal, 9))
+      assertions.truthy(writer:close())
+      local bytes_value = bytes(target)
+      local preamble, metadata_offset = assert(Format.decode_preamble(bytes_value))
+      local _, frame_offset = assert(Format.decode_metadata(bytes_value, metadata_offset, preamble))
+      local frame = assert(Format.decode_frame(bytes_value, frame_offset))
+      assertions.equal(Format.kinds.CHECKPOINT, frame.kind)
+      assertions.equal(9, frame.delta_us)
     end,
   },
 }

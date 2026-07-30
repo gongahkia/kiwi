@@ -1,6 +1,7 @@
 local Checksum = require("recording.checksum")
 local Errors = require("runtime.errors")
 local Format = require("recording.format")
+local Frames = require("recording.frames")
 local Metadata = require("recording.metadata")
 
 local RecordingWriter = {}
@@ -10,6 +11,7 @@ writer_mt.__index = writer_mt
 RecordingWriter.contract = {
   constructor = "new(sink, metadata) -> writer | nil, error",
   append = "append(frame) -> true | nil, error",
+  append_checkpoint = "append_checkpoint(terminal, delta_us?, limits?) -> true | nil, error",
   close = "close() -> true | nil, error",
 }
 
@@ -144,6 +146,14 @@ function writer_mt:append(frame)
   end
   self.frame_count = self.frame_count + 1
   return true
+end
+
+function writer_mt:append_checkpoint(terminal, delta_us, limits)
+  local frame, frame_error = Frames.checkpoint(terminal, delta_us, limits)
+  if not frame then
+    return nil, frame_error
+  end
+  return self:append(frame)
 end
 
 function writer_mt:close()

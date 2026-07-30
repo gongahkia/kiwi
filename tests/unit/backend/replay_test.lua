@@ -6,7 +6,7 @@ local Frames = require("recording.frames")
 local Replay = require("backend.replay")
 local Event = require("runtime.event")
 
-local function source(bytes, chunk_size)
+local function source(bytes, chunk_size, seekable)
   local value = { bytes = bytes, closed = false, offset = 1 }
   function value:read(count)
     if self.offset > #self.bytes then
@@ -20,6 +20,15 @@ local function source(bytes, chunk_size)
   function value:close()
     self.closed = true
     return true
+  end
+  if seekable then
+    function value:seek(offset)
+      if offset < 0 or offset > #self.bytes then
+        return nil, "invalid offset"
+      end
+      self.offset = offset + 1
+      return offset
+    end
   end
   return value
 end
@@ -179,6 +188,27 @@ return {
       assertions.equal("paused", replay:status().state)
       assertions.falsy(replay:step_frame())
       assertions.equal("exhausted", replay:status().state)
+    end,
+  },
+  {
+    name = "replay backend builds a bounded checkpoint index and restores a seek plan",
+    run = function()
+      local checkpoint_terminal = require("terminal.terminal")
+      local terminal = assert(checkpoint_terminal.new({ columns = 4, rows = 1 }))
+      assert(terminal:feed_output("A"))
+      local checkpoint = assert(Frames.checkpoint(terminal, 0))
+      local replay = assert(Replay.new(source(recording({
+        assert(Frames.from_event(assert(Event.output("A", 2)))),
+        checkpoint,
+        assert(Frames.from_event(assert(Event.output("B", 3)))),
+      })), nil, true))
+      assertions.truthy(replay:start())
+      assertions.equal(5, replay:status().total_duration_us)
+      assertions.equal(1, replay:status().checkpoint_status.indexed)
+      local plan = assert(replay:seek(5))
+      assertions.equal(2, plan.checkpoint_terminal_us)
+      assertions.equal("A", plan.terminal.primary_screen.rows[1].cells[1].text)
+      assertions.equal("paused", replay:status().state)
     end,
   },
 }

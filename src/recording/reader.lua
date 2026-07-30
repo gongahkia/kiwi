@@ -12,6 +12,8 @@ RecordingReader.contract = {
   metadata = "metadata() -> table | nil, error?",
   version = "version() -> version | nil, error?",
   close = "close() -> true | nil, error",
+  position = "position() -> byte_offset | nil, error",
+  seek_frame = "seek_frame(byte_offset) -> true | nil, error",
 }
 
 local function io_error(operation, detail)
@@ -20,6 +22,10 @@ end
 
 local function corrupt(message, detail)
   return Errors.new("recording_corrupt", message, detail)
+end
+
+local function config_error(message, detail)
+  return nil, Errors.new("config_error", message, detail)
 end
 
 local function validate_source(source)
@@ -67,6 +73,7 @@ local function read_exact(reader, length, name, allow_eof)
     end
     chunks[#chunks + 1] = value
     received = received + #value
+    reader.byte_offset = reader.byte_offset + #value
   end
   return table.concat(chunks)
 end
@@ -117,6 +124,7 @@ local function initialize(reader)
   reader.metadata_value = metadata
   reader.preamble = preamble
   reader.version_info = version
+  reader.frame_start_offset = reader.byte_offset
   return true
 end
 
@@ -131,6 +139,7 @@ function RecordingReader.new(source, limits)
   end
   return setmetatable({
     closed = false,
+    byte_offset = 0,
     ended = false,
     failure = nil,
     initialized = false,
@@ -203,6 +212,54 @@ function reader_mt:version()
     reader_minor_version = self.version_info.reader_minor_version,
     recording_minor_version = self.version_info.recording_minor_version,
   }
+end
+
+function reader_mt:position()
+  if self.closed then
+    return nil, Errors.new("recording_io_error", "recording reader is closed")
+  end
+  local initialized, initialize_error = initialize(self)
+  if not initialized then
+    return nil, initialize_error
+  end
+  return self.byte_offset
+end
+
+function reader_mt:seek_frame(byte_offset)
+  if self.closed then
+    return nil, Errors.new("recording_io_error", "recording reader is closed")
+  end
+  if type(byte_offset) ~= "number" or byte_offset % 1 ~= 0 or byte_offset < 0 then
+    return config_error("recording seek offset must be a non-negative integer", {
+      provided = byte_offset,
+    })
+  end
+  local initialized, initialize_error = initialize(self)
+  if not initialized then
+    return nil, initialize_error
+  end
+  if byte_offset < self.frame_start_offset then
+    return config_error("recording seek offset precedes the first frame", {
+      first_frame_offset = self.frame_start_offset,
+      provided = byte_offset,
+    })
+  end
+  if type(self.source.seek) ~= "function" then
+    return nil, Errors.new("recording_io_error", "recording source does not support seek")
+  end
+  local ok, result, detail = pcall(self.source.seek, self.source, byte_offset)
+  if not ok then
+    return nil, io_error("seek", { cause = result, offset = byte_offset })
+  end
+  if not result then
+    return nil, io_error("seek", { cause = detail, offset = byte_offset })
+  end
+  if type(result) == "number" and result ~= byte_offset then
+    return nil, io_error("seek", { actual = result, offset = byte_offset })
+  end
+  self.byte_offset = byte_offset
+  self.ended = false
+  return true
 end
 
 function reader_mt:close()

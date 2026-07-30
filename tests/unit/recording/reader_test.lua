@@ -5,7 +5,7 @@ local Frames = require("recording.frames")
 local RecordingReader = require("recording.reader")
 local Event = require("runtime.event")
 
-local function source(bytes, chunk_size)
+local function source(bytes, chunk_size, seekable)
   local value = { bytes = bytes, closed = false, offset = 1, requests = {} }
   function value:read(count)
     self.requests[#self.requests + 1] = count
@@ -20,6 +20,15 @@ local function source(bytes, chunk_size)
   function value:close()
     self.closed = true
     return true
+  end
+  if seekable then
+    function value:seek(offset)
+      if offset < 0 or offset > #self.bytes then
+        return nil, "invalid offset"
+      end
+      self.offset = offset + 1
+      return offset
+    end
   end
   return value
 end
@@ -137,6 +146,24 @@ return {
       local value, error_value = reader:metadata()
       assertions.falsy(value)
       assertions.equal("recording_io_error", error_value.kind)
+    end,
+  },
+  {
+    name = "recording reader seeks only to framed offsets on seekable sources",
+    run = function()
+      local output = assert(Frames.from_event(assert(Event.output("one", 0))))
+      local input = assert(Frames.from_event(assert(Event.input("two", 0))))
+      local input_source = source(recording({ output, input }), 3, true)
+      local reader = assert(RecordingReader.new(input_source))
+      local first_offset = assert(reader:position())
+      assertions.equal(Format.preamble_size + #'{"format":"stanczyk-recording"}', first_offset)
+      assertions.equal("one", assert(reader:read_next()).payload)
+      assertions.truthy(reader:seek_frame(first_offset))
+      assertions.equal("one", assert(reader:read_next()).payload)
+      local value, error_value = reader:seek_frame(first_offset - 1)
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.truthy(reader:close())
     end,
   },
   {
