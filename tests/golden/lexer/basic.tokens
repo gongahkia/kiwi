@@ -1,0 +1,8 @@
+Token kind=let lexeme='let' value=None span='basic.dtr'@12..15
+Token kind=identifier lexeme='value' value=None span='basic.dtr'@16..21
+Token kind=equals lexeme='=' value=None span='basic.dtr'@22..23
+Token kind=minus lexeme='-' value=None span='basic.dtr'@24..25
+Token kind=integer lexeme='42' value=42 span='basic.dtr'@25..27
+Token kind=in lexeme='in' value=None span='basic.dtr'@28..30
+Token kind=true lexeme='true' value=True span='basic.dtr'@31..35
+Token kind=end_of_file lexeme='' value=None span='basic.dtr'@36..36
