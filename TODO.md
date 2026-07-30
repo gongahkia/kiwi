@@ -17,8 +17,8 @@ Create a reproducible Python project with headless architecture boundaries and s
 - [ ] Select and document canonical environment workflow; support standard venv/pip even if `uv` is preferred.
 - [ ] Add runtime dependency on pygame-ce only.
 - [ ] Add development dependencies for pytest, Ruff, one static type checker, and coverage if desired.
-- [ ] Create `src/doctrine` package and initial `domain`, `dsl`, `sim`, `trace`, `replay`, `content`, `app`, `render`, and `ui` packages.
-- [ ] Add `doctrine.cli` with a `doctor` command that runs headlessly.
+- [ ] Create `src/kiwi` package and initial `domain`, `dsl`, `sim`, `trace`, `replay`, `content`, `app`, `render`, and `ui` packages.
+- [ ] Add `kiwi.cli` with a `doctor` command that runs headlessly.
 - [ ] Add minimal test structure.
 - [ ] Configure formatting and linting.
 - [ ] Configure static type checking.
@@ -31,7 +31,7 @@ Create a reproducible Python project with headless architecture boundaries and s
 ### Exit criteria
 
 - [ ] Fresh checkout can install and run checks using documented commands.
-- [ ] `python -m doctrine.cli doctor` succeeds without importing pygame.
+- [ ] `python -m kiwi.cli doctor` succeeds without importing pygame.
 - [ ] Empty or minimal test suite passes.
 - [ ] Import-boundary and forbidden-API checks pass.
 - [ ] Repository is formatted, linted, type checked, and clean.
@@ -392,7 +392,7 @@ Record and query structured code-to-consequence provenance.
 
 ### Goal
 
-Support controlled experimentation between doctrine versions.
+Support controlled experimentation between kiwi versions.
 
 ### Tasks
 
@@ -460,8 +460,8 @@ Deliver the complete product loop in one small mission.
 - [ ] Add deterministic hostile behaviour using compatible policy concepts.
 - [ ] Add objective retrieval and extraction.
 - [ ] Add reinforcement or lockdown timer.
-- [ ] Add flawed starting doctrine with intended explainable failure.
-- [ ] Add briefing and doctrine workbench flow.
+- [ ] Add flawed starting kiwi with intended explainable failure.
+- [ ] Add briefing and kiwi workbench flow.
 - [ ] Add mission execution and high-level signal support.
 - [ ] Add debrief with selected injury consequence.
 - [ ] Add guided source revision.

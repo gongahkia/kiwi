@@ -2,7 +2,7 @@
 
 ## 1. Design statement
 
-Doctrine is a real-time tactical programming game about designing a squad’s decision system rather than issuing individual actions. It borrows the emotional structure of persistent-squad tactics—preparation, incomplete intelligence, cover, injury, loss, extraction, and adaptation—without copying turn-based command mechanics.
+Kiwi is a real-time tactical programming game about designing a squad’s decision system rather than issuing individual actions. It borrows the emotional structure of persistent-squad tactics—preparation, incomplete intelligence, cover, injury, loss, extraction, and adaptation—without copying turn-based command mechanics.
 
 The player’s skill is expressed through:
 
@@ -16,7 +16,7 @@ The player’s skill is expressed through:
 
 ## 2. Design boundaries
 
-Doctrine is not:
+Kiwi is not:
 
 - an RTS where code is optional automation;
 - a turn-based game with programmable macros;
@@ -25,7 +25,7 @@ Doctrine is not:
 - a fully passive simulation;
 - a literal military training product.
 
-Doctrine is:
+Kiwi is:
 
 - a small-squad tactics game;
 - real-time and autonomous;
@@ -39,7 +39,7 @@ Doctrine is:
 ```text
 Briefing
   -> squad and equipment
-  -> doctrine editing
+  -> kiwi editing
   -> compilation and tests
   -> real-time mission
   -> consequence selection
@@ -86,9 +86,9 @@ The player selects a small team, initially four operatives. Each operative has:
 
 A role is not a hard-coded class. It emerges from capability and policy. Templates may be labelled scout, medic, breacher, or marksman for usability, but the language sees typed capabilities.
 
-### 4.3 Doctrine bundle
+### 4.3 Kiwi bundle
 
-A mission deploys a versioned doctrine bundle containing:
+A mission deploys a versioned kiwi bundle containing:
 
 - squad coordinator;
 - one or more operative policy functions;
@@ -197,7 +197,7 @@ After the vertical slice, operatives may persist across missions with:
 - configurable policy defaults;
 - later, explicit stress-related observation modifiers.
 
-Persistence should increase the cost of poorly designed doctrine without making one failure erase all progress.
+Persistence should increase the cost of poorly designed kiwi without making one failure erase all progress.
 
 ### 6.4 Injury and death
 
@@ -383,7 +383,7 @@ Damage is a deterministic function of projectile state, hit location abstraction
 
 Near misses, incoming fire, explosions, and ally injury may increase suppression. Suppression affects movement, aim, and available actions through explicit state visible to the policy.
 
-## 11. Squad doctrine layers
+## 11. Squad kiwi layers
 
 ### 11.1 Squad coordinator
 
@@ -443,7 +443,7 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 - One extraction area.
 - One timed hostile reinforcement or lockdown event.
 
-### 13.2 Initial flawed doctrine
+### 13.2 Initial flawed kiwi
 
 The provided policy:
 

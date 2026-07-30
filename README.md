@@ -1,8 +1,8 @@
-# Doctrine — Python Project Documentation
+# Kiwi — Python Project Documentation
 
 > Working title. Rename freely before public release.
 
-Doctrine is a real-time, physics-aware squad tactics game in which the player does not directly command individual operatives. The player writes a small functional program that turns incomplete observations into tactical intentions. A mission then runs in real time, and an integrated causal debugger explains how battlefield consequences arose from specific expressions, data, decisions, and physical events.
+Kiwi is a real-time, physics-aware squad tactics game in which the player does not directly command individual operatives. The player writes a small functional program that turns incomplete observations into tactical intentions. A mission then runs in real time, and an integrated causal debugger explains how battlefield consequences arose from specific expressions, data, decisions, and physical events.
 
 The project is implemented in Python. `pygame-ce` provides the desktop application shell, rendering, input, audio, and bitmap-font presentation. The authoritative simulation, functional language toolchain, deterministic virtual machine, replay system, and causal-debugger model are project-owned Python modules and must run headlessly.
 
@@ -10,7 +10,7 @@ The player-facing language is **not Python**. It is a separate functional DSL wi
 
 ## Product promise
 
-**Program the doctrine. Deploy the squad. Debug the consequences.**
+**Program the kiwi. Deploy the squad. Debug the consequences.**
 
 The defining loop is:
 
@@ -20,7 +20,7 @@ The defining loop is:
 4. Compile and validate those policies.
 5. Run the mission in real time with only limited high-level signals.
 6. Inspect a causal trace linking outcomes back to code and observed data.
-7. Revise the doctrine and rerun or continue the campaign.
+7. Revise the kiwi and rerun or continue the campaign.
 
 ## Non-negotiable pillars
 

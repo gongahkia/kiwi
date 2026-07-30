@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Doctrine stores player source, compiled policy bundles, mission content, replay inputs, canonical snapshots, causal traces, settings, and later campaign state. Durable formats must be explicit, versioned, validated, and safe to load without executing Python code.
+Kiwi stores player source, compiled policy bundles, mission content, replay inputs, canonical snapshots, causal traces, settings, and later campaign state. Durable formats must be explicit, versioned, validated, and safe to load without executing Python code.
 
 ## 2. General rules
 
@@ -57,13 +57,13 @@ If no header is allowed in the initial syntax, language version belongs in the c
 
 ## 5. Policy project manifest
 
-Suggested file: `doctrine.policy.json`
+Suggested file: `kiwi.policy.json`
 
 Fields:
 
 ```json
 {
-  "format": "doctrine-policy-project",
+  "format": "kiwi-policy-project",
   "version": 1,
   "name": "cautious-alpha",
   "language_version": 1,
@@ -109,7 +109,7 @@ Top-level fields:
 
 ```json
 {
-  "format": "doctrine-mission",
+  "format": "kiwi-mission",
   "version": 1,
   "id": "glasshouse",
   "map": {},
@@ -280,7 +280,7 @@ Canonical hashing rules must specify:
 Hash input should be domain-separated, for example:
 
 ```text
-"doctrine:state:v1\0" + canonical_state_bytes
+"kiwi:state:v1\0" + canonical_state_bytes
 ```
 
 Select the actual hash algorithm during implementation and record it in `DECISIONS.md` if it becomes durable.

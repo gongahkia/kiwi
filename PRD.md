@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-Doctrine is a single-player real-time squad tactics game in which the player programs the decision logic of a persistent tactical squad using a deliberately small functional language. Missions execute autonomously under incomplete information. Rather than directly moving and firing each operative, the player defines how the squad observes, prioritises, communicates, chooses cover, handles casualties, and pursues objectives.
+Kiwi is a single-player real-time squad tactics game in which the player programs the decision logic of a persistent tactical squad using a deliberately small functional language. Missions execute autonomously under incomplete information. Rather than directly moving and firing each operative, the player defines how the squad observes, prioritises, communicates, chooses cover, handles casualties, and pursues objectives.
 
 The product’s distinguishing feature is a causal debugger that maps battlefield outcomes back to program evaluations. When an operative is exposed, misses an extraction window, fires on a low-priority target, or fails to aid an ally, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and physical events that produced the result.
 
@@ -10,18 +10,18 @@ The first release target is a desktop vertical slice implemented in Python with 
 
 ## 2. Product thesis
 
-Programming games frequently reduce code to automation puzzles, while tactics games usually reserve all meaningful decisions for direct player input. Doctrine combines the two:
+Programming games frequently reduce code to automation puzzles, while tactics games usually reserve all meaningful decisions for direct player input. Kiwi combines the two:
 
 - Tactical decisions remain meaningful because missions unfold with cover, projectiles, uncertainty, timing, suppression, injury, and extraction pressure.
 - Programming remains meaningful because code controls actual autonomous behaviour rather than cosmetic automation.
 - Failure remains learnable because consequences are traceable to source code and evidence.
 - Repetition remains purposeful because deterministic reruns allow controlled experiments.
 
-The player is not writing scripts alongside the game. **Writing, deploying, and debugging doctrine is the game.**
+The player is not writing scripts alongside the game. **Writing, deploying, and debugging kiwi is the game.**
 
 ## 3. Product promise
 
-> Program the doctrine. Deploy the squad. Debug the consequences.
+> Program the kiwi. Deploy the squad. Debug the consequences.
 
 The player should regularly experience:
 
@@ -132,7 +132,7 @@ The player:
 - reviews uncertain intelligence;
 - selects a small persistent squad;
 - chooses equipment and capabilities;
-- edits squad doctrine and operative policies;
+- edits squad kiwi and operative policies;
 - compiles and reviews errors or warnings;
 - runs bounded training or fixture tests where available;
 - deploys the compiled policy bundle.
@@ -159,7 +159,7 @@ ExtractAt(position)
 Abort
 ```
 
-A signal is data supplied to doctrine. It does not bypass doctrine.
+A signal is data supplied to kiwi. It does not bypass kiwi.
 
 ### 7.3 After or between runs
 
@@ -180,7 +180,7 @@ Present objectives, constraints, probable threats, extraction conditions, and un
 
 ### 8.2 Configure
 
-Select operatives, equipment, policy modules, initial parameters, and squad-level doctrine.
+Select operatives, equipment, policy modules, initial parameters, and squad-level kiwi.
 
 ### 8.3 Program
 
@@ -209,7 +209,7 @@ Build structured provenance from source evaluation through tactical consequence.
 
 ### 8.8 Revise
 
-Modify the doctrine and rerun under controlled inputs.
+Modify the kiwi and rerun under controlled inputs.
 
 ## 9. Functional requirements
 

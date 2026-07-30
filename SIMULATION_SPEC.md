@@ -162,7 +162,7 @@ When visibility is lost, the contact may persist and decay according to document
 
 ### 8.3 Provenance
 
-Each observation field that may influence doctrine carries or can resolve to provenance IDs. For example, a contact estimate can link to the sensor event and prior message that formed it.
+Each observation field that may influence kiwi carries or can resolve to provenance IDs. For example, a contact estimate can link to the sensor event and prior message that formed it.
 
 ## 9. Communication
 

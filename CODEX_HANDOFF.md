@@ -8,7 +8,7 @@ Use this after placing the documentation files in a new repository:
 Read AGENTS.md, README.md, PRD.md, DECISIONS.md, ARCHITECTURE.md, DSL_SPEC.md,
 SIMULATION_SPEC.md, CAUSAL_DEBUGGER.md, TESTING.md, and TODO.md.
 
-This repository is a fresh implementation of Doctrine: a Python and pygame-ce
+This repository is a fresh implementation of Kiwi: a Python and pygame-ce
 real-time squad tactics game where player-authored programs are written in a
 separate functional DSL. The compiler, deterministic VM, headless simulation,
 replay verifier, and causal debugger are the primary systems. Do not implement
@@ -142,9 +142,9 @@ python -m pytest
 python -m ruff check .
 python -m ruff format --check .
 python -m mypy src tests
-python -m doctrine.cli doctor
-python -m doctrine.cli compile examples/policies/cautious.dtr
-python -m doctrine.cli simulate fixtures/minimal.json --ticks 120
+python -m kiwi.cli doctor
+python -m kiwi.cli compile examples/policies/cautious.dtr
+python -m kiwi.cli simulate fixtures/minimal.json --ticks 120
 ```
 
 ## Common failure patterns
