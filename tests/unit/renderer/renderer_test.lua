@@ -203,4 +203,49 @@ return {
       end
     end,
   },
+  {
+    name = "renderer redraws only validated dirty cell ranges",
+    run = function()
+      local invalid_renderer, invalid_renderer_error = Renderer.new({ cursor_style = "pipe" })
+      assertions.falsy(invalid_renderer)
+      assertions.equal("config_error", invalid_renderer_error.kind)
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      assert(renderer:draw(snapshot()))
+      local rectangles_before = operation_count(api, "rectangle")
+      local prints_before = operation_count(api, "print")
+      local lines_before = operation_count(api, "line")
+      assert(renderer:draw(snapshot(), { { first_column = 2, last_column = 2, row = 1 } }))
+      assertions.equal(rectangles_before + 1, operation_count(api, "rectangle"))
+      assertions.equal(prints_before + 1, operation_count(api, "print"))
+      assertions.equal(lines_before + 1, operation_count(api, "line"))
+      local calls_after = #api.calls
+      local value, error_value =
+        renderer:draw(snapshot(), { { first_column = 1, last_column = 2, row = 2 } })
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.equal(calls_after, #api.calls)
+      value, error_value =
+        renderer:draw(snapshot(), { [2] = { first_column = 1, last_column = 1, row = 1 } })
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.equal(calls_after, #api.calls)
+    end,
+  },
+  {
+    name = "renderer redraws old and new cursor cells from empty damage",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({ cursor_style = "block" }))
+      assert(renderer:load_font(api))
+      local value = snapshot()
+      value.cursor = { column = 1, row = 1 }
+      assert(renderer:draw(value))
+      local rectangles_before = operation_count(api, "rectangle")
+      value.cursor = { column = 2, row = 1 }
+      assert(renderer:draw(value, {}))
+      assertions.equal(rectangles_before + 3, operation_count(api, "rectangle"))
+    end,
+  },
 }

@@ -48,6 +48,8 @@ The bootstrap renderer loads a configured LÖVE font through an injected graphic
 
 The clean draw input is an internal table with positive `columns` and `rows`, plus `screen.rows[row].cells[column]` cells in the terminal cell shape. The renderer validates this complete grid before making graphics calls. Rendering adapters create this table; the terminal core does not own LÖVE resources.
 
+An optional clean-render damage argument is a dense array of `{ row, first_column, last_column }` ranges. Ranges must be within the supplied grid; overlapping ranges on a row are merged. A damaged cursor cell, or either endpoint of a cursor move, is redrawn with its cell range. Damage is presentation input and never mutates terminal state.
+
 ### 3.2 Atlas
 
 A practical initial design:
