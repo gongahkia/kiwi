@@ -99,8 +99,8 @@ Resolve names and reject invalid programs before execution.
 
 - [x] Define type algebra and stable type rendering.
 - [x] Define symbol and definition IDs independent of Python object identity.
-- [ ] Implement lexical environments and name resolution.
-- [ ] Detect unknown names, duplicates, invalid arity, and prohibited shadowing.
+- [x] Implement lexical environments and name resolution.
+- [x] Detect unknown names, duplicates, invalid arity, and prohibited shadowing.
 - [ ] Implement type checking for literals, names, application, `let`, and `if`.
 - [ ] Define typed AST or typed surface representation.
 - [ ] Define minimal core IR with stable expression IDs.
