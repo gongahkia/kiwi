@@ -28,8 +28,18 @@ local function is_span(value)
   return span_values[value] ~= nil
 end
 
+local function is_immutable_value(value)
+  return type(value) ~= "table"
+    or node_values[value] ~= nil
+    or list_values[value] ~= nil
+    or is_span(value)
+end
+
 local function span_source(value)
   if ast.is_node(value) then
+    return value.span
+  end
+  if type(value) == "table" and value.span then
     return value.span
   end
   return value
@@ -80,6 +90,9 @@ function ast.list(items)
   local values = {}
   local length = #items
   for index = 1, length do
+    if not is_immutable_value(items[index]) then
+      error("AST lists must use immutable AST values", 2)
+    end
     values[index] = items[index]
   end
   values.length = length
@@ -102,7 +115,12 @@ function ast.at(value, index)
   if not values then
     error("expected AST list", 2)
   end
-  if type(index) ~= "number" or index ~= math.floor(index) or index < 1 or index > values.length then
+  if
+    type(index) ~= "number"
+    or index ~= math.floor(index)
+    or index < 1
+    or index > values.length
+  then
     return nil
   end
   return values[index]
@@ -142,7 +160,7 @@ function ast.node(kind, source_span, fields)
     end
     for _, key in ipairs(keys) do
       local value = fields[key]
-      if type(value) == "table" and not ast.is_node(value) and not list_values[value] and not is_span(value) then
+      if not is_immutable_value(value) then
         error("AST fields must use immutable AST values", 2)
       end
       values[key] = value
