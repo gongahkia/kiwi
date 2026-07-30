@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 
-def run_parse(path: Path) -> subprocess.CompletedProcess[str]:
+def run_cli(command: str, path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "kiwi.cli", "parse", str(path)],
+        [sys.executable, "-m", "kiwi.cli", command, str(path)],
         capture_output=True,
         check=False,
         text=True,
@@ -18,7 +18,7 @@ def test_parse_command_renders_stable_surface_ast(tmp_path: Path) -> None:
     path = tmp_path / "valid.dtr"
     path.write_text("fn id(x: Int) -> Int = x", encoding="utf-8")
 
-    result = run_parse(path)
+    result = run_cli("parse", path)
 
     assert result.returncode == 0
     assert result.stderr == ""
@@ -53,7 +53,7 @@ def test_parse_command_renders_structured_diagnostics(tmp_path: Path) -> None:
     path = tmp_path / "invalid.dtr"
     path.write_text("policy bad(x Int) -> Int = x", encoding="utf-8")
 
-    result = run_parse(path)
+    result = run_cli("parse", path)
 
     assert result.returncode == 1
     assert result.stdout == ""
@@ -63,8 +63,42 @@ def test_parse_command_renders_structured_diagnostics(tmp_path: Path) -> None:
 def test_parse_command_reports_source_loading_failure(tmp_path: Path) -> None:
     path = tmp_path / "missing.dtr"
 
-    result = run_parse(path)
+    result = run_cli("parse", path)
 
     assert result.returncode == 1
     assert result.stdout == ""
     assert result.stderr == f"{path}: S001_READ_FAILED: could not read source\n"
+
+
+def test_check_command_renders_stable_core_output(tmp_path: Path) -> None:
+    path = tmp_path / "valid.dtr"
+    path.write_text("fn id(x: Int) -> Int = x", encoding="utf-8")
+
+    result = run_cli("check", path)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert (
+        result.stdout
+        == f"""CoreModule span={str(path)!r}@0..24
+  definitions:
+    Definition id=0 symbol=0 kind=function name='id' type=Int -> Int span={str(path)!r}@0..24
+      parameters:
+        Parameter symbol=1 type=Int span={str(path)!r}@6..12
+      body:
+        Reference symbol=1 id=0 type=Int span={str(path)!r}@23..24
+  source_map:
+    Entry expression=0 definition=0 span={str(path)!r}@23..24
+"""
+    )
+
+
+def test_check_command_reports_type_diagnostics(tmp_path: Path) -> None:
+    path = tmp_path / "invalid.dtr"
+    path.write_text("fn id(x: Int) -> Int = if x then 1 else 2", encoding="utf-8")
+
+    result = run_cli("check", path)
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == f"{path}:1:27: E401_TYPE_MISMATCH: expected Bool but received Int\n"

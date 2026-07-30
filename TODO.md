@@ -108,7 +108,7 @@ Resolve names and reject invalid programs before execution.
 - [x] Preserve source-map links through lowering.
 - [x] Add diagnostics for type mismatch, branch mismatch, unknown name, and invalid call.
 - [x] Add golden typed-core fixtures.
-- [ ] Add CLI `check` command.
+- [x] Add CLI `check` command.
 
 ### Exit criteria
 
