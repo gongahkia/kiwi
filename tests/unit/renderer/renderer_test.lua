@@ -1,5 +1,6 @@
 local assertions = require("support.assertions")
 local Clean = require("renderer.clean")
+local FontFixture = require("fixtures.renderer.font")
 local GlyphCache = require("renderer.glyph_cache")
 local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
@@ -7,29 +8,7 @@ local Metrics = require("renderer.metrics")
 local Renderer = require("renderer.renderer")
 
 local function font()
-  return {
-    getAscent = function()
-      return 12.8
-    end,
-    getHeight = function()
-      return 16.2
-    end,
-    hasGlyphs = function(_, text)
-      return text ~= "☃"
-    end,
-    getWidth = function(_, text)
-      if text == "M" then
-        return 8.2
-      end
-      if text == "A" then
-        return 7
-      end
-      if text == "é" then
-        return 9
-      end
-      return #text
-    end,
-  }
+  return FontFixture.new({ unsupported = { ["☃"] = true } })
 end
 
 local function graphics()
@@ -197,6 +176,16 @@ return {
       local metrics, error_value = Metrics.new(font(), { cell_height = 8 })
       assertions.falsy(metrics)
       assertions.equal("config_error", error_value.kind)
+    end,
+  },
+  {
+    name = "renderer uses deterministic fixture font measurements and coverage",
+    run = function()
+      local fixture = FontFixture.new({ unsupported = { ["☃"] = true } })
+      assertions.equal(8.2, fixture:getWidth("M"))
+      assertions.equal(9, fixture:getWidth("é"))
+      assertions.truthy(fixture:hasGlyphs("A"))
+      assertions.falsy(fixture:hasGlyphs("☃"))
     end,
   },
   {
