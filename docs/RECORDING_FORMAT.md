@@ -199,6 +199,8 @@ Readers must reject:
 
 Readers must never allocate directly from an unvalidated payload length.
 
+Bootstrap decoding defaults to a 64 KiB metadata bound and a 16 MiB frame-payload bound. Callers may supply stricter bounds; a bound violation rejects the recording with a corruption error before payload extraction.
+
 ## 11. Privacy
 
 Recording can expose:
