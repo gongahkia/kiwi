@@ -154,7 +154,7 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 - [x] Measure allocations per frame.
 - [x] Avoid rebuilding unchanged vertex or sprite data.
 - [x] Add configurable maximum backend events processed per update.
-- [ ] Document catch-up behaviour when replay or PTY output exceeds the frame budget.
+- [x] Document catch-up behaviour when replay or PTY output exceeds the frame budget.
 
 ### Exit criteria
 

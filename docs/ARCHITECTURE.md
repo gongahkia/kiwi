@@ -56,6 +56,8 @@ The coordinator should be small. It must not contain parser logic, PTY protocol 
 
 The bootstrap coordinator owns applying replay events to a terminal. Frame and control-sequence stepping remain here: the replay backend exposes raw framed data, while only the coordinator feeds output bytes into the parser and terminal model.
 
+`Coordinator.new(terminal, backend, { max_backend_events_per_update = 1024 })` bounds regular `update` work. If a poll yields more events than the bound, the coordinator retains the remainder in FIFO order and drains it before polling again. During that catch-up interval, later update advances are not passed to the backend, and terminal time advances only as queued events are applied. Frame and control-sequence stepping reject while this backlog exists; seeking discards it before installing the backend’s seek plan.
+
 ### 2.3 Terminal core
 
 The terminal core includes:
