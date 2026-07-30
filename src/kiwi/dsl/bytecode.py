@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import IntEnum
+from typing import ClassVar
 
 from kiwi.dsl.core_ir import CoreDefinition
-from kiwi.dsl.ids import DefinitionId, FunctionId
+from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, UnitValue
 from kiwi.dsl.source import SourceFileId
 
@@ -24,6 +26,143 @@ class ConstantId:
     def __post_init__(self) -> None:
         if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
             raise ValueError("constant ID must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class LocalSlot:
+    """One function-frame local slot index."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
+            raise ValueError("local slot must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class InstructionIndex:
+    """An index into a function's instruction tuple."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
+            raise ValueError("instruction index must be a non-negative integer")
+
+
+class Opcode(IntEnum):
+    """The initial encoded instruction tags for bytecode version 1."""
+
+    PUSH_CONSTANT = 1
+    PUSH_FUNCTION = 2
+    LOAD_LOCAL = 3
+    STORE_LOCAL = 4
+    NEGATE = 5
+    CALL = 6
+    JUMP = 7
+    JUMP_IF_FALSE = 8
+    RETURN = 9
+    TRACE_EXPRESSION = 10
+
+
+@dataclass(frozen=True, slots=True)
+class PushConstant:
+    """Push one interned constant onto the value stack."""
+
+    constant_id: ConstantId
+    opcode: ClassVar[Opcode] = Opcode.PUSH_CONSTANT
+
+
+@dataclass(frozen=True, slots=True)
+class PushFunction:
+    """Push an immutable function-table reference onto the value stack."""
+
+    function_id: FunctionId
+    opcode: ClassVar[Opcode] = Opcode.PUSH_FUNCTION
+
+
+@dataclass(frozen=True, slots=True)
+class LoadLocal:
+    """Push a value from the active function frame."""
+
+    slot: LocalSlot
+    opcode: ClassVar[Opcode] = Opcode.LOAD_LOCAL
+
+
+@dataclass(frozen=True, slots=True)
+class StoreLocal:
+    """Pop a value from the stack and write it to the active function frame."""
+
+    slot: LocalSlot
+    opcode: ClassVar[Opcode] = Opcode.STORE_LOCAL
+
+
+@dataclass(frozen=True, slots=True)
+class Negate:
+    """Pop an integer and push its exact arithmetic negation."""
+
+    opcode: ClassVar[Opcode] = Opcode.NEGATE
+
+
+@dataclass(frozen=True, slots=True)
+class Call:
+    """Call a stack function value with the following argument count."""
+
+    argument_count: int
+    opcode: ClassVar[Opcode] = Opcode.CALL
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.argument_count, int)
+            or isinstance(self.argument_count, bool)
+            or self.argument_count < 0
+        ):
+            raise ValueError("call argument count must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class Jump:
+    """Transfer control unconditionally to an instruction index."""
+
+    target: InstructionIndex
+    opcode: ClassVar[Opcode] = Opcode.JUMP
+
+
+@dataclass(frozen=True, slots=True)
+class JumpIfFalse:
+    """Pop a boolean and branch when its value is false."""
+
+    target: InstructionIndex
+    opcode: ClassVar[Opcode] = Opcode.JUMP_IF_FALSE
+
+
+@dataclass(frozen=True, slots=True)
+class Return:
+    """Return the top stack value from the active function frame."""
+
+    opcode: ClassVar[Opcode] = Opcode.RETURN
+
+
+@dataclass(frozen=True, slots=True)
+class TraceExpression:
+    """Retain the current source expression ID for deterministic tracing."""
+
+    expression_id: ExpressionId
+    opcode: ClassVar[Opcode] = Opcode.TRACE_EXPRESSION
+
+
+type BytecodeInstruction = (
+    PushConstant
+    | PushFunction
+    | LoadLocal
+    | StoreLocal
+    | Negate
+    | Call
+    | Jump
+    | JumpIfFalse
+    | Return
+    | TraceExpression
+)
 
 
 type RuntimeConstant = IntegerValue | BooleanValue | UnitValue
