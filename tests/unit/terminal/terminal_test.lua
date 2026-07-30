@@ -52,4 +52,12 @@ return {
       assertions.equal("default", terminal.rendition.foreground)
     end,
   },
+  {
+    name = "terminal owns bounded primary-screen scrollback",
+    run = function()
+      local terminal = assert(Terminal.new({ scrollback_limit = 2 }))
+      assertions.equal(2, terminal.scrollback.limit)
+      assertions.equal(0, terminal.scrollback.count)
+    end,
+  },
 }

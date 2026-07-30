@@ -15,6 +15,7 @@ return {
         "terminal.rendition",
         "terminal.row",
         "terminal.screen",
+        "terminal.scrollback",
         "terminal.terminal",
         "backend.interface",
         "recording.reader",

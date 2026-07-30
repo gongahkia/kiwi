@@ -44,6 +44,20 @@ return {
     end,
   },
   {
+    name = "row copy preserves semantics without damage",
+    run = function()
+      local row = assert(Row.new(1))
+      assert(row:replace(1, assert(Cell.new({ text = "a" }))))
+      row.wrapped = true
+      local copy = assert(Row.copy(row))
+      row.cells[1].text = "b"
+      assertions.equal("a", copy.cells[1].text)
+      assertions.equal(row.revision, copy.revision)
+      assertions.truthy(copy.wrapped)
+      assertions.falsy(copy:dirty_range())
+    end,
+  },
+  {
     name = "row rejects invalid widths columns and cells",
     run = function()
       local row, row_error = Row.new()
@@ -61,6 +75,10 @@ return {
       local replaced, replace_error = row:replace(1, { text = false })
       assertions.falsy(replaced)
       assertions.equal("config_error", replace_error.kind)
+
+      local copy, copy_error = Row.copy({ cells = {}, columns = 1, revision = 0, wrapped = false })
+      assertions.falsy(copy)
+      assertions.equal("config_error", copy_error.kind)
     end,
   },
 }
