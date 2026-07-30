@@ -5,12 +5,17 @@ local null = {}
 
 Metadata.null = null
 Metadata.contract = {
+  decode = "decode(canonical_json_bytes) -> metadata | nil, error",
   encode = "encode(metadata) -> canonical_json_bytes | nil, error",
   null = "null sentinel for canonical JSON null",
 }
 
 local function config_error(message, detail)
   return nil, Errors.new("config_error", message, detail)
+end
+
+local function corrupt_error(message, detail)
+  return nil, Errors.new("recording_corrupt", message, detail)
 end
 
 local function continuation(byte)
@@ -170,6 +175,186 @@ function Metadata.encode(metadata)
     return config_error("metadata must be an object")
   end
   return encode_value(metadata, {}, 0)
+end
+
+local parse_value
+
+local function parse_string(bytes, index)
+  local decoded = {}
+  while index <= #bytes do
+    local byte = bytes:byte(index)
+    if byte == string.byte('"') then
+      local value = table.concat(decoded)
+      if not valid_utf8(value) then
+        return corrupt_error("metadata string is not valid UTF-8")
+      end
+      return value, index + 1
+    end
+    if byte < 0x20 then
+      return corrupt_error("metadata string contains an unescaped control byte")
+    end
+    if byte ~= string.byte("\\") then
+      decoded[#decoded + 1] = string.char(byte)
+      index = index + 1
+    else
+      local escaped = bytes:byte(index + 1)
+      if escaped == nil then
+        return corrupt_error("metadata string escape is truncated")
+      end
+      if escaped == string.byte('"') or escaped == string.byte("\\") then
+        decoded[#decoded + 1] = string.char(escaped)
+        index = index + 2
+      elseif escaped == string.byte("b") then
+        decoded[#decoded + 1] = "\8"
+        index = index + 2
+      elseif escaped == string.byte("t") then
+        decoded[#decoded + 1] = "\t"
+        index = index + 2
+      elseif escaped == string.byte("n") then
+        decoded[#decoded + 1] = "\n"
+        index = index + 2
+      elseif escaped == string.byte("f") then
+        decoded[#decoded + 1] = "\f"
+        index = index + 2
+      elseif escaped == string.byte("r") then
+        decoded[#decoded + 1] = "\r"
+        index = index + 2
+      elseif escaped == string.byte("u") then
+        local hex = bytes:sub(index + 2, index + 5)
+        if #hex ~= 4 or not hex:match("^00[0-9a-f][0-9a-f]$") then
+          return corrupt_error("metadata unicode escape is not canonical")
+        end
+        local value = tonumber(hex:sub(3), 16)
+        if value > 0x1F then
+          return corrupt_error("metadata unicode escape is outside the control range")
+        end
+        decoded[#decoded + 1] = string.char(value)
+        index = index + 6
+      else
+        return corrupt_error("metadata string escape is invalid")
+      end
+    end
+  end
+  return corrupt_error("metadata string is truncated")
+end
+
+local function parse_number(bytes, index)
+  local start = index
+  if bytes:byte(index) == string.byte("-") then
+    index = index + 1
+  end
+  local first = bytes:byte(index)
+  if first == string.byte("0") then
+    index = index + 1
+    local next_byte = bytes:byte(index)
+    if next_byte ~= nil and next_byte >= string.byte("0") and next_byte <= string.byte("9") then
+      return corrupt_error("metadata numbers must not use leading zeroes")
+    end
+  elseif first ~= nil and first >= string.byte("1") and first <= string.byte("9") then
+    index = index + 1
+    while true do
+      local digit = bytes:byte(index)
+      if digit == nil or digit < string.byte("0") or digit > string.byte("9") then
+        break
+      end
+      index = index + 1
+    end
+  else
+    return corrupt_error("metadata number is invalid")
+  end
+  local value = tonumber(bytes:sub(start, index - 1))
+  if value == nil or value < -0x80000000 or value > 0x7FFFFFFF then
+    return corrupt_error("metadata number is outside the supported range")
+  end
+  return value, index
+end
+
+local function parse_object(bytes, index, depth)
+  if depth >= 16 then
+    return corrupt_error("metadata nesting exceeds the bootstrap limit")
+  end
+  local object = {}
+  index = index + 1
+  if bytes:byte(index) == string.byte("}") then
+    return object, index + 1
+  end
+  while true do
+    if bytes:byte(index) ~= string.byte('"') then
+      return corrupt_error("metadata object key is invalid")
+    end
+    local key
+    key, index = parse_string(bytes, index + 1)
+    if not key then
+      return nil, index
+    end
+    if not key:match("^[A-Za-z][A-Za-z0-9_]*$") then
+      return corrupt_error("metadata object key is outside the bootstrap profile")
+    end
+    if object[key] ~= nil then
+      return corrupt_error("metadata object contains duplicate keys")
+    end
+    if bytes:byte(index) ~= string.byte(":") then
+      return corrupt_error("metadata object is missing a colon")
+    end
+    local value
+    value, index = parse_value(bytes, index + 1, depth + 1)
+    if value == nil then
+      return nil, index
+    end
+    object[key] = value
+    local separator = bytes:byte(index)
+    if separator == string.byte("}") then
+      return object, index + 1
+    end
+    if separator ~= string.byte(",") then
+      return corrupt_error("metadata object is missing a separator")
+    end
+    index = index + 1
+  end
+end
+
+function parse_value(bytes, index, depth)
+  local byte = bytes:byte(index)
+  if byte == string.byte('"') then
+    return parse_string(bytes, index + 1)
+  end
+  if byte == string.byte("{") then
+    return parse_object(bytes, index, depth)
+  end
+  if bytes:sub(index, index + 3) == "true" then
+    return true, index + 4
+  end
+  if bytes:sub(index, index + 4) == "false" then
+    return false, index + 5
+  end
+  if bytes:sub(index, index + 3) == "null" then
+    return null, index + 4
+  end
+  return parse_number(bytes, index)
+end
+
+function Metadata.decode(bytes)
+  if type(bytes) ~= "string" then
+    return config_error("metadata input must be bytes", { provided = bytes })
+  end
+  if bytes:byte(1) ~= string.byte("{") then
+    return corrupt_error("metadata root must be an object")
+  end
+  local metadata, index = parse_object(bytes, 1, 0)
+  if not metadata then
+    return nil, index
+  end
+  if index ~= #bytes + 1 then
+    return corrupt_error("metadata has trailing bytes")
+  end
+  local canonical, canonical_error = Metadata.encode(metadata)
+  if not canonical then
+    return nil, canonical_error
+  end
+  if canonical ~= bytes then
+    return corrupt_error("metadata is not canonical")
+  end
+  return metadata
 end
 
 return Metadata
