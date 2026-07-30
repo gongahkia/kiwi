@@ -591,6 +591,11 @@ Resolve local, module, type, constructor, and standard-library names. Detect:
 - inaccessible exports;
 - invalid constructor use.
 
+The compiler assigns non-negative, typed `DefinitionId` values to top-level
+definitions and `SymbolId` values to resolved lexical bindings. These are
+value identifiers assigned by canonical traversal, never Python object
+identities.
+
 ### 15.4 Type checking
 
 Check:

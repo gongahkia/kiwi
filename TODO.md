@@ -98,7 +98,7 @@ Resolve names and reject invalid programs before execution.
 ### Tasks
 
 - [x] Define type algebra and stable type rendering.
-- [ ] Define symbol and definition IDs independent of Python object identity.
+- [x] Define symbol and definition IDs independent of Python object identity.
 - [ ] Implement lexical environments and name resolution.
 - [ ] Detect unknown names, duplicates, invalid arity, and prohibited shadowing.
 - [ ] Implement type checking for literals, names, application, `let`, and `if`.
