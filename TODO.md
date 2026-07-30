@@ -78,11 +78,11 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 
 ### Exit criteria
 
-- [ ] The same byte stream produces the same digest under arbitrary chunking.
-- [ ] Basic coloured shell-style output renders correctly in state snapshots.
-- [ ] Alternate-screen enter/exit restores the primary screen as documented.
-- [ ] Unsupported sequences are reported and safely ignored.
-- [ ] No parser code depends on LÖVE.
+- [x] The same byte stream produces the same digest under arbitrary chunking.
+- [x] Basic coloured shell-style output renders correctly in state snapshots.
+- [x] Alternate-screen enter/exit restores the primary screen as documented.
+- [x] Unsupported sequences are reported and safely ignored.
+- [x] No parser code depends on LÖVE.
 
 ## Milestone 2 — Recording format and replay backend
 
