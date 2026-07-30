@@ -570,6 +570,80 @@ local function apply_escape(terminal, events, event)
   return true
 end
 
+local known_csi_finals = {
+  [string.byte("@")] = true,
+  [string.byte("A")] = true,
+  [string.byte("B")] = true,
+  [string.byte("C")] = true,
+  [string.byte("D")] = true,
+  [string.byte("E")] = true,
+  [string.byte("F")] = true,
+  [string.byte("G")] = true,
+  [string.byte("H")] = true,
+  [string.byte("J")] = true,
+  [string.byte("K")] = true,
+  [string.byte("L")] = true,
+  [string.byte("M")] = true,
+  [string.byte("P")] = true,
+  [string.byte("S")] = true,
+  [string.byte("T")] = true,
+  [string.byte("X")] = true,
+  [string.byte("d")] = true,
+  [string.byte("f")] = true,
+  [string.byte("m")] = true,
+}
+
+local known_private_modes = {
+  [7] = true,
+  [25] = true,
+  [47] = true,
+  [1047] = true,
+  [1048] = true,
+  [1049] = true,
+}
+
+local function csi_is_supported(event)
+  if event.intermediates ~= "" then
+    return false
+  end
+  if event.parameters:sub(1, 1) == "?" then
+    if event.final ~= string.byte("h") and event.final ~= string.byte("l") then
+      return false
+    end
+    local values = parse_csi_parameters(event.parameters:sub(2))
+    if not values then
+      return false
+    end
+    for _, mode in ipairs(values) do
+      if not known_private_modes[mode] then
+        return false
+      end
+    end
+    return true
+  end
+  return known_csi_finals[event.final] == true
+end
+
+local function report_unsupported(events, event)
+  local report = {
+    kind = "unsupported_sequence",
+    offset = event.offset,
+    sequence_kind = event.kind,
+  }
+  if event.kind == "csi" then
+    report.final = event.final
+    report.intermediates = event.intermediates
+    report.parameters = event.parameters
+  elseif event.kind == "esc" then
+    report.final = event.final
+    report.intermediates = event.intermediates
+  elseif event.kind == "osc" then
+    report.payload = event.payload
+    report.terminator = event.terminator
+  end
+  events[#events + 1] = report
+end
+
 local function apply_csi(terminal, events, event)
   if event.intermediates ~= "" then
     return true
@@ -767,11 +841,30 @@ function terminal_mt:feed_output(bytes)
       if not applied then
         return nil, apply_error
       end
+      if not csi_is_supported(event) then
+        report_unsupported(semantic_events, event)
+      end
     elseif event.kind == "esc" then
       local applied, apply_error = apply_escape(self, semantic_events, event)
       if not applied then
         return nil, apply_error
       end
+      if
+        event.intermediates ~= ""
+        or (event.final ~= string.byte("7") and event.final ~= string.byte("8"))
+      then
+        report_unsupported(semantic_events, event)
+      end
+    elseif event.kind == "osc" then
+      report_unsupported(semantic_events, event)
+    elseif event.kind == "malformed" then
+      semantic_events[#semantic_events + 1] = {
+        byte = event.byte,
+        kind = "malformed_sequence",
+        offset = event.offset,
+        reason = event.reason,
+        state = event.state,
+      }
     end
   end
   return semantic_events

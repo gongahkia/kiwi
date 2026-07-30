@@ -64,7 +64,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Implement UTF-8 decoding with replacement behaviour for malformed sequences.
 - [x] Implement the first CSI movement, erase, scroll, and SGR subset.
 - [x] Implement DEC save/restore cursor and mode changes required for alternate screen operation.
-- [ ] Implement unknown-sequence reporting without state corruption.
+- [x] Implement unknown-sequence reporting without state corruption.
 - [ ] Emit structured parser/debug events.
 
 ### Tests
