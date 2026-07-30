@@ -698,6 +698,10 @@ Closed value algebra:
 
 Runtime values have deterministic equality, hashing where permitted, serialisation rules, and allocation costs.
 
+Milestone 3 starts with a closed immutable algebra of exact integer, boolean,
+unit, and `FunctionId` reference values. A function value is only an index into
+the module function table; it never contains a Python callable or code object.
+
 ## 18. VM budgets
 
 Per invocation budgets include:

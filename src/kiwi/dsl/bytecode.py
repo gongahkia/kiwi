@@ -12,6 +12,17 @@ BYTECODE_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
+class FunctionId:
+    """The canonical index of one bytecode function."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
+            raise ValueError("function ID must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
 class BytecodeHeader:
     """Compatibility metadata required by every compiled bytecode module."""
 
