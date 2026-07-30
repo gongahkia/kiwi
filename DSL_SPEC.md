@@ -548,6 +548,8 @@ The filesystem loader reads at most 1,048,576 bytes, decodes strict UTF-8, and r
 
 Invalid characters and unterminated literals produce recoverable diagnostics where possible.
 
+Milestone 1 integer literals are limited to 1,024 decimal digits. The lexer reports and skips longer literals so a bounded source file cannot create an unbounded host-integer allocation.
+
 ### 15.2 Parsing
 
 Use a hand-written recursive-descent or Pratt parser with explicit precedence. Avoid a parser-generator dependency unless demonstrated to improve diagnostics and maintenance.
