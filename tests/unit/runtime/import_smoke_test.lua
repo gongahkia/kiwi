@@ -11,6 +11,7 @@ return {
         "runtime.event",
         "terminal.cell",
         "terminal.config",
+        "terminal.row",
         "terminal.terminal",
         "backend.interface",
         "recording.reader",
