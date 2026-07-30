@@ -57,7 +57,7 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 
 ### Tasks
 
-- [ ] Define source file IDs, offsets, line index, positions, and spans.
+- [x] Define source file IDs, offsets, line index, positions, and spans.
 - [ ] Define token kinds and immutable token values.
 - [ ] Implement UTF-8 source loading with size limits.
 - [ ] Implement lexer with comments, keywords, identifiers, punctuation, integers, booleans, and diagnostics.
