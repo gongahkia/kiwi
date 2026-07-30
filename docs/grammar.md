@@ -39,8 +39,8 @@ emits `inconsistent_indentation`.
 The punctuation tokens are `(`, `)`, `[`, `]`, `{`, `}`, `,`, `.`, `=`,
 `->`, and `|>`. The operator tokens are `<`, `<=`, `==`, `!=`, `>=`, `>`,
 `+`, `-`, `*`, and `/`. An unknown byte, unterminated string, invalid escape,
-or malformed quantity produces one structured lexical diagnostic and consumes
-at least one byte.
+or malformed quantity or number produces one structured lexical diagnostic and
+consumes at least one byte.
 
 ## Layout
 

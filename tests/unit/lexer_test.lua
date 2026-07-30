@@ -48,6 +48,19 @@ local function register(test)
     test.equals(tokens[15].span.end_byte, #source)
   end)
 
+  test.case("lexer accepts zero-valued integer and float quantities", function()
+    local tokens, diagnostics = lexer.lex("act = [0ms, 0.5m, 30deg]")
+
+    test.equals(#diagnostics, 0)
+    test.equals(
+      token_kinds(tokens),
+      "LOWER_IDENTIFIER,EQUAL,LEFT_BRACKET,QUANTITY,COMMA,QUANTITY,COMMA,QUANTITY,RIGHT_BRACKET,EOF"
+    )
+    test.equals(tokens[4].unit, "ms")
+    test.equals(tokens[6].unit, "m")
+    test.equals(tokens[8].unit, "deg")
+  end)
+
   test.case("lexer ignores comments and blank lines for layout", function()
     local source = "act =\n  -- comment\n\n  Wait 5ms\n"
     local tokens, diagnostics = lexer.lex(source)
@@ -60,7 +73,7 @@ local function register(test)
   end)
 
   test.case("lexer reports malformed source without throwing", function()
-    local source = "\tact = \"bad\\q\"\r5s @"
+    local source = '\tact = "bad\\q"\r5s @'
     local ok, tokens, diagnostics = pcall(lexer.lex, source)
 
     test.truthy(ok)
@@ -85,7 +98,7 @@ local function register(test)
       "\255\254",
       "-- comment",
       "{ x = [Some 1, None] }",
-      "if true then \"ok\" else \"no\"",
+      'if true then "ok" else "no"',
       "case x of\n  _ -> x",
     }
 

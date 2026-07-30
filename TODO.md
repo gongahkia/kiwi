@@ -56,7 +56,7 @@ Parse and display a minimal player-facing functional language.
 ### Tasks
 
 - [x] Define grammar in `docs/grammar.md` or parser comments.
-- [ ] Implement lexer with exact source spans.
+- [x] Implement lexer with exact source spans.
 - [ ] Implement parser with recoverable diagnostics.
 - [ ] Define immutable AST representation.
 - [ ] Implement AST pretty-printer.
