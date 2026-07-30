@@ -10,6 +10,7 @@ RecordingReader.contract = {
   constructor = "new(source, limits?) -> reader | nil, error",
   read_next = "read_next() -> frame | nil, error?",
   metadata = "metadata() -> table | nil, error?",
+  version = "version() -> version | nil, error?",
   close = "close() -> true | nil, error",
 }
 
@@ -90,6 +91,10 @@ local function initialize(reader)
   if not preamble then
     return fail(reader, decode_error)
   end
+  local version, version_error = Format.negotiate_version(preamble)
+  if not version then
+    return fail(reader, version_error)
+  end
   local valid, validation_error = Format.validate_preamble(preamble, reader.limits)
   if not valid then
     return fail(reader, validation_error)
@@ -111,6 +116,7 @@ local function initialize(reader)
   reader.initialized = true
   reader.metadata_value = metadata
   reader.preamble = preamble
+  reader.version_info = version
   return true
 end
 
@@ -182,6 +188,21 @@ function reader_mt:metadata()
     return nil, initialize_error
   end
   return self.metadata_value
+end
+
+function reader_mt:version()
+  if self.closed then
+    return nil, Errors.new("recording_io_error", "recording reader is closed")
+  end
+  local initialized, initialize_error = initialize(self)
+  if not initialized then
+    return nil, initialize_error
+  end
+  return {
+    major_version = self.version_info.major_version,
+    reader_minor_version = self.version_info.reader_minor_version,
+    recording_minor_version = self.version_info.recording_minor_version,
+  }
 end
 
 function reader_mt:close()

@@ -32,6 +32,7 @@ Format.contract = {
   encode_frame_header = "encode_frame_header(frame) -> bytes | nil, error",
   encode_preamble = "encode_preamble(preamble) -> bytes | nil, error",
   frame_checksum_bytes = "frame_checksum_bytes(frame) -> bytes | nil, error",
+  negotiate_version = "negotiate_version(preamble) -> version | nil, error",
   normalise_limits = "normalise_limits(limits?) -> normalised_limits | nil, error",
   validate_frame_header = "validate_frame_header(frame_header, limits?) -> true | nil, error",
   validate_preamble = "validate_preamble(preamble, limits?) -> true | nil, error",
@@ -129,6 +130,36 @@ local function current_frame(header)
     return nil, Errors.new("recording_corrupt", "bootstrap frame reserved field must be zero")
   end
   return true
+end
+
+function Format.negotiate_version(preamble)
+  if type(preamble) ~= "table" then
+    return config_error("recording preamble must be a table")
+  end
+  local major_version, major_error =
+    required_unsigned(preamble.major_version, "major version", 0xFFFF)
+  if not major_version then
+    return nil, major_error
+  end
+  local minor_version, minor_error =
+    required_unsigned(preamble.minor_version, "minor version", 0xFFFF)
+  if not minor_version then
+    return nil, minor_error
+  end
+  if major_version ~= Format.current_major_version then
+    return nil,
+      Errors.new("recording_unsupported_version", "recording major version is unsupported", {
+        supported_major_version = Format.current_major_version,
+        supported_minor_version = Format.current_minor_version,
+        provided_major_version = major_version,
+        provided_minor_version = minor_version,
+      })
+  end
+  return {
+    major_version = major_version,
+    reader_minor_version = Format.current_minor_version,
+    recording_minor_version = minor_version,
+  }
 end
 
 function Format.validate_preamble(preamble, limits)
