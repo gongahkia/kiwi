@@ -696,6 +696,10 @@ corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
 `B010_INCONSISTENT_STACK_HEIGHT` for structural, operand, and reachable
 control-flow rejection.
 
+The headless disassembler renders header versions, pool and table entries, then
+function instructions in function-table and instruction-index order. It is a
+stable inspection format, not the bytecode encoding.
+
 ## 17. Runtime values
 
 Closed value algebra:
