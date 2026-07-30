@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from kiwi.dsl.bytecode import (
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
     BytecodeModule,
+    BytecodeSourceMap,
     Call,
     ConstantPoolBuilder,
     InstructionIndex,
+    InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
     LoadLocal,
@@ -19,6 +23,7 @@ from kiwi.dsl.bytecode import (
     PushFunction,
     Return,
     StoreLocal,
+    TraceExpression,
     canonical_function_table,
 )
 from kiwi.dsl.core_ir import (
@@ -33,8 +38,9 @@ from kiwi.dsl.core_ir import (
     CoreNegate,
     CoreReference,
 )
-from kiwi.dsl.ids import DefinitionId, FunctionId, SymbolId
+from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId, SymbolId
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue
+from kiwi.dsl.source import SourceSpan
 
 
 def compile_core(module: CoreModule, header: BytecodeHeader) -> BytecodeModule:
@@ -50,14 +56,24 @@ def compile_core(module: CoreModule, header: BytecodeHeader) -> BytecodeModule:
         )
         for entry in function_table.entries
     )
-    functions = tuple(
+    compiled_functions = tuple(
         _FunctionCompiler(constants, global_functions).compile(
             _definition_for_id(module.definitions, entry.definition_id),
             entry.function_id,
         )
         for entry in function_table.entries
     )
-    return BytecodeModule(header, constants.freeze(), function_table, functions)
+    functions = tuple(compiled.function for compiled in compiled_functions)
+    source_map = BytecodeSourceMap(
+        tuple(entry for compiled in compiled_functions for entry in compiled.source_map_entries)
+    )
+    return BytecodeModule(header, constants.freeze(), function_table, functions, source_map)
+
+
+@dataclass(frozen=True, slots=True)
+class _CompiledFunction:
+    function: BytecodeFunction
+    source_map_entries: tuple[InstructionSourceMapEntry, ...]
 
 
 class _FunctionCompiler:
@@ -69,16 +85,17 @@ class _FunctionCompiler:
         self._constants = constants
         self._global_functions = global_functions
         self._instructions: list[BytecodeInstruction] = []
+        self._origins: list[tuple[ExpressionId, SourceSpan]] = []
         self._locals: list[tuple[SymbolId, LocalSlot]] = []
         self._next_slot = 0
 
-    def compile(self, definition: CoreDefinition, function_id: FunctionId) -> BytecodeFunction:
+    def compile(self, definition: CoreDefinition, function_id: FunctionId) -> _CompiledFunction:
         for parameter in definition.parameters:
             self._locals.append((parameter.symbol_id, LocalSlot(self._next_slot)))
             self._next_slot += 1
         self._compile_expression(definition.body)
-        self._instructions.append(Return())
-        return BytecodeFunction(
+        self._emit(Return(), definition.body)
+        function = BytecodeFunction(
             function_id,
             definition.definition_id,
             definition.name,
@@ -87,52 +104,63 @@ class _FunctionCompiler:
             definition.return_type,
             tuple(self._instructions),
         )
+        return _CompiledFunction(
+            function,
+            tuple(
+                InstructionSourceMapEntry(function_id, InstructionIndex(index), expression_id, span)
+                for index, (expression_id, span) in enumerate(self._origins)
+            ),
+        )
 
     def _compile_expression(self, expression: CoreExpression) -> None:
+        self._emit(TraceExpression(expression.expression_id), expression)
         if isinstance(expression, CoreInteger):
-            self._instructions.append(
-                PushConstant(self._constants.intern(IntegerValue(expression.value)))
+            self._emit(
+                PushConstant(self._constants.intern(IntegerValue(expression.value))),
+                expression,
             )
             return
         if isinstance(expression, CoreBoolean):
-            self._instructions.append(
-                PushConstant(self._constants.intern(BooleanValue(expression.value)))
+            self._emit(
+                PushConstant(self._constants.intern(BooleanValue(expression.value))),
+                expression,
             )
             return
         if isinstance(expression, CoreReference):
             slot = _slot_for(self._locals, expression.symbol_id)
             if slot is not None:
-                self._instructions.append(LoadLocal(slot))
+                self._emit(LoadLocal(slot), expression)
                 return
-            self._instructions.append(
-                PushFunction(_function_for(self._global_functions, expression.symbol_id))
+            self._emit(
+                PushFunction(_function_for(self._global_functions, expression.symbol_id)),
+                expression,
             )
             return
         if isinstance(expression, CoreNegate):
             self._compile_expression(expression.operand)
-            self._instructions.append(Negate())
+            self._emit(Negate(), expression)
             return
         if isinstance(expression, CoreCall):
             self._compile_expression(expression.callee)
             for argument in expression.arguments:
                 self._compile_expression(argument)
-            self._instructions.append(Call(len(expression.arguments)))
+            self._emit(Call(len(expression.arguments)), expression)
             return
         if isinstance(expression, CoreLet):
             slot = LocalSlot(self._next_slot)
             self._next_slot += 1
             self._locals.append((expression.symbol_id, slot))
             self._compile_expression(expression.value)
-            self._instructions.append(StoreLocal(slot))
+            self._emit(StoreLocal(slot), expression)
             self._compile_expression(expression.body)
             return
         if isinstance(expression, CoreIf):
             self._compile_expression(expression.condition)
             branch_index = len(self._instructions)
-            self._instructions.append(JumpIfFalse(InstructionIndex(0)))
+            self._emit(JumpIfFalse(InstructionIndex(0)), expression)
             self._compile_expression(expression.then_branch)
             end_jump_index = len(self._instructions)
-            self._instructions.append(Jump(InstructionIndex(0)))
+            self._emit(Jump(InstructionIndex(0)), expression)
             else_start = InstructionIndex(len(self._instructions))
             self._instructions[branch_index] = JumpIfFalse(else_start)
             self._compile_expression(expression.else_branch)
@@ -140,6 +168,10 @@ class _FunctionCompiler:
             self._instructions[end_jump_index] = Jump(end)
             return
         raise TypeError(f"unsupported core expression: {type(expression).__name__}")
+
+    def _emit(self, instruction: BytecodeInstruction, expression: CoreExpression) -> None:
+        self._instructions.append(instruction)
+        self._origins.append((expression.expression_id, expression.span))
 
 
 def _definition_for_id(

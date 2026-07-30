@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from kiwi.dsl.bytecode import BytecodeHeader, BytecodeModule, Return
+from kiwi.dsl.bytecode import (
+    BytecodeHeader,
+    BytecodeModule,
+    BytecodeSourceMap,
+    InstructionIndex,
+    InstructionSourceMapEntry,
+    Return,
+)
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import compile_core
 from kiwi.dsl.ids import FunctionId
@@ -82,7 +89,9 @@ def test_vm_rejects_invalid_bytecode_without_executing_it() -> None:
     source = SourceFile(SourceFileId("invalid-vm.dtr"), "fn value() -> Int = 1")
     compiled = _compiled(source)
     invalid = replace(
-        compiled, functions=(replace(compiled.functions[0], instructions=(Return(),)),)
+        compiled,
+        functions=(replace(compiled.functions[0], instructions=(Return(),)),),
+        source_map=_source_map_for(compiled, 1),
     )
 
     result = run_vm(invalid, FunctionId(0), ())
@@ -97,3 +106,19 @@ def _compiled(source: SourceFile) -> BytecodeModule:
     checked = check(resolve(parse(lex(source)).module))
     assert checked.module is not None
     return compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
+
+
+def _source_map_for(compiled: BytecodeModule, instruction_count: int) -> BytecodeSourceMap:
+    function = compiled.functions[0]
+    origin = compiled.source_map.entries[0]
+    return BytecodeSourceMap(
+        tuple(
+            InstructionSourceMapEntry(
+                function.function_id,
+                InstructionIndex(index),
+                origin.expression_id,
+                origin.span,
+            )
+            for index in range(instruction_count)
+        )
+    )

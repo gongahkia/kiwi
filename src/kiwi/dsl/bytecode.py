@@ -10,7 +10,7 @@ from typing import ClassVar
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, UnitValue
-from kiwi.dsl.source import SourceFileId
+from kiwi.dsl.source import SourceFileId, SourceSpan
 from kiwi.dsl.types import DslType
 
 SOURCE_LANGUAGE_VERSION = 1
@@ -270,6 +270,34 @@ class BytecodeFunction:
 
 
 @dataclass(frozen=True, slots=True)
+class InstructionSourceMapEntry:
+    """One bytecode instruction's source expression and span provenance."""
+
+    function_id: FunctionId
+    instruction_index: InstructionIndex
+    expression_id: ExpressionId
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class BytecodeSourceMap:
+    """Canonical instruction-to-expression source provenance for one module."""
+
+    entries: tuple[InstructionSourceMapEntry, ...]
+
+    def entry_for(
+        self,
+        function_id: FunctionId,
+        instruction_index: InstructionIndex,
+    ) -> InstructionSourceMapEntry:
+        """Return the source provenance for one valid bytecode instruction."""
+        for entry in self.entries:
+            if entry.function_id == function_id and entry.instruction_index == instruction_index:
+                return entry
+        raise ValueError("bytecode instruction has no source-map entry")
+
+
+@dataclass(frozen=True, slots=True)
 class BytecodeModule:
     """A compiled module before byte-level encoding is introduced."""
 
@@ -277,12 +305,27 @@ class BytecodeModule:
     constants: ConstantPool
     function_table: FunctionTable
     functions: tuple[BytecodeFunction, ...]
+    source_map: BytecodeSourceMap
 
     def __post_init__(self) -> None:
         table_ids = tuple(entry.function_id for entry in self.function_table.entries)
         function_ids = tuple(function.function_id for function in self.functions)
         if function_ids != table_ids:
             raise ValueError("bytecode functions must match function-table order")
+        expected_locations = tuple(
+            (function.function_id, InstructionIndex(index))
+            for function in self.functions
+            for index, _ in enumerate(function.instructions)
+        )
+        actual_locations = tuple(
+            (entry.function_id, entry.instruction_index) for entry in self.source_map.entries
+        )
+        if actual_locations != expected_locations:
+            raise ValueError("bytecode source map must cover instructions in canonical order")
+        if any(
+            entry.span.file_id != self.header.source_file_id for entry in self.source_map.entries
+        ):
+            raise ValueError("bytecode source map spans must match header source file")
 
 
 def canonical_function_table(definitions: Sequence[CoreDefinition]) -> FunctionTable:
