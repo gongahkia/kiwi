@@ -27,6 +27,18 @@ Long timing gaps use clock-advance frames.
 
 The exact checkpoint payload schema is deferred to a separate ADR because it serialises substantial terminal state.
 
+### Bootstrap wire details
+
+The bootstrap format fixes the following byte-level details:
+
+- the magic is the exact nine-byte sequence `STANCZYK\x00`;
+- all unsigned integers use big-endian byte order;
+- writers emit version `1.0` with preamble and frame flags and reserved fields set to zero;
+- metadata checksums use CRC-32/ISO-HDLC over the metadata bytes;
+- frame checksums use CRC-32/ISO-HDLC over `flags`, `reserved`, `delta_us`, `payload_length`, and the raw payload, excluding `kind` and the checksum field itself.
+
+CRC-32/ISO-HDLC uses reflected input and output, initial value `0xFFFFFFFF`, reflected polynomial `0xEDB88320`, and final XOR `0xFFFFFFFF`.
+
 ## Consequences
 
 Positive:
