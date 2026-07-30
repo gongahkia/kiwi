@@ -556,6 +556,23 @@ Milestone 1 integer literals are limited to 1,024 decimal digits. The lexer repo
 
 Use a hand-written recursive-descent or Pratt parser with explicit precedence. Avoid a parser-generator dependency unless demonstrated to improve diagnostics and maintenance.
 
+The Milestone 1 recursive-descent grammar is:
+
+```text
+module      := declaration* EOF
+declaration := ("policy" | "fn") identifier "(" parameters? ")" "->" type "=" expression
+parameters  := parameter ("," parameter)*
+parameter   := identifier ":" type
+type        := identifier
+expression  := let | conditional | application
+let         := "let" identifier "=" expression "in" expression
+conditional := "if" expression "then" expression "else" expression
+application := unary ("(" arguments? ")")*
+arguments   := expression ("," expression)*
+unary       := "-" unary | primary
+primary     := integer | boolean | identifier | "(" expression ")"
+```
+
 Parser output is immutable surface AST. Error recovery should support multiple diagnostics per compile without fabricating misleading trees.
 
 ### 15.3 Name resolution
