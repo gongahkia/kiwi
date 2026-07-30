@@ -1,0 +1,25 @@
+local id_allocator = require("src.util.id_allocator")
+
+return function(test)
+  test.case("id allocator emits stable sequential integers", function()
+    local allocator, err = id_allocator.new(41)
+    test.equals(err, nil)
+    test.equals(allocator:next(), 41)
+    test.equals(allocator:next(), 42)
+    test.equals(allocator:peek(), 43)
+  end)
+
+  test.case("id allocator reports exhaustion", function()
+    local allocator = assert(id_allocator.new(id_allocator.MAX_SAFE_INTEGER))
+    test.equals(allocator:next(), id_allocator.MAX_SAFE_INTEGER)
+    local id, err = allocator:next()
+    test.equals(id, nil)
+    test.error_code(err, "id_exhausted")
+  end)
+
+  test.case("id allocator rejects fractional starts", function()
+    local allocator, err = id_allocator.new(1.5)
+    test.equals(allocator, nil)
+    test.error_code(err, "invalid_start")
+  end)
+end
