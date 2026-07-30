@@ -39,7 +39,7 @@ Goal: establish a plain-Lua core that can be tested without a running LÖVE appl
 - [x] A clean checkout can run tests using documented commands.
 - [x] Core modules load under plain LuaJIT.
 - [x] The LÖVE app opens a blank terminal viewport without runtime errors.
-- [ ] CI passes on the initial skeleton.
+- Deferred by user request: CI passes on the initial skeleton; verify after all implementation tasks.
 
 ## Milestone 1 — Terminal model and parser foundation
 
@@ -374,3 +374,7 @@ These are deliberately unordered and must not distract from v0.1:
 - [ ] Stable renderer package format.
 - [ ] SSH or remote backend adapters.
 - [ ] Accessibility programme.
+
+## Deferred external verification
+
+- [ ] CI passes on the initial skeleton.
