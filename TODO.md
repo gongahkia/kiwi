@@ -141,7 +141,7 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 - [x] Add source mapping from instructions and expressions to spans.
 - [x] Add bytecode encode/decode format without pickle.
 - [x] Add VM unit, golden, and safety tests.
-- [ ] Add CLI `compile`, `disassemble`, and `run-policy` commands.
+- [x] Add CLI `compile`, `disassemble`, and `run-policy` commands.
 
 ### Exit criteria
 
