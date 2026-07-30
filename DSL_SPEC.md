@@ -702,6 +702,40 @@ corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
 `B011_RETURN_STACK_HEIGHT` for structural, operand, and reachable
 control-flow rejection.
 
+### 16.1 Canonical byte encoding
+
+`encode_bytecode` serialises validator-clean modules as bounded binary bytes;
+`decode_bytecode` returns either a validated module or a structured `C001`
+through `C010` decode failure without execution. Version 1 begins with the
+seven-byte format identifier `KWI-BC\0`, then a one-byte encoding version
+(`1`). Unsigned fields are four-byte big-endian integers. UTF-8 text is a
+length-prefixed byte sequence. The header, constants, function table,
+functions, instructions, and source-map entries follow in that order; each
+collection has an explicit count. The header is source-file ID, source-language
+version, core-IR version, and bytecode version. A function-table entry is
+function ID, definition ID, name, and arity; a function additionally contains
+local-slot count, return type, and ordered instructions.
+
+Integer constants use a sign byte (`0` non-negative, `1` negative), a
+four-byte magnitude length, and a minimal unsigned big-endian magnitude. Zero
+has an empty, non-negative magnitude; leading zero magnitude bytes are
+invalid. Constant, type, and instruction tags are fixed numeric tags. Source
+map entries store function ID, instruction index, expression ID, start offset,
+and end offset; their file ID is the header source file ID.
+
+Constant tags are integer `1`, boolean `2`, and unit `3`. Type tags are `Int`
+`1`, `Bool` `2`, `Unit` `3`, named `4`, and function `5`; function types encode
+their parameter count, parameters, then return type. Instruction tags are the
+numeric `Opcode` values in section 16; operands are their unsigned fields in
+instruction order. Instructions without an operand have no following field.
+
+The decoder accepts at most 16 MiB, 65,536 entries per collection, 65,536
+UTF-8 bytes per text value, 512 integer-magnitude bytes, and 64 nested type
+levels. It rejects unknown tags, non-canonical integers, invalid UTF-8,
+truncation, trailing bytes, invalid module structure, and validator-rejected
+bytecode. `pickle`, `marshal`, and Python object serialisation are not part of
+this format.
+
 The headless disassembler renders header versions, pool and table entries, then
 function instructions in function-table and instruction-index order. It is a
 stable inspection format, not the bytecode encoding.
