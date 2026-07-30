@@ -98,6 +98,15 @@ def test_vm_budgets_and_fallback_are_deterministic() -> None:
     assert depth_fault.fault.code is VMFaultCode.CALL_DEPTH_BUDGET
     assert fallback.value == IntegerValue(0)
     assert fallback.fault == instruction_fault.fault
+    assert (
+        run_vm(
+            compiled,
+            FunctionId(1),
+            (BooleanValue(True),),
+            VMBudgets(instruction_limit=2),
+        )
+        == instruction_fault
+    )
 
 
 def test_vm_enforces_stack_budget_and_rejects_host_values() -> None:
