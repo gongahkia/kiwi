@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from kiwi.dsl.bytecode import (
     BytecodeHeader,
     BytecodeModule,
@@ -18,7 +20,7 @@ from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue
-from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.vm import VMBudgets, VMFaultCode, run_vm, run_vm_with_fallback
 
 
@@ -77,12 +79,59 @@ def test_vm_budgets_and_fallback_are_deterministic() -> None:
 
     assert instruction_fault.fault is not None
     assert instruction_fault.fault.code is VMFaultCode.INSTRUCTION_BUDGET
+    assert instruction_fault.fault.instruction_index == 2
+    assert instruction_fault.fault.source_map_entry == compiled.source_map.entry_for(
+        FunctionId(1),
+        InstructionIndex(2),
+    )
+    assert instruction_fault.fault.source_map_entry.span == source.span(
+        ByteOffset(source.text.index("flag then")),
+        ByteOffset(source.text.index("flag then") + len("flag")),
+    )
     assert allocation_fault.fault is not None
     assert allocation_fault.fault.code is VMFaultCode.ALLOCATION_BUDGET
+    assert allocation_fault.fault.source_map_entry == compiled.source_map.entry_for(
+        FunctionId(1),
+        InstructionIndex(6),
+    )
     assert depth_fault.fault is not None
     assert depth_fault.fault.code is VMFaultCode.CALL_DEPTH_BUDGET
     assert fallback.value == IntegerValue(0)
     assert fallback.fault == instruction_fault.fault
+
+
+def test_vm_enforces_stack_budget_and_rejects_host_values() -> None:
+    source = SourceFile(SourceFileId("safety-vm.dtr"), "policy value(x: Int) -> Int = x")
+    compiled = _compiled(source)
+
+    stack_fault = run_vm(
+        compiled,
+        FunctionId(0),
+        (IntegerValue(1),),
+        VMBudgets(stack_limit=0),
+    )
+    host_value = run_vm(compiled, FunctionId(0), (object(),))  # type: ignore[arg-type]
+
+    assert stack_fault.fault is not None
+    assert stack_fault.fault.code is VMFaultCode.STACK_BUDGET
+    assert stack_fault.fault.source_map_entry == compiled.source_map.entry_for(
+        FunctionId(0),
+        InstructionIndex(1),
+    )
+    assert host_value.value is None
+    assert host_value.fault is not None
+    assert host_value.fault.code is VMFaultCode.ENTRY
+
+
+def test_vm_budget_configuration_rejects_invalid_limits() -> None:
+    with pytest.raises(ValueError, match="instruction limit"):
+        VMBudgets(instruction_limit=-1)
+    with pytest.raises(ValueError, match="stack limit"):
+        VMBudgets(stack_limit=True)
+    with pytest.raises(ValueError, match="call depth"):
+        VMBudgets(call_depth_limit=0)
+    with pytest.raises(ValueError, match="allocation limit"):
+        VMBudgets(allocation_limit=-1)
 
 
 def test_vm_rejects_invalid_bytecode_without_executing_it() -> None:

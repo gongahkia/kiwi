@@ -140,7 +140,7 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 - [x] Implement deterministic fallback result for policy faults.
 - [x] Add source mapping from instructions and expressions to spans.
 - [x] Add bytecode encode/decode format without pickle.
-- [ ] Add VM unit, golden, and safety tests.
+- [x] Add VM unit, golden, and safety tests.
 - [ ] Add CLI `compile`, `disassemble`, and `run-policy` commands.
 
 ### Exit criteria
