@@ -357,6 +357,8 @@ The renderer should receive either:
 
 Do not deep-copy the full grid every frame.
 
+The bootstrap `renderer.snapshot.from_terminal` adapter creates one wrapper around the active screen’s live rows, cursor, and modes; it does not copy rows or cells. The renderer reads it synchronously before the next terminal mutation.
+
 The chosen ownership model must be documented when implemented. A simple single-threaded read phase after update is acceptable for v0.1.
 
 ## 10. Concurrency
