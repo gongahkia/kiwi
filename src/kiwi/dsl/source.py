@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+
+DEFAULT_MAX_SOURCE_BYTES = 1_048_576
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -39,6 +43,23 @@ class SourcePosition:
     def __post_init__(self) -> None:
         if self.line < 1 or self.column < 1:
             raise ValueError("source position line and column must be positive")
+
+
+class SourceLoadErrorCode(StrEnum):
+    """Stable source-loader failures before lexing begins."""
+
+    READ_FAILED = "S001_READ_FAILED"
+    TOO_LARGE = "S002_TOO_LARGE"
+    INVALID_UTF8 = "S003_INVALID_UTF8"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceLoadFailure:
+    """A structured failure to create a source file from a filesystem boundary."""
+
+    code: SourceLoadErrorCode
+    file_id: SourceFileId
+    message: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,3 +157,41 @@ class SourceFile:
         if span.file_id != self.file_id:
             raise ValueError("source span belongs to a different source file")
         return (self.position_of(span.start), self.position_of(span.end))
+
+
+type SourceLoadResult = SourceFile | SourceLoadFailure
+
+
+def load_utf8_file(
+    path: Path,
+    *,
+    file_id: SourceFileId,
+    max_bytes: int = DEFAULT_MAX_SOURCE_BYTES,
+) -> SourceLoadResult:
+    """Load one bounded UTF-8 source file at the compiler's filesystem boundary."""
+    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
+        raise ValueError("source byte limit must be a non-negative integer")
+    try:
+        with path.open("rb") as source_file:
+            source_bytes = source_file.read(max_bytes + 1)
+    except OSError:
+        return SourceLoadFailure(
+            SourceLoadErrorCode.READ_FAILED,
+            file_id,
+            "could not read source",
+        )
+    if len(source_bytes) > max_bytes:
+        return SourceLoadFailure(
+            SourceLoadErrorCode.TOO_LARGE,
+            file_id,
+            "source exceeds the configured byte limit",
+        )
+    try:
+        text = source_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return SourceLoadFailure(
+            SourceLoadErrorCode.INVALID_UTF8,
+            file_id,
+            "source is not valid UTF-8",
+        )
+    return SourceFile(file_id, text)

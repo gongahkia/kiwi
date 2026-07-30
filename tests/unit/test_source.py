@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from kiwi.dsl.source import (
@@ -7,8 +9,11 @@ from kiwi.dsl.source import (
     LineIndex,
     SourceFile,
     SourceFileId,
+    SourceLoadErrorCode,
+    SourceLoadFailure,
     SourcePosition,
     SourceSpan,
+    load_utf8_file,
 )
 
 
@@ -75,3 +80,49 @@ def test_source_file_rejects_spans_from_another_file() -> None:
 
     with pytest.raises(ValueError, match="different source file"):
         first.positions_of(second.span(ByteOffset(0), ByteOffset(1)))
+
+
+def test_load_utf8_file_returns_source_file_at_the_filesystem_boundary(tmp_path: Path) -> None:
+    path = tmp_path / "policy.dtr"
+    path.write_bytes("é".encode())
+
+    loaded = load_utf8_file(path, file_id=SourceFileId("policy.dtr"), max_bytes=2)
+
+    assert loaded == SourceFile(SourceFileId("policy.dtr"), "é")
+
+
+def test_load_utf8_file_reports_size_and_encoding_failures(tmp_path: Path) -> None:
+    too_large_path = tmp_path / "large.dtr"
+    too_large_path.write_bytes(b"true")
+    invalid_utf8_path = tmp_path / "invalid.dtr"
+    invalid_utf8_path.write_bytes(b"\xff")
+
+    too_large = load_utf8_file(too_large_path, file_id=SourceFileId("large.dtr"), max_bytes=3)
+    invalid_utf8 = load_utf8_file(
+        invalid_utf8_path,
+        file_id=SourceFileId("invalid.dtr"),
+        max_bytes=1,
+    )
+
+    assert too_large == SourceLoadFailure(
+        SourceLoadErrorCode.TOO_LARGE,
+        SourceFileId("large.dtr"),
+        "source exceeds the configured byte limit",
+    )
+    assert invalid_utf8 == SourceLoadFailure(
+        SourceLoadErrorCode.INVALID_UTF8,
+        SourceFileId("invalid.dtr"),
+        "source is not valid UTF-8",
+    )
+
+
+def test_load_utf8_file_reports_read_and_limit_failures(tmp_path: Path) -> None:
+    missing = load_utf8_file(tmp_path / "missing.dtr", file_id=SourceFileId("missing.dtr"))
+
+    assert missing == SourceLoadFailure(
+        SourceLoadErrorCode.READ_FAILED,
+        SourceFileId("missing.dtr"),
+        "could not read source",
+    )
+    with pytest.raises(ValueError, match="byte limit"):
+        load_utf8_file(tmp_path / "missing.dtr", file_id=SourceFileId("missing.dtr"), max_bytes=-1)

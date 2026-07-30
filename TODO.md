@@ -59,7 +59,7 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 
 - [x] Define source file IDs, offsets, line index, positions, and spans.
 - [x] Define token kinds and immutable token values.
-- [ ] Implement UTF-8 source loading with size limits.
+- [x] Implement UTF-8 source loading with size limits.
 - [ ] Implement lexer with comments, keywords, identifiers, punctuation, integers, booleans, and diagnostics.
 - [ ] Define immutable surface AST with source spans on every node.
 - [ ] Select and implement parser architecture, preferably hand-written recursive descent plus Pratt parsing where useful.

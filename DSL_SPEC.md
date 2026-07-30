@@ -544,6 +544,8 @@ Produce tokens with:
 
 Source offsets are zero-based UTF-8 byte offsets. Lines and columns are one-based, with columns counted in Unicode code points. Spans are half-open `[start, end)` ranges whose boundaries must fall on UTF-8 code-point boundaries.
 
+The filesystem loader reads at most 1,048,576 bytes, decodes strict UTF-8, and returns a structured source-load failure for unreadable, oversized, or invalid-encoding input.
+
 Invalid characters and unterminated literals produce recoverable diagnostics where possible.
 
 ### 15.2 Parsing
