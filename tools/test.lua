@@ -42,6 +42,8 @@ local modules = {
   "unit.terminal.terminal_test",
   "unit.terminal.utf8_test",
   "unit.backend.interface_test",
+  "unit.recording.binary_test",
+  "unit.recording.format_test",
   "unit.recording.reader_test",
   "unit.renderer.renderer_test",
   "unit.effects.effect_test",
