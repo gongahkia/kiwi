@@ -178,6 +178,40 @@ return {
     end,
   },
   {
+    name = "terminal normalises zero omitted one and large CSI parameters",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 5, rows = 4 }))
+      terminal.cursor.row = 4
+      terminal.cursor.column = 5
+      assert(terminal:feed_output("\27[A\27[0A\27[1A"))
+      assertions.equal(1, terminal.cursor.row)
+      assertions.equal(5, terminal.cursor.column)
+      assert(terminal:feed_output("\27[999999999999999999999999999999B"))
+      assertions.equal(4, terminal.cursor.row)
+      assert(terminal:feed_output("\27[H\27[0;0H\27[1;1H"))
+      assertions.equal(1, terminal.cursor.row)
+      assertions.equal(1, terminal.cursor.column)
+      assert(
+        terminal:feed_output("\27[999999999999999999999999999999;999999999999999999999999999999H")
+      )
+      assertions.equal(4, terminal.cursor.row)
+      assertions.equal(5, terminal.cursor.column)
+
+      for _, parameter in ipairs({ "", "0", "1" }) do
+        terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
+        assert(terminal:feed_output("ABCDE\27[2G\27[" .. parameter .. "X"))
+        assertions.equal(
+          "A||C|D|E",
+          row_text(terminal.primary_screen.rows[1]),
+          "erase parameter " .. parameter
+        )
+      end
+      terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
+      assert(terminal:feed_output("ABCDE\27[3G\27[999999999999999999999999999999X"))
+      assertions.equal("A|B|||", row_text(terminal.primary_screen.rows[1]))
+    end,
+  },
+  {
     name = "terminal applies CSI erase and character edit operations",
     run = function()
       local terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
