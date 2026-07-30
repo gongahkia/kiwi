@@ -1,10 +1,20 @@
 local Errors = require("runtime.errors")
 local Config = require("terminal.config")
+local Cursor = require("terminal.cursor")
+local Rendition = require("terminal.rendition")
 local Screen = require("terminal.screen")
 
 local Terminal = {}
 local terminal_mt = {}
 terminal_mt.__index = terminal_mt
+
+local function default_tab_stops(columns)
+  local tab_stops = {}
+  for column = 9, columns, 8 do
+    tab_stops[column] = true
+  end
+  return tab_stops
+end
 
 Terminal.contract = {
   constructor = "new(config) -> terminal | nil, error",
@@ -23,6 +33,18 @@ function Terminal.new(config)
   if not terminal_config then
     return nil, config_error
   end
+  local cursor, cursor_error = Cursor.new()
+  if not cursor then
+    return nil, cursor_error
+  end
+  local saved_cursor, saved_cursor_error = Cursor.copy(cursor)
+  if not saved_cursor then
+    return nil, saved_cursor_error
+  end
+  local rendition, rendition_error = Rendition.new()
+  if not rendition then
+    return nil, rendition_error
+  end
   local primary_screen, primary_error = Screen.new(terminal_config.columns, terminal_config.rows)
   if not primary_screen then
     return nil, primary_error
@@ -36,8 +58,13 @@ function Terminal.new(config)
     active_buffer = "primary",
     alternate_screen = alternate_screen,
     config = terminal_config,
+    cursor = cursor,
+    margins = { bottom = terminal_config.rows, top = 1 },
     primary_screen = primary_screen,
+    rendition = rendition,
+    saved_cursor = saved_cursor,
     state = "bootstrap",
+    tab_stops = default_tab_stops(terminal_config.columns),
   }, terminal_mt)
 end
 

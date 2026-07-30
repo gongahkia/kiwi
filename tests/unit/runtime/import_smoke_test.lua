@@ -11,6 +11,8 @@ return {
         "runtime.event",
         "terminal.cell",
         "terminal.config",
+        "terminal.cursor",
+        "terminal.rendition",
         "terminal.row",
         "terminal.screen",
         "terminal.terminal",
