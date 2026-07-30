@@ -19,6 +19,7 @@ return {
         "terminal.screen",
         "terminal.scrollback",
         "terminal.terminal",
+        "terminal.utf8",
         "backend.interface",
         "recording.reader",
       }

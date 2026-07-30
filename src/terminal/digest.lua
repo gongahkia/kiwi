@@ -216,6 +216,27 @@ local function parser_digest(parser)
   }, ",")
 end
 
+local function utf8_digest(decoder)
+  if type(decoder) ~= "table" or type(decoder.snapshot) ~= "function" then
+    return invariant_error("terminal UTF-8 decoder is malformed")
+  end
+  local state = decoder:snapshot()
+  if type(state) ~= "table" then
+    return invariant_error("terminal UTF-8 decoder state is malformed")
+  end
+  for _, name in ipairs({ "codepoint", "minimum", "remaining" }) do
+    if type(state[name]) ~= "number" or state[name] % 1 ~= 0 or state[name] < 0 then
+      return invariant_error("terminal UTF-8 decoder state is invalid", { field = name })
+    end
+  end
+  return "codepoint="
+    .. state.codepoint
+    .. ",minimum="
+    .. state.minimum
+    .. ",remaining="
+    .. state.remaining
+end
+
 local function scrollback_digest(scrollback)
   if
     type(scrollback) ~= "table"
@@ -310,6 +331,10 @@ function Digest.terminal(terminal)
   if not parser then
     return nil, parser_error
   end
+  local utf8_decoder, utf8_error = utf8_digest(terminal.utf8_decoder)
+  if not utf8_decoder then
+    return nil, utf8_error
+  end
   local primary_screen, primary_screen_error =
     screen_digest("primary", terminal.primary_screen, columns, rows)
   if not primary_screen then
@@ -337,6 +362,7 @@ function Digest.terminal(terminal)
     "tab_stops=" .. tab_stops,
     "rendition=" .. rendition,
     "parser=" .. parser,
+    "utf8=" .. utf8_decoder,
     primary_screen,
     alternate_screen,
     "scrollback=" .. scrollback,

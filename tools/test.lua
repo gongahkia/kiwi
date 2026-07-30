@@ -35,6 +35,7 @@ local modules = {
   "unit.terminal.scrollback_test",
   "unit.terminal.screen_test",
   "unit.terminal.terminal_test",
+  "unit.terminal.utf8_test",
   "unit.backend.interface_test",
   "unit.recording.reader_test",
   "unit.renderer.renderer_test",

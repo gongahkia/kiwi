@@ -7,6 +7,7 @@ local Parser = require("terminal.parser")
 local Rendition = require("terminal.rendition")
 local Scrollback = require("terminal.scrollback")
 local Screen = require("terminal.screen")
+local Utf8 = require("terminal.utf8")
 
 local Terminal = {}
 local terminal_mt = {}
@@ -54,6 +55,7 @@ function Terminal.new(config)
   if not parser then
     return nil, parser_error
   end
+  local utf8_decoder = Utf8.new()
   local scrollback, scrollback_error = Scrollback.new(terminal_config.scrollback_limit)
   if not scrollback then
     return nil, scrollback_error
@@ -80,6 +82,7 @@ function Terminal.new(config)
     scrollback = scrollback,
     state = "bootstrap",
     tab_stops = default_tab_stops(terminal_config.columns),
+    utf8_decoder = utf8_decoder,
   }, terminal_mt)
 end
 
@@ -182,10 +185,10 @@ local function apply_control(terminal, events, event)
   return true
 end
 
-local function write_printable_ascii(terminal, events, event)
+local function write_printable(terminal, events, offset, byte, text)
   local cursor = terminal.cursor
   if cursor.pending_wrap then
-    local advanced, advance_error = line_feed(terminal, events, event.offset, nil)
+    local advanced, advance_error = line_feed(terminal, events, offset, nil)
     if not advanced then
       return nil, advance_error
     end
@@ -195,7 +198,7 @@ local function write_printable_ascii(terminal, events, event)
     attributes = terminal.rendition.attributes,
     background = terminal.rendition.background,
     foreground = terminal.rendition.foreground,
-    text = string.char(event.byte),
+    text = text,
   })
   if not cell then
     return nil, cell_error
@@ -206,17 +209,28 @@ local function write_printable_ascii(terminal, events, event)
     return nil, replace_error
   end
   events[#events + 1] = {
-    byte = event.byte,
+    byte = byte,
     column = cursor.column,
     kind = "output",
-    offset = event.offset,
+    offset = offset,
     row = cursor.row,
   }
   if cursor.column == terminal.config.columns then
     cursor.pending_wrap = true
   else
     cursor.column = cursor.column + 1
-    cursor_event(terminal, events, event.offset)
+    cursor_event(terminal, events, offset)
+  end
+  return true
+end
+
+local function flush_utf8(terminal, events, offset)
+  local output = terminal.utf8_decoder:finish()
+  for _, text in ipairs(output) do
+    local written, write_error = write_printable(terminal, events, offset, nil, text)
+    if not written then
+      return nil, write_error
+    end
   end
   return true
 end
@@ -231,15 +245,28 @@ function terminal_mt:feed_output(bytes)
   end
   local semantic_events = {}
   for _, event in ipairs(parser_events) do
+    if event.kind == "print" then
+      local output, decode_error = self.utf8_decoder:push(event.byte)
+      if not output then
+        return nil, decode_error
+      end
+      for _, text in ipairs(output) do
+        local written, write_error =
+          write_printable(self, semantic_events, event.offset, event.byte, text)
+        if not written then
+          return nil, write_error
+        end
+      end
+    else
+      local flushed, flush_error = flush_utf8(self, semantic_events, event.offset)
+      if not flushed then
+        return nil, flush_error
+      end
+    end
     if event.kind == "control" then
       local applied, apply_error = apply_control(self, semantic_events, event)
       if not applied then
         return nil, apply_error
-      end
-    elseif event.kind == "print" and event.byte >= 0x20 and event.byte <= 0x7E then
-      local written, write_error = write_printable_ascii(self, semantic_events, event)
-      if not written then
-        return nil, write_error
       end
     end
   end
