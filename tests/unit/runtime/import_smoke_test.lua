@@ -21,6 +21,8 @@ return {
         "terminal.terminal",
         "terminal.utf8",
         "backend.interface",
+        "recording.binary",
+        "recording.format",
         "recording.reader",
       }
       for _, module_name in ipairs(modules) do

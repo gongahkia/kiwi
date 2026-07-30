@@ -90,7 +90,7 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 
 ### Format implementation
 
-- [ ] Implement the accepted recording header and frame format from ADR-0002.
+- [x] Implement the accepted recording header and frame format from ADR-0002.
 - [ ] Implement canonical metadata encoding.
 - [ ] Implement frame validation, payload bounds, and checksums.
 - [ ] Implement output, input, resize, mark, and checkpoint frames.
