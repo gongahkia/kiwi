@@ -8,6 +8,7 @@ row_mt.__index = row_mt
 
 Row.contract = {
   clear_damage = "clear_damage()",
+  copy = "copy(row) -> row | nil, error",
   dirty_range = "dirty_range() -> first_column, last_column | nil",
   get = "get(column) -> cell | nil, error",
   new = "new(columns) -> row | nil, error",
@@ -97,6 +98,38 @@ end
 function row_mt:clear_damage()
   self.dirty_first = nil
   self.dirty_last = nil
+end
+
+function Row.copy(row)
+  if type(row) ~= "table" then
+    return config_error("row must be a table")
+  end
+  if type(row.cells) ~= "table" then
+    return config_error("row cells must be a table")
+  end
+  if type(row.revision) ~= "number" or row.revision % 1 ~= 0 or row.revision < 0 then
+    return config_error("row revision must be a non-negative integer")
+  end
+  local copy, copy_error = Row.new(row.columns)
+  if not copy then
+    return nil, copy_error
+  end
+  if type(row.wrapped) ~= "boolean" then
+    return config_error("row wrapped state must be a boolean")
+  end
+  for column = 1, copy.columns do
+    if row.cells[column] == nil then
+      return config_error("row is missing a cell", { column = column })
+    end
+    local replacement, replacement_error = copy:replace(column, row.cells[column])
+    if not replacement then
+      return nil, replacement_error
+    end
+  end
+  copy.revision = row.revision
+  copy.wrapped = row.wrapped
+  copy:clear_damage()
+  return copy
 end
 
 return Row

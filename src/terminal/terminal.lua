@@ -2,6 +2,7 @@ local Errors = require("runtime.errors")
 local Config = require("terminal.config")
 local Cursor = require("terminal.cursor")
 local Rendition = require("terminal.rendition")
+local Scrollback = require("terminal.scrollback")
 local Screen = require("terminal.screen")
 
 local Terminal = {}
@@ -45,6 +46,10 @@ function Terminal.new(config)
   if not rendition then
     return nil, rendition_error
   end
+  local scrollback, scrollback_error = Scrollback.new(terminal_config.scrollback_limit)
+  if not scrollback then
+    return nil, scrollback_error
+  end
   local primary_screen, primary_error = Screen.new(terminal_config.columns, terminal_config.rows)
   if not primary_screen then
     return nil, primary_error
@@ -63,6 +68,7 @@ function Terminal.new(config)
     primary_screen = primary_screen,
     rendition = rendition,
     saved_cursor = saved_cursor,
+    scrollback = scrollback,
     state = "bootstrap",
     tab_stops = default_tab_stops(terminal_config.columns),
   }, terminal_mt)

@@ -30,6 +30,7 @@ local modules = {
   "unit.terminal.cursor_test",
   "unit.terminal.rendition_test",
   "unit.terminal.row_test",
+  "unit.terminal.scrollback_test",
   "unit.terminal.screen_test",
   "unit.terminal.terminal_test",
   "unit.backend.interface_test",
