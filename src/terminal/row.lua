@@ -11,6 +11,7 @@ Row.contract = {
   copy = "copy(row) -> row | nil, error",
   dirty_range = "dirty_range() -> first_column, last_column | nil",
   get = "get(column) -> cell | nil, error",
+  mark_all_dirty = "mark_all_dirty()",
   new = "new(columns) -> row | nil, error",
   replace = "replace(column, cell) -> true | nil, error",
 }
@@ -98,6 +99,11 @@ end
 function row_mt:clear_damage()
   self.dirty_first = nil
   self.dirty_last = nil
+end
+
+function row_mt:mark_all_dirty()
+  self.dirty_first = 1
+  self.dirty_last = self.columns
 end
 
 function Row.copy(row)

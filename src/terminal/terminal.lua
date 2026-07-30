@@ -23,7 +23,7 @@ Terminal.contract = {
   constructor = "new(config) -> terminal | nil, error",
   digest = "digest() -> canonical_digest | nil, error",
   start = "start() -> nil, error",
-  feed_output = "feed_output(bytes) -> nil, error",
+  feed_output = "feed_output(bytes) -> semantic_events | nil, error",
   resize = "resize(columns, rows) -> nil, error",
   snapshot = "snapshot() -> nil, error",
   destroy = "destroy()",
@@ -90,11 +90,115 @@ function terminal_mt:digest()
   return Digest.terminal(self)
 end
 
+local function active_screen(terminal)
+  if terminal.active_buffer == "primary" then
+    return terminal.primary_screen
+  end
+  return terminal.alternate_screen
+end
+
+local function cursor_event(terminal, events, offset)
+  events[#events + 1] = {
+    column = terminal.cursor.column,
+    kind = "cursor_moved",
+    offset = offset,
+    row = terminal.cursor.row,
+  }
+end
+
+local function line_feed(terminal, events, offset, byte)
+  local cursor = terminal.cursor
+  if cursor.row < terminal.margins.bottom then
+    cursor.row = cursor.row + 1
+    cursor.pending_wrap = false
+    cursor_event(terminal, events, offset)
+    return true
+  end
+  local screen = active_screen(terminal)
+  local displaced, scroll_error = screen:scroll_up(terminal.margins.top, terminal.margins.bottom)
+  if not displaced then
+    return nil, scroll_error
+  end
+  if terminal.active_buffer == "primary" and terminal.margins.top == 1 then
+    local pushed, push_error = terminal.scrollback:push(displaced)
+    if not pushed then
+      return nil, push_error
+    end
+  end
+  cursor.pending_wrap = false
+  events[#events + 1] = {
+    byte = byte,
+    kind = "scrolled",
+    offset = offset,
+    top = terminal.margins.top,
+    bottom = terminal.margins.bottom,
+  }
+  return true
+end
+
+local function apply_control(terminal, events, event)
+  local cursor = terminal.cursor
+  if event.byte == 0x00 then
+    return true
+  end
+  if event.byte == 0x07 then
+    events[#events + 1] = { kind = "bell", offset = event.offset }
+    return true
+  end
+  if event.byte == 0x08 then
+    cursor.pending_wrap = false
+    if cursor.column > 1 then
+      cursor.column = cursor.column - 1
+      cursor_event(terminal, events, event.offset)
+    end
+    return true
+  end
+  if event.byte == 0x09 then
+    cursor.pending_wrap = false
+    local target = terminal.config.columns
+    for column = cursor.column + 1, terminal.config.columns do
+      if terminal.tab_stops[column] then
+        target = column
+        break
+      end
+    end
+    if target ~= cursor.column then
+      cursor.column = target
+      cursor_event(terminal, events, event.offset)
+    end
+    return true
+  end
+  if event.byte == 0x0A or event.byte == 0x0B or event.byte == 0x0C then
+    return line_feed(terminal, events, event.offset, event.byte)
+  end
+  if event.byte == 0x0D then
+    cursor.pending_wrap = false
+    if cursor.column ~= 1 then
+      cursor.column = 1
+      cursor_event(terminal, events, event.offset)
+    end
+  end
+  return true
+end
+
 function terminal_mt:feed_output(bytes)
   if type(bytes) ~= "string" then
     return nil, Errors.new("config_error", "terminal output must be bytes")
   end
-  return nil, Errors.new("internal_invariant_error", "terminal parser is not implemented")
+  local parser_events, parser_error = self.parser:feed(bytes)
+  if not parser_events then
+    return nil, parser_error
+  end
+  local semantic_events = {}
+  for _, event in ipairs(parser_events) do
+    if event.kind == "control" then
+      local applied, apply_error = apply_control(self, semantic_events, event)
+      if not applied then
+        return nil, apply_error
+      end
+    end
+  end
+  return semantic_events
 end
 
 function terminal_mt:resize(columns, rows)
