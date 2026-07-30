@@ -1,6 +1,14 @@
 local assertions = require("support.assertions")
 local Terminal = require("terminal.terminal")
 
+local function row_text(row)
+  local text = {}
+  for column = 1, row.columns do
+    text[column] = row.cells[column].text
+  end
+  return table.concat(text, "|")
+end
+
 return {
   {
     name = "terminal constructor requires table configuration",
@@ -143,6 +151,112 @@ return {
       assert(terminal:feed_output("\195x"))
       assertions.equal("\239\191\189", terminal.primary_screen.rows[1].cells[2].text)
       assertions.equal("x", terminal.primary_screen.rows[1].cells[3].text)
+    end,
+  },
+  {
+    name = "terminal applies CSI cursor movement with defaults and bounds",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 5, rows = 4 }))
+      assert(terminal:feed_output("\27[3;4H\27[0A\27[99C"))
+      assertions.equal(2, terminal.cursor.row)
+      assertions.equal(5, terminal.cursor.column)
+      assert(terminal:feed_output("\27[2E\27[0F\27[99d"))
+      assertions.equal(4, terminal.cursor.row)
+      assertions.equal(1, terminal.cursor.column)
+      assert(terminal:feed_output("\27[;H"))
+      assertions.equal(1, terminal.cursor.row)
+      assertions.equal(1, terminal.cursor.column)
+    end,
+  },
+  {
+    name = "terminal applies CSI erase and character edit operations",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
+      assert(terminal:feed_output("ABCDE\27[2G\27[2X"))
+      assertions.equal("A|||D|E", row_text(terminal.primary_screen.rows[1]))
+
+      terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
+      assert(terminal:feed_output("ABCDE\27[3G\27[2@"))
+      assertions.equal("A|B|||C", row_text(terminal.primary_screen.rows[1]))
+
+      terminal = assert(Terminal.new({ columns = 5, rows = 1 }))
+      assert(terminal:feed_output("ABCDE\27[2G\27[2P"))
+      assertions.equal("A|D|E||", row_text(terminal.primary_screen.rows[1]))
+    end,
+  },
+  {
+    name = "terminal applies CSI ED and EL modes",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 3, rows = 2 }))
+      terminal.primary_screen.rows[1].cells[1].text = "A"
+      terminal.primary_screen.rows[1].cells[2].text = "B"
+      terminal.primary_screen.rows[1].cells[3].text = "C"
+      terminal.primary_screen.rows[2].cells[1].text = "D"
+      terminal.primary_screen.rows[2].cells[2].text = "E"
+      terminal.primary_screen.rows[2].cells[3].text = "F"
+      assert(terminal:feed_output("\27[1;2H\27[0J"))
+      assertions.equal("A||", row_text(terminal.primary_screen.rows[1]))
+      assertions.equal("||", row_text(terminal.primary_screen.rows[2]))
+
+      terminal = assert(Terminal.new({ columns = 3, rows = 1 }))
+      assert(terminal:feed_output("ABC\27[2G\27[1K"))
+      assertions.equal("||C", row_text(terminal.primary_screen.rows[1]))
+      assert(terminal:feed_output("\27[2K"))
+      assertions.equal("||", row_text(terminal.primary_screen.rows[1]))
+    end,
+  },
+  {
+    name = "terminal applies CSI display line and region scroll edits",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 1, rows = 3, scrollback_limit = 2 }))
+      terminal.primary_screen.rows[1].cells[1].text = "A"
+      terminal.primary_screen.rows[2].cells[1].text = "B"
+      terminal.primary_screen.rows[3].cells[1].text = "C"
+      assert(terminal:feed_output("\27[2;1H\27[1L"))
+      assertions.equal("A", row_text(terminal.primary_screen.rows[1]))
+      assertions.equal("", row_text(terminal.primary_screen.rows[2]))
+      assertions.equal("B", row_text(terminal.primary_screen.rows[3]))
+
+      terminal = assert(Terminal.new({ columns = 1, rows = 3, scrollback_limit = 2 }))
+      terminal.primary_screen.rows[1].cells[1].text = "A"
+      terminal.primary_screen.rows[2].cells[1].text = "B"
+      terminal.primary_screen.rows[3].cells[1].text = "C"
+      assert(terminal:feed_output("\27[2;1H\27[1M"))
+      assertions.equal("A", row_text(terminal.primary_screen.rows[1]))
+      assertions.equal("C", row_text(terminal.primary_screen.rows[2]))
+      assertions.equal("", row_text(terminal.primary_screen.rows[3]))
+
+      terminal = assert(Terminal.new({ columns = 1, rows = 3, scrollback_limit = 2 }))
+      terminal.primary_screen.rows[1].cells[1].text = "A"
+      terminal.primary_screen.rows[2].cells[1].text = "B"
+      terminal.primary_screen.rows[3].cells[1].text = "C"
+      assert(terminal:feed_output("\27[1S"))
+      assertions.equal("B", row_text(terminal.primary_screen.rows[1]))
+      assertions.equal("C", row_text(terminal.primary_screen.rows[2]))
+      assertions.equal("", row_text(terminal.primary_screen.rows[3]))
+      assertions.equal("A", row_text(assert(terminal.scrollback:at(1))))
+      assert(terminal:feed_output("\27[1T"))
+      assertions.equal("", row_text(terminal.primary_screen.rows[1]))
+      assertions.equal("B", row_text(terminal.primary_screen.rows[2]))
+    end,
+  },
+  {
+    name = "terminal applies CSI SGR attributes and colours",
+    run = function()
+      local terminal = assert(Terminal.new({}))
+      assert(terminal:feed_output("\27[1;3;4;5;7;8;9;31;104m"))
+      assertions.equal(253, terminal.rendition.attributes)
+      assertions.equal(1, terminal.rendition.foreground.index)
+      assertions.equal(12, terminal.rendition.background.index)
+      assert(terminal:feed_output("\27[22;23;24;25;27;28;29;39;49m"))
+      assertions.equal(0, terminal.rendition.attributes)
+      assertions.equal("default", terminal.rendition.foreground)
+      assertions.equal("default", terminal.rendition.background)
+      assert(terminal:feed_output("\27[38;5;196;48;2;1;2;3m"))
+      assertions.equal(196, terminal.rendition.foreground.index)
+      assertions.equal(1, terminal.rendition.background.red)
+      assertions.equal(2, terminal.rendition.background.green)
+      assertions.equal(3, terminal.rendition.background.blue)
     end,
   },
 }

@@ -9,8 +9,11 @@ row_mt.__index = row_mt
 Row.contract = {
   clear_damage = "clear_damage()",
   copy = "copy(row) -> row | nil, error",
+  delete = "delete(column, count, blank_cell) -> true | nil, error",
   dirty_range = "dirty_range() -> first_column, last_column | nil",
+  erase = "erase(column, count, blank_cell) -> true | nil, error",
   get = "get(column) -> cell | nil, error",
+  insert = "insert(column, count, blank_cell) -> true | nil, error",
   mark_all_dirty = "mark_all_dirty()",
   new = "new(columns) -> row | nil, error",
   replace = "replace(column, cell) -> true | nil, error",
@@ -38,6 +41,30 @@ local function mark_dirty(row, column)
   if row.dirty_last == nil or column > row.dirty_last then
     row.dirty_last = column
   end
+end
+
+local function mark_dirty_range(row, first, last)
+  for column = first, last do
+    mark_dirty(row, column)
+  end
+end
+
+local function valid_count(count)
+  if type(count) ~= "number" or count % 1 ~= 0 or count < 0 then
+    return config_error("count must be a non-negative integer", { provided = count })
+  end
+  return count
+end
+
+local function blanks(row, first, last, blank_cell)
+  for column = first, last do
+    local blank, blank_error = clone_cell(blank_cell)
+    if not blank then
+      return nil, blank_error
+    end
+    row.cells[column] = blank
+  end
+  return true
 end
 
 function Row.new(columns)
@@ -86,6 +113,79 @@ function row_mt:replace(column, cell)
   self.cells[valid] = replacement
   self.revision = self.revision + 1
   mark_dirty(self, valid)
+  return true
+end
+
+function row_mt:erase(column, count, blank_cell)
+  local valid_column_value, column_error = valid_column(self, column)
+  if not valid_column_value then
+    return nil, column_error
+  end
+  local valid_count_value, count_error = valid_count(count)
+  if not valid_count_value then
+    return nil, count_error
+  end
+  local last = math.min(self.columns, valid_column_value + valid_count_value - 1)
+  if last < valid_column_value then
+    return true
+  end
+  local filled, fill_error = blanks(self, valid_column_value, last, blank_cell)
+  if not filled then
+    return nil, fill_error
+  end
+  self.revision = self.revision + 1
+  mark_dirty_range(self, valid_column_value, last)
+  return true
+end
+
+function row_mt:insert(column, count, blank_cell)
+  local valid_column_value, column_error = valid_column(self, column)
+  if not valid_column_value then
+    return nil, column_error
+  end
+  local valid_count_value, count_error = valid_count(count)
+  if not valid_count_value then
+    return nil, count_error
+  end
+  local actual = math.min(valid_count_value, self.columns - valid_column_value + 1)
+  if actual == 0 then
+    return true
+  end
+  for destination = self.columns, valid_column_value + actual, -1 do
+    self.cells[destination] = self.cells[destination - actual]
+  end
+  local filled, fill_error =
+    blanks(self, valid_column_value, valid_column_value + actual - 1, blank_cell)
+  if not filled then
+    return nil, fill_error
+  end
+  self.revision = self.revision + 1
+  mark_dirty_range(self, valid_column_value, self.columns)
+  return true
+end
+
+function row_mt:delete(column, count, blank_cell)
+  local valid_column_value, column_error = valid_column(self, column)
+  if not valid_column_value then
+    return nil, column_error
+  end
+  local valid_count_value, count_error = valid_count(count)
+  if not valid_count_value then
+    return nil, count_error
+  end
+  local actual = math.min(valid_count_value, self.columns - valid_column_value + 1)
+  if actual == 0 then
+    return true
+  end
+  for destination = valid_column_value, self.columns - actual do
+    self.cells[destination] = self.cells[destination + actual]
+  end
+  local filled, fill_error = blanks(self, self.columns - actual + 1, self.columns, blank_cell)
+  if not filled then
+    return nil, fill_error
+  end
+  self.revision = self.revision + 1
+  mark_dirty_range(self, valid_column_value, self.columns)
   return true
 end
 
