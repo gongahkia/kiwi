@@ -1,4 +1,5 @@
 local Colour = require("renderer.colour")
+local Clean = require("renderer.clean")
 local Dpi = require("renderer.dpi")
 local Errors = require("runtime.errors")
 local GlyphCache = require("renderer.glyph_cache")
@@ -16,6 +17,7 @@ Renderer.contract = {
   draw = "draw(snapshot, damage?) -> nil, error?",
   glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
+  preset = "preset() -> preset",
   resize = "resize(window_width, window_height, pixel_width?, pixel_height?) -> layout, resize_event? | nil, error",
   resize_window = "resize_window() -> layout, resize_event? | nil, error",
   destroy = "destroy()",
@@ -309,6 +311,14 @@ function Renderer.new(config)
   if not style then
     return nil, style_error
   end
+  local preset_name = config.preset or Clean.id
+  if preset_name ~= Clean.id then
+    return config_error("renderer preset is unsupported", { provided = preset_name })
+  end
+  local preset, preset_error = Clean.new()
+  if not preset then
+    return nil, preset_error
+  end
   return setmetatable({
     config = config,
     font = nil,
@@ -350,6 +360,10 @@ function renderer_mt:cell_metrics()
     cell_height = self.metrics.cell_height,
     cell_width = self.metrics.cell_width,
   }
+end
+
+function renderer_mt:preset()
+  return Clean.new()
 end
 
 function renderer_mt:glyph(text, style)

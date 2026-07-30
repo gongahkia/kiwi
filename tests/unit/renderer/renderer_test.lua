@@ -1,4 +1,5 @@
 local assertions = require("support.assertions")
+local Clean = require("renderer.clean")
 local GlyphCache = require("renderer.glyph_cache")
 local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
@@ -119,6 +120,19 @@ return {
       local renderer = assert(Renderer.new({}))
       local value, error_value = renderer:draw(nil)
       assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+    end,
+  },
+  {
+    name = "renderer defaults to the explicit no-post-processing clean preset",
+    run = function()
+      local renderer = assert(Renderer.new({}))
+      local preset = renderer:preset()
+      assertions.equal(Clean.id, preset.id)
+      assertions.equal(false, preset.post_processing)
+      assertions.equal(0, #preset.effects)
+      local unsupported, error_value = Renderer.new({ preset = "stanczyk.crt" })
+      assertions.falsy(unsupported)
       assertions.equal("config_error", error_value.kind)
     end,
   },

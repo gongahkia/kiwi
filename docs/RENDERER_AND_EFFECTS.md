@@ -6,6 +6,8 @@ Stanczyk’s renderer is a programmable presentation layer over terminal state. 
 
 The default clean renderer is the reference presentation. Every effect is optional.
 
+The bootstrap renderer selects the explicit `stanczyk.clean` preset by default. It contains no effects and disables post-processing; callers may inspect it through `renderer:preset()`. No other preset is accepted before the effects pipeline milestone.
+
 ## 2. Rendering pipeline
 
 Suggested frame pipeline:

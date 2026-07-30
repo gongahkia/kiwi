@@ -33,6 +33,7 @@ return {
         "recording.reader",
         "recording.writer",
         "renderer.metrics",
+        "renderer.clean",
         "renderer.colour",
         "renderer.dpi",
         "renderer.glyph_cache",
