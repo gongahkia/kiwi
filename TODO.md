@@ -62,7 +62,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Implement C0 controls required by the compatibility document.
 - [x] Implement printable ASCII.
 - [x] Implement UTF-8 decoding with replacement behaviour for malformed sequences.
-- [ ] Implement the first CSI movement, erase, scroll, and SGR subset.
+- [x] Implement the first CSI movement, erase, scroll, and SGR subset.
 - [ ] Implement DEC save/restore cursor and mode changes required for alternate screen operation.
 - [ ] Implement unknown-sequence reporting without state corruption.
 - [ ] Emit structured parser/debug events.

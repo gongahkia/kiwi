@@ -123,7 +123,11 @@ local function line_feed(terminal, events, offset, byte)
   if not displaced then
     return nil, scroll_error
   end
-  if terminal.active_buffer == "primary" and terminal.margins.top == 1 then
+  if
+    terminal.active_buffer == "primary"
+    and terminal.margins.top == 1
+    and terminal.margins.bottom == terminal.config.rows
+  then
     local pushed, push_error = terminal.scrollback:push(displaced)
     if not pushed then
       return nil, push_error
@@ -224,6 +228,340 @@ local function write_printable(terminal, events, offset, byte, text)
   return true
 end
 
+local MAX_CSI_PARAMETER = 65535
+
+local function parse_csi_parameters(raw)
+  if raw == "" then
+    return {}
+  end
+  if raw:find("[^0-9;]") then
+    return nil
+  end
+  local values = {}
+  for field in (raw .. ";"):gmatch("(.-);") do
+    local value = 0
+    for index = 1, #field do
+      value = math.min(MAX_CSI_PARAMETER, value * 10 + field:byte(index) - string.byte("0"))
+    end
+    values[#values + 1] = value
+  end
+  return values
+end
+
+local function parameter(values, index, default)
+  local value = values[index]
+  if value == nil or value == 0 then
+    return default
+  end
+  return value
+end
+
+local function current_blank_cell(terminal)
+  return Cell.new({
+    attributes = terminal.rendition.attributes,
+    background = terminal.rendition.background,
+    foreground = terminal.rendition.foreground,
+  })
+end
+
+local function move_cursor(terminal, events, offset, row, column)
+  local cursor = terminal.cursor
+  local previous_row = cursor.row
+  local previous_column = cursor.column
+  cursor.row = math.max(1, math.min(terminal.config.rows, row))
+  cursor.column = math.max(1, math.min(terminal.config.columns, column))
+  cursor.pending_wrap = false
+  if cursor.row ~= previous_row or cursor.column ~= previous_column then
+    cursor_event(terminal, events, offset)
+  end
+end
+
+local function erase_rows(
+  terminal,
+  screen,
+  first_row,
+  last_row,
+  first_column,
+  last_column,
+  blank_cell
+)
+  for row = first_row, last_row do
+    local start_column = row == first_row and first_column or 1
+    local end_column = row == last_row and last_column or terminal.config.columns
+    local erased, erase_error =
+      screen.rows[row]:erase(start_column, end_column - start_column + 1, blank_cell)
+    if not erased then
+      return nil, erase_error
+    end
+  end
+  return true
+end
+
+local function scroll_up(terminal, events, offset, count, blank_cell)
+  local screen = active_screen(terminal)
+  local actual = math.min(count, terminal.margins.bottom - terminal.margins.top + 1)
+  for _ = 1, actual do
+    local displaced, scroll_error =
+      screen:scroll_up(terminal.margins.top, terminal.margins.bottom, blank_cell)
+    if not displaced then
+      return nil, scroll_error
+    end
+    if
+      terminal.active_buffer == "primary"
+      and terminal.margins.top == 1
+      and terminal.margins.bottom == terminal.config.rows
+    then
+      local pushed, push_error = terminal.scrollback:push(displaced)
+      if not pushed then
+        return nil, push_error
+      end
+    end
+  end
+  if actual > 0 then
+    events[#events + 1] = {
+      bottom = terminal.margins.bottom,
+      count = actual,
+      kind = "scrolled",
+      offset = offset,
+      top = terminal.margins.top,
+    }
+  end
+  return true
+end
+
+local function apply_sgr(terminal, events, offset, values)
+  if #values == 0 then
+    values = { 0 }
+  end
+  local rendition = terminal.rendition
+  local index = 1
+  while index <= #values do
+    local code = values[index]
+    if code == 0 then
+      rendition.attributes = 0
+      rendition.background = "default"
+      rendition.foreground = "default"
+    elseif code == 1 then
+      rendition.attributes = rendition.attributes + (rendition.attributes % 2 == 0 and 1 or 0)
+    elseif code == 2 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 2) % 2 == 0 and 2 or 0)
+    elseif code == 3 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 4) % 2 == 0 and 4 or 0)
+    elseif code == 4 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 8) % 2 == 0 and 8 or 0)
+    elseif code == 5 or code == 6 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 16) % 2 == 0 and 16 or 0)
+    elseif code == 7 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 32) % 2 == 0 and 32 or 0)
+    elseif code == 8 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 64) % 2 == 0 and 64 or 0)
+    elseif code == 9 then
+      rendition.attributes = rendition.attributes
+        + (math.floor(rendition.attributes / 128) % 2 == 0 and 128 or 0)
+    elseif code == 22 then
+      rendition.attributes = rendition.attributes
+        - (rendition.attributes % 2)
+        - (math.floor(rendition.attributes / 2) % 2) * 2
+    elseif code == 23 then
+      rendition.attributes = rendition.attributes - (math.floor(rendition.attributes / 4) % 2) * 4
+    elseif code == 24 then
+      rendition.attributes = rendition.attributes - (math.floor(rendition.attributes / 8) % 2) * 8
+    elseif code == 25 then
+      rendition.attributes = rendition.attributes - (math.floor(rendition.attributes / 16) % 2) * 16
+    elseif code == 27 then
+      rendition.attributes = rendition.attributes - (math.floor(rendition.attributes / 32) % 2) * 32
+    elseif code == 28 then
+      rendition.attributes = rendition.attributes - (math.floor(rendition.attributes / 64) % 2) * 64
+    elseif code == 29 then
+      rendition.attributes = rendition.attributes
+        - (math.floor(rendition.attributes / 128) % 2) * 128
+    elseif code >= 30 and code <= 37 then
+      rendition.foreground = { index = code - 30, kind = "indexed" }
+    elseif code == 39 then
+      rendition.foreground = "default"
+    elseif code >= 40 and code <= 47 then
+      rendition.background = { index = code - 40, kind = "indexed" }
+    elseif code == 49 then
+      rendition.background = "default"
+    elseif code >= 90 and code <= 97 then
+      rendition.foreground = { index = code - 90 + 8, kind = "indexed" }
+    elseif code >= 100 and code <= 107 then
+      rendition.background = { index = code - 100 + 8, kind = "indexed" }
+    elseif code == 38 or code == 48 then
+      local target = code == 38 and "foreground" or "background"
+      local mode = values[index + 1]
+      if mode == 5 then
+        local colour_index = values[index + 2]
+        if colour_index and colour_index <= 255 then
+          rendition[target] = { index = colour_index, kind = "indexed" }
+        end
+        index = index + 2
+      elseif mode == 2 then
+        local red = values[index + 2]
+        local green = values[index + 3]
+        local blue = values[index + 4]
+        if red and green and blue and red <= 255 and green <= 255 and blue <= 255 then
+          rendition[target] = { blue = blue, green = green, kind = "rgb", red = red }
+        end
+        index = index + 4
+      end
+    end
+    index = index + 1
+  end
+  events[#events + 1] = { kind = "rendition_changed", offset = offset }
+  return true
+end
+
+local function apply_csi(terminal, events, event)
+  if event.intermediates ~= "" then
+    return true
+  end
+  local values = parse_csi_parameters(event.parameters)
+  if not values then
+    return true
+  end
+  local cursor = terminal.cursor
+  local screen = active_screen(terminal)
+  local final = string.char(event.final)
+  if final == "A" then
+    move_cursor(terminal, events, event.offset, cursor.row - parameter(values, 1, 1), cursor.column)
+  elseif final == "B" then
+    move_cursor(terminal, events, event.offset, cursor.row + parameter(values, 1, 1), cursor.column)
+  elseif final == "C" then
+    move_cursor(terminal, events, event.offset, cursor.row, cursor.column + parameter(values, 1, 1))
+  elseif final == "D" then
+    move_cursor(terminal, events, event.offset, cursor.row, cursor.column - parameter(values, 1, 1))
+  elseif final == "E" then
+    move_cursor(terminal, events, event.offset, cursor.row + parameter(values, 1, 1), 1)
+  elseif final == "F" then
+    move_cursor(terminal, events, event.offset, cursor.row - parameter(values, 1, 1), 1)
+  elseif final == "G" then
+    move_cursor(terminal, events, event.offset, cursor.row, parameter(values, 1, 1))
+  elseif final == "H" or final == "f" then
+    move_cursor(terminal, events, event.offset, parameter(values, 1, 1), parameter(values, 2, 1))
+  elseif final == "d" then
+    move_cursor(terminal, events, event.offset, parameter(values, 1, 1), cursor.column)
+  elseif final == "J" then
+    local mode = values[1] or 0
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    if mode == 0 then
+      return erase_rows(
+        terminal,
+        screen,
+        cursor.row,
+        terminal.config.rows,
+        cursor.column,
+        terminal.config.columns,
+        blank
+      )
+    elseif mode == 1 then
+      return erase_rows(terminal, screen, 1, cursor.row, 1, cursor.column, blank)
+    elseif mode == 2 then
+      return erase_rows(
+        terminal,
+        screen,
+        1,
+        terminal.config.rows,
+        1,
+        terminal.config.columns,
+        blank
+      )
+    end
+  elseif final == "K" then
+    local mode = values[1] or 0
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    if mode == 0 then
+      return screen.rows[cursor.row]:erase(
+        cursor.column,
+        terminal.config.columns - cursor.column + 1,
+        blank
+      )
+    elseif mode == 1 then
+      return screen.rows[cursor.row]:erase(1, cursor.column, blank)
+    elseif mode == 2 then
+      return screen.rows[cursor.row]:erase(1, terminal.config.columns, blank)
+    end
+  elseif final == "X" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return screen.rows[cursor.row]:erase(cursor.column, parameter(values, 1, 1), blank)
+  elseif final == "@" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return screen.rows[cursor.row]:insert(cursor.column, parameter(values, 1, 1), blank)
+  elseif final == "P" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return screen.rows[cursor.row]:delete(cursor.column, parameter(values, 1, 1), blank)
+  elseif final == "L" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return screen:insert_lines(
+      cursor.row,
+      parameter(values, 1, 1),
+      terminal.margins.top,
+      terminal.margins.bottom,
+      blank
+    )
+  elseif final == "M" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return screen:delete_lines(
+      cursor.row,
+      parameter(values, 1, 1),
+      terminal.margins.top,
+      terminal.margins.bottom,
+      blank
+    )
+  elseif final == "S" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    return scroll_up(terminal, events, event.offset, parameter(values, 1, 1), blank)
+  elseif final == "T" then
+    local blank, blank_error = current_blank_cell(terminal)
+    if not blank then
+      return nil, blank_error
+    end
+    local moved, move_error = screen:scroll_down(
+      terminal.margins.top,
+      terminal.margins.bottom,
+      parameter(values, 1, 1),
+      blank
+    )
+    if not moved then
+      return nil, move_error
+    end
+    return true
+  elseif final == "m" then
+    return apply_sgr(terminal, events, event.offset, values)
+  end
+  return true
+end
+
 local function flush_utf8(terminal, events, offset)
   local output = terminal.utf8_decoder:finish()
   for _, text in ipairs(output) do
@@ -265,6 +603,11 @@ function terminal_mt:feed_output(bytes)
     end
     if event.kind == "control" then
       local applied, apply_error = apply_control(self, semantic_events, event)
+      if not applied then
+        return nil, apply_error
+      end
+    elseif event.kind == "csi" then
+      local applied, apply_error = apply_csi(self, semantic_events, event)
       if not applied then
         return nil, apply_error
       end
