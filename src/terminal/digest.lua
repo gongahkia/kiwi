@@ -147,6 +147,22 @@ local function rendition_digest(rendition)
   }, ",")
 end
 
+local function modes_digest(modes)
+  if type(modes) ~= "table" then
+    return invariant_error("terminal modes are malformed")
+  end
+  local auto_wrap, auto_wrap_error = boolean(modes.auto_wrap, "terminal auto-wrap mode")
+  if auto_wrap == nil then
+    return nil, auto_wrap_error
+  end
+  local cursor_visible, cursor_visible_error =
+    boolean(modes.cursor_visible, "terminal cursor visibility mode")
+  if cursor_visible == nil then
+    return nil, cursor_visible_error
+  end
+  return "auto_wrap=" .. tostring(auto_wrap) .. ",cursor_visible=" .. tostring(cursor_visible)
+end
+
 local function tab_stops_digest(tab_stops, columns)
   if type(tab_stops) ~= "table" then
     return invariant_error("tab stops are malformed")
@@ -323,6 +339,14 @@ function Digest.terminal(terminal)
   if not rendition then
     return nil, rendition_error
   end
+  local saved_rendition, saved_rendition_error = rendition_digest(terminal.saved_rendition)
+  if not saved_rendition then
+    return nil, saved_rendition_error
+  end
+  local modes, modes_error = modes_digest(terminal.modes)
+  if not modes then
+    return nil, modes_error
+  end
   local tab_stops, tab_stops_error = tab_stops_digest(terminal.tab_stops, columns)
   if not tab_stops then
     return nil, tab_stops_error
@@ -361,6 +385,8 @@ function Digest.terminal(terminal)
     "margins=top:" .. margin_top .. ",bottom:" .. margin_bottom,
     "tab_stops=" .. tab_stops,
     "rendition=" .. rendition,
+    "saved_rendition=" .. saved_rendition,
+    "modes=" .. modes,
     "parser=" .. parser,
     "utf8=" .. utf8_decoder,
     primary_screen,

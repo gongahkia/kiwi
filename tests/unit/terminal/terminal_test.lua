@@ -259,4 +259,44 @@ return {
       assertions.equal(3, terminal.rendition.background.blue)
     end,
   },
+  {
+    name = "terminal saves and restores DEC cursor and rendition state",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 3, rows = 1 }))
+      assert(terminal:feed_output("A\27[31m\27" .. "7\27[3G\27[0m\27" .. "8"))
+      assertions.equal(2, terminal.cursor.column)
+      assertions.equal(1, terminal.rendition.foreground.index)
+      assertions.equal("indexed", terminal.rendition.foreground.kind)
+    end,
+  },
+  {
+    name = "terminal restores primary state after DEC 1049 alternate screen",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      assert(terminal:feed_output("P\27[?1049h"))
+      assertions.equal("alternate", terminal.active_buffer)
+      assertions.equal(1, terminal.cursor.column)
+      assertions.equal("", terminal.alternate_screen.rows[1].cells[1].text)
+      assert(terminal:feed_output("A\27[?1049l"))
+      assertions.equal("primary", terminal.active_buffer)
+      assertions.equal("P", terminal.primary_screen.rows[1].cells[1].text)
+      assertions.equal(2, terminal.cursor.column)
+      assert(terminal:feed_output("\27[?1049h"))
+      assertions.equal("", terminal.alternate_screen.rows[1].cells[1].text)
+    end,
+  },
+  {
+    name = "terminal supports alternate variants and cursor mode toggles",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      assert(terminal:feed_output("\27[?47hA\27[?47l\27[?47h"))
+      assertions.equal("A", terminal.alternate_screen.rows[1].cells[1].text)
+      assert(terminal:feed_output("\27[?25l\27[?7l"))
+      assertions.falsy(terminal.modes.cursor_visible)
+      assertions.falsy(terminal.modes.auto_wrap)
+      assert(terminal:feed_output("BC"))
+      assertions.equal("C", terminal.alternate_screen.rows[1].cells[2].text)
+      assertions.falsy(terminal.cursor.pending_wrap)
+    end,
+  },
 }
