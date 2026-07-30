@@ -158,10 +158,10 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 
 ### Exit criteria
 
-- [ ] Recorded fixtures render in the standalone application.
-- [ ] The clean renderer remains readable at multiple window sizes.
-- [ ] No full-grid object allocation occurs per frame.
-- [ ] Target responsiveness is measured and documented for a 120×40 grid.
+- [x] Recorded fixtures render in the standalone application.
+- [x] The clean renderer remains readable at multiple window sizes.
+- [x] No full-grid object allocation occurs per frame.
+- [x] Target responsiveness is measured and documented for a 120×40 grid.
 
 ## Milestone 4 — Effects pipeline and procedural presets
 

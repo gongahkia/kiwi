@@ -7,6 +7,8 @@ local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
 local Metrics = require("renderer.metrics")
 local Renderer = require("renderer.renderer")
+local Snapshot = require("renderer.snapshot")
+local Terminal = require("terminal.terminal")
 
 local function font()
   return FontFixture.new({ unsupported = { ["☃"] = true } })
@@ -201,6 +203,17 @@ return {
       assertions.equal(first_damage, second_damage)
       assertions.equal(2, second_damage[1].row)
       assertions.equal("1", second_snapshot.screen.rows[2].cells[1].text)
+    end,
+  },
+  {
+    name = "renderer terminal snapshots retain the existing screen cells",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      assert(terminal:feed_output("A"))
+      local value = assert(Snapshot.from_terminal(terminal))
+      assertions.equal(terminal.primary_screen, value.screen)
+      assertions.equal(terminal.primary_screen.rows[1], value.screen.rows[1])
+      assertions.equal(terminal.primary_screen.rows[1].cells[1], value.screen.rows[1].cells[1])
     end,
   },
   {

@@ -30,6 +30,7 @@ local modules = {
   "unit.runtime.coordinator_test",
   "unit.runtime.recording_session_test",
   "unit.runtime.import_smoke_test",
+  "unit.app.standalone_test",
   "unit.terminal.cell_test",
   "unit.terminal.config_test",
   "unit.terminal.cursor_test",
