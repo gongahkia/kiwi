@@ -130,6 +130,20 @@ def test_authoritative_sources_reject_forbidden_apis() -> None:
     assert not violations, "\n".join(violations)
 
 
+def test_repository_sources_do_not_execute_player_programs_as_python() -> None:
+    violations: list[str] = []
+    for path in sorted(SOURCE_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        aliases = import_aliases(tree)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                target = call_target(node.func, aliases)
+                if target in {"eval", "exec", "builtins.eval", "builtins.exec"}:
+                    violations.append(f"{path}:{node.lineno}: calls {target}")
+
+    assert not violations, "\n".join(violations)
+
+
 def import_aliases(tree: ast.AST) -> dict[str, str]:
     aliases: dict[str, str] = {}
     for node in ast.walk(tree):

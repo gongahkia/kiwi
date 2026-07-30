@@ -145,12 +145,12 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 
 ### Exit criteria
 
-- [ ] Same typed core produces byte-identical bytecode.
-- [ ] Proof policy executes to an expected value.
-- [ ] Budget exhaustion is deterministic and source linked.
-- [ ] Invalid bytecode is rejected before execution.
-- [ ] Repository scan confirms no Python code execution path for player source.
-- [ ] All checks pass and milestone is committed.
+- [x] Same typed core produces byte-identical bytecode.
+- [x] Proof policy executes to an expected value.
+- [x] Budget exhaustion is deterministic and source linked.
+- [x] Invalid bytecode is rejected before execution.
+- [x] Repository scan confirms no Python code execution path for player source.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 4 — Language MVP data types
 

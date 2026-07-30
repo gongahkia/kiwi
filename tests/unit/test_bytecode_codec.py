@@ -43,11 +43,13 @@ def test_bytecode_codec_round_trips_canonically() -> None:
         "fn truth() -> Bool = true\n",
     )
     module = _compiled(source)
+    repeated_module = _compiled(source)
 
     encoded = encode_bytecode(module)
     decoded = decode_bytecode(encoded)
 
     assert decoded == module
+    assert encode_bytecode(repeated_module) == encoded
     assert encode_bytecode(decoded) == encoded
 
 
