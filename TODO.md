@@ -61,7 +61,7 @@ Parse and display a minimal player-facing functional language.
 - [x] Define immutable AST representation.
 - [x] Implement AST pretty-printer.
 - [x] Add parser golden tests.
-- [ ] Add fuzz tests for malformed input.
+- [x] Add fuzz tests for malformed input.
 - [ ] Add a minimal source editor widget or load source from fixtures initially.
 
 ### Exit criteria
