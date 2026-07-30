@@ -1,7 +1,9 @@
 local Colour = require("renderer.colour")
 local Errors = require("runtime.errors")
 local GlyphCache = require("renderer.glyph_cache")
+local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
+local Event = require("runtime.event")
 
 local Renderer = {}
 local renderer_mt = {}
@@ -13,7 +15,7 @@ Renderer.contract = {
   draw = "draw(snapshot, damage?) -> nil, error?",
   glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
-  resize = "resize(pixel_width, pixel_height) -> nil, error?",
+  resize = "resize(pixel_width, pixel_height) -> layout, resize_event? | nil, error",
   destroy = "destroy()",
 }
 
@@ -270,7 +272,7 @@ local function cursor_style(config)
   return style
 end
 
-local function draw_cursor(graphics, metrics, snapshot, config)
+local function draw_cursor(graphics, metrics, snapshot, config, origin_x, origin_y)
   if snapshot.cursor == nil or snapshot.cursor_visible == false then
     return true
   end
@@ -278,8 +280,8 @@ local function draw_cursor(graphics, metrics, snapshot, config)
   if not style then
     return nil, style_error
   end
-  local x = (snapshot.cursor.column - 1) * metrics.cell_width
-  local y = (snapshot.cursor.row - 1) * metrics.cell_height
+  local x = origin_x + (snapshot.cursor.column - 1) * metrics.cell_width
+  local y = origin_y + (snapshot.cursor.row - 1) * metrics.cell_height
   graphics.setColor(0.9, 0.92, 0.98, 0.8)
   if style == "block" then
     graphics.rectangle("fill", x, y, metrics.cell_width, metrics.cell_height)
@@ -309,8 +311,10 @@ function Renderer.new(config)
     config = config,
     font = nil,
     glyph_cache = nil,
+    grid = nil,
     last_cursor = nil,
     metrics = nil,
+    needs_full_redraw = false,
     state = "bootstrap",
   }, renderer_mt)
 end
@@ -358,15 +362,25 @@ function renderer_mt:draw(snapshot, damage)
   if not columns then
     return nil, rows
   end
-  local ranges, ordered_rows_or_error = validate_damage(damage, columns, rows)
-  if damage ~= nil and not ranges then
+  if self.grid and (columns ~= self.grid.columns or rows ~= self.grid.rows) then
+    return config_error("renderer snapshot dimensions do not match the window grid", {
+      grid_columns = self.grid.columns,
+      grid_rows = self.grid.rows,
+      snapshot_columns = columns,
+      snapshot_rows = rows,
+    })
+  end
+  local full_redraw = damage == nil or self.needs_full_redraw
+  local ranges, ordered_rows_or_error =
+    validate_damage(full_redraw and nil or damage, columns, rows)
+  if not full_redraw and not ranges then
     return nil, ordered_rows_or_error
   end
   local ordered_rows = ordered_rows_or_error
   local current_cursor = cursor_from_snapshot(snapshot)
   local cursor_changed = not same_cursor(self.last_cursor, current_cursor)
-  local cursor_needs_draw = damage == nil
-  if damage ~= nil and cursor_changed then
+  local cursor_needs_draw = full_redraw
+  if not full_redraw and cursor_changed then
     if self.last_cursor and self.last_cursor.row <= rows and self.last_cursor.column <= columns then
       add_damage_range(
         ranges,
@@ -386,7 +400,7 @@ function renderer_mt:draw(snapshot, damage)
       )
       cursor_needs_draw = true
     end
-  elseif damage ~= nil and cursor_in_damage(current_cursor, ranges) then
+  elseif not full_redraw and cursor_in_damage(current_cursor, ranges) then
     cursor_needs_draw = true
   end
   if ordered_rows then
@@ -405,20 +419,22 @@ function renderer_mt:draw(snapshot, damage)
       return nil, method_error
     end
   end
-  if damage ~= nil and #ordered_rows == 0 then
+  if not full_redraw and #ordered_rows == 0 then
     self.last_cursor = current_cursor
     return true
   end
   self.graphics.setFont(self.font)
   local metrics = self.metrics
-  local first_row = damage == nil and 1 or nil
-  local last_row = damage == nil and rows or nil
+  local origin_x = self.grid and self.grid.x or 0
+  local origin_y = self.grid and self.grid.y or 0
+  local first_row = full_redraw and 1 or nil
+  local last_row = full_redraw and rows or nil
   local function draw_range(row, first, last)
     local y = (row - 1) * metrics.cell_height
     local source = snapshot.screen.rows[row]
     for column = first, last do
       local cell = source.cells[column]
-      local x = (column - 1) * metrics.cell_width
+      local x = origin_x + (column - 1) * metrics.cell_width
       local width = metrics.cell_width
       local foreground, foreground_error =
         Colour.resolve(cell.foreground, Colour.default_foreground)
@@ -465,20 +481,47 @@ function renderer_mt:draw(snapshot, damage)
     end
   end
   if cursor_needs_draw then
-    local drawn_cursor, cursor_error = draw_cursor(self.graphics, metrics, snapshot, self.config)
+    local drawn_cursor, cursor_error =
+      draw_cursor(self.graphics, metrics, snapshot, self.config, origin_x, origin_y)
     if not drawn_cursor then
       return nil, cursor_error
     end
   end
   self.last_cursor = current_cursor
+  self.needs_full_redraw = false
   return true
 end
 
 function renderer_mt:resize(pixel_width, pixel_height)
-  if type(pixel_width) ~= "number" or type(pixel_height) ~= "number" then
-    return nil, Errors.new("config_error", "renderer dimensions must be numbers")
+  if self.state == "destroyed" then
+    return nil, Errors.new("renderer_resource_error", "renderer is destroyed")
   end
-  return nil, Errors.new("renderer_resource_error", "renderer is not implemented")
+  if not self.metrics then
+    return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
+  end
+  local layout, layout_error = Grid.layout(self.metrics, pixel_width, pixel_height, {
+    padding = self.config.padding,
+  })
+  if not layout then
+    return nil, layout_error
+  end
+  local previous = self.grid
+  if
+    previous
+    and previous.pixel_width == layout.pixel_width
+    and previous.pixel_height == layout.pixel_height
+    and previous.padding == layout.padding
+  then
+    return layout
+  end
+  local event, event_error =
+    Event.resize(layout.columns, layout.rows, layout.pixel_width, layout.pixel_height)
+  if not event then
+    return nil, event_error
+  end
+  self.grid = layout
+  self.needs_full_redraw = true
+  return layout, event
 end
 
 function renderer_mt:destroy()

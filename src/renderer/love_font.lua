@@ -15,6 +15,7 @@ local allowed_options = {
   font_path = true,
   font_size = true,
   max_glyph_entries = true,
+  padding = true,
 }
 
 local function config_error(message, detail)
