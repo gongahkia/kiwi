@@ -1,33 +1,29 @@
-.PHONY: icons build build-chrome build-firefox package-firefox lint-firefox build-safari safari-project test verify clean
+LUA ?= luajit
+LOVE ?= love
+STYLUA ?= stylua
+LUA_FILES := $(shell find main.lua conf.lua src tests tools -type f -name '*.lua' -print | LC_ALL=C sort)
 
-icons:
-	python3 scripts/generate-icons.py
+.PHONY: run test headless content fmt lint check smoke
 
-build: icons
-	npm run build
-
-build-chrome: icons
-	npm run build:chrome
-
-build-firefox: icons
-	npm run build:firefox
-
-package-firefox: icons
-	npm run package:firefox
-
-lint-firefox: package-firefox
-	npm run lint:firefox
-
-build-safari: icons
-	npm run build:safari
-
-safari-project: build-safari
-	npm run safari:project
+run:
+	$(LOVE) .
 
 test:
-	npm test
+	$(LUA) tests/test_runner.lua
 
-verify: build test
+headless:
+	$(LUA) tools/headless_runner.lua
 
-clean:
-	rm -rf dist safari
+content:
+	$(LUA) tools/content_validator.lua
+
+fmt:
+	$(STYLUA) $(LUA_FILES)
+
+lint:
+	$(STYLUA) --check $(LUA_FILES)
+
+check: lint test headless content
+
+smoke:
+	$(LOVE) . --smoke

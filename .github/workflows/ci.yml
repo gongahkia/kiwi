@@ -1,24 +1,18 @@
-name: Judgeman CI/CD on Push
+name: ci
 
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  check:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run unit tests
-        run: npm test
+      - uses: actions/checkout@v4
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install --yes luajit
+      - name: Install StyLua
+        run: cargo install stylua --version 2.5.2 --locked
+      - name: Check formatting and run headless verification
+        run: make check
