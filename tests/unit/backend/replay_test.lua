@@ -234,4 +234,40 @@ return {
       assertions.truthy(replay:capabilities().seek)
     end,
   },
+  {
+    name = "replay backend indexes bounded bookmark descriptors and resolves named marks",
+    run = function()
+      local terminal_module = require("terminal.terminal")
+      local terminal = assert(terminal_module.new({ columns = 4, rows = 1 }))
+      assert(terminal:feed_output("A"))
+      local checkpoint = assert(Frames.checkpoint(terminal, 0))
+      local replay = assert(Replay.new(
+        source(
+          recording({
+            assert(Frames.from_event(assert(Event.output("A", 1)))),
+            checkpoint,
+            assert(Frames.from_event(assert(Event.mark("alpha", { position = 1 }, 2)))),
+            assert(Frames.from_event(assert(Event.mark("alpha", { position = 2 }, 1)))),
+            assert(Frames.from_event(assert(Event.mark("alpha", { position = 3 }, 1)))),
+          }),
+          nil,
+          true
+        ),
+        { max_mark_entries = 2 }
+      ))
+      assertions.truthy(replay:start())
+      local marks = assert(replay:marks())
+      assertions.equal(2, #marks)
+      assertions.equal("alpha", marks[1].name)
+      assertions.equal(3, marks[1].terminal_us)
+      assertions.equal(3, replay:status().mark_status.total)
+      assertions.equal(2, replay:status().mark_status.indexed)
+      local plan = assert(replay:seek_mark("alpha", 2))
+      assertions.equal(5, plan.target_terminal_us)
+      assertions.equal("alpha", plan.mark.name)
+      local value, error_value = replay:seek_mark("missing")
+      assertions.falsy(value)
+      assertions.equal("backend_unavailable", error_value.kind)
+    end,
+  },
 }

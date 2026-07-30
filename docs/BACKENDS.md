@@ -62,6 +62,7 @@ Bootstrap control contract:
 - `poll` processes at most the configured `max_events_per_poll` recording frames (default `1024`), retaining due frames for the next call;
 - `step_frame()` pauses replay and returns exactly one decoded recording frame plus its normalised event, without mutating terminal state;
 - seekable sources are indexed by bounded checkpoint offsets; `seek(target_terminal_us)` restores the nearest indexed checkpoint and leaves replay paused at the requested terminal time;
+- seekable sources index bounded bookmark descriptors; `marks()` lists indexed mark names/times and `seek_mark(name, occurrence?)` resolves through the nearest checkpoint;
 - INPUT frames remain informational events and are never sent to a host process.
 
 ## 5. Direct backend

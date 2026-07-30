@@ -106,7 +106,7 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 - [x] Implement deterministic replay time independent of wall-clock rendering time.
 - [x] Implement checkpoint creation and restoration.
 - [x] Implement a seek index with bounded memory.
-- [ ] Implement marks/bookmarks.
+- [x] Implement marks/bookmarks.
 - [x] Expose current frame, elapsed terminal time, total duration, and checkpoint status.
 
 ### Tests

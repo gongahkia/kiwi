@@ -9,9 +9,11 @@ replay_mt.__index = replay_mt
 Replay.contract = {
   constructor = "new(source, config?) -> replay_backend | nil, error",
   pause = "pause() -> true | nil, error",
+  marks = "marks() -> bookmark_descriptors | nil, error",
   play = "play() -> true | nil, error",
   resume = "resume() -> true | nil, error",
   seek = "seek(target_terminal_us) -> checkpoint_plan | nil, error",
+  seek_mark = "seek_mark(name, occurrence?) -> checkpoint_plan | nil, error",
   set_speed = "set_speed(multiplier) -> true | nil, error",
   step_frame = "step_frame() -> step | nil, error?",
 }
@@ -72,8 +74,15 @@ local function config_for(config)
         "maximum checkpoint index entries must be at least two"
       )
   end
+  local max_mark_entries, marks_error =
+    uint32(config.max_mark_entries or 1024, "maximum mark entries")
+  if not max_mark_entries or max_mark_entries < 2 then
+    return nil,
+      marks_error or Errors.new("config_error", "maximum mark entries must be at least two")
+  end
   return {
     max_checkpoint_entries = max_checkpoint_entries,
+    max_mark_entries = max_mark_entries,
     max_events_per_poll = max_events,
     reader_limits = reader_limits,
     speed = speed,
@@ -101,6 +110,25 @@ local function add_checkpoint_index_entry(replay, entry)
   end
 end
 
+local function add_mark_index_entry(replay, entry)
+  local entries = replay.mark_index
+  entries[#entries + 1] = entry
+  while #entries > replay.config.max_mark_entries do
+    replay.mark_stride = replay.mark_stride * 2
+    local compacted = { entries[1] }
+    for index = 2, #entries do
+      local candidate = entries[index]
+      if candidate.ordinal % replay.mark_stride == 0 or index == #entries then
+        if compacted[#compacted] ~= candidate then
+          compacted[#compacted + 1] = candidate
+        end
+      end
+    end
+    replay.mark_index = compacted
+    entries = compacted
+  end
+end
+
 local function build_index(replay)
   if replay.index_state == "ready" then
     return true
@@ -120,6 +148,9 @@ local function build_index(replay)
   replay.checkpoint_index = {}
   replay.checkpoint_count = 0
   replay.checkpoint_stride = 1
+  replay.mark_index = {}
+  replay.mark_count = 0
+  replay.mark_stride = 1
   local elapsed_terminal_us = 0
   local frame_index = 0
   while true do
@@ -148,6 +179,18 @@ local function build_index(replay)
         frame_index = frame_index,
         offset = frame_offset,
         ordinal = replay.checkpoint_count,
+      })
+    elseif frame.kind == 0x04 then
+      local mark, mark_error = Frames.to_event(frame)
+      if not mark then
+        return fail(replay, mark_error)
+      end
+      replay.mark_count = replay.mark_count + 1
+      add_mark_index_entry(replay, {
+        frame_index = frame_index,
+        name = mark.name,
+        ordinal = replay.mark_count,
+        terminal_us = elapsed_terminal_us,
       })
     end
   end
@@ -260,6 +303,9 @@ function Replay.new(source, config)
     ended = false,
     failure = nil,
     next_frame = nil,
+    mark_count = 0,
+    mark_index = {},
+    mark_stride = 1,
     playhead_us = 0,
     reader = reader,
     speed = settings.speed,
@@ -345,6 +391,31 @@ function replay_mt:step_frame()
   return consume_frame(self, true)
 end
 
+function replay_mt:marks()
+  if self.state == "idle" then
+    local started, start_error = self:start()
+    if not started then
+      return nil, start_error
+    end
+  end
+  local valid, valid_error = state_error(self)
+  if not valid and self.state ~= "exhausted" then
+    return nil, valid_error
+  end
+  if self.index_state ~= "ready" then
+    return unavailable("replay bookmark listing requires a seekable recording source")
+  end
+  local marks = {}
+  for index, mark in ipairs(self.mark_index) do
+    marks[index] = {
+      frame_index = mark.frame_index,
+      name = mark.name,
+      terminal_us = mark.terminal_us,
+    }
+  end
+  return marks
+end
+
 function replay_mt:seek(target_terminal_us)
   if self.state == "idle" then
     local started, start_error = self:start()
@@ -414,6 +485,44 @@ function replay_mt:seek(target_terminal_us)
     target_terminal_us = target,
     terminal = terminal,
   }
+end
+
+function replay_mt:seek_mark(name, occurrence)
+  if type(name) ~= "string" or name == "" then
+    return config_error("replay mark name must be a non-empty string", { provided = name })
+  end
+  local selected_occurrence = occurrence or 1
+  if
+    type(selected_occurrence) ~= "number"
+    or selected_occurrence % 1 ~= 0
+    or selected_occurrence < 1
+  then
+    return config_error("replay mark occurrence must be a positive integer", {
+      provided = occurrence,
+    })
+  end
+  local marks, marks_error = self:marks()
+  if not marks then
+    return nil, marks_error
+  end
+  local count = 0
+  for _, mark in ipairs(marks) do
+    if mark.name == name then
+      count = count + 1
+      if count == selected_occurrence then
+        local plan, seek_error = self:seek(mark.terminal_us)
+        if not plan then
+          return nil, seek_error
+        end
+        plan.mark = mark
+        return plan
+      end
+    end
+  end
+  return unavailable(
+    "replay mark was not indexed",
+    { name = name, occurrence = selected_occurrence }
+  )
 end
 
 function replay_mt:poll(advance_us)
@@ -493,6 +602,11 @@ function replay_mt:status()
     current_frame = self.current_frame,
     elapsed_terminal_us = self.elapsed_terminal_us,
     next_frame_pending = self.next_frame ~= nil,
+    mark_status = {
+      indexed = #self.mark_index,
+      state = self.index_state,
+      total = self.mark_count,
+    },
     playhead_us = self.playhead_us,
     speed = self.speed,
     state = self.state,
