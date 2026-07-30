@@ -80,6 +80,60 @@ local function register(test)
     test.equals(value, nil)
     test.error_code(err, "invalid_function_result_type")
   end)
+
+  test.case("union types represent Option Result and selected domain unions", function()
+    local integer = assert(types.get("Int"))
+    local boolean = assert(types.get("Bool"))
+    local option_integer = assert(types.union_type("Option", { integer }))
+    local option_boolean = assert(types.union_type("Option", { boolean }))
+    local result = assert(types.union_type("Result", { integer, boolean }))
+    local stance = assert(types.get("Stance"))
+
+    test.equals(option_integer.kind, "union")
+    test.equals(option_integer.definition.name, "Option")
+    test.equals(option_integer.arguments[1], integer)
+    test.equals(types.equals(option_integer, option_boolean), false)
+    test.equals(types.describe(option_integer), "Option Int")
+    test.equals(types.describe(result), "Result Int Bool")
+    test.equals(stance.kind, "union")
+    test.equals(types.describe(stance), "Stance")
+  end)
+
+  test.case("union constructors retain stable declared order", function()
+    local option = assert(types.union_type("Option", { assert(types.get("Int")) }))
+    local stance = assert(types.get("Stance"))
+    local urgency = assert(types.get("Urgency"))
+    local contact_class = assert(types.get("ContactClass"))
+
+    test.equals(table.concat(types.constructors(option), ","), "None,Some")
+    test.equals(table.concat(types.constructors(stance), ","), "Standing,Crouched,Prone")
+    test.equals(table.concat(types.constructors(urgency), ","), "Low,Normal,High,Critical")
+    test.equals(
+      table.concat(types.constructors(contact_class), ","),
+      "Unknown,Civilian,Hostile,Friendly"
+    )
+  end)
+
+  test.case("union types reject unknown names arity and mutable arguments", function()
+    local integer = assert(types.get("Int"))
+    local value, err = types.union_type("Unknown", {})
+    test.equals(value, nil)
+    test.error_code(err, "unknown_union_type")
+
+    value, err = types.union_type("Option", {})
+    test.equals(value, nil)
+    test.error_code(err, "invalid_union_arity")
+
+    value, err = types.union_type("Option", { {} })
+    test.equals(value, nil)
+    test.error_code(err, "invalid_union_argument_type")
+
+    local option = assert(types.union_type("Option", { integer }))
+    local write_ok = pcall(function()
+      option.arguments[1] = assert(types.get("Bool"))
+    end)
+    test.equals(write_ok, false)
+  end)
 end
 
 return register
