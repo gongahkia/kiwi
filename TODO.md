@@ -73,11 +73,11 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 
 ### Exit criteria
 
-- [ ] The first proof policy parses.
-- [ ] Invalid examples report exact spans and stable diagnostic codes.
-- [ ] Lexer and parser do not crash on bounded arbitrary input tests.
-- [ ] AST debug output is deterministic.
-- [ ] All checks pass and milestone is committed.
+- [x] The first proof policy parses.
+- [x] Invalid examples report exact spans and stable diagnostic codes.
+- [x] Lexer and parser do not crash on bounded arbitrary input tests.
+- [x] AST debug output is deterministic.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 2 — Names, types, and typed core
 
