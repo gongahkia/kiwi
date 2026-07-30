@@ -128,4 +128,6 @@ python -m pytest
 
 `make format` applies formatting. `make check` runs formatting verification, linting, static types, and tests. The equivalent `uv` commands are `uv run --extra dev python -m kiwi.cli doctor`, `uv run --extra dev ruff format --check .`, `uv run --extra dev ruff check .`, `uv run --extra dev mypy src tests`, and `uv run --extra dev pytest`.
 
+Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli parse path/to/policy.dtr`; successful parses emit stable surface-AST output and invalid input emits structured diagnostics.
+
 Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated.
