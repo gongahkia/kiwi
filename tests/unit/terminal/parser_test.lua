@@ -1,6 +1,46 @@
 local assertions = require("support.assertions")
 local Parser = require("terminal.parser")
 
+local function event_signature(event)
+  if event.kind == "print" or event.kind == "control" then
+    return event.kind .. ":" .. event.offset .. ":" .. event.byte
+  end
+  if event.kind == "esc" then
+    return event.kind .. ":" .. event.offset .. ":" .. event.final .. ":" .. event.intermediates
+  end
+  if event.kind == "csi" then
+    return event.kind
+      .. ":"
+      .. event.offset
+      .. ":"
+      .. event.final
+      .. ":"
+      .. event.parameters
+      .. ":"
+      .. event.intermediates
+  end
+  if event.kind == "osc" then
+    return event.kind .. ":" .. event.offset .. ":" .. event.payload .. ":" .. event.terminator
+  end
+  return event.kind
+    .. ":"
+    .. event.offset
+    .. ":"
+    .. event.byte
+    .. ":"
+    .. event.reason
+    .. ":"
+    .. event.state
+end
+
+local function events_signature(events)
+  local signatures = {}
+  for index, event in ipairs(events) do
+    signatures[index] = event_signature(event)
+  end
+  return table.concat(signatures, "\n")
+end
+
 return {
   {
     name = "parser preserves CSI state across byte chunks",
@@ -67,6 +107,48 @@ return {
       assertions.equal("csi_ignore", parser:snapshot().state)
       assertions.equal(0, #assert(parser:feed("m")))
       assertions.equal("ground", parser:snapshot().state)
+    end,
+  },
+  {
+    name = "parser produces identical state and events at every byte split",
+    run = function()
+      local input = "A\27[?25h\27]0;title\27\\\27[12\8H\27[\127m"
+      local whole_parser = assert(Parser.new())
+      local whole_events = assert(whole_parser:feed(input))
+      local expected_events = events_signature(whole_events)
+      local expected_state = whole_parser:snapshot()
+      for split = 0, #input do
+        local parser = assert(Parser.new())
+        local events = assert(parser:feed(input:sub(1, split)))
+        local suffix_events = assert(parser:feed(input:sub(split + 1)))
+        for _, event in ipairs(suffix_events) do
+          events[#events + 1] = event
+        end
+        assertions.equal(expected_events, events_signature(events), "event split " .. split)
+        local state = parser:snapshot()
+        assertions.equal(expected_state.byte_offset, state.byte_offset, "offset split " .. split)
+        assertions.equal(
+          expected_state.csi_intermediates,
+          state.csi_intermediates,
+          "CSI intermediate split " .. split
+        )
+        assertions.equal(
+          expected_state.csi_parameters,
+          state.csi_parameters,
+          "CSI parameter split " .. split
+        )
+        assertions.equal(
+          expected_state.escape_intermediates,
+          state.escape_intermediates,
+          "ESC intermediate split " .. split
+        )
+        assertions.equal(
+          expected_state.osc_payload,
+          state.osc_payload,
+          "OSC payload split " .. split
+        )
+        assertions.equal(expected_state.state, state.state, "state split " .. split)
+      end
     end,
   },
   {
