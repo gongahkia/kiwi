@@ -32,6 +32,9 @@ return {
         "recording.metadata",
         "recording.reader",
         "recording.writer",
+        "renderer.metrics",
+        "renderer.love_font",
+        "renderer.renderer",
       }
       for _, module_name in ipairs(modules) do
         package.loaded[module_name] = nil

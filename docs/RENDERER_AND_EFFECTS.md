@@ -44,6 +44,8 @@ The exact order must be configurable only where semantics remain clear.
 - no font rasterisation during every frame;
 - bounded atlas growth or eviction policy.
 
+The bootstrap renderer loads a configured LÖVE font through an injected graphics API and records integer `cell_width`, `cell_height`, and baseline metrics. A caller may override these metrics when a font has unsuitable nominal advances. The terminal core never loads fonts or observes these metrics.
+
 ### 3.2 Atlas
 
 A practical initial design:
