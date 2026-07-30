@@ -126,6 +126,24 @@ local function validate_snapshot(snapshot)
       if not valid_cell(source.cells[column]) then
         return config_error("renderer snapshot cell is invalid", { column = column, row = row })
       end
+      local cell = source.cells[column]
+      if cell.width == 2 then
+        local continuation = source.cells[column + 1]
+        if continuation == nil or not continuation.continuation then
+          return config_error(
+            "renderer snapshot wide cell is malformed",
+            { column = column, row = row }
+          )
+        end
+      elseif cell.continuation then
+        local leading = source.cells[column - 1]
+        if leading == nil or leading.width ~= 2 then
+          return config_error("renderer snapshot continuation cell is malformed", {
+            column = column,
+            row = row,
+          })
+        end
+      end
     end
   end
   if snapshot.cursor ~= nil then
@@ -449,34 +467,42 @@ function renderer_mt:draw(snapshot, damage)
   local function draw_range(row, first, last)
     local y = (row - 1) * metrics.cell_height
     local source = snapshot.screen.rows[row]
+    if source.cells[first].continuation then
+      first = first - 1
+    end
+    if source.cells[last].width == 2 then
+      last = last + 1
+    end
     for column = first, last do
       local cell = source.cells[column]
-      local x = origin_x + (column - 1) * metrics.cell_width
-      local width = metrics.cell_width
-      local foreground, foreground_error =
-        Colour.resolve(cell.foreground, Colour.default_foreground)
-      if not foreground then
-        return nil, foreground_error
-      end
-      local background, background_error =
-        Colour.resolve(cell.background, Colour.default_background)
-      if not background then
-        return nil, background_error
-      end
-      if has_attribute(cell.attributes, attributes.inverse) then
-        foreground, background = background, foreground
-      end
-      draw_background(self.graphics, background, x, y, width, metrics.cell_height)
-      local glyph_foreground = has_attribute(cell.attributes, attributes.conceal) and background
-        or foreground
-      local drawn, draw_error = draw_glyph(self.graphics, self, cell, glyph_foreground, x, y)
-      if not drawn then
-        return nil, draw_error
-      end
-      local decorated, decoration_error =
-        draw_decorations(self.graphics, cell, glyph_foreground, x, y, width, metrics.cell_height)
-      if not decorated then
-        return nil, decoration_error
+      if not cell.continuation then
+        local x = origin_x + (column - 1) * metrics.cell_width
+        local width = cell.width * metrics.cell_width
+        local foreground, foreground_error =
+          Colour.resolve(cell.foreground, Colour.default_foreground)
+        if not foreground then
+          return nil, foreground_error
+        end
+        local background, background_error =
+          Colour.resolve(cell.background, Colour.default_background)
+        if not background then
+          return nil, background_error
+        end
+        if has_attribute(cell.attributes, attributes.inverse) then
+          foreground, background = background, foreground
+        end
+        draw_background(self.graphics, background, x, y, width, metrics.cell_height)
+        local glyph_foreground = has_attribute(cell.attributes, attributes.conceal) and background
+          or foreground
+        local drawn, draw_error = draw_glyph(self.graphics, self, cell, glyph_foreground, x, y)
+        if not drawn then
+          return nil, draw_error
+        end
+        local decorated, decoration_error =
+          draw_decorations(self.graphics, cell, glyph_foreground, x, y, width, metrics.cell_height)
+        if not decorated then
+          return nil, decoration_error
+        end
       end
     end
     return true

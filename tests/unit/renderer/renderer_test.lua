@@ -82,6 +82,18 @@ local function operation_count(api, name)
   return count
 end
 
+local function operation(api, name, index)
+  local count = 0
+  for _, value in ipairs(api.calls) do
+    if value.name == name then
+      count = count + 1
+      if count == index then
+        return value
+      end
+    end
+  end
+end
+
 local function snapshot()
   return {
     columns = 2,
@@ -111,6 +123,38 @@ local function snapshot()
       },
     },
   }
+end
+
+local function wide_snapshot()
+  local value = snapshot()
+  value.columns = 3
+  value.screen.rows[1].cells = {
+    {
+      attributes = 8,
+      background = "default",
+      continuation = false,
+      foreground = "default",
+      text = "界",
+      width = 2,
+    },
+    {
+      attributes = 0,
+      background = "default",
+      continuation = true,
+      foreground = "default",
+      text = "",
+      width = 0,
+    },
+    {
+      attributes = 0,
+      background = "default",
+      continuation = false,
+      foreground = "default",
+      text = "C",
+      width = 1,
+    },
+  }
+  return value
 end
 
 return {
@@ -216,6 +260,30 @@ return {
       local value, error_value = renderer:draw({ columns = 1, rows = 1, screen = { rows = {} } })
       assertions.falsy(value)
       assertions.equal("config_error", error_value.kind)
+      assertions.equal(calls_before, #api.calls)
+    end,
+  },
+  {
+    name = "renderer places wide cells once across two terminal columns",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      local value = wide_snapshot()
+      assert(renderer:draw(value))
+      assertions.equal(2, operation_count(api, "rectangle"))
+      assertions.equal(2, operation_count(api, "print"))
+      assertions.equal(1, operation_count(api, "line"))
+      local rectangle = operation(api, "rectangle", 1)
+      assertions.equal(18, rectangle[4])
+      local rectangles_before = operation_count(api, "rectangle")
+      assert(renderer:draw(value, { { first_column = 2, last_column = 2, row = 1 } }))
+      assertions.equal(rectangles_before + 1, operation_count(api, "rectangle"))
+      value.screen.rows[1].cells[2].continuation = false
+      local calls_before = #api.calls
+      local rendered, render_error = renderer:draw(value)
+      assertions.falsy(rendered)
+      assertions.equal("config_error", render_error.kind)
       assertions.equal(calls_before, #api.calls)
     end,
   },
