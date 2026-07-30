@@ -23,6 +23,7 @@ return {
         "backend.interface",
         "recording.binary",
         "recording.checksum",
+        "recording.checkpoint",
         "recording.format",
         "recording.frames",
         "recording.metadata",

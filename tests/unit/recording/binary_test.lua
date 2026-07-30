@@ -7,6 +7,7 @@ return {
     run = function()
       assertions.equal("\18", assert(Binary.u8(0x12)))
       assertions.equal("\18\52", assert(Binary.u16(0x1234)))
+      assertions.equal("\52\18", assert(Binary.u16_le(0x1234)))
       assertions.equal("\18\52\86\120", assert(Binary.u32(0x12345678)))
       assertions.equal("\255\255\255\255", assert(Binary.u32(0xFFFFFFFF)))
     end,
@@ -21,6 +22,9 @@ return {
       value, next_offset = assert(Binary.read_u16(bytes, next_offset))
       assertions.equal(0x3456, value)
       assertions.equal(4, next_offset)
+      local little_endian_value, little_endian_offset = assert(Binary.read_u16_le("\52\18", 1))
+      assertions.equal(0x1234, little_endian_value)
+      assertions.equal(3, little_endian_offset)
       value, next_offset = assert(Binary.read_u32(bytes, next_offset))
       assertions.equal(0x789ABCDE, value)
       assertions.equal(8, next_offset)

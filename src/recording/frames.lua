@@ -1,4 +1,5 @@
 local Binary = require("recording.binary")
+local Checkpoint = require("recording.checkpoint")
 local Checksum = require("recording.checksum")
 local Errors = require("runtime.errors")
 local Format = require("recording.format")
@@ -9,6 +10,8 @@ local Frames = {}
 
 Frames.contract = {
   from_event = "from_event(event) -> recording_frame | nil, error",
+  checkpoint = "checkpoint(terminal, delta_us?, limits?) -> recording_frame | nil, error",
+  restore_checkpoint = "restore_checkpoint(recording_frame, limits?) -> terminal | nil, error",
   to_event = "to_event(recording_frame) -> event | nil, error",
 }
 
@@ -90,6 +93,32 @@ function Frames.from_event(event)
       "event kind is not recordable in this slice",
       { kind = normalised.kind }
     )
+end
+
+function Frames.checkpoint(terminal, delta_us, limits)
+  local timing, timing_error = Event.clock_advance(delta_us or 0)
+  if not timing then
+    return nil, timing_error
+  end
+  local payload, payload_error = Checkpoint.encode(terminal, limits)
+  if not payload then
+    return nil, payload_error
+  end
+  return frame(Format.kinds.CHECKPOINT, timing.delta_us, payload)
+end
+
+function Frames.restore_checkpoint(frame_value, limits)
+  if type(frame_value) ~= "table" then
+    return corrupt_error("recording frame must be a table")
+  end
+  local valid, frame_error = valid_frame(frame_value)
+  if not valid then
+    return nil, frame_error
+  end
+  if frame_value.kind ~= Format.kinds.CHECKPOINT then
+    return corrupt_error("recording frame is not a checkpoint", { kind = frame_value.kind })
+  end
+  return Checkpoint.decode(frame_value.payload, limits)
 end
 
 function Frames.to_event(frame_value)

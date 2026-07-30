@@ -148,11 +148,11 @@ Bootstrap writers always emit the canonical object fields `data` and `name`; `da
 
 ### 7.4 CHECKPOINT
 
-The checkpoint payload is a versioned semantic state snapshot. It must include enough state to continue parsing exactly, including partial parser state.
+The checkpoint payload is schema v1 from ADR-0005. It begins with a little-endian `u16` schema version; all following multi-byte fields are big-endian. The schema has canonical field ordering, fixed enum discriminants, explicit nested lengths and counts, and bounded decoding. It preserves terminal/parser continuation state, including independent primary and alternate screens, active-screen selection, cursors, renditions, modes, margins, tab stops, scrollback, partial control sequences, and incomplete UTF-8 state.
 
-It must exclude renderer resources and effect state.
+It excludes renderer resources, visual effects, backend/process state, timing, host environment, row damage, and row revisions. A restored screen is marked dirty for rendering. The outer frame checksum covers every checkpoint payload byte.
 
-Checkpoint encoding may initially use a documented internal binary schema. Because checkpoints are persistent and format-sensitive, the final schema requires its own ADR before implementation.
+Schema v1 stability begins only when the recording format reaches its first public compatibility commitment. See ADR-0005 for the exact layout, discriminants, limits, and validation rules.
 
 ### 7.5 STATUS and EXIT
 
