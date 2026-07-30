@@ -1,0 +1,86 @@
+Program @0:297
+  module:
+    ModuleDeclaration name="FieldPolicy" @0:18
+  exposures:
+    - ExposeDeclaration @19:29
+      names:
+        - Identifier name="act" @26:29
+  declarations:
+    - FunctionDeclaration @30:297
+      name:
+        Identifier name="act" @30:33
+      parameters:
+        - Identifier name="view" @34:38
+        - Identifier name="memory" @39:45
+      body:
+        LetExpression @50:297
+          name:
+            Identifier name="danger" @54:60
+          value:
+            ApplicationExpression @63:79
+              callee:
+                VariableExpression name="dangerScore" @63:74
+              argument:
+                VariableExpression name="view" @75:79
+          body:
+            CaseExpression @87:297
+              subject:
+                ApplicationExpression @92:112
+                  callee:
+                    VariableExpression name="nearestCasualty" @92:107
+                  argument:
+                    VariableExpression name="view" @108:112
+              alternatives:
+                - CaseAlternative @120:251
+                  pattern:
+                    ConstructorPattern name="Some" @120:129
+                      arguments:
+                        - VariablePattern name="ally" @125:129
+                  body:
+                    IfExpression @139:251
+                      condition:
+                        BinaryExpression operator="<" @142:155
+                          left:
+                            VariableExpression name="danger" @142:148
+                          right:
+                            FloatLiteral lexeme="0.60" @151:155
+                      then_branch:
+                        TupleExpression @167:203
+                          items:
+                            - VariableExpression name="memory" @168:174
+                            - ApplicationExpression @176:202
+                              callee:
+                                ApplicationExpression @176:197
+                                  callee:
+                                    VariableExpression name="moveAndStabilise" @176:192
+                                  argument:
+                                    VariableExpression name="view" @193:197
+                              argument:
+                                VariableExpression name="ally" @198:202
+                      else_branch:
+                        TupleExpression @215:251
+                          items:
+                            - VariableExpression name="memory" @216:222
+                            - ApplicationExpression @224:250
+                              callee:
+                                VariableExpression name="requestCover" @224:236
+                              argument:
+                                FieldAccessExpression @237:250
+                                  target:
+                                    VariableExpression name="ally" @237:241
+                                  field:
+                                    Identifier name="position" @242:250
+                - CaseAlternative @256:297
+                  pattern:
+                    ConstructorPattern name="None" @256:260
+                      arguments: []
+                  body:
+                    ApplicationExpression @270:297
+                      callee:
+                        ApplicationExpression @270:290
+                          callee:
+                            VariableExpression name="engageOrAdvance" @270:285
+                          argument:
+                            VariableExpression name="view" @286:290
+                      argument:
+                        VariableExpression name="memory" @291:297
