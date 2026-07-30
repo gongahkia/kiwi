@@ -1,0 +1,58 @@
+"""Immutable lexical tokens for the Kiwi DSL surface language."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+from kiwi.dsl.source import SourceSpan
+
+type TokenValue = int | bool | None
+
+
+class TokenKind(StrEnum):
+    """The fixed token vocabulary for the Milestone 1 surface grammar."""
+
+    EOF = "end_of_file"
+    IDENTIFIER = "identifier"
+    INTEGER = "integer"
+    TRUE = "true"
+    FALSE = "false"
+    POLICY = "policy"
+    FN = "fn"
+    LET = "let"
+    IF = "if"
+    THEN = "then"
+    ELSE = "else"
+    COLON = "colon"
+    COMMA = "comma"
+    EQUALS = "equals"
+    LEFT_PAREN = "left_paren"
+    RIGHT_PAREN = "right_paren"
+    ARROW = "arrow"
+    MINUS = "minus"
+
+
+@dataclass(frozen=True, slots=True)
+class Token:
+    """One source-linked token with an optional decoded literal value."""
+
+    kind: TokenKind
+    lexeme: str
+    span: SourceSpan
+    value: TokenValue = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.lexeme, str):
+            raise ValueError("token lexeme must be a string")
+        if self.kind is TokenKind.INTEGER:
+            if not isinstance(self.value, int) or isinstance(self.value, bool):
+                raise ValueError("integer token requires an integer value")
+        elif self.kind is TokenKind.TRUE:
+            if self.value is not True:
+                raise ValueError("true token requires value True")
+        elif self.kind is TokenKind.FALSE:
+            if self.value is not False:
+                raise ValueError("false token requires value False")
+        elif self.value is not None:
+            raise ValueError("only literal tokens may carry a decoded value")
