@@ -39,6 +39,7 @@ class BytecodeValidationCode(StrEnum):
     STACK_UNDERFLOW = "B008_STACK_UNDERFLOW"
     CONTROL_FLOW_FALLTHROUGH = "B009_CONTROL_FLOW_FALLTHROUGH"
     INCONSISTENT_STACK_HEIGHT = "B010_INCONSISTENT_STACK_HEIGHT"
+    RETURN_STACK_HEIGHT = "B011_RETURN_STACK_HEIGHT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +219,15 @@ def _validate_stack_flow(
             continue
         heights[index] = height
         instruction = function.instructions[index]
+        if isinstance(instruction, Return) and height > 1:
+            errors.append(
+                _error(
+                    BytecodeValidationCode.RETURN_STACK_HEIGHT,
+                    "return must leave exactly one stack value",
+                    function,
+                    InstructionIndex(index),
+                )
+            )
         needed, resulting_height = _stack_effect(instruction, height)
         if height < needed:
             errors.append(
