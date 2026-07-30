@@ -110,6 +110,10 @@ function ast.length(value)
   return values.length
 end
 
+function ast.is_list(value)
+  return list_values[value] ~= nil
+end
+
 function ast.at(value, index)
   local values = list_values[value]
   if not values then

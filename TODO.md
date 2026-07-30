@@ -59,7 +59,7 @@ Parse and display a minimal player-facing functional language.
 - [x] Implement lexer with exact source spans.
 - [x] Implement parser with recoverable diagnostics.
 - [x] Define immutable AST representation.
-- [ ] Implement AST pretty-printer.
+- [x] Implement AST pretty-printer.
 - [ ] Add parser golden tests.
 - [ ] Add fuzz tests for malformed input.
 - [ ] Add a minimal source editor widget or load source from fixtures initially.
