@@ -653,6 +653,12 @@ Compile to deterministic bytecode. Constant-pool and function ordering must be c
 
 ## 16. Bytecode model
 
+Every bytecode module begins with immutable compatibility metadata: its source
+file ID, source-language version, core-IR version, and bytecode version. The
+Milestone 3 compiler emits version `1` for all three version fields and rejects
+any other value at this boundary. The later bytecode encoding task defines how
+the header is represented in bytes.
+
 Candidate instructions:
 
 ```text

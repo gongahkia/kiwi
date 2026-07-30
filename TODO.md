@@ -126,7 +126,7 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 
 ### Tasks
 
-- [ ] Define bytecode version and module header.
+- [x] Define bytecode version and module header.
 - [ ] Define closed runtime-value algebra.
 - [ ] Define canonical constant-pool and function ordering.
 - [ ] Define initial instruction set.
