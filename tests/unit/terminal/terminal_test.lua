@@ -9,6 +9,15 @@ local function row_text(row)
   return table.concat(text, "|")
 end
 
+local function has_event(events, kind, sequence_kind)
+  for _, event in ipairs(events) do
+    if event.kind == kind and (sequence_kind == nil or event.sequence_kind == sequence_kind) then
+      return true
+    end
+  end
+  return false
+end
+
 return {
   {
     name = "terminal constructor requires table configuration",
@@ -297,6 +306,24 @@ return {
       assert(terminal:feed_output("BC"))
       assertions.equal("C", terminal.alternate_screen.rows[1].cells[2].text)
       assertions.falsy(terminal.cursor.pending_wrap)
+    end,
+  },
+  {
+    name = "terminal reports unsupported sequences without corrupting state",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 3, rows = 1 }))
+      local events = assert(terminal:feed_output("A\27[999zB"))
+      assertions.truthy(has_event(events, "unsupported_sequence", "csi"))
+      assertions.equal("A", terminal.primary_screen.rows[1].cells[1].text)
+      assertions.equal("B", terminal.primary_screen.rows[1].cells[2].text)
+      assertions.equal("ground", terminal.parser:snapshot().state)
+
+      events = assert(terminal:feed_output("\27(0\27]0;title\7"))
+      assertions.truthy(has_event(events, "unsupported_sequence", "esc"))
+      assertions.truthy(has_event(events, "unsupported_sequence", "osc"))
+      events = assert(terminal:feed_output("\27[\127m"))
+      assertions.truthy(has_event(events, "malformed_sequence"))
+      assertions.equal("ground", terminal.parser:snapshot().state)
     end,
   },
 }
