@@ -347,6 +347,12 @@ Observation -> Memory -> Decision
 
 Functions are first-class within budget and representation limits.
 
+The Milestone 2 compiler type algebra has immutable `Int`, `Bool`, and `Unit`
+primitive types, unresolved named types, and ordered function types. Its stable
+debug rendering uses `A -> B` for one parameter, `(A, B) -> C` for multiple
+parameters, parentheses for a function-typed parameter, and right-associative
+function returns.
+
 ### 9.6 Type inference
 
 MVP inference policy:
