@@ -68,6 +68,24 @@ def test_validator_rejects_stack_underflow_before_execution() -> None:
     assert [error.code for error in result.errors] == [BytecodeValidationCode.STACK_UNDERFLOW]
 
 
+def test_validator_rejects_returns_with_multiple_stack_values() -> None:
+    source = SourceFile(SourceFileId("return.dtr"), "fn value() -> Int = 1")
+    compiled = compile_core(_core(source), BytecodeHeader(source.file_id))
+    invalid = replace(
+        compiled,
+        functions=(
+            replace(
+                compiled.functions[0],
+                instructions=(PushConstant(ConstantId(0)), PushConstant(ConstantId(0)), Return()),
+            ),
+        ),
+    )
+
+    result = validate_bytecode(invalid)
+
+    assert [error.code for error in result.errors] == [BytecodeValidationCode.RETURN_STACK_HEIGHT]
+
+
 def test_validator_rejects_jump_target_before_flow_analysis() -> None:
     source = SourceFile(SourceFileId("jump.dtr"), "fn value() -> Int = 1")
     compiled = compile_core(_core(source), BytecodeHeader(source.file_id))

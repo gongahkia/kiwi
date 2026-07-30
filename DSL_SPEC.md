@@ -693,7 +693,7 @@ contain Python callables or mutable arbitrary objects.
 
 The bytecode validator returns ordered structured errors instead of executing
 corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
-`B010_INCONSISTENT_STACK_HEIGHT` for structural, operand, and reachable
+`B011_RETURN_STACK_HEIGHT` for structural, operand, and reachable
 control-flow rejection.
 
 The headless disassembler renders header versions, pool and table entries, then
@@ -733,6 +733,11 @@ Per invocation budgets include:
 - string size;
 - trace nodes according to trace mode.
 
+Milestone 3 enforces instruction, global value-stack, call-depth, and allocated
+runtime-value limits. A pushed function reference and a negated integer each
+allocate one value; immutable constants and frame slots do not. Exhaustion is
+checked before the operation that would exceed its limit.
+
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 
 ## 19. Runtime faults
@@ -748,6 +753,10 @@ Examples:
 - `R007_MEMORY_SHAPE`
 - `R008_INTENTION_SHAPE`
 
+The initial VM also reports `R009_CALL_DEPTH_BUDGET`, `R010_TYPE`,
+`R011_CALL`, `R012_UNINITIALIZED_LOCAL`, and `R013_ENTRY`. A bytecode
+validation failure returns `R001_INVALID_BYTECODE` before any instruction runs.
+
 Normal well-typed source should make most faults impossible. Faults remain necessary for corrupted bytecode, content mismatch, or implementation defects.
 
 ## 20. Fallback behaviour
@@ -762,6 +771,10 @@ Decision {
 ```
 
 Fallback use is visible in mission UI and trace output. It must not silently continue as if the policy succeeded.
+
+The VM accepts an explicit immutable fallback value at its caller boundary. A
+fallback result retains the original structured VM fault so simulation and trace
+layers can make the failure visible.
 
 ## 21. Source maps and instrumentation
 

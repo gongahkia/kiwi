@@ -133,11 +133,11 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 - [x] Compile core IR to bytecode.
 - [x] Implement bytecode validator.
 - [x] Implement bytecode disassembler.
-- [ ] Implement deterministic stack VM.
-- [ ] Implement call frames and local slots.
-- [ ] Enforce instruction, stack, call-depth, and allocation budgets.
-- [ ] Implement structured VM faults.
-- [ ] Implement deterministic fallback result for policy faults.
+- [x] Implement deterministic stack VM.
+- [x] Implement call frames and local slots.
+- [x] Enforce instruction, stack, call-depth, and allocation budgets.
+- [x] Implement structured VM faults.
+- [x] Implement deterministic fallback result for policy faults.
 - [ ] Add source mapping from instructions and expressions to spans.
 - [ ] Add bytecode encode/decode format without pickle.
 - [ ] Add VM unit, golden, and safety tests.
