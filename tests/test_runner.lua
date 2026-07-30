@@ -14,6 +14,7 @@ local modules = {
   "tests.unit.parser_golden_test",
   "tests.unit.parser_fuzz_test",
   "tests.unit.source_loader_test",
+  "tests.unit.types_test",
 }
 
 for _, module_name in ipairs(modules) do
