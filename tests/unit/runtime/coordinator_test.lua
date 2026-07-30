@@ -116,11 +116,14 @@ return {
       assert(checkpoint_terminal:feed_output("A"))
       local checkpoint = assert(Frames.checkpoint(checkpoint_terminal, 0))
       local initial = assert(Terminal.new({ columns = 4, rows = 1 }))
-      local replay = assert(Replay.new(source(recording({
-        assert(Frames.from_event(assert(Event.output("A", 2)))),
-        checkpoint,
-        assert(Frames.from_event(assert(Event.output("B", 3)))),
-      }), true)))
+      local replay = assert(Replay.new(source(
+        recording({
+          assert(Frames.from_event(assert(Event.output("A", 2)))),
+          checkpoint,
+          assert(Frames.from_event(assert(Event.output("B", 3)))),
+        }),
+        true
+      )))
       local coordinator = assert(Coordinator.new(initial, replay))
       local applied = assert(coordinator:seek(5))
       assertions.equal(1, #applied)

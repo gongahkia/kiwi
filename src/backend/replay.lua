@@ -67,8 +67,10 @@ local function config_for(config)
     uint32(config.max_checkpoint_entries or 1024, "maximum checkpoint index entries")
   if not max_checkpoint_entries or max_checkpoint_entries < 2 then
     return nil,
-      checkpoints_error
-        or Errors.new("config_error", "maximum checkpoint index entries must be at least two")
+      checkpoints_error or Errors.new(
+        "config_error",
+        "maximum checkpoint index entries must be at least two"
+      )
   end
   return {
     max_checkpoint_entries = max_checkpoint_entries,
@@ -77,6 +79,8 @@ local function config_for(config)
     speed = speed,
   }
 end
+
+local fail
 
 local function add_checkpoint_index_entry(replay, entry)
   local entries = replay.checkpoint_index
@@ -133,6 +137,11 @@ local function build_index(replay)
     frame_index = frame_index + 1
     elapsed_terminal_us = elapsed_terminal_us + frame.delta_us
     if frame.kind == 0x05 then
+      local restored, checkpoint_error =
+        Frames.restore_checkpoint(frame, replay.config.reader_limits)
+      if not restored then
+        return fail(replay, checkpoint_error)
+      end
       replay.checkpoint_count = replay.checkpoint_count + 1
       add_checkpoint_index_entry(replay, {
         elapsed_terminal_us = elapsed_terminal_us,
@@ -164,7 +173,7 @@ local function state_error(replay)
   return true
 end
 
-local function fail(replay, error_value)
+fail = function(replay, error_value)
   replay.failure = error_value
   replay.state = "failed"
   return nil, error_value
@@ -377,10 +386,16 @@ function replay_mt:seek(target_terminal_us)
   end
   local frame, frame_error = self.reader:read_next()
   if not frame then
-    return fail(self, frame_error or Errors.new("recording_corrupt", "indexed checkpoint is truncated"))
+    return fail(
+      self,
+      frame_error or Errors.new("recording_corrupt", "indexed checkpoint is truncated")
+    )
   end
   if frame.kind ~= 0x05 then
-    return fail(self, Errors.new("internal_invariant_error", "checkpoint index points to another frame"))
+    return fail(
+      self,
+      Errors.new("internal_invariant_error", "checkpoint index points to another frame")
+    )
   end
   local terminal, checkpoint_error = Frames.restore_checkpoint(frame, self.config.reader_limits)
   if not terminal then
@@ -463,7 +478,7 @@ function replay_mt:capabilities()
     pause = true,
     resume = true,
     resize = false,
-    seek = self.index_state == "ready",
+    seek = self.index_state == "ready" and #self.checkpoint_index > 0,
     speed = true,
   }
 end
