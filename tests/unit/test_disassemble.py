@@ -26,7 +26,9 @@ def test_disassembler_renders_stable_bytecode_text() -> None:
     0: definition=0 name='value' arity=0
   functions:
     Function 0 definition=0 name='value' arity=0 locals=0 return=Int
-      0000 PUSH_CONSTANT 0
-      0001 NEGATE
-      0002 RETURN"""
+      0000 TRACE_EXPRESSION 0
+      0001 TRACE_EXPRESSION 1
+      0002 PUSH_CONSTANT 0
+      0003 NEGATE
+      0004 RETURN"""
     )

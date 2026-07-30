@@ -5,6 +5,7 @@ import pytest
 from kiwi.dsl.bytecode import (
     BytecodeHeader,
     Call,
+    InstructionIndex,
     Jump,
     JumpIfFalse,
     LoadLocal,
@@ -12,16 +13,18 @@ from kiwi.dsl.bytecode import (
     PushConstant,
     PushFunction,
     Return,
+    TraceExpression,
 )
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import compile_core
 from kiwi.dsl.core_ir import CoreModule
+from kiwi.dsl.ids import ExpressionId, FunctionId
 from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.runtime_values import IntegerValue
-from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 
 
 def test_compiler_emits_canonical_constants_functions_and_control_flow() -> None:
@@ -36,17 +39,34 @@ def test_compiler_emits_canonical_constants_functions_and_control_flow() -> None
 
     assert compiled.constants.values == (IntegerValue(1), IntegerValue(2))
     identity, choose = compiled.functions
-    assert identity.instructions == (LoadLocal(LocalSlot(0)), Return())
-    assert isinstance(choose.instructions[0], LoadLocal)
-    assert isinstance(choose.instructions[1], JumpIfFalse)
-    assert isinstance(choose.instructions[2], PushFunction)
-    assert isinstance(choose.instructions[3], PushConstant)
-    assert choose.instructions[4] == Call(1)
-    assert isinstance(choose.instructions[5], Jump)
-    assert isinstance(choose.instructions[6], PushConstant)
-    assert choose.instructions[7] == Return()
-    assert choose.instructions[1].target.value == 6
-    assert choose.instructions[5].target.value == 7
+    assert identity.instructions == (
+        TraceExpression(ExpressionId(0)),
+        LoadLocal(LocalSlot(0)),
+        Return(),
+    )
+    assert choose.instructions[0] == TraceExpression(ExpressionId(1))
+    assert choose.instructions[1] == TraceExpression(ExpressionId(2))
+    assert isinstance(choose.instructions[2], LoadLocal)
+    assert isinstance(choose.instructions[3], JumpIfFalse)
+    assert choose.instructions[4] == TraceExpression(ExpressionId(3))
+    assert choose.instructions[5] == TraceExpression(ExpressionId(4))
+    assert isinstance(choose.instructions[6], PushFunction)
+    assert choose.instructions[7] == TraceExpression(ExpressionId(5))
+    assert isinstance(choose.instructions[8], PushConstant)
+    assert choose.instructions[9] == Call(1)
+    assert isinstance(choose.instructions[10], Jump)
+    assert choose.instructions[11] == TraceExpression(ExpressionId(6))
+    assert isinstance(choose.instructions[12], PushConstant)
+    assert choose.instructions[13] == Return()
+    assert choose.instructions[3].target.value == 11
+    assert choose.instructions[10].target.value == 13
+    origin = compiled.source_map.entry_for(FunctionId(1), InstructionIndex(6))
+    assert origin.expression_id == ExpressionId(4)
+    call_start = source.text.index("identity(1)")
+    assert origin.span == source.span(
+        ByteOffset(call_start),
+        ByteOffset(call_start + len("identity")),
+    )
 
 
 def test_compiler_rejects_header_from_another_source_file() -> None:

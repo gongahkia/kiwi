@@ -655,6 +655,12 @@ For the initial core, definitions compile by ascending `DefinitionId`.
 Parameters occupy local slots from zero in parameter order; each `let` receives
 the next slot on its explicit pre-order visit. Core conditionals emit a
 `JUMP_IF_FALSE` over their then branch and a `JUMP` over their else branch.
+The compiler emits `TRACE_EXPRESSION` immediately before each core expression.
+Every instruction, including generated control-flow and `RETURN` instructions,
+has one ordered source-map entry containing its function ID, instruction index,
+expression ID, and source span. Generated instructions use the enclosing core
+expression; the final `RETURN` uses the definition body. Source-map spans must
+belong to the module header's source file.
 
 ## 16. Bytecode model
 

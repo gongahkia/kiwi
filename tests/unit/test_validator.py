@@ -4,8 +4,11 @@ from dataclasses import replace
 
 from kiwi.dsl.bytecode import (
     BytecodeHeader,
+    BytecodeModule,
+    BytecodeSourceMap,
     ConstantId,
     InstructionIndex,
+    InstructionSourceMapEntry,
     Jump,
     PushConstant,
     Return,
@@ -44,6 +47,7 @@ def test_validator_rejects_structural_and_control_flow_faults() -> None:
                 instructions=(PushConstant(ConstantId(3)),),
             ),
         ),
+        source_map=_source_map_for(compiled, 1),
     )
 
     result = validate_bytecode(invalid)
@@ -60,7 +64,9 @@ def test_validator_rejects_stack_underflow_before_execution() -> None:
     source = SourceFile(SourceFileId("underflow.dtr"), "fn value() -> Int = 1")
     compiled = compile_core(_core(source), BytecodeHeader(source.file_id))
     invalid = replace(
-        compiled, functions=(replace(compiled.functions[0], instructions=(Return(),)),)
+        compiled,
+        functions=(replace(compiled.functions[0], instructions=(Return(),)),),
+        source_map=_source_map_for(compiled, 1),
     )
 
     result = validate_bytecode(invalid)
@@ -79,6 +85,7 @@ def test_validator_rejects_returns_with_multiple_stack_values() -> None:
                 instructions=(PushConstant(ConstantId(0)), PushConstant(ConstantId(0)), Return()),
             ),
         ),
+        source_map=_source_map_for(compiled, 3),
     )
 
     result = validate_bytecode(invalid)
@@ -97,6 +104,7 @@ def test_validator_rejects_jump_target_before_flow_analysis() -> None:
                 instructions=(PushConstant(ConstantId(0)), Jump(InstructionIndex(4))),
             ),
         ),
+        source_map=_source_map_for(compiled, 2),
     )
 
     result = validate_bytecode(invalid)
@@ -108,3 +116,22 @@ def _core(source: SourceFile) -> CoreModule:
     checked = check(resolve(parse(lex(source)).module))
     assert checked.module is not None
     return lower(checked.module).module
+
+
+def _source_map_for(
+    compiled: BytecodeModule,
+    instruction_count: int,
+) -> BytecodeSourceMap:
+    function = compiled.functions[0]
+    origin = compiled.source_map.entries[0]
+    return BytecodeSourceMap(
+        tuple(
+            InstructionSourceMapEntry(
+                function.function_id,
+                InstructionIndex(index),
+                origin.expression_id,
+                origin.span,
+            )
+            for index in range(instruction_count)
+        )
+    )
