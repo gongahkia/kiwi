@@ -21,6 +21,7 @@ return {
         "terminal.terminal",
         "terminal.utf8",
         "backend.interface",
+        "backend.replay",
         "recording.binary",
         "recording.checksum",
         "recording.checkpoint",

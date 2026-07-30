@@ -54,6 +54,14 @@ Responsibilities:
 
 The replay backend is the reference backend for deterministic tests.
 
+Bootstrap control contract:
+
+- `start()` begins playback at terminal time zero;
+- `poll(advance_us)` advances only by its explicit microsecond argument, never host time;
+- `pause()`, `play()`/`resume()`, `stop(reason)`, and `set_speed(multiplier)` control the replay state;
+- `poll` processes at most the configured `max_events_per_poll` recording frames (default `1024`), retaining due frames for the next call;
+- INPUT frames remain informational events and are never sent to a host process.
+
 ## 5. Direct backend
 
 A minimal direct-feed backend is useful for tests and embedding.
