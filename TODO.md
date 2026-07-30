@@ -16,7 +16,7 @@ Goal: establish a plain-Lua core that can be tested without a running LÖVE appl
 
 ### Repository setup
 
-- [ ] Create the directory structure described in `README.md`.
+- [x] Create the directory structure described in `README.md`.
 - [ ] Add `main.lua` and `conf.lua` with a minimal standalone application shell.
 - [ ] Add a dependency/bootstrap script suitable for local development.
 - [ ] Select and document the Lua test runner.
