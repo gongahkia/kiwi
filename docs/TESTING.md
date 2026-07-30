@@ -169,6 +169,8 @@ Renderer unit tests use deterministic fixture fonts for ascent, height, width, a
 
 `tests/fixtures/renderer/continuous_output.lua` supplies a reusable 120×40 log-style snapshot and one-row damage range per advance. Renderer benchmarks use it to separate steady-state presentation work from terminal parsing and snapshot construction.
 
+Run `make benchmark-renderer FRAMES=1000` to measure clean-renderer fixture throughput and GC-stopped Lua heap growth per frame. This estimate excludes LÖVE/GPU allocations and does not itself establish a performance target.
+
 Visual regression tests may be added for stable environments, but should be limited and reviewed carefully.
 
 ## 7. Performance tests
