@@ -9,6 +9,7 @@ local modules = {
   "tests.unit.hash_test",
   "tests.unit.logger_test",
   "tests.unit.lexer_test",
+  "tests.unit.parser_test",
 }
 
 for _, module_name in ipairs(modules) do
