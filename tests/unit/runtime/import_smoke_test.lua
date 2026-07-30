@@ -23,6 +23,7 @@ return {
         "backend.interface",
         "recording.binary",
         "recording.format",
+        "recording.metadata",
         "recording.reader",
       }
       for _, module_name in ipairs(modules) do
