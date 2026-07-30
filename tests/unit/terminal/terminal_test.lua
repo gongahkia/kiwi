@@ -97,4 +97,38 @@ return {
       assertions.equal(0, terminal.scrollback.count)
     end,
   },
+  {
+    name = "terminal writes printable ASCII with deferred autowrap",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 3, rows = 2 }))
+      local events = assert(terminal:feed_output("abc"))
+      assertions.equal(5, #events)
+      assertions.equal("a", terminal.primary_screen.rows[1].cells[1].text)
+      assertions.equal("b", terminal.primary_screen.rows[1].cells[2].text)
+      assertions.equal("c", terminal.primary_screen.rows[1].cells[3].text)
+      assertions.equal(3, terminal.cursor.column)
+      assertions.truthy(terminal.cursor.pending_wrap)
+
+      events = assert(terminal:feed_output("d"))
+      assertions.equal(3, #events)
+      assertions.equal("cursor_moved", events[1].kind)
+      assertions.equal("d", terminal.primary_screen.rows[2].cells[1].text)
+      assertions.equal(2, terminal.cursor.column)
+      assertions.falsy(terminal.cursor.pending_wrap)
+    end,
+  },
+  {
+    name = "terminal copies current rendition into printable ASCII cells",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 1, rows = 1 }))
+      terminal.rendition.attributes = 1
+      terminal.rendition.foreground = { index = 196, kind = "indexed" }
+      assert(terminal:feed_output("x"))
+      local cell = terminal.primary_screen.rows[1].cells[1]
+      terminal.rendition.foreground.index = 0
+      assertions.equal(1, cell.attributes)
+      assertions.equal(196, cell.foreground.index)
+      assertions.equal("x", cell.text)
+    end,
+  },
 }

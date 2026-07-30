@@ -1,5 +1,6 @@
 local Errors = require("runtime.errors")
 local Config = require("terminal.config")
+local Cell = require("terminal.cell")
 local Cursor = require("terminal.cursor")
 local Digest = require("terminal.digest")
 local Parser = require("terminal.parser")
@@ -181,6 +182,45 @@ local function apply_control(terminal, events, event)
   return true
 end
 
+local function write_printable_ascii(terminal, events, event)
+  local cursor = terminal.cursor
+  if cursor.pending_wrap then
+    local advanced, advance_error = line_feed(terminal, events, event.offset, nil)
+    if not advanced then
+      return nil, advance_error
+    end
+    cursor.column = 1
+  end
+  local cell, cell_error = Cell.new({
+    attributes = terminal.rendition.attributes,
+    background = terminal.rendition.background,
+    foreground = terminal.rendition.foreground,
+    text = string.char(event.byte),
+  })
+  if not cell then
+    return nil, cell_error
+  end
+  local screen = active_screen(terminal)
+  local replaced, replace_error = screen.rows[cursor.row]:replace(cursor.column, cell)
+  if not replaced then
+    return nil, replace_error
+  end
+  events[#events + 1] = {
+    byte = event.byte,
+    column = cursor.column,
+    kind = "output",
+    offset = event.offset,
+    row = cursor.row,
+  }
+  if cursor.column == terminal.config.columns then
+    cursor.pending_wrap = true
+  else
+    cursor.column = cursor.column + 1
+    cursor_event(terminal, events, event.offset)
+  end
+  return true
+end
+
 function terminal_mt:feed_output(bytes)
   if type(bytes) ~= "string" then
     return nil, Errors.new("config_error", "terminal output must be bytes")
@@ -195,6 +235,11 @@ function terminal_mt:feed_output(bytes)
       local applied, apply_error = apply_control(self, semantic_events, event)
       if not applied then
         return nil, apply_error
+      end
+    elseif event.kind == "print" and event.byte >= 0x20 and event.byte <= 0x7E then
+      local written, write_error = write_printable_ascii(self, semantic_events, event)
+      if not written then
+        return nil, write_error
       end
     end
   end
