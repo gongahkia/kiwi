@@ -12,30 +12,30 @@ Create a reproducible Python project with headless architecture boundaries and s
 
 ### Tasks
 
-- [ ] Initialise git repository and add the documentation packet.
-- [ ] Create `pyproject.toml` with Python 3.12+ metadata and src layout.
-- [ ] Select and document canonical environment workflow; support standard venv/pip even if `uv` is preferred.
-- [ ] Add runtime dependency on pygame-ce only.
-- [ ] Add development dependencies for pytest, Ruff, one static type checker, and coverage if desired.
-- [ ] Create `src/kiwi` package and initial `domain`, `dsl`, `sim`, `trace`, `replay`, `content`, `app`, `render`, and `ui` packages.
-- [ ] Add `kiwi.cli` with a `doctor` command that runs headlessly.
-- [ ] Add minimal test structure.
-- [ ] Configure formatting and linting.
-- [ ] Configure static type checking.
-- [ ] Add import-boundary tests proving authoritative packages do not import pygame or presentation packages.
-- [ ] Add forbidden-API scan or tests for `eval`, `exec`, `pickle`, wall-clock access, and unseeded randomness in authority packages.
-- [ ] Add canonical commands through Makefile, justfile, or documented Python commands.
-- [ ] Add CI for formatting, linting, static checking, and tests.
-- [ ] Update README with setup and commands.
+- [x] Initialise git repository and add the documentation packet.
+- [x] Create `pyproject.toml` with Python 3.12+ metadata and src layout.
+- [x] Select and document canonical environment workflow; support standard venv/pip even if `uv` is preferred.
+- [x] Add runtime dependency on pygame-ce only.
+- [x] Add development dependencies for pytest, Ruff, one static type checker, and coverage if desired.
+- [x] Create `src/kiwi` package and initial `domain`, `dsl`, `sim`, `trace`, `replay`, `content`, `app`, `render`, and `ui` packages.
+- [x] Add `kiwi.cli` with a `doctor` command that runs headlessly.
+- [x] Add minimal test structure.
+- [x] Configure formatting and linting.
+- [x] Configure static type checking.
+- [x] Add import-boundary tests proving authoritative packages do not import pygame or presentation packages.
+- [x] Add forbidden-API scan or tests for `eval`, `exec`, `pickle`, wall-clock access, and unseeded randomness in authority packages.
+- [x] Add canonical commands through Makefile, justfile, or documented Python commands.
+- [x] Add CI for formatting, linting, static checking, and tests.
+- [x] Update README with setup and commands.
 
 ### Exit criteria
 
-- [ ] Fresh checkout can install and run checks using documented commands.
-- [ ] `python -m kiwi.cli doctor` succeeds without importing pygame.
-- [ ] Empty or minimal test suite passes.
-- [ ] Import-boundary and forbidden-API checks pass.
-- [ ] Repository is formatted, linted, type checked, and clean.
-- [ ] Milestone committed.
+- [x] Fresh checkout can install and run checks using documented commands.
+- [x] `python -m kiwi.cli doctor` succeeds without importing pygame.
+- [x] Empty or minimal test suite passes.
+- [x] Import-boundary and forbidden-API checks pass.
+- [x] Repository is formatted, linted, type checked, and clean.
+- [x] Milestone committed.
 
 ## Milestone 1 — Source model, lexer, and parser
 

@@ -101,3 +101,31 @@ The first playable proof must then demonstrate:
 6. The changed code produces a materially different tactical outcome.
 
 If that loop is not satisfying, more missions, factions, graphics, and language features will not fix the project.
+
+## Development
+
+Canonical development runtime: CPython 3.12. `uv` manages the locked `.venv`; `.python-version` pins its interpreter selection. `pygame-ce` is the sole runtime dependency and is reserved for future presentation packages. It is not imported by headless commands.
+
+```bash
+uv sync --extra dev
+make doctor
+make check
+```
+
+Use standard `venv`/`pip` when `uv` is unavailable:
+
+```bash
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m kiwi.cli doctor
+python -m ruff format --check .
+python -m ruff check .
+python -m mypy src tests
+python -m pytest
+```
+
+`make format` applies formatting. `make check` runs formatting verification, linting, static types, and tests. The equivalent `uv` commands are `uv run --extra dev python -m kiwi.cli doctor`, `uv run --extra dev ruff format --check .`, `uv run --extra dev ruff check .`, `uv run --extra dev mypy src tests`, and `uv run --extra dev pytest`.
+
+Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated.
