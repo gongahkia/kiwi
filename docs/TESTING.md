@@ -167,6 +167,8 @@ Testable renderer components:
 
 Renderer unit tests use deterministic fixture fonts for ascent, height, width, and glyph coverage. They do not depend on host-installed fonts or screenshot output.
 
+`tests/fixtures/renderer/continuous_output.lua` supplies a reusable 120×40 log-style snapshot and one-row damage range per advance. Renderer benchmarks use it to separate steady-state presentation work from terminal parsing and snapshot construction.
+
 Visual regression tests may be added for stable environments, but should be limited and reviewed carefully.
 
 ## 7. Performance tests

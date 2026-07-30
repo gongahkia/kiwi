@@ -1,6 +1,7 @@
 local assertions = require("support.assertions")
 local Clean = require("renderer.clean")
 local FontFixture = require("fixtures.renderer.font")
+local ContinuousOutput = require("fixtures.renderer.continuous_output")
 local GlyphCache = require("renderer.glyph_cache")
 local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
@@ -186,6 +187,20 @@ return {
       assertions.equal(9, fixture:getWidth("é"))
       assertions.truthy(fixture:hasGlyphs("A"))
       assertions.falsy(fixture:hasGlyphs("☃"))
+    end,
+  },
+  {
+    name = "renderer continuous-output fixture reuses a 120 by 40 snapshot",
+    run = function()
+      local fixture = ContinuousOutput.new()
+      local first_snapshot, first_damage = fixture:advance()
+      local second_snapshot, second_damage = fixture:advance()
+      assertions.equal(120, first_snapshot.columns)
+      assertions.equal(40, first_snapshot.rows)
+      assertions.equal(first_snapshot, second_snapshot)
+      assertions.equal(first_damage, second_damage)
+      assertions.equal(2, second_damage[1].row)
+      assertions.equal("1", second_snapshot.screen.rows[2].cells[1].text)
     end,
   },
   {
