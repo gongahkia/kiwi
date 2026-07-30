@@ -107,7 +107,7 @@ Resolve names and reject invalid programs before execution.
 - [x] Lower typed syntax into core IR.
 - [x] Preserve source-map links through lowering.
 - [x] Add diagnostics for type mismatch, branch mismatch, unknown name, and invalid call.
-- [ ] Add golden typed-core fixtures.
+- [x] Add golden typed-core fixtures.
 - [ ] Add CLI `check` command.
 
 ### Exit criteria
