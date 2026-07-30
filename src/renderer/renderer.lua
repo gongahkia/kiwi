@@ -1,4 +1,5 @@
 local Colour = require("renderer.colour")
+local Dpi = require("renderer.dpi")
 local Errors = require("runtime.errors")
 local GlyphCache = require("renderer.glyph_cache")
 local Grid = require("renderer.grid")
@@ -15,7 +16,8 @@ Renderer.contract = {
   draw = "draw(snapshot, damage?) -> nil, error?",
   glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
-  resize = "resize(pixel_width, pixel_height) -> layout, resize_event? | nil, error",
+  resize = "resize(window_width, window_height, pixel_width?, pixel_height?) -> layout, resize_event? | nil, error",
+  resize_window = "resize_window() -> layout, resize_event? | nil, error",
   destroy = "destroy()",
 }
 
@@ -492,36 +494,68 @@ function renderer_mt:draw(snapshot, damage)
   return true
 end
 
-function renderer_mt:resize(pixel_width, pixel_height)
+function renderer_mt:resize(window_width, window_height, pixel_width, pixel_height)
   if self.state == "destroyed" then
     return nil, Errors.new("renderer_resource_error", "renderer is destroyed")
   end
   if not self.metrics then
     return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
   end
-  local layout, layout_error = Grid.layout(self.metrics, pixel_width, pixel_height, {
+  local layout, layout_error = Grid.layout(self.metrics, window_width, window_height, {
     padding = self.config.padding,
   })
   if not layout then
     return nil, layout_error
   end
-  local previous = self.grid
-  if
-    previous
-    and previous.pixel_width == layout.pixel_width
-    and previous.pixel_height == layout.pixel_height
-    and previous.padding == layout.padding
-  then
-    return layout
-  end
-  local event, event_error =
-    Event.resize(layout.columns, layout.rows, layout.pixel_width, layout.pixel_height)
+  local event, event_error = Event.resize(
+    layout.columns,
+    layout.rows,
+    pixel_width or layout.window_width,
+    pixel_height or layout.window_height
+  )
   if not event then
     return nil, event_error
   end
+  local previous = self.grid
+  if
+    previous
+    and previous.window_width == layout.window_width
+    and previous.window_height == layout.window_height
+    and previous.padding == layout.padding
+    and previous.pixel_width == event.pixel_width
+    and previous.pixel_height == event.pixel_height
+  then
+    return layout
+  end
+  layout.pixel_height = event.pixel_height
+  layout.pixel_width = event.pixel_width
   self.grid = layout
   self.needs_full_redraw = true
   return layout, event
+end
+
+function renderer_mt:resize_window()
+  if self.state == "destroyed" then
+    return nil, Errors.new("renderer_resource_error", "renderer is destroyed")
+  end
+  if not self.graphics then
+    return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
+  end
+  local dimensions, dimensions_error = Dpi.dimensions(self.graphics)
+  if not dimensions then
+    return nil, dimensions_error
+  end
+  local layout, event_or_error = self:resize(
+    dimensions.window_width,
+    dimensions.window_height,
+    dimensions.pixel_width,
+    dimensions.pixel_height
+  )
+  if not layout then
+    return nil, event_or_error
+  end
+  layout.dpi_scale = dimensions.dpi_scale
+  return layout, event_or_error
 end
 
 function renderer_mt:destroy()

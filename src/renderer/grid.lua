@@ -3,7 +3,7 @@ local Errors = require("runtime.errors")
 local Grid = {}
 
 Grid.contract = {
-  layout = "layout(metrics, pixel_width, pixel_height, options?) -> layout | nil, error",
+  layout = "layout(metrics, window_width, window_height, options?) -> layout | nil, error",
 }
 
 local MAX_U32 = 4294967295
@@ -49,7 +49,7 @@ local function metrics_dimensions(metrics)
   return cell_width, cell_height
 end
 
-function Grid.layout(metrics, pixel_width, pixel_height, options)
+function Grid.layout(metrics, window_width, window_height, options)
   if options == nil then
     options = {}
   end
@@ -65,11 +65,11 @@ function Grid.layout(metrics, pixel_width, pixel_height, options)
   if not cell_width then
     return nil, metrics_error
   end
-  local width, width_error = uint32(pixel_width, "renderer pixel width")
+  local width, width_error = uint32(window_width, "renderer window width")
   if not width then
     return nil, width_error
   end
-  local height, height_error = uint32(pixel_height, "renderer pixel height")
+  local height, height_error = uint32(window_height, "renderer window height")
   if not height then
     return nil, height_error
   end
@@ -90,11 +90,11 @@ function Grid.layout(metrics, pixel_width, pixel_height, options)
     grid_height = grid_height,
     grid_width = grid_width,
     padding = padding,
-    pixel_height = height,
-    pixel_width = width,
     x = math.floor((width - grid_width) / 2),
     y = math.floor((height - grid_height) / 2),
     rows = rows,
+    window_height = height,
+    window_width = width,
   }
 end
 

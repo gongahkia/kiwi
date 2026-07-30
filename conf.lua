@@ -6,4 +6,5 @@ function love.conf(settings)
   settings.window.height = 720
   settings.window.resizable = true
   settings.window.highdpi = true
+  settings.window.usedpiscale = true
 end
