@@ -13,6 +13,7 @@ return {
         "terminal.config",
         "terminal.cursor",
         "terminal.digest",
+        "terminal.parser",
         "terminal.rendition",
         "terminal.row",
         "terminal.screen",

@@ -2,6 +2,7 @@ local Errors = require("runtime.errors")
 local Config = require("terminal.config")
 local Cursor = require("terminal.cursor")
 local Digest = require("terminal.digest")
+local Parser = require("terminal.parser")
 local Rendition = require("terminal.rendition")
 local Scrollback = require("terminal.scrollback")
 local Screen = require("terminal.screen")
@@ -48,6 +49,10 @@ function Terminal.new(config)
   if not rendition then
     return nil, rendition_error
   end
+  local parser, parser_error = Parser.new()
+  if not parser then
+    return nil, parser_error
+  end
   local scrollback, scrollback_error = Scrollback.new(terminal_config.scrollback_limit)
   if not scrollback then
     return nil, scrollback_error
@@ -67,6 +72,7 @@ function Terminal.new(config)
     config = terminal_config,
     cursor = cursor,
     margins = { bottom = terminal_config.rows, top = 1 },
+    parser = parser,
     primary_screen = primary_screen,
     rendition = rendition,
     saved_cursor = saved_cursor,

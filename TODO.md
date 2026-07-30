@@ -57,7 +57,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 
 ### Parser
 
-- [ ] Implement a streaming byte parser with explicit states for ground, escape, CSI entry, CSI parameter, CSI intermediate, OSC string, and ignore/recovery paths.
+- [x] Implement a streaming byte parser with explicit states for ground, escape, CSI entry, CSI parameter, CSI intermediate, OSC string, and ignore/recovery paths.
 - [ ] Preserve parser state across arbitrary input chunk boundaries.
 - [ ] Implement C0 controls required by the compatibility document.
 - [ ] Implement printable ASCII.

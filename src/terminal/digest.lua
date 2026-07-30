@@ -163,6 +163,59 @@ local function tab_stops_digest(tab_stops, columns)
   return table.concat(columns_with_stops, ",")
 end
 
+local parser_states = {
+  csi_entry = true,
+  csi_ignore = true,
+  csi_intermediate = true,
+  csi_parameter = true,
+  escape = true,
+  escape_ignore = true,
+  ground = true,
+  osc_escape = true,
+  osc_ignore = true,
+  osc_ignore_escape = true,
+  osc_string = true,
+}
+
+local function parser_digest(parser)
+  if type(parser) ~= "table" or type(parser.snapshot) ~= "function" then
+    return invariant_error("terminal parser is malformed")
+  end
+  local state = parser:snapshot()
+  if type(state) ~= "table" or not parser_states[state.state] then
+    return invariant_error("terminal parser state is invalid")
+  end
+  if type(state.byte_offset) ~= "number" or state.byte_offset % 1 ~= 0 or state.byte_offset < 0 then
+    return invariant_error("terminal parser byte offset is invalid")
+  end
+  for _, name in ipairs({
+    "csi_intermediates",
+    "csi_parameters",
+    "escape_intermediates",
+    "osc_payload",
+  }) do
+    if type(state[name]) ~= "string" then
+      return invariant_error("terminal parser buffer is invalid", { buffer = name })
+    end
+  end
+  for _, name in ipairs({ "max_csi_bytes", "max_escape_intermediate_bytes", "max_osc_bytes" }) do
+    if type(state[name]) ~= "number" or state[name] % 1 ~= 0 or state[name] < 1 then
+      return invariant_error("terminal parser bound is invalid", { bound = name })
+    end
+  end
+  return table.concat({
+    "state=" .. state.state,
+    "byte_offset=" .. state.byte_offset,
+    "csi_intermediates=" .. hex(state.csi_intermediates),
+    "csi_parameters=" .. hex(state.csi_parameters),
+    "escape_intermediates=" .. hex(state.escape_intermediates),
+    "osc_payload=" .. hex(state.osc_payload),
+    "max_csi_bytes=" .. state.max_csi_bytes,
+    "max_escape_intermediate_bytes=" .. state.max_escape_intermediate_bytes,
+    "max_osc_bytes=" .. state.max_osc_bytes,
+  }, ",")
+end
+
 local function scrollback_digest(scrollback)
   if
     type(scrollback) ~= "table"
@@ -253,6 +306,10 @@ function Digest.terminal(terminal)
   if not tab_stops then
     return nil, tab_stops_error
   end
+  local parser, parser_error = parser_digest(terminal.parser)
+  if not parser then
+    return nil, parser_error
+  end
   local primary_screen, primary_screen_error =
     screen_digest("primary", terminal.primary_screen, columns, rows)
   if not primary_screen then
@@ -279,6 +336,7 @@ function Digest.terminal(terminal)
     "margins=top:" .. margin_top .. ",bottom:" .. margin_bottom,
     "tab_stops=" .. tab_stops,
     "rendition=" .. rendition,
+    "parser=" .. parser,
     primary_screen,
     alternate_screen,
     "scrollback=" .. scrollback,
