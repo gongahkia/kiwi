@@ -2,11 +2,15 @@ LUAJIT ?= luajit
 STYLUA ?= stylua
 LOVE ?= love
 TEST_SEED ?= 20260730
+FRAMES ?= 1000
 
-.PHONY: bootstrap check inspect lint run test
+.PHONY: benchmark-renderer bootstrap check inspect lint run test
 
 bootstrap:
 	zsh tools/bootstrap.sh
+
+benchmark-renderer:
+	$(LUAJIT) tools/benchmark_renderer.lua "$(FRAMES)"
 
 check: lint test
 
