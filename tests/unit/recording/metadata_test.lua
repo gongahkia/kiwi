@@ -28,6 +28,21 @@ return {
     end,
   },
   {
+    name = "recording metadata decodes only canonical JSON",
+    run = function()
+      local metadata = assert(Metadata.decode('{"enabled":true,"notes":null,"title":"é"}'))
+      assertions.truthy(metadata.enabled)
+      assertions.equal(Metadata.null, metadata.notes)
+      assertions.equal("é", metadata.title)
+      local value, error_value = Metadata.decode('{"title":"x","enabled":true}')
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+      value, error_value = Metadata.decode('{"title":"\\u00e9"}')
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+    end,
+  },
+  {
     name = "recording metadata rejects unsupported and ambiguous values",
     run = function()
       local value, error_value = Metadata.encode({ value = 1.5 })

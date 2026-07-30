@@ -45,6 +45,10 @@ Bootstrap metadata uses a restricted canonical JSON profile. The top-level value
 
 The encoder emits no whitespace. It uses JSON's short escapes for backspace, tab, line feed, form feed, and carriage return; escapes other control bytes as lowercase `\\u00xx`; and otherwise writes validated UTF-8 directly. This constrains metadata to values that LuaJIT can serialize reproducibly without relying on a host JSON library.
 
+### Bootstrap non-checkpoint payloads
+
+`OUTPUT` and `INPUT` payloads are raw bytes. `RESIZE` is exactly four big-endian `u32` values in order: columns, rows, pixel width, and pixel height. `MARK` is restricted canonical JSON with the object fields `data` and `name`; `data` is an object and `name` is a non-empty UTF-8 string. These payloads map to normalised runtime events; backend source sequence numbers are not persisted.
+
 ## Consequences
 
 Positive:

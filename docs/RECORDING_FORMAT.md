@@ -144,6 +144,8 @@ Canonical JSON payload with bounded UTF-8 fields:
 
 Marks never affect terminal semantics.
 
+Bootstrap writers always emit the canonical object fields `data` and `name`; `data` is an object and `name` is a non-empty UTF-8 string. The payload maps to a normalised mark event without preserving a backend source sequence number.
+
 ### 7.4 CHECKPOINT
 
 The checkpoint payload is a versioned semantic state snapshot. It must include enough state to continue parsing exactly, including partial parser state.

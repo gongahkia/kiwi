@@ -24,6 +24,7 @@ return {
         "recording.binary",
         "recording.checksum",
         "recording.format",
+        "recording.frames",
         "recording.metadata",
         "recording.reader",
       }
