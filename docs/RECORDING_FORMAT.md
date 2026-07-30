@@ -35,7 +35,7 @@ The magic is followed by a fixed-size preamble and a length-delimited metadata b
 Conceptual fields:
 
 ```text
-magic[8]
+magic[9]
 major_version:u16
 minor_version:u16
 flags:u32
@@ -43,7 +43,9 @@ metadata_length:u32
 metadata_checksum:u32
 ```
 
-All integers are encoded in a single documented byte order. The implementation must provide explicit binary helpers compatible with the selected Lua runtime rather than assuming Lua 5.3 packing functions.
+The magic is the exact nine-byte sequence `STANCZYK\x00`. All integers are unsigned big-endian values. Bootstrap writers emit major version `1`, minor version `0`, and zero for preamble and frame flags and reserved fields. The implementation must provide explicit binary helpers compatible with the selected Lua runtime rather than assuming Lua 5.3 packing functions.
+
+`metadata_checksum` is CRC-32/ISO-HDLC over the raw metadata bytes. CRC-32/ISO-HDLC uses reflected input and output, initial value `0xFFFFFFFF`, reflected polynomial `0xEDB88320`, and final XOR `0xFFFFFFFF`.
 
 ## 4. Metadata
 
@@ -91,7 +93,7 @@ checksum:u32
 
 `delta_us` is the terminal-time delta since the previous frame. Gaps larger than the representable range use one or more clock-advance frames.
 
-The checksum covers the frame header fields after `kind` as defined by the implementation and the payload. Exact coverage must be fixed in code and test vectors.
+The checksum is CRC-32/ISO-HDLC over the frame fields after `kind`: `flags`, `reserved`, `delta_us`, `payload_length`, and the raw payload. It excludes `kind` and the checksum field itself.
 
 ## 6. Frame kinds
 
