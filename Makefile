@@ -1,33 +1,20 @@
-.PHONY: icons build build-chrome build-firefox package-firefox lint-firefox build-safari safari-project test verify clean
+LUAJIT ?= luajit
+STYLUA ?= stylua
+LOVE ?= love
+TEST_SEED ?= 20260730
 
-icons:
-	python3 scripts/generate-icons.py
+.PHONY: bootstrap check lint run test
 
-build: icons
-	npm run build
+bootstrap:
+	zsh tools/bootstrap.sh
 
-build-chrome: icons
-	npm run build:chrome
+check: lint test
 
-build-firefox: icons
-	npm run build:firefox
+lint:
+	$(STYLUA) --check main.lua conf.lua src tests tools
 
-package-firefox: icons
-	npm run package:firefox
-
-lint-firefox: package-firefox
-	npm run lint:firefox
-
-build-safari: icons
-	npm run build:safari
-
-safari-project: build-safari
-	npm run safari:project
+run:
+	$(LOVE) .
 
 test:
-	npm test
-
-verify: build test
-
-clean:
-	rm -rf dist safari
+	STANCZYK_TEST_SEED="$(TEST_SEED)" $(LUAJIT) tools/test.lua
