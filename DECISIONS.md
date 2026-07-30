@@ -48,6 +48,14 @@ No campaign expansion before the full observe–program–execute–debug loop w
 
 The visual target draws from readable 8×12 terminal fonts and compact bitmap telemetry fonts. Third-party licences must be verified before shipping.
 
+### D-012: Surface syntax version 1 uses explicit layout
+
+The canonical Milestone 1 grammar is `docs/grammar.md`. It uses space-only
+indentation for `case` alternatives and declaration bodies, newline-delimited
+declarations, whitespace function application, and the syntax already shown in
+the DSL examples. The initial parser accepts only that documented subset; new
+public syntax requires a documented decision before implementation.
+
 ## 2. Explicit non-goals
 
 - direct XCOM clone;
@@ -98,7 +106,8 @@ Measure 10 Hz, 15 Hz, and 20 Hz. Physics can remain 60 Hz.
 
 ### O-006: Surface language syntax
 
-The semantics are defined, but exact syntax can be prototyped for readability.
+Resolved by D-012. Future syntax changes remain explicit compatibility
+decisions because deployed source and source spans are player-visible.
 
 ### O-007: Type-system depth
 
