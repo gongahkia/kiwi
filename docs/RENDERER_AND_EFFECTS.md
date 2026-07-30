@@ -46,6 +46,8 @@ The exact order must be configurable only where semantics remain clear.
 
 The bootstrap renderer loads a configured LÖVE font through an injected graphics API and records integer `cell_width`, `cell_height`, and baseline metrics. A caller may override these metrics when a font has unsuitable nominal advances. The terminal core never loads fonts or observes these metrics. Each loaded font owns a bounded LRU glyph-metric cache keyed by grapheme bytes and visual style; entries are measured lazily for ASCII and incremental Unicode expansion.
 
+The clean draw input is an internal table with positive `columns` and `rows`, plus `screen.rows[row].cells[column]` cells in the terminal cell shape. The renderer validates this complete grid before making graphics calls. Rendering adapters create this table; the terminal core does not own LÖVE resources.
+
 ### 3.2 Atlas
 
 A practical initial design:

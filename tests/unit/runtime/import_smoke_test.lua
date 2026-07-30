@@ -33,6 +33,7 @@ return {
         "recording.reader",
         "recording.writer",
         "renderer.metrics",
+        "renderer.colour",
         "renderer.glyph_cache",
         "renderer.love_font",
         "renderer.renderer",
