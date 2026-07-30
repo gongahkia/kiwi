@@ -1,5 +1,19 @@
 local assertions = require("support.assertions")
+local Checksum = require("recording.checksum")
 local Format = require("recording.format")
+
+local function valid_frame(payload)
+  local frame = {
+    delta_us = 42,
+    flags = 0,
+    kind = Format.kinds.OUTPUT,
+    payload = payload,
+    payload_length = #payload,
+    reserved = 0,
+  }
+  frame.checksum = assert(Checksum.crc32(assert(Format.frame_checksum_bytes(frame))))
+  return frame
+end
 
 return {
   {
@@ -76,6 +90,64 @@ return {
       })
       assertions.falsy(value)
       assertions.equal("config_error", error_value.kind)
+    end,
+  },
+  {
+    name = "recording format verifies bounded metadata and frame checksums",
+    run = function()
+      local metadata = "{}"
+      local preamble = {
+        flags = 0,
+        major_version = 1,
+        metadata_checksum = assert(Checksum.crc32(metadata)),
+        metadata_length = #metadata,
+        minor_version = 0,
+      }
+      local prefix = assert(Format.encode_preamble(preamble))
+      local decoded_preamble, metadata_offset = assert(Format.decode_preamble(prefix))
+      local decoded_metadata, frame_offset =
+        assert(Format.decode_metadata(prefix .. metadata, metadata_offset, decoded_preamble))
+      assertions.equal(metadata, decoded_metadata)
+
+      local frame = valid_frame("abc")
+      local frame_bytes = assert(Format.encode_frame(frame))
+      local decoded_frame, next_offset =
+        assert(Format.decode_frame(prefix .. metadata .. frame_bytes, frame_offset))
+      assertions.equal("abc", decoded_frame.payload)
+      assertions.equal(42, decoded_frame.delta_us)
+      assertions.equal(frame_offset + #frame_bytes, next_offset)
+    end,
+  },
+  {
+    name = "recording format rejects oversized truncated and corrupted payloads",
+    run = function()
+      local frame = valid_frame("abc")
+      local frame_bytes = assert(Format.encode_frame(frame))
+      local value, error_value =
+        Format.decode_frame(frame_bytes, 1, { max_frame_payload_bytes = 2 })
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+      value, error_value = Format.decode_frame(frame_bytes:sub(1, -2))
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+      value, error_value =
+        Format.decode_frame(frame_bytes:sub(1, 12) .. "abd" .. frame_bytes:sub(-4))
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+
+      local metadata = "{}"
+      local preamble = {
+        flags = 0,
+        metadata_checksum = assert(Checksum.crc32(metadata)),
+        metadata_length = #metadata,
+      }
+      value, error_value = Format.decode_metadata(metadata, 1, preamble, { max_metadata_bytes = 1 })
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
+      preamble.metadata_checksum = 0
+      value, error_value = Format.decode_metadata(metadata, 1, preamble)
+      assertions.falsy(value)
+      assertions.equal("recording_corrupt", error_value.kind)
     end,
   },
 }

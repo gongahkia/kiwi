@@ -22,6 +22,7 @@ return {
         "terminal.utf8",
         "backend.interface",
         "recording.binary",
+        "recording.checksum",
         "recording.format",
         "recording.metadata",
         "recording.reader",

@@ -1,4 +1,5 @@
 local Binary = require("recording.binary")
+local Checksum = require("recording.checksum")
 local Errors = require("runtime.errors")
 
 local Format = {}
@@ -9,6 +10,8 @@ Format.current_minor_version = 0
 Format.preamble_size = 25
 Format.frame_header_size = 12
 Format.frame_checksum_size = 4
+Format.default_max_metadata_bytes = 65536
+Format.default_max_frame_payload_bytes = 16777216
 Format.kinds = {
   OUTPUT = 0x01,
   INPUT = 0x02,
@@ -22,6 +25,8 @@ Format.kinds = {
 
 Format.contract = {
   decode_frame_header = "decode_frame_header(bytes, offset?) -> frame_header, next_offset | nil, error",
+  decode_frame = "decode_frame(bytes, offset?, limits?) -> frame, next_offset | nil, error",
+  decode_metadata = "decode_metadata(bytes, offset, preamble, limits?) -> metadata_bytes, next_offset | nil, error",
   decode_preamble = "decode_preamble(bytes, offset?) -> preamble, next_offset | nil, error",
   encode_frame = "encode_frame(frame) -> bytes | nil, error",
   encode_frame_header = "encode_frame_header(frame) -> bytes | nil, error",
@@ -48,6 +53,50 @@ local function required_unsigned(value, name, maximum)
     return config_error(name .. " must be an unsigned integer in range", { provided = value })
   end
   return value
+end
+
+local function limit(limits, name, default)
+  if limits == nil then
+    return default
+  end
+  if type(limits) ~= "table" then
+    return config_error("recording limits must be a table", { provided = limits })
+  end
+  local value = limits[name]
+  if value == nil then
+    return default
+  end
+  return required_unsigned(value, name, 0xFFFFFFFF)
+end
+
+local function current_preamble(preamble)
+  if type(preamble) ~= "table" then
+    return config_error("recording preamble must be a table")
+  end
+  local metadata_length, length_error =
+    required_unsigned(preamble.metadata_length, "metadata length", 0xFFFFFFFF)
+  if not metadata_length then
+    return nil, length_error
+  end
+  local metadata_checksum, checksum_error =
+    required_unsigned(preamble.metadata_checksum, "metadata checksum", 0xFFFFFFFF)
+  if not metadata_checksum then
+    return nil, checksum_error
+  end
+  if preamble.flags ~= 0 then
+    return nil, Errors.new("recording_corrupt", "bootstrap preamble flags must be zero")
+  end
+  return metadata_length, metadata_checksum
+end
+
+local function current_frame(header)
+  if header.flags ~= 0 then
+    return nil, Errors.new("recording_corrupt", "bootstrap frame flags must be zero")
+  end
+  if header.reserved ~= 0 then
+    return nil, Errors.new("recording_corrupt", "bootstrap frame reserved field must be zero")
+  end
+  return true
 end
 
 local function preamble_values(preamble)
@@ -226,6 +275,49 @@ function Format.decode_frame_header(bytes, offset)
     index
 end
 
+function Format.decode_metadata(bytes, offset, preamble, limits)
+  if type(bytes) ~= "string" then
+    return config_error("recording input must be bytes", { provided = bytes })
+  end
+  local start, offset_error = decode_offset(offset)
+  if not start then
+    return nil, offset_error
+  end
+  local metadata_length, metadata_checksum = current_preamble(preamble)
+  if not metadata_length then
+    return nil, metadata_checksum
+  end
+  local maximum, limit_error =
+    limit(limits, "max_metadata_bytes", Format.default_max_metadata_bytes)
+  if not maximum then
+    return nil, limit_error
+  end
+  if metadata_length > maximum then
+    return nil,
+      Errors.new("recording_corrupt", "recording metadata exceeds configured bound", {
+        limit = maximum,
+        provided = metadata_length,
+      })
+  end
+  local finish = start + metadata_length - 1
+  if finish > #bytes then
+    return nil,
+      Errors.new("recording_corrupt", "truncated recording metadata", {
+        available = math.max(0, #bytes - start + 1),
+        offset = start,
+      })
+  end
+  local metadata = bytes:sub(start, finish)
+  local actual_checksum, checksum_error = Checksum.crc32(metadata)
+  if not actual_checksum then
+    return nil, checksum_error
+  end
+  if actual_checksum ~= metadata_checksum then
+    return nil, Errors.new("recording_corrupt", "recording metadata checksum mismatch")
+  end
+  return metadata, finish + 1
+end
+
 function Format.frame_checksum_bytes(frame)
   local _, flags, reserved, delta_us, payload_length = frame_values(frame, true, false)
   if not flags then
@@ -236,6 +328,62 @@ function Format.frame_checksum_bytes(frame)
     .. assert(Binary.u32(delta_us))
     .. assert(Binary.u32(payload_length))
     .. frame.payload
+end
+
+function Format.decode_frame(bytes, offset, limits)
+  local header, payload_offset = Format.decode_frame_header(bytes, offset)
+  if not header then
+    return nil, payload_offset
+  end
+  local current, current_error = current_frame(header)
+  if not current then
+    return nil, current_error
+  end
+  local maximum, limit_error =
+    limit(limits, "max_frame_payload_bytes", Format.default_max_frame_payload_bytes)
+  if not maximum then
+    return nil, limit_error
+  end
+  if header.payload_length > maximum then
+    return nil,
+      Errors.new("recording_corrupt", "recording frame payload exceeds configured bound", {
+        limit = maximum,
+        provided = header.payload_length,
+      })
+  end
+  local payload_end = payload_offset + header.payload_length - 1
+  local checksum_offset = payload_end + 1
+  local frame_end = checksum_offset + Format.frame_checksum_size - 1
+  if frame_end > #bytes then
+    return nil,
+      Errors.new("recording_corrupt", "truncated recording frame", {
+        available = math.max(0, #bytes - payload_offset + 1),
+        offset = payload_offset,
+      })
+  end
+  local payload = bytes:sub(payload_offset, payload_end)
+  local checksum, next_offset = assert(Binary.read_u32(bytes, checksum_offset))
+  local frame = {
+    checksum = checksum,
+    delta_us = header.delta_us,
+    flags = header.flags,
+    kind = header.kind,
+    payload = payload,
+    payload_length = header.payload_length,
+    reserved = header.reserved,
+  }
+  local checksum_bytes, bytes_error = Format.frame_checksum_bytes(frame)
+  if not checksum_bytes then
+    return nil, bytes_error
+  end
+  local actual_checksum, checksum_error = Checksum.crc32(checksum_bytes)
+  if not actual_checksum then
+    return nil, checksum_error
+  end
+  if checksum ~= actual_checksum then
+    return nil, Errors.new("recording_corrupt", "recording frame checksum mismatch")
+  end
+  return frame, next_offset
 end
 
 function Format.encode_frame(frame)
