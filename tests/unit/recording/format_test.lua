@@ -2,11 +2,11 @@ local assertions = require("support.assertions")
 local Checksum = require("recording.checksum")
 local Format = require("recording.format")
 
-local function valid_frame(payload)
+local function valid_frame(payload, kind)
   local frame = {
     delta_us = 42,
     flags = 0,
-    kind = Format.kinds.OUTPUT,
+    kind = kind or Format.kinds.OUTPUT,
     payload = payload,
     payload_length = #payload,
     reserved = 0,
@@ -162,6 +162,30 @@ return {
       assertions.equal("recording_unsupported_version", error_value.kind)
       assertions.equal(1, error_value.detail.supported_major_version)
       assertions.equal(2, error_value.detail.provided_major_version)
+    end,
+  },
+  {
+    name = "recording format round trips every defined frame kind without payload interpretation",
+    run = function()
+      local kinds = {
+        Format.kinds.OUTPUT,
+        Format.kinds.INPUT,
+        Format.kinds.RESIZE,
+        Format.kinds.MARK,
+        Format.kinds.CHECKPOINT,
+        Format.kinds.STATUS,
+        Format.kinds.EXIT,
+        Format.kinds.CLOCK_ADVANCE,
+      }
+      for _, kind in ipairs(kinds) do
+        local payload = "\0" .. string.char(kind) .. "\255"
+        local frame = valid_frame(payload, kind)
+        local decoded = assert(Format.decode_frame(assert(Format.encode_frame(frame))))
+        assertions.equal(kind, decoded.kind)
+        assertions.equal(frame.delta_us, decoded.delta_us)
+        assertions.equal(payload, decoded.payload)
+        assertions.equal(frame.checksum, decoded.checksum)
+      end
     end,
   },
 }
