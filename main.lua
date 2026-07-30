@@ -1,23 +1,29 @@
-local Renderer = require("renderer.renderer")
-local Terminal = require("terminal.terminal")
+package.path = table.concat({
+  "src/?.lua",
+  "src/?/init.lua",
+  package.path,
+}, ";")
 
-local renderer
-local terminal
+local Standalone = require("app.standalone")
+
+local standalone
 
 function love.load()
-  renderer = assert(Renderer.new({ padding = 32 }))
-  assert(renderer:load_font(love.graphics))
-  local _, resize_event = assert(renderer:resize_window())
-  terminal = assert(Terminal.new({ columns = resize_event.columns, rows = resize_event.rows }))
+  standalone = assert(Standalone.from_love(love.graphics, { padding = 32 }))
 end
 
 function love.resize()
-  local _, resize_event = assert(renderer:resize_window())
-  if resize_event then
-    assert(terminal:resize(resize_event.columns, resize_event.rows))
-  end
+  assert(standalone:resize_window())
+end
+
+function love.update(seconds)
+  assert(standalone:update(seconds))
 end
 
 function love.draw()
-  assert(renderer:draw_terminal(terminal))
+  assert(standalone:draw())
+end
+
+function love.quit()
+  assert(standalone:stop())
 end

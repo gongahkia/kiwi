@@ -169,7 +169,9 @@ Renderer unit tests use deterministic fixture fonts for ascent, height, width, a
 
 `tests/fixtures/renderer/continuous_output.lua` supplies a reusable 120×40 log-style snapshot and one-row damage range per advance. Renderer benchmarks use it to separate steady-state presentation work from terminal parsing and snapshot construction.
 
-Run `make benchmark-renderer FRAMES=1000` to measure clean-renderer fixture throughput and GC-stopped Lua heap growth per frame. This estimate excludes LÖVE/GPU allocations and does not itself establish a performance target.
+Run `make benchmark-renderer FRAMES=1000` to measure clean-renderer fixture throughput and GC-stopped Lua heap growth per frame. The continuous-output responsiveness target is at least 60 frames per second for a 120×40 grid with one changed row per frame. On 2026-07-31, the 1,000-frame run on macOS arm64 with LuaJIT 2.1.1785192264 measured 35,705.36 frames per second and 867.20 GC-stopped Lua heap-growth bytes per frame. This LÖVE-free estimate excludes GPU allocations and visual-frame timing.
+
+`renderer.snapshot.from_terminal` retains terminal screen, row, and cell references rather than constructing a full-grid presentation copy. Its unit test protects that boundary; renderer-owned glyph cache entries remain bounded separately.
 
 Visual regression tests may be added for stable environments, but should be limited and reviewed carefully.
 

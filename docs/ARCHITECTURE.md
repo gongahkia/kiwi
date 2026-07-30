@@ -103,7 +103,7 @@ The renderer:
 - supplies intermediate targets for effects;
 - draws overlays such as the debugger.
 
-The standalone entrypoint only wires LÖVE callbacks to renderer methods and passes its injected graphics table during renderer setup. It does not call LÖVE graphics APIs directly.
+The standalone entrypoint only wires LÖVE callbacks to `app.standalone`, which passes its injected graphics table to the renderer. It does not call LÖVE graphics APIs directly.
 
 Renderer state may be mutable and GPU-specific. It is not serialised as terminal truth.
 
