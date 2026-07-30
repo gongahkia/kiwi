@@ -50,6 +50,29 @@ local function recording(frames, options)
   return table.concat(encoded)
 end
 
+local function raw_frame(kind, payload)
+  local frame = {
+    checksum = 0,
+    delta_us = 0,
+    flags = 0,
+    kind = kind,
+    payload = payload,
+    payload_length = #payload,
+    reserved = 0,
+  }
+  frame.checksum = assert(Checksum.crc32(assert(Format.frame_checksum_bytes(frame))))
+  return frame
+end
+
+local function read_to_end(reader)
+  while true do
+    local frame, error_value = reader:read_next()
+    if not frame then
+      return error_value
+    end
+  end
+end
+
 return {
   {
     name = "recording reader decodes metadata and frames through bounded reads",
@@ -221,6 +244,41 @@ return {
       assertions.falsy(value)
       assertions.equal("recording_io_error", error_value.kind)
       assertions.equal(1, close_calls)
+    end,
+  },
+  {
+    name = "recording reader rejects truncation inside every defined frame kind",
+    run = function()
+      local kinds = {
+        Format.kinds.OUTPUT,
+        Format.kinds.INPUT,
+        Format.kinds.RESIZE,
+        Format.kinds.MARK,
+        Format.kinds.CHECKPOINT,
+        Format.kinds.STATUS,
+        Format.kinds.EXIT,
+        Format.kinds.CLOCK_ADVANCE,
+      }
+      local frames = {}
+      for _, kind in ipairs(kinds) do
+        frames[#frames + 1] = raw_frame(kind, "frame" .. string.char(kind))
+      end
+      local bytes = recording(frames)
+      local frame_offset = Format.preamble_size + #'{"format":"stanczyk-recording"}'
+      for _, frame in ipairs(frames) do
+        local encoded = assert(Format.encode_frame(frame))
+        for length = 1, #encoded - 1 do
+          local reader = assert(RecordingReader.new(source(bytes:sub(1, frame_offset + length))))
+          local error_value = read_to_end(reader)
+          assertions.equal(
+            "recording_corrupt",
+            error_value and error_value.kind,
+            "kind=" .. frame.kind .. " length=" .. length
+          )
+          assertions.truthy(reader:close())
+        end
+        frame_offset = frame_offset + #encoded
+      end
     end,
   },
 }

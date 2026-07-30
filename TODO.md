@@ -112,7 +112,7 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 ### Tests
 
 - [x] Add encoding/decoding round-trip tests for every frame type.
-- [ ] Add truncation and corruption tests at every frame boundary.
+- [x] Add truncation and corruption tests at every frame boundary.
 - [ ] Add replay equivalence tests against direct event application.
 - [ ] Add checkpoint restore equivalence tests.
 - [x] Add deterministic speed-control tests using a fake clock.

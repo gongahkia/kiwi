@@ -15,6 +15,12 @@ local function valid_frame(payload, kind)
   return frame
 end
 
+local function mutate(bytes, offset)
+  local byte = bytes:byte(offset)
+  local replacement = byte == 0 and 1 or 0
+  return bytes:sub(1, offset - 1) .. string.char(replacement) .. bytes:sub(offset + 1)
+end
+
 return {
   {
     name = "recording format encodes and decodes the fixed preamble",
@@ -185,6 +191,34 @@ return {
         assertions.equal(frame.delta_us, decoded.delta_us)
         assertions.equal(payload, decoded.payload)
         assertions.equal(frame.checksum, decoded.checksum)
+      end
+    end,
+  },
+  {
+    name = "recording format rejects every truncated and protected-corrupt frame byte",
+    run = function()
+      local kinds = {
+        Format.kinds.OUTPUT,
+        Format.kinds.INPUT,
+        Format.kinds.RESIZE,
+        Format.kinds.MARK,
+        Format.kinds.CHECKPOINT,
+        Format.kinds.STATUS,
+        Format.kinds.EXIT,
+        Format.kinds.CLOCK_ADVANCE,
+      }
+      for _, kind in ipairs(kinds) do
+        local bytes = assert(Format.encode_frame(valid_frame("payload", kind)))
+        for length = 0, #bytes - 1 do
+          local value, error_value = Format.decode_frame(bytes:sub(1, length))
+          assertions.falsy(value)
+          assertions.equal("recording_corrupt", error_value.kind)
+        end
+        for offset = 2, #bytes do
+          local value, error_value = Format.decode_frame(mutate(bytes, offset))
+          assertions.falsy(value)
+          assertions.equal("recording_corrupt", error_value.kind)
+        end
       end
     end,
   },
