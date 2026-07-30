@@ -542,6 +542,8 @@ Produce tokens with:
 - source-file identifier;
 - span.
 
+Source offsets are zero-based UTF-8 byte offsets. Lines and columns are one-based, with columns counted in Unicode code points. Spans are half-open `[start, end)` ranges whose boundaries must fall on UTF-8 code-point boundaries.
+
 Invalid characters and unterminated literals produce recoverable diagnostics where possible.
 
 ### 15.2 Parsing
