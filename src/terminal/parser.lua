@@ -408,7 +408,13 @@ function parser_mt:feed(bytes)
     if not handler then
       return invariant_error("parser entered an unknown state", { state = self.state })
     end
+    local state_before = self.state
+    local first_event = #events + 1
     handler(self, events, bytes:byte(index))
+    for event_index = first_event, #events do
+      events[event_index].state_after = self.state
+      events[event_index].state_before = state_before
+    end
     self.byte_offset = self.byte_offset + 1
   end
   return events
