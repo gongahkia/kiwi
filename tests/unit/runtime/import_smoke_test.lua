@@ -37,6 +37,7 @@ return {
         "renderer.colour",
         "renderer.dpi",
         "renderer.glyph_cache",
+        "renderer.glyph_resolver",
         "renderer.grid",
         "renderer.love_font",
         "renderer.renderer",

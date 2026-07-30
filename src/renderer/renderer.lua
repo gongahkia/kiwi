@@ -3,6 +3,7 @@ local Clean = require("renderer.clean")
 local Dpi = require("renderer.dpi")
 local Errors = require("runtime.errors")
 local GlyphCache = require("renderer.glyph_cache")
+local GlyphResolver = require("renderer.glyph_resolver")
 local Grid = require("renderer.grid")
 local LoveFont = require("renderer.love_font")
 local Event = require("runtime.event")
@@ -342,6 +343,7 @@ function Renderer.new(config)
     config = config,
     font = nil,
     glyph_cache = nil,
+    glyph_resolver = nil,
     grid = nil,
     last_cursor = nil,
     metrics = nil,
@@ -363,9 +365,15 @@ function renderer_mt:load_font(graphics)
   if not cache then
     return nil, cache_error
   end
+  local resolver, resolver_error =
+    GlyphResolver.new(resource.font, { max_entries = self.config.max_glyph_entries })
+  if not resolver then
+    return nil, resolver_error
+  end
   self.font = resource.font
   self.graphics = graphics
   self.glyph_cache = cache
+  self.glyph_resolver = resolver
   self.metrics = resource.metrics
   return self:cell_metrics()
 end
@@ -386,10 +394,14 @@ function renderer_mt:preset()
 end
 
 function renderer_mt:glyph(text, style)
-  if not self.glyph_cache then
+  if not self.glyph_cache or not self.glyph_resolver then
     return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
   end
-  return self.glyph_cache:get(text, style)
+  local display_text, display_text_error = self.glyph_resolver:resolve(text)
+  if not display_text then
+    return nil, display_text_error
+  end
+  return self.glyph_cache:get(display_text, style)
 end
 
 function renderer_mt:draw(snapshot, damage)
