@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from kiwi.dsl.bytecode import FunctionId
+from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     FunctionValue,

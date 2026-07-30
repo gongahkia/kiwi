@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from kiwi.dsl.bytecode import FunctionId
+from kiwi.dsl.ids import FunctionId
 
 
 class RuntimeValueKind(StrEnum):
