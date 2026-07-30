@@ -156,7 +156,7 @@ Bootstrap writers always emit the canonical object fields `data` and `name`; `da
 
 ### 7.4 CHECKPOINT
 
-The checkpoint payload is schema v1 from ADR-0005. It begins with a little-endian `u16` schema version; all following multi-byte fields are big-endian. The schema has canonical field ordering, fixed enum discriminants, explicit nested lengths and counts, and bounded decoding. It preserves terminal/parser continuation state, including independent primary and alternate screens, active-screen selection, cursors, renditions, modes, margins, tab stops, scrollback, partial control sequences, and incomplete UTF-8 state.
+The checkpoint payload is schema v2 from ADR-0005. It begins with a little-endian `u16` schema version; all following multi-byte fields are big-endian. The schema has canonical field ordering, fixed enum discriminants, explicit nested lengths and counts, and bounded decoding. It preserves terminal/parser continuation state, including independent primary and alternate screens, active-screen selection, cursors, renditions, modes, margins, tab stops, scrollback, partial control sequences, and incomplete UTF-8 state. Schema v2 preserves per-row scrollback widths after a non-reflowing resize; readers retain schema-v1 support.
 
 It excludes renderer resources, visual effects, backend/process state, timing, host environment, row damage, and row revisions. A restored screen is marked dirty for rendering. The outer frame checksum covers every checkpoint payload byte.
 

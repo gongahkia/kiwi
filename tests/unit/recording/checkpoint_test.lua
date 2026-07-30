@@ -31,7 +31,7 @@ return {
     run = function()
       local original = terminal()
       local payload = assert(Checkpoint.encode(original))
-      assertions.equal("\1\0", payload:sub(1, 2))
+      assertions.equal("\2\0", payload:sub(1, 2))
       local restored = assert(Checkpoint.decode(payload))
       assertions.equal(digest(original), digest(restored))
     end,
@@ -106,6 +106,28 @@ return {
     end,
   },
   {
+    name = "checkpoint schema preserves non-reflowing scrollback row widths",
+    run = function()
+      local original = terminal({ columns = 2, rows = 1, scrollback_limit = 2 })
+      feed(original, "AB\nCD\n")
+      assert(original:resize(3, 2))
+      local restored = checkpoint(original)
+      assertions.equal(2, assert(restored.scrollback:at(1)).columns)
+      assertions.equal(2, assert(restored.scrollback:at(2)).columns)
+      assertions.equal(digest(original), digest(restored))
+    end,
+  },
+  {
+    name = "checkpoint schema retains v1 decoding for uniform scrollback rows",
+    run = function()
+      local original = terminal({ columns = 2, rows = 1, scrollback_limit = 1 })
+      feed(original, "AB\n")
+      local v1_payload = "\1\0" .. assert(Checkpoint.encode(original)):sub(3)
+      local restored = assert(Checkpoint.decode(v1_payload))
+      assertions.equal(digest(original), digest(restored))
+    end,
+  },
+  {
     name = "checkpoint schema rejects every truncated prefix cleanly",
     run = function()
       local original = terminal({ columns = 3, rows = 2, scrollback_limit = 0 })
@@ -123,7 +145,7 @@ return {
     run = function()
       local original = terminal({ columns = 2, rows = 1, scrollback_limit = 0 })
       local payload = assert(Checkpoint.encode(original))
-      local value, error_value = Checkpoint.decode(replace_byte(payload, 1, 2))
+      local value, error_value = Checkpoint.decode(replace_byte(payload, 1, 3))
       assertions.falsy(value)
       assertions.equal("recording_unsupported_version", error_value.kind)
 

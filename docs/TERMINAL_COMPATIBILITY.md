@@ -179,17 +179,11 @@ Do not emit fabricated compatibility responses merely to satisfy applications.
 
 ## 4. Resize policy
 
-On resize:
+`stanczyk-basic-v1` uses the non-reflowing top-left policy in ADR-0006. Primary and alternate screens independently preserve their top-left intersection rectangle. Shrinking discards cells to the right and rows below the new bounds without moving them into scrollback. Expansion exposes canonical default blank cells. Wrapped lines do not reflow.
 
-- dimensions must remain positive and bounded;
-- visible rows and columns are adjusted deterministically;
-- cursor is clamped;
-- margins are reset or clamped according to the accepted implementation ADR;
-- scrollback reflow is deferred unless deliberately implemented;
-- the alternate screen has no persistent scrollback;
-- wide-cell consistency must be repaired at new boundaries.
+Scrollback contents and ordering are unchanged. Active and saved cursors clamp to the new bounds, pending-wrap flags clear, margins reset to the full screen, and tab stops reset to columns 9, 17, 25, and every eighth column thereafter. Wide-cell pairs cut by a new right edge are repaired to canonical blanks. Dimensions must remain positive and within configured bounds.
 
-The first version may use non-reflowing scrollback and visible rows. This limitation must be documented.
+This is not a claim of xterm, Ghostty, Kitty, or other emulator-specific resize behaviour. Bottom anchoring and line reflow are deferred pending an explicitly versioned compatibility decision.
 
 ## 5. Input encoding
 

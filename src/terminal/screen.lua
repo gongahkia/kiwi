@@ -1,4 +1,5 @@
 local Config = require("terminal.config")
+local Cell = require("terminal.cell")
 local Errors = require("runtime.errors")
 local Row = require("terminal.row")
 
@@ -12,6 +13,7 @@ Screen.contract = {
   insert_lines = "insert_lines(row, count, top, bottom, blank_cell) -> removed_rows | nil, error",
   new = "new(columns, rows) -> screen | nil, error",
   reset = "reset(blank_cell) -> true | nil, error",
+  resized = "resized(columns, rows) -> screen | nil, error",
   row = "row(index) -> row | nil, error",
   scroll_down = "scroll_down(top, bottom, count, blank_cell) -> displaced_rows | nil, error",
   scroll_up = "scroll_up(top, bottom) -> displaced_row | nil, error",
@@ -119,6 +121,68 @@ function screen_mt:reset(blank_cell)
   end
   self.rows = rows
   return true
+end
+
+local function repair_wide_cells(row, blank)
+  for column = 1, row.columns do
+    local cell = row.cells[column]
+    if cell.width == 2 then
+      local following = row.cells[column + 1]
+      if following == nil or not following.continuation then
+        local replaced, replace_error = row:replace(column, blank)
+        if not replaced then
+          return nil, replace_error
+        end
+      end
+    elseif cell.continuation then
+      local leading = row.cells[column - 1]
+      if leading == nil or leading.width ~= 2 then
+        local replaced, replace_error = row:replace(column, blank)
+        if not replaced then
+          return nil, replace_error
+        end
+      end
+    end
+  end
+  return true
+end
+
+function screen_mt:resized(columns, rows)
+  local replacement, replacement_error = Screen.new(columns, rows)
+  if not replacement then
+    return nil, replacement_error
+  end
+  local blank, blank_error = Cell.new()
+  if not blank then
+    return nil, blank_error
+  end
+  local copied_rows = math.min(self.height, replacement.height)
+  local copied_columns = math.min(self.columns, replacement.columns)
+  for row = 1, copied_rows do
+    local source = self.rows[row]
+    local destination = replacement.rows[row]
+    if type(source) ~= "table" or type(source.cells) ~= "table" then
+      return nil, Errors.new("internal_invariant_error", "screen row is malformed", { row = row })
+    end
+    if type(source.wrapped) ~= "boolean" then
+      return nil,
+        Errors.new("internal_invariant_error", "screen row wrapping state is malformed", {
+          row = row,
+        })
+    end
+    for column = 1, copied_columns do
+      local replaced, replace_error = destination:replace(column, source.cells[column])
+      if not replaced then
+        return nil, replace_error
+      end
+    end
+    destination.wrapped = source.wrapped
+    local repaired, repair_error = repair_wide_cells(destination, blank)
+    if not repaired then
+      return nil, repair_error
+    end
+  end
+  return replacement
 end
 
 function screen_mt:scroll_up(top, bottom, blank_cell)

@@ -54,6 +54,8 @@ local function apply_directly(terminal, events)
     local normalised = assert(Event.validate(event))
     if normalised.kind == "output" then
       assert(terminal:feed_output(normalised.data))
+    elseif normalised.kind == "resize" then
+      assert(terminal:resize(normalised.columns, normalised.rows))
     end
   end
 end
@@ -147,6 +149,33 @@ return {
     end,
   },
   {
+    name = "replay applies resize events deterministically",
+    run = function()
+      local config = { columns = 3, rows = 1, scrollback_limit = 2 }
+      local events = {
+        assert(Event.output("ABC", 2)),
+        assert(Event.resize(2, 2, 0, 0, 3)),
+        assert(Event.output("\rD", 4)),
+        assert(Event.resize(4, 1, 0, 0, 1)),
+        assert(Event.output("E", 0)),
+      }
+      local direct = assert(Terminal.new(config))
+      apply_directly(direct, events)
+      local frames = {}
+      for _, event in ipairs(events) do
+        frames[#frames + 1] = assert(Frames.from_event(event))
+      end
+      local replayed = assert(Terminal.new(config))
+      local coordinator =
+        assert(Coordinator.new(replayed, assert(Replay.new(source(recording(frames))))))
+      assertions.equal(#events, #assert(coordinator:update(10)))
+      assertions.equal(assert(direct:digest()), assert(replayed:digest()))
+      assertions.equal(4, replayed.config.columns)
+      assertions.equal(1, replayed.config.rows)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
     name = "coordinator restores an indexed checkpoint and replays its suffix",
     run = function()
       local checkpoint_terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
@@ -208,6 +237,49 @@ return {
       assertions.equal(14, sought:status().terminal_time_us)
       assertions.truthy(full:stop())
       assertions.truthy(sought:stop())
+    end,
+  },
+  {
+    name = "checkpoint seeks across resizes match uninterrupted replay",
+    run = function()
+      local config = { columns = 3, rows = 1, scrollback_limit = 2 }
+      local before_resize = assert(Terminal.new(config))
+      assert(before_resize:feed_output("ABC"))
+      local after_resize = assert(Terminal.new(config))
+      assert(after_resize:feed_output("ABC"))
+      assert(after_resize:resize(2, 2))
+      assert(after_resize:feed_output("\rD"))
+      local pre_resize_checkpoint = {
+        assert(Frames.from_event(assert(Event.output("ABC", 2)))),
+        assert(Frames.checkpoint(before_resize, 1)),
+        assert(Frames.from_event(assert(Event.resize(2, 2, 0, 0, 2)))),
+        assert(Frames.from_event(assert(Event.output("\rD", 3)))),
+        assert(Frames.from_event(assert(Event.output("E", 2)))),
+      }
+      local post_resize_checkpoint = {
+        assert(Frames.from_event(assert(Event.output("ABC", 2)))),
+        assert(Frames.from_event(assert(Event.resize(2, 2, 0, 0, 2)))),
+        assert(Frames.from_event(assert(Event.output("\rD", 3)))),
+        assert(Frames.checkpoint(after_resize, 1)),
+        assert(Frames.from_event(assert(Event.output("E", 2)))),
+      }
+      for _, frames in ipairs({ pre_resize_checkpoint, post_resize_checkpoint }) do
+        local bytes = recording(frames)
+        local uninterrupted_terminal = assert(Terminal.new(config))
+        local uninterrupted =
+          assert(Coordinator.new(uninterrupted_terminal, assert(Replay.new(source(bytes, true)))))
+        assert(uninterrupted:update(10))
+        local restored_terminal = assert(Terminal.new(config))
+        local restored =
+          assert(Coordinator.new(restored_terminal, assert(Replay.new(source(bytes, true)))))
+        assert(restored:seek(10))
+        assertions.equal(
+          assert(uninterrupted_terminal:digest()),
+          assert(restored:terminal_instance():digest())
+        )
+        assertions.truthy(uninterrupted:stop())
+        assertions.truthy(restored:stop())
+      end
     end,
   },
 }

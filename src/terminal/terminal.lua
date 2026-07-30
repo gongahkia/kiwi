@@ -26,7 +26,7 @@ Terminal.contract = {
   digest = "digest() -> canonical_digest | nil, error",
   start = "start() -> nil, error",
   feed_output = "feed_output(bytes) -> semantic_events, parser_events | nil, error",
-  resize = "resize(columns, rows) -> nil, error",
+  resize = "resize(columns, rows) -> true | nil, error",
   snapshot = "snapshot() -> nil, error",
   destroy = "destroy()",
 }
@@ -870,11 +870,55 @@ function terminal_mt:feed_output(bytes)
   return semantic_events, parser_events
 end
 
-function terminal_mt:resize(columns, rows)
-  if type(columns) ~= "number" or type(rows) ~= "number" then
-    return nil, Errors.new("config_error", "terminal dimensions must be numbers")
+local function resized_cursor(cursor, columns, rows)
+  local copied, copy_error = Cursor.copy(cursor)
+  if not copied then
+    return nil, copy_error
   end
-  return nil, Errors.new("internal_invariant_error", "terminal resize is not implemented")
+  copied.column = math.min(copied.column, columns)
+  copied.pending_wrap = false
+  copied.row = math.min(copied.row, rows)
+  return copied
+end
+
+function terminal_mt:resize(columns, rows)
+  local config, config_error = Config.new({
+    columns = columns,
+    compatibility_profile = self.config.compatibility_profile,
+    rows = rows,
+    scrollback_limit = self.config.scrollback_limit,
+  })
+  if not config then
+    return nil, config_error
+  end
+  if config.columns == self.config.columns and config.rows == self.config.rows then
+    return true
+  end
+  local primary, primary_error = self.primary_screen:resized(config.columns, config.rows)
+  if not primary then
+    return nil, primary_error
+  end
+  local alternate, alternate_error = self.alternate_screen:resized(config.columns, config.rows)
+  if not alternate then
+    return nil, alternate_error
+  end
+  local cursor, cursor_error = resized_cursor(self.cursor, config.columns, config.rows)
+  if not cursor then
+    return nil, cursor_error
+  end
+  local saved_cursor, saved_cursor_error =
+    resized_cursor(self.saved_cursor, config.columns, config.rows)
+  if not saved_cursor then
+    return nil, saved_cursor_error
+  end
+  self.alternate_screen = alternate
+  self.config = config
+  self.cursor = cursor
+  self.margins = { bottom = config.rows, top = 1 }
+  self.primary_screen = primary
+  self.saved_cursor = saved_cursor
+  self.tab_stops = default_tab_stops(config.columns)
+  return true
 end
 
 function terminal_mt:snapshot()
