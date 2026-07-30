@@ -118,7 +118,7 @@ def test_authoritative_sources_reject_forbidden_apis() -> None:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call):
                     target = call_target(node.func, aliases)
-                    if target in {"eval", "exec"}:
+                    if target in {"eval", "exec", "builtins.eval", "builtins.exec"}:
                         violations.append(f"{path}:{node.lineno}: calls {target}")
                     elif target in UNSEEDED_RANDOM_CALLS:
                         violations.append(f"{path}:{node.lineno}: calls unseeded {target}")
