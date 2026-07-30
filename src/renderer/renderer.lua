@@ -1,4 +1,5 @@
 local Errors = require("runtime.errors")
+local GlyphCache = require("renderer.glyph_cache")
 local LoveFont = require("renderer.love_font")
 
 local Renderer = {}
@@ -9,6 +10,7 @@ Renderer.contract = {
   constructor = "new(config) -> renderer | nil, error",
   cell_metrics = "cell_metrics() -> cell_metrics | nil, error",
   draw = "draw(snapshot, damage?) -> nil, error?",
+  glyph = "glyph(text, style?) -> glyph | nil, error",
   load_font = "load_font(graphics) -> cell_metrics | nil, error",
   resize = "resize(pixel_width, pixel_height) -> nil, error?",
   destroy = "destroy()",
@@ -18,10 +20,13 @@ function Renderer.new(config)
   if type(config) ~= "table" then
     return nil, Errors.new("config_error", "renderer config must be a table")
   end
-  return setmetatable(
-    { config = config, font = nil, metrics = nil, state = "bootstrap" },
-    renderer_mt
-  )
+  return setmetatable({
+    config = config,
+    font = nil,
+    glyph_cache = nil,
+    metrics = nil,
+    state = "bootstrap",
+  }, renderer_mt)
 end
 
 function renderer_mt:load_font(graphics)
@@ -32,7 +37,13 @@ function renderer_mt:load_font(graphics)
   if not resource then
     return nil, resource_error
   end
+  local cache, cache_error =
+    GlyphCache.new(resource.font, resource.metrics, { max_entries = self.config.max_glyph_entries })
+  if not cache then
+    return nil, cache_error
+  end
   self.font = resource.font
+  self.glyph_cache = cache
   self.metrics = resource.metrics
   return self:cell_metrics()
 end
@@ -46,6 +57,13 @@ function renderer_mt:cell_metrics()
     cell_height = self.metrics.cell_height,
     cell_width = self.metrics.cell_width,
   }
+end
+
+function renderer_mt:glyph(text, style)
+  if not self.glyph_cache then
+    return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
+  end
+  return self.glyph_cache:get(text, style)
 end
 
 function renderer_mt:draw(snapshot, damage)
