@@ -61,6 +61,7 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.POLICY,
         TokenKind.FN,
         TokenKind.LET,
+        TokenKind.IN,
         TokenKind.IF,
         TokenKind.THEN,
         TokenKind.ELSE,

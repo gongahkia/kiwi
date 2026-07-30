@@ -154,10 +154,12 @@ Floating-point decimal literals are not required in canonical semantics. Decimal
 ### 7.1 Bindings
 
 ```text
-let score = Threat.score(view, target)
+let score = Threat.score(view, target) in score
 ```
 
 Bindings are immutable and lexically scoped.
+
+Milestone 1 uses the explicit `let name = value in body` form. Layout-sensitive binding syntax remains deferred until a parser grammar defines it.
 
 ### 7.2 Functions
 

@@ -31,6 +31,7 @@ _KEYWORDS = {
     "policy": TokenKind.POLICY,
     "fn": TokenKind.FN,
     "let": TokenKind.LET,
+    "in": TokenKind.IN,
     "if": TokenKind.IF,
     "then": TokenKind.THEN,
     "else": TokenKind.ELSE,

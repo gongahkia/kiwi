@@ -21,6 +21,7 @@ class TokenKind(StrEnum):
     POLICY = "policy"
     FN = "fn"
     LET = "let"
+    IN = "in"
     IF = "if"
     THEN = "then"
     ELSE = "else"

@@ -76,6 +76,24 @@ def test_lexer_recovery_preserves_the_token_after_an_invalid_character() -> None
     assert tuple(token.lexeme for token in result.tokens) == ("name", "")
 
 
+def test_lexer_recognises_function_and_let_scope_keywords() -> None:
+    source = SourceFile(SourceFileId("policy.dtr"), "fn helper let value = 1 in value")
+
+    result = lex(source)
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.FN,
+        TokenKind.IDENTIFIER,
+        TokenKind.LET,
+        TokenKind.IDENTIFIER,
+        TokenKind.EQUALS,
+        TokenKind.INTEGER,
+        TokenKind.IN,
+        TokenKind.IDENTIFIER,
+        TokenKind.EOF,
+    )
+
+
 def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     digits = "1" * (MAX_INTEGER_DIGITS + 1)
     source = SourceFile(SourceFileId("policy.dtr"), f"{digits} true")
