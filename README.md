@@ -111,4 +111,4 @@ The current implementation unit is Milestone 0 in [`TODO.md`](TODO.md).
 
 The verified bootstrap targets are LÖVE 11.5 and LuaJIT 2.1.1785192264. Core tests use the repository test runner at [`tools/test.lua`](tools/test.lua) under LuaJIT; it prints and accepts `STANCZYK_TEST_SEED` for reproducible generated tests.
 
-Run `make bootstrap` to verify local tools, `make test` for plain-Lua core tests, `make lint` for formatting checks, `make check` for both, and `make run` to open the blank LÖVE viewport. Stylua 2.5.2 is the formatter.
+Run `make bootstrap` to verify local tools, `make test` for plain-Lua core tests, `make lint` for formatting checks, `make check` for both, and `make run` to open the blank LÖVE viewport. Use `make inspect RECORDING=path/to/session.strec` for a bounded, human-readable recording dump. Stylua 2.5.2 is the formatter.

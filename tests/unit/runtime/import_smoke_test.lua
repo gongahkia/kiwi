@@ -26,6 +26,7 @@ return {
         "recording.checkpoint",
         "recording.format",
         "recording.frames",
+        "recording.inspect",
         "recording.metadata",
         "recording.reader",
         "recording.writer",

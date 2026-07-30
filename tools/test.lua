@@ -47,6 +47,7 @@ local modules = {
   "unit.recording.checkpoint_test",
   "unit.recording.format_test",
   "unit.recording.frames_test",
+  "unit.recording.inspect_test",
   "unit.recording.metadata_test",
   "unit.recording.reader_test",
   "unit.recording.writer_test",
