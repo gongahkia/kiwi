@@ -54,6 +54,8 @@ The coordinator:
 
 The coordinator should be small. It must not contain parser logic, PTY protocol logic, or shader code.
 
+The bootstrap coordinator owns applying replay events to a terminal. Frame and control-sequence stepping remain here: the replay backend exposes raw framed data, while only the coordinator feeds output bytes into the parser and terminal model.
+
 ### 2.3 Terminal core
 
 The terminal core includes:

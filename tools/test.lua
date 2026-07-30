@@ -26,6 +26,7 @@ local modules = {
   "property.parser_recovery_test",
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
+  "unit.runtime.coordinator_test",
   "unit.runtime.import_smoke_test",
   "unit.terminal.cell_test",
   "unit.terminal.config_test",

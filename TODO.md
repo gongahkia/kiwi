@@ -102,7 +102,7 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 ### Replay backend
 
 - [x] Implement play, pause, resume, stop, and speed controls.
-- [ ] Implement single-frame and single-control-sequence stepping.
+- [x] Implement single-frame and single-control-sequence stepping.
 - [x] Implement deterministic replay time independent of wall-clock rendering time.
 - [ ] Implement checkpoint creation and restoration.
 - [ ] Implement a seek index with bounded memory.

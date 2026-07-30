@@ -1,0 +1,277 @@
+local Backend = require("backend.interface")
+local Errors = require("runtime.errors")
+local Event = require("runtime.event")
+
+local Coordinator = {}
+local coordinator_mt = {}
+coordinator_mt.__index = coordinator_mt
+
+Coordinator.contract = {
+  constructor = "new(terminal, backend) -> coordinator | nil, error",
+  start = "start() -> true | nil, error",
+  step_control_sequence = "step_control_sequence() -> step | nil, error?",
+  step_frame = "step_frame() -> step | nil, error?",
+  stop = "stop(reason?) -> true | nil, error",
+  update = "update(advance_us) -> applied_events | nil, error",
+}
+
+local boundary_kinds = {
+  control = true,
+  csi = true,
+  esc = true,
+  malformed = true,
+  osc = true,
+}
+
+local function config_error(message, detail)
+  return nil, Errors.new("config_error", message, detail)
+end
+
+local function unavailable(message)
+  return nil, Errors.new("backend_unavailable", message)
+end
+
+local function valid_terminal(terminal)
+  if type(terminal) ~= "table" or type(terminal.feed_output) ~= "function" then
+    return nil, Errors.new("config_error", "coordinator terminal must implement feed_output")
+  end
+  if type(terminal.resize) ~= "function" then
+    return nil, Errors.new("config_error", "coordinator terminal must implement resize")
+  end
+  return terminal
+end
+
+local function prepare_event(coordinator, event)
+  local normalised, event_error = Event.validate(event)
+  if not normalised then
+    return nil, event_error
+  end
+  if coordinator.event_sequence >= 0xFFFFFFFF then
+    return nil, Errors.new("backend_protocol_error", "coordinator event sequence is exhausted")
+  end
+  coordinator.event_sequence = coordinator.event_sequence + 1
+  normalised.source_sequence = coordinator.event_sequence
+  coordinator.terminal_time_us = coordinator.terminal_time_us + normalised.delta_us
+  return normalised
+end
+
+local function apply_prepared_event(coordinator, event)
+  local semantic_events = {}
+  local parser_events = {}
+  if event.kind == "output" then
+    semantic_events, parser_events = coordinator.terminal:feed_output(event.data)
+    if not semantic_events then
+      return nil, parser_events
+    end
+  elseif event.kind == "resize" then
+    local resized, resize_error = coordinator.terminal:resize(event.columns, event.rows)
+    if not resized then
+      return nil, resize_error
+    end
+  end
+  return {
+    event = event,
+    parser_events = parser_events,
+    semantic_events = semantic_events,
+  }
+end
+
+local function apply_event(coordinator, event)
+  local prepared, prepare_error = prepare_event(coordinator, event)
+  if not prepared then
+    return nil, prepare_error
+  end
+  return apply_prepared_event(coordinator, prepared)
+end
+
+local function step_backend_frame(coordinator)
+  if type(coordinator.backend.step_frame) ~= "function" then
+    return unavailable("backend does not support frame stepping")
+  end
+  return coordinator.backend:step_frame()
+end
+
+local function append_events(target, source)
+  for _, event in ipairs(source) do
+    target[#target + 1] = event
+  end
+end
+
+local function boundary(parser_events)
+  for _, parser_event in ipairs(parser_events) do
+    if boundary_kinds[parser_event.kind] then
+      return parser_event
+    end
+  end
+  return nil
+end
+
+function Coordinator.new(terminal, backend)
+  local valid_terminal_value, terminal_error = valid_terminal(terminal)
+  if not valid_terminal_value then
+    return nil, terminal_error
+  end
+  local valid_backend, backend_error = Backend.validate(backend)
+  if not valid_backend then
+    return nil, backend_error
+  end
+  return setmetatable({
+    backend = valid_backend,
+    event_sequence = 0,
+    pending_output = nil,
+    started = false,
+    stopped = false,
+    terminal = valid_terminal_value,
+    terminal_time_us = 0,
+  }, coordinator_mt)
+end
+
+function coordinator_mt:start()
+  if self.stopped then
+    return nil, Errors.new("backend_exited", "coordinator is stopped")
+  end
+  if self.started then
+    return true
+  end
+  local started, start_error = self.backend:start()
+  if not started then
+    return nil, start_error
+  end
+  self.started = true
+  return true
+end
+
+function coordinator_mt:update(advance_us)
+  if self.pending_output then
+    return config_error("cannot update while a control-sequence step has pending output")
+  end
+  local started, start_error = self:start()
+  if not started then
+    return nil, start_error
+  end
+  local events, poll_error = self.backend:poll(advance_us)
+  if not events then
+    return nil, poll_error
+  end
+  local applied = {}
+  for _, event in ipairs(events) do
+    local result, apply_error = apply_event(self, event)
+    if not result then
+      return nil, apply_error
+    end
+    applied[#applied + 1] = result
+  end
+  return applied
+end
+
+function coordinator_mt:step_frame()
+  if self.pending_output then
+    return config_error("cannot step a frame while a control-sequence step has pending output")
+  end
+  local started, start_error = self:start()
+  if not started then
+    return nil, start_error
+  end
+  local step, step_error = step_backend_frame(self)
+  if not step then
+    return nil, step_error
+  end
+  local result = { frame = step.frame, frame_index = step.frame_index }
+  if step.event then
+    local applied, apply_error = apply_event(self, step.event)
+    if not applied then
+      return nil, apply_error
+    end
+    result.applied = applied
+  end
+  return result
+end
+
+function coordinator_mt:step_control_sequence()
+  local started, start_error = self:start()
+  if not started then
+    return nil, start_error
+  end
+  if not self.pending_output then
+    local step, step_error = step_backend_frame(self)
+    if not step then
+      return nil, step_error
+    end
+    if not step.event or step.event.kind ~= "output" then
+      local result = { frame = step.frame, frame_index = step.frame_index, kind = "frame" }
+      if step.event then
+        local applied, apply_error = apply_event(self, step.event)
+        if not applied then
+          return nil, apply_error
+        end
+        result.applied = applied
+      end
+      return result
+    end
+    local event, event_error = prepare_event(self, step.event)
+    if not event then
+      return nil, event_error
+    end
+    self.pending_output = {
+      event = event,
+      frame = step.frame,
+      frame_index = step.frame_index,
+      index = 1,
+    }
+  end
+  local pending = self.pending_output
+  local parser_events = {}
+  local semantic_events = {}
+  local start_index = pending.index
+  local found_boundary
+  while pending.index <= #pending.event.data do
+    local byte = pending.event.data:sub(pending.index, pending.index)
+    pending.index = pending.index + 1
+    local semantic, parser = self.terminal:feed_output(byte)
+    if not semantic then
+      return nil, parser
+    end
+    append_events(semantic_events, semantic)
+    append_events(parser_events, parser)
+    found_boundary = boundary(parser)
+    if found_boundary then
+      break
+    end
+  end
+  local completed = pending.index > #pending.event.data
+  if completed then
+    self.pending_output = nil
+  end
+  return {
+    boundary = found_boundary,
+    bytes = pending.index - start_index,
+    completed_frame = completed,
+    event = pending.event,
+    frame = pending.frame,
+    frame_index = pending.frame_index,
+    kind = found_boundary and "control_sequence" or "output_frame",
+    parser_events = parser_events,
+    semantic_events = semantic_events,
+  }
+end
+
+function coordinator_mt:stop(reason)
+  if self.stopped then
+    return true
+  end
+  self.stopped = true
+  self.pending_output = nil
+  return self.backend:stop(reason)
+end
+
+function coordinator_mt:status()
+  return {
+    event_sequence = self.event_sequence,
+    pending_output = self.pending_output ~= nil,
+    started = self.started,
+    stopped = self.stopped,
+    terminal_time_us = self.terminal_time_us,
+  }
+end
+
+return Coordinator
