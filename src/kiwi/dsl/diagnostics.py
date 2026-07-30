@@ -16,10 +16,11 @@ class DiagnosticSeverity(StrEnum):
 
 
 class DiagnosticStage(StrEnum):
-    """Compiler stages implemented during Milestone 1."""
+    """Compiler stages that emit player-visible diagnostics."""
 
     LEXER = "lexer"
     PARSER = "parser"
+    RESOLVER = "resolver"
 
 
 @dataclass(frozen=True, slots=True)

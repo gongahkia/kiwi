@@ -596,6 +596,16 @@ definitions and `SymbolId` values to resolved lexical bindings. These are
 value identifiers assigned by canonical traversal, never Python object
 identities.
 
+Milestone 2 resolves value names in source order: all top-level declarations
+are visible to declaration bodies; parameters are then bound left to right;
+and a `let` binding is visible only in its body. A name may not shadow any
+active binding. On a duplicate declaration or parameter, the first valid
+binder remains visible for recovery. Resolver diagnostics are
+`E300_DUPLICATE_DEFINITION`, `E301_UNKNOWN_NAME`,
+`E302_DUPLICATE_PARAMETER`, `E303_PROHIBITED_SHADOWING`, and
+`E304_INVALID_ARITY`. The last applies only to directly named top-level calls;
+the type checker diagnoses all other invalid calls.
+
 ### 15.4 Type checking
 
 Check:
