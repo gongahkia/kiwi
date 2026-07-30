@@ -56,6 +56,8 @@ A width-two lead cell and its required continuation cell render as one two-colum
 
 For v1 combining-mark handling, each cell’s UTF-8 grapheme bytes are cached and passed unchanged to the configured LÖVE font. The renderer does not separately position or precompose combining marks; their composition is the font’s responsibility. This preserves deterministic terminal cell coordinates while providing a bounded, documented approximation.
 
+The renderer uses the configured font’s glyph-coverage query once per bounded cache entry. Unsupported text renders as `□`; if that glyph is unavailable, it renders as `?`. A font without `?` is rejected at renderer load because it cannot provide a visible fallback.
+
 Window dimensions are converted to a centered grid from the loaded integer cell metrics and optional pixel padding. `renderer:resize(window_width, window_height, pixel_width?, pixel_height?)` returns the derived layout and a normalised resize event for the runtime boundary; it does not mutate terminal state. A changed layout forces one full presentation redraw after the caller applies that event to terminal semantics.
 
 With LÖVE 11.5 `highdpi` and `usedpiscale` enabled, `renderer:resize_window()` derives grid geometry from injected `getDimensions()` drawing units and emits physical `getPixelDimensions()` values in the resize event. DPI scale is validated but not manually applied to drawing coordinates, avoiding double scaling.

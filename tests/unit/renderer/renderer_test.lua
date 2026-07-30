@@ -14,6 +14,9 @@ local function font()
     getHeight = function()
       return 16.2
     end,
+    hasGlyphs = function(_, text)
+      return text ~= "☃"
+    end,
     getWidth = function(_, text)
       if text == "M" then
         return 8.2
@@ -297,6 +300,19 @@ return {
       value.screen.rows[1].cells[1].text = "é"
       assert(renderer:draw(value))
       assertions.equal("é", operation(api, "print", 1)[1])
+    end,
+  },
+  {
+    name = "renderer uses a visible placeholder for unsupported glyphs",
+    run = function()
+      local api = graphics()
+      local renderer = assert(Renderer.new({}))
+      assert(renderer:load_font(api))
+      local value = snapshot()
+      value.screen.rows[1].cells[1].text = "☃"
+      assert(renderer:draw(value))
+      assertions.equal("□", operation(api, "print", 1)[1])
+      assertions.equal("□", assert(renderer:glyph("☃")).text)
     end,
   },
   {
