@@ -197,11 +197,15 @@ return {
       local terminal = assert(checkpoint_terminal.new({ columns = 4, rows = 1 }))
       assert(terminal:feed_output("A"))
       local checkpoint = assert(Frames.checkpoint(terminal, 0))
-      local replay = assert(Replay.new(source(recording({
-        assert(Frames.from_event(assert(Event.output("A", 2)))),
-        checkpoint,
-        assert(Frames.from_event(assert(Event.output("B", 3)))),
-      })), nil, true))
+      local replay = assert(Replay.new(source(
+        recording({
+          assert(Frames.from_event(assert(Event.output("A", 2)))),
+          checkpoint,
+          assert(Frames.from_event(assert(Event.output("B", 3)))),
+        }),
+        nil,
+        true
+      )))
       assertions.truthy(replay:start())
       assertions.equal(5, replay:status().total_duration_us)
       assertions.equal(1, replay:status().checkpoint_status.indexed)
@@ -209,6 +213,25 @@ return {
       assertions.equal(2, plan.checkpoint_terminal_us)
       assertions.equal("A", plan.terminal.primary_screen.rows[1].cells[1].text)
       assertions.equal("paused", replay:status().state)
+    end,
+  },
+  {
+    name = "replay backend bounds checkpoint index entries while validating checkpoints",
+    run = function()
+      local terminal_module = require("terminal.terminal")
+      local terminal = assert(terminal_module.new({ columns = 2, rows = 1 }))
+      local checkpoints = {}
+      for index = 1, 5 do
+        assert(terminal:feed_output(tostring(index)))
+        checkpoints[index] = assert(Frames.checkpoint(terminal, 1))
+      end
+      local replay = assert(
+        Replay.new(source(recording(checkpoints), nil, true), { max_checkpoint_entries = 2 })
+      )
+      assertions.truthy(replay:start())
+      assertions.equal(5, replay:status().checkpoint_status.total)
+      assertions.truthy(replay:status().checkpoint_status.indexed <= 2)
+      assertions.truthy(replay:capabilities().seek)
     end,
   },
 }
