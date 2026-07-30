@@ -11,6 +11,7 @@ from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, UnitValue
 from kiwi.dsl.source import SourceFileId
+from kiwi.dsl.types import DslType
 
 SOURCE_LANGUAGE_VERSION = 1
 CORE_IR_VERSION = 1
@@ -249,6 +250,39 @@ class FunctionTable:
             if entry.definition_id == definition_id:
                 return entry.function_id
         raise ValueError("definition has no bytecode function")
+
+
+@dataclass(frozen=True, slots=True)
+class BytecodeFunction:
+    """One compiled function with ordered instructions and local-frame metadata."""
+
+    function_id: FunctionId
+    definition_id: DefinitionId
+    name: str
+    arity: int
+    local_slot_count: int
+    return_type: DslType
+    instructions: tuple[BytecodeInstruction, ...]
+
+    def __post_init__(self) -> None:
+        if self.arity < 0 or self.local_slot_count < self.arity:
+            raise ValueError("function local slots must include all parameters")
+
+
+@dataclass(frozen=True, slots=True)
+class BytecodeModule:
+    """A compiled module before byte-level encoding is introduced."""
+
+    header: BytecodeHeader
+    constants: ConstantPool
+    function_table: FunctionTable
+    functions: tuple[BytecodeFunction, ...]
+
+    def __post_init__(self) -> None:
+        table_ids = tuple(entry.function_id for entry in self.function_table.entries)
+        function_ids = tuple(function.function_id for function in self.functions)
+        if function_ids != table_ids:
+            raise ValueError("bytecode functions must match function-table order")
 
 
 def canonical_function_table(definitions: Sequence[CoreDefinition]) -> FunctionTable:
