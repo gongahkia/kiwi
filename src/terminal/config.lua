@@ -14,6 +14,7 @@ local defaults = {
 }
 
 local limits = {
+  cells = 1000000,
   columns = 1000,
   rows = 1000,
   scrollback_limit = 100000,
@@ -79,6 +80,12 @@ function Config.new(options)
   local rows, rows_error = bounded_integer(requested_rows, "rows", 1, limits.rows)
   if not rows then
     return nil, rows_error
+  end
+  if columns > math.floor(limits.cells / rows) then
+    return config_error("terminal dimensions exceed configured cell limit", {
+      limit = limits.cells,
+      provided = columns * rows,
+    })
   end
   local requested_scrollback_limit = options.scrollback_limit
   if requested_scrollback_limit == nil then

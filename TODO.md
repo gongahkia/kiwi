@@ -116,14 +116,14 @@ Goal: make terminal sessions deterministic, persistent, seekable, and inspectabl
 - [x] Add replay equivalence tests against direct event application.
 - [x] Add checkpoint restore equivalence tests.
 - [x] Add deterministic speed-control tests using a fake clock.
-- [ ] Add generated recordings with random chunking and resizes.
+- [x] Add generated recordings with random chunking and resizes.
 
 ### Exit criteria
 
-- [ ] A representative session can be saved, reopened, replayed, paused, stepped, and sought.
-- [ ] Replay and direct application end in identical terminal state.
-- [ ] Corrupt recordings fail safely with precise errors.
-- [ ] Seeking does not require replay from the beginning once checkpoints are indexed.
+- [x] A representative session can be saved, reopened, replayed, paused, stepped, and sought.
+- [x] Replay and direct application end in identical terminal state.
+- [x] Corrupt recordings fail safely with precise errors.
+- [x] Seeking does not require replay from the beginning once checkpoints are indexed.
 
 ## Milestone 3 — Baseline LÖVE renderer
 

@@ -9,7 +9,8 @@ local Terminal = require("terminal.terminal")
 
 local Checkpoint = {}
 
-Checkpoint.schema_version = 1
+Checkpoint.schema_version = 2
+Checkpoint.supported_schema_versions = { [1] = true, [2] = true }
 Checkpoint.defaults = {
   max_cell_text_bytes = 4096,
   max_checkpoint_bytes = 16 * 1024 * 1024,
@@ -319,10 +320,19 @@ local function decode_cell(reader, limits)
   return cell
 end
 
-local function encode_row(row, columns, limits)
-  if type(row) ~= "table" or row.columns ~= columns or type(row.cells) ~= "table" then
+local function encode_row(row, expected_columns, limits)
+  if type(row) ~= "table" or type(row.cells) ~= "table" then
     return config_error("checkpoint row dimensions are invalid")
   end
+  local columns = row.columns
+  if expected_columns ~= nil and columns ~= expected_columns then
+    return config_error("checkpoint row dimensions are invalid")
+  end
+  local config = Config.new({ columns = columns })
+  if not config then
+    return config_error("checkpoint row dimensions are invalid")
+  end
+  columns = config.columns
   local wrapped, wrapped_error = boolean_byte(row.wrapped, "checkpoint row wrapping state")
   if not wrapped then
     return nil, wrapped_error
@@ -358,7 +368,7 @@ local function encode_screen(screen, columns, rows, limits)
   return table.concat(output)
 end
 
-local function decode_row(reader, columns, limits)
+local function decode_row(reader, expected_columns, limits)
   local wrapped_value, wrapped_error = reader:u8("row wrapping state")
   if not wrapped_value then
     return nil, wrapped_error
@@ -371,11 +381,21 @@ local function decode_row(reader, columns, limits)
   if not cell_count then
     return nil, count_error
   end
-  if cell_count ~= columns then
+  if expected_columns ~= nil and cell_count ~= expected_columns then
     return corrupt("checkpoint row cell count disagrees with dimensions", {
       actual = cell_count,
-      expected = columns,
+      expected = expected_columns,
     })
+  end
+  local columns = cell_count
+  if expected_columns == nil then
+    local config, config_error_value = Config.new({ columns = columns })
+    if not config then
+      return corrupt("checkpoint scrollback row dimensions are invalid", {
+        cause = config_error_value,
+      })
+    end
+    columns = config.columns
   end
   local cells = {}
   for column = 1, columns do
@@ -385,7 +405,7 @@ local function decode_row(reader, columns, limits)
     end
     cells[column] = cell
   end
-  return { cells = cells, wrapped = wrapped }
+  return { cells = cells, columns = columns, wrapped = wrapped }
 end
 
 local function decode_screen(reader, columns, rows, limits)
@@ -792,10 +812,10 @@ local function restore_rows(target_rows, rows, columns)
   return true
 end
 
-local function restore_scrollback(terminal, rows, columns)
+local function restore_scrollback(terminal, rows)
   local entries = {}
   for index = 1, #rows do
-    local row, row_error = Row.new(columns)
+    local row, row_error = Row.new(rows[index].columns)
     if not row then
       return nil, row_error
     end
@@ -903,17 +923,28 @@ function Checkpoint.encode(terminal, requested_limits)
     or terminal.scrollback.count < 0
     or terminal.scrollback.count > config.scrollback_limit
     or terminal.scrollback.count > limits.max_scrollback_rows
-    or terminal.scrollback.count * config.columns + cells_per_screen * 2 > limits.max_total_cells
   then
     return config_error("checkpoint scrollback is invalid or exceeds configured limits")
   end
   local scrollback = { assert(Binary.u32(terminal.scrollback.count)) }
+  local scrollback_cells = 0
   for index = 1, terminal.scrollback.count do
     local row, row_error = terminal.scrollback:at(index)
     if not row then
       return nil, row_error
     end
-    local encoded, encoded_error = encode_row(row, config.columns, limits)
+    local row_columns = row.columns
+    local row_config, row_config_error = Config.new({ columns = row_columns })
+    if not row_config then
+      return config_error("checkpoint scrollback row dimensions are invalid", {
+        cause = row_config_error,
+      })
+    end
+    scrollback_cells = scrollback_cells + row_config.columns
+    if scrollback_cells + cells_per_screen * 2 > limits.max_total_cells then
+      return config_error("checkpoint scrollback exceeds configured cell limit")
+    end
+    local encoded, encoded_error = encode_row(row, nil, limits)
     if not encoded then
       return nil, encoded_error
     end
@@ -972,7 +1003,7 @@ function Checkpoint.decode(bytes, requested_limits)
     return corrupt("truncated checkpoint schema version")
   end
   reader.offset = 3
-  if version ~= Checkpoint.schema_version then
+  if not Checkpoint.supported_schema_versions[version] then
     return nil,
       Errors.new(
         "recording_unsupported_version",
@@ -1082,21 +1113,22 @@ function Checkpoint.decode(bytes, requested_limits)
   if not scrollback_count then
     return nil, scrollback_count_error
   end
-  if
-    scrollback_count > scrollback_limit
-    or scrollback_count > limits.max_scrollback_rows
-    or scrollback_count * columns + cells_per_screen * 2 > limits.max_total_cells
-  then
+  if scrollback_count > scrollback_limit or scrollback_count > limits.max_scrollback_rows then
     return corrupt(
       "checkpoint scrollback count exceeds configured limit",
       { count = scrollback_count }
     )
   end
   local scrollback = {}
+  local scrollback_cells = 0
   for index = 1, scrollback_count do
-    local row, row_error = decode_row(reader, columns, limits)
+    local row, row_error = decode_row(reader, version == 1 and columns or nil, limits)
     if not row then
       return nil, row_error
+    end
+    scrollback_cells = scrollback_cells + row.columns
+    if scrollback_cells + cells_per_screen * 2 > limits.max_total_cells then
+      return corrupt("checkpoint scrollback exceeds configured cell limit")
     end
     scrollback[index] = row
   end
@@ -1130,7 +1162,7 @@ function Checkpoint.decode(bytes, requested_limits)
   terminal.saved_rendition = saved_rendition
   restore_rows(terminal.primary_screen.rows, primary, columns)
   restore_rows(terminal.alternate_screen.rows, alternate, columns)
-  local restored_scrollback, scrollback_error = restore_scrollback(terminal, scrollback, columns)
+  local restored_scrollback, scrollback_error = restore_scrollback(terminal, scrollback)
   if not restored_scrollback then
     return corrupt("checkpoint scrollback could not be constructed", { cause = scrollback_error })
   end

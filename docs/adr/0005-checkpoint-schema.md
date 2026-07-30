@@ -1,7 +1,8 @@
-# ADR-0005: Checkpoint Payload Schema v1
+# ADR-0005: Checkpoint Payload Schema
 
 - Status: Accepted for bootstrap
 - Date: 2026-07-30
+- Amended: 2026-07-31
 
 ## Context
 
@@ -9,9 +10,9 @@ Checkpoint frames make replay seeking practical only if restoring one produces t
 
 ## Decision
 
-`CHECKPOINT` frame payloads use schema v1, a canonical binary layout. The payload begins with a little-endian `u16` schema version (`1`). All remaining multi-byte integers are unsigned big-endian. There is no optional-field bitmap, implicit default, Lua serialization, JSON, MessagePack, or table iteration in the payload.
+`CHECKPOINT` frame payloads use schema v2, a canonical binary layout. The payload begins with a little-endian `u16` schema version (`2`). All remaining multi-byte integers are unsigned big-endian. There is no optional-field bitmap, implicit default, Lua serialization, JSON, MessagePack, or table iteration in the payload. Decoders retain schema-v1 support for existing bootstrap recordings.
 
-Schema v1 serializes only terminal semantic state:
+Schema v2 serializes only terminal semantic state:
 
 - compatibility profile, dimensions, and scrollback limit;
 - active-screen selection, cursor and saved cursor, rendition and saved rendition, modes, margins, and tab stops;
@@ -44,7 +45,7 @@ saved_rendition
 primary_screen
 alternate_screen
 scrollback_count:u32
-scrollback_rows[scrollback_count]
+scrollback_rows[scrollback_count]  # each row carries its own cell_count
 parser_state:u8
 parser_byte_offset:u53be
 max_csi_bytes:u32
@@ -63,7 +64,7 @@ utf8_remaining:u8
 
 A rendition is `attributes:u32`, then foreground and background colours. A colour is `kind:u8`; `0` is default, `1` is indexed followed by `index:u8`, and `2` is RGB followed by `red:u8,green:u8,blue:u8`.
 
-A screen is `row_count:u16` followed by exactly that many rows. A row is `wrapped:u8`, `cell_count:u16`, then exactly that many cells. A cell is `text_length:u16`, raw text bytes, `width:u8` (`0`, `1`, or `2`), and a rendition. `row_count` and `cell_count` must respectively equal the checkpoint dimensions; repeated counts make malformed nesting detectable before allocation.
+A screen is `row_count:u16` followed by exactly that many rows. A row is `wrapped:u8`, `cell_count:u16`, then exactly that many cells. A cell is `text_length:u16`, raw text bytes, `width:u8` (`0`, `1`, or `2`), and a rendition. Visible-screen `row_count` and `cell_count` must respectively equal the checkpoint dimensions; repeated counts make malformed nesting detectable before allocation. Schema-v2 scrollback rows retain their encoded `cell_count` independently.
 
 Parser-state discriminants are fixed: `0 ground`, `1 escape`, `2 escape_ignore`, `3 csi_entry`, `4 csi_parameter`, `5 csi_intermediate`, `6 csi_ignore`, `7 osc_string`, `8 osc_escape`, `9 osc_ignore`, and `10 osc_ignore_escape`.
 
@@ -73,11 +74,13 @@ All booleans are exactly `0` or `1`. All enum values outside their specified dis
 
 The decoder checks the total payload size before parsing and validates dimensions, all declared counts, nested string lengths, parser buffer bounds, and exact remaining bytes before creating a terminal. Defaults are deliberately bounded: 16 MiB total checkpoint bytes, 262144 visible cells per screen, 524288 total cells across both screens and scrollback, 100000 scrollback rows, 4096 cell-text bytes, and 65536 parser-buffer bytes. Callers may supply stricter configured limits.
 
+Schema v2 permits scrollback rows with independent widths so non-reflowing resizes retain historical rows unchanged. Visible primary and alternate screen rows still require the active terminal width. Schema v1 requires every scrollback row to match the active terminal width.
+
 Any unsupported schema version, invalid discriminant, impossible dimension, inconsistent count, oversized field, truncation, trailing byte, or invalid terminal/parser/UTF-8 invariant produces a typed error and no restored terminal. Re-encoding the same logical state produces the same bytes.
 
 ### Stability
 
-Schema v1 stability begins only when the recording format reaches its first public compatibility commitment. Until then, this accepted bootstrap schema remains subject to repository-controlled changes accompanied by an ADR update.
+Schema-v2 stability begins only when the recording format reaches its first public compatibility commitment. Until then, this accepted bootstrap schema remains subject to repository-controlled changes accompanied by an ADR update.
 
 ## Consequences
 
