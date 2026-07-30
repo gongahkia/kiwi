@@ -69,7 +69,7 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 - [x] Add a stable debug printer for tokens and AST.
 - [x] Add lexer and parser golden fixtures.
 - [x] Add source-span edge-case tests for multiline and invalid input.
-- [ ] Add CLI `parse` command.
+- [x] Add CLI `parse` command.
 
 ### Exit criteria
 
