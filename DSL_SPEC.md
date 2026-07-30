@@ -659,6 +659,12 @@ Milestone 3 compiler emits version `1` for all three version fields and rejects
 any other value at this boundary. The later bytecode encoding task defines how
 the header is represented in bytes.
 
+The initial constant pool interns only integer, boolean, and unit values. It
+uses first encounter during the compiler's explicit definition-order,
+expression-pre-order traversal; repeated equal constants reuse their original
+index. Functions are ordered by ascending `DefinitionId` and receive contiguous
+`FunctionId` values from zero. Function references are never constants.
+
 Candidate instructions:
 
 ```text

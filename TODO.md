@@ -128,7 +128,7 @@ Compile and execute the tiny language without Python `eval` or `exec`.
 
 - [x] Define bytecode version and module header.
 - [x] Define closed runtime-value algebra.
-- [ ] Define canonical constant-pool and function ordering.
+- [x] Define canonical constant-pool and function ordering.
 - [ ] Define initial instruction set.
 - [ ] Compile core IR to bytecode.
 - [ ] Implement bytecode validator.

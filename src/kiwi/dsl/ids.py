@@ -36,3 +36,14 @@ class ExpressionId:
     def __post_init__(self) -> None:
         if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
             raise ValueError("expression ID must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionId:
+    """The canonical identity of one compiled bytecode function."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, int) or isinstance(self.value, bool) or self.value < 0:
+            raise ValueError("function ID must be a non-negative integer")
