@@ -131,7 +131,7 @@ Goal: render terminal state efficiently without mixing semantic and visual state
 
 ### Rendering foundation
 
-- [ ] Implement font loading and explicit cell metrics.
+- [x] Implement font loading and explicit cell metrics.
 - [ ] Implement a glyph atlas or cache suitable for ASCII and incremental Unicode expansion.
 - [ ] Implement clean rendering of backgrounds, glyphs, underline, strike, inverse, conceal, faint, and bold approximation.
 - [ ] Implement block, beam, and underline cursors.
