@@ -80,7 +80,7 @@ Type-check the language and compile it into a small core representation.
 
 - [x] Implement primitive and domain type representations.
 - [x] Implement function types.
-- [ ] Implement `Option`, `Result`, and selected domain unions.
+- [x] Implement `Option`, `Result`, and selected domain unions.
 - [ ] Implement name resolution and lexical scopes.
 - [ ] Implement local type inference.
 - [ ] Require explicit signatures for exported entry points.
