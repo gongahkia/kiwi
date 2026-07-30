@@ -46,6 +46,40 @@ local function register(test)
     end)
     test.equals(write_ok, false)
   end)
+
+  test.case("function types are immutable and structurally comparable", function()
+    local integer = assert(types.get("Int"))
+    local boolean = assert(types.get("Bool"))
+    local string_type = assert(types.get("String"))
+    local first = assert(types.function_type(integer, boolean))
+    local second = assert(types.function_type(integer, boolean))
+    local different = assert(types.function_type(integer, string_type))
+
+    test.equals(first.kind, "function")
+    test.equals(first.argument, integer)
+    test.equals(first.result, boolean)
+    test.equals(types.equals(first, second), true)
+    test.equals(types.equals(first, different), false)
+    test.equals(types.describe(first), "Int -> Bool")
+
+    local higher_order = assert(types.function_type(first, string_type))
+    test.equals(types.describe(higher_order), "(Int -> Bool) -> String")
+    local write_ok = pcall(function()
+      first.result = string_type
+    end)
+    test.equals(write_ok, false)
+  end)
+
+  test.case("function types reject invalid components structurally", function()
+    local boolean = assert(types.get("Bool"))
+    local value, err = types.function_type({}, boolean)
+    test.equals(value, nil)
+    test.error_code(err, "invalid_function_argument_type")
+
+    value, err = types.function_type(boolean, {})
+    test.equals(value, nil)
+    test.error_code(err, "invalid_function_result_type")
+  end)
 end
 
 return register

@@ -1,8 +1,8 @@
 local types = {}
 local type_values = setmetatable({}, { __mode = "k" })
 
-local function immutable_type(kind, name)
-  local values = { kind = kind, name = name }
+local function immutable_type(kind, name, argument, result)
+  local values = { kind = kind, name = name, argument = argument, result = result }
   local value = setmetatable({}, {
     __index = values,
     __newindex = function()
@@ -68,18 +68,54 @@ function types.quantity_type(unit)
   return value
 end
 
+function types.function_type(argument, result)
+  if not types.is_type(argument) then
+    return nil,
+      { code = "invalid_function_argument_type", message = "function argument must be a DSL type" }
+  end
+  if not types.is_type(result) then
+    return nil,
+      { code = "invalid_function_result_type", message = "function result must be a DSL type" }
+  end
+  return immutable_type("function", nil, argument, result)
+end
+
+local function types_equal(left, right)
+  if left == right then
+    return true
+  end
+  if left.kind ~= right.kind then
+    return false
+  end
+  if left.kind == "function" then
+    return types_equal(left.argument, right.argument) and types_equal(left.result, right.result)
+  end
+  return left.name == right.name
+end
+
 function types.equals(left, right)
   if not types.is_type(left) or not types.is_type(right) then
     return nil, { code = "invalid_type", message = "expected registered DSL types" }
   end
-  return left == right
+  return types_equal(left, right)
+end
+
+local function describe_type(value)
+  if value.kind ~= "function" then
+    return value.name
+  end
+  local argument = describe_type(value.argument)
+  if value.argument.kind == "function" then
+    argument = "(" .. argument .. ")"
+  end
+  return argument .. " -> " .. describe_type(value.result)
 end
 
 function types.describe(value)
   if not types.is_type(value) then
     return nil, { code = "invalid_type", message = "expected registered DSL type" }
   end
-  return value.name
+  return describe_type(value)
 end
 
 return types
