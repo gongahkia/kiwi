@@ -691,6 +691,11 @@ boolean. The validator defines stack, local-slot, and in-range jump rules
 before execution. The exact set should remain small. Instructions must not
 contain Python callables or mutable arbitrary objects.
 
+The bytecode validator returns ordered structured errors instead of executing
+corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
+`B010_INCONSISTENT_STACK_HEIGHT` for structural, operand, and reachable
+control-flow rejection.
+
 ## 17. Runtime values
 
 Closed value algebra:
