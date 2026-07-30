@@ -145,6 +145,81 @@ local function validate_snapshot(snapshot)
   return columns, rows
 end
 
+local function validate_damage(damage, columns, rows)
+  if damage == nil then
+    return nil
+  end
+  if type(damage) ~= "table" then
+    return config_error("renderer damage must be a table")
+  end
+  local ranges = {}
+  local ordered_rows = {}
+  local first_missing_index = 1
+  for index, range in ipairs(damage) do
+    first_missing_index = index + 1
+    if type(range) ~= "table" then
+      return config_error("renderer damage range is invalid", { index = index })
+    end
+    local row, row_error = positive_integer(range.row, "renderer damage row")
+    if not row then
+      return nil, row_error
+    end
+    local first, first_error = positive_integer(range.first_column, "renderer damage first column")
+    if not first then
+      return nil, first_error
+    end
+    local last, last_error = positive_integer(range.last_column, "renderer damage last column")
+    if not last then
+      return nil, last_error
+    end
+    if row > rows or first > columns or last > columns or first > last then
+      return config_error("renderer damage range is outside the screen", { index = index })
+    end
+    local existing = ranges[row]
+    if existing then
+      existing.first_column = math.min(existing.first_column, first)
+      existing.last_column = math.max(existing.last_column, last)
+    else
+      ranges[row] = { first_column = first, last_column = last, row = row }
+      ordered_rows[#ordered_rows + 1] = row
+    end
+  end
+  for key in pairs(damage) do
+    if type(key) ~= "number" or key % 1 ~= 0 or key < 1 or key >= first_missing_index then
+      return config_error("renderer damage must be a dense range array")
+    end
+  end
+  table.sort(ordered_rows)
+  return ranges, ordered_rows
+end
+
+local function add_damage_range(ranges, ordered_rows, row, first, last)
+  local existing = ranges[row]
+  if existing then
+    existing.first_column = math.min(existing.first_column, first)
+    existing.last_column = math.max(existing.last_column, last)
+    return
+  end
+  ranges[row] = { first_column = first, last_column = last, row = row }
+  ordered_rows[#ordered_rows + 1] = row
+end
+
+local function cursor_from_snapshot(snapshot)
+  if snapshot.cursor == nil or snapshot.cursor_visible == false then
+    return nil
+  end
+  return { column = snapshot.cursor.column, row = snapshot.cursor.row }
+end
+
+local function same_cursor(left, right)
+  return left == right or (left and right and left.column == right.column and left.row == right.row)
+end
+
+local function cursor_in_damage(cursor, ranges)
+  local range = cursor and ranges[cursor.row]
+  return range and cursor.column >= range.first_column and cursor.column <= range.last_column
+end
+
 local function graphics_method(graphics, name)
   if type(graphics) ~= "table" or type(graphics[name]) ~= "function" then
     return config_error("renderer graphics must implement " .. name)
@@ -226,10 +301,15 @@ function Renderer.new(config)
   if type(config) ~= "table" then
     return nil, Errors.new("config_error", "renderer config must be a table")
   end
+  local style, style_error = cursor_style(config)
+  if not style then
+    return nil, style_error
+  end
   return setmetatable({
     config = config,
     font = nil,
     glyph_cache = nil,
+    last_cursor = nil,
     metrics = nil,
     state = "bootstrap",
   }, renderer_mt)
@@ -274,12 +354,47 @@ function renderer_mt:glyph(text, style)
 end
 
 function renderer_mt:draw(snapshot, damage)
-  if damage ~= nil and type(damage) ~= "table" then
-    return nil, Errors.new("config_error", "renderer damage must be a table")
-  end
   local columns, rows = validate_snapshot(snapshot)
   if not columns then
     return nil, rows
+  end
+  local ranges, ordered_rows_or_error = validate_damage(damage, columns, rows)
+  if damage ~= nil and not ranges then
+    return nil, ordered_rows_or_error
+  end
+  local ordered_rows = ordered_rows_or_error
+  local current_cursor = cursor_from_snapshot(snapshot)
+  local cursor_changed = not same_cursor(self.last_cursor, current_cursor)
+  local cursor_needs_draw = damage == nil
+  if damage ~= nil and cursor_changed then
+    if self.last_cursor and self.last_cursor.row <= rows and self.last_cursor.column <= columns then
+      add_damage_range(
+        ranges,
+        ordered_rows,
+        self.last_cursor.row,
+        self.last_cursor.column,
+        self.last_cursor.column
+      )
+    end
+    if current_cursor then
+      add_damage_range(
+        ranges,
+        ordered_rows,
+        current_cursor.row,
+        current_cursor.column,
+        current_cursor.column
+      )
+      cursor_needs_draw = true
+    end
+  elseif damage ~= nil and cursor_in_damage(current_cursor, ranges) then
+    cursor_needs_draw = true
+  end
+  if ordered_rows then
+    table.sort(ordered_rows)
+  end
+  local style, style_error = cursor_style(self.config)
+  if not style then
+    return nil, style_error
   end
   if not self.font or not self.graphics then
     return nil, Errors.new("renderer_resource_error", "renderer font is not loaded")
@@ -290,12 +405,18 @@ function renderer_mt:draw(snapshot, damage)
       return nil, method_error
     end
   end
+  if damage ~= nil and #ordered_rows == 0 then
+    self.last_cursor = current_cursor
+    return true
+  end
   self.graphics.setFont(self.font)
   local metrics = self.metrics
-  for row = 1, rows do
+  local first_row = damage == nil and 1 or nil
+  local last_row = damage == nil and rows or nil
+  local function draw_range(row, first, last)
     local y = (row - 1) * metrics.cell_height
     local source = snapshot.screen.rows[row]
-    for column = 1, columns do
+    for column = first, last do
       local cell = source.cells[column]
       local x = (column - 1) * metrics.cell_width
       local width = metrics.cell_width
@@ -325,11 +446,31 @@ function renderer_mt:draw(snapshot, damage)
         return nil, decoration_error
       end
     end
+    return true
   end
-  local drawn_cursor, cursor_error = draw_cursor(self.graphics, metrics, snapshot, self.config)
-  if not drawn_cursor then
-    return nil, cursor_error
+  if first_row then
+    for row = first_row, last_row do
+      local drawn, draw_error = draw_range(row, 1, columns)
+      if not drawn then
+        return nil, draw_error
+      end
+    end
+  else
+    for _, row in ipairs(ordered_rows) do
+      local range = ranges[row]
+      local drawn, draw_error = draw_range(row, range.first_column, range.last_column)
+      if not drawn then
+        return nil, draw_error
+      end
+    end
   end
+  if cursor_needs_draw then
+    local drawn_cursor, cursor_error = draw_cursor(self.graphics, metrics, snapshot, self.config)
+    if not drawn_cursor then
+      return nil, cursor_error
+    end
+  end
+  self.last_cursor = current_cursor
   return true
 end
 
