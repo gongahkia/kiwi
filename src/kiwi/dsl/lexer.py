@@ -23,6 +23,7 @@ class LexerDiagnosticCode(StrEnum):
 class LexResult:
     """Tokens and recoverable diagnostics from one source file."""
 
+    source: SourceFile
     tokens: tuple[Token, ...]
     diagnostics: tuple[Diagnostic, ...]
 
@@ -76,7 +77,7 @@ def lex(source: SourceFile) -> LexResult:
                 )
             )
     tokens.append(cursor.token(TokenKind.EOF, 0))
-    return LexResult(tuple(tokens), tuple(diagnostics))
+    return LexResult(source, tuple(tokens), tuple(diagnostics))
 
 
 def _lex_identifier_or_keyword(cursor: _Cursor, tokens: list[Token]) -> None:

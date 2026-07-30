@@ -62,9 +62,9 @@ Parse a tiny functional policy language into immutable syntax with accurate sour
 - [x] Implement UTF-8 source loading with size limits.
 - [x] Implement lexer with comments, keywords, identifiers, punctuation, integers, booleans, and diagnostics.
 - [x] Define immutable surface AST with source spans on every node.
-- [ ] Select and implement parser architecture, preferably hand-written recursive descent plus Pratt parsing where useful.
-- [ ] Parse policy declarations, types, applications, `let`, and `if`.
-- [ ] Implement parser recovery sufficient to return multiple useful diagnostics.
+- [x] Select and implement parser architecture, preferably hand-written recursive descent plus Pratt parsing where useful.
+- [x] Parse policy declarations, types, applications, `let`, and `if`.
+- [x] Implement parser recovery sufficient to return multiple useful diagnostics.
 - [x] Define structured diagnostic model with stable codes.
 - [ ] Add a stable debug printer for tokens and AST.
 - [ ] Add lexer and parser golden fixtures.
