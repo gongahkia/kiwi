@@ -34,6 +34,7 @@ return {
         "recording.writer",
         "renderer.metrics",
         "renderer.colour",
+        "renderer.dpi",
         "renderer.glyph_cache",
         "renderer.grid",
         "renderer.love_font",

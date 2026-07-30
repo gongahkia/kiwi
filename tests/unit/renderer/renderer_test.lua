@@ -29,7 +29,14 @@ local function font()
 end
 
 local function graphics()
-  local value = { calls = {} }
+  local value = {
+    calls = {},
+    dpi_scale = 1,
+    pixel_height = 27,
+    pixel_width = 28,
+    window_height = 27,
+    window_width = 28,
+  }
   local function record(name, ...)
     value.calls[#value.calls + 1] = { name = name, ... }
   end
@@ -51,6 +58,15 @@ local function graphics()
   end
   function value.line(x1, y1, x2, y2)
     record("line", x1, y1, x2, y2)
+  end
+  function value.getDimensions()
+    return value.window_width, value.window_height
+  end
+  function value.getPixelDimensions()
+    return value.pixel_width, value.pixel_height
+  end
+  function value.getDPIScale()
+    return value.dpi_scale
   end
   return value
 end
@@ -246,6 +262,30 @@ return {
       assertions.falsy(value)
       assertions.equal("config_error", error_value.kind)
       assertions.equal(calls_before, #api.calls)
+    end,
+  },
+  {
+    name = "renderer keeps grid units separate from high-DPI event pixels",
+    run = function()
+      local api = graphics()
+      api.dpi_scale = 2
+      api.pixel_height = 54
+      api.pixel_width = 56
+      local renderer = assert(Renderer.new({ padding = 5 }))
+      assert(renderer:load_font(api))
+      local layout, event = assert(renderer:resize_window())
+      assertions.equal(2, layout.columns)
+      assertions.equal(1, layout.rows)
+      assertions.equal(2, layout.dpi_scale)
+      assertions.equal(56, event.pixel_width)
+      assertions.equal(54, event.pixel_height)
+      api.pixel_width = 84
+      layout, event = assert(renderer:resize_window())
+      assertions.equal(84, event.pixel_width)
+      api.dpi_scale = 0
+      local value, error_value = renderer:resize_window()
+      assertions.falsy(value)
+      assertions.equal("renderer_resource_error", error_value.kind)
     end,
   },
   {
