@@ -27,14 +27,12 @@ class NamedType:
 
 @dataclass(frozen=True, slots=True)
 class FunctionType:
-    """A function with one or more ordered parameter types."""
+    """A function with ordered parameter types, including zero-argument calls."""
 
     parameters: tuple[DslType, ...]
     return_type: DslType
 
     def __post_init__(self) -> None:
-        if not self.parameters:
-            raise ValueError("function type must have at least one parameter")
         if any(
             not isinstance(parameter, (BuiltinType, NamedType, FunctionType))
             for parameter in self.parameters
@@ -56,14 +54,18 @@ def render_type(type_: DslType) -> str:
             return name
         case FunctionType(parameters, return_type):
             rendered_parameters = tuple(_render_parameter(parameter) for parameter in parameters)
-            left = (
-                rendered_parameters[0]
-                if len(rendered_parameters) == 1
-                else f"({', '.join(rendered_parameters)})"
-            )
+            left = _render_function_parameters(rendered_parameters)
             return f"{left} -> {render_type(return_type)}"
 
 
 def _render_parameter(type_: DslType) -> str:
     rendered = render_type(type_)
     return f"({rendered})" if isinstance(type_, FunctionType) else rendered
+
+
+def _render_function_parameters(parameters: tuple[str, ...]) -> str:
+    if not parameters:
+        return "()"
+    if len(parameters) == 1:
+        return parameters[0]
+    return f"({', '.join(parameters)})"

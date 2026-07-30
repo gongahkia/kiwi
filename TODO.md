@@ -101,12 +101,12 @@ Resolve names and reject invalid programs before execution.
 - [x] Define symbol and definition IDs independent of Python object identity.
 - [x] Implement lexical environments and name resolution.
 - [x] Detect unknown names, duplicates, invalid arity, and prohibited shadowing.
-- [ ] Implement type checking for literals, names, application, `let`, and `if`.
-- [ ] Define typed AST or typed surface representation.
+- [x] Implement type checking for literals, names, application, `let`, and `if`.
+- [x] Define typed AST or typed surface representation.
 - [ ] Define minimal core IR with stable expression IDs.
 - [ ] Lower typed syntax into core IR.
 - [ ] Preserve source-map links through lowering.
-- [ ] Add diagnostics for type mismatch, branch mismatch, unknown name, and invalid call.
+- [x] Add diagnostics for type mismatch, branch mismatch, unknown name, and invalid call.
 - [ ] Add golden typed-core fixtures.
 - [ ] Add CLI `check` command.
 
