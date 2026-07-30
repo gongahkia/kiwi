@@ -32,6 +32,7 @@ local modules = {
   "unit.terminal.cursor_test",
   "unit.terminal.digest_test",
   "unit.terminal.fixtures_test",
+  "unit.terminal.model_test",
   "unit.terminal.parser_test",
   "unit.terminal.rendition_test",
   "unit.terminal.row_test",
