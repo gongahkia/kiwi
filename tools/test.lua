@@ -44,6 +44,7 @@ local modules = {
   "unit.backend.interface_test",
   "unit.recording.binary_test",
   "unit.recording.checksum_test",
+  "unit.recording.checkpoint_test",
   "unit.recording.format_test",
   "unit.recording.frames_test",
   "unit.recording.metadata_test",

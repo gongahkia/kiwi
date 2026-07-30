@@ -5,9 +5,11 @@ local Binary = {}
 Binary.contract = {
   read_u8 = "read_u8(bytes, offset?) -> value, next_offset | nil, error",
   read_u16 = "read_u16(bytes, offset?) -> value, next_offset | nil, error",
+  read_u16_le = "read_u16_le(bytes, offset?) -> value, next_offset | nil, error",
   read_u32 = "read_u32(bytes, offset?) -> value, next_offset | nil, error",
   u8 = "u8(value) -> bytes | nil, error",
   u16 = "u16(value) -> bytes | nil, error",
+  u16_le = "u16_le(value) -> bytes | nil, error",
   u32 = "u32(value) -> bytes | nil, error",
 }
 
@@ -72,6 +74,14 @@ function Binary.u16(value)
   return string.char(math.floor(actual / 0x100), actual % 0x100)
 end
 
+function Binary.u16_le(value)
+  local actual, value_error = unsigned(value, "u16")
+  if not actual then
+    return nil, value_error
+  end
+  return string.char(actual % 0x100, math.floor(actual / 0x100))
+end
+
 function Binary.u32(value)
   local actual, value_error = unsigned(value, "u32")
   if not actual then
@@ -99,6 +109,14 @@ function Binary.read_u16(bytes, offset)
     return nil, read_error
   end
   return bytes:byte(start) * 0x100 + bytes:byte(start + 1), start + 2
+end
+
+function Binary.read_u16_le(bytes, offset)
+  local start, read_error = read(bytes, offset, 2, "u16le")
+  if not start then
+    return nil, read_error
+  end
+  return bytes:byte(start) + bytes:byte(start + 1) * 0x100, start + 2
 end
 
 function Binary.read_u32(bytes, offset)
