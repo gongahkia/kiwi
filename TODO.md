@@ -73,7 +73,7 @@ Goal: consume byte streams deterministically and produce a correct basic screen 
 - [x] Add property tests showing chunk-boundary invariance.
 - [x] Add property tests showing parser recovery after malformed input.
 - [x] Add model tests for scrolling, margins, erase operations, and alternate-screen transitions.
-- [ ] Add golden state snapshots for representative streams.
+- [x] Add golden state snapshots for representative streams.
 - [ ] Add explicit tests for zero, omitted, and large CSI parameters.
 
 ### Exit criteria
