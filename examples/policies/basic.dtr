@@ -1,0 +1,3 @@
+policy cautious(view: Observation, memory: Memory) -> Decision =
+  let target = nearest(view) in
+    if true then advance(target) else hold(memory)
