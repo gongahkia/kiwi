@@ -13,6 +13,12 @@ return function(test)
     test.equals(encoded, '["alpha","beta"]')
   end)
 
+  test.case("serializer encodes empty tables as maps", function()
+    local encoded, err = serializer.encode({})
+    test.equals(err, nil)
+    test.equals(encoded, "{}")
+  end)
+
   test.case("serializer rejects cyclic tables", function()
     local value = {}
     value.self = value

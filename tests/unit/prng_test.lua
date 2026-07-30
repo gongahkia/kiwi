@@ -29,4 +29,11 @@ return function(test)
     test.equals(rng, nil)
     test.error_code(err, "invalid_seed")
   end)
+
+  test.case("prng rejects non-finite ranges", function()
+    local rng = assert(prng.new(1))
+    local value, err = rng:next_int(0, math.huge)
+    test.equals(value, nil)
+    test.error_code(err, "invalid_range")
+  end)
 end

@@ -22,4 +22,10 @@ return function(test)
     test.equals(allocator, nil)
     test.error_code(err, "invalid_start")
   end)
+
+  test.case("id allocator rejects non-numeric starts", function()
+    local allocator, err = id_allocator.new(false)
+    test.equals(allocator, nil)
+    test.error_code(err, "invalid_start")
+  end)
 end

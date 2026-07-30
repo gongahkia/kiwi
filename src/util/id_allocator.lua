@@ -13,7 +13,9 @@ local function is_valid_id(value)
 end
 
 function id_allocator.new(start)
-  start = start or 1
+  if start == nil then
+    start = 1
+  end
   if not is_valid_id(start) then
     return nil, { code = "invalid_start", message = "start must be a positive safe integer" }
   end

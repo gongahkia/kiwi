@@ -24,6 +24,14 @@ local function is_u32(value)
     and value <= prng.MAX_UINT32
 end
 
+local function is_finite_integer(value)
+  return type(value) == "number"
+    and value == value
+    and value ~= math.huge
+    and value ~= -math.huge
+    and value == math.floor(value)
+end
+
 local function next_state(state)
   local signed = state
   if signed >= HALF_MODULUS then
@@ -65,13 +73,7 @@ function generator:next_float()
 end
 
 function generator:next_int(minimum, maximum)
-  if
-    type(minimum) ~= "number"
-    or type(maximum) ~= "number"
-    or minimum ~= math.floor(minimum)
-    or maximum ~= math.floor(maximum)
-    or minimum > maximum
-  then
+  if not is_finite_integer(minimum) or not is_finite_integer(maximum) or minimum > maximum then
     return nil, { code = "invalid_range", message = "range must contain ordered integers" }
   end
 

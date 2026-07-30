@@ -12,20 +12,20 @@ Create a reproducible, testable LÖVE project with headless test execution.
 
 ### Tasks
 
-- [ ] Initialise repository with `main.lua`, `conf.lua`, `src/`, `tests/`, `content/`, and `tools/`.
-- [ ] Pin the target LÖVE version and Lua runtime assumptions in the README.
-- [ ] Add a Makefile or task runner with `run`, `test`, `check`, and `headless` targets.
-- [ ] Select and configure a lightweight Lua test framework.
-- [ ] Add formatting and linting rules.
-- [ ] Add deterministic utility primitives:
-  - [ ] stable ordered map or sorted-key helper;
-  - [ ] stable ID allocator;
-  - [ ] deterministic PRNG wrapper;
-  - [ ] canonical serializer;
-  - [ ] hash wrapper.
-- [ ] Add CI for tests and content validation.
-- [ ] Create a minimal scene manager.
-- [ ] Create development logging with structured categories.
+- [x] Initialise repository with `main.lua`, `conf.lua`, `src/`, `tests/`, `content/`, and `tools/`.
+- [x] Pin the target LÖVE version and Lua runtime assumptions in the README.
+- [x] Add a Makefile or task runner with `run`, `test`, `check`, and `headless` targets.
+- [x] Select and configure a lightweight Lua test framework.
+- [x] Add formatting and linting rules.
+- [x] Add deterministic utility primitives:
+  - [x] stable ordered map or sorted-key helper;
+  - [x] stable ID allocator;
+  - [x] deterministic PRNG wrapper;
+  - [x] canonical serializer;
+  - [x] hash wrapper.
+- [x] Add CI for tests and content validation.
+- [x] Create a minimal scene manager.
+- [x] Create development logging with structured categories.
 
 ### Exit criteria
 
