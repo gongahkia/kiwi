@@ -7,7 +7,7 @@ local coordinator_mt = {}
 coordinator_mt.__index = coordinator_mt
 
 Coordinator.contract = {
-  constructor = "new(terminal, backend) -> coordinator | nil, error",
+  constructor = "new(terminal, backend, options?) -> coordinator | nil, error",
   start = "start() -> true | nil, error",
   seek = "seek(target_terminal_us) -> applied_events | nil, error",
   step_control_sequence = "step_control_sequence() -> step | nil, error?",
@@ -26,6 +26,31 @@ local boundary_kinds = {
 
 local function config_error(message, detail)
   return nil, Errors.new("config_error", message, detail)
+end
+
+local function positive_integer(value, name)
+  if type(value) ~= "number" or value ~= value or value % 1 ~= 0 or value < 1 then
+    return config_error(name .. " must be a positive integer", { provided = value })
+  end
+  return value
+end
+
+local function options(value)
+  if value == nil then
+    value = {}
+  end
+  if type(value) ~= "table" then
+    return config_error("coordinator options must be a table")
+  end
+  for name in pairs(value) do
+    if name ~= "max_backend_events_per_update" then
+      return config_error("unknown coordinator option", { option = name })
+    end
+  end
+  return positive_integer(
+    value.max_backend_events_per_update or 1024,
+    "coordinator max backend events per update"
+  )
 end
 
 local function unavailable(message)
@@ -107,7 +132,7 @@ local function boundary(parser_events)
   return nil
 end
 
-function Coordinator.new(terminal, backend)
+function Coordinator.new(terminal, backend, configuration)
   local valid_terminal_value, terminal_error = valid_terminal(terminal)
   if not valid_terminal_value then
     return nil, terminal_error
@@ -116,9 +141,16 @@ function Coordinator.new(terminal, backend)
   if not valid_backend then
     return nil, backend_error
   end
+  local max_backend_events_per_update, options_error = options(configuration)
+  if not max_backend_events_per_update then
+    return nil, options_error
+  end
   return setmetatable({
     backend = valid_backend,
     event_sequence = 0,
+    max_backend_events_per_update = max_backend_events_per_update,
+    pending_backend_events = nil,
+    pending_backend_index = nil,
     pending_output = nil,
     started = false,
     stopped = false,
@@ -150,17 +182,30 @@ function coordinator_mt:update(advance_us)
   if not started then
     return nil, start_error
   end
-  local events, poll_error = self.backend:poll(advance_us)
-  if not events then
-    return nil, poll_error
+  if self.pending_backend_events == nil then
+    local events, poll_error = self.backend:poll(advance_us)
+    if not events then
+      return nil, poll_error
+    end
+    self.pending_backend_events = events
+    self.pending_backend_index = 1
   end
   local applied = {}
-  for _, event in ipairs(events) do
+  while
+    #applied < self.max_backend_events_per_update
+    and self.pending_backend_index <= #self.pending_backend_events
+  do
+    local event = self.pending_backend_events[self.pending_backend_index]
     local result, apply_error = apply_event(self, event)
     if not result then
       return nil, apply_error
     end
     applied[#applied + 1] = result
+    self.pending_backend_index = self.pending_backend_index + 1
+  end
+  if self.pending_backend_index > #self.pending_backend_events then
+    self.pending_backend_events = nil
+    self.pending_backend_index = nil
   end
   return applied
 end
@@ -168,6 +213,9 @@ end
 function coordinator_mt:step_frame()
   if self.pending_output then
     return config_error("cannot step a frame while a control-sequence step has pending output")
+  end
+  if self.pending_backend_events then
+    return config_error("cannot step a frame while update backlog is pending")
   end
   local started, start_error = self:start()
   if not started then
@@ -189,6 +237,9 @@ function coordinator_mt:step_frame()
 end
 
 function coordinator_mt:step_control_sequence()
+  if self.pending_backend_events then
+    return config_error("cannot step a control sequence while update backlog is pending")
+  end
   local started, start_error = self:start()
   if not started then
     return nil, start_error
@@ -272,6 +323,8 @@ function coordinator_mt:seek(target_terminal_us)
     return nil, seek_error
   end
   self.terminal = plan.terminal
+  self.pending_backend_events = nil
+  self.pending_backend_index = nil
   self.terminal_time_us = plan.checkpoint_terminal_us
   self.event_sequence = plan.frame_index
   local resumed, resume_error = self.backend:resume()
@@ -305,13 +358,21 @@ function coordinator_mt:stop(reason)
     return true
   end
   self.stopped = true
+  self.pending_backend_events = nil
+  self.pending_backend_index = nil
   self.pending_output = nil
   return self.backend:stop(reason)
 end
 
 function coordinator_mt:status()
+  local pending_backend_events = 0
+  if self.pending_backend_events then
+    pending_backend_events = #self.pending_backend_events - self.pending_backend_index + 1
+  end
   return {
     event_sequence = self.event_sequence,
+    max_backend_events_per_update = self.max_backend_events_per_update,
+    pending_backend_events = pending_backend_events,
     pending_output = self.pending_output ~= nil,
     started = self.started,
     stopped = self.stopped,

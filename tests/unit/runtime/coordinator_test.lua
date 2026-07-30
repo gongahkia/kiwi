@@ -121,6 +121,33 @@ return {
     end,
   },
   {
+    name = "coordinator bounds updates and drains ordered backend backlog",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
+      local replay = assert(Replay.new(source(recording({
+        assert(Frames.from_event(assert(Event.output("a", 0)))),
+        assert(Frames.from_event(assert(Event.output("b", 0)))),
+        assert(Frames.from_event(assert(Event.output("c", 0)))),
+      }))))
+      local coordinator =
+        assert(Coordinator.new(terminal, replay, { max_backend_events_per_update = 1 }))
+      local applied = assert(coordinator:update(0))
+      assertions.equal(1, #applied)
+      assertions.equal(2, coordinator:status().pending_backend_events)
+      applied = assert(coordinator:update(0))
+      assertions.equal("b", terminal.primary_screen.rows[1].cells[2].text)
+      assertions.equal(1, coordinator:status().pending_backend_events)
+      applied = assert(coordinator:update(0))
+      assertions.equal("c", terminal.primary_screen.rows[1].cells[3].text)
+      assertions.equal(0, coordinator:status().pending_backend_events)
+      local value, error_value =
+        Coordinator.new(terminal, replay, { max_backend_events_per_update = 0 })
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
     name = "replay matches direct application for a representative event stream",
     run = function()
       local events = {
