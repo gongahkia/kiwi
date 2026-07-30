@@ -12,6 +12,7 @@ return {
         "terminal.cell",
         "terminal.config",
         "terminal.row",
+        "terminal.screen",
         "terminal.terminal",
         "backend.interface",
         "recording.reader",

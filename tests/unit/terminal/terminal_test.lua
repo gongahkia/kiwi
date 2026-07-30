@@ -27,4 +27,13 @@ return {
       assertions.equal(40, terminal.config.rows)
     end,
   },
+  {
+    name = "terminal owns separate primary and alternate screen buffers",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      terminal.primary_screen.rows[1].cells[1].text = "p"
+      assertions.equal("primary", terminal.active_buffer)
+      assertions.equal("", terminal.alternate_screen.rows[1].cells[1].text)
+    end,
+  },
 }
