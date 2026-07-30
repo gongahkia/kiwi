@@ -120,6 +120,15 @@ python -m kiwi.cli replay verify runs/example.drun
 
 Use only commands actually configured in the repository. Update this file and `README.md` when the canonical commands change.
 
+Current Milestone 3 headless commands are:
+
+```bash
+python -m kiwi.cli compile examples/policies/typed_core.dtr
+python -m kiwi.cli compile examples/policies/typed_core.dtr --output /tmp/typed_core.kbc
+python -m kiwi.cli disassemble examples/policies/typed_core.dtr
+python -m kiwi.cli run-policy examples/policies/typed_core.dtr choose --arg true
+```
+
 ## Definition of done
 
 A task is complete only when:

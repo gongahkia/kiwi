@@ -4,10 +4,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+from kiwi.dsl.bytecode import BytecodeModule
+from kiwi.dsl.bytecode_codec import decode_bytecode
+
 
 def run_cli(command: str, path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "kiwi.cli", command, str(path)],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+
+def run_cli_arguments(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "kiwi.cli", *arguments],
         capture_output=True,
         check=False,
         text=True,
@@ -102,3 +114,72 @@ def test_check_command_reports_type_diagnostics(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert result.stdout == ""
     assert result.stderr == f"{path}:1:27: E401_TYPE_MISMATCH: expected Bool but received Int\n"
+
+
+def test_compile_command_writes_canonical_bytecode(tmp_path: Path) -> None:
+    source_path = tmp_path / "compile.dtr"
+    output_path = tmp_path / "compile.kbc"
+    source_path.write_text("fn id(x: Int) -> Int = x", encoding="utf-8")
+
+    result = run_cli_arguments("compile", str(source_path), "--output", str(output_path))
+    report = run_cli_arguments("compile", str(source_path))
+    decoded = decode_bytecode(output_path.read_bytes())
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout == f"{output_path}: wrote {len(output_path.read_bytes())} bytes\n"
+    assert isinstance(decoded, BytecodeModule)
+    assert decoded.header.source_file_id.value == str(source_path)
+    assert report.returncode == 0
+    assert report.stdout == f"{source_path}: compiled {len(output_path.read_bytes())} bytes\n"
+    assert report.stderr == ""
+
+
+def test_disassemble_command_renders_compiled_source(tmp_path: Path) -> None:
+    path = tmp_path / "disassemble.dtr"
+    path.write_text("fn value() -> Int = -1", encoding="utf-8")
+
+    result = run_cli_arguments("disassemble", str(path))
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert (
+        result.stdout
+        == f"""BytecodeModule source={str(path)!r} language=1 core=1 bytecode=1
+  constants:
+    0: Integer(1)
+  function_table:
+    0: definition=0 name='value' arity=0
+  functions:
+    Function 0 definition=0 name='value' arity=0 locals=0 return=Int
+      0000 TRACE_EXPRESSION 0
+      0001 TRACE_EXPRESSION 1
+      0002 PUSH_CONSTANT 0
+      0003 NEGATE
+      0004 RETURN
+"""
+    )
+
+
+def test_run_policy_command_executes_explicit_arguments(tmp_path: Path) -> None:
+    path = tmp_path / "policy.dtr"
+    path.write_text(
+        "policy choose(flag: Bool) -> Int = if flag then 1 else 2",
+        encoding="utf-8",
+    )
+
+    success = run_cli_arguments("run-policy", str(path), "choose", "--arg", "true")
+    invalid_argument = run_cli_arguments("run-policy", str(path), "choose", "--arg", "python")
+    missing_entry = run_cli_arguments("run-policy", str(path), "missing")
+
+    assert success.returncode == 0
+    assert success.stdout == "value: Integer(1)\n"
+    assert success.stderr == ""
+    assert invalid_argument.returncode == 1
+    assert invalid_argument.stdout == ""
+    assert invalid_argument.stderr == (
+        "run-policy: unsupported argument 'python'; use an integer, true, false, or unit\n"
+    )
+    assert missing_entry.returncode == 1
+    assert missing_entry.stdout == ""
+    assert missing_entry.stderr == f"{path}: R013_ENTRY: no function named 'missing'\n"
