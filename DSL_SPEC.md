@@ -668,24 +668,23 @@ index. Functions are ordered by ascending `DefinitionId` and receive contiguous
 Candidate instructions:
 
 ```text
-PUSH_CONST index
+PUSH_CONSTANT constant_id
+PUSH_FUNCTION function_id
 LOAD_LOCAL slot
 STORE_LOCAL slot
-LOAD_CAPTURE slot
-MAKE_RECORD type_id field_count
-GET_FIELD field_id
-MAKE_VARIANT type_id constructor_id arity
-MAKE_LIST count
-CALL function_id argc
-CALL_INTRINSIC intrinsic_id argc
+NEGATE
+CALL argument_count
 JUMP target
 JUMP_IF_FALSE target
-MATCH_VARIANT constructor_id target
 RETURN
-TRACE_EXPR expr_id
+TRACE_EXPRESSION expr_id
 ```
 
-The exact set should remain small. Instructions must not contain Python callables or mutable arbitrary objects.
+`CALL` consumes a function value followed by source-ordered arguments and pushes
+the result. `STORE_LOCAL` consumes its value; conditional branches consume a
+boolean. The validator defines stack, local-slot, and in-range jump rules
+before execution. The exact set should remain small. Instructions must not
+contain Python callables or mutable arbitrary objects.
 
 ## 17. Runtime values
 
