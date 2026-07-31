@@ -161,14 +161,12 @@ Plugins and commands declare capabilities. Examples:
 
 Effects:
 
+- `lifecycle`;
 - `terminal_events`;
-- `cell_transform`;
-- `row_transform`;
-- `draw_before`;
-- `draw_after`;
-- `post_process`;
-- `persistent_canvas`;
-- `interactive_time`.
+- `cell_observation`;
+- `canvas_before`;
+- `canvas_after`;
+- `frame_update`.
 
 Sandbox commands:
 
