@@ -178,11 +178,11 @@ Add the functional data features required by tactical policies.
 
 ### Exit criteria
 
-- [ ] A policy using records, `Option`, matching, a list operation, quantity comparison, memory, and an intention value compiles and executes.
-- [ ] Incomplete matches fail statically.
-- [ ] Domain quantity errors fail statically.
-- [ ] Collection costs count toward VM budgets.
-- [ ] All checks pass and milestone is committed.
+- [x] A policy using records, `Option`, matching, a list operation, quantity comparison, memory, and an intention value compiles and executes.
+- [x] Incomplete matches fail statically.
+- [x] Domain quantity errors fail statically.
+- [x] Collection costs count toward VM budgets.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 5 — Headless simulation kernel
 
