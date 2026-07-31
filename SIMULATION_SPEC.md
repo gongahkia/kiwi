@@ -247,7 +247,9 @@ refer to a future event.
 
 Messages are immutable typed values with:
 
+- message ID;
 - sender;
+- recipient;
 - channel;
 - payload;
 - send tick;
@@ -255,6 +257,12 @@ Messages are immutable typed values with:
 - expiry tick;
 - deterministic sequence;
 - provenance.
+
+The initial channel is typed `radio`. A payload is a persistable nominal DSL
+record, not host code or an untyped dictionary. Message provenance contains one
+to 64 ascending authority event IDs. An inbox is an immutable tuple ordered by
+`(delivery tick, sender entity ID, sequence, message ID)` and contains only
+messages for its owner that are delivered and unexpired at the observation tick.
 
 ### 9.2 Delivery
 

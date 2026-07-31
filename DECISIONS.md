@@ -342,6 +342,18 @@ allocated, preventing references to future events. `KWI-STATE\0` therefore uses
 version `8`; versions `1` through `7` are rejected without migration because
 development state remains disposable.
 
+### D-043: Messages are typed radio records in observation ABI version 2
+
+The initial message value has a `MessageId`, sender and recipient entity IDs,
+typed `radio` channel, persistable nominal-record payload, send/delivery/expiry
+ticks, non-negative sequence, and one to 64 ascending provenance event IDs.
+Inbox observations order messages by `(delivery tick, sender entity ID,
+sequence, message ID)` and expose only delivered, unexpired messages addressed
+to their owner. Observation ABI version `2` adds an immutable
+`InboxObservation { messages }` field; the current builder supplies it empty
+until delivery state is implemented. This supersedes D-027. No compatibility
+adapter is retained because development policy artifacts remain disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

@@ -395,6 +395,11 @@ retains no target entity identity, and carries required field-level evidence
 event IDs through decay and canonical state. Later policy observations can
 resolve evidence without exposing omniscient state.
 
+`kiwi.sim.messages` defines pure typed, addressed radio messages and immutable
+delivery-ordered inbox values. Observation ABI version 2 projects an empty
+inbox until the following delivery-state task supplies messages; it creates no
+shared mutable blackboard or presentation dependency.
+
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,
 wall-clock input, or presentation state. It returns the final state and the
