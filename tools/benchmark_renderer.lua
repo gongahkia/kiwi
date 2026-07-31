@@ -301,14 +301,14 @@ local function measure(definition, grid, settings)
   local final_counts
   local quarantined = false
   local allocation_frames = 1
+  local run = build(definition, grid)
+  for _ = 1, settings.warmup do
+    run.frame()
+  end
+  if definition.kind == "quarantined" then
+    quarantined = not run.host:status().effects[1].enabled
+  end
   for _ = 1, settings.samples do
-    local run = build(definition, grid)
-    for _ = 1, settings.warmup do
-      run.frame()
-    end
-    if definition.kind == "quarantined" then
-      quarantined = not run.host:status().effects[1].enabled
-    end
     collectgarbage("collect")
     local start_resources = resource_counts(run)
     local start_seconds = os.clock()
