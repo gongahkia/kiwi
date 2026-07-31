@@ -16,16 +16,19 @@ from kiwi.dsl.bytecode import (
     InstructionIndex,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
     TraceExpression,
+    UnwrapSome,
 )
 from kiwi.dsl.ids import FunctionId
 
@@ -137,6 +140,9 @@ def _validate_instruction_operands(
             LoadField,
             BuildSome,
             PushNone,
+            JumpIfNone,
+            UnwrapSome,
+            Pop,
             Jump,
             JumpIfFalse,
             Return,
@@ -189,7 +195,7 @@ def _validate_instruction_operands(
                     location,
                 )
             )
-    elif isinstance(instruction, (Jump, JumpIfFalse)):
+    elif isinstance(instruction, (Jump, JumpIfFalse, JumpIfNone)):
         if not isinstance(instruction.target, InstructionIndex) or instruction.target.value >= len(
             function.instructions
         ):
@@ -273,6 +279,9 @@ _INSTRUCTION_TYPES = (
     LoadField,
     BuildSome,
     PushNone,
+    JumpIfNone,
+    UnwrapSome,
+    Pop,
     Jump,
     JumpIfFalse,
     Return,
@@ -295,9 +304,15 @@ def _stack_effect(instruction: BytecodeInstruction, height: int) -> tuple[int, i
         return (1, height)
     if isinstance(instruction, PushNone):
         return (0, height + 1)
+    if isinstance(instruction, JumpIfNone):
+        return (1, height)
+    if isinstance(instruction, UnwrapSome):
+        return (1, height)
+    if isinstance(instruction, Pop):
+        return (1, height - 1)
     if isinstance(instruction, LoadField):
         return (1, height)
-    if isinstance(instruction, JumpIfFalse):
+    if isinstance(instruction, (JumpIfFalse, JumpIfNone)):
         return (1, height - 1)
     if isinstance(instruction, Return):
         return (1, height - 1)

@@ -18,13 +18,17 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    MatchArm,
+    MatchExpression,
     NameExpression,
     NegateExpression,
     NoneExpression,
+    NonePattern,
     QuantityLiteral,
     RecordExpression,
     RecordTypeDeclaration,
     SomeExpression,
+    SomePattern,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -40,6 +44,9 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedMatchExpression,
+    TypedMatchNoneArm,
+    TypedMatchSomeArm,
     TypedModule,
     TypedNameExpression,
     TypedNegateExpression,
@@ -373,6 +380,15 @@ def _check_expression(
             )
             return None
         return TypedNoneExpression(expected_type, expression.span)
+    if isinstance(expression, MatchExpression):
+        return _check_match_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+            expected_type,
+        )
     if isinstance(expression, RecordExpression):
         return _check_record_expression(
             expression,
@@ -570,6 +586,145 @@ def _check_expression(
             condition, then_branch, else_branch, then_branch.type_, expression.span
         )
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
+
+
+def _check_match_expression(
+    expression: MatchExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+    expected_type: DslType | None,
+) -> TypedExpression | None:
+    subject = _check_expression(
+        expression.subject,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+    if subject is None:
+        return None
+    if not isinstance(subject.type_, OptionType):
+        diagnostics.append(
+            Diagnostic(
+                "E413_INVALID_MATCH_SUBJECT",
+                DiagnosticSeverity.ERROR,
+                f"cannot match value of type {render_type(subject.type_)}",
+                expression.subject.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    diagnostic_start = len(diagnostics)
+    some_surface: MatchArm | None = None
+    none_surface: MatchArm | None = None
+    for arm in expression.arms:
+        if isinstance(arm.pattern, SomePattern):
+            if some_surface is not None:
+                diagnostics.append(
+                    _duplicate_match_arm(arm.pattern.span, some_surface.pattern.span, "Some")
+                )
+            else:
+                some_surface = arm
+        elif isinstance(arm.pattern, NonePattern):
+            if none_surface is not None:
+                diagnostics.append(
+                    _duplicate_match_arm(arm.pattern.span, none_surface.pattern.span, "None")
+                )
+            else:
+                none_surface = arm
+        else:
+            raise AssertionError("parser produced an unsupported match pattern")
+    missing = tuple(
+        name for name, arm in (("Some", some_surface), ("None", none_surface)) if arm is None
+    )
+    if missing:
+        diagnostics.append(
+            Diagnostic(
+                "E415_INCOMPLETE_MATCH",
+                DiagnosticSeverity.ERROR,
+                f"non-exhaustive Option match; missing {', '.join(missing)}",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+    if len(diagnostics) != diagnostic_start or some_surface is None or none_surface is None:
+        return None
+    some_arm: TypedMatchSomeArm | None = None
+    none_arm: TypedMatchNoneArm | None = None
+    branch_type: DslType | None = None
+    first_body: TypedExpression | None = None
+    for arm in expression.arms:
+        branch_context = branch_type if branch_type is not None else expected_type
+        if isinstance(arm.pattern, SomePattern):
+            binding = _binding_for_identifier(
+                resolution.bindings,
+                arm.pattern.binding.text,
+                arm.pattern.binding.span.start.value,
+                SymbolKind.MATCH_BINDING,
+                None,
+            )
+            symbol_types.append((binding.symbol_id, subject.type_.element_type))
+            body = _check_expression(
+                arm.body,
+                resolution,
+                symbol_types,
+                diagnostics,
+                record_schemas,
+                branch_context,
+            )
+            if body is None:
+                return None
+            some_arm = TypedMatchSomeArm(binding.symbol_id, arm.pattern.binding, body, arm.span)
+        else:
+            body = _check_expression(
+                arm.body,
+                resolution,
+                symbol_types,
+                diagnostics,
+                record_schemas,
+                branch_context,
+            )
+            if body is None:
+                return None
+            none_arm = TypedMatchNoneArm(body, arm.span)
+        if branch_type is None:
+            branch_type = body.type_
+            first_body = body
+        elif body.type_ != branch_type:
+            if first_body is None:
+                raise AssertionError("match branch type has no first arm")
+            diagnostics.append(
+                Diagnostic(
+                    "E416_MATCH_BRANCH_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    "match arms have types "
+                    f"{render_type(branch_type)} and {render_type(body.type_)}",
+                    body.span,
+                    DiagnosticStage.CHECKER,
+                    (DiagnosticLabel(first_body.span, "first match arm is here"),),
+                )
+            )
+            return None
+    if some_arm is None or none_arm is None or branch_type is None:
+        raise AssertionError("exhaustive Option match has missing checked arms")
+    return TypedMatchExpression(subject, some_arm, none_arm, branch_type, expression.span)
+
+
+def _duplicate_match_arm(
+    primary_span: SourceSpan,
+    first_span: SourceSpan,
+    constructor: str,
+) -> Diagnostic:
+    return Diagnostic(
+        "E414_DUPLICATE_MATCH_ARM",
+        DiagnosticSeverity.ERROR,
+        f"duplicate {constructor} match arm",
+        primary_span,
+        DiagnosticStage.CHECKER,
+        (DiagnosticLabel(first_span, "first arm is here"),),
+    )
 
 
 def _check_record_expression(

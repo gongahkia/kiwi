@@ -47,6 +47,8 @@ _KEYWORDS = {
     "false": TokenKind.FALSE,
     "Some": TokenKind.SOME,
     "None": TokenKind.NONE,
+    "match": TokenKind.MATCH,
+    "with": TokenKind.WITH,
     "type": TokenKind.TYPE,
 }
 _SINGLE_CHARACTER_TOKENS = {
@@ -58,6 +60,7 @@ _SINGLE_CHARACTER_TOKENS = {
     "{": TokenKind.LEFT_BRACE,
     "}": TokenKind.RIGHT_BRACE,
     ".": TokenKind.DOT,
+    "|": TokenKind.BAR,
     "<": TokenKind.LEFT_ANGLE,
     ">": TokenKind.RIGHT_ANGLE,
     "-": TokenKind.MINUS,

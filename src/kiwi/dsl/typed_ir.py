@@ -83,6 +83,35 @@ class TypedNoneExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedMatchSomeArm:
+    """The payload-binding arm of a checked `Option` match."""
+
+    symbol_id: SymbolId
+    binding: Identifier
+    body: TypedExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedMatchNoneArm:
+    """The payload-free arm of a checked `Option` match."""
+
+    body: TypedExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedMatchExpression:
+    """An exhaustive checked `Option` match in canonical arm order."""
+
+    subject: TypedExpression
+    some_arm: TypedMatchSomeArm
+    none_arm: TypedMatchNoneArm
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedRecordField:
     """One schema-ordered checked value used to construct a record."""
 
@@ -178,6 +207,7 @@ type TypedExpression = (
     | TypedQuantityLiteral
     | TypedSomeExpression
     | TypedNoneExpression
+    | TypedMatchExpression
     | TypedRecordExpression
     | TypedNameExpression
     | TypedNegateExpression

@@ -21,9 +21,12 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    MatchArm,
+    MatchExpression,
     NameExpression,
     NegateExpression,
     NoneExpression,
+    NonePattern,
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
@@ -32,6 +35,7 @@ from kiwi.dsl.syntax import (
     RecordTypeDeclaration,
     RecordTypeField,
     SomeExpression,
+    SomePattern,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -45,6 +49,7 @@ class ParserDiagnosticCode(StrEnum):
     EXPECTED_DECLARATION = "E200_EXPECTED_DECLARATION"
     EXPECTED_TOKEN = "E201_EXPECTED_TOKEN"
     EXPECTED_EXPRESSION = "E202_EXPECTED_EXPRESSION"
+    EXPECTED_PATTERN = "E203_EXPECTED_PATTERN"
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,7 +224,55 @@ class _Parser:
             return self.parse_let_expression()
         if self.current.kind is TokenKind.IF:
             return self.parse_if_expression()
+        if self.current.kind is TokenKind.MATCH:
+            return self.parse_match_expression()
         return self.parse_application_expression()
+
+    def parse_match_expression(self) -> MatchExpression | None:
+        """Parse an exhaustive closed-variant match expression."""
+        keyword = self.advance()
+        subject = self.parse_expression()
+        if subject is None:
+            return None
+        if self.expect(TokenKind.WITH, "'with'") is None:
+            return None
+        arms: list[MatchArm] = []
+        while self.match(TokenKind.BAR):
+            pattern = self.parse_match_pattern()
+            if pattern is None:
+                return None
+            if self.expect(TokenKind.ARROW, "'->'") is None:
+                return None
+            body = self.parse_expression()
+            if body is None:
+                return None
+            arms.append(MatchArm(pattern, body, _join_spans(pattern.span, body.span)))
+        if not arms:
+            self.error(ParserDiagnosticCode.EXPECTED_TOKEN, "expected a '|' match arm")
+            return None
+        return MatchExpression(subject, tuple(arms), _join_spans(keyword.span, arms[-1].span))
+
+    def parse_match_pattern(self) -> SomePattern | NonePattern | None:
+        """Parse one closed built-in variant pattern."""
+        if self.current.kind is TokenKind.SOME:
+            opening = self.advance()
+            if self.expect(TokenKind.LEFT_PAREN, "'('") is None:
+                return None
+            binding = self.parse_identifier()
+            if binding is None:
+                return None
+            closing = self.expect(TokenKind.RIGHT_PAREN, "')'")
+            if closing is None:
+                return None
+            return SomePattern(binding, _join_spans(opening.span, closing.span))
+        if self.current.kind is TokenKind.NONE:
+            token = self.advance()
+            return NonePattern(token.span)
+        self.error(
+            ParserDiagnosticCode.EXPECTED_PATTERN,
+            "expected a 'Some' or 'None' pattern",
+        )
+        return None
 
     def parse_let_expression(self) -> LetExpression | None:
         """Parse `let name = value in body`."""

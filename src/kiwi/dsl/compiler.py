@@ -18,16 +18,19 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
     TraceExpression,
+    UnwrapSome,
     canonical_function_table,
 )
 from kiwi.dsl.core_ir import (
@@ -39,6 +42,7 @@ from kiwi.dsl.core_ir import (
     CoreIf,
     CoreInteger,
     CoreLet,
+    CoreMatch,
     CoreModule,
     CoreNegate,
     CoreNone,
@@ -154,6 +158,25 @@ class _FunctionCompiler:
             return
         if isinstance(expression, CoreNone):
             self._emit(PushNone(), expression)
+            return
+        if isinstance(expression, CoreMatch):
+            self._compile_expression(expression.subject)
+            none_jump_index = len(self._instructions)
+            self._emit(JumpIfNone(InstructionIndex(0)), expression)
+            some_slot = LocalSlot(self._next_slot)
+            self._next_slot += 1
+            self._locals.append((expression.some_arm.symbol_id, some_slot))
+            self._emit(UnwrapSome(), expression)
+            self._emit(StoreLocal(some_slot), expression)
+            self._compile_expression(expression.some_arm.body)
+            end_jump_index = len(self._instructions)
+            self._emit(Jump(InstructionIndex(0)), expression)
+            none_start = InstructionIndex(len(self._instructions))
+            self._instructions[none_jump_index] = JumpIfNone(none_start)
+            self._emit(Pop(), expression)
+            self._compile_expression(expression.none_arm.body)
+            end = InstructionIndex(len(self._instructions))
+            self._instructions[end_jump_index] = Jump(end)
             return
         if isinstance(expression, CoreRecord):
             for field in expression.fields:

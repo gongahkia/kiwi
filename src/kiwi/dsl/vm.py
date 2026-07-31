@@ -16,15 +16,18 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     Negate,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
     TraceExpression,
+    UnwrapSome,
 )
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.runtime_values import (
@@ -276,6 +279,43 @@ def run_vm(
             allocations += 1
             if not _push(stack, OptionNoneValue(), budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, JumpIfNone):
+            if len(stack) <= frame.stack_base:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "Option match has no stack value",
+                    frame,
+                )
+            match_value = stack[-1]
+            if isinstance(match_value, OptionNoneValue):
+                frame.instruction_index = instruction.target.value
+            elif not isinstance(match_value, OptionSomeValue):
+                return _fault(
+                    module,
+                    VMFaultCode.TYPE,
+                    "Option match requires an Option value",
+                    frame,
+                )
+        elif isinstance(instruction, UnwrapSome):
+            some_value = _pop(stack, frame.stack_base)
+            if not isinstance(some_value, OptionSomeValue):
+                return _fault(
+                    module,
+                    VMFaultCode.TYPE,
+                    "Some match arm requires a payload-bearing Option value",
+                    frame,
+                )
+            if not _push(stack, some_value.value, budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, Pop):
+            if _pop(stack, frame.stack_base) is None:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "pop has no stack value",
+                    frame,
+                )
         elif isinstance(instruction, LoadField):
             record_value = _pop(stack, frame.stack_base)
             if not isinstance(record_value, RecordValue):

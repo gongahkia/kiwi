@@ -109,6 +109,42 @@ class NoneExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class SomePattern:
+    """A `Some` match arm with one payload binding."""
+
+    binding: Identifier
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class NonePattern:
+    """A payload-free `None` match arm."""
+
+    span: SourceSpan
+
+
+type Pattern = SomePattern | NonePattern
+
+
+@dataclass(frozen=True, slots=True)
+class MatchArm:
+    """One source-ordered closed-variant match arm."""
+
+    pattern: Pattern
+    body: Expression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class MatchExpression:
+    """An exhaustive match over a closed built-in variant."""
+
+    subject: Expression
+    arms: tuple[MatchArm, ...]
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class NameExpression:
     """A reference to a surface identifier."""
 
@@ -178,6 +214,7 @@ type Expression = (
     | RecordExpression
     | SomeExpression
     | NoneExpression
+    | MatchExpression
     | NameExpression
     | NegateExpression
     | GroupExpression
