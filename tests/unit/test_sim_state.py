@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import EntityId, EventId, IdAllocator
+from kiwi.domain.ids import CoverId, EntityId, EventId, IdAllocator
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -11,6 +11,14 @@ from kiwi.sim.contacts import (
     ContactFieldProvenance,
     ContactProvenance,
     ContactStore,
+)
+from kiwi.sim.covers import (
+    CoverHeight,
+    CoverIntegrity,
+    CoverSegment,
+    CoverSide,
+    CoverSlot,
+    CoverStore,
 )
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.randomness import default_random_streams
@@ -104,6 +112,20 @@ def test_mission_state_rejects_contact_evidence_without_an_allocated_event() -> 
             id_allocator=allocator,
             contacts=ContactStore((estimate,)),
         )
+
+
+def test_mission_state_rejects_cover_ids_without_allocator_provenance() -> None:
+    cover = CoverSegment(
+        CoverId(1),
+        position(0, 0),
+        position(1_000, 0),
+        CoverHeight.LOW,
+        CoverIntegrity(10_000),
+        (CoverSlot(0, position(0, -350), CoverSide.LEFT),),
+    )
+
+    with pytest.raises(ValueError, match="cover IDs must be allocated"):
+        MissionState(covers=CoverStore((cover,)))
 
 
 @pytest.mark.parametrize(

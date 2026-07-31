@@ -25,6 +25,14 @@ from kiwi.sim.contacts import (
     ContactSighting,
     apply_contact_sightings,
 )
+from kiwi.sim.covers import (
+    CoverHeight,
+    CoverIntegrity,
+    CoverSegment,
+    CoverSide,
+    CoverSlot,
+    CoverStore,
+)
 from kiwi.sim.hashing import (
     CANONICAL_STATE_MAGIC,
     CANONICAL_STATE_VERSION,
@@ -216,6 +224,29 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
     assert hash_canonical_state(state) != hash_canonical_state(
         replace(state, policy_versions=PolicyVersionStore())
     )
+
+
+def test_canonical_state_codec_round_trips_cover_segments_and_hashes_them() -> None:
+    cover_id, allocator = IdAllocator().allocate_cover()
+    cover = CoverSegment(
+        cover_id,
+        WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+        WorldPosition(WorldSubunits(1_000), WorldSubunits(0)),
+        CoverHeight.HIGH,
+        CoverIntegrity(8_500),
+        (
+            CoverSlot(0, WorldPosition(WorldSubunits(0), WorldSubunits(-350)), CoverSide.LEFT),
+            CoverSlot(1, WorldPosition(WorldSubunits(1_000), WorldSubunits(350)), CoverSide.RIGHT),
+        ),
+    )
+    state = MissionState(covers=CoverStore((cover,)), id_allocator=allocator)
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.covers.segment_for(cover_id) == cover
+    assert hash_canonical_state(state) != hash_canonical_state(replace(state, covers=CoverStore()))
 
 
 def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
