@@ -289,15 +289,27 @@ Effect chains may be manually enabled, disabled, and reordered by stable manifes
 
 ## 11. Hot reload
 
-Development hot reload may:
+`effects.host:replace(effect_id, candidate, options?)` is the host-coordinated
+development replacement boundary. Filesystem watching, source compilation, and module
+discovery are external responsibilities. The call succeeds only between callbacks and
+outside an active canvas or visual frame. It validates, configures, and initialises the
+candidate off-chain before atomically replacing the existing chain slot. A typed reload
+failure leaves the active instance unchanged; an old-instance shutdown failure is
+diagnostic-only after the swap.
 
-- unload effect Lua state;
-- revalidate the manifest;
-- recreate resources;
-- preserve serialisable parameters;
-- reset transient visual state.
+Replacement preserves the logical ID, chain position, enabled state, copied host
+metadata, and only compatible serialised parameters. A value is compatible when its
+name and declared type remain unchanged and it validates against the candidate schema.
+Removed, type-changed, or newly invalid values use the candidate default and produce a
+migration diagnostic. Explicit subscriptions are re-derived from the candidate
+manifest, and capabilities are fully negotiated again; replacement cannot grant a
+renderer privilege unavailable to the original host.
 
-Hot reload must never reload terminal semantic modules implicitly.
+The candidate receives fresh local Lua state, `init`, deterministic random state
+derived from the stable root-seed/effect-ID contract, and a monotonically increasing
+reload generation. API v1 does not migrate tables, closures, coroutines, shaders, or
+other opaque effect state. Replacement is visual-only: it cannot mutate terminal state
+or semantic recordings. ADR-0011 records the complete durable contract.
 
 ## 12. Reduced motion
 
