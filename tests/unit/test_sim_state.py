@@ -4,6 +4,7 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId, IdAllocator
+from kiwi.sim.randomness import default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 from kiwi.sim.state import MAX_MISSION_TICK, EntityState, MissionState, add_entity
 
@@ -18,6 +19,7 @@ def test_mission_state_defaults_to_empty_tick_zero_authority() -> None:
         entities=(),
         id_allocator=IdAllocator(),
         scheduled_events=ScheduledEventQueue(),
+        random_streams=default_random_streams(),
     )
 
 
@@ -52,6 +54,7 @@ def test_mission_state_validates_entity_order_and_allocator_provenance() -> None
         (lambda: MissionState(tick=-1), "non-negative"),
         (lambda: MissionState(tick=MAX_MISSION_TICK + 1), "signed 64-bit"),
         (lambda: MissionState(tick=True), "integer"),
+        (lambda: MissionState(entities=[]), "immutable tuple"),  # type: ignore[arg-type]
         (lambda: EntityState(EntityId(1), position=object()), "world position"),  # type: ignore[arg-type]
         (lambda: add_entity(MissionState(), object()), "world position"),  # type: ignore[arg-type]
     ),

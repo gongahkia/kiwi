@@ -351,6 +351,10 @@ allocator state, and a `(tick, sequence)` scheduled-event queue. State
 components are added only with the task that defines their invariants;
 canonical encoding is deferred to its dedicated task.
 
+Random state is a versioned root-seed manifest plus a fixed-order tuple of
+independent named PCG32 streams. Each raw draw returns immutable successor
+state and a causal record; authoritative code never uses Python's random APIs.
+
 ## 12. Command model
 
 All external authority enters through typed commands. The initial kernel admits:

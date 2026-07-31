@@ -170,6 +170,8 @@ class IdAllocator:
     next_ids: tuple[int, ...] = _INITIAL_NEXT_IDS
 
     def __post_init__(self) -> None:
+        if not isinstance(self.next_ids, tuple):
+            raise ValueError("ID allocator counters must be an immutable tuple")
         if len(self.next_ids) != len(IdKind):
             raise ValueError("ID allocator must contain one counter for every ID kind")
         for next_id in self.next_ids:

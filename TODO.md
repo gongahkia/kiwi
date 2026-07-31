@@ -198,7 +198,7 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 - [x] Implement fixed tick clock.
 - [x] Define external command schema and canonical ordering.
 - [x] Define deterministic scheduled-event queue.
-- [ ] Define named deterministic random streams and draw records.
+- [x] Define named deterministic random streams and draw records.
 - [ ] Define canonical event algebra.
 - [ ] Implement one-tick reducer pipeline.
 - [ ] Implement canonical state encoding and hashing.

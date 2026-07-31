@@ -138,6 +138,16 @@ Content and reducer code must allocate in documented canonical order; no ID may
 derive from Python object identity. Canonical byte encoding of allocator state
 is defined with the later state-encoding task.
 
+### D-024: Authority randomness uses versioned independent PCG32 streams
+
+Authority uses no host random generator. Version 1 uses PCG XSH RR 64/32 with
+fixed 64-bit multiplier and increment. A mission's unsigned 64-bit root seed
+derives independently seeded named streams through fixed SplitMix64 arithmetic,
+so a draw in one stream cannot shift another. The initial API emits one raw
+uniform unsigned 32-bit value and a record containing stream, raw draw index,
+range, result, and stable purpose label. Derived distributions require their
+own named, bounded conversion policy before use in authority.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
