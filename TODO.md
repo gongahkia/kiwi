@@ -292,7 +292,7 @@ Replace omniscient policy input with incomplete information.
 - [x] Implement deterministic send and delivery ordering.
 - [x] Add squad signals as tick-stamped commands and observation values.
 - [x] Add communication events and causal links.
-- [ ] Render contact uncertainty and visibility overlays.
+- [x] Render contact uncertainty and visibility overlays.
 - [ ] Add fixtures for missing, stale, and relayed information.
 
 ### Exit criteria

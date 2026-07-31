@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from kiwi.render.camera import Camera, rectangle_to_canvas, world_to_canvas
+from kiwi.render.camera import Camera, radius_to_canvas, rectangle_to_canvas, world_to_canvas
 from kiwi.sim.snapshot import PresentationPoint, PresentationRectangle
 
 
@@ -14,6 +14,7 @@ def test_camera_projects_world_coordinates_with_upward_positive_y() -> None:
     assert rectangle_to_canvas(
         PresentationRectangle(500.0, 1_500.0, 1_500.0, 2_500.0), (480, 270), camera
     ) == (190, 85, 100, 100)
+    assert radius_to_canvas(125.0, camera) == 12
 
 
 @pytest.mark.parametrize(
@@ -23,6 +24,7 @@ def test_camera_projects_world_coordinates_with_upward_positive_y() -> None:
         lambda: Camera(centre_x=float("nan")),
         lambda: world_to_canvas(PresentationPoint(0.0, 0.0, 0), (0, 270), Camera()),
         lambda: rectangle_to_canvas(object(), (480, 270), Camera()),  # type: ignore[arg-type]
+        lambda: radius_to_canvas(-1.0, Camera()),
     ),
 )
 def test_camera_rejects_invalid_display_values(factory: object) -> None:
