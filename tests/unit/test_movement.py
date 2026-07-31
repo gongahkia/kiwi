@@ -10,7 +10,13 @@ from kiwi.domain.ids import EntityId, IdAllocator
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
-from kiwi.sim.movement import OPERATIVE_MOVE_SPEED_PER_TICK, progress_movement_actions
+from kiwi.sim.movement import (
+    OPERATIVE_MOVE_SPEED_PER_TICK,
+    MovementBlockReason,
+    MovementResolutionKind,
+    progress_movement_actions,
+    resolve_movement_actions,
+)
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.reducer import reduce_one_tick
 from kiwi.sim.state import MissionState, MovementAction, add_entity, movement_action_position
@@ -105,11 +111,14 @@ def test_movement_holds_when_the_swept_disc_hits_an_obstacle_or_map_boundary() -
     state = replace(state, movement_actions=(MovementAction(entity.entity_id, path),))
 
     after_first = progress_movement_actions(state)
-    after_block = progress_movement_actions(after_first)
+    blocked = resolve_movement_actions(after_first)
+    after_block = blocked.state
 
     assert after_first.entities[0].position == position(-400, 0)
     assert after_block.entities[0].position == position(-400, 0)
     assert after_block.movement_actions == after_first.movement_actions
+    assert blocked.resolutions[0].kind is MovementResolutionKind.BLOCKED
+    assert blocked.resolutions[0].block_reason is MovementBlockReason.MAP_COLLISION
 
     boundary_geometry = MapGeometry(rectangle(-1_000, -1_000, 1_000, 1_000))
     boundary_start = position(-750, 0)

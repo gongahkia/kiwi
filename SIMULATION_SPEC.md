@@ -424,7 +424,10 @@ obstacle. Movement resolves entity IDs ascending. Each candidate must remain
 more than 700 millimetres from every accepted lower-ID trajectory and every
 unprocessed entity's current position on the same elevation; a blocked
 candidate retains its prior position and action progress. Collision and
-separation emit no event until the movement-event phase.
+separation emit exactly one canonical progress, block, or arrival event per
+active action. Each event retains the entity, start, attempted, and result
+positions; a block retains its stable map-collision or operative-separation
+reason.
 
 Subsequent local movement phases resolve:
 
