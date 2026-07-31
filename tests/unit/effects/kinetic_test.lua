@@ -2,6 +2,7 @@ local assertions = require("support.assertions")
 local Coordinator = require("runtime.coordinator")
 local Effect = require("effects.effect")
 local Event = require("runtime.event")
+local ContinuousOutput = require("fixtures.renderer.continuous_output")
 local FontFixture = require("fixtures.renderer.font")
 local Frames = require("recording.frames")
 local Host = require("effects.host")
@@ -235,6 +236,22 @@ return {
       assertions.truthy(printed[2] > 0)
       assertions.equal(assert(direct:digest()), assert(terminal:digest()))
       assertions.equal(bytes, recording(events))
+    end,
+  },
+  {
+    name = "kinetic bounded transform callbacks cover the 120 by 40 fixture",
+    run = function()
+      local fixture = ContinuousOutput.new()
+      local snapshot = assert(fixture:advance())
+      local effect_host = assert(Host.new({ assert(Kinetic.new()) }, {
+        terminal = { columns = 120, rows = 40 },
+        viewport = { height = 680, width = 1080 },
+      }))
+      assert(effect_host:emit("output", { bytes = "fixture" }, 0))
+      local renderer = assert(Renderer.new({ effect_host = effect_host }))
+      assert(renderer:load_font(graphics()))
+      assert(renderer:draw(snapshot))
+      assertions.equal(true, effect_host:status().effects[1].enabled)
     end,
   },
 }
