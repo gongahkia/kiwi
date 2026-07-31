@@ -29,7 +29,7 @@ return {
       assertions.equal("Unlock a game object", command.summary)
       assertions.equal("domain_events", command.capabilities[1])
       assertions.truthy(type(command.run) == "function")
-      command.capabilities[1] = "scheduled_jobs"
+      command.capabilities[1] = "jobs.schedule"
 
       local commands = registry:commands()
       assertions.equal(1, #commands)
@@ -58,6 +58,7 @@ return {
       assertions.truthy(Registry.capability_supported("vfs.read"))
       assertions.truthy(Registry.capability_supported("vfs.write"))
       assertions.truthy(Registry.capability_supported("vfs.chdir"))
+      assertions.truthy(Registry.capability_supported("jobs.schedule"))
       assertions.falsy(Registry.capability_supported("virtual_fs_read"))
     end,
   },
