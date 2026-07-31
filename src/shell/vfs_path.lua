@@ -146,7 +146,10 @@ function Path.resolve(bytes, cwd_components, configuration)
     return command_error("virtual filesystem path contains NUL", { reason = "invalid_path_byte" })
   end
   if type(cwd_components) ~= "table" then
-    return command_error("virtual filesystem cwd components are invalid", { reason = "resource_limit" })
+    return command_error(
+      "virtual filesystem cwd components are invalid",
+      { reason = "resource_limit" }
+    )
   end
   local absolute = bytes:byte(1) == 0x2F
   local components = absolute and {} or copy_components(cwd_components)
