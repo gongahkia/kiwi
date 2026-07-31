@@ -166,6 +166,17 @@ Validation occurs in two stages:
 1. Shape and primitive validation.
 2. Semantic validation, including references, geometry, capabilities, objective reachability assumptions where practical, and deterministic ordering.
 
+Milestone 5 selects JSON for the separate, deliberately narrow
+`.kfixture.json` kernel-fixture format. Its top-level `format` is
+`"kiwi-kernel-fixture"`, version is integer `1`, and required fields are `id`,
+`tick_rate`, unsigned 64-bit `seed`, content-ID keyed `entities`, and
+`scheduled_triggers`. Entity maps are canonically sorted by lowercase ASCII
+content ID before the simulation bootstrap assigns dynamic IDs; therefore JSON
+member insertion order cannot affect authority. The loader accepts only UTF-8,
+rejects duplicate and unknown fields, bounds bytes, nesting, and collection
+sizes, and returns structured JSON-path diagnostics. This format is not the
+future full `kiwi-mission` schema.
+
 ## 8. Canonical state snapshot
 
 Suggested extension: `.dsnap`
