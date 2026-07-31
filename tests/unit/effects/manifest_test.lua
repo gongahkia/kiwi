@@ -90,4 +90,16 @@ return {
       assertions.equal("effect_load_error", error_value.kind)
     end,
   },
+  {
+    name = "effect manifests gate seeded random access by determinism class",
+    run = function()
+      local value = manifest()
+      value.capabilities[3] = "deterministic_random"
+      assertions.truthy(Manifest.normalise(value))
+      value.determinism = "static"
+      local result, error_value = Manifest.normalise(value)
+      assertions.falsy(result)
+      assertions.equal("effect_load_error", error_value.kind)
+    end,
+  },
 }

@@ -1,5 +1,6 @@
 local Errors = require("runtime.errors")
 local Manifest = require("effects.manifest")
+local Random = require("effects.random")
 
 local Host = {}
 local host_mt = {}
@@ -165,7 +166,7 @@ local function context_for(host, entry)
   for _, capability in ipairs(entry.manifest.capabilities) do
     capabilities[capability] = true
   end
-  return {
+  local context = {
     api_version = Manifest.api_version,
     capabilities = capabilities,
     effect_id = entry.manifest.id,
@@ -179,6 +180,19 @@ local function context_for(host, entry)
     terminal = { columns = host.terminal.columns, rows = host.terminal.rows },
     viewport = { height = host.viewport.height, width = host.viewport.width },
   }
+  if entry.random then
+    local random = entry.random
+    context.random = {
+      integer = function(_, minimum, maximum)
+        return random:integer(minimum, maximum)
+      end,
+      next_u32 = function()
+        return random:next_u32()
+      end,
+    }
+    context.random_seed = entry.random_seed
+  end
+  return context
 end
 
 local function copy_error_detail(detail)
@@ -292,6 +306,10 @@ local function effect_methods(effect)
     return nil, manifest_error
   end
   local hooks = {}
+  local capabilities = {}
+  for _, capability in ipairs(manifest.capabilities) do
+    capabilities[capability] = true
+  end
   for name, capability in pairs(hook_capabilities) do
     local callback
     if type(effect.hook) == "function" then
@@ -312,14 +330,7 @@ local function effect_methods(effect)
     end
     hooks[name] = callback
     if callback then
-      local granted = false
-      for _, declared in ipairs(manifest.capabilities) do
-        if declared == capability then
-          granted = true
-          break
-        end
-      end
-      if not granted then
+      if not capabilities[capability] then
         return nil,
           Errors.new("effect_load_error", "effect hook capability is undeclared", {
             capability = capability,
@@ -328,7 +339,13 @@ local function effect_methods(effect)
       end
     end
   end
-  return { effect = effect, enabled = true, hooks = hooks, manifest = manifest }
+  return {
+    capabilities = capabilities,
+    effect = effect,
+    enabled = true,
+    hooks = hooks,
+    manifest = manifest,
+  }
 end
 
 local function canvas_runtime(value)
@@ -355,6 +372,7 @@ local function options(value)
     max_draw_operations = true,
     max_effects = true,
     max_event_payload_bytes = true,
+    random_seed = true,
     session_id = true,
     terminal = true,
     viewport = true,
@@ -376,6 +394,7 @@ local function options(value)
     max_draw_operations = 1024,
     max_effects = 16,
     max_event_payload_bytes = 65536,
+    random_seed = 0,
     session_id = nil,
     terminal = { columns = 1, rows = 1 },
     viewport = { height = 1, width = 1 },
@@ -402,6 +421,14 @@ local function options(value)
       return nil, session_error
     end
     result.session_id = session_id
+  end
+  if value.random_seed ~= nil then
+    local random_seed, random_error =
+      bounded_integer(value.random_seed, "effect host random seed", 0xFFFFFFFF)
+    if not random_seed then
+      return nil, random_error
+    end
+    result.random_seed = random_seed
   end
   if value.viewport ~= nil then
     local viewport, viewport_error =
@@ -773,6 +800,18 @@ function Host.new(effects, configuration)
           )
         end
       end
+    end
+    if entry.capabilities.deterministic_random then
+      local seed, seed_error = Random.derive(settings.random_seed, entry.manifest.id)
+      if not seed then
+        return nil, seed_error
+      end
+      local random, random_error = Random.new(seed)
+      if not random then
+        return nil, random_error
+      end
+      entry.random = random
+      entry.random_seed = seed
     end
     entries[index] = entry
   end

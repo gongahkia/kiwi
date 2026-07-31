@@ -20,10 +20,13 @@ Lifecycle API v1 uses optional hooks gated by immutable manifest capabilities:
 | `canvas_before` | `before_canvas` |
 | `canvas_after` | `after_canvas` |
 | `frame_update` | `update` |
+| `deterministic_random` | callback-context random facade |
 
 Capability negotiation completes before `init`. A declared capability without its hook is valid; a hook without its capability is a typed `effect_load_error`. Capability sets do not change for an instance lifetime. Hook order follows the immutable manifest array order; ties preserve host construction order.
 
-The host creates fresh scalar-record contexts for every callback. They contain effect ID, API version, session ID when supplied, frame sequence, integer elapsed microseconds, viewport and terminal dimensions, granted capabilities, and headless/canvas feature flags. They contain no terminal, screen, parser, backend, renderer, process, filesystem, or arbitrary host callback reference. Event and cell values are copied again per effect callback.
+The host creates fresh scalar-record contexts for every callback. They contain effect ID, API version, session ID when supplied, frame sequence, integer elapsed microseconds, viewport and terminal dimensions, granted capabilities, and headless/canvas feature flags. Effects declaring `deterministic_random` additionally receive an effect-local derived seed and a fresh narrow random facade. They contain no terminal, screen, parser, backend, renderer, process, filesystem, or arbitrary host callback reference. Event and cell values are copied again per effect callback.
+
+The host accepts an explicit unsigned-32-bit `random_seed` (default `0`). For every `deterministic_random` effect it derives an independent stream from that seed and the immutable effect ID, so manifest order and unrelated effects do not shift another effect’s sequence. The source is xorshift32 with zero replaced by the fixed non-zero seed `1831565813`; the facade provides `next_u32()` and rejection-sampled inclusive `integer(minimum, maximum)` for signed-32-bit bounds. It contains no terminal or renderer reference. This is reproducibility plumbing, not cryptographic randomness or a security boundary.
 
 `update` receives a non-negative integer `delta_us`, bounded by the configured `max_delta_us` (default 1,000,000). The host rejects fractional, negative, and oversized values; it does not use or accumulate wall-clock seconds. Callers provide recorded/replay-derived timing. API v1 rejects rather than subdivides an oversized delta.
 

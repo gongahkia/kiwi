@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-31
+- Amended: 2026-07-31
 
 ## Context
 
@@ -18,7 +19,7 @@ Effect Manifest API v1 requires exactly these fields:
 - `capabilities`: a dense, duplicate-free array from the API v1 capability allowlist;
 - `parameters`: a map of typed parameter schemas.
 
-API v1 capabilities are `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, and `frame_update`. ADR-0008 maps each capability to its lifecycle hook and defines headless negotiation.
+API v1 capabilities are `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, `frame_update`, and `deterministic_random`. ADR-0008 maps each hook capability to its lifecycle hook and defines headless negotiation. `deterministic_random` has no hook; it grants the narrow seeded-random facade in callback context. Static effects cannot declare it because consuming a stream makes their visual state call-order dependent.
 
 Parameters have a serialisable default and are one of: `number` with optional finite `min` and `max`; `integer` with optional integer `min` and `max`; `boolean`; `string` with optional bounded `max_length`; or `enum` with a dense list of string, boolean, or finite numeric values. Unknown fields, duplicate capabilities, invalid bounds, and unsupported API versions fail with typed `effect_load_error` values before effect construction.
 

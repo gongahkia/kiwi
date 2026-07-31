@@ -72,6 +72,9 @@ Fixed events, time, parameters, and seed reproduce the same effect-state digest.
 9. **Lifecycle subscription non-interference**
 Generated recorded output, resize, scroll, and screen-switch streams produce the same terminal digest with and without a lifecycle host; repeated runs produce the same copied event order and timestamps.
 
+10. **Seeded effect streams**
+Known PRNG vectors, invalid bounds, independent effect IDs, and generated lifecycle call sequences reproduce exactly under the same root seed and differ under a changed seed.
+
 Every generated failure must print the seed and a minimisable case representation.
 
 ## 3. Golden fixtures
