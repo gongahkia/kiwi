@@ -7,7 +7,7 @@ EFFECT_FRAMES ?= 30
 WARMUP ?= 60
 SAMPLES ?= 3
 
-.PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run test
+.PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run screenshot-scenarios test
 
 bootstrap:
 	zsh tools/bootstrap.sh
@@ -28,6 +28,9 @@ lint:
 	$(STYLUA) --check main.lua conf.lua src tests tools
 
 run:
+screenshot-scenarios:
+	$(LUAJIT) tools/validate_screenshot_scenarios.lua
+
 	$(LOVE) .
 
 inspect:
