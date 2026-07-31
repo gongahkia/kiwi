@@ -13,6 +13,7 @@ from kiwi.sim.covers import (
     CoverSlot,
     CoverStore,
 )
+from kiwi.sim.visibility import SensorRange, visible_covers
 
 
 def test_cover_segment_has_canonical_sides_slots_height_and_integrity() -> None:
@@ -35,6 +36,40 @@ def test_cover_store_uses_cover_id_order_without_unordered_lookup() -> None:
     assert store.segment_for(CoverId(3)) is None
     with pytest.raises(ValueError, match="unique ascending"):
         CoverStore((second, first))
+
+
+def test_visible_covers_use_same_layer_exact_segment_range_and_cover_id_order() -> None:
+    first = _segment(CoverId(1))
+    second = CoverSegment(
+        CoverId(2),
+        WorldPosition(WorldSubunits(1_001), WorldSubunits(0)),
+        WorldPosition(WorldSubunits(2_000), WorldSubunits(0)),
+        CoverHeight.LOW,
+        CoverIntegrity(10_000),
+        (CoverSlot(0, WorldPosition(WorldSubunits(1_001), WorldSubunits(-350)), CoverSide.LEFT),),
+    )
+    other_layer = CoverSegment(
+        CoverId(3),
+        WorldPosition(WorldSubunits(0), WorldSubunits(0), ElevationLayer(1)),
+        WorldPosition(WorldSubunits(1_000), WorldSubunits(0), ElevationLayer(1)),
+        CoverHeight.LOW,
+        CoverIntegrity(10_000),
+        (
+            CoverSlot(
+                0,
+                WorldPosition(WorldSubunits(0), WorldSubunits(-350), ElevationLayer(1)),
+                CoverSide.LEFT,
+            ),
+        ),
+    )
+
+    visible = visible_covers(
+        CoverStore((first, second, other_layer)),
+        WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+        SensorRange(WorldSubunits(1_000)),
+    )
+
+    assert tuple(cover.cover_id for cover in visible) == (CoverId(1),)
 
 
 @pytest.mark.parametrize(

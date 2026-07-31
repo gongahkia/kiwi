@@ -13,6 +13,7 @@ from kiwi.dsl.runtime_values import (
     OptionSomeValue,
     QuantityValue,
     RecordValue,
+    StringValue,
 )
 from kiwi.sim.contacts import (
     ContactConfidence,
@@ -22,6 +23,14 @@ from kiwi.sim.contacts import (
     ContactProvenance,
     ContactStore,
 )
+from kiwi.sim.covers import (
+    CoverHeight,
+    CoverIntegrity,
+    CoverSegment,
+    CoverSide,
+    CoverSlot,
+    CoverStore,
+)
 from kiwi.sim.messages import (
     INBOX_OBSERVATION_RECORD_TYPE,
     InboxObservation,
@@ -30,6 +39,7 @@ from kiwi.sim.messages import (
 )
 from kiwi.sim.observations import (
     CONTACT_RECORD_TYPE,
+    COVER_RECORD_TYPE,
     OBSERVATION_RECORD_TYPE,
     OBSERVATION_SCHEMA_VERSION,
     POSITION_RECORD_TYPE,
@@ -50,9 +60,16 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 4
+    assert OBSERVATION_SCHEMA_VERSION == 5
     assert value.type_name == OBSERVATION_RECORD_TYPE
-    assert value.field_names == ("inbox", "nearest_contact", "self", "signals", "tick")
+    assert value.field_names == (
+        "inbox",
+        "nearest_contact",
+        "self",
+        "signals",
+        "tick",
+        "visible_covers",
+    )
     inbox_value = value.field_value("inbox")
     assert isinstance(inbox_value, RecordValue)
     assert inbox_value.type_name == INBOX_OBSERVATION_RECORD_TYPE
@@ -60,6 +77,7 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
     assert inbox_value.field_value("messages") == ListValue(())
     assert value.field_value("nearest_contact") == OptionNoneValue()
     assert value.field_value("signals") == ListValue(())
+    assert value.field_value("visible_covers") == ListValue(())
     self_value = value.field_value("self")
     assert isinstance(self_value, RecordValue)
     assert self_value.type_name == SELF_OBSERVATION_RECORD_TYPE
@@ -76,6 +94,78 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
         distance_from_world_subunits(WorldSubunits(500))
     )
     assert value.field_value("tick") == IntegerValue(9)
+
+
+def test_runtime_observations_project_visible_cover_records() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(0), WorldSubunits(0)))
+    cover_id, allocator = state.id_allocator.allocate_cover()
+    cover = CoverSegment(
+        cover_id,
+        WorldPosition(WorldSubunits(1_000), WorldSubunits(0)),
+        WorldPosition(WorldSubunits(2_000), WorldSubunits(0)),
+        CoverHeight.HIGH,
+        CoverIntegrity(8_500),
+        (CoverSlot(0, WorldPosition(WorldSubunits(1_000), WorldSubunits(-350)), CoverSide.LEFT),),
+    )
+    state = replace(state, covers=CoverStore((cover,)), id_allocator=allocator)
+
+    observation = build_runtime_observations(state)[0]
+    value = observation_runtime_value(observation)
+
+    assert tuple(item.cover_id for item in observation.visible_covers) == (cover_id,)
+    assert value.field_value("visible_covers") == ListValue(
+        (
+            RecordValue(
+                COVER_RECORD_TYPE,
+                ("cover_id", "end", "height", "integrity_basis_points", "slots", "start"),
+                (
+                    IntegerValue(cover_id.value),
+                    RecordValue(
+                        POSITION_RECORD_TYPE,
+                        ("x", "y"),
+                        (
+                            QuantityValue(distance_from_world_subunits(WorldSubunits(2_000))),
+                            QuantityValue(distance_from_world_subunits(WorldSubunits(0))),
+                        ),
+                    ),
+                    StringValue("high"),
+                    IntegerValue(8_500),
+                    ListValue(
+                        (
+                            RecordValue(
+                                "CoverSlot",
+                                ("position", "side", "slot_index"),
+                                (
+                                    RecordValue(
+                                        POSITION_RECORD_TYPE,
+                                        ("x", "y"),
+                                        (
+                                            QuantityValue(
+                                                distance_from_world_subunits(WorldSubunits(1_000))
+                                            ),
+                                            QuantityValue(
+                                                distance_from_world_subunits(WorldSubunits(-350))
+                                            ),
+                                        ),
+                                    ),
+                                    StringValue("left"),
+                                    IntegerValue(0),
+                                ),
+                            ),
+                        )
+                    ),
+                    RecordValue(
+                        POSITION_RECORD_TYPE,
+                        ("x", "y"),
+                        (
+                            QuantityValue(distance_from_world_subunits(WorldSubunits(1_000))),
+                            QuantityValue(distance_from_world_subunits(WorldSubunits(0))),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
 
 
 def test_runtime_observations_project_one_owner_local_contact_with_field_evidence() -> None:
