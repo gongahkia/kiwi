@@ -129,6 +129,15 @@ millimetres and nearest rounding with half ties away from zero. Arithmetic
 fails on signed-64-bit overflow. Tick-duration conversion remains separate
 from this spatial ABI and is selected with the fixed tick clock.
 
+### D-023: Dynamic authority IDs are type-local signed 64-bit counters
+
+Each dynamic authority ID family uses its own immutable counter, starts at one,
+and allocates monotonically through the positive signed 64-bit range. Allocator
+state is authoritative and allocation fails deterministically on exhaustion.
+Content and reducer code must allocate in documented canonical order; no ID may
+derive from Python object identity. Canonical byte encoding of allocator state
+is defined with the later state-encoding task.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
