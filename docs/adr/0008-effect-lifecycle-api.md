@@ -34,6 +34,8 @@ Canvas hooks require non-headless operation and a narrow canvas facade. The faca
 
 The host bounds loaded effects, callbacks per frame, event-byte payloads, canvas operations per callback, and accepted deltas. Lua effects remain trusted in-process code; this boundary is not a security sandbox.
 
+API v1 cannot measure arbitrary Lua-retained state or execution time without adding nondeterministic host instrumentation, so it does not claim to enforce those limits. A future budget mechanism requires a separate versioned decision.
+
 Hook exceptions, invalid returns, and canvas state failures produce diagnostics, disable only the failing effect, attempt `shutdown` exactly once after successful initialization, and do not roll back or alter terminal semantics.
 
 ## Consequences
