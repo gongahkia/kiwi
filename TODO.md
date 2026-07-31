@@ -228,7 +228,7 @@ Connect compiled policies to the simulation without adding combat.
 - [x] Define core intention variants and action channels.
 - [x] Define intention IDs and source origin metadata.
 - [x] Build immutable observations from pre-evaluation state.
-- [ ] Invoke policy VM in canonical entity order.
+- [x] Invoke policy VM in canonical entity order.
 - [ ] Validate returned memory and intentions.
 - [ ] Implement capability checks for available intention families.
 - [ ] Implement ordered per-channel arbitration.

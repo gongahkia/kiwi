@@ -246,6 +246,14 @@ For each applicable entry point:
 
 Evaluation order is canonical by policy layer and entity ID. Policies cannot observe changes made by earlier policies in the same evaluation phase unless a later explicit phase permits it.
 
+The initial invocation phase receives entity-ID-ordered external policy
+bindings. A binding names one compiled two-argument policy entry, initial
+record memory, and immutable VM budgets. For each bound entity, the phase uses
+the pre-phase stored memory when present or the binding's initial memory,
+allocates a policy-invocation ID in entity order, and retains the raw VM result.
+It only advances the invocation-ID allocator; result validation, fallback, and
+memory updates occur in later phases.
+
 ## 11. Intention lifecycle
 
 ### 11.1 Creation
