@@ -536,6 +536,12 @@ Intent =
 
 The exact constructors exposed to players may be wrapped by standard-library functions. Keep the VM representation closed and versioned.
 
+The initial simulation boundary accepts the runtime record
+`Wait { duration: Duration }` only, with a strictly positive duration. The
+other named core kinds remain unavailable until their domain payload models are
+implemented; they produce a structured simulation validation failure rather
+than being reinterpreted as another request.
+
 ## 13. Standard library
 
 ### 13.1 Design rule

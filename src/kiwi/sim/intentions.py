@@ -6,8 +6,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
+from kiwi.domain.quantities import Quantity, QuantityDimension
 from kiwi.dsl.ids import ExpressionId
-from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS
+from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS, QuantityValue, RecordValue, RuntimeValue
 from kiwi.dsl.source import SourceSpan
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
@@ -38,6 +39,55 @@ class IntentionKind(StrEnum):
 
 
 CORE_INTENTION_KINDS = tuple(IntentionKind)
+
+
+class IntentionValidationCode(StrEnum):
+    """Stable failures while decoding one runtime intention request."""
+
+    EXPECTED_RECORD = "I001_EXPECTED_RECORD"
+    UNSUPPORTED_KIND = "I002_UNSUPPORTED_KIND"
+    INVALID_FIELDS = "I003_INVALID_FIELDS"
+    INVALID_DURATION = "I004_INVALID_DURATION"
+
+
+@dataclass(frozen=True, slots=True)
+class IntentionValidationFailure:
+    """A deterministic invalid-intention result with a local field path."""
+
+    code: IntentionValidationCode
+    message: str
+    path: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, IntentionValidationCode):
+            raise ValueError("intention validation failure requires a validation code")
+        if not isinstance(self.message, str) or not self.message:
+            raise ValueError("intention validation failure requires a message")
+        if not isinstance(self.path, tuple) or any(
+            not isinstance(part, str) or not part for part in self.path
+        ):
+            raise ValueError("intention validation failure path must be non-empty strings")
+
+
+@dataclass(frozen=True, slots=True)
+class WaitIntention:
+    """A positive exact wait duration that occupies the locomotion channel."""
+
+    duration: Quantity
+    kind: IntentionKind = field(default=IntentionKind.WAIT, init=False)
+    action_channel: ActionChannel = field(default=ActionChannel.LOCOMOTION, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.duration, Quantity):
+            raise ValueError("wait intention requires a duration quantity")
+        if self.duration.dimension is not QuantityDimension.DURATION:
+            raise ValueError("wait intention requires a duration quantity")
+        if self.duration.value.numerator <= 0:
+            raise ValueError("wait intention duration must be positive")
+
+
+type ValidatedIntention = WaitIntention
+type IntentionValidationResult = ValidatedIntention | IntentionValidationFailure
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,3 +153,39 @@ def action_channel_for(kind: IntentionKind) -> ActionChannel:
     if kind is IntentionKind.EMIT:
         return ActionChannel.COMMUNICATION
     raise AssertionError("core intention kind is not assigned an action channel")
+
+
+def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult:
+    """Decode one closed runtime request into an available authority intention."""
+    if not isinstance(value, RecordValue):
+        return IntentionValidationFailure(
+            IntentionValidationCode.EXPECTED_RECORD,
+            "intention must be a record value",
+        )
+    if value.type_name != "Wait":
+        return IntentionValidationFailure(
+            IntentionValidationCode.UNSUPPORTED_KIND,
+            f"intention kind '{value.type_name}' is unavailable",
+        )
+    if value.field_names != ("duration",):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_FIELDS,
+            "Wait intention must contain exactly a duration field",
+        )
+    duration = value.field_value("duration")
+    if (
+        not isinstance(duration, QuantityValue)
+        or duration.value.dimension is not QuantityDimension.DURATION
+    ):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_DURATION,
+            "Wait.duration must be a Duration value",
+            ("duration",),
+        )
+    if duration.value.value.numerator <= 0:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_DURATION,
+            "Wait.duration must be positive",
+            ("duration",),
+        )
+    return WaitIntention(duration.value)

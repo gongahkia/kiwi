@@ -3,14 +3,20 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.ids import ExpressionId
+from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.sim.intentions import (
     CORE_INTENTION_KINDS,
     ActionChannel,
     IntentionKind,
     IntentionOrigin,
+    IntentionValidationCode,
+    IntentionValidationFailure,
+    WaitIntention,
     action_channel_for,
+    validate_runtime_intention,
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
@@ -41,6 +47,27 @@ def test_core_intention_kinds_have_explicit_stable_action_channels() -> None:
 def test_action_channel_lookup_rejects_non_intention_kinds() -> None:
     with pytest.raises(ValueError, match="intention kind"):
         action_channel_for("wait")  # type: ignore[arg-type]
+
+
+def test_runtime_intention_validation_accepts_only_well_formed_available_waits() -> None:
+    duration = Quantity(QuantityDimension.DURATION, ExactRational(1, 2))
+
+    validated = validate_runtime_intention(
+        RecordValue("Wait", ("duration",), (QuantityValue(duration),))
+    )
+    malformed = validate_runtime_intention(RecordValue("Wait", ("duration",), (IntegerValue(1),)))
+    unavailable = validate_runtime_intention(RecordValue("Fire", (), ()))
+
+    assert validated == WaitIntention(duration)
+    assert malformed == IntentionValidationFailure(
+        IntentionValidationCode.INVALID_DURATION,
+        "Wait.duration must be a Duration value",
+        ("duration",),
+    )
+    assert unavailable == IntentionValidationFailure(
+        IntentionValidationCode.UNSUPPORTED_KIND,
+        "intention kind 'Fire' is unavailable",
+    )
 
 
 def test_intention_origin_retains_typed_causal_metadata() -> None:
