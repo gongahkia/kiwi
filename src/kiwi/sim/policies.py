@@ -31,6 +31,7 @@ from kiwi.sim.observations import (
     build_runtime_observations,
     observation_runtime_value,
 )
+from kiwi.sim.policy_versions import PolicyVersion
 from kiwi.sim.state import MissionState
 
 
@@ -84,6 +85,11 @@ class PolicyBinding:
             capability_ids
         ):
             raise ValueError("policy binding capabilities must be unique and lexically ordered")
+
+    @property
+    def policy_version(self) -> PolicyVersion:
+        """Return the canonical identity of this deployed policy entry point."""
+        return PolicyVersion.from_artifact(self.artifact, self.function_id)
 
 
 @dataclass(frozen=True, slots=True)

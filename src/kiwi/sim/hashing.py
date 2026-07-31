@@ -28,6 +28,12 @@ from kiwi.sim.memory import (
     PolicyMemoryStore,
     is_persistable_memory_value,
 )
+from kiwi.sim.policy_versions import (
+    POLICY_VERSION_DIGEST_BYTES,
+    EntityPolicyVersion,
+    PolicyVersion,
+    PolicyVersionStore,
+)
 from kiwi.sim.randomness import (
     RANDOM_ALGORITHM_VERSION,
     MissionSeed,
@@ -38,7 +44,7 @@ from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEven
 from kiwi.sim.state import EntityState, MissionPhase, MissionState
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 2
+CANONICAL_STATE_VERSION = 3
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -47,7 +53,7 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V2 = 4
+_RANDOM_STREAM_COUNT_V3 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -109,7 +115,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 2 form."""
+    """Encode one validated mission state in canonical binary version 3 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -124,6 +130,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
         writer.i64(entity.position.y.value, "entity y")
         writer.u64(entity.position.elevation.value, "entity elevation")
     _encode_policy_memory(writer, state.policy_memory)
+    _encode_policy_versions(writer, state.policy_versions)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -199,8 +206,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V2:
-        raise ValueError("state format version 2 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V3:
+        raise ValueError("state format version 3 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -214,6 +221,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     entity_count = reader.items("entity count")
     entities = tuple(_decode_entity(reader) for _ in range(entity_count))
     policy_memory = _decode_policy_memory(reader)
+    policy_versions = _decode_policy_versions(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -223,6 +231,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         entities=entities,
         id_allocator=id_allocator,
         policy_memory=policy_memory,
+        policy_versions=policy_versions,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -260,6 +269,22 @@ def _decode_policy_memory(reader: _Reader) -> PolicyMemoryStore:
             )
         entries.append(EntityPolicyMemory(entity_id, value))
     return PolicyMemoryStore(tuple(entries))
+
+
+def _encode_policy_versions(writer: _Writer, store: PolicyVersionStore) -> None:
+    writer.items(len(store.entries), "policy version count")
+    for entry in store.entries:
+        writer.i64(entry.entity_id.value, "policy version entity ID")
+        writer.write(entry.version.digest)
+
+
+def _decode_policy_versions(reader: _Reader) -> PolicyVersionStore:
+    entries: list[EntityPolicyVersion] = []
+    for _ in range(reader.items("policy version count")):
+        entity_id = EntityId(reader.i64())
+        version = PolicyVersion(reader.read(POLICY_VERSION_DIGEST_BYTES))
+        entries.append(EntityPolicyVersion(entity_id, version))
+    return PolicyVersionStore(tuple(entries))
 
 
 def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:
@@ -418,7 +443,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V2)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V3)
     )
     return RandomStreams(seed=seed, states=states)
 
