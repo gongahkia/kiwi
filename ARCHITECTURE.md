@@ -352,9 +352,10 @@ immutable bounded map with `ObstacleId`-ordered axis-aligned obstacles, an
 entity-ID-ordered tuple of active movement actions, an entity-ID-ordered sparse
 store of data-only policy-memory records, an
 entity-ID-ordered sparse store of BLAKE2b deployed-policy versions, immutable
-ID allocator state, and a `(tick, sequence)` scheduled-event queue. State
-components are added only with the task that defines their invariants; canonical
-encoding follows this explicit state-field order.
+ID allocator state, a `CoverId`-ordered dynamic cover store, and a `(tick,
+sequence)` scheduled-event queue. State components are added only with the task
+that defines their invariants; canonical encoding follows this explicit
+state-field order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor

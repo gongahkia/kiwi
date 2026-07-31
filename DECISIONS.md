@@ -408,6 +408,24 @@ merging needs a later explicit identity and provenance model. This change does
 not alter canonical state format version `11`. No ABI compatibility adapter is
 retained because deployed policy artifacts remain development-only.
 
+### D-048: Cover uses canonically directed slotted segments
+
+A cover feature is a `CoverSegment` with a positive `CoverId`, two distinct
+same-elevation endpoints ordered lexically by planar `(x, y)`, a `low` or
+`high` height class, and inclusive 0–10,000 basis-point integrity. The endpoint
+order defines the segment direction, so `left` and `right` are stable sides
+rather than content-author-dependent labels. Each segment has one through 16
+contiguous-indexed `CoverSlot` values; a slot has one same-elevation standing
+position and side. Slot positions are unique within their segment, but their
+precise geometric relationship to the edge is not constrained until cover
+occupancy resolution is defined.
+
+Cover segments reside in a `CoverId`-ordered authoritative store. Reservation,
+occupancy, exposure, and integrity damage are deliberately separate later
+rules. `KWI-STATE\0` therefore uses version `12`, serialising the cover store
+before contacts. Versions `1` through `11` are rejected with no migration or
+compatibility decoder because development state remains disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

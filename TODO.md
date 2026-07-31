@@ -311,7 +311,7 @@ Make spatial safety a programmable tactical concern.
 
 ### Tasks
 
-- [ ] Define cover segments, sides, occupancy slots, height, and integrity.
+- [x] Define cover segments, sides, occupancy slots, height, and integrity.
 - [ ] Implement cover visibility and observed cover values.
 - [ ] Implement deterministic exposure estimate against contacts.
 - [ ] Implement cover reservation or contention rules.
