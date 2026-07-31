@@ -98,6 +98,9 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.PIPE,
         TokenKind.LEFT_ANGLE,
         TokenKind.RIGHT_ANGLE,
+        TokenKind.LESS_EQUAL,
+        TokenKind.GREATER_EQUAL,
         TokenKind.ARROW,
+        TokenKind.PLUS,
         TokenKind.MINUS,
     )

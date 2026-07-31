@@ -170,8 +170,8 @@ Add the functional data features required by tactical policies.
 - [x] Add bounded `List.map`, `filter`, `fold`, `find`, `min_by`, and `sort_by` intrinsics.
 - [x] Define deterministic tie-breaking for collection selection and sorting.
 - [x] Add memory and decision record validation.
-- [ ] Add domain type operations for duration, distance, probability, position, and vector.
-- [ ] Reject dimensionally invalid operations.
+- [x] Add domain type operations for duration, distance, probability, position, and vector.
+- [x] Reject dimensionally invalid operations.
 - [ ] Add capability manifest skeleton.
 - [ ] Add full language diagnostics and golden fixtures.
 - [ ] Update language version and documentation examples if syntax changes.

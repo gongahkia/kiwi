@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from kiwi.dsl.lexer import lex
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.parser import ParserDiagnosticCode, ParseResult, parse
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.syntax import (
+    BinaryExpression,
     CallExpression,
     FieldAccessExpression,
     FunctionDeclaration,
@@ -69,6 +71,19 @@ def test_parser_builds_function_calls_and_grouped_arguments() -> None:
     assert isinstance(declaration.body, CallExpression)
     assert isinstance(declaration.body.arguments[0], GroupExpression)
     assert isinstance(declaration.body.arguments[1], NegateExpression)
+
+
+def test_parser_gives_domain_addition_higher_precedence_than_comparison() -> None:
+    source, result = parse_text("fn ordered() -> Bool = 1m + 2m <= 3m")
+
+    assert result.diagnostics == ()
+    declaration = result.module.declarations[0]
+    assert isinstance(declaration, FunctionDeclaration)
+    assert isinstance(declaration.body, BinaryExpression)
+    assert declaration.body.operator is BinaryOperator.LESS_EQUAL
+    assert declaration.body.operator_span == source.span(ByteOffset(31), ByteOffset(33))
+    assert isinstance(declaration.body.left, BinaryExpression)
+    assert declaration.body.left.operator is BinaryOperator.ADD
 
 
 def test_parser_combines_lexer_diagnostics_and_recovers_to_later_declarations() -> None:
