@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from kiwi.sim.arbitration import arbitrate_intentions
 from kiwi.sim.clock import FixedTickClock
 from kiwi.sim.commands import (
     ExternalCommand,
@@ -22,6 +23,14 @@ from kiwi.sim.events import (
     ScheduledTriggerFired,
     canonical_event_order,
 )
+from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
+from kiwi.sim.policies import (
+    EMPTY_POLICY_BINDINGS,
+    PolicyBindings,
+    invoke_policies,
+    validate_policy_evaluations,
+)
+from kiwi.sim.policy_events import emit_policy_events
 from kiwi.sim.state import MissionPhase, MissionState
 
 
@@ -45,6 +54,7 @@ def reduce_one_tick(
     state: MissionState,
     clock: FixedTickClock,
     commands: tuple[ExternalCommand, ...] = (),
+    policy_bindings: PolicyBindings = EMPTY_POLICY_BINDINGS,
 ) -> TickResult:
     """Apply exact-tick inputs, dequeue markers, emit events, and advance once."""
     if not isinstance(state, MissionState):
@@ -53,6 +63,8 @@ def reduce_one_tick(
         raise ValueError("tick reduction requires a fixed tick clock")
     if not isinstance(commands, tuple):
         raise ValueError("tick reduction commands must be an immutable tuple")
+    if not isinstance(policy_bindings, PolicyBindings):
+        raise ValueError("tick reduction policy bindings must be policy bindings")
     ordered_commands = canonical_command_order(commands)
     for command in ordered_commands:
         if command.header.tick != state.tick:
@@ -70,8 +82,24 @@ def reduce_one_tick(
         next_state, header = _allocate_event_header(next_state)
         emitted.append(ScheduledTriggerFired(header, scheduled_event))
 
+    if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
+        next_state, policy_events = _reduce_policies(next_state, policy_bindings)
+        emitted.extend(policy_events)
+
     advanced_state = clock.advance(next_state)
     return TickResult(state=advanced_state, events=canonical_event_order(emitted))
+
+
+def _reduce_policies(
+    state: MissionState,
+    bindings: PolicyBindings,
+) -> tuple[MissionState, tuple[CanonicalEvent, ...]]:
+    evaluations = invoke_policies(state, bindings)
+    validations = validate_policy_evaluations(evaluations, bindings)
+    decisions = resolve_policy_decisions(validations)
+    arbitration = arbitrate_intentions(validations, bindings)
+    events = emit_policy_events(validations, arbitration)
+    return commit_policy_decisions(events.state, decisions, bindings), events.events
 
 
 def _apply_command(

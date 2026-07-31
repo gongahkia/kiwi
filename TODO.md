@@ -235,7 +235,7 @@ Connect compiled policies to the simulation without adding combat.
 - [x] Emit policy, intention, rejection, and selection events.
 - [x] Implement deterministic fallback on VM fault.
 - [x] Include memory and policy version in canonical state.
-- [ ] Add first end-to-end fixture where policy emits `Wait` or movement intention.
+- [x] Add first end-to-end fixture where policy emits `Wait` or movement intention.
 
 ### Exit criteria
 

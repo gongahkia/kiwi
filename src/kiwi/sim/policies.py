@@ -119,6 +119,9 @@ class PolicyBindings:
         return None
 
 
+EMPTY_POLICY_BINDINGS = PolicyBindings()
+
+
 @dataclass(frozen=True, slots=True)
 class PolicyEvaluation:
     """One raw VM result and its exact pre-evaluation inputs."""
