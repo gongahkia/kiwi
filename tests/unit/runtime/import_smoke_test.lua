@@ -30,6 +30,7 @@ return {
         "shell.output",
         "shell.registry",
         "shell.session",
+        "shell.vfs_path",
         "shell.tokenizer",
         "effects.effect",
         "effects.clean",
