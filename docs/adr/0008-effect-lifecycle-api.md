@@ -36,7 +36,7 @@ The forward coordinator adapter is the v1 terminal-to-lifecycle translation poin
 
 `on_cell` receives a copied renderable visible cell record. The caller supplies damaged visible cells in strict row-major order; on a full redraw it supplies all renderable visible cells in the same order and the host sets `damage = true`. The host never exposes a backing grid cell.
 
-Canvas hooks require non-headless operation and a narrow canvas facade. The facade exposes dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations only. The host saves and restores the supplied graphics state around every canvas hook. Headless canvas requirements fail before `init` with typed `effect_incompatible`.
+Canvas hooks require non-headless operation and a narrow canvas facade. The facade exposes dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations only; each may carry the optional bounded scalar colour defined by ADR-0009. The host saves and restores the supplied graphics state around every canvas hook. Headless canvas requirements fail before `init` with typed `effect_incompatible`.
 
 The host bounds loaded effects, callbacks per frame, event-byte payloads, canvas operations per callback, and accepted deltas. Lua effects remain trusted in-process code; this boundary is not a security sandbox.
 

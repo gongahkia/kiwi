@@ -180,10 +180,10 @@ Goal: add visual differentiation without compromising terminal semantics.
 ### Built-in effects
 
 - [x] Implement the clean baseline as an explicit no-op effect chain.
-- [ ] Implement a CRT/phosphor preset with scanlines, persistence, controlled bloom, and reduced-motion settings.
+- [x] Implement a CRT/phosphor preset with scanlines, persistence, controlled bloom, and reduced-motion settings.
 - [ ] Implement a kinetic output preset with bounded cell displacement and decay.
-- [ ] Implement effect intensity controls.
-- [ ] Implement a one-action reset to the clean renderer.
+- [x] Implement effect intensity controls.
+- [x] Implement a one-action reset to the clean renderer.
 - [ ] Implement hot reload for built-in or development effects.
 
 ### Tests and performance

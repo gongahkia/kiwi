@@ -472,6 +472,49 @@ return {
     end,
   },
   {
+    name = "renderer applies bounded canvas colours without leaking graphics state",
+    run = function()
+      local coloured = effect("test.canvas-colour", { "canvas_before" }, {
+        before_canvas = function(_, _, canvas)
+          assert(canvas:fill_rect(0, 0, 1, 1, {
+            alpha = 0.4,
+            blue = 0.3,
+            green = 0.2,
+            red = 0.1,
+          }))
+        end,
+      })
+      local invalid = effect("test.canvas-colour-invalid", { "canvas_before" }, {
+        before_canvas = function(_, _, canvas)
+          canvas:fill_rect(0, 0, 1, 1, {
+            alpha = 1,
+            blue = 0,
+            green = 0,
+            red = 2,
+          })
+        end,
+      })
+      local api, host, renderer, value = setup({ coloured, invalid })
+      local initial = api:state()
+      assert(renderer:draw_terminal(value))
+      same_state(initial, api:state())
+      assertions.equal(false, host:status().effects[2].enabled)
+      local found = false
+      for _, call in ipairs(api.calls) do
+        if
+          call.name == "setColor"
+          and call[1] == 0.1
+          and call[2] == 0.2
+          and call[3] == 0.3
+          and call[4] == 0.4
+        then
+          found = true
+        end
+      end
+      assertions.truthy(found)
+    end,
+  },
+  {
     name = "renderer rejects undeclared and headless canvas hooks before rendering",
     run = function()
       local invalid, invalid_error = Effect.new(manifest("test.canvas-undeclared"), {
