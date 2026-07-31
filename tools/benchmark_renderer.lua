@@ -300,7 +300,7 @@ local function measure(definition, grid, settings)
   local samples = {}
   local final_counts
   local quarantined = false
-  local allocation_frames = math.min(settings.frames, 4)
+  local allocation_frames = 1
   for _ = 1, settings.samples do
     local run = build(definition, grid)
     for _ = 1, settings.warmup do
@@ -373,12 +373,30 @@ local function environment_signature()
   }, ";")
 end
 
-local function baseline_for(signature, fixture_id)
+local function baseline_for(signature, fixture_id, settings)
   local environment = Baselines.environments[signature]
-  return environment and environment.fixtures[fixture_id] or nil, environment
+  local baseline = environment and environment.fixtures[fixture_id] or nil
+  if baseline == nil then
+    return nil, environment, "missing_fixture"
+  end
+  for _, field in ipairs({ "frames", "samples", "warmup" }) do
+    if baseline[field] ~= settings[field] then
+      return nil, environment, "incomparable_configuration"
+    end
+  end
+  return baseline, environment, "matched"
 end
 
-local function print_result(definition, grid, settings, result, baseline, environment)
+local function print_result(
+  definition,
+  grid,
+  settings,
+  result,
+  baseline,
+  environment,
+  baseline_status,
+  clean
+)
   local fixture_id = definition.id .. "_" .. grid.columns .. "x" .. grid.rows
   print("fixture=" .. fixture_id)
   print("frames=" .. settings.frames)
@@ -400,12 +418,26 @@ local function print_result(definition, grid, settings, result, baseline, enviro
     print("steady_state_" .. field .. "_growth=" .. result.resources[field])
   end
   print("quarantined=" .. tostring(result.quarantined))
+  if clean then
+    print(
+      string.format(
+        "relative_frame_time_percent=%.2f",
+        result.frame_time_us / clean.frame_time_us * 100
+      )
+    )
+    print(
+      string.format(
+        "relative_bytes_per_frame_percent=%.2f",
+        result.bytes_per_frame / clean.bytes_per_frame * 100
+      )
+    )
+  end
   if environment == nil then
     print("baseline=unmatched_environment")
     return true
   end
   if baseline == nil then
-    print("baseline=missing_fixture")
+    print("baseline=" .. baseline_status)
     return true
   end
   local comparison = assert(BenchmarkPolicy.compare(result, baseline))
@@ -421,14 +453,30 @@ end
 local settings = options(arg)
 local signature = environment_signature()
 local passed = true
+local clean_results = {}
 print("renderer benchmark")
 print("environment_signature=" .. signature)
 for _, definition in ipairs(selected_definitions(settings.fixtures)) do
   for _, grid in ipairs(selected_grids(settings.grid)) do
     local fixture_id = definition.id .. "_" .. grid.columns .. "x" .. grid.rows
-    local baseline, environment = baseline_for(signature, fixture_id)
+    local baseline, environment, baseline_status = baseline_for(signature, fixture_id, settings)
     local result = measure(definition, grid, settings)
-    if not print_result(definition, grid, settings, result, baseline, environment) then
+    local grid_id = grid.columns .. "x" .. grid.rows
+    if definition.id == "clean" then
+      clean_results[grid_id] = result
+    end
+    if
+      not print_result(
+        definition,
+        grid,
+        settings,
+        result,
+        baseline,
+        environment,
+        baseline_status,
+        clean_results[grid_id]
+      )
+    then
       passed = false
     end
   end
