@@ -164,6 +164,7 @@ class PresentationSnapshot:
     phase: str
     map_geometry: PresentationMap | None
     operatives: tuple[PresentationOperative, ...]
+    objective_marker: PresentationPoint | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -178,6 +179,10 @@ class PresentationSnapshot:
             )
         if not isinstance(self.operatives, tuple):
             raise ValueError("presentation snapshot operatives must be an immutable tuple")
+        if self.objective_marker is not None and not isinstance(
+            self.objective_marker, PresentationPoint
+        ):
+            raise ValueError("presentation snapshot objective marker must be a presentation point")
         previous_entity_id = 0
         for operative in self.operatives:
             if not isinstance(operative, PresentationOperative):

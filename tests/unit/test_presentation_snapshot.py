@@ -62,6 +62,7 @@ def test_presentation_snapshot_copies_display_values_without_mutating_authority(
         "phase",
         "map_geometry",
         "operatives",
+        "objective_marker",
     )
     assert snapshot == PresentationSnapshot(
         tick=0,
@@ -101,6 +102,7 @@ def test_presentation_snapshot_copies_display_values_without_mutating_authority(
     (
         lambda: PresentationSnapshot(0, "active", None, []),  # type: ignore[arg-type]
         lambda: PresentationSnapshot(0, "", None, ()),
+        lambda: PresentationSnapshot(0, "active", None, (), object()),  # type: ignore[arg-type]
         lambda: PresentationOperative(1, PresentationPoint(0.0, 0.0, 0), []),  # type: ignore[arg-type]
         lambda: PresentationRectangle(0.0, 0.0, 0.0, 1.0),
     ),

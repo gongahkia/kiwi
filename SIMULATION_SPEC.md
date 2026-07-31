@@ -618,8 +618,10 @@ ID-ordered obstacles, ID-ordered operative positions, and each active
 operative's endpoint-inclusive planned path. Its coordinates are display-only
 floats derived from authoritative millimetres; it carries no `MissionState`,
 entity, map, or path object reference and is never encoded or hashed as
-authority. Render interpolation and later overlays may derive further values
-from this snapshot.
+authority. It also admits one optional display objective marker; the current
+authority projection leaves it absent until objective state is implemented.
+Render interpolation and later overlays may derive further values from this
+snapshot.
 
 Do not confuse the two formats.
 
