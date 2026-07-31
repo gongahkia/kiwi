@@ -18,6 +18,7 @@ local MAX_COMMAND_NAME_BYTES = 64
 local MAX_SUMMARY_BYTES = 256
 
 local capabilities = {
+  completion = true,
   deterministic_random = true,
   domain_events = true,
   scheduled_jobs = true,

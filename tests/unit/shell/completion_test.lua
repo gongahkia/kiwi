@@ -164,4 +164,137 @@ return {
       assertions.equal("session_closed", completion_error.detail.reason)
     end,
   },
+  {
+    name = "sandbox completion invokes bounded command callbacks with immutable requests",
+    run = function()
+      local command_registry = assert(Registry.new())
+      local calls = 0
+      local received
+      local owned = {
+        { category = "value", description = "A value", sort_key = "first", value = "a b" },
+        { display = "empty", value = "" },
+      }
+      assert(command_registry:register("show", {
+        complete = function(request)
+          received = request
+          local writable = pcall(function()
+            request.command = "changed"
+          end)
+          assertions.falsy(writable)
+          return owned
+        end,
+        run = function()
+          calls = calls + 1
+        end,
+        summary = "Show values",
+      }))
+      local session = assert(Session.new(command_registry))
+      local result = assert(session:complete("show a", 6))
+      assertions.equal(0, calls)
+      assertions.equal(0, session:history():length())
+      assertions.equal("show", received.command)
+      assertions.equal(1, received.completed_argument_count)
+      assertions.equal("show", received.completed_arguments[1])
+      assertions.equal("a", received.active_prefix)
+      assertions.equal(nil, received.terminal)
+      assertions.equal(nil, received.writer)
+      assertions.equal(2, #result.candidates)
+      assertions.equal("a b", assert(Tokenizer.tokenize(apply("show a", result.candidates[1]))[2]))
+      assertions.equal("", assert(Tokenizer.tokenize(apply("show a", result.candidates[2]))[2]))
+      owned[1].value = "changed"
+      assertions.equal('"a b"', result.candidates[1].insertion)
+    end,
+  },
+  {
+    name = "sandbox completion isolates callback capability reentry and validation failures",
+    run = function()
+      local command_registry = assert(Registry.new())
+      assert(command_registry:register("none", {
+        run = function() end,
+        summary = "No completion",
+      }))
+      assert(command_registry:register("capability", {
+        capabilities = { "completion" },
+        run = function() end,
+        summary = "Missing completion",
+      }))
+      assert(command_registry:register("bad", {
+        complete = function()
+          return { value = "not an array" }
+        end,
+        run = function() end,
+        summary = "Bad completion",
+      }))
+      assert(command_registry:register("range", {
+        complete = function()
+          return { { replace_end = 1, replace_start = -1, value = "bad" } }
+        end,
+        run = function() end,
+        summary = "Bad range",
+      }))
+      assert(command_registry:register("many", {
+        complete = function()
+          return { "a", "b" }
+        end,
+        run = function() end,
+        summary = "Many values",
+      }))
+      assert(command_registry:register("throws", {
+        complete = function()
+          error("failure")
+        end,
+        run = function() end,
+        summary = "Throwing completion",
+      }))
+      local engine = assert(Completion.new(command_registry, { max_candidates = 1 }))
+      local result, completion_error = engine:complete("none value", 10)
+      assertions.truthy(result)
+      assertions.equal(0, #result.candidates)
+      result, completion_error = engine:complete("capability value", 16)
+      assertions.falsy(result)
+      assertions.equal("unknown_completion_capability", completion_error.detail.reason)
+      result, completion_error = engine:complete("bad value", 9)
+      assertions.falsy(result)
+      assertions.equal("invalid_callback_return", completion_error.detail.reason)
+      result, completion_error = engine:complete("range value", 11)
+      assertions.falsy(result)
+      assertions.equal("invalid_replacement_range", completion_error.detail.reason)
+      result, completion_error = engine:complete("many value", 10)
+      assertions.falsy(result)
+      assertions.equal("too_many_candidates", completion_error.detail.reason)
+      result, completion_error = engine:complete("throws value", 12)
+      assertions.falsy(result)
+      assertions.equal("callback_failure", completion_error.detail.reason)
+      result = assert(engine:complete("unknown value", 13))
+      assertions.equal(0, #result.candidates)
+
+      local reentrant_engine
+      assert(command_registry:register("reenter", {
+        complete = function()
+          return reentrant_engine:complete("reenter value", 13)
+        end,
+        run = function() end,
+        summary = "Reentrant completion",
+      }))
+      reentrant_engine = assert(Completion.new(command_registry))
+      result, completion_error = reentrant_engine:complete("reenter value", 13)
+      assertions.falsy(result)
+      assertions.equal("reentrant_completion_call", completion_error.detail.reason)
+      result = assert(reentrant_engine:complete("none value", 10))
+      assertions.equal(0, #result.candidates)
+
+      assert(command_registry:register("dupe", {
+        complete = function()
+          return { "x", "x", { display = "X", value = "x" } }
+        end,
+        run = function() end,
+        summary = "Duplicate completion",
+      }))
+      local dedupe_engine = assert(Completion.new(command_registry))
+      result = assert(dedupe_engine:complete("dupe ", 5))
+      assertions.equal(2, #result.candidates)
+      assertions.equal("x", result.candidates[1].display)
+      assertions.equal("X", result.candidates[2].display)
+    end,
+  },
 }
