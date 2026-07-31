@@ -173,7 +173,7 @@ Goal: add visual differentiation without compromising terminal semantics.
 - [x] Implement lifecycle hooks defined in `docs/PLUGIN_API.md`.
 - [x] Implement semantic event subscriptions for output, bell, cursor movement, scroll, resize, and damage.
 - [x] Implement seeded random-number access.
-- [ ] Implement serialisable effect parameters.
+- [x] Implement serialisable effect parameters.
 - [ ] Implement effect enable, disable, reorder, and failure reporting.
 - [ ] Prevent effects from mutating terminal state objects.
 

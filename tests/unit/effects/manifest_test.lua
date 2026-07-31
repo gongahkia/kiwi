@@ -102,4 +102,19 @@ return {
       assertions.equal("effect_load_error", error_value.kind)
     end,
   },
+  {
+    name = "effect manifests merge bounded serialisable parameter overrides",
+    run = function()
+      local definition = assert(Manifest.normalise(manifest()))
+      local values = assert(Manifest.parameters(definition, { intensity = 0.5 }))
+      assertions.equal(true, values.enabled)
+      assertions.equal(0.5, values.intensity)
+      values = assert(Manifest.parameters(definition, { mode = "hard" }, values))
+      assertions.equal(0.5, values.intensity)
+      assertions.equal("hard", values.mode)
+      local value, error_value = Manifest.parameters(definition, { mode = "unknown" }, values)
+      assertions.falsy(value)
+      assertions.equal("effect_load_error", error_value.kind)
+    end,
+  },
 }

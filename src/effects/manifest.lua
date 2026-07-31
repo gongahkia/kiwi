@@ -6,6 +6,7 @@ Manifest.api_version = 1
 Manifest.contract = {
   copy = "copy(manifest) -> effect_manifest",
   normalise = "normalise(manifest) -> effect_manifest | nil, error",
+  parameters = "parameters(manifest, values?, base?) -> parameter_values | nil, error",
 }
 
 local capabilities = {
@@ -257,6 +258,74 @@ local function parameter_schema(name, schema)
     return string_schema(schema, name)
   end
   return enum_schema(schema, name)
+end
+
+local function parameter_value(name, schema, value)
+  if schema.type == "number" or schema.type == "integer" then
+    local valid = schema.type == "integer" and integer(value) or finite_number(value)
+    if not valid then
+      return load_error("effect parameter " .. name .. " value is invalid")
+    end
+    if (schema.min ~= nil and value < schema.min) or (schema.max ~= nil and value > schema.max) then
+      return load_error("effect parameter " .. name .. " value is outside bounds")
+    end
+    return value
+  end
+  if schema.type == "boolean" then
+    if type(value) ~= "boolean" then
+      return load_error("effect parameter " .. name .. " value is invalid")
+    end
+    return value
+  end
+  if schema.type == "string" then
+    if type(value) ~= "string" or (schema.max_length ~= nil and #value > schema.max_length) then
+      return load_error("effect parameter " .. name .. " value is invalid")
+    end
+    return value
+  end
+  for _, candidate in ipairs(schema.values) do
+    if value == candidate and type(value) == type(candidate) then
+      return value
+    end
+  end
+  return load_error("effect parameter " .. name .. " value is not an enum member")
+end
+
+function Manifest.parameters(manifest, values, base)
+  if type(manifest) ~= "table" or type(manifest.parameters) ~= "table" then
+    return load_error("effect manifest parameters are invalid")
+  end
+  if values == nil then
+    values = {}
+  end
+  if type(values) ~= "table" then
+    return load_error("effect parameter values must be a table")
+  end
+  if base ~= nil and type(base) ~= "table" then
+    return load_error("effect parameter base values must be a table")
+  end
+  for name in pairs(values) do
+    if manifest.parameters[name] == nil then
+      return load_error("effect parameter is unknown", { provided = name })
+    end
+  end
+  local result = {}
+  for name, schema in pairs(manifest.parameters) do
+    local value = values[name]
+    if value == nil then
+      if base ~= nil and base[name] ~= nil then
+        value = base[name]
+      else
+        value = schema.default
+      end
+    end
+    local normalised, value_error = parameter_value(name, schema, value)
+    if normalised == nil then
+      return nil, value_error
+    end
+    result[name] = normalised
+  end
+  return result
 end
 
 function Manifest.normalise(manifest)

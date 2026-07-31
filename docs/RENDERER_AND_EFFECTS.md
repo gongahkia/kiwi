@@ -245,6 +245,8 @@ return {
 
 ADR-0007 defines the exact validation and parameter-schema rules. ADR-0008 defines capability-gated lifecycle ordering, immutable lifecycle values, integer-microsecond timing, cell observation, canvas isolation, and headless rejection. Manifests are copied into effect-owned state; callers cannot mutate an accepted definition through the supplied table or a manifest accessor.
 
+Each effect instance owns a complete scalar parameter map initialised from manifest defaults plus typed partial overrides. Readback returns a copy, and a rejected partial update preserves the prior map. Parameter changes affect only visual effect state and never recording or terminal semantics.
+
 ## 10. Failure isolation
 
 Lua effects execute in-process and are trusted in v0.1. Strong security isolation must not be claimed.

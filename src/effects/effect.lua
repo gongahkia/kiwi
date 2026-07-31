@@ -16,13 +16,15 @@ local hook_capabilities = {
 }
 
 Effect.contract = {
-  constructor = "new(manifest, hooks?) -> effect | nil, error",
+  constructor = "new(manifest, hooks?, parameters?) -> effect | nil, error",
   hook = "hook(name) -> callback | nil",
   manifest = "manifest() -> effect_manifest",
+  parameters = "parameters() -> parameter_values",
+  set_parameters = "set_parameters(values) -> true | nil, error",
   destroy = "destroy()",
 }
 
-function Effect.new(manifest, hooks)
+function Effect.new(manifest, hooks, parameters)
   local normalised, manifest_error = Manifest.normalise(manifest)
   if not normalised then
     return nil, manifest_error
@@ -32,6 +34,10 @@ function Effect.new(manifest, hooks)
   end
   if type(hooks) ~= "table" then
     return nil, Errors.new("effect_load_error", "effect hooks must be a table")
+  end
+  local parameter_values, parameter_error = Manifest.parameters(normalised, parameters)
+  if not parameter_values then
+    return nil, parameter_error
   end
   local granted = {}
   for _, capability in ipairs(normalised.capabilities) do
@@ -55,14 +61,30 @@ function Effect.new(manifest, hooks)
     end
     copied_hooks[name] = callback
   end
-  return setmetatable(
-    { hooks = copied_hooks, manifest_value = normalised, state = "bootstrap" },
-    effect_mt
-  )
+  return setmetatable({
+    hooks = copied_hooks,
+    manifest_value = normalised,
+    parameter_values = parameter_values,
+    state = "bootstrap",
+  }, effect_mt)
 end
 
 function effect_mt:manifest()
   return Manifest.copy(self.manifest_value)
+end
+
+function effect_mt:parameters()
+  return Manifest.parameters(self.manifest_value, {}, self.parameter_values)
+end
+
+function effect_mt:set_parameters(values)
+  local parameter_values, parameter_error =
+    Manifest.parameters(self.manifest_value, values, self.parameter_values)
+  if not parameter_values then
+    return nil, parameter_error
+  end
+  self.parameter_values = parameter_values
+  return true
 end
 
 function effect_mt:hook(name)
