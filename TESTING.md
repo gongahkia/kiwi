@@ -276,6 +276,11 @@ Run the same fixture:
 
 Then compare authoritative hashes. Presentation frame rate and camera changes must not affect the result.
 
+The Milestone 7 integration test runs a moving mission through the same fixed
+reducer loop while dummy-SDL presentation repeatedly builds, renders, and
+presents snapshots. It compares the resulting state hash and canonical event
+identity with a headless run.
+
 ## 10. Mutation and negative testing
 
 Where feasible, introduce controlled defects to ensure tests fail:
