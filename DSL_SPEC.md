@@ -1131,6 +1131,11 @@ Track separately:
 
 A compiler may support several source versions while producing one current bytecode version. Replays record bytecode and API versions.
 
+The implemented M4 language emits `(2, 2, 2)` for source, core, and bytecode.
+There is currently no source-header syntax, so all accepted `.dtr` source uses
+the current version `2`. The decoder preserves historical `(1, 1, 1)` bytecode
+without reinterpretation; it is not an alternate source-language mode.
+
 ## 25. MVP acceptance criteria
 
 The language MVP is complete when:

@@ -174,7 +174,7 @@ Add the functional data features required by tactical policies.
 - [x] Reject dimensionally invalid operations.
 - [x] Add capability manifest skeleton.
 - [x] Add full language diagnostics and golden fixtures.
-- [ ] Update language version and documentation examples if syntax changes.
+- [x] Update language version and documentation examples if syntax changes.
 
 ### Exit criteria
 

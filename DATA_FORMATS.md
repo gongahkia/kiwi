@@ -55,6 +55,10 @@ policy cautious(view: Observation, memory: Memory) -> Decision =
 
 If no header is allowed in the initial syntax, language version belongs in the containing project manifest.
 
+The current parser has no source-header syntax. It compiles all accepted `.dtr`
+source as language version `2`; only historical `(1, 1, 1)` bytecode has a
+compatibility decoder and it is never reinterpreted as current source.
+
 ## 5. Policy project manifest
 
 Suggested file: `kiwi.policy.json`
