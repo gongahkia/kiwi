@@ -188,7 +188,8 @@ authority state. Each version is the 32-byte BLAKE2b digest of canonical
 `KWI-POLICY-VERSION\0`. It identifies the exact compiled entry that supplied an
 entity's persisted memory and future policy input. `KWI-STATE\0` therefore uses
 version `3`; versions `1` and `2` are rejected with no compatibility decoder or
-migration because the project remains in development.
+migration because the project remains in development. Its current format version
+is superseded by D-030.
 
 ### D-029: Operatives use fixed 350 millimetre disc footprints
 
@@ -198,6 +199,17 @@ collision; elevation is a separate discrete layer. This gives movement,
 clearance, separation, and later projectile tests one integer-only geometry
 primitive without committing authority to a third-party physics engine. Stance,
 injury, equipment, and rendering do not change the footprint initially.
+
+### D-030: Maps use closed axis-aligned obstacle rectangles
+
+Milestone 7 represents a tactical map as an optional non-empty closed planar
+`WorldRectangle` and its static obstacles as an immutable tuple of closed,
+non-empty axis-aligned rectangles in ascending `ObstacleId` order. Every
+obstacle lies wholly within its map and has a discrete elevation layer; map
+bounds contain entity centres, while disc clearance and collision are movement
+concerns. `KWI-STATE\0` therefore uses version `4`; versions `1`, `2`, and `3`
+are rejected with no compatibility decoder or migration because development
+state remains disposable.
 
 ## 2. Prohibited shortcuts
 

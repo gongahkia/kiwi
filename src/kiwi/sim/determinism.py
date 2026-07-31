@@ -153,6 +153,47 @@ def first_canonical_state_difference(
                 expected_entity.position.elevation.value,
                 actual_entity.position.elevation.value,
             )
+    if (expected.map_geometry is None) != (actual.map_geometry is None):
+        return _difference(
+            "map_geometry/present",
+            int(expected.map_geometry is not None),
+            int(actual.map_geometry is not None),
+        )
+    if expected.map_geometry is not None and actual.map_geometry is not None:
+        expected_bounds = expected.map_geometry.bounds
+        actual_bounds = actual.map_geometry.bounds
+        for field in ("minimum_x", "minimum_y", "maximum_x", "maximum_y"):
+            expected_value = getattr(expected_bounds, field).value
+            actual_value = getattr(actual_bounds, field).value
+            if expected_value != actual_value:
+                return _difference(f"map_geometry/bounds/{field}", expected_value, actual_value)
+        if len(expected.map_geometry.obstacles) != len(actual.map_geometry.obstacles):
+            return _difference(
+                "map_geometry/obstacles/count",
+                len(expected.map_geometry.obstacles),
+                len(actual.map_geometry.obstacles),
+            )
+        for index, (expected_obstacle, actual_obstacle) in enumerate(
+            zip(expected.map_geometry.obstacles, actual.map_geometry.obstacles, strict=True)
+        ):
+            prefix = f"map_geometry/obstacles/{index}"
+            if expected_obstacle.obstacle_id != actual_obstacle.obstacle_id:
+                return _difference(
+                    f"{prefix}/obstacle_id",
+                    expected_obstacle.obstacle_id.value,
+                    actual_obstacle.obstacle_id.value,
+                )
+            if expected_obstacle.elevation != actual_obstacle.elevation:
+                return _difference(
+                    f"{prefix}/elevation",
+                    expected_obstacle.elevation.value,
+                    actual_obstacle.elevation.value,
+                )
+            for field in ("minimum_x", "minimum_y", "maximum_x", "maximum_y"):
+                expected_value = getattr(expected_obstacle.bounds, field).value
+                actual_value = getattr(actual_obstacle.bounds, field).value
+                if expected_value != actual_value:
+                    return _difference(f"{prefix}/bounds/{field}", expected_value, actual_value)
     if len(expected.policy_memory.entries) != len(actual.policy_memory.entries):
         return _difference(
             "policy_memory/count",

@@ -128,6 +128,16 @@ class MessageId:
         _validate_stable_id(self.value, "message ID")
 
 
+@dataclass(frozen=True, slots=True)
+class ObstacleId:
+    """The stable identity of one map obstacle."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        _validate_stable_id(self.value, "obstacle ID")
+
+
 StableId = (
     EntityId
     | OperativeId
@@ -140,6 +150,7 @@ StableId = (
     | TraceNodeId
     | ObjectiveId
     | MessageId
+    | ObstacleId
 )
 
 
@@ -157,6 +168,7 @@ class IdKind(IntEnum):
     TRACE_NODE = 8
     OBJECTIVE = 9
     MESSAGE = 10
+    OBSTACLE = 11
 
 
 _INITIAL_NEXT_IDS = (FIRST_DYNAMIC_ID,) * len(IdKind)
@@ -213,6 +225,9 @@ class IdAllocator:
     def allocate_message(self) -> tuple[MessageId, IdAllocator]:
         return self._allocate(IdKind.MESSAGE, MessageId)
 
+    def allocate_obstacle(self) -> tuple[ObstacleId, IdAllocator]:
+        return self._allocate(IdKind.OBSTACLE, ObstacleId)
+
     def _allocate(
         self,
         kind: IdKind,
@@ -242,6 +257,7 @@ def canonical_id_value(value: StableId) -> int:
             TraceNodeId,
             ObjectiveId,
             MessageId,
+            ObstacleId,
         ),
     ):
         raise ValueError("canonical ID key requires a stable ID")

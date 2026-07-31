@@ -112,6 +112,7 @@ Every durable object has a typed stable ID:
 - trace node;
 - objective;
 - message.
+- obstacle.
 
 IDs must not depend on Python object identity. Dynamic IDs use immutable,
 type-local counters starting at one and increasing through the positive signed
@@ -126,6 +127,7 @@ Canonical mission state contains:
 MissionState {
   tick
   entities
+  map_geometry
   operatives
   obstacles
   cover
@@ -374,6 +376,16 @@ Stance, injury, equipment, and animation do not alter the footprint in the
 initial movement model. Any later variable footprint requires a new authority
 field, collision rules, canonical-format update, and replay decision.
 
+### 12.1.1 Map and obstacle geometry
+
+An optional tactical map is a non-empty closed axis-aligned `WorldRectangle`
+in signed 64-bit millimetres. Its obstacle tuple is immutable and strictly
+ascending by `ObstacleId`. Each obstacle is a non-empty closed axis-aligned
+rectangle wholly contained by the map and has a discrete `ElevationLayer`.
+The map validates entity centres remain within its closed boundary; disc
+clearance from boundaries and obstacles is resolved by movement collision.
+Obstacle overlap is represented faithfully and has no implicit merge rule.
+
 ### 12.2 Pathing
 
 The MVP may use:
@@ -538,9 +550,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`3` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`4` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` and `2`, unsupported versions, and noncanonical values are
+versions `1`, `2`, and `3`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -554,6 +566,7 @@ Include:
 
 - all authority that can influence future ticks;
 - random-stream state;
+- map bounds and obstacle geometry;
 - policy memory;
 - policy versions;
 - pending messages and scheduled events;
