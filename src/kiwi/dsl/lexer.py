@@ -65,6 +65,7 @@ _SINGLE_CHARACTER_TOKENS = {
     "|": TokenKind.BAR,
     "<": TokenKind.LEFT_ANGLE,
     ">": TokenKind.RIGHT_ANGLE,
+    "+": TokenKind.PLUS,
     "-": TokenKind.MINUS,
 }
 
@@ -90,6 +91,10 @@ def lex(source: SourceFile) -> LexResult:
             tokens.append(cursor.token(TokenKind.ARROW, 2))
         elif cursor.starts_with("|>"):
             tokens.append(cursor.token(TokenKind.PIPE, 2))
+        elif cursor.starts_with("<="):
+            tokens.append(cursor.token(TokenKind.LESS_EQUAL, 2))
+        elif cursor.starts_with(">="):
+            tokens.append(cursor.token(TokenKind.GREATER_EQUAL, 2))
         elif token_kind := _SINGLE_CHARACTER_TOKENS.get(character):
             tokens.append(cursor.token(token_kind, 1))
         else:

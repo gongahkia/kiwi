@@ -47,7 +47,10 @@ class TokenKind(StrEnum):
     PIPE = "pipe"
     LEFT_ANGLE = "left_angle"
     RIGHT_ANGLE = "right_angle"
+    LESS_EQUAL = "less_equal"
+    GREATER_EQUAL = "greater_equal"
     ARROW = "arrow"
+    PLUS = "plus"
     MINUS = "minus"
 
 

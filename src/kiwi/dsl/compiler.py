@@ -9,6 +9,7 @@ from kiwi.dsl.bytecode import (
     BuildList,
     BuildRecord,
     BuildSome,
+    BinaryOperation,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -40,6 +41,7 @@ from kiwi.dsl.bytecode import (
 )
 from kiwi.dsl.core_ir import (
     CoreBoolean,
+    CoreBinary,
     CoreCall,
     CoreDefinition,
     CoreExpression,
@@ -293,6 +295,11 @@ class _FunctionCompiler:
             self._compile_expression(expression.operand)
             self._emit(Negate(), expression)
             return
+        if isinstance(expression, CoreBinary):
+            self._compile_expression(expression.left)
+            self._compile_expression(expression.right)
+            self._emit(BinaryOperation(expression.operator), expression)
+            return
         if isinstance(expression, CoreCall):
             self._compile_expression(expression.callee)
             for argument in expression.arguments:
@@ -374,6 +381,9 @@ def _lambdas_in_module(module: CoreModule) -> tuple[CoreLambda, ...]:
                 visit(field.value)
         elif isinstance(expression, CoreNegate):
             visit(expression.operand)
+        elif isinstance(expression, CoreBinary):
+            visit(expression.left)
+            visit(expression.right)
         elif isinstance(expression, CoreCall):
             visit(expression.callee)
             for argument in expression.arguments:

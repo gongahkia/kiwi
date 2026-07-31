@@ -6,7 +6,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
@@ -34,6 +36,7 @@ from kiwi.dsl.bytecode import (
 )
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     ClosureValue,
@@ -282,6 +285,32 @@ def run_vm(
             resources.allocations += 1
             if not _push(stack, IntegerValue(-value.value), budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, BinaryOperation):
+            right = _pop(stack, frame.stack_base)
+            left = _pop(stack, frame.stack_base)
+            if left is None or right is None:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "binary operation has insufficient stack values",
+                    frame,
+                )
+            binary_result = _apply_binary_operation(instruction.operator, left, right)
+            if binary_result is None:
+                return _fault(
+                    module,
+                    VMFaultCode.TYPE,
+                    "binary operation has incompatible runtime values",
+                    frame,
+                )
+            value, allocation_cost = binary_result
+            if resources.allocations + allocation_cost > budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            resources.allocations += allocation_cost
+            if not _push(stack, value, budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, BuildRecord):
             start = len(stack) - len(instruction.field_names)
             if start < frame.stack_base:
@@ -514,6 +543,184 @@ def run_vm(
         elif isinstance(instruction, TraceExpression):
             continue
     raise AssertionError("VM exited without a return or fault")
+
+
+def _apply_binary_operation(
+    operator: BinaryOperator,
+    left: RuntimeValue,
+    right: RuntimeValue,
+) -> tuple[RuntimeValue, int] | None:
+    if operator in {
+        BinaryOperator.LESS,
+        BinaryOperator.LESS_EQUAL,
+        BinaryOperator.GREATER,
+        BinaryOperator.GREATER_EQUAL,
+    }:
+        comparison = _compare_domain_quantities(left, right)
+        if comparison is None:
+            return None
+        result = {
+            BinaryOperator.LESS: comparison < 0,
+            BinaryOperator.LESS_EQUAL: comparison <= 0,
+            BinaryOperator.GREATER: comparison > 0,
+            BinaryOperator.GREATER_EQUAL: comparison >= 0,
+        }[operator]
+        return BooleanValue(result), 1
+    if operator is BinaryOperator.ADD:
+        quantity = _combine_domain_quantities(left, right, subtract=False)
+        if quantity is not None:
+            return quantity, 1
+        position_vector = _combine_coordinate_records(
+            left,
+            right,
+            "Position",
+            ("x", "y"),
+            "Vector",
+            ("dx", "dy"),
+            False,
+        )
+        if position_vector is not None:
+            return position_vector
+        return _combine_coordinate_records(
+            left,
+            right,
+            "Vector",
+            ("dx", "dy"),
+            "Vector",
+            ("dx", "dy"),
+            False,
+        )
+    if operator is BinaryOperator.SUBTRACT:
+        quantity = _combine_domain_quantities(left, right, subtract=True)
+        if quantity is not None:
+            return quantity, 1
+        position_vector = _combine_coordinate_records(
+            left,
+            right,
+            "Position",
+            ("x", "y"),
+            "Vector",
+            ("dx", "dy"),
+            True,
+        )
+        if position_vector is not None:
+            return position_vector
+        position_difference = _combine_coordinate_records(
+            left,
+            right,
+            "Position",
+            ("x", "y"),
+            "Position",
+            ("x", "y"),
+            True,
+            result_type_name="Vector",
+            result_field_names=("dx", "dy"),
+        )
+        if position_difference is not None:
+            return position_difference
+        return _combine_coordinate_records(
+            left,
+            right,
+            "Vector",
+            ("dx", "dy"),
+            "Vector",
+            ("dx", "dy"),
+            True,
+        )
+    raise AssertionError("unknown binary operator")
+
+
+def _compare_domain_quantities(left: RuntimeValue, right: RuntimeValue) -> int | None:
+    if not isinstance(left, QuantityValue) or not isinstance(right, QuantityValue):
+        return None
+    if left.value.dimension not in {
+        QuantityDimension.DURATION,
+        QuantityDimension.DISTANCE,
+        QuantityDimension.PROBABILITY,
+    }:
+        return None
+    return _compare_orderable(left, right)
+
+
+def _combine_domain_quantities(
+    left: RuntimeValue,
+    right: RuntimeValue,
+    *,
+    subtract: bool,
+) -> QuantityValue | None:
+    if not isinstance(left, QuantityValue) or not isinstance(right, QuantityValue):
+        return None
+    if (
+        left.value.dimension != right.value.dimension
+        or left.value.dimension not in {QuantityDimension.DURATION, QuantityDimension.DISTANCE}
+    ):
+        return None
+    return _combine_quantities(left, right, subtract)
+
+
+def _combine_coordinate_records(
+    left: RuntimeValue,
+    right: RuntimeValue,
+    left_type_name: str,
+    left_field_names: tuple[str, str],
+    right_type_name: str,
+    right_field_names: tuple[str, str],
+    subtract: bool,
+    *,
+    result_type_name: str | None = None,
+    result_field_names: tuple[str, str] | None = None,
+) -> tuple[RecordValue, int] | None:
+    left_values = _coordinate_components(left, left_type_name, left_field_names)
+    right_values = _coordinate_components(right, right_type_name, right_field_names)
+    if left_values is None or right_values is None:
+        return None
+    first = _combine_quantities(left_values[0], right_values[0], subtract)
+    second = _combine_quantities(left_values[1], right_values[1], subtract)
+    if first is None or second is None:
+        return None
+    target_type_name = result_type_name if result_type_name is not None else left_type_name
+    target_field_names = result_field_names if result_field_names is not None else left_field_names
+    return RecordValue(target_type_name, target_field_names, (first, second)), 3
+
+
+def _coordinate_components(
+    value: RuntimeValue,
+    type_name: str,
+    field_names: tuple[str, str],
+) -> tuple[QuantityValue, QuantityValue] | None:
+    if not isinstance(value, RecordValue) or value.type_name != type_name:
+        return None
+    if value.field_names != field_names:
+        return None
+    first = value.field_value(field_names[0])
+    second = value.field_value(field_names[1])
+    if not isinstance(first, QuantityValue) or not isinstance(second, QuantityValue):
+        return None
+    if (
+        first.value.dimension is not QuantityDimension.DISTANCE
+        or second.value.dimension is not QuantityDimension.DISTANCE
+    ):
+        return None
+    return first, second
+
+
+def _combine_quantities(
+    left: QuantityValue,
+    right: QuantityValue,
+    subtract: bool,
+) -> QuantityValue | None:
+    if left.value.dimension != right.value.dimension:
+        return None
+    left_value = left.value.value
+    right_value = right.value.value
+    numerator = left_value.numerator * right_value.denominator
+    adjustment = right_value.numerator * left_value.denominator
+    if subtract:
+        numerator -= adjustment
+    else:
+        numerator += adjustment
+    denominator = left_value.denominator * right_value.denominator
+    return QuantityValue(Quantity(left.value.dimension, ExactRational(numerator, denominator)))
 
 
 def _new_intrinsic_frame(

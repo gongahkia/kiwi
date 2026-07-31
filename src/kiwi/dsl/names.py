@@ -10,6 +10,7 @@ from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.intrinsics import list_intrinsic
 from kiwi.dsl.syntax import (
     BooleanLiteral,
+    BinaryExpression,
     CallExpression,
     Expression,
     FieldAccessExpression,
@@ -396,6 +397,25 @@ def _resolve_expression(
     if isinstance(expression, NegateExpression):
         return _resolve_expression(
             expression.operand,
+            environment,
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
+    if isinstance(expression, BinaryExpression):
+        next_symbol_value = _resolve_expression(
+            expression.left,
+            environment,
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
+        return _resolve_expression(
+            expression.right,
             environment,
             definition_id,
             next_symbol_value,

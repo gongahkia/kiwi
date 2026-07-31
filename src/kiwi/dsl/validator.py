@@ -10,6 +10,7 @@ from kiwi.dsl.bytecode import (
     BuildList,
     BuildRecord,
     BuildSome,
+    BinaryOperation,
     BytecodeFunction,
     BytecodeInstruction,
     BytecodeModule,
@@ -136,6 +137,7 @@ def _validate_instruction_operands(
             PushConstant,
             PushFunction,
             PushIntrinsic,
+            BinaryOperation,
             LoadLocal,
             StoreLocal,
             Negate,
@@ -278,6 +280,7 @@ _INSTRUCTION_TYPES = (
     PushConstant,
     PushFunction,
     PushIntrinsic,
+    BinaryOperation,
     LoadLocal,
     StoreLocal,
     Negate,
@@ -301,6 +304,8 @@ _INSTRUCTION_TYPES = (
 def _stack_effect(instruction: BytecodeInstruction, height: int) -> tuple[int, int]:
     if isinstance(instruction, (PushConstant, PushFunction, PushIntrinsic, LoadLocal)):
         return (0, height + 1)
+    if isinstance(instruction, BinaryOperation):
+        return (2, height - 1)
     if isinstance(instruction, StoreLocal):
         return (1, height - 1)
     if isinstance(instruction, Negate):

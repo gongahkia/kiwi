@@ -7,6 +7,7 @@ from kiwi.dsl.bytecode import (
     BuildList,
     BuildRecord,
     BuildSome,
+    BinaryOperation,
     BytecodeInstruction,
     BytecodeModule,
     Call,
@@ -32,6 +33,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
+from kiwi.dsl.operators import render_binary_operator
 from kiwi.dsl.types import render_type
 
 
@@ -90,6 +92,8 @@ def _format_instruction(instruction: BytecodeInstruction) -> str:
         return f"PUSH_FUNCTION {instruction.function_id.value}"
     if isinstance(instruction, PushIntrinsic):
         return f"PUSH_INTRINSIC {instruction.intrinsic.name}"
+    if isinstance(instruction, BinaryOperation):
+        return f"BINARY_OPERATION {render_binary_operator(instruction.operator)}"
     if isinstance(instruction, LoadLocal):
         return f"LOAD_LOCAL {instruction.slot.value}"
     if isinstance(instruction, StoreLocal):

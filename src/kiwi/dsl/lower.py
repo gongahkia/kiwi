@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from kiwi.dsl.core_ir import (
     CoreBoolean,
+    CoreBinary,
     CoreCall,
     CoreCapture,
     CoreDefinition,
@@ -36,6 +37,7 @@ from kiwi.dsl.ids import DefinitionId, ExpressionId
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.typed_ir import (
     TypedBooleanLiteral,
+    TypedBinaryExpression,
     TypedCallExpression,
     TypedDefinition,
     TypedDefinitionKind,
@@ -221,6 +223,16 @@ class _Lowerer:
             return CoreNegate(
                 expression_id,
                 self.lower_expression(expression.operand, definition_id),
+                expression.type_,
+                expression.span,
+            )
+        if isinstance(expression, TypedBinaryExpression):
+            return CoreBinary(
+                expression_id,
+                self.lower_expression(expression.left, definition_id),
+                expression.operator,
+                expression.operator_span,
+                self.lower_expression(expression.right, definition_id),
                 expression.type_,
                 expression.span,
             )

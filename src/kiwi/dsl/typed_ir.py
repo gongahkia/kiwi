@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import Identifier
 from kiwi.dsl.types import DslType
@@ -180,6 +181,18 @@ class TypedNegateExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedBinaryExpression:
+    """A checked exact domain operation with its operator provenance."""
+
+    left: TypedExpression
+    operator: BinaryOperator
+    operator_span: SourceSpan
+    right: TypedExpression
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedGroupExpression:
     """A parenthesised checked expression retaining its source span."""
 
@@ -254,6 +267,7 @@ type TypedExpression = (
     | TypedRecordExpression
     | TypedNameExpression
     | TypedNegateExpression
+    | TypedBinaryExpression
     | TypedGroupExpression
     | TypedCallExpression
     | TypedIntrinsicCallExpression
