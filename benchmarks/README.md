@@ -14,8 +14,8 @@ make benchmark-renderer FRAMES=1000
 
 The harness uses a deterministic fixture graphics boundary and font, fixed seed
 `31337`, integer `16667` microsecond frame deltas, the continuous-output scene, and
-both `120×40` and `240×80` grids. It measures a 60-frame warm-up followed by three
-independent 30-frame timing samples. Each sample separately measures one GC-stopped
+both `120×40` and `240×80` grids. It measures a 20-frame warm-up followed by three
+independent 5-frame timing samples. Each sample separately measures one GC-stopped
 steady-state frame for bytes allocated per frame. The small allocation window prevents
 the deliberately allocation-heavy full-grid Kinetic fixture from retaining an
 unbounded measurement buffer.

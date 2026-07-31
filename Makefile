@@ -3,8 +3,8 @@ STYLUA ?= stylua
 LOVE ?= love
 TEST_SEED ?= 20260730
 FRAMES ?= 1000
-EFFECT_FRAMES ?= 30
-WARMUP ?= 60
+EFFECT_FRAMES ?= 5
+WARMUP ?= 20
 SAMPLES ?= 3
 
 .PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run screenshot-scenarios test
