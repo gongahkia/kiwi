@@ -1476,19 +1476,24 @@ function host_mt:transform_cell(source, full_redraw)
   if type(full_redraw) ~= "boolean" then
     return config_error("effect full_redraw must be a boolean")
   end
-  local cell, cell_error = cell_snapshot(source, full_redraw)
-  if not cell then
+  local first_cell, cell_error = cell_snapshot(source, full_redraw)
+  if not first_cell then
     return nil, cell_error
   end
-  cell.frame_sequence = self.visual_frame.sequence
   local result = { offset_x = 0, offset_y = 0 }
   for _, entry in ipairs(self.visual_frame.entries) do
     if entry.enabled and entry.capabilities.cell_transform and entry.hooks.transform_cell then
-      local delivered, delivered_error = cell_snapshot(cell, false)
-      if not delivered then
-        return nil, delivered_error
+      local delivered = first_cell
+      if delivered then
+        first_cell = nil
+      else
+        local delivered_error
+        delivered, delivered_error = cell_snapshot(source, full_redraw)
+        if not delivered then
+          return nil, delivered_error
+        end
       end
-      delivered.frame_sequence = cell.frame_sequence
+      delivered.frame_sequence = self.visual_frame.sequence
       local transformed, transform_or_error = call_transform(self, entry, delivered)
       if not transformed then
         disable_entry(self, entry, "transform_cell", transform_or_error)
