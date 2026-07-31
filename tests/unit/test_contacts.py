@@ -133,6 +133,15 @@ def test_nearest_contact_uses_exact_planar_distance_then_contact_id() -> None:
                 7,
                 _DEFAULT_PROVENANCE,
             ),
+            ContactEstimate(
+                ContactId(4),
+                EntityId(2),
+                _position(0, 0),
+                WorldSubunits(100),
+                ContactConfidence(7_500),
+                7,
+                _DEFAULT_PROVENANCE,
+            ),
         ),
         lifecycle_tick=7,
     )
