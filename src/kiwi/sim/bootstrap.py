@@ -37,6 +37,7 @@ def build_initial_state(
             id_allocator=state.id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,
+            contacts=state.contacts,
             scheduled_events=queue,
             random_streams=state.random_streams,
         )
