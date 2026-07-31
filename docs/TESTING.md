@@ -181,7 +181,10 @@ The initial limit for a matching fixture is a regression of no more than 15% in 
 
 `renderer.snapshot.from_terminal` retains terminal screen, row, and cell references rather than constructing a full-grid presentation copy. Its unit test protects that boundary; renderer-owned glyph cache entries remain bounded separately.
 
-Visual regression tests may be added for stable environments, but should be limited and reviewed carefully.
+`make screenshot-scenarios` validates deterministic clean, CRT, Kinetic, and combined
+scenes without graphics failures. `docs/SCREENSHOTS.md` documents the manual capture
+command and metadata. CI pixel goldens are deferred until the graphics environment is
+pinned; screenshots are not terminal-correctness pass/fail inputs today.
 
 ## 7. Performance tests
 
