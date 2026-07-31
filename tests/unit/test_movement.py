@@ -6,10 +6,10 @@ from typing import cast
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import EntityId
+from kiwi.domain.ids import EntityId, IdAllocator
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
-from kiwi.sim.map_geometry import MapGeometry
+from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.movement import OPERATIVE_MOVE_SPEED_PER_TICK, progress_movement_actions
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.reducer import reduce_one_tick
@@ -25,6 +25,15 @@ def map_geometry() -> MapGeometry:
         WorldRectangle(
             WorldSubunits(-5_000), WorldSubunits(-5_000), WorldSubunits(5_000), WorldSubunits(5_000)
         )
+    )
+
+
+def rectangle(minimum_x: int, minimum_y: int, maximum_x: int, maximum_y: int) -> WorldRectangle:
+    return WorldRectangle(
+        WorldSubunits(minimum_x),
+        WorldSubunits(minimum_y),
+        WorldSubunits(maximum_x),
+        WorldSubunits(maximum_y),
     )
 
 
@@ -81,6 +90,73 @@ def test_active_reducer_tick_progresses_movement_before_advancing_clock() -> Non
     assert result.state.tick == 1
     assert result.state.entities[0].position == position(100, 0)
     assert result.state.movement_actions[0].segment_progress == 100
+
+
+def test_movement_holds_when_the_swept_disc_hits_an_obstacle_or_map_boundary() -> None:
+    obstacle_id, allocator = IdAllocator().allocate_obstacle()
+    geometry = MapGeometry(
+        rectangle(-2_000, -2_000, 2_000, 2_000),
+        (MapObstacle(obstacle_id, rectangle(0, -10, 1, 10)),),
+    )
+    start = position(-500, 0)
+    goal = position(500, 0)
+    state, entity = add_entity(MissionState(map_geometry=geometry, id_allocator=allocator), start)
+    path = Path(PathQuery(geometry, start, goal), (start, goal))
+    state = replace(state, movement_actions=(MovementAction(entity.entity_id, path),))
+
+    after_first = progress_movement_actions(state)
+    after_block = progress_movement_actions(after_first)
+
+    assert after_first.entities[0].position == position(-400, 0)
+    assert after_block.entities[0].position == position(-400, 0)
+    assert after_block.movement_actions == after_first.movement_actions
+
+    boundary_geometry = MapGeometry(rectangle(-1_000, -1_000, 1_000, 1_000))
+    boundary_start = position(-750, 0)
+    boundary_goal = position(-650, 0)
+    boundary_state, boundary_entity = add_entity(
+        MissionState(map_geometry=boundary_geometry), boundary_start
+    )
+    boundary_path = Path(
+        PathQuery(boundary_geometry, boundary_start, boundary_goal),
+        (boundary_start, boundary_goal),
+    )
+    boundary_state = replace(
+        boundary_state,
+        movement_actions=(MovementAction(boundary_entity.entity_id, boundary_path),),
+    )
+
+    assert progress_movement_actions(boundary_state) == boundary_state
+
+
+def test_entity_id_order_bounds_movement_separation() -> None:
+    geometry = map_geometry()
+    first_start = position(-1_000, 0)
+    second_start = position(-100, 0)
+    state, first = add_entity(MissionState(map_geometry=geometry), first_start)
+    state, second = add_entity(state, second_start)
+    first_path = Path(
+        PathQuery(geometry, first_start, position(-800, 0)), (first_start, position(-800, 0))
+    )
+    second_path = Path(
+        PathQuery(geometry, second_start, position(-200, 0)), (second_start, position(-200, 0))
+    )
+    state = replace(
+        state,
+        movement_actions=(
+            MovementAction(first.entity_id, first_path),
+            MovementAction(second.entity_id, second_path),
+        ),
+    )
+
+    progressed = progress_movement_actions(state)
+
+    assert tuple(entity.position for entity in progressed.entities) == (
+        position(-900, 0),
+        position(-100, 0),
+    )
+    assert progressed.movement_actions[0].segment_progress == 100
+    assert progressed.movement_actions[1].segment_progress == 0
 
 
 @pytest.mark.parametrize(

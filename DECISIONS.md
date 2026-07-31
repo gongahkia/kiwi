@@ -242,6 +242,17 @@ through `4` are rejected with no compatibility decoder or migration because
 development state remains disposable. Collision and resulting events remain
 separate movement phases.
 
+### D-034: Movement collision uses exact swept discs and entity-ID priority
+
+Each attempted movement segment checks the operative's closed 350 millimetre
+disc against the closed map boundary and same-elevation obstacle rectangles
+using integer squared-distance comparisons. Same-elevation operative discs may
+not contact or overlap: their centre distance must exceed 700 millimetres. The
+resolver processes entity IDs ascending; a candidate checks accepted lower-ID
+trajectories and unprocessed entities at their current positions. A blocked
+candidate retains its prior action progress. This is a bounded deterministic
+avoidance rule, not crowd-dynamics simulation.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

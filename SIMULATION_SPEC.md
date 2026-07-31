@@ -415,14 +415,21 @@ advances. For a segment from `(x0, y0)` to `(x1, y1)`, progress uses
 `max(abs(x1-x0), abs(y1-y0))`; each coordinate is reconstructed with nearest
 integer rounding and ties away from zero. Reaching an intermediate waypoint
 starts the next segment at zero progress; the final waypoint removes the
-action. Collision, separation, and events are separate resolution phases.
+action.
+
+Each attempted segment sweeps the closed 350 millimetre disc against the map
+boundary and same-elevation obstacle rectangles using exact integer
+squared-distance comparisons. A disc may neither contact the boundary nor an
+obstacle. Movement resolves entity IDs ascending. Each candidate must remain
+more than 700 millimetres from every accepted lower-ID trajectory and every
+unprocessed entity's current position on the same elevation; a blocked
+candidate retains its prior position and action progress. Collision and
+separation emit no event until the movement-event phase.
 
 Subsequent local movement phases resolve:
 
 - desired velocity;
 - acceleration limit;
-- obstacle collision;
-- operative separation;
 - occupancy contention;
 - stance and injury modifiers.
 
