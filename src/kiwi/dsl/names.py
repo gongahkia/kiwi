@@ -12,6 +12,7 @@ from kiwi.dsl.syntax import (
     CallExpression,
     Declaration,
     Expression,
+    FieldAccessExpression,
     GroupExpression,
     Identifier,
     IfExpression,
@@ -21,6 +22,8 @@ from kiwi.dsl.syntax import (
     NegateExpression,
     Parameter,
     QuantityLiteral,
+    RecordExpression,
+    RecordTypeDeclaration,
     StringLiteral,
     SurfaceModule,
 )
@@ -115,9 +118,14 @@ class ResolutionResult:
 
 def resolve(module: SurfaceModule) -> ResolutionResult:
     """Resolve module value names in canonical declaration and expression order."""
+    value_declarations = tuple(
+        declaration
+        for declaration in module.declarations
+        if not isinstance(declaration, RecordTypeDeclaration)
+    )
     definitions = tuple(
         ResolvedDefinition(DefinitionId(index), SymbolId(index), declaration)
-        for index, declaration in enumerate(module.declarations)
+        for index, declaration in enumerate(value_declarations)
     )
     bindings = [
         ResolvedBinding(
@@ -227,6 +235,18 @@ def _resolve_expression(
 ) -> int:
     if isinstance(expression, (IntegerLiteral, BooleanLiteral, StringLiteral, QuantityLiteral)):
         return next_symbol_value
+    if isinstance(expression, RecordExpression):
+        for field in expression.fields:
+            next_symbol_value = _resolve_expression(
+                field.value,
+                environment,
+                definition_id,
+                next_symbol_value,
+                bindings,
+                references,
+                diagnostics,
+            )
+        return next_symbol_value
     if isinstance(expression, NameExpression):
         binding = environment.lookup(expression.name.text)
         if binding is None:
@@ -255,6 +275,16 @@ def _resolve_expression(
     if isinstance(expression, GroupExpression):
         return _resolve_expression(
             expression.expression,
+            environment,
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
+    if isinstance(expression, FieldAccessExpression):
+        return _resolve_expression(
+            expression.record,
             environment,
             definition_id,
             next_symbol_value,

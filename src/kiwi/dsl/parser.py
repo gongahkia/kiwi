@@ -14,6 +14,7 @@ from kiwi.dsl.syntax import (
     CallExpression,
     Declaration,
     Expression,
+    FieldAccessExpression,
     FunctionDeclaration,
     GroupExpression,
     Identifier,
@@ -25,6 +26,10 @@ from kiwi.dsl.syntax import (
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
+    RecordExpression,
+    RecordFieldExpression,
+    RecordTypeDeclaration,
+    RecordTypeField,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -77,7 +82,7 @@ class _Parser:
         """Parse zero or more top-level declarations."""
         declarations: list[Declaration] = []
         while not self.at_end:
-            if self.current.kind in {TokenKind.POLICY, TokenKind.FN}:
+            if self.current.kind in {TokenKind.POLICY, TokenKind.FN, TokenKind.TYPE}:
                 declaration = self.parse_declaration()
                 if declaration is not None:
                     declarations.append(declaration)
@@ -86,7 +91,7 @@ class _Parser:
             else:
                 self.error(
                     ParserDiagnosticCode.EXPECTED_DECLARATION,
-                    "expected a 'policy' or 'fn' declaration",
+                    "expected a 'policy', 'fn', or 'type' declaration",
                 )
                 self.synchronise_declaration()
         return SurfaceModule(
@@ -97,6 +102,8 @@ class _Parser:
     def parse_declaration(self) -> Declaration | None:
         """Parse one policy or named-function declaration."""
         keyword = self.advance()
+        if keyword.kind is TokenKind.TYPE:
+            return self.parse_record_type_declaration(keyword)
         name = self.parse_identifier()
         if name is None:
             return None
@@ -121,6 +128,41 @@ class _Parser:
         if keyword.kind is TokenKind.POLICY:
             return PolicyDeclaration(name, parameters, return_annotation, body, span)
         return FunctionDeclaration(name, parameters, return_annotation, body, span)
+
+    def parse_record_type_declaration(self, keyword: Token) -> RecordTypeDeclaration | None:
+        """Parse `type Name = { field: Type, ... }`."""
+        name = self.parse_identifier()
+        if name is None:
+            return None
+        if self.expect(TokenKind.EQUALS, "'='") is None:
+            return None
+        if self.expect(TokenKind.LEFT_BRACE, "'{'") is None:
+            return None
+        fields = self.parse_record_type_fields()
+        if fields is None:
+            return None
+        closing = self.expect(TokenKind.RIGHT_BRACE, "'}'")
+        if closing is None:
+            return None
+        return RecordTypeDeclaration(name, fields, _join_spans(keyword.span, closing.span))
+
+    def parse_record_type_fields(self) -> tuple[RecordTypeField, ...] | None:
+        """Parse fields inside a record type declaration."""
+        fields: list[RecordTypeField] = []
+        if self.current.kind is TokenKind.RIGHT_BRACE:
+            return ()
+        while True:
+            name = self.parse_identifier()
+            if name is None:
+                return None
+            if self.expect(TokenKind.COLON, "':'") is None:
+                return None
+            annotation = self.parse_type_reference()
+            if annotation is None:
+                return None
+            fields.append(RecordTypeField(name, annotation, _join_spans(name.span, annotation.span)))
+            if not self.match(TokenKind.COMMA):
+                return tuple(fields)
 
     def parse_parameters(self) -> tuple[Parameter, ...] | None:
         """Parse a comma-separated parameter list without its delimiters."""
@@ -205,18 +247,31 @@ class _Parser:
         expression = self.parse_unary_expression()
         if expression is None:
             return None
-        while self.match(TokenKind.LEFT_PAREN):
-            arguments = self.parse_arguments()
-            if arguments is None:
-                return None
-            closing = self.expect(TokenKind.RIGHT_PAREN, "')'")
-            if closing is None:
-                return None
-            expression = CallExpression(
-                expression,
-                arguments,
-                _join_spans(expression.span, closing.span),
-            )
+        while True:
+            if self.match(TokenKind.LEFT_PAREN):
+                arguments = self.parse_arguments()
+                if arguments is None:
+                    return None
+                closing = self.expect(TokenKind.RIGHT_PAREN, "')'")
+                if closing is None:
+                    return None
+                expression = CallExpression(
+                    expression,
+                    arguments,
+                    _join_spans(expression.span, closing.span),
+                )
+                continue
+            if self.match(TokenKind.DOT):
+                field = self.parse_identifier()
+                if field is None:
+                    return None
+                expression = FieldAccessExpression(
+                    expression,
+                    field,
+                    _join_spans(expression.span, field.span),
+                )
+                continue
+            break
         return expression
 
     def parse_arguments(self) -> tuple[Expression, ...] | None:
@@ -266,6 +321,8 @@ class _Parser:
         elif token.kind is TokenKind.IDENTIFIER:
             name = self.parse_identifier()
             if name is not None:
+                if self.current.kind is TokenKind.LEFT_BRACE:
+                    return self.parse_record_expression(name)
                 return NameExpression(name, name.span)
         elif token.kind is TokenKind.LEFT_PAREN:
             opening = self.advance()
@@ -278,6 +335,28 @@ class _Parser:
             return GroupExpression(expression, _join_spans(opening.span, closing.span))
         self.error(ParserDiagnosticCode.EXPECTED_EXPRESSION, "expected an expression")
         return None
+
+    def parse_record_expression(self, type_name: Identifier) -> RecordExpression | None:
+        """Parse `Type { field = expression, ... }`."""
+        self.advance()
+        fields: list[RecordFieldExpression] = []
+        if self.current.kind is not TokenKind.RIGHT_BRACE:
+            while True:
+                name = self.parse_identifier()
+                if name is None:
+                    return None
+                if self.expect(TokenKind.EQUALS, "'='") is None:
+                    return None
+                value = self.parse_expression()
+                if value is None:
+                    return None
+                fields.append(RecordFieldExpression(name, value, _join_spans(name.span, value.span)))
+                if not self.match(TokenKind.COMMA):
+                    break
+        closing = self.expect(TokenKind.RIGHT_BRACE, "'}'")
+        if closing is None:
+            return None
+        return RecordExpression(type_name, tuple(fields), _join_spans(type_name.span, closing.span))
 
     def parse_identifier(self) -> Identifier | None:
         """Parse one identifier in value or type position."""
@@ -309,7 +388,11 @@ class _Parser:
 
     def synchronise_declaration(self) -> None:
         """Discard malformed declaration input until a stable top-level boundary."""
-        while not self.at_end and self.current.kind not in {TokenKind.POLICY, TokenKind.FN}:
+        while not self.at_end and self.current.kind not in {
+            TokenKind.POLICY,
+            TokenKind.FN,
+            TokenKind.TYPE,
+        }:
             self.advance()
 
     def error(self, code: ParserDiagnosticCode, message: str) -> None:
