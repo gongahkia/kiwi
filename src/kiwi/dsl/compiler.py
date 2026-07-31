@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import (
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
-    BinaryOperation,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -40,8 +40,8 @@ from kiwi.dsl.bytecode import (
     canonical_function_table,
 )
 from kiwi.dsl.core_ir import (
-    CoreBoolean,
     CoreBinary,
+    CoreBoolean,
     CoreCall,
     CoreDefinition,
     CoreExpression,

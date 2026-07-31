@@ -5,6 +5,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from kiwi.dsl.bytecode import (
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
@@ -32,6 +33,7 @@ from kiwi.dsl.bytecode import (
 )
 from kiwi.dsl.ids import ExpressionId, FunctionId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 
 
 def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
@@ -56,6 +58,7 @@ def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
         BuildList(2),
         BuildClosure(FunctionId(0), 1),
         PushIntrinsic(IntrinsicKind.LIST_MAP),
+        BinaryOperation(BinaryOperator.ADD),
     )
 
     assert tuple(instruction.opcode for instruction in instructions) == tuple(Opcode)
@@ -82,3 +85,5 @@ def test_instruction_operands_reject_invalid_indices_and_counts() -> None:
         BuildClosure(FunctionId(0), -1)
     with pytest.raises(ValueError, match="intrinsic kind"):
         PushIntrinsic(1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="binary operator"):
+        BinaryOperation(1)  # type: ignore[arg-type]

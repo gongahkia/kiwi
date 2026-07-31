@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from kiwi.dsl.bytecode import (
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
-    BinaryOperation,
     BytecodeInstruction,
     BytecodeModule,
     Call,
@@ -26,6 +26,7 @@ from kiwi.dsl.bytecode import (
     StoreLocal,
     UnwrapSome,
 )
+from kiwi.dsl.operators import render_binary_operator
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
@@ -33,7 +34,6 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
-from kiwi.dsl.operators import render_binary_operator
 from kiwi.dsl.types import render_type
 
 

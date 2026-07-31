@@ -11,8 +11,8 @@ from kiwi.dsl.lexer import LexResult
 from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceSpan
 from kiwi.dsl.syntax import (
-    BooleanLiteral,
     BinaryExpression,
+    BooleanLiteral,
     CallExpression,
     Declaration,
     Expression,

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from kiwi.dsl.core_ir import (
-    CoreBoolean,
     CoreBinary,
+    CoreBoolean,
     CoreCall,
     CoreDefinition,
     CoreExpression,

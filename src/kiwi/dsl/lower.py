@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.core_ir import (
-    CoreBoolean,
     CoreBinary,
+    CoreBoolean,
     CoreCall,
     CoreCapture,
     CoreDefinition,
@@ -36,8 +36,8 @@ from kiwi.dsl.core_ir import (
 from kiwi.dsl.ids import DefinitionId, ExpressionId
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.typed_ir import (
-    TypedBooleanLiteral,
     TypedBinaryExpression,
+    TypedBooleanLiteral,
     TypedCallExpression,
     TypedDefinition,
     TypedDefinitionKind,

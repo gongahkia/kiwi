@@ -118,6 +118,9 @@ that many stack values in source order. Closures use `BUILD_CLOSURE` opcode
 version-1 modules reject it. `PUSH_INTRINSIC` opcode `20` encodes one closed
 one-byte List intrinsic identifier and is likewise rejected by version 1;
 `CALL` dispatches that identifier without a Python callable or dynamic lookup.
+`BINARY_OPERATION` opcode `21` encodes one closed one-byte exact domain operator
+and is likewise rejected by version 1. It operates only on statically checked
+exact quantity and coordinate records; it does not encode host callables.
 Record fields are encoded as an ordered field-name sequence and become lexically
 ordered immutable runtime values. The payload
 decoder has explicit size, collection, text, integer, and type-nesting limits,
