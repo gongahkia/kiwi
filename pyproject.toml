@@ -23,6 +23,9 @@ kiwi = "kiwi.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"kiwi.render" = ["assets/*.json", "assets/*.ttf", "assets/*.txt"]
+
 [tool.pytest.ini_options]
 addopts = ["-ra"]
 testpaths = ["tests"]

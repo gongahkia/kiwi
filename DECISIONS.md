@@ -261,6 +261,14 @@ start, attempted, and result positions; block events additionally retain the
 stable map-collision or operative-separation reason. Event IDs allocate after
 earlier same-tick command, schedule, and policy events in reducer phase order.
 
+### D-036: Bundle BigBlue Terminal as the initial bitmap font
+
+Milestone 7 bundles the BigBlueTerm437 Nerd Font Mono release v3.4.0 at its
+native 8x12 pixel height. The user approved its CC-BY-SA-4.0 terms. The exact
+licence, attribution, release URL, and SHA-256 remain in the packaged render
+asset manifest; rendering disables antialiasing and only applies integer
+unfiltered scaling. No font asset is authoritative.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

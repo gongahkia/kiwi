@@ -514,6 +514,11 @@ The current tactical renderer draws only copied map geometry, operative
 positions, planned paths, and an optional display objective marker; the marker
 does not define objective mechanics.
 
+`kiwi.render.bitmap_font` loads bundled BigBlue Terminal (native 8x12) with
+antialiasing disabled, then uses integer unfiltered scaling. Its CC-BY-SA-4.0
+licence, attribution, release URL, and SHA-256 are retained in the packaged
+render asset manifest.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

@@ -142,4 +142,4 @@ bytecode decodes with its original semantics but cannot contain version-2
 values, types, or instructions. Check the complete version-2 language example
 with `uv run --extra dev python -m kiwi.cli check examples/policies/m4-language.dtr`.
 
-Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated.
+Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated. The bundled BigBlue Terminal font is CC-BY-SA-4.0; its exact licence, attribution, source release, and SHA-256 are in `kiwi.render`'s packaged asset manifest.
