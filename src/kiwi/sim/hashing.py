@@ -142,9 +142,14 @@ def decode_canonical_state(data: bytes) -> StateDecodeResult:
 
 def hash_canonical_state(state: MissionState) -> StateHash:
     """Hash canonical state bytes with the fixed BLAKE2b-256 digest policy."""
-    return StateHash(
-        blake2b(encode_canonical_state(state), digest_size=STATE_HASH_DIGEST_BYTES).digest()
-    )
+    return hash_canonical_state_bytes(encode_canonical_state(state))
+
+
+def hash_canonical_state_bytes(data: bytes) -> StateHash:
+    """Hash bytes already produced by the canonical mission-state encoder."""
+    if not isinstance(data, bytes):
+        raise TypeError("canonical state bytes must be bytes")
+    return StateHash(blake2b(data, digest_size=STATE_HASH_DIGEST_BYTES).digest())
 
 
 def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> None:

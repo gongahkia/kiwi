@@ -487,6 +487,9 @@ Include:
 ### 22.1 Replay checkpoints
 
 Periodic canonical snapshots allow faster seeking and divergence analysis.
+An authority snapshot carries the exact canonical state payload, its tick, and
+the BLAKE2b-256 state hash. Restoration rejects malformed payloads and tick or
+hash mismatches before returning mission state.
 
 ### 22.2 Presentation snapshots
 
