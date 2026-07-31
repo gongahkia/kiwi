@@ -346,6 +346,7 @@ def _check_expression(
             symbol_types,
             diagnostics,
             record_schemas,
+            expected_type,
         )
         if inner is None:
             return None
@@ -366,14 +367,11 @@ def _check_expression(
             diagnostics,
             record_schemas,
         )
-        arguments = tuple(
-            _check_expression(argument, resolution, symbol_types, diagnostics, record_schemas)
-            for argument in expression.arguments
-        )
-        if callee is None or any(argument is None for argument in arguments):
+        if callee is None:
             return None
-        typed_arguments = tuple(argument for argument in arguments if argument is not None)
         if not isinstance(callee.type_, FunctionType):
+            for argument in expression.arguments:
+                _check_expression(argument, resolution, symbol_types, diagnostics, record_schemas)
             diagnostics.append(
                 Diagnostic(
                     "E403_INVALID_CALL",
@@ -384,7 +382,9 @@ def _check_expression(
                 )
             )
             return None
-        if len(typed_arguments) != len(callee.type_.parameters):
+        if len(expression.arguments) != len(callee.type_.parameters):
+            for argument in expression.arguments:
+                _check_expression(argument, resolution, symbol_types, diagnostics, record_schemas)
             diagnostics.append(
                 Diagnostic(
                     "E403_INVALID_CALL",
@@ -396,13 +396,28 @@ def _check_expression(
                 )
             )
             return None
-        has_mismatch = False
+        arguments = tuple(
+            _check_expression(
+                argument,
+                resolution,
+                symbol_types,
+                diagnostics,
+                record_schemas,
+                parameter_type,
+            )
+            for argument, parameter_type in zip(
+                expression.arguments,
+                callee.type_.parameters,
+                strict=True,
+            )
+        )
+        if any(argument is None for argument in arguments):
+            return None
+        typed_arguments = tuple(argument for argument in arguments if argument is not None)
         for argument, parameter_type in zip(typed_arguments, callee.type_.parameters, strict=True):
             if argument.type_ != parameter_type:
                 diagnostics.append(_type_mismatch(argument.span, parameter_type, argument.type_))
-                has_mismatch = True
-        if has_mismatch:
-            return None
+                return None
         return TypedCallExpression(
             callee, typed_arguments, callee.type_.return_type, expression.span
         )
