@@ -6,13 +6,18 @@ local fs_mt = {}
 fs_mt.__index = fs_mt
 
 VirtualFS.contract = {
+  append_file = "append_file(path, bytes) -> true | nil, error",
   change_directory = "change_directory(path) -> true | nil, error",
   constructor = "new(options?) -> virtual_filesystem | nil, error",
   get_cwd = "get_cwd() -> canonical_path | nil, error",
   list = "list(path, options?) -> byte_string[] | nil, error",
+  make_directory = "make_directory(path) -> true | nil, error",
   read_file = "read_file(path, options?) -> byte_string | nil, error",
+  remove = "remove(path) -> true | nil, error",
+  rename = "rename(source, destination) -> true | nil, error",
   stat = "stat(path) -> virtual_filesystem_node | nil, error",
   status = "status() -> virtual_filesystem_status",
+  write_file = "write_file(path, bytes) -> true | nil, error",
 }
 
 local default_limits = {
@@ -386,6 +391,82 @@ local function lookup(fs, resolved)
   return node
 end
 
+local function parent_and_name(fs, resolved)
+  local component_count = #resolved.components
+  if component_count == 0 then
+    return command_error("virtual filesystem root operation is forbidden", {
+      canonical_path = resolved.canonical_path,
+      reason = "root_operation_forbidden",
+    })
+  end
+  local parent_components = {}
+  for index = 1, component_count - 1 do
+    parent_components[index] = resolved.components[index]
+  end
+  local parent, parent_error = lookup_components(fs, parent_components)
+  if not parent then
+    return nil, parent_error
+  end
+  if parent.kind ~= "directory" then
+    return command_error("virtual filesystem destination parent is not a directory", {
+      canonical_path = node_path(parent_components),
+      reason = "not_a_directory",
+    })
+  end
+  return parent, resolved.components[component_count]
+end
+
+local function child_capacity(parent, limits)
+  if parent.child_count >= limits.max_directory_entries then
+    return command_error("virtual filesystem directory entry limit is reached", {
+      limit = limits.max_directory_entries,
+      reason = "directory_full",
+    })
+  end
+  return true
+end
+
+local function valid_data(bytes)
+  if type(bytes) ~= "string" then
+    return command_error(
+      "virtual filesystem file data must be a byte string",
+      { reason = "resource_limit" }
+    )
+  end
+  return bytes
+end
+
+local function check_file_size(fs, byte_count)
+  if byte_count > fs.limits.max_file_bytes then
+    return command_error("virtual filesystem file exceeds its byte limit", {
+      limit = fs.limits.max_file_bytes,
+      reason = "file_too_large",
+    })
+  end
+  return true
+end
+
+local function check_replacement_bytes(fs, previous_bytes, next_bytes)
+  local retained_without_previous = fs.retained_file_bytes - previous_bytes
+  return check_increment(
+    retained_without_previous,
+    next_bytes,
+    fs.limits.max_total_file_bytes,
+    "filesystem_full",
+    "virtual filesystem byte limit is reached"
+  )
+end
+
+local function is_ancestor(candidate, node)
+  while node do
+    if node == candidate then
+      return true
+    end
+    node = node.parent
+  end
+  return false
+end
+
 local function options(value, allowed, message)
   if value == nil then
     return {}
@@ -592,6 +673,268 @@ function fs_mt:read_file(path, configuration)
     })
   end
   return node.data:sub(offset + 1, offset + valid_length)
+end
+
+function fs_mt:write_file(path, bytes)
+  local live, live_error = check_live(self)
+  if not live then
+    return nil, live_error
+  end
+  local data, data_error = valid_data(bytes)
+  if not data then
+    return nil, data_error
+  end
+  local size_okay, size_error = check_file_size(self, #data)
+  if not size_okay then
+    return nil, size_error
+  end
+  local resolved, resolve_error = resolve(self, path)
+  if not resolved then
+    return nil, resolve_error
+  end
+  if resolved.trailing_slash then
+    return command_error("virtual filesystem trailing slash requires a directory", {
+      canonical_path = resolved.canonical_path,
+      reason = "not_a_directory",
+    })
+  end
+  local parent, name_or_error = parent_and_name(self, resolved)
+  if not parent then
+    return nil, name_or_error
+  end
+  local name = name_or_error
+  local previous = parent.children[name]
+  if previous then
+    if previous.kind ~= "file" then
+      return command_error("virtual filesystem write target is a directory", {
+        canonical_path = resolved.canonical_path,
+        reason = "is_a_directory",
+      })
+    end
+    local previous_bytes = #previous.data
+    local bytes_okay, bytes_error = check_replacement_bytes(self, previous_bytes, #data)
+    if not bytes_okay then
+      return nil, bytes_error
+    end
+    previous.data = copy_string(data)
+    self.retained_file_bytes = self.retained_file_bytes - previous_bytes + #data
+    return true
+  end
+  local entry_okay, entry_error = child_capacity(parent, self.limits)
+  if not entry_okay then
+    return nil, entry_error
+  end
+  local node_okay, node_error = add_node(self, "file", #data)
+  if not node_okay then
+    return nil, node_error
+  end
+  parent.children[name] = new_file(parent, name, data)
+  parent.child_count = parent.child_count + 1
+  return true
+end
+
+function fs_mt:append_file(path, bytes)
+  local live, live_error = check_live(self)
+  if not live then
+    return nil, live_error
+  end
+  local data, data_error = valid_data(bytes)
+  if not data then
+    return nil, data_error
+  end
+  local resolved, resolve_error = resolve(self, path)
+  if not resolved then
+    return nil, resolve_error
+  end
+  local node, lookup_error = lookup(self, resolved)
+  if not node then
+    return nil, lookup_error
+  end
+  if node.kind ~= "file" then
+    return command_error("virtual filesystem append target is a directory", {
+      canonical_path = resolved.canonical_path,
+      reason = "is_a_directory",
+    })
+  end
+  if #data == 0 then
+    return true
+  end
+  if #data > self.limits.max_file_bytes - #node.data then
+    return command_error("virtual filesystem file exceeds its byte limit", {
+      limit = self.limits.max_file_bytes,
+      reason = "file_too_large",
+    })
+  end
+  local bytes_okay, bytes_error = check_increment(
+    self.retained_file_bytes,
+    #data,
+    self.limits.max_total_file_bytes,
+    "filesystem_full",
+    "virtual filesystem byte limit is reached"
+  )
+  if not bytes_okay then
+    return nil, bytes_error
+  end
+  node.data = node.data .. data
+  self.retained_file_bytes = self.retained_file_bytes + #data
+  return true
+end
+
+function fs_mt:make_directory(path)
+  local live, live_error = check_live(self)
+  if not live then
+    return nil, live_error
+  end
+  local resolved, resolve_error = resolve(self, path)
+  if not resolved then
+    return nil, resolve_error
+  end
+  local parent, name_or_error = parent_and_name(self, resolved)
+  if not parent then
+    return nil, name_or_error
+  end
+  local name = name_or_error
+  local existing = parent.children[name]
+  if existing then
+    if resolved.trailing_slash and existing.kind ~= "directory" then
+      return command_error("virtual filesystem trailing slash requires a directory", {
+        canonical_path = resolved.canonical_path,
+        reason = "not_a_directory",
+      })
+    end
+    return command_error("virtual filesystem target already exists", {
+      canonical_path = resolved.canonical_path,
+      reason = "already_exists",
+    })
+  end
+  local entry_okay, entry_error = child_capacity(parent, self.limits)
+  if not entry_okay then
+    return nil, entry_error
+  end
+  local node_okay, node_error = add_node(self, "directory", 0)
+  if not node_okay then
+    return nil, node_error
+  end
+  parent.children[name] = new_directory(parent, name)
+  parent.child_count = parent.child_count + 1
+  return true
+end
+
+function fs_mt:remove(path)
+  local live, live_error = check_live(self)
+  if not live then
+    return nil, live_error
+  end
+  local resolved, resolve_error = resolve(self, path)
+  if not resolved then
+    return nil, resolve_error
+  end
+  local node, lookup_error = lookup(self, resolved)
+  if not node then
+    return nil, lookup_error
+  end
+  if node == self.root then
+    return command_error("virtual filesystem root cannot be removed", {
+      canonical_path = resolved.canonical_path,
+      reason = "root_operation_forbidden",
+    })
+  end
+  if is_ancestor(node, self.cwd_node) then
+    return command_error("virtual filesystem cwd or ancestor cannot be removed", {
+      canonical_path = resolved.canonical_path,
+      reason = "cwd_operation_forbidden",
+    })
+  end
+  if node.kind == "directory" and node.child_count ~= 0 then
+    return command_error("virtual filesystem directory is not empty", {
+      canonical_path = resolved.canonical_path,
+      reason = "directory_not_empty",
+    })
+  end
+  local parent = node.parent
+  parent.children[node.name] = nil
+  parent.child_count = parent.child_count - 1
+  self.nodes = self.nodes - 1
+  if node.kind == "directory" then
+    self.directories = self.directories - 1
+    node.children = nil
+  else
+    self.files = self.files - 1
+    self.retained_file_bytes = self.retained_file_bytes - #node.data
+    node.data = nil
+  end
+  node.parent = nil
+  return true
+end
+
+function fs_mt:rename(source, destination)
+  local live, live_error = check_live(self)
+  if not live then
+    return nil, live_error
+  end
+  local source_path, source_error = resolve(self, source)
+  if not source_path then
+    return nil, source_error
+  end
+  local source_node, source_lookup_error = lookup(self, source_path)
+  if not source_node then
+    return nil, source_lookup_error
+  end
+  if source_node == self.root then
+    return command_error("virtual filesystem root cannot be renamed", {
+      canonical_path = source_path.canonical_path,
+      reason = "root_operation_forbidden",
+    })
+  end
+  local destination_path, destination_error = resolve(self, destination)
+  if not destination_path then
+    return nil, destination_error
+  end
+  local destination_parent, name_or_error = parent_and_name(self, destination_path)
+  if not destination_parent then
+    return nil, name_or_error
+  end
+  local destination_name = name_or_error
+  local destination_node = destination_parent.children[destination_name]
+  if destination_node then
+    if destination_path.trailing_slash and destination_node.kind ~= "directory" then
+      return command_error("virtual filesystem trailing slash requires a directory", {
+        canonical_path = destination_path.canonical_path,
+        reason = "not_a_directory",
+      })
+    end
+    return command_error("virtual filesystem rename destination already exists", {
+      canonical_path = destination_path.canonical_path,
+      reason = "already_exists",
+    })
+  end
+  if destination_path.trailing_slash and source_node.kind ~= "directory" then
+    return command_error("virtual filesystem trailing slash requires a directory", {
+      canonical_path = destination_path.canonical_path,
+      reason = "not_a_directory",
+    })
+  end
+  if source_node.kind == "directory" and is_ancestor(source_node, destination_parent) then
+    return command_error("virtual filesystem directory cannot move into itself", {
+      canonical_path = destination_path.canonical_path,
+      reason = "invalid_move",
+    })
+  end
+  if destination_parent ~= source_node.parent then
+    local entry_okay, entry_error = child_capacity(destination_parent, self.limits)
+    if not entry_okay then
+      return nil, entry_error
+    end
+  end
+  local source_parent = source_node.parent
+  source_parent.children[source_node.name] = nil
+  source_parent.child_count = source_parent.child_count - 1
+  destination_parent.children[destination_name] = source_node
+  destination_parent.child_count = destination_parent.child_count + 1
+  source_node.name = copy_string(destination_name)
+  source_node.parent = destination_parent
+  self.cwd_components = components_for_node(self.cwd_node)
+  return true
 end
 
 function fs_mt:get_cwd()
