@@ -41,6 +41,14 @@ The runtime:
 
 The language cannot directly observe Python, pygame, files, network, wall time, or unrecorded randomness.
 
+At the policy boundary, a caller supplies a closed nominal memory schema with
+lexically ordered field names and data types. `Decision` is a closed record
+with exactly `memory` and `intentions` fields: `memory` must validate against
+that schema and `intentions` must be a bounded list. Function values are not
+valid persistent-memory fields. Capability-specific intention variants are
+validated by the simulation layer once they exist; this language boundary does
+not resolve or execute an intention.
+
 ## 4. Language layers
 
 ### 4.1 Surface language
@@ -994,6 +1002,11 @@ the instruction being executed. Entry and pre-execution validation faults have
 no instruction source entry.
 
 Normal well-typed source should make most faults impossible. Faults remain necessary for corrupted bytecode, content mismatch, or implementation defects.
+
+`R007_MEMORY_SHAPE` identifies a memory record with a wrong nominal type,
+field set, or field value. `R008_INTENTION_SHAPE` identifies a non-`Decision`
+result, a decision field-set mismatch, or a non-list `intentions` field. Both
+return a deterministic field path where one is available.
 
 ## 20. Fallback behaviour
 
