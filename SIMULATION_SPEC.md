@@ -294,6 +294,11 @@ models exist. A malformed `Wait` record returns a stable `I001` through `I004`
 validation code; policy-result and VM failures retain a structured `P001`
 through `P003` result for later deterministic fallback.
 
+`Wait` requires the source-linked `wait` capability. Each policy binding has
+an immutable lexically ordered set of available capabilities. A missing
+declared requirement prevents VM execution and records `P004_CAPABILITY` with
+the requirement span; decoded requests repeat the same availability check.
+
 ### 11.3 Arbitration
 
 Intentions compete within action channels, for example:

@@ -5,7 +5,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import FunctionTable, FunctionTableEntry
-from kiwi.dsl.core_ir import CoreDefinitionKind, CoreModule
+from kiwi.dsl.core_ir import (
+    CoreBinary,
+    CoreCall,
+    CoreDefinitionKind,
+    CoreExpression,
+    CoreFieldAccess,
+    CoreIf,
+    CoreIntrinsicCall,
+    CoreLambda,
+    CoreLet,
+    CoreList,
+    CoreMatch,
+    CoreMatchNoneArm,
+    CoreMatchSomeArm,
+    CoreModule,
+    CoreNegate,
+    CoreRecord,
+    CoreSome,
+)
 from kiwi.dsl.ids import DefinitionId, FunctionId
 from kiwi.dsl.source import SourceSpan
 
@@ -27,6 +45,9 @@ class CapabilityId:
             or self.value != self.value.lower()
         ):
             raise ValueError("capability ID must be a non-empty lowercase ASCII identifier")
+
+
+WAIT_CAPABILITY = CapabilityId("wait")
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,17 +115,69 @@ class CapabilityManifest:
             raise ValueError("capability manifest entries must be unique and function-ID ordered")
 
 
-def empty_capability_manifest(
-    module: CoreModule, function_table: FunctionTable
-) -> CapabilityManifest:
-    """Create the M4 empty requirements manifest for canonical policy entries."""
+def capability_manifest(module: CoreModule, function_table: FunctionTable) -> CapabilityManifest:
+    """Create source-linked capability requirements for canonical policy entries."""
     entries: list[EntryPointCapabilities] = []
     for definition in sorted(module.definitions, key=lambda item: item.definition_id.value):
         if definition.kind is not CoreDefinitionKind.POLICY:
             continue
         function_entry = _function_entry_for_definition(function_table, definition.definition_id)
-        entries.append(EntryPointCapabilities(function_entry.function_id, function_entry.name))
+        entries.append(
+            EntryPointCapabilities(
+                function_entry.function_id,
+                function_entry.name,
+                _requirements_for_expression(definition.body),
+            )
+        )
     return CapabilityManifest(CAPABILITY_MANIFEST_VERSION, tuple(entries))
+
+
+def _requirements_for_expression(expression: CoreExpression) -> tuple[CapabilityRequirement, ...]:
+    for candidate in _walk_expressions(expression):
+        if isinstance(candidate, CoreRecord) and candidate.type_name == "Wait":
+            return (CapabilityRequirement(WAIT_CAPABILITY, candidate.span),)
+    return ()
+
+
+def _walk_expressions(expression: CoreExpression) -> tuple[CoreExpression, ...]:
+    descendants: list[CoreExpression] = [expression]
+    if isinstance(expression, CoreSome):
+        descendants.extend(_walk_expressions(expression.value))
+    elif isinstance(expression, CoreList):
+        for element in expression.elements:
+            descendants.extend(_walk_expressions(element))
+    elif isinstance(expression, CoreLambda):
+        descendants.extend(_walk_expressions(expression.body))
+    elif isinstance(expression, CoreMatch):
+        descendants.extend(_walk_expressions(expression.subject))
+        for arm in expression.arms:
+            if isinstance(arm, (CoreMatchSomeArm, CoreMatchNoneArm)):
+                descendants.extend(_walk_expressions(arm.body))
+    elif isinstance(expression, CoreRecord):
+        for field in expression.fields:
+            descendants.extend(_walk_expressions(field.value))
+    elif isinstance(expression, CoreNegate):
+        descendants.extend(_walk_expressions(expression.operand))
+    elif isinstance(expression, CoreBinary):
+        descendants.extend(_walk_expressions(expression.left))
+        descendants.extend(_walk_expressions(expression.right))
+    elif isinstance(expression, CoreCall):
+        descendants.extend(_walk_expressions(expression.callee))
+        for argument in expression.arguments:
+            descendants.extend(_walk_expressions(argument))
+    elif isinstance(expression, CoreIntrinsicCall):
+        for argument in expression.arguments:
+            descendants.extend(_walk_expressions(argument))
+    elif isinstance(expression, CoreFieldAccess):
+        descendants.extend(_walk_expressions(expression.record))
+    elif isinstance(expression, CoreLet):
+        descendants.extend(_walk_expressions(expression.value))
+        descendants.extend(_walk_expressions(expression.body))
+    elif isinstance(expression, CoreIf):
+        descendants.extend(_walk_expressions(expression.condition))
+        descendants.extend(_walk_expressions(expression.then_branch))
+        descendants.extend(_walk_expressions(expression.else_branch))
+    return tuple(descendants)
 
 
 def _function_entry_for_definition(

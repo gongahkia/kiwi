@@ -150,6 +150,60 @@ def test_policy_validation_accepts_wait_and_reports_malformed_decisions() -> Non
     assert malformed.validations[0].failure.path == ("memory",)
 
 
+def test_policy_capability_preflight_blocks_declared_unavailable_wait() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    bindings = PolicyBindings(
+        (
+            PolicyBinding(
+                entity.entity_id,
+                _decision_policy_artifact(),
+                FunctionId(0),
+                MEMORY_SCHEMA,
+                _memory("initial"),
+                available_capabilities=(),
+            ),
+        )
+    )
+
+    phase = invoke_policies(state, bindings)
+    evaluation = phase.evaluations[0]
+    validated = validate_policy_evaluations(phase, bindings)
+
+    assert evaluation.capability_failure is not None
+    assert evaluation.result.fault is not None
+    assert evaluation.result.fault.message == "policy has an unavailable capability"
+    assert validated.validations[0].failure is not None
+    assert validated.validations[0].failure.code is PolicyValidationCode.CAPABILITY
+    assert validated.validations[0].failure.primary_span is not None
+
+
+def test_policy_capability_validation_covers_wait_returned_by_a_helper() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    artifact = _indirect_wait_policy_artifact()
+    bindings = PolicyBindings(
+        (
+            PolicyBinding(
+                entity.entity_id,
+                artifact,
+                FunctionId(1),
+                MEMORY_SCHEMA,
+                _memory("initial"),
+                available_capabilities=(),
+            ),
+        )
+    )
+
+    phase = invoke_policies(state, bindings)
+    validated = validate_policy_evaluations(phase, bindings)
+
+    assert artifact.capability_manifest.entries[0].requirements == ()
+    assert phase.evaluations[0].capability_failure is None
+    assert phase.evaluations[0].result.succeeded
+    assert validated.validations[0].failure is not None
+    assert validated.validations[0].failure.code is PolicyValidationCode.CAPABILITY
+    assert validated.validations[0].failure.primary_span is None
+
+
 def _memory(label: str) -> RecordValue:
     return RecordValue("Memory", ("label",), (StringValue(label),))
 
@@ -186,6 +240,19 @@ def _decision_policy_artifact() -> CompiledArtifact:
         "type Decision = { intentions: List<Wait>, memory: Memory }\n"
         "policy decide(observation: Observation, memory: Memory) -> Decision = "
         "Decision { intentions = [Wait { duration = 1s }], memory = memory }\n"
+    )
+
+
+def _indirect_wait_policy_artifact() -> CompiledArtifact:
+    return _artifact(
+        "type SelfObservation = { entity_id: Int, position: Position }\n"
+        "type Observation = { self: SelfObservation, tick: Int }\n"
+        "type Memory = { label: String }\n"
+        "type Wait = { duration: Duration }\n"
+        "type Decision = { intentions: List<Wait>, memory: Memory }\n"
+        "fn wait() -> Wait = Wait { duration = 1s }\n"
+        "policy decide(observation: Observation, memory: Memory) -> Decision = "
+        "Decision { intentions = [wait()], memory = memory }\n"
     )
 
 

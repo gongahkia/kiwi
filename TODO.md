@@ -230,7 +230,7 @@ Connect compiled policies to the simulation without adding combat.
 - [x] Build immutable observations from pre-evaluation state.
 - [x] Invoke policy VM in canonical entity order.
 - [x] Validate returned memory and intentions.
-- [ ] Implement capability checks for available intention families.
+- [x] Implement capability checks for available intention families.
 - [ ] Implement ordered per-channel arbitration.
 - [ ] Emit policy, intention, rejection, and selection events.
 - [ ] Implement deterministic fallback on VM fault.

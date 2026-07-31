@@ -39,7 +39,7 @@ from kiwi.dsl.bytecode import (
     UnwrapSome,
     canonical_function_table,
 )
-from kiwi.dsl.capabilities import CapabilityManifest, empty_capability_manifest
+from kiwi.dsl.capabilities import CapabilityManifest, capability_manifest
 from kiwi.dsl.core_ir import (
     CoreBinary,
     CoreBoolean,
@@ -142,9 +142,9 @@ class CompiledArtifact:
 
 
 def compile_artifact(module: CoreModule, header: BytecodeHeader) -> CompiledArtifact:
-    """Compile one core module with its current empty capability requirements."""
+    """Compile one core module with source-linked capability requirements."""
     bytecode = compile_core(module, header)
-    return CompiledArtifact(bytecode, empty_capability_manifest(module, bytecode.function_table))
+    return CompiledArtifact(bytecode, capability_manifest(module, bytecode.function_table))
 
 
 class _FunctionCompiler:

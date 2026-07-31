@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
 from kiwi.domain.quantities import Quantity, QuantityDimension
+from kiwi.dsl.capabilities import WAIT_CAPABILITY, CapabilityId
 from kiwi.dsl.ids import ExpressionId
 from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS, QuantityValue, RecordValue, RuntimeValue
 from kiwi.dsl.source import SourceSpan
@@ -189,3 +190,10 @@ def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult
             ("duration",),
         )
     return WaitIntention(duration.value)
+
+
+def required_capability_for(intention: ValidatedIntention) -> CapabilityId:
+    """Return the declared tactical capability required by an available intention."""
+    if isinstance(intention, WaitIntention):
+        return WAIT_CAPABILITY
+    raise TypeError("intention capability lookup requires a validated intention")

@@ -6,6 +6,7 @@ from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.capabilities import (
     CAPABILITY_MANIFEST_VERSION,
+    WAIT_CAPABILITY,
     CapabilityId,
     CapabilityManifest,
     CapabilityRequirement,
@@ -69,6 +70,22 @@ def test_capability_manifest_values_are_versioned_canonical_and_source_linked() 
                 EntryPointCapabilities(FunctionId(0), "one"),
             ),
         )
+
+
+def test_compiler_records_wait_requirement_at_its_source_construction() -> None:
+    source = SourceFile(
+        SourceFileId("wait-capability.dtr"),
+        "type Wait = { duration: Duration }\npolicy decide() -> Wait = Wait { duration = 1s }\n",
+    )
+
+    artifact = compile_artifact(_core(source), BytecodeHeader(source.file_id))
+    requirement = artifact.capability_manifest.entries[0].requirements[0]
+    wait_start = source.text.index("Wait { duration")
+
+    assert requirement.capability == WAIT_CAPABILITY
+    assert requirement.primary_span == source.span(
+        ByteOffset(wait_start), ByteOffset(wait_start + len("Wait { duration = 1s }"))
+    )
 
 
 def _core(source: SourceFile) -> CoreModule:
