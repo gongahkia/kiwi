@@ -14,9 +14,10 @@ from kiwi.sim.determinism import (
 )
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.snapshot import capture_authority_snapshot
-from kiwi.sim.state import MissionPhase, MissionState, add_entity
+from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
 
 
 def test_determinism_harness_repeats_checkpoint_hashes_exactly() -> None:
@@ -95,6 +96,43 @@ def test_differential_report_includes_map_geometry_in_canonical_order() -> None:
     assert difference.path == "map_geometry/bounds/minimum_x"
     assert difference.expected == "0"
     assert difference.actual == "1"
+
+
+def test_differential_report_includes_future_movement_waypoints() -> None:
+    geometry = MapGeometry(
+        WorldRectangle(
+            WorldSubunits(-1_000), WorldSubunits(-1_000), WorldSubunits(1_000), WorldSubunits(1_000)
+        )
+    )
+    start = WorldPosition(WorldSubunits(0), WorldSubunits(0))
+    expected, entity = add_entity(MissionState(map_geometry=geometry), start)
+    expected_path = Path(
+        PathQuery(geometry, start, WorldPosition(WorldSubunits(100), WorldSubunits(200))),
+        (
+            start,
+            WorldPosition(WorldSubunits(100), WorldSubunits(0)),
+            WorldPosition(WorldSubunits(100), WorldSubunits(200)),
+        ),
+    )
+    actual_path = Path(
+        PathQuery(geometry, start, WorldPosition(WorldSubunits(200), WorldSubunits(200))),
+        (
+            start,
+            WorldPosition(WorldSubunits(100), WorldSubunits(0)),
+            WorldPosition(WorldSubunits(200), WorldSubunits(200)),
+        ),
+    )
+    expected = replace(
+        expected, movement_actions=(MovementAction(entity.entity_id, expected_path),)
+    )
+    actual = replace(expected, movement_actions=(MovementAction(entity.entity_id, actual_path),))
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "movement_actions/0/waypoints/2/x"
+    assert difference.expected == "100"
+    assert difference.actual == "200"
 
 
 def test_run_comparison_reports_first_divergent_checkpoint() -> None:

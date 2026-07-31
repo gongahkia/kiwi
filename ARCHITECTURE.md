@@ -349,7 +349,8 @@ Recommended state style:
 The initial kernel materialises a non-negative signed 64-bit mission tick and
 phase, a strictly entity-ID-ordered tuple of minimal entity states, an optional
 immutable bounded map with `ObstacleId`-ordered axis-aligned obstacles, an
-entity-ID-ordered sparse store of data-only policy-memory records, an
+entity-ID-ordered tuple of active movement actions, an entity-ID-ordered sparse
+store of data-only policy-memory records, an
 entity-ID-ordered sparse store of BLAKE2b deployed-policy versions, immutable
 ID allocator state, and a `(tick, sequence)` scheduled-event queue. State
 components are added only with the task that defines their invariants; canonical

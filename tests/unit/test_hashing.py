@@ -28,10 +28,11 @@ from kiwi.sim.hashing import (
 )
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.scheduled import ScheduledEventKind
-from kiwi.sim.state import MissionPhase, MissionState, add_entity
+from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
 
 
 def _map_geometry() -> tuple[MapGeometry, IdAllocator]:
@@ -77,7 +78,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "1316a6eb8ea7c0727e61271faaa5e116b4276debdbb05d3f5e7d893f2ff26210"
+    assert first.hex == "0410e8888393371a0846f853d2bf96e5413341775296c25e6d58e1b9d4d54ca3"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -98,6 +99,24 @@ def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
     invalid = decode_canonical_state(malformed)
     assert isinstance(invalid, StateDecodeFailure)
     assert invalid.code is StateDecodeCode.INVALID_VALUE
+
+
+def test_canonical_state_codec_round_trips_movement_actions() -> None:
+    map_geometry, id_allocator = _map_geometry()
+    start = WorldPosition(WorldSubunits(-600), WorldSubunits(-1_500))
+    goal = WorldPosition(WorldSubunits(-600), WorldSubunits(-1_000))
+    state, entity = add_entity(
+        MissionState(map_geometry=map_geometry, id_allocator=id_allocator),
+        start,
+    )
+    path = Path(PathQuery(map_geometry, start, goal), (start, goal))
+    state = replace(state, movement_actions=(MovementAction(entity.entity_id, path),))
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert hash_canonical_state(decoded) == hash_canonical_state(state)
 
 
 def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
@@ -170,6 +189,7 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
         (CANONICAL_STATE_MAGIC + b"\x00\x01", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x02", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x03", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x04", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

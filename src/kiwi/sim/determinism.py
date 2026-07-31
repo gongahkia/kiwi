@@ -194,6 +194,62 @@ def first_canonical_state_difference(
                 actual_value = getattr(actual_obstacle.bounds, field).value
                 if expected_value != actual_value:
                     return _difference(f"{prefix}/bounds/{field}", expected_value, actual_value)
+    if len(expected.movement_actions) != len(actual.movement_actions):
+        return _difference(
+            "movement_actions/count",
+            len(expected.movement_actions),
+            len(actual.movement_actions),
+        )
+    for index, (expected_action, actual_action) in enumerate(
+        zip(expected.movement_actions, actual.movement_actions, strict=True)
+    ):
+        prefix = f"movement_actions/{index}"
+        if expected_action.entity_id != actual_action.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_action.entity_id.value,
+                actual_action.entity_id.value,
+            )
+        if expected_action.next_waypoint_index != actual_action.next_waypoint_index:
+            return _difference(
+                f"{prefix}/next_waypoint_index",
+                expected_action.next_waypoint_index,
+                actual_action.next_waypoint_index,
+            )
+        if expected_action.segment_progress != actual_action.segment_progress:
+            return _difference(
+                f"{prefix}/segment_progress",
+                expected_action.segment_progress,
+                actual_action.segment_progress,
+            )
+        if len(expected_action.path.waypoints) != len(actual_action.path.waypoints):
+            return _difference(
+                f"{prefix}/waypoints/count",
+                len(expected_action.path.waypoints),
+                len(actual_action.path.waypoints),
+            )
+        for waypoint_index, (expected_waypoint, actual_waypoint) in enumerate(
+            zip(expected_action.path.waypoints, actual_action.path.waypoints, strict=True)
+        ):
+            waypoint_prefix = f"{prefix}/waypoints/{waypoint_index}"
+            if expected_waypoint.x != actual_waypoint.x:
+                return _difference(
+                    f"{waypoint_prefix}/x",
+                    expected_waypoint.x.value,
+                    actual_waypoint.x.value,
+                )
+            if expected_waypoint.y != actual_waypoint.y:
+                return _difference(
+                    f"{waypoint_prefix}/y",
+                    expected_waypoint.y.value,
+                    actual_waypoint.y.value,
+                )
+            if expected_waypoint.elevation != actual_waypoint.elevation:
+                return _difference(
+                    f"{waypoint_prefix}/elevation",
+                    expected_waypoint.elevation.value,
+                    actual_waypoint.elevation.value,
+                )
     if len(expected.policy_memory.entries) != len(actual.policy_memory.entries):
         return _difference(
             "policy_memory/count",

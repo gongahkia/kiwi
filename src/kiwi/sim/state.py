@@ -5,11 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from kiwi.domain.geometry import WorldPosition
+from kiwi.domain.geometry import WorldPosition, WorldSubunits, round_nearest_ties_away_from_zero
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
@@ -40,6 +41,76 @@ class EntityState:
 
 
 @dataclass(frozen=True, slots=True)
+class MovementAction:
+    """One entity's in-progress path and exact dominant-axis segment progress."""
+
+    entity_id: EntityId
+    path: Path
+    next_waypoint_index: int = 1
+    segment_progress: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.entity_id, EntityId):
+            raise ValueError("movement action requires an entity ID")
+        if not isinstance(self.path, Path):
+            raise ValueError("movement action requires a path")
+        if len(self.path.waypoints) < 2:
+            raise ValueError("movement action path must have a pending waypoint")
+        if (
+            not isinstance(self.next_waypoint_index, int)
+            or isinstance(self.next_waypoint_index, bool)
+            or not 1 <= self.next_waypoint_index < len(self.path.waypoints)
+        ):
+            raise ValueError("movement action next waypoint index is outside the path")
+        if (
+            not isinstance(self.segment_progress, int)
+            or isinstance(self.segment_progress, bool)
+            or not 0 <= self.segment_progress < movement_action_segment_length(self)
+        ):
+            raise ValueError("movement action segment progress is outside the active segment")
+
+
+def movement_action_segment_length(action: MovementAction) -> int:
+    """Return the exact dominant-axis subunit length of the active segment."""
+    if not isinstance(action, MovementAction):
+        raise ValueError("movement segment length requires a movement action")
+    start, goal = _movement_action_segment(action)
+    return max(abs(goal.x.value - start.x.value), abs(goal.y.value - start.y.value))
+
+
+def movement_action_position(action: MovementAction) -> WorldPosition:
+    """Return the canonical current position for an action's segment progress."""
+    if not isinstance(action, MovementAction):
+        raise ValueError("movement action position requires a movement action")
+    start, goal = _movement_action_segment(action)
+    length = movement_action_segment_length(action)
+    return WorldPosition(
+        WorldSubunits(
+            start.x.value
+            + round_nearest_ties_away_from_zero(
+                (goal.x.value - start.x.value) * action.segment_progress,
+                length,
+            )
+        ),
+        WorldSubunits(
+            start.y.value
+            + round_nearest_ties_away_from_zero(
+                (goal.y.value - start.y.value) * action.segment_progress,
+                length,
+            )
+        ),
+        start.elevation,
+    )
+
+
+def _movement_action_segment(action: MovementAction) -> tuple[WorldPosition, WorldPosition]:
+    return (
+        action.path.waypoints[action.next_waypoint_index - 1],
+        action.path.waypoints[action.next_waypoint_index],
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class MissionState:
     """The canonical state fields defined by the initial simulation kernel."""
 
@@ -47,6 +118,7 @@ class MissionState:
     phase: MissionPhase = MissionPhase.PREPARED
     entities: tuple[EntityState, ...] = ()
     map_geometry: MapGeometry | None = None
+    movement_actions: tuple[MovementAction, ...] = ()
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     policy_memory: PolicyMemoryStore = field(default_factory=PolicyMemoryStore)
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
@@ -64,6 +136,8 @@ class MissionState:
             raise ValueError("mission entities must be an immutable tuple")
         if self.map_geometry is not None and not isinstance(self.map_geometry, MapGeometry):
             raise ValueError("mission map geometry must be map geometry or absent")
+        if not isinstance(self.movement_actions, tuple):
+            raise ValueError("mission movement actions must be an immutable tuple")
         if not isinstance(self.id_allocator, IdAllocator):
             raise ValueError("mission state requires an ID allocator")
         if not isinstance(self.policy_memory, PolicyMemoryStore):
@@ -95,6 +169,22 @@ class MissionState:
             ):
                 raise ValueError("mission entity positions must lie within map bounds")
         entity_ids = tuple(entity.entity_id for entity in self.entities)
+        previous_movement_entity_id = 0
+        for action in self.movement_actions:
+            if not isinstance(action, MovementAction):
+                raise ValueError("mission movement actions must be movement actions")
+            if action.entity_id.value <= previous_movement_entity_id:
+                raise ValueError("mission movement actions must be entity-ID ordered")
+            if action.entity_id not in entity_ids:
+                raise ValueError("movement actions must belong to mission entities")
+            if self.map_geometry is None or action.path.query.map_geometry != self.map_geometry:
+                raise ValueError("movement action paths must use mission map geometry")
+            entity = next(
+                entity for entity in self.entities if entity.entity_id == action.entity_id
+            )
+            if entity.position != movement_action_position(action):
+                raise ValueError("movement action progress must match the entity position")
+            previous_movement_entity_id = action.entity_id.value
         if any(entry.entity_id not in entity_ids for entry in self.policy_memory.entries):
             raise ValueError("policy memory entries must belong to mission entities")
         if any(entry.entity_id not in entity_ids for entry in self.policy_versions.entries):
@@ -115,6 +205,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             phase=state.phase,
             entities=state.entities + (entity,),
             map_geometry=state.map_geometry,
+            movement_actions=state.movement_actions,
             id_allocator=id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,
