@@ -188,8 +188,8 @@ Goal: add visual differentiation without compromising terminal semantics.
 
 ### Tests and performance
 
-- [ ] Add deterministic effect tests using fixed seeds and times.
-- [ ] Add failure-isolation tests for invalid hooks.
+- [x] Add deterministic effect tests using fixed seeds and times.
+- [x] Add failure-isolation tests for invalid hooks.
 - [ ] Add performance budgets by effect class.
 - [ ] Add screenshots or image hashes only where the CI environment is stable; prefer renderer command/state tests otherwise.
 

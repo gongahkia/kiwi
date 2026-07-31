@@ -10,14 +10,18 @@ Host.contract = {
   advance = "advance(delta_us) -> true | nil, error",
   before_canvas = "before_canvas() -> true | nil, error",
   after_canvas = "after_canvas() -> true | nil, error",
+  begin_canvas_frame = "begin_canvas_frame(frame) -> canvas_frame | nil, error",
+  canvas_capable = "canvas_capable() -> boolean",
   constructor = "new(effects, options?) -> effect_host | nil, error",
   disable = "disable(effect_id) -> true | nil, error",
+  end_canvas_frame = "end_canvas_frame() -> true",
   enable = "enable(effect_id) -> true | nil, error",
   emit = "emit(kind, payload, timestamp_us) -> event | nil, error",
   limits = "limits() -> lifecycle_limits",
   observe_cells = "observe_cells(cells, full_redraw) -> true | nil, error",
   reorder = "reorder(effect_ids) -> true | nil, error",
   resize = "resize(viewport|nil, terminal, timestamp_us) -> event | nil, error",
+  set_canvas_runtime = "set_canvas_runtime(runtime) -> true | nil, error",
   shutdown = "shutdown() -> true",
   status = "status() -> effect_host_status",
   update = "update(delta_us) -> true | nil, error",
@@ -61,8 +65,18 @@ local function incompatible(message, detail)
   return nil, Errors.new("effect_incompatible", message, detail)
 end
 
+local function incompatible_failure(message, detail)
+  local _, error_value = incompatible(message, detail)
+  return error_value
+end
+
 local function runtime_error(message, detail)
   return nil, Errors.new("effect_runtime_error", message, detail)
+end
+
+local function runtime_failure(message, detail)
+  local _, error_value = runtime_error(message, detail)
+  return error_value
 end
 
 local function bounded_integer(value, name, maximum)
@@ -164,7 +178,10 @@ local function colour(value, name)
   return copy
 end
 
-local function context_for(host, entry)
+local function context_for(host, entry, hook)
+  local canvas_frame = canvas_capabilities[hook_capabilities[hook]] and host.canvas_frame or nil
+  local terminal = canvas_frame and canvas_frame.terminal or host.terminal
+  local viewport = canvas_frame and canvas_frame.viewport or host.viewport
   local capabilities = {}
   for _, capability in ipairs(entry.manifest.capabilities) do
     capabilities[capability] = true
@@ -174,14 +191,14 @@ local function context_for(host, entry)
     capabilities = capabilities,
     effect_id = entry.manifest.id,
     elapsed_us = host.elapsed_us,
-    frame_sequence = host.frame_sequence,
+    frame_sequence = canvas_frame and canvas_frame.sequence or host.frame_sequence,
     runtime = {
-      canvas = host.canvas_runtime ~= nil,
+      canvas = host.canvas_runtime ~= nil or host.canvas_capability,
       headless = host.headless,
     },
     session_id = host.session_id,
-    terminal = { columns = host.terminal.columns, rows = host.terminal.rows },
-    viewport = { height = host.viewport.height, width = host.viewport.width },
+    terminal = { columns = terminal.columns, rows = terminal.rows },
+    viewport = { height = viewport.height, width = viewport.width },
   }
   if entry.random then
     local random = entry.random
@@ -242,7 +259,7 @@ local function call_hook(host, entry, name, argument)
     return runtime_error("effect callback frame limit exceeded", { hook = name })
   end
   host.callback_count = host.callback_count + 1
-  local context = context_for(host, entry)
+  local context = context_for(host, entry, name)
   local ok, result = pcall(callback, entry.effect, context, argument)
   if not ok then
     return nil, callback_error(name, result)
@@ -366,11 +383,11 @@ end
 
 local function canvas_runtime(value)
   if type(value) ~= "table" then
-    return nil, incompatible("effect canvas capability requires a canvas runtime")
+    return incompatible("effect canvas capability requires a canvas runtime")
   end
   for _, name in ipairs({ "draw", "restore", "save" }) do
     if type(value[name]) ~= "function" then
-      return nil, incompatible("effect canvas runtime is incomplete", { method = name })
+      return incompatible("effect canvas runtime is incomplete", { method = name })
     end
   end
   return value
@@ -472,7 +489,11 @@ local function options(value)
   return result
 end
 
-local function draw_operation(kind, arguments)
+local function canvas_viewport(host)
+  return host.canvas_frame and host.canvas_frame.viewport or host.viewport
+end
+
+local function draw_operation(host, kind, arguments)
   local schemas = {
     fill_rect = { height = true, width = true, x = true, y = true },
     line = { x1 = true, x2 = true, y1 = true, y2 = true },
@@ -506,60 +527,117 @@ local function draw_operation(kind, arguments)
       copy[field] = value
     end
   end
+  local viewport = canvas_viewport(host)
+  if kind == "fill_rect" then
+    if copy.width < 0 or copy.height < 0 then
+      return config_error("effect canvas rectangle size is invalid")
+    end
+    if
+      copy.x < 0
+      or copy.y < 0
+      or copy.x + copy.width > viewport.width
+      or copy.y + copy.height > viewport.height
+    then
+      return config_error("effect canvas rectangle is outside the viewport")
+    end
+  elseif kind == "line" then
+    for _, field in ipairs({ "x1", "x2" }) do
+      if copy[field] < 0 or copy[field] > viewport.width then
+        return config_error("effect canvas line is outside the viewport")
+      end
+    end
+    for _, field in ipairs({ "y1", "y2" }) do
+      if copy[field] < 0 or copy[field] > viewport.height then
+        return config_error("effect canvas line is outside the viewport")
+      end
+    end
+  elseif copy.x < 0 or copy.x > viewport.width or copy.y < 0 or copy.y > viewport.height then
+    return config_error("effect canvas text origin is outside the viewport")
+  end
   return copy
 end
 
 local function canvas_facade(host, entry, phase, invocation)
-  local facade = { height = host.viewport.height, phase = phase, width = host.viewport.width }
+  local viewport = host.canvas_frame and host.canvas_frame.viewport or host.viewport
+  local facade = { height = viewport.height, phase = phase, width = viewport.width }
   function facade:draw(kind, arguments)
-    if invocation.draw_operations >= host.max_draw_operations then
-      return runtime_error("effect canvas draw operation limit exceeded")
+    if not invocation.active then
+      return runtime_error("effect canvas facade is expired")
     end
-    local operation, operation_error = draw_operation(kind, arguments)
+    if invocation.draw_operations >= host.max_draw_operations then
+      invocation.error = runtime_failure("effect canvas draw operation limit exceeded")
+      return nil, invocation.error
+    end
+    local operation, operation_error = draw_operation(host, kind, arguments)
     if not operation then
-      return nil, operation_error
+      invocation.error = runtime_failure("effect canvas operation is invalid", {
+        cause = operation_error.message,
+        cause_kind = operation_error.kind,
+      })
+      return nil, invocation.error
     end
     local ok, result, detail = pcall(host.canvas_runtime.draw, host.canvas_runtime, operation)
-    if not ok or result == false then
-      return runtime_error(
-        "effect canvas draw failed",
-        { cause = tostring(ok and detail or result) }
-      )
+    if not ok or not result then
+      invocation.error =
+        runtime_failure("effect canvas draw failed", { cause = tostring(ok and detail or result) })
+      return nil, invocation.error
     end
     invocation.draw_operations = invocation.draw_operations + 1
     return true
+  end
+  function facade:fill_rect(x, y, width, height)
+    return self:draw("fill_rect", { height = height, width = width, x = x, y = y })
+  end
+  function facade:line(x1, y1, x2, y2)
+    return self:draw("line", { x1 = x1, x2 = x2, y1 = y1, y2 = y2 })
+  end
+  function facade:text(text, x, y)
+    return self:draw("text", { text = text, x = x, y = y })
   end
   return facade
 end
 
 local function invoke_canvas(host, entry, name, phase)
-  if not entry.enabled or entry.hooks[name] == nil then
+  if
+    not entry.enabled
+    or not entry.capabilities[hook_capabilities[name]]
+    or entry.hooks[name] == nil
+  then
+    return true
+  end
+  if host.canvas_runtime == nil then
+    disable_entry(host, entry, name, incompatible_failure("effect canvas runtime is unavailable"))
     return true
   end
   local saved, save_result, save_detail = pcall(host.canvas_runtime.save, host.canvas_runtime)
-  if not saved or save_result == false then
+  if not saved or not save_result then
     disable_entry(
       host,
       entry,
       name,
-      runtime_error(
+      runtime_failure(
         "effect canvas state save failed",
         { cause = tostring(saved and save_detail or save_result) }
       )
     )
     return true
   end
-  local invocation = { draw_operations = 0 }
+  local invocation = { active = true, draw_operations = 0 }
   local canvas = canvas_facade(host, entry, phase, invocation)
   local completed, callback_error_value = call_hook(host, entry, name, canvas)
+  invocation.active = false
+  if completed and invocation.error then
+    completed = nil
+    callback_error_value = invocation.error
+  end
   local restored, restore_result, restore_detail =
     pcall(host.canvas_runtime.restore, host.canvas_runtime)
-  if not restored or restore_result == false then
+  if not restored or not restore_result then
     disable_entry(
       host,
       entry,
       name,
-      runtime_error(
+      runtime_failure(
         "effect canvas state restore failed",
         { cause = tostring(restored and restore_detail or restore_result) }
       )
@@ -796,6 +874,7 @@ function Host.new(effects, configuration)
     return config_error("effect host effect limit exceeded")
   end
   local entries = {}
+  local has_canvas_capability = false
   local seen_ids = {}
   for index, effect in ipairs(effects) do
     local entry, entry_error = effect_methods(effect)
@@ -808,15 +887,10 @@ function Host.new(effects, configuration)
     seen_ids[entry.manifest.id] = true
     for _, capability in ipairs(entry.manifest.capabilities) do
       if canvas_capabilities[capability] then
+        has_canvas_capability = true
         if settings.headless then
           return incompatible(
             "headless effect host rejects canvas capability",
-            { capability = capability }
-          )
-        end
-        if not settings.canvas_runtime then
-          return incompatible(
-            "effect canvas capability is unavailable",
             { capability = capability }
           )
         end
@@ -837,6 +911,9 @@ function Host.new(effects, configuration)
     entries[index] = entry
   end
   local host = setmetatable({
+    canvas_capability = has_canvas_capability,
+    canvas_frame = nil,
+    canvas_frame_sequence = 0,
     callback_count = 0,
     canvas_runtime = settings.canvas_runtime,
     diagnostics = {},
@@ -868,6 +945,80 @@ function Host.new(effects, configuration)
     end
   end
   return host
+end
+
+function host_mt:canvas_capable()
+  return self.canvas_capability
+end
+
+function host_mt:set_canvas_runtime(runtime)
+  if self.headless then
+    return incompatible("headless effect host cannot bind a canvas runtime")
+  end
+  if self.canvas_frame ~= nil then
+    return runtime_error("cannot replace canvas runtime during a canvas frame")
+  end
+  local valid_runtime, runtime_error_value = canvas_runtime(runtime)
+  if not valid_runtime then
+    return nil, runtime_error_value
+  end
+  self.canvas_runtime = valid_runtime
+  return true
+end
+
+function host_mt:begin_canvas_frame(frame)
+  local accepted, accepted_error =
+    exact_fields(frame, { terminal = true, viewport = true }, "effect canvas frame")
+  if not accepted then
+    return nil, accepted_error
+  end
+  if self.canvas_frame ~= nil then
+    return runtime_error("effect canvas frame is already active")
+  end
+  local terminal, terminal_error =
+    dimensions(frame.terminal, { columns = true, rows = true }, "effect canvas frame terminal")
+  if not terminal then
+    return nil, terminal_error
+  end
+  local viewport, viewport_error =
+    dimensions(frame.viewport, { height = true, width = true }, "effect canvas frame viewport")
+  if not viewport then
+    return nil, viewport_error
+  end
+  if self.canvas_frame_sequence >= MAX_TIME_US then
+    return runtime_error("effect canvas frame sequence is exhausted")
+  end
+  self.canvas_frame_sequence = self.canvas_frame_sequence + 1
+  self.callback_count = 0
+  local entries = {}
+  for _, entry in ipairs(self.effects) do
+    if
+      entry.enabled
+      and (
+        (entry.capabilities.canvas_before and entry.hooks.before_canvas ~= nil)
+        or (entry.capabilities.canvas_after and entry.hooks.after_canvas ~= nil)
+      )
+    then
+      entries[#entries + 1] = entry
+    end
+  end
+  self.canvas_frame = {
+    entries = entries,
+    sequence = self.canvas_frame_sequence,
+    terminal = terminal,
+    viewport = viewport,
+  }
+  return {
+    active = #entries > 0,
+    sequence = self.canvas_frame.sequence,
+    terminal = { columns = terminal.columns, rows = terminal.rows },
+    viewport = { height = viewport.height, width = viewport.width },
+  }
+end
+
+function host_mt:end_canvas_frame()
+  self.canvas_frame = nil
+  return true
 end
 
 function host_mt:update(delta_us)
@@ -1051,16 +1202,35 @@ function host_mt:observe_cells(cells, full_redraw)
 end
 
 function host_mt:before_canvas()
-  for _, entry in ipairs(self.effects) do
+  if self.canvas_frame == nil then
+    local frame, frame_error = self:begin_canvas_frame({
+      terminal = self.terminal,
+      viewport = self.viewport,
+    })
+    if not frame then
+      return nil, frame_error
+    end
+  end
+  for _, entry in ipairs(self.canvas_frame.entries) do
     invoke_canvas(self, entry, "before_canvas", "before")
   end
   return true
 end
 
 function host_mt:after_canvas()
-  for _, entry in ipairs(self.effects) do
+  if self.canvas_frame == nil then
+    local frame, frame_error = self:begin_canvas_frame({
+      terminal = self.terminal,
+      viewport = self.viewport,
+    })
+    if not frame then
+      return nil, frame_error
+    end
+  end
+  for _, entry in ipairs(self.canvas_frame.entries) do
     invoke_canvas(self, entry, "after_canvas", "after")
   end
+  self:end_canvas_frame()
   return true
 end
 

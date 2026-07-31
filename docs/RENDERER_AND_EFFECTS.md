@@ -12,7 +12,24 @@ The effects API also provides `effects.clean.new()`: a static `stanczyk.clean` n
 
 ## 2. Rendering pipeline
 
-Suggested frame pipeline:
+Canvas-hook lifecycle API v1 uses this exact renderer order for every eligible terminal draw:
+
+1. Validate the synchronous renderer snapshot and resolve a fresh immutable frame record containing terminal dimensions and current viewport dimensions.
+2. The effect host snapshots the enabled, non-failed canvas-hook chain in its current stable order. Enable, disable, and reorder controls issued before this boundary apply to this frame; later controls apply to the next frame.
+3. The renderer captures the caller graphics state and keeps the caller's current render target as the terminal target. V1 allocates no intermediate or per-effect canvas.
+4. Invoke `before_canvas` for the snapshotted effects with the declared `canvas_before` capability.
+5. Draw normal terminal backgrounds, glyphs, decorations, and cursor using the existing clean path.
+6. Invoke `after_canvas` for the snapshotted effects with the declared `canvas_after` capability.
+7. Close the canvas frame and restore the caller graphics state and render target, even when a hook or the clean draw returns an error.
+8. Report isolated effect failures through the effect host without changing terminal or recording state.
+
+Each canvas callback has its own nested graphics-state scope. The renderer's outer scope restores the active canvas, transform stack, shader, blend and alpha modes, colour, scissor and stencil tests, font, line width and style, point size, depth mode, and mesh culling mode. The formal facade cannot replace render targets, allocate canvases, access terminal data, or retain drawing authority after its callback returns.
+
+An isolated `before_canvas` failure disables that effect, restores its state, and allows later eligible hooks and the clean draw to continue. An isolated `after_canvas` failure occurs after the clean draw; later eligible after hooks continue and the next frame excludes the failed effect. A failed outer graphics restore is a renderer-wide `renderer_resource_error`, not an effect failure.
+
+When no canvas-capable effects are active, the renderer stays on the pre-existing direct clean path.
+
+The broader visual pipeline is therefore:
 
 ```text
 terminal snapshot + damage

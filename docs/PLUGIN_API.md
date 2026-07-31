@@ -100,6 +100,8 @@ The fresh context contains only:
 - granted capability set;
 - headless and canvas feature flags.
 
+For canvas hooks, `frame_sequence` is the renderer's monotonic canvas-frame sequence, shared by that frame's before and after phases. It is deterministic for identical draw and lifecycle inputs.
+
 It contains no terminal, screen, parser, backend, renderer, process, filesystem, or unrestricted callback reference. A callback may mutate its own copy, but the mutation is discarded and cannot affect runtime state.
 
 An effect declaring `deterministic_random` receives `context.random_seed` and a fresh `context.random` facade for each callback. Its methods are `context.random:next_u32()` and `context.random:integer(minimum, maximum)`, where bounds are inclusive signed 32-bit integers. `EffectHost.new(..., { random_seed = u32 })` accepts the root seed; each effect stream is deterministically derived from that seed and effect ID. The facade is the only source interface: it exposes neither terminal state nor mutable renderer state, and it is not cryptographic randomness.
@@ -134,7 +136,11 @@ The host invokes `on_cell` for caller-supplied, renderable visible cells in stri
 
 `runtime.coordinator` accepts an optional `effect_host`. For forward backend application it advances that host from each recorded delta after semantic mutation, then publishes `input`, `output`, `bell`, `cursor`, `scroll`, `screen_switch`, `resize`, and `damage` records. Input/output are deterministic contiguous slices at the host event-byte limit. Scroll payloads are `{ direction = "up"|"down", top, bottom, count }`; damage ranges are active-screen `{ row, first_column, last_column }` records in row order. A resize with unknown pixel dimensions preserves the prior viewport dimensions. `Coordinator:seek` rejects while an effect host is attached; visual-state rewind is not implemented by lifecycle API v1.
 
-Canvas hooks are unavailable in headless hosts. In graphical hosts they receive a narrow facade with dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations. The host saves and restores graphics state around each callback and disables only an effect that fails.
+Canvas hooks are unavailable in headless hosts: a canvas-capable manifest is rejected before `init`. A graphical renderer attaches its constrained graphics runtime to the existing host with `Renderer.new({ effect_host = host })` and runs the exact order in `docs/RENDERER_AND_EFFECTS.md`.
+
+Each callback receives a fresh canvas facade with immutable scalar `width`, `height`, and `phase` (`before` or `after`) fields. It exposes bounded `fill_rect(x, y, width, height)`, `line(x1, y1, x2, y2)`, and `text(text, x, y)` operations; `draw(kind, arguments)` remains the equivalent generic form for API-v1 compatibility. Coordinates must be finite and remain in the current viewport, text is bounded, and the host applies the configured draw-operation limit. The facade exposes no canvas, texture, renderer, terminal, or graphics namespace reference, expires when the callback returns, and cannot allocate or replace render targets.
+
+The host saves and restores graphics state around each callback; the renderer encloses the full canvas frame in an outer state guard. Invalid facade calls, draw-limit violations, and callback exceptions disable only that effect through the existing typed failure path. Canvas-hook calls neither emit nor mutate terminal semantic events or recordings.
 
 ## 5. Sandbox command API
 
