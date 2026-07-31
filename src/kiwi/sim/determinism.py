@@ -372,6 +372,67 @@ def first_canonical_state_difference(
                         expected_event_id.value,
                         actual_event_id.value,
                     )
+    if expected.messages.next_sequence != actual.messages.next_sequence:
+        return _difference(
+            "messages/next_sequence",
+            expected.messages.next_sequence,
+            actual.messages.next_sequence,
+        )
+    if len(expected.messages.messages) != len(actual.messages.messages):
+        return _difference(
+            "messages/count",
+            len(expected.messages.messages),
+            len(actual.messages.messages),
+        )
+    for index, (expected_message, actual_message) in enumerate(
+        zip(expected.messages.messages, actual.messages.messages, strict=True)
+    ):
+        prefix = f"messages/{index}"
+        for field in (
+            "message_id",
+            "sender_entity_id",
+            "recipient_entity_id",
+            "channel",
+            "send_tick",
+            "delivery_tick",
+            "expiry_tick",
+            "sequence",
+        ):
+            expected_value = getattr(expected_message, field)
+            actual_value = getattr(actual_message, field)
+            if expected_value != actual_value:
+                if hasattr(expected_value, "value"):
+                    expected_rendered = expected_value.value
+                    actual_rendered = actual_value.value
+                else:
+                    expected_rendered = expected_value
+                    actual_rendered = actual_value
+                return _difference(f"{prefix}/{field}", expected_rendered, actual_rendered)
+        if expected_message.payload != actual_message.payload:
+            return _difference(
+                f"{prefix}/payload",
+                repr(expected_message.payload),
+                repr(actual_message.payload),
+            )
+        if len(expected_message.provenance_event_ids) != len(actual_message.provenance_event_ids):
+            return _difference(
+                f"{prefix}/provenance_event_ids/count",
+                len(expected_message.provenance_event_ids),
+                len(actual_message.provenance_event_ids),
+            )
+        for provenance_index, (expected_event_id, actual_event_id) in enumerate(
+            zip(
+                expected_message.provenance_event_ids,
+                actual_message.provenance_event_ids,
+                strict=True,
+            )
+        ):
+            if expected_event_id != actual_event_id:
+                return _difference(
+                    f"{prefix}/provenance_event_ids/{provenance_index}",
+                    expected_event_id.value,
+                    actual_event_id.value,
+                )
     for kind in IdKind:
         expected_next_id = expected.id_allocator.next_ids[int(kind)]
         actual_next_id = actual.id_allocator.next_ids[int(kind)]

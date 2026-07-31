@@ -7,7 +7,7 @@ from enum import StrEnum
 from hashlib import blake2b
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import ContactId, EntityId, EventId, IdAllocator, IdKind, ObstacleId
+from kiwi.domain.ids import ContactId, EntityId, EventId, IdAllocator, IdKind, MessageId, ObstacleId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_STRING_BYTES,
@@ -37,6 +37,7 @@ from kiwi.sim.memory import (
     PolicyMemoryStore,
     is_persistable_memory_value,
 )
+from kiwi.sim.messages import Message, MessageChannel, MessageLedger
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import (
     POLICY_VERSION_DIGEST_BYTES,
@@ -54,7 +55,7 @@ from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEven
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 8
+CANONICAL_STATE_VERSION = 9
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -63,7 +64,8 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V8 = 4
+_MESSAGE_CHANNEL_RADIO = 1
+_RANDOM_STREAM_COUNT_V9 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -125,7 +127,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 8 form."""
+    """Encode one validated mission state in canonical binary version 9 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -144,6 +146,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_policy_memory(writer, state.policy_memory)
     _encode_policy_versions(writer, state.policy_versions)
     _encode_contacts(writer, state.contacts)
+    _encode_messages(writer, state.messages)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -219,8 +222,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V8:
-        raise ValueError("state format version 8 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V9:
+        raise ValueError("state format version 9 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -238,6 +241,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     policy_memory = _decode_policy_memory(reader)
     policy_versions = _decode_policy_versions(reader)
     contacts = _decode_contacts(reader)
+    messages = _decode_messages(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -251,6 +255,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         policy_memory=policy_memory,
         policy_versions=policy_versions,
         contacts=contacts,
+        messages=messages,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -488,6 +493,59 @@ def _decode_contacts(reader: _Reader) -> ContactStore:
     return ContactStore(tuple(estimates), lifecycle_tick)
 
 
+def _encode_messages(writer: _Writer, ledger: MessageLedger) -> None:
+    writer.u64(ledger.next_sequence, "message ledger next sequence")
+    writer.items(len(ledger.messages), "message ledger count")
+    for message in ledger.messages:
+        writer.i64(message.message_id.value, "message ID")
+        writer.i64(message.sender_entity_id.value, "message sender entity ID")
+        writer.i64(message.recipient_entity_id.value, "message recipient entity ID")
+        writer.u8(_encode_message_channel(message.channel), "message channel")
+        _encode_memory_value(writer, message.payload, 0)
+        writer.u64(message.send_tick, "message send tick")
+        writer.u64(message.delivery_tick, "message delivery tick")
+        writer.u64(message.expiry_tick, "message expiry tick")
+        writer.u64(message.sequence, "message sequence")
+        writer.items(len(message.provenance_event_ids), "message provenance event count")
+        for event_id in message.provenance_event_ids:
+            writer.i64(event_id.value, "message provenance event ID")
+
+
+def _decode_messages(reader: _Reader) -> MessageLedger:
+    next_sequence = reader.u64()
+    messages: list[Message] = []
+    for _ in range(reader.items("message ledger count")):
+        message_id = MessageId(reader.i64())
+        sender_entity_id = EntityId(reader.i64())
+        recipient_entity_id = EntityId(reader.i64())
+        channel = _decode_message_channel(reader.u8(), reader.offset - 1)
+        payload = _decode_memory_value(reader, 0)
+        if not isinstance(payload, RecordValue):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                reader.offset,
+                "message payload must be a typed record",
+            )
+        messages.append(
+            Message(
+                message_id=message_id,
+                sender_entity_id=sender_entity_id,
+                recipient_entity_id=recipient_entity_id,
+                channel=channel,
+                payload=payload,
+                send_tick=reader.u64(),
+                delivery_tick=reader.u64(),
+                expiry_tick=reader.u64(),
+                sequence=reader.u64(),
+                provenance_event_ids=tuple(
+                    EventId(reader.i64())
+                    for _ in range(reader.items("message provenance event count"))
+                ),
+            )
+        )
+    return MessageLedger(tuple(messages), next_sequence)
+
+
 def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:
     if depth >= MAX_POLICY_MEMORY_DEPTH:
         raise ValueError("policy memory value exceeds the configured nesting limit")
@@ -644,7 +702,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V8)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V9)
     )
     return RandomStreams(seed=seed, states=states)
 
@@ -667,6 +725,18 @@ def _decode_phase(tag: int, offset: int) -> MissionPhase:
     if tag == _PHASE_ABORT_REQUESTED:
         return MissionPhase.ABORT_REQUESTED
     raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid mission phase tag {tag}")
+
+
+def _encode_message_channel(channel: MessageChannel) -> int:
+    if channel is MessageChannel.RADIO:
+        return _MESSAGE_CHANNEL_RADIO
+    raise TypeError("message channel is unsupported")
+
+
+def _decode_message_channel(tag: int, offset: int) -> MessageChannel:
+    if tag == _MESSAGE_CHANNEL_RADIO:
+        return MessageChannel.RADIO
+    raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid message channel tag {tag}")
 
 
 def _encode_scheduled_kind(kind: ScheduledEventKind) -> int:
