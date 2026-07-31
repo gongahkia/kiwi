@@ -71,58 +71,62 @@ Callbacks must not run during an unsafe partial mutation. Prefer queueing and di
 
 ### 4.1 Lifecycle
 
-Conceptual hooks:
+Lifecycle API v1 is defined by ADR-0008. Effects created through `effects.effect` provide a manifest and an optional hook table. The host calls a declared hook with the effect instance, fresh context, and hook argument:
 
 ```lua
-function effect:init(context, parameters) end
-function effect:on_event(context, event) end
-function effect:update(context, dt) end
-function effect:transform_cell(context, visual_cell) end
-function effect:draw_before(context) end
-function effect:draw_after(context) end
-function effect:post_process(context, input_canvas, output_canvas) end
-function effect:resize(context, pixel_width, pixel_height) end
-function effect:destroy(context) end
+local effect = Effect.new(manifest, {
+  init = function(effect, context) end,
+  on_event = function(effect, context, event) end,
+  on_cell = function(effect, context, cell) end,
+  before_canvas = function(effect, context, canvas) end,
+  after_canvas = function(effect, context, canvas) end,
+  update = function(effect, context, delta_us) end,
+  shutdown = function(effect, context) end,
+})
 ```
 
-Hooks are optional and declared through capabilities.
+Hooks are optional. `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, and `frame_update` respectively gate `init`/`shutdown`, `on_event`, `on_cell`, `before_canvas`, `after_canvas`, and `update`. A missing hook is a no-op; an undeclared hook fails loading. Effects run in manifest order.
 
 ### 4.2 Context
 
-The effect context may expose:
+The fresh context contains only:
 
-- terminal and visual time;
-- deterministic PRNG;
-- read-only terminal queries;
-- renderer metrics;
-- bounded resource creation helpers;
-- effect parameter access;
-- logging;
-- canvases approved for the current hook.
+- effect ID and API version;
+- optional session ID;
+- frame sequence and integer elapsed microseconds;
+- viewport and terminal dimensions;
+- granted capability set;
+- headless and canvas feature flags.
 
-It must not expose mutable terminal internals.
+It contains no terminal, screen, parser, backend, renderer, process, filesystem, or unrestricted callback reference. A callback may mutate its own copy, but the mutation is discarded and cannot affect runtime state.
 
 ### 4.3 Visual cell
 
-A visual-cell object is a temporary rendering description:
+A visual-cell object is an immutable copied rendering description:
 
 ```lua
 {
   row = 1,
   column = 1,
   text = "A",
-  x = 0,
-  y = 0,
-  scale_x = 1,
-  scale_y = 1,
-  rotation = 0,
-  opacity = 1,
-  foreground_multiplier = {1, 1, 1, 1},
-  background_multiplier = {1, 1, 1, 1}
+  width = 1,
+  foreground = "default",
+  background = "default",
+  attributes = 0,
+  cursor = false,
+  damage = true,
+  screen = "primary",
+  frame_sequence = 1,
 }
 ```
 
-Effects may mutate this temporary object. Mutations do not feed back into terminal state.
+The host invokes `on_cell` for caller-supplied, renderable visible cells in strict row-major order. Normal rendering supplies damaged cells; a full redraw supplies all renderable visible cells and marks each as damaged. The hook never receives a backing terminal cell.
+
+### 4.4 Events and canvas
+
+`on_event` receives `{ version, kind, sequence, timestamp_us, payload }`. Kinds and bounded payload schemas are defined by ADR-0008. Sequences and timestamps are monotonic; timestamps and `update` deltas are non-negative integer microseconds, never floating seconds.
+
+Canvas hooks are unavailable in headless hosts. In graphical hosts they receive a narrow facade with dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations. The host saves and restores graphics state around each callback and disables only an effect that fails.
 
 ## 5. Sandbox command API
 
@@ -178,7 +182,7 @@ Capabilities document intent and allow validation; they are not a strong securit
 
 ## 7. API versioning
 
-Effect Manifest API v1 is defined by ADR-0007. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`; `interactive_time` capability requires `interactive`. Unknown fields and unsupported versions are rejected before hooks load.
+Effect Manifest API v1 is defined by ADR-0007. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`. Unknown fields and unsupported versions are rejected before hooks load.
 
 Policy:
 

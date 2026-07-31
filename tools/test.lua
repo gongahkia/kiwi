@@ -25,6 +25,7 @@ local modules = {
   "property.terminal_chunking_test",
   "property.parser_recovery_test",
   "property.recording_resize_test",
+  "property.effect_lifecycle_test",
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
   "unit.runtime.coordinator_test",
@@ -60,6 +61,7 @@ local modules = {
   "unit.renderer.renderer_test",
   "unit.effects.manifest_test",
   "unit.effects.effect_test",
+  "unit.effects.host_test",
 }
 
 local total = 0

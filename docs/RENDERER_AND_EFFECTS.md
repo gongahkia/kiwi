@@ -229,8 +229,9 @@ return {
   api_version = 1,
   determinism = "deterministic",
   capabilities = {
-    "post_process",
-    "terminal_events"
+    "canvas_after",
+    "terminal_events",
+    "frame_update"
   },
   parameters = {
     intensity = { type = "number", min = 0, max = 1, default = 0.35 },
@@ -240,7 +241,7 @@ return {
 }
 ```
 
-ADR-0007 defines the exact validation and parameter-schema rules. Manifests are copied into effect-owned state; callers cannot mutate an accepted definition through the supplied table or a manifest accessor.
+ADR-0007 defines the exact validation and parameter-schema rules. ADR-0008 defines capability-gated lifecycle ordering, immutable lifecycle values, integer-microsecond timing, cell observation, canvas isolation, and headless rejection. Manifests are copied into effect-owned state; callers cannot mutate an accepted definition through the supplied table or a manifest accessor.
 
 ## 10. Failure isolation
 
