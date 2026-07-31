@@ -22,8 +22,8 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
-from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.contacts import ContactConfidence, ContactEstimate, ContactStore
+from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import (
     MAX_POLICY_MEMORY_DEPTH,
     EntityPolicyMemory,
@@ -445,14 +445,14 @@ def _decode_contacts(reader: _Reader) -> ContactStore:
             ContactEstimate(
                 contact_id=contact_id,
                 owner_entity_id=owner_entity_id,
-            estimated_position=WorldPosition(
-                x=WorldSubunits(reader.i64()),
-                y=WorldSubunits(reader.i64()),
-                elevation=ElevationLayer(reader.u64()),
-            ),
-            uncertainty_radius=WorldSubunits(reader.i64()),
-            confidence=ContactConfidence(reader.u16()),
-            last_observed_tick=reader.u64(),
+                estimated_position=WorldPosition(
+                    x=WorldSubunits(reader.i64()),
+                    y=WorldSubunits(reader.i64()),
+                    elevation=ElevationLayer(reader.u64()),
+                ),
+                uncertainty_radius=WorldSubunits(reader.i64()),
+                confidence=ContactConfidence(reader.u16()),
+                last_observed_tick=reader.u64(),
             )
         )
     return ContactStore(tuple(estimates), lifecycle_tick)

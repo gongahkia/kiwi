@@ -204,7 +204,9 @@ class MissionState:
         if self.contacts.lifecycle_tick > self.tick:
             raise ValueError("contact lifecycle tick must not exceed the mission tick")
         next_contact_id = self.id_allocator.next_ids[int(IdKind.CONTACT)]
-        if any(estimate.contact_id.value >= next_contact_id for estimate in self.contacts.estimates):
+        if any(
+            estimate.contact_id.value >= next_contact_id for estimate in self.contacts.estimates
+        ):
             raise ValueError("contact IDs must be allocated by the current ID allocator")
 
 

@@ -3,14 +3,22 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import ContactId, EntityId
+from kiwi.domain.ids import ContactId, EntityId, IdAllocator
 from kiwi.sim.contacts import (
+    CONTACT_CONFIDENCE_DECAY_PER_TICK,
+    CONTACT_UNCERTAINTY_GROWTH_PER_TICK,
     MAX_CONFIDENCE_BASIS_POINTS,
     ContactAge,
     ContactConfidence,
     ContactEstimate,
+    ContactSighting,
+    ContactStore,
+    advance_contacts,
+    apply_contact_sightings,
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+
+_DEFAULT_SIGHTING_CONFIDENCE = ContactConfidence(7_500)
 
 
 def test_contact_estimate_is_owner_local_uncertain_and_ages_by_ticks() -> None:
@@ -81,3 +89,161 @@ def test_contact_age_rejects_a_tick_before_the_last_observation() -> None:
 
     with pytest.raises(ValueError, match="must not precede"):
         estimate.age_at(3)
+
+
+def test_contact_sightings_allocate_canonically_and_replace_owner_local_estimates() -> None:
+    owner_one = EntityId(1)
+    owner_two = EntityId(2)
+    first_store, allocator = apply_contact_sightings(
+        ContactStore(lifecycle_tick=4),
+        IdAllocator(),
+        4,
+        (
+            _sighting(owner_two, 2_000, 5_000),
+            _sighting(owner_one, 1_000, 4_000),
+        ),
+    )
+
+    assert tuple(
+        (estimate.owner_entity_id, estimate.contact_id) for estimate in first_store.estimates
+    ) == ((owner_one, ContactId(1)), (owner_two, ContactId(2)))
+    assert first_store.estimate_for(owner_one, ContactId(1)) == ContactEstimate(
+        ContactId(1),
+        owner_one,
+        _position(1_000, 4_000),
+        WorldSubunits(300),
+        ContactConfidence(7_500),
+        4,
+    )
+
+    second_store, updated_allocator = apply_contact_sightings(
+        first_store,
+        allocator,
+        4,
+        (_sighting(owner_one, 1_500, 4_500, contact_id=ContactId(1)),),
+    )
+
+    assert updated_allocator == allocator
+    assert second_store.estimate_for(owner_one, ContactId(1)) == ContactEstimate(
+        ContactId(1),
+        owner_one,
+        _position(1_500, 4_500),
+        WorldSubunits(300),
+        ContactConfidence(7_500),
+        4,
+    )
+    assert second_store.estimate_for(owner_two, ContactId(2)) == first_store.estimate_for(
+        owner_two, ContactId(2)
+    )
+
+
+def test_contact_lifecycle_decays_uncertainty_and_removes_exhausted_contacts() -> None:
+    estimate = ContactEstimate(
+        ContactId(1),
+        EntityId(1),
+        _position(10, 20),
+        WorldSubunits(300),
+        ContactConfidence(250),
+        5,
+    )
+    store = ContactStore((estimate,), lifecycle_tick=5)
+
+    first = advance_contacts(store, 6)
+    second = advance_contacts(first, 7)
+    lost = advance_contacts(second, 8)
+
+    assert first.estimates[0].confidence == ContactConfidence(
+        250 - CONTACT_CONFIDENCE_DECAY_PER_TICK
+    )
+    assert first.estimates[0].uncertainty_radius == WorldSubunits(
+        300 + CONTACT_UNCERTAINTY_GROWTH_PER_TICK.value
+    )
+    assert second.estimates[0].confidence == ContactConfidence(50)
+    assert second.estimates[0].last_observed_tick == 5
+    assert lost.estimates == ()
+    assert lost.lifecycle_tick == 8
+
+
+def test_zero_confidence_sightings_remove_contacts_without_allocating_a_replacement() -> None:
+    owner = EntityId(1)
+    store, allocator = apply_contact_sightings(
+        ContactStore(lifecycle_tick=1), IdAllocator(), 1, (_sighting(owner, 100, 200),)
+    )
+
+    removed, after_removal = apply_contact_sightings(
+        store,
+        allocator,
+        1,
+        (_sighting(owner, 100, 200, confidence=ContactConfidence(0), contact_id=ContactId(1)),),
+    )
+    ignored, after_ignored = apply_contact_sightings(
+        removed,
+        after_removal,
+        1,
+        (_sighting(owner, 100, 200, confidence=ContactConfidence(0)),),
+    )
+
+    assert removed.estimates == ()
+    assert after_removal == allocator
+    assert ignored == removed
+    assert after_ignored == after_removal
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (
+            lambda: ContactStore(
+                (
+                    ContactEstimate(
+                        ContactId(1),
+                        EntityId(1),
+                        _position(0, 0),
+                        WorldSubunits(0),
+                        ContactConfidence(100),
+                        2,
+                    ),
+                ),
+                lifecycle_tick=1,
+            ),
+            "must not precede an observation",
+        ),
+        (
+            lambda: advance_contacts(ContactStore(lifecycle_tick=3), 2),
+            "must not precede the stored tick",
+        ),
+        (
+            lambda: apply_contact_sightings(
+                ContactStore(lifecycle_tick=1),
+                IdAllocator(),
+                1,
+                (_sighting(EntityId(1), 0, 0, contact_id=ContactId(1)),),
+            ),
+            "requires an existing",
+        ),
+    ),
+)
+def test_contact_lifecycle_rejects_invalid_transition_inputs(factory: object, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        factory()  # type: ignore[operator]
+
+
+def _sighting(
+    owner_entity_id: EntityId,
+    x: int,
+    y: int,
+    *,
+    confidence: ContactConfidence = _DEFAULT_SIGHTING_CONFIDENCE,
+    contact_id: ContactId | None = None,
+) -> ContactSighting:
+    return ContactSighting(
+        owner_entity_id,
+        _position(x, y),
+        WorldSubunits(300),
+        confidence,
+        contact_id,
+    )
+
+
+def _position(x: int, y: int) -> WorldPosition:
+    return WorldPosition(WorldSubunits(x), WorldSubunits(y), ElevationLayer(1))

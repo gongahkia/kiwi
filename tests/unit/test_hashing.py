@@ -16,6 +16,7 @@ from kiwi.dsl.runtime_values import (
     RecordValue,
     StringValue,
 )
+from kiwi.sim.contacts import ContactConfidence, ContactSighting, apply_contact_sightings
 from kiwi.sim.hashing import (
     CANONICAL_STATE_MAGIC,
     CANONICAL_STATE_VERSION,
@@ -78,7 +79,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "07ee0e2165d9841643a3f20fdc69816f80c9920d307b749ab7d37794f656d5e9"
+    assert first.hex == "0c6fa9d89bfd0cd07accd227752278cf6282997616daa1d2acbcb2af41196ff6"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -204,6 +205,36 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
     assert decoded.policy_versions.version_for(entity.entity_id) == version
     assert hash_canonical_state(state) != hash_canonical_state(
         replace(state, policy_versions=PolicyVersionStore())
+    )
+
+
+def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
+    state, owner = add_entity(MissionState(), WorldPosition(WorldSubunits(3), WorldSubunits(4)))
+    contacts, allocator = apply_contact_sightings(
+        state.contacts,
+        state.id_allocator,
+        state.tick,
+        (
+            ContactSighting(
+                owner.entity_id,
+                WorldPosition(WorldSubunits(300), WorldSubunits(400), ElevationLayer(1)),
+                WorldSubunits(200),
+                ContactConfidence(8_000),
+            ),
+        ),
+    )
+    state = replace(state, contacts=contacts, id_allocator=allocator)
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert (
+        decoded.contacts.estimate_for(owner.entity_id, contacts.estimates[0].contact_id)
+        == contacts.estimates[0]
+    )
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, contacts=type(contacts)())
     )
 
 

@@ -256,9 +256,7 @@ def _sighting_key(sighting: ContactSighting) -> tuple[int, int, int, int, int, i
     )
 
 
-def _contact_index(
-    estimates: list[ContactEstimate], key: tuple[EntityId, ContactId]
-) -> int | None:
+def _contact_index(estimates: list[ContactEstimate], key: tuple[EntityId, ContactId]) -> int | None:
     for index, estimate in enumerate(estimates):
         if (estimate.owner_entity_id, estimate.contact_id) == key:
             return index

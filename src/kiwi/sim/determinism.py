@@ -270,6 +270,81 @@ def first_canonical_state_difference(
             return _difference(
                 f"{prefix}/value", repr(expected_memory.value), repr(actual_memory.value)
             )
+    if len(expected.policy_versions.entries) != len(actual.policy_versions.entries):
+        return _difference(
+            "policy_versions/count",
+            len(expected.policy_versions.entries),
+            len(actual.policy_versions.entries),
+        )
+    for index, (expected_version, actual_version) in enumerate(
+        zip(expected.policy_versions.entries, actual.policy_versions.entries, strict=True)
+    ):
+        prefix = f"policy_versions/{index}"
+        if expected_version.entity_id != actual_version.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_version.entity_id.value,
+                actual_version.entity_id.value,
+            )
+        if expected_version.version != actual_version.version:
+            return _difference(
+                f"{prefix}/digest",
+                expected_version.version.digest.hex(),
+                actual_version.version.digest.hex(),
+            )
+    if expected.contacts.lifecycle_tick != actual.contacts.lifecycle_tick:
+        return _difference(
+            "contacts/lifecycle_tick",
+            expected.contacts.lifecycle_tick,
+            actual.contacts.lifecycle_tick,
+        )
+    if len(expected.contacts.estimates) != len(actual.contacts.estimates):
+        return _difference(
+            "contacts/count",
+            len(expected.contacts.estimates),
+            len(actual.contacts.estimates),
+        )
+    for index, (expected_contact, actual_contact) in enumerate(
+        zip(expected.contacts.estimates, actual.contacts.estimates, strict=True)
+    ):
+        prefix = f"contacts/{index}"
+        if expected_contact.owner_entity_id != actual_contact.owner_entity_id:
+            return _difference(
+                f"{prefix}/owner_entity_id",
+                expected_contact.owner_entity_id.value,
+                actual_contact.owner_entity_id.value,
+            )
+        if expected_contact.contact_id != actual_contact.contact_id:
+            return _difference(
+                f"{prefix}/contact_id",
+                expected_contact.contact_id.value,
+                actual_contact.contact_id.value,
+            )
+        for axis in ("x", "y", "elevation"):
+            expected_value = getattr(expected_contact.estimated_position, axis).value
+            actual_value = getattr(actual_contact.estimated_position, axis).value
+            if expected_value != actual_value:
+                return _difference(
+                    f"{prefix}/estimated_position/{axis}", expected_value, actual_value
+                )
+        if expected_contact.uncertainty_radius != actual_contact.uncertainty_radius:
+            return _difference(
+                f"{prefix}/uncertainty_radius",
+                expected_contact.uncertainty_radius.value,
+                actual_contact.uncertainty_radius.value,
+            )
+        if expected_contact.confidence != actual_contact.confidence:
+            return _difference(
+                f"{prefix}/confidence_basis_points",
+                expected_contact.confidence.basis_points,
+                actual_contact.confidence.basis_points,
+            )
+        if expected_contact.last_observed_tick != actual_contact.last_observed_tick:
+            return _difference(
+                f"{prefix}/last_observed_tick",
+                expected_contact.last_observed_tick,
+                actual_contact.last_observed_tick,
+            )
     for kind in IdKind:
         expected_next_id = expected.id_allocator.next_ids[int(kind)]
         actual_next_id = actual.id_allocator.next_ids[int(kind)]
