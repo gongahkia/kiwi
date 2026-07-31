@@ -110,8 +110,8 @@ bounded strings, dimension-tagged normalized rational quantities, records, and
 closed `Option<T>` values. `Option<T>` uses version-2 type tag `11`; its values
 use `BUILD_SOME` opcode `13` and `PUSH_NONE` opcode `14`. Option-match control
 uses `JUMP_IF_NONE`, `UNWRAP_SOME`, and `POP` opcodes `15` through `17`; a
-version-1 module rejects all six. Record fields are encoded as an ordered field-name
-sequence and become lexically ordered immutable runtime values. The payload
+version-1 module rejects all six. Record fields are encoded as an ordered
+field-name sequence and become lexically ordered immutable runtime values. The payload
 decoder has explicit size, collection, text, integer, and type-nesting limits,
 rejects trailing bytes, and validates decoded bytecode before returning it. See
 `DSL_SPEC.md` section 16.1 for the complete canonical layout.
