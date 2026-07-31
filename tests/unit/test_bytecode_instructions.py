@@ -6,6 +6,7 @@ import pytest
 
 from kiwi.dsl.bytecode import (
     BuildRecord,
+    BuildSome,
     Call,
     ConstantId,
     InstructionIndex,
@@ -18,6 +19,7 @@ from kiwi.dsl.bytecode import (
     Opcode,
     PushConstant,
     PushFunction,
+    PushNone,
     Return,
     StoreLocal,
     TraceExpression,
@@ -39,6 +41,8 @@ def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
         TraceExpression(ExpressionId(7)),
         BuildRecord("Point", ("x",)),
         LoadField("x"),
+        BuildSome(),
+        PushNone(),
     )
 
     assert tuple(instruction.opcode for instruction in instructions) == tuple(Opcode)

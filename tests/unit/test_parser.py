@@ -11,10 +11,12 @@ from kiwi.dsl.syntax import (
     IfExpression,
     LetExpression,
     NegateExpression,
+    NoneExpression,
     PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
     RecordTypeDeclaration,
+    SomeExpression,
     StringLiteral,
 )
 
@@ -126,3 +128,22 @@ def test_parser_builds_record_type_construction_and_field_access() -> None:
     assert isinstance(origin, FunctionDeclaration)
     assert isinstance(origin.body, RecordExpression)
     assert tuple(field.name.text for field in origin.body.fields) == ("y", "x")
+
+
+def test_parser_builds_option_types_and_closed_constructors() -> None:
+    source, result = parse_text(
+        "fn some() -> Option<Int> = Some(1)\nfn none() -> Option<Option<Int>> = None"
+    )
+
+    assert result.diagnostics == ()
+    some, none = result.module.declarations
+    assert isinstance(some, FunctionDeclaration)
+    assert some.return_annotation.name.text == "Option"
+    assert some.return_annotation.arguments[0].name.text == "Int"
+    assert isinstance(some.body, SomeExpression)
+    assert isinstance(none, FunctionDeclaration)
+    assert none.return_annotation.arguments[0].arguments[0].name.text == "Int"
+    assert isinstance(none.body, NoneExpression)
+    assert none.span == source.span(
+        ByteOffset(source.text.index("fn none")), ByteOffset(len(source.text))
+    )

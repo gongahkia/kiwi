@@ -10,6 +10,8 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     FunctionValue,
     IntegerValue,
+    OptionNoneValue,
+    OptionSomeValue,
     QuantityValue,
     RecordValue,
     RuntimeValueKind,
@@ -25,6 +27,8 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         UnitValue(),
         StringValue("alpha"),
         QuantityValue(Quantity(QuantityDimension.DURATION, ExactRational(1, 4))),
+        OptionSomeValue(IntegerValue(1)),
+        OptionNoneValue(),
         RecordValue("Point", ("x",), (IntegerValue(1),)),
         FunctionValue(FunctionId(3)),
     )
@@ -35,6 +39,8 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         RuntimeValueKind.UNIT,
         RuntimeValueKind.STRING,
         RuntimeValueKind.QUANTITY,
+        RuntimeValueKind.OPTION_SOME,
+        RuntimeValueKind.OPTION_NONE,
         RuntimeValueKind.RECORD,
         RuntimeValueKind.FUNCTION,
     )

@@ -18,11 +18,13 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NameExpression,
     NegateExpression,
+    NoneExpression,
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
     RecordTypeField,
+    SomeExpression,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -108,6 +110,10 @@ def _format_type_reference(annotation: TypeReference, depth: int) -> list[str]:
     prefix = "  " * depth
     lines = [f"{prefix}TypeReference span={format_span(annotation.span)}", f"{prefix}  name:"]
     lines.extend(_format_identifier(annotation.name, depth + 2))
+    if annotation.arguments:
+        lines.append(f"{prefix}  arguments:")
+        for argument in annotation.arguments:
+            lines.extend(_format_type_reference(argument, depth + 2))
     return lines
 
 
@@ -137,6 +143,12 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
             f"value={quantity.value.numerator}/{quantity.value.denominator} "
             f"span={format_span(expression.span)}"
         ]
+    if isinstance(expression, SomeExpression):
+        lines = [f"{prefix}SomeExpression span={format_span(expression.span)}", f"{prefix}  value:"]
+        lines.extend(_format_expression(expression.value, depth + 2))
+        return lines
+    if isinstance(expression, NoneExpression):
+        return [f"{prefix}NoneExpression span={format_span(expression.span)}"]
     if isinstance(expression, RecordExpression):
         lines = [
             f"{prefix}RecordExpression span={format_span(expression.span)}",

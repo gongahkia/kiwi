@@ -31,8 +31,8 @@ from kiwi.dsl.syntax import (
     RecordFieldExpression,
     RecordTypeDeclaration,
     RecordTypeField,
-    StringLiteral,
     SomeExpression,
+    StringLiteral,
     SurfaceModule,
     TypeReference,
 )

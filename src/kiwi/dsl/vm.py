@@ -8,6 +8,7 @@ from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
     BuildRecord,
+    BuildSome,
     BytecodeFunction,
     BytecodeModule,
     Call,
@@ -20,6 +21,7 @@ from kiwi.dsl.bytecode import (
     Negate,
     PushConstant,
     PushFunction,
+    PushNone,
     Return,
     StoreLocal,
     TraceExpression,
@@ -29,6 +31,8 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     FunctionValue,
     IntegerValue,
+    OptionNoneValue,
+    OptionSomeValue,
     QuantityValue,
     RecordValue,
     RuntimeValue,
@@ -144,6 +148,8 @@ def run_vm(
                 BooleanValue,
                 StringValue,
                 QuantityValue,
+                OptionSomeValue,
+                OptionNoneValue,
                 RecordValue,
                 FunctionValue,
                 UnitValue,
@@ -246,6 +252,30 @@ def run_vm(
             )
             if not _push(stack, record, budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, BuildSome):
+            value = _pop(stack, frame.stack_base)
+            if value is None:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "Option construction has no stack value",
+                    frame,
+                )
+            if allocations >= budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            allocations += 1
+            if not _push(stack, OptionSomeValue(value), budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, PushNone):
+            if allocations >= budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            allocations += 1
+            if not _push(stack, OptionNoneValue(), budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, LoadField):
             record_value = _pop(stack, frame.stack_base)
             if not isinstance(record_value, RecordValue):
@@ -337,6 +367,8 @@ def run_vm_with_fallback(
             BooleanValue,
             StringValue,
             QuantityValue,
+            OptionSomeValue,
+            OptionNoneValue,
             RecordValue,
             FunctionValue,
             UnitValue,

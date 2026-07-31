@@ -72,6 +72,8 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.QUANTITY,
         TokenKind.TRUE,
         TokenKind.FALSE,
+        TokenKind.SOME,
+        TokenKind.NONE,
         TokenKind.TYPE,
         TokenKind.POLICY,
         TokenKind.FN,
@@ -88,6 +90,8 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.LEFT_BRACE,
         TokenKind.RIGHT_BRACE,
         TokenKind.DOT,
+        TokenKind.LEFT_ANGLE,
+        TokenKind.RIGHT_ANGLE,
         TokenKind.ARROW,
         TokenKind.MINUS,
     )

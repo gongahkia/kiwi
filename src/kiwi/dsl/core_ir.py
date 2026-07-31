@@ -25,6 +25,8 @@ class CoreExpressionKind(StrEnum):
     BOOLEAN = "boolean"
     STRING = "string"
     QUANTITY = "quantity"
+    OPTION_SOME = "option_some"
+    OPTION_NONE = "option_none"
     RECORD = "record"
     REFERENCE = "reference"
     NEGATE = "negate"
@@ -76,6 +78,27 @@ class CoreQuantity:
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.QUANTITY
+
+
+@dataclass(frozen=True, slots=True)
+class CoreSome:
+    """A payload-bearing built-in `Option` value."""
+
+    expression_id: ExpressionId
+    value: CoreExpression
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.OPTION_SOME
+
+
+@dataclass(frozen=True, slots=True)
+class CoreNone:
+    """A payload-free built-in `Option` value."""
+
+    expression_id: ExpressionId
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.OPTION_NONE
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,6 +199,8 @@ type CoreExpression = (
     | CoreBoolean
     | CoreString
     | CoreQuantity
+    | CoreSome
+    | CoreNone
     | CoreRecord
     | CoreReference
     | CoreNegate

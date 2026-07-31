@@ -66,6 +66,23 @@ class TypedQuantityLiteral:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedSomeExpression:
+    """A payload-bearing built-in `Option` value."""
+
+    value: TypedExpression
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedNoneExpression:
+    """A contextually typed payload-free built-in `Option` value."""
+
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedRecordField:
     """One schema-ordered checked value used to construct a record."""
 
@@ -159,6 +176,8 @@ type TypedExpression = (
     | TypedBooleanLiteral
     | TypedStringLiteral
     | TypedQuantityLiteral
+    | TypedSomeExpression
+    | TypedNoneExpression
     | TypedRecordExpression
     | TypedNameExpression
     | TypedNegateExpression

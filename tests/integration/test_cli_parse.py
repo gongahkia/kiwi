@@ -215,3 +215,21 @@ def test_run_policy_command_returns_canonically_ordered_record_fields(tmp_path: 
     assert result.returncode == 0
     assert result.stdout == "value: Record(Point, {x=Integer(1), y=Integer(2)})\n"
     assert result.stderr == ""
+
+
+def test_run_policy_command_returns_closed_option_values(tmp_path: Path) -> None:
+    path = tmp_path / "option.dtr"
+    path.write_text(
+        "policy present() -> Option<Int> = Some(1)\npolicy absent() -> Option<Int> = None",
+        encoding="utf-8",
+    )
+
+    present = run_cli_arguments("run-policy", str(path), "present")
+    absent = run_cli_arguments("run-policy", str(path), "absent")
+
+    assert present.returncode == 0
+    assert present.stdout == "value: Some(Integer(1))\n"
+    assert present.stderr == ""
+    assert absent.returncode == 0
+    assert absent.stdout == "value: None\n"
+    assert absent.stderr == ""

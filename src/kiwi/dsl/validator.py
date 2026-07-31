@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
     BuildRecord,
+    BuildSome,
     BytecodeFunction,
     BytecodeInstruction,
     BytecodeModule,
@@ -21,6 +22,7 @@ from kiwi.dsl.bytecode import (
     Negate,
     PushConstant,
     PushFunction,
+    PushNone,
     Return,
     StoreLocal,
     TraceExpression,
@@ -133,6 +135,8 @@ def _validate_instruction_operands(
             Call,
             BuildRecord,
             LoadField,
+            BuildSome,
+            PushNone,
             Jump,
             JumpIfFalse,
             Return,
@@ -267,6 +271,8 @@ _INSTRUCTION_TYPES = (
     Call,
     BuildRecord,
     LoadField,
+    BuildSome,
+    PushNone,
     Jump,
     JumpIfFalse,
     Return,
@@ -285,6 +291,10 @@ def _stack_effect(instruction: BytecodeInstruction, height: int) -> tuple[int, i
         return (instruction.argument_count + 1, height - instruction.argument_count)
     if isinstance(instruction, BuildRecord):
         return (len(instruction.field_names), height - len(instruction.field_names) + 1)
+    if isinstance(instruction, BuildSome):
+        return (1, height)
+    if isinstance(instruction, PushNone):
+        return (0, height + 1)
     if isinstance(instruction, LoadField):
         return (1, height)
     if isinstance(instruction, JumpIfFalse):

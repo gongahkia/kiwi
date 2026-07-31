@@ -31,6 +31,17 @@ class NamedType:
 
 
 @dataclass(frozen=True, slots=True)
+class OptionType:
+    """The closed built-in optional value type."""
+
+    element_type: DslType
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.element_type, (BuiltinType, NamedType, OptionType, FunctionType)):
+            raise TypeError("option element type must be a DSL type")
+
+
+@dataclass(frozen=True, slots=True)
 class FunctionType:
     """A function with ordered parameter types, including zero-argument calls."""
 
@@ -39,15 +50,15 @@ class FunctionType:
 
     def __post_init__(self) -> None:
         if any(
-            not isinstance(parameter, (BuiltinType, NamedType, FunctionType))
+            not isinstance(parameter, (BuiltinType, NamedType, OptionType, FunctionType))
             for parameter in self.parameters
         ):
             raise TypeError("function type parameters must be DSL types")
-        if not isinstance(self.return_type, (BuiltinType, NamedType, FunctionType)):
+        if not isinstance(self.return_type, (BuiltinType, NamedType, OptionType, FunctionType)):
             raise TypeError("function return type must be a DSL type")
 
 
-type DslType = BuiltinType | NamedType | FunctionType
+type DslType = BuiltinType | NamedType | OptionType | FunctionType
 
 
 def render_type(type_: DslType) -> str:
@@ -57,6 +68,8 @@ def render_type(type_: DslType) -> str:
             return str(type_)
         case NamedType(name):
             return name
+        case OptionType(element_type):
+            return f"Option<{render_type(element_type)}>"
         case FunctionType(parameters, return_type):
             rendered_parameters = tuple(_render_parameter(parameter) for parameter in parameters)
             left = _render_function_parameters(rendered_parameters)

@@ -20,9 +20,11 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NameExpression,
     NegateExpression,
+    NoneExpression,
     QuantityLiteral,
     RecordExpression,
     RecordTypeDeclaration,
+    SomeExpression,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -41,13 +43,15 @@ from kiwi.dsl.typed_ir import (
     TypedModule,
     TypedNameExpression,
     TypedNegateExpression,
+    TypedNoneExpression,
     TypedParameter,
     TypedQuantityLiteral,
     TypedRecordExpression,
     TypedRecordField,
+    TypedSomeExpression,
     TypedStringLiteral,
 )
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, render_type
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, OptionType, render_type
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +109,7 @@ def check(resolution: ResolutionResult) -> CheckResult:
             symbol_types,
             diagnostics,
             record_schemas,
+            header.return_type,
         )
         if body is None:
             continue
@@ -190,6 +195,31 @@ def _annotation_type(
     record_schemas: tuple[_RecordSchema, ...],
     diagnostics: list[Diagnostic],
 ) -> DslType | None:
+    if annotation.name.text == "Option":
+        if len(annotation.arguments) != 1:
+            diagnostics.append(
+                Diagnostic(
+                    "E411_INVALID_OPTION_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    "Option requires exactly one type argument",
+                    annotation.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            return None
+        element_type = _annotation_type(annotation.arguments[0], record_schemas, diagnostics)
+        return OptionType(element_type) if element_type is not None else None
+    if annotation.arguments:
+        diagnostics.append(
+            Diagnostic(
+                "E400_UNKNOWN_TYPE",
+                DiagnosticSeverity.ERROR,
+                f"type '{annotation.name.text}' does not take type arguments",
+                annotation.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
     try:
         return BuiltinType(annotation.name.text)
     except ValueError:
@@ -297,6 +327,7 @@ def _check_expression(
     symbol_types: list[tuple[SymbolId, DslType]],
     diagnostics: list[Diagnostic],
     record_schemas: tuple[_RecordSchema, ...],
+    expected_type: DslType | None = None,
 ) -> TypedExpression | None:
     if isinstance(expression, IntegerLiteral):
         return TypedIntegerLiteral(expression.value, BuiltinType.INT, expression.span)
@@ -310,6 +341,38 @@ def _check_expression(
             BuiltinType(expression.value.dimension.value),
             expression.span,
         )
+    if isinstance(expression, SomeExpression):
+        expected_element = (
+            expected_type.element_type if isinstance(expected_type, OptionType) else None
+        )
+        value = _check_expression(
+            expression.value,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+            expected_element,
+        )
+        if value is None:
+            return None
+        type_ = OptionType(value.type_)
+        if expected_type is not None and type_ != expected_type:
+            diagnostics.append(_type_mismatch(expression.span, expected_type, type_))
+            return None
+        return TypedSomeExpression(value, type_, expression.span)
+    if isinstance(expression, NoneExpression):
+        if not isinstance(expected_type, OptionType):
+            diagnostics.append(
+                Diagnostic(
+                    "E412_AMBIGUOUS_NONE",
+                    DiagnosticSeverity.ERROR,
+                    "None requires an expected Option type",
+                    expression.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            return None
+        return TypedNoneExpression(expected_type, expression.span)
     if isinstance(expression, RecordExpression):
         return _check_record_expression(
             expression,
@@ -332,6 +395,7 @@ def _check_expression(
             symbol_types,
             diagnostics,
             record_schemas,
+            BuiltinType.INT,
         )
         if operand is None:
             return None
@@ -390,7 +454,8 @@ def _check_expression(
                     "E403_INVALID_CALL",
                     DiagnosticSeverity.ERROR,
                     "expected "
-                    f"{len(callee.type_.parameters)} arguments but received {len(typed_arguments)}",
+                    f"{len(callee.type_.parameters)} arguments but received "
+                    f"{len(expression.arguments)}",
                     expression.span,
                     DiagnosticStage.CHECKER,
                 )
@@ -413,10 +478,14 @@ def _check_expression(
         )
         if any(argument is None for argument in arguments):
             return None
-        typed_arguments = tuple(argument for argument in arguments if argument is not None)
-        for argument, parameter_type in zip(typed_arguments, callee.type_.parameters, strict=True):
-            if argument.type_ != parameter_type:
-                diagnostics.append(_type_mismatch(argument.span, parameter_type, argument.type_))
+        typed_arguments = tuple(item for item in arguments if item is not None)
+        for typed_argument, parameter_type in zip(
+            typed_arguments, callee.type_.parameters, strict=True
+        ):
+            if typed_argument.type_ != parameter_type:
+                diagnostics.append(
+                    _type_mismatch(typed_argument.span, parameter_type, typed_argument.type_)
+                )
                 return None
         return TypedCallExpression(
             callee, typed_arguments, callee.type_.return_type, expression.span
@@ -445,6 +514,7 @@ def _check_expression(
             symbol_types,
             diagnostics,
             record_schemas,
+            expected_type,
         )
         if body is None:
             return None
@@ -458,6 +528,7 @@ def _check_expression(
             symbol_types,
             diagnostics,
             record_schemas,
+            BuiltinType.BOOL,
         )
         then_branch = _check_expression(
             expression.then_branch,
@@ -465,15 +536,19 @@ def _check_expression(
             symbol_types,
             diagnostics,
             record_schemas,
+            expected_type,
         )
+        if condition is None or then_branch is None:
+            return None
         else_branch = _check_expression(
             expression.else_branch,
             resolution,
             symbol_types,
             diagnostics,
             record_schemas,
+            expected_type if expected_type is not None else then_branch.type_,
         )
-        if condition is None or then_branch is None or else_branch is None:
+        if else_branch is None:
             return None
         if condition.type_ != BuiltinType.BOOL:
             diagnostics.append(_type_mismatch(condition.span, BuiltinType.BOOL, condition.type_))
@@ -520,14 +595,15 @@ def _check_record_expression(
     supplied_names: list[str] = []
     is_valid = True
     for field in expression.fields:
+        expected = _record_field_for(schema, field.name.text)
         value = _check_expression(
             field.value,
             resolution,
             symbol_types,
             diagnostics,
             record_schemas,
+            expected.type_ if expected is not None else None,
         )
-        expected = _record_field_for(schema, field.name.text)
         if field.name.text in supplied_names:
             diagnostics.append(
                 Diagnostic(
