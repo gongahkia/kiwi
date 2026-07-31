@@ -149,6 +149,14 @@ false
 
 Floating-point decimal literals are not required in canonical semantics. Decimal surface values may lower into rational or fixed-point quantities with exact validation.
 
+Milestone 4 implements double-quoted strings and integer-magnitude quantity
+literals. Strings decode `\\`, `\"`, `\n`, `\r`, and `\t`; raw newlines and
+other escapes are lexer errors. Decoded strings are bounded to 65,536 UTF-8
+bytes. Quantity literals normalize exactly: `ms` to seconds, `s` to seconds,
+`m` to metres, `deg` to turns, and `%` to fractions. Their stored form is a
+dimension tag plus a reduced signed rational with a positive denominator;
+surface probability magnitudes are restricted to `0` through `100`.
+
 ## 7. Core expressions
 
 ### 7.1 Bindings
@@ -310,6 +318,10 @@ A module may export only explicitly declared policy entry points.
 - `Suppression`
 - `Position`
 - `Vector`
+
+Milestone 4 resolves `Duration`, `Distance`, `Angle`, and `Probability` as
+built-in types for the corresponding literals. Operations on quantities remain
+unavailable until the domain-operation task defines their semantics.
 
 Operations are dimensionally checked. Examples:
 
@@ -556,7 +568,12 @@ The filesystem loader reads at most 1,048,576 bytes, decodes strict UTF-8, and r
 
 Invalid characters and unterminated literals produce recoverable diagnostics where possible.
 
-Milestone 1 integer literals are limited to 1,024 decimal digits. The lexer reports and skips longer literals so a bounded source file cannot create an unbounded host-integer allocation.
+Integer magnitudes are limited to 1,024 decimal digits. The lexer reports and
+skips longer integer or quantity magnitudes so a bounded source file cannot
+create an unbounded host-integer allocation. String errors are
+`E102_UNTERMINATED_STRING`, `E103_INVALID_STRING_ESCAPE`, and
+`E104_STRING_TOO_LONG`; invalid units and probability magnitudes are
+`E105_INVALID_QUANTITY_UNIT` and `E106_INVALID_PROBABILITY`.
 
 ### 15.2 Parsing
 
@@ -576,7 +593,7 @@ conditional := "if" expression "then" expression "else" expression
 application := unary ("(" arguments? ")")*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
-primary     := integer | boolean | identifier | "(" expression ")"
+primary     := integer | boolean | string | quantity | identifier | "(" expression ")"
 ```
 
 Parser output is immutable surface AST. Error recovery should support multiple diagnostics per compile without fabricating misleading trees.
@@ -621,12 +638,13 @@ Check:
 - intent availability.
 
 For the Milestone 2 subset, `Int`, `Bool`, and `Unit` annotations resolve to
-the primitive type algebra. `let` values are inferred, direct application
-checks function arity and argument types, negation requires `Int`, and `if`
-requires a `Bool` condition with equal branch types. The checker emits
-`E400_UNKNOWN_TYPE`, `E401_TYPE_MISMATCH`, `E402_BRANCH_TYPE_MISMATCH`, and
-`E403_INVALID_CALL`; each diagnostic has a source span and uses the `checker`
-stage.
+the primitive type algebra. Milestone 4 additionally resolves `String`,
+`Duration`, `Distance`, `Angle`, and `Probability`, and gives matching literals
+their exact types. `let` values are inferred, direct application checks function
+arity and argument types, negation requires `Int`, and `if` requires a `Bool`
+condition with equal branch types. The checker emits `E400_UNKNOWN_TYPE`,
+`E401_TYPE_MISMATCH`, `E402_BRANCH_TYPE_MISMATCH`, and `E403_INVALID_CALL`;
+each diagnostic has a source span and uses the `checker` stage.
 
 ### 15.5 Capability checking
 
@@ -640,12 +658,13 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
-Milestone 2 core keeps literals, resolved references, negation, calls, `let`,
-and `if`. Expression IDs start at zero and follow definition source order then
-expression pre-order. Each ID has one `SourceMapEntry` containing its enclosing
-`DefinitionId` and source span. Parentheses do not create core nodes because
-they have no runtime semantics. The `format_lower_result` debug renderer is a
-stable inspection format for core golden fixtures, not a bytecode format.
+Core retains integer, boolean, string, and quantity literals, resolved
+references, negation, calls, `let`, and `if`. Expression IDs start at zero and
+follow definition source order then expression pre-order. Each ID has one
+`SourceMapEntry` containing its enclosing `DefinitionId` and source span.
+Parentheses do not create core nodes because they have no runtime semantics.
+The `format_lower_result` debug renderer is a stable inspection format for core
+golden fixtures, not a bytecode format.
 
 ### 15.8 Bytecode generation
 
@@ -665,13 +684,13 @@ belong to the module header's source file.
 ## 16. Bytecode model
 
 Every bytecode module begins with immutable compatibility metadata: its source
-file ID, source-language version, core-IR version, and bytecode version. The
-Milestone 3 compiler emits version `1` for all three version fields and rejects
-any other value at this boundary. The later bytecode encoding task defines how
-the header is represented in bytes.
+file ID, source-language version, core-IR version, and bytecode version.
+Milestone 4 emits the compatible version triple `(2, 2, 2)`. The decoder also
+accepts the legacy `(1, 1, 1)` triple; a version 1 module cannot contain version
+2 values or types and is never reinterpreted with version 2 semantics.
 
-The initial constant pool interns only integer, boolean, and unit values. It
-uses first encounter during the compiler's explicit definition-order,
+The constant pool interns integer, boolean, unit, string, and exact quantity
+values. It uses first encounter during the compiler's explicit definition-order,
 expression-pre-order traversal; repeated equal constants reuse their original
 index. Functions are ordered by ascending `DefinitionId` and receive contiguous
 `FunctionId` values from zero. Function references are never constants.
@@ -723,11 +742,16 @@ invalid. Constant, type, and instruction tags are fixed numeric tags. Source
 map entries store function ID, instruction index, expression ID, start offset,
 and end offset; their file ID is the header source file ID.
 
-Constant tags are integer `1`, boolean `2`, and unit `3`. Type tags are `Int`
-`1`, `Bool` `2`, `Unit` `3`, named `4`, and function `5`; function types encode
-their parameter count, parameters, then return type. Instruction tags are the
-numeric `Opcode` values in section 16; operands are their unsigned fields in
-instruction order. Instructions without an operand have no following field.
+Version 1 constant tags are integer `1`, boolean `2`, and unit `3`; type tags
+are `Int` `1`, `Bool` `2`, `Unit` `3`, named `4`, and function `5`. Version 2
+adds string constant `4`, quantity constant `5`, and type tags `String` `6`,
+`Duration` `7`, `Distance` `8`, `Angle` `9`, and `Probability` `10`. A quantity
+is its dimension tag (`Duration` `1`, `Distance` `2`, `Angle` `3`,
+`Probability` `4`), then a canonical signed numerator and positive minimal
+unsigned denominator. Function types encode their parameter count, parameters,
+then return type. Instruction tags are the numeric `Opcode` values in section
+16; operands are their unsigned fields in instruction order. Instructions
+without an operand have no following field.
 
 The decoder accepts at most 16 MiB, 65,536 entries per collection, 65,536
 UTF-8 bytes per text value, 512 integer-magnitude bytes, and 64 nested type
@@ -757,9 +781,10 @@ Closed value algebra:
 
 Runtime values have deterministic equality, hashing where permitted, serialisation rules, and allocation costs.
 
-Milestone 3 starts with a closed immutable algebra of exact integer, boolean,
-unit, and `FunctionId` reference values. A function value is only an index into
-the module function table; it never contains a Python callable or code object.
+Milestone 4 adds immutable bounded strings and exact quantities to the closed
+integer, boolean, unit, and `FunctionId` reference value algebra. A function
+value is only an index into the module function table; it never contains a
+Python callable or code object.
 
 ## 18. VM budgets
 

@@ -120,7 +120,7 @@ python -m kiwi.cli replay verify runs/example.drun
 
 Use only commands actually configured in the repository. Update this file and `README.md` when the canonical commands change.
 
-Current Milestone 3 headless commands are:
+Current Milestone 4 headless commands are:
 
 ```bash
 python -m kiwi.cli compile examples/policies/typed_core.dtr

@@ -47,7 +47,7 @@ Policy source files contain:
 Example:
 
 ```text
-language 1
+language 2
 
 policy cautious(view: Observation, memory: Memory) -> Decision =
   ...
@@ -66,7 +66,7 @@ Fields:
   "format": "kiwi-policy-project",
   "version": 1,
   "name": "cautious-alpha",
-  "language_version": 1,
+  "language_version": 2,
   "entry_points": {
     "operative": "src/cautious.dtr#cautious"
   },
@@ -101,13 +101,15 @@ A bundle contains:
 
 Bytecode must not contain Python code objects, import paths, callables, or pickled values.
 
-Milestone 3 encodes the bytecode payload with the `KWI-BC\0` binary format,
-encoding version `1`. It has fixed big-endian integer fields and ordered
-length-prefixed collections; its source map inherits source-file ID from the
-module header. The payload decoder has explicit size, collection, text,
-integer, and type-nesting limits, rejects trailing bytes, and validates decoded
-bytecode before returning it. See `DSL_SPEC.md` section 16.1 for the complete
-canonical layout.
+Kiwi encodes bytecode payloads with the `KWI-BC\0` binary format, encoding
+version `1`. It has fixed big-endian integer fields and ordered length-prefixed
+collections; its source map inherits source-file ID from the module header. The
+current compiler emits source, core, and bytecode version `2`; the decoder also
+accepts legacy `(1, 1, 1)` modules without reinterpreting them. Version 2 adds
+bounded strings and dimension-tagged normalized rational quantities. The payload
+decoder has explicit size, collection, text, integer, and type-nesting limits,
+rejects trailing bytes, and validates decoded bytecode before returning it. See
+`DSL_SPEC.md` section 16.1 for the complete canonical layout.
 
 ## 7. Mission content
 
