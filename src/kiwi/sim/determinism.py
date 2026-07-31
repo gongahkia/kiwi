@@ -149,6 +149,26 @@ def first_canonical_state_difference(
                 expected_entity.position.elevation.value,
                 actual_entity.position.elevation.value,
             )
+    if len(expected.policy_memory.entries) != len(actual.policy_memory.entries):
+        return _difference(
+            "policy_memory/count",
+            len(expected.policy_memory.entries),
+            len(actual.policy_memory.entries),
+        )
+    for index, (expected_memory, actual_memory) in enumerate(
+        zip(expected.policy_memory.entries, actual.policy_memory.entries, strict=True)
+    ):
+        prefix = f"policy_memory/{index}"
+        if expected_memory.entity_id != actual_memory.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_memory.entity_id.value,
+                actual_memory.entity_id.value,
+            )
+        if expected_memory.value != actual_memory.value:
+            return _difference(
+                f"{prefix}/value", repr(expected_memory.value), repr(actual_memory.value)
+            )
     for kind in IdKind:
         expected_next_id = expected.id_allocator.next_ids[int(kind)]
         actual_next_id = actual.id_allocator.next_ids[int(kind)]

@@ -31,11 +31,11 @@ Kiwi currently uses a small deterministic binary encoding for:
 - replay checkpoints;
 - trace chunks where size matters.
 
-`KWI-STATE\0` version `1` is the canonical mission-state payload. It uses a
+`KWI-STATE\0` version `2` is the canonical mission-state payload. It uses a
 fixed big-endian field order, fixed-width scalar values, and ordered bounded
 collections; it contains no Python object serialisation. BLAKE2b-256 hashes the
-exact payload. Decoders reject unsupported versions, malformed values, size
-limits, and trailing bytes rather than reinterpreting data.
+exact payload. Decoders reject version `1`, unsupported versions, malformed
+values, size limits, and trailing bytes rather than reinterpreting data.
 
 ## 4. Policy source
 
@@ -198,15 +198,19 @@ Snapshots must contain all authority required to resume. Presentation state is e
 
 The current internal canonical-state payload is distinct from the future
 `.dsnap` container: it encodes the authority state only, starting with
-`KWI-STATE\0`, 16-bit format version `1`, tick, phase, entities, type-local ID
-allocator counters, scheduled-event queue, random-algorithm version, root seed,
-and named random-stream states. Counts are 32-bit big-endian values bounded to
-65,536 items. Entity coordinates are signed 64-bit millimetres; elevation,
-sequences, stream state, and seed use unsigned 64-bit values. A snapshot
-container will add content/replay metadata around this payload without changing
-its hash semantics. Milestone 5's in-memory `AuthoritySnapshot` carries that
-payload with a redundant tick and BLAKE2b-256 state hash; restore rejects invalid
-payloads and tick or hash mismatches. It is not a `.dsnap` container yet.
+`KWI-STATE\0`, 16-bit format version `2`, tick, phase, entities, entity-ID
+ordered policy-memory records, type-local ID allocator counters, scheduled-event
+queue, random-algorithm version, root seed, and named random-stream states.
+Counts are 32-bit big-endian values bounded to 65,536 items. Memory values are
+closed data-only DSL values: integers, booleans, unit, UTF-8 strings, exact
+quantities, options, lists, and lexically ordered records; callable values are
+rejected. Entity coordinates are signed 64-bit millimetres; elevation,
+sequences, stream state, and seed use unsigned 64-bit values. Version `1` is
+intentionally unsupported. A snapshot container will add content/replay metadata
+around this payload without changing its hash semantics. Milestone 5's in-memory
+`AuthoritySnapshot` carries that payload with a redundant tick and BLAKE2b-256
+state hash; restore rejects invalid payloads and tick or hash mismatches. It is
+not a `.dsnap` container yet.
 
 ## 9. Replay package
 

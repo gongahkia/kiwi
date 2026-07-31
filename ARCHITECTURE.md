@@ -347,9 +347,10 @@ Recommended state style:
 
 The initial kernel materialises a non-negative signed 64-bit mission tick, a
 strictly entity-ID-ordered tuple of minimal entity states, immutable ID
-allocator state, and a `(tick, sequence)` scheduled-event queue. State
-components are added only with the task that defines their invariants;
-canonical encoding is deferred to its dedicated task.
+allocator state, an entity-ID-ordered sparse store of data-only policy-memory
+records, and a `(tick, sequence)` scheduled-event queue. State components are
+added only with the task that defines their invariants; canonical encoding is
+deferred to its dedicated task.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor

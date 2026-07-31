@@ -224,7 +224,7 @@ Connect compiled policies to the simulation without adding combat.
 ### Tasks
 
 - [x] Define runtime observation value schema.
-- [ ] Define policy memory storage per entity.
+- [x] Define policy memory storage per entity.
 - [ ] Define core intention variants and action channels.
 - [ ] Define intention IDs and source origin metadata.
 - [ ] Build immutable observations from pre-evaluation state.

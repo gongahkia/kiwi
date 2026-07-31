@@ -6,6 +6,16 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
 from kiwi.domain.ids import IdAllocator
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    ListValue,
+    OptionSomeValue,
+    QuantityValue,
+    RecordValue,
+    StringValue,
+)
 from kiwi.sim.hashing import (
     CANONICAL_STATE_MAGIC,
     CANONICAL_STATE_VERSION,
@@ -16,6 +26,7 @@ from kiwi.sim.hashing import (
     encode_canonical_state,
     hash_canonical_state,
 )
+from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.state import MissionPhase, MissionState, add_entity
@@ -49,14 +60,48 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "a3732d09003fa897c2eb33ba7b3431b2ab749b37fe6a84482a240a4819aef863"
+    assert first.hex == "1d306b0afe3c9fd964620b9417bbd9f350b9f87b9441894afe6dd098ec911395"
+
+
+def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
+    state, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(-2_000), WorldSubunits(5_000))
+    )
+    memory = RecordValue(
+        "Memory",
+        ("enabled", "history", "target"),
+        (
+            BooleanValue(True),
+            ListValue(
+                (
+                    IntegerValue(-7),
+                    QuantityValue(Quantity(QuantityDimension.DISTANCE, ExactRational(3, 2))),
+                )
+            ),
+            OptionSomeValue(RecordValue("Target", ("label",), (StringValue("alpha"),))),
+        ),
+    )
+    state = replace(
+        state,
+        policy_memory=PolicyMemoryStore().with_memory(entity.entity_id, memory),
+    )
+
+    encoded = encode_canonical_state(state)
+    decoded = decode_canonical_state(encoded)
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert encode_canonical_state(decoded) == encoded
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, policy_memory=PolicyMemoryStore())
+    )
 
 
 @pytest.mark.parametrize(
     ("data", "code"),
     (
         (b"", StateDecodeCode.INVALID_MAGIC),
-        (CANONICAL_STATE_MAGIC + b"\x00\x02", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x01", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),
