@@ -100,6 +100,8 @@ The fresh context contains only:
 
 It contains no terminal, screen, parser, backend, renderer, process, filesystem, or unrestricted callback reference. A callback may mutate its own copy, but the mutation is discarded and cannot affect runtime state.
 
+An effect declaring `deterministic_random` receives `context.random_seed` and a fresh `context.random` facade for each callback. Its methods are `context.random:next_u32()` and `context.random:integer(minimum, maximum)`, where bounds are inclusive signed 32-bit integers. `EffectHost.new(..., { random_seed = u32 })` accepts the root seed; each effect stream is deterministically derived from that seed and effect ID. The facade is the only source interface: it exposes neither terminal state nor mutable renderer state, and it is not cryptographic randomness.
+
 ### 4.3 Visual cell
 
 A visual-cell object is an immutable copied rendering description:
@@ -171,6 +173,7 @@ Effects:
 - `canvas_before`;
 - `canvas_after`;
 - `frame_update`.
+- `deterministic_random`.
 
 Sandbox commands:
 

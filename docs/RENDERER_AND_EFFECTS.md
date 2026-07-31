@@ -168,7 +168,7 @@ Effects receive:
 - semantic event sequence number;
 - terminal time;
 - visual time;
-- seeded PRNG handle;
+- a capability-gated seeded PRNG facade;
 - immutable event payload;
 - immutable terminal snapshot or approved query interface.
 
@@ -179,6 +179,8 @@ An effect manifest declares one of:
 - `static`: no time dependence.
 
 Built-in effects should be deterministic unless a clear reason exists otherwise.
+
+API v1 uses independent xorshift32 streams derived from an explicit host seed and effect ID. The facade provides unsigned 32-bit draws and bounded signed-32-bit integers; it is reproducible, not cryptographic, and never exposes terminal or renderer objects.
 
 ## 8. Built-in presets
 

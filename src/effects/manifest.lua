@@ -12,6 +12,7 @@ local capabilities = {
   canvas_after = true,
   canvas_before = true,
   cell_observation = true,
+  deterministic_random = true,
   frame_update = true,
   lifecycle = true,
   terminal_events = true,
@@ -314,6 +315,9 @@ function Manifest.normalise(manifest)
     end
     seen_capabilities[capability] = true
     normalised.capabilities[index] = capability
+  end
+  if seen_capabilities.deterministic_random and manifest.determinism == "static" then
+    return load_error("static effects cannot declare deterministic random access")
   end
   if type(manifest.parameters) ~= "table" then
     return load_error("effect manifest parameters must be a table")

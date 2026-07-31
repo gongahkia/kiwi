@@ -308,6 +308,61 @@ return {
     end,
   },
   {
+    name = "effect host supplies isolated deterministic random facades",
+    run = function()
+      local function trace(seed)
+        local values = {}
+        local function random_effect(id)
+          return assert(Effect.new(manifest(id, { "deterministic_random", "frame_update" }), {
+            update = function(_, context)
+              values[id] = values[id] or {}
+              values[id][#values[id] + 1] = context.random:next_u32()
+              context.random.overridden = true
+              local range, range_error = context.random:integer(-2, 2)
+              assert(range, range_error and range_error.message)
+              values[id][#values[id] + 1] = range
+            end,
+          }))
+        end
+        local no_random = assert(Effect.new(manifest("test.no-random", { "frame_update" }), {
+          update = function(_, context)
+            values.none = context.random
+          end,
+        }))
+        local host = assert(
+          Host.new({ random_effect("test.first"), random_effect("test.second"), no_random }, {
+            random_seed = seed,
+          })
+        )
+        assert(host:update(0))
+        assert(host:update(0))
+        return values
+      end
+      local first = trace(7)
+      local second = trace(7)
+      local changed = trace(8)
+      assertions.equal(
+        table.concat(first["test.first"], ":"),
+        table.concat(second["test.first"], ":")
+      )
+      assertions.equal(
+        table.concat(first["test.second"], ":"),
+        table.concat(second["test.second"], ":")
+      )
+      assertions.falsy(first.none)
+      assertions.falsy(
+        table.concat(first["test.first"], ":") == table.concat(first["test.second"], ":")
+      )
+      assertions.falsy(
+        table.concat(first["test.first"], ":") == table.concat(changed["test.first"], ":")
+      )
+      local effect = assert(Effect.new(manifest("test.seed", { "deterministic_random" })))
+      local host, host_error = Host.new({ effect }, { random_seed = -1 })
+      assertions.falsy(host)
+      assertions.equal("config_error", host_error.kind)
+    end,
+  },
+  {
     name = "effect host enforces configured effect callback and payload limits",
     run = function()
       local first = assert(Effect.new(manifest("test.first")))
