@@ -714,8 +714,8 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
 Core retains integer, boolean, string, quantity, record construction, `Some`,
-and `None` literals, source-ordered exhaustive `Option` matches, resolved references,
-field access, negation, calls, `let`, and `if`.
+and `None` literals, source-ordered exhaustive `Option` matches, resolved
+references, field access, negation, calls, `let`, and `if`.
 Expression IDs start at zero and follow definition source order then expression
 pre-order. Each ID has one `SourceMapEntry` containing its enclosing
 `DefinitionId` and source span. Parentheses do not create core nodes because
