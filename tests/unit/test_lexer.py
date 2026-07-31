@@ -139,6 +139,25 @@ def test_lexer_prefers_pipeline_operator_over_match_arm_marker() -> None:
     )
 
 
+def test_lexer_recognises_closed_domain_operators() -> None:
+    result = lex(SourceFile(SourceFileId("operators.dtr"), "1m + 2m <= 3m >= 1m > 0m < 4m"))
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.QUANTITY,
+        TokenKind.PLUS,
+        TokenKind.QUANTITY,
+        TokenKind.LESS_EQUAL,
+        TokenKind.QUANTITY,
+        TokenKind.GREATER_EQUAL,
+        TokenKind.QUANTITY,
+        TokenKind.RIGHT_ANGLE,
+        TokenKind.QUANTITY,
+        TokenKind.LEFT_ANGLE,
+        TokenKind.QUANTITY,
+        TokenKind.EOF,
+    )
+
+
 def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     digits = "1" * (MAX_INTEGER_DIGITS + 1)
     source = SourceFile(SourceFileId("policy.dtr"), f"{digits} true")

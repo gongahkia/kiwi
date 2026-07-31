@@ -34,3 +34,12 @@ def test_surface_ast_debug_output_is_stable_and_source_linked() -> None:
       body:
         IntegerLiteral value=1 span='policy.dtr'@16..17"""
     )
+
+
+def test_surface_ast_debug_output_includes_binary_domain_operations() -> None:
+    source = SourceFile(SourceFileId("operators.dtr"), "fn f() -> Bool = 1m + 2m <= 3m")
+
+    rendered = format_surface_module(parse(lex(source)).module)
+
+    assert "BinaryExpression operator=LESS_EQUAL span='operators.dtr'@17..30" in rendered
+    assert "BinaryExpression operator=ADD span='operators.dtr'@17..24" in rendered

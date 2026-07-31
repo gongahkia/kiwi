@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
-from kiwi.dsl.bytecode import BinaryOperation, BytecodeHeader, BytecodeModule
+from kiwi.dsl.bytecode import BinaryOperation, BytecodeHeader, BytecodeModule, InstructionIndex
 from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import compile_core
@@ -43,6 +43,16 @@ def test_domain_operations_compile_encode_and_execute_exactly() -> None:
         isinstance(instruction, BinaryOperation)
         for function in module.functions
         for instruction in function.instructions
+    )
+    first_binary_index = next(
+        index
+        for index, instruction in enumerate(module.functions[0].instructions)
+        if isinstance(instruction, BinaryOperation)
+    )
+    assert module.source_map.entry_for(
+        FunctionId(0), InstructionIndex(first_binary_index)
+    ).span == source.span(
+        ByteOffset(source.text.index("+")), ByteOffset(source.text.index("+") + 1)
     )
     assert decode_bytecode(encode_bytecode(module)) == module
 
@@ -123,6 +133,20 @@ def test_domain_operations_charge_bounded_allocation_costs() -> None:
         "Position",
         ("x", "y"),
         (_quantity(QuantityDimension.DISTANCE, 4), _quantity(QuantityDimension.DISTANCE, 6)),
+    )
+
+
+def test_domain_records_are_closed_builtin_schemas() -> None:
+    source = SourceFile(
+        SourceFileId("domain-record-schema.dtr"),
+        "type Position = { x: Distance, y: Distance }",
+    )
+
+    result = check(resolve(parse(lex(source)).module))
+
+    assert result.module is None
+    assert tuple(diagnostic.code for diagnostic in result.diagnostics) == (
+        "E404_DUPLICATE_RECORD_TYPE",
     )
 
 

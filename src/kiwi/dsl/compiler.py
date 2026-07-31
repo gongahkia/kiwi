@@ -298,7 +298,7 @@ class _FunctionCompiler:
         if isinstance(expression, CoreBinary):
             self._compile_expression(expression.left)
             self._compile_expression(expression.right)
-            self._emit(BinaryOperation(expression.operator), expression)
+            self._emit(BinaryOperation(expression.operator), expression, expression.operator_span)
             return
         if isinstance(expression, CoreCall):
             self._compile_expression(expression.callee)
@@ -339,9 +339,14 @@ class _FunctionCompiler:
             return
         raise TypeError(f"unsupported core expression: {type(expression).__name__}")
 
-    def _emit(self, instruction: BytecodeInstruction, expression: CoreExpression) -> None:
+    def _emit(
+        self,
+        instruction: BytecodeInstruction,
+        expression: CoreExpression,
+        span: SourceSpan | None = None,
+    ) -> None:
         self._instructions.append(instruction)
-        self._origins.append((expression.expression_id, expression.span))
+        self._origins.append((expression.expression_id, expression.span if span is None else span))
 
 
 def _definition_for_id(
