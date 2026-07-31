@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
-from kiwi.domain.ids import ContactId, EntityId, EventId
+from kiwi.domain.ids import EntityId, EventId
 from kiwi.domain.quantities import Quantity, quantity_from_literal
 from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.checker import check

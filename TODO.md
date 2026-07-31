@@ -293,15 +293,15 @@ Replace omniscient policy input with incomplete information.
 - [x] Add squad signals as tick-stamped commands and observation values.
 - [x] Add communication events and causal links.
 - [x] Render contact uncertainty and visibility overlays.
-- [ ] Add fixtures for missing, stale, and relayed information.
+- [x] Add fixtures for missing, stale, and relayed information.
 
 ### Exit criteria
 
-- [ ] Policies cannot access hidden enemy state.
-- [ ] Contact behaviour is deterministic and replayed.
-- [ ] A policy safely handles `Some(contact)` and `None`.
-- [ ] Observation fields link to evidence events.
-- [ ] All checks pass and milestone is committed.
+- [x] Policies cannot access hidden enemy state.
+- [x] Contact behaviour is deterministic and replayed.
+- [x] A policy safely handles `Some(contact)` and `None`.
+- [x] Observation fields link to evidence events.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 9 — Cover, exposure, and tactical selection
 

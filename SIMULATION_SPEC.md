@@ -171,11 +171,15 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
-The current observation ABI is version `3`: each operative input contains its
+The current observation ABI is version `4`: each operative input contains its
 own entity ID, planar position, delivered addressed inbox, current owner-local
-signals, and current tick. Contacts, allies, geometry, objectives, and elevation
-remain absent until their respective authority models define explicit observable
-semantics.
+signals, current tick, and `nearest_contact: Option<Contact>`. The builder
+selects the nearest owner-local contact by exact planar squared distance and
+ascending `ContactId` tie-break. The closed `Contact` value carries age,
+confidence basis points, contact ID, estimated planar position, and uncertainty
+radius only; target identity, true state, owner identity, elevation, and
+provenance remain authority-only. Allies, geometry, and objectives remain absent
+until their respective authority models define explicit observable semantics.
 
 The initial builder consumes one validated `MissionState` and produces an
 entity-ID-ascending immutable tuple before any policy executes. Successor
@@ -231,6 +235,11 @@ policy evaluation. Each elapsed tick subtracts 100 basis points of confidence
 and adds 100 millimetres of uncertainty. A contact is lost and removed exactly
 when its confidence reaches zero. Its last observation tick remains unchanged
 while it decays, so reported age remains exact.
+
+An inbox `ContactReport` is a typed delivered message payload, not an implicit
+contact update. It neither allocates nor associates a contact, so relayed
+information cannot create hidden target identity or bypass contact provenance.
+An explicit message-to-contact operation requires a later authority model.
 
 ### 8.3 Provenance
 

@@ -392,8 +392,9 @@ consume its structured result.
 `kiwi.sim.contacts` owns the canonical owner-local contact store and pure
 lifecycle transforms. It receives only explicit visibility-associated sightings,
 retains no target entity identity, and carries required field-level evidence
-event IDs through decay and canonical state. Later policy observations can
-resolve evidence without exposing omniscient state.
+event IDs through decay and canonical state. ABI version 4 projects exactly one
+owner-local nearest contact by planar squared distance and contact-ID tie-break;
+the projection contains no true target, elevation, or owner identity.
 
 `kiwi.sim.messages` defines pure typed, addressed radio messages and immutable
 delivery-ordered inbox values. Its canonical authority ledger assigns global
@@ -401,7 +402,8 @@ send sequences, delivers at the next tick, discards expired entries, and feeds
 owner-local ABI version 2 inboxes without a shared mutable blackboard or
 presentation dependency. `kiwi.sim.communication` materialises source-linked
 send events and emits delivery events in ledger order before policy evaluation;
-each delivery parents its message send.
+each delivery parents its message send. A `ContactReport` payload remains raw
+inbox data; it has no implicit contact-store merge or target association.
 
 `kiwi.sim.signals` defines immutable current-tick squad or entity-targeted
 signal observations. The reducer accepts them only for active missions, retains
@@ -420,11 +422,11 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
-The version-3 runtime observation model is an immutable simulation value with
-owner-visible entity ID, planar position, delivered inbox, current signals, and
-tick only. A conversion at the simulation/DSL boundary produces closed
-lexically ordered DSL records; no renderer or hidden-world reference crosses
-that boundary.
+The version-4 runtime observation model is an immutable simulation value with
+owner-visible entity ID, planar position, delivered inbox, current signals,
+tick, and `nearest_contact: Option<Contact>`. A conversion at the
+simulation/DSL boundary produces closed lexically ordered DSL records; no
+renderer or hidden-world reference crosses that boundary.
 
 ## 12. Command model
 

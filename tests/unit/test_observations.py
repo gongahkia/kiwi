@@ -29,9 +29,9 @@ from kiwi.sim.messages import (
     send_message,
 )
 from kiwi.sim.observations import (
+    CONTACT_RECORD_TYPE,
     OBSERVATION_RECORD_TYPE,
     OBSERVATION_SCHEMA_VERSION,
-    CONTACT_RECORD_TYPE,
     POSITION_RECORD_TYPE,
     SELF_OBSERVATION_RECORD_TYPE,
     RuntimeObservation,

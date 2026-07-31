@@ -390,6 +390,24 @@ source-to-send-to-delivery chain without presentation state. `KWI-STATE\0`
 therefore uses version `11`; versions `1` through `10` are rejected without
 migration because development state remains disposable.
 
+### D-047: Observation ABI version 4 exposes one nearest owner-local contact
+
+Observation ABI version `4` adds
+`nearest_contact: Option<Contact>` to the closed immutable `Observation`
+record. The builder selects only contacts owned by the observing entity, using
+exact planar squared distance from its current position and ascending
+`ContactId` as the equal-distance tie-break. The exposed `Contact` record has
+`age_ticks`, `confidence_basis_points`, `contact_id`, `estimated_position`, and
+`uncertainty_radius`; it excludes owner identity, elevation, true target state,
+and provenance IDs. The authority-side observation retains the selected contact
+estimate and its field evidence for later trace construction.
+
+A delivered `ContactReport` is a typed inbox payload only. It never creates,
+updates, or associates a `ContactStore` entry implicitly: message-to-contact
+merging needs a later explicit identity and provenance model. This change does
+not alter canonical state format version `11`. No ABI compatibility adapter is
+retained because deployed policy artifacts remain development-only.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
