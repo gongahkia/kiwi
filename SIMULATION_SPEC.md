@@ -193,6 +193,15 @@ Visibility considers:
 
 Use deterministic integer geometry algorithms.
 
+The initial query takes one observer position, one target position, and the
+immutable map. It reports structured failures for missing maps and out-of-bounds
+endpoints. Different elevation layers are blocked. On the same layer, the exact
+closed centre-to-centre segment is occluded by a same-layer closed obstacle
+rectangle, including endpoint and corner contact. Obstacles are checked in
+ascending `ObstacleId` order; the first intersected ID is retained as the
+canonical blocker. Sensor ranges, field of view, and visible-geometry outputs
+are not part of this initial query.
+
 ### 8.2 Contacts
 
 Visible enemies create or update contact estimates. A contact includes:

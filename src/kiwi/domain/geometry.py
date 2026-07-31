@@ -180,6 +180,36 @@ def displacement(start: WorldPosition, end: WorldPosition) -> WorldVector:
     )
 
 
+def segment_intersects_closed_rectangle(
+    start: WorldPosition,
+    end: WorldPosition,
+    rectangle: WorldRectangle,
+) -> bool:
+    """Return whether a closed planar segment touches a closed rectangle."""
+    _require_world_position(start, "segment start")
+    _require_world_position(end, "segment end")
+    if not isinstance(rectangle, WorldRectangle):
+        raise ValueError("segment rectangle must be a world rectangle")
+    start_point = (start.x.value, start.y.value)
+    end_point = (end.x.value, end.y.value)
+    if _point_in_rectangle(start_point, rectangle) or _point_in_rectangle(end_point, rectangle):
+        return True
+    minimum_x = rectangle.minimum_x.value
+    minimum_y = rectangle.minimum_y.value
+    maximum_x = rectangle.maximum_x.value
+    maximum_y = rectangle.maximum_y.value
+    corners = (
+        (minimum_x, minimum_y),
+        (minimum_x, maximum_y),
+        (maximum_x, maximum_y),
+        (maximum_x, minimum_y),
+    )
+    return any(
+        _segments_intersect(start_point, end_point, edge_start, edge_end)
+        for edge_start, edge_end in zip(corners, corners[1:] + corners[:1], strict=True)
+    )
+
+
 def _require_world_vector(value: object, label: str) -> None:
     if not isinstance(value, WorldVector):
         raise ValueError(f"{label} must be a world vector")
@@ -188,3 +218,46 @@ def _require_world_vector(value: object, label: str) -> None:
 def _require_world_position(value: object, label: str) -> None:
     if not isinstance(value, WorldPosition):
         raise ValueError(f"{label} must be a world position")
+
+
+type _PlanarPoint = tuple[int, int]
+
+
+def _point_in_rectangle(point: _PlanarPoint, rectangle: WorldRectangle) -> bool:
+    return (
+        rectangle.minimum_x.value <= point[0] <= rectangle.maximum_x.value
+        and rectangle.minimum_y.value <= point[1] <= rectangle.maximum_y.value
+    )
+
+
+def _segments_intersect(
+    first_start: _PlanarPoint,
+    first_end: _PlanarPoint,
+    second_start: _PlanarPoint,
+    second_end: _PlanarPoint,
+) -> bool:
+    first_orientation = _orientation(first_start, first_end, second_start)
+    second_orientation = _orientation(first_start, first_end, second_end)
+    third_orientation = _orientation(second_start, second_end, first_start)
+    fourth_orientation = _orientation(second_start, second_end, first_end)
+    if first_orientation == 0 and _point_on_segment(second_start, first_start, first_end):
+        return True
+    if second_orientation == 0 and _point_on_segment(second_end, first_start, first_end):
+        return True
+    if third_orientation == 0 and _point_on_segment(first_start, second_start, second_end):
+        return True
+    if fourth_orientation == 0 and _point_on_segment(first_end, second_start, second_end):
+        return True
+    return (first_orientation > 0) != (second_orientation > 0) and (third_orientation > 0) != (
+        fourth_orientation > 0
+    )
+
+
+def _orientation(start: _PlanarPoint, end: _PlanarPoint, point: _PlanarPoint) -> int:
+    return (end[0] - start[0]) * (point[1] - start[1]) - (end[1] - start[1]) * (point[0] - start[0])
+
+
+def _point_on_segment(point: _PlanarPoint, start: _PlanarPoint, end: _PlanarPoint) -> bool:
+    return min(start[0], end[0]) <= point[0] <= max(start[0], end[0]) and min(
+        start[1], end[1]
+    ) <= point[1] <= max(start[1], end[1])

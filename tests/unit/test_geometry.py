@@ -16,6 +16,7 @@ from kiwi.domain.geometry import (
     displacement,
     distance_from_world_subunits,
     round_nearest_ties_away_from_zero,
+    segment_intersects_closed_rectangle,
     subtract_vectors,
     translate,
     world_subunits_from_distance,
@@ -132,3 +133,20 @@ def test_planar_geometry_preserves_elevation_and_checks_overflow() -> None:
             WorldPosition(WorldSubunits(MAX_WORLD_SUBUNITS), WorldSubunits(0)),
             WorldVector(WorldSubunits(1), WorldSubunits(0)),
         )
+
+
+def test_closed_segment_rectangle_intersection_includes_corner_contact() -> None:
+    rectangle = WorldRectangle(
+        WorldSubunits(0), WorldSubunits(0), WorldSubunits(100), WorldSubunits(100)
+    )
+
+    assert segment_intersects_closed_rectangle(
+        WorldPosition(WorldSubunits(-100), WorldSubunits(100)),
+        WorldPosition(WorldSubunits(100), WorldSubunits(-100)),
+        rectangle,
+    )
+    assert not segment_intersects_closed_rectangle(
+        WorldPosition(WorldSubunits(-100), WorldSubunits(101)),
+        WorldPosition(WorldSubunits(101), WorldSubunits(102)),
+        rectangle,
+    )

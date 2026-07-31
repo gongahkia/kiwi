@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from kiwi.domain.geometry import WorldPosition, WorldRectangle
+from kiwi.domain.geometry import WorldPosition, WorldRectangle, segment_intersects_closed_rectangle
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 
 OPERATIVE_FOOTPRINT_RADIUS_MM = 350
@@ -85,7 +85,7 @@ def _segment_within_obstacle_radius(
     rectangle = obstacle.bounds
     start_point = _position_key(start)
     goal_point = _position_key(goal)
-    if _segment_intersects_rectangle(start_point, goal_point, rectangle):
+    if segment_intersects_closed_rectangle(start, goal, rectangle):
         return True
     radius_squared = OPERATIVE_FOOTPRINT_RADIUS_MM * OPERATIVE_FOOTPRINT_RADIUS_MM
     if _point_within_rectangle_distance(start, rectangle, radius_squared):
@@ -115,34 +115,6 @@ def _point_within_rectangle_distance(
     nearest_x = min(max(x, rectangle.minimum_x.value), rectangle.maximum_x.value)
     nearest_y = min(max(y, rectangle.minimum_y.value), rectangle.maximum_y.value)
     return (x - nearest_x) ** 2 + (y - nearest_y) ** 2 <= limit_squared
-
-
-def _segment_intersects_rectangle(
-    start: _PlanarPoint, goal: _PlanarPoint, rectangle: WorldRectangle
-) -> bool:
-    if _point_in_rectangle(start, rectangle) or _point_in_rectangle(goal, rectangle):
-        return True
-    minimum_x = rectangle.minimum_x.value
-    minimum_y = rectangle.minimum_y.value
-    maximum_x = rectangle.maximum_x.value
-    maximum_y = rectangle.maximum_y.value
-    corners = (
-        (minimum_x, minimum_y),
-        (minimum_x, maximum_y),
-        (maximum_x, maximum_y),
-        (maximum_x, minimum_y),
-    )
-    return any(
-        _segments_intersect(start, goal, edge_start, edge_goal)
-        for edge_start, edge_goal in zip(corners, corners[1:] + corners[:1], strict=True)
-    )
-
-
-def _point_in_rectangle(point: _PlanarPoint, rectangle: WorldRectangle) -> bool:
-    return (
-        rectangle.minimum_x.value <= point[0] <= rectangle.maximum_x.value
-        and rectangle.minimum_y.value <= point[1] <= rectangle.maximum_y.value
-    )
 
 
 def _point_within_segment_distance(
