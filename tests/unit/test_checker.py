@@ -5,7 +5,12 @@ from kiwi.dsl.lexer import lex
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.source import SourceFile, SourceFileId
-from kiwi.dsl.typed_ir import TypedDefinitionKind, TypedLetExpression
+from kiwi.dsl.typed_ir import (
+    TypedDefinitionKind,
+    TypedLetExpression,
+    TypedQuantityLiteral,
+    TypedStringLiteral,
+)
 from kiwi.dsl.types import BuiltinType
 
 
@@ -52,6 +57,31 @@ def test_checker_rejects_unknown_annotation_types() -> None:
     assert [(diagnostic.code, diagnostic.message) for diagnostic in result.diagnostics] == [
         ("E400_UNKNOWN_TYPE", "unknown type 'Missing'")
     ]
+
+
+def test_checker_assigns_string_and_quantity_dimension_types() -> None:
+    result = _check(
+        'fn label() -> String = "alpha"\n'
+        "fn wait() -> Duration = 250ms\n"
+        "fn aim() -> Angle = 45deg\n"
+        "fn chance() -> Probability = 70%\n"
+        "fn range() -> Distance = 8m\n"
+    )
+
+    assert result.diagnostics == ()
+    assert result.module is not None
+    assert isinstance(result.module.definitions[0].body, TypedStringLiteral)
+    assert tuple(definition.return_type for definition in result.module.definitions) == (
+        BuiltinType.STRING,
+        BuiltinType.DURATION,
+        BuiltinType.ANGLE,
+        BuiltinType.PROBABILITY,
+        BuiltinType.DISTANCE,
+    )
+    assert all(
+        isinstance(definition.body, TypedQuantityLiteral)
+        for definition in result.module.definitions[1:]
+    )
 
 
 def _check(text: str) -> CheckResult:

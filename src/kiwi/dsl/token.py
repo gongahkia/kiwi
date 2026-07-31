@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from kiwi.domain.quantities import Quantity
 from kiwi.dsl.source import SourceSpan
 
-type TokenValue = int | bool | None
+type TokenValue = int | bool | str | Quantity | None
 
 
 class TokenKind(StrEnum):
@@ -16,6 +17,8 @@ class TokenKind(StrEnum):
     EOF = "end_of_file"
     IDENTIFIER = "identifier"
     INTEGER = "integer"
+    STRING = "string"
+    QUANTITY = "quantity"
     TRUE = "true"
     FALSE = "false"
     POLICY = "policy"
@@ -49,6 +52,12 @@ class Token:
         if self.kind is TokenKind.INTEGER:
             if not isinstance(self.value, int) or isinstance(self.value, bool):
                 raise ValueError("integer token requires an integer value")
+        elif self.kind is TokenKind.STRING:
+            if not isinstance(self.value, str):
+                raise ValueError("string token requires a string value")
+        elif self.kind is TokenKind.QUANTITY:
+            if not isinstance(self.value, Quantity):
+                raise ValueError("quantity token requires a quantity value")
         elif self.kind is TokenKind.TRUE:
             if self.value is not True:
                 raise ValueError("true token requires value True")

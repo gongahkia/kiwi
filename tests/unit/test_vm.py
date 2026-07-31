@@ -19,7 +19,7 @@ from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue
+from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, QuantityValue, StringValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.vm import VMBudgets, VMFaultCode, run_vm, run_vm_with_fallback
 
@@ -158,6 +158,24 @@ def test_vm_rejects_invalid_bytecode_without_executing_it() -> None:
     assert result.fault is not None
     assert result.fault.code is VMFaultCode.INVALID_BYTECODE
     assert result.fault.validation_errors
+
+
+def test_vm_returns_closed_string_and_quantity_values() -> None:
+    source = SourceFile(
+        SourceFileId("literals-vm.dtr"),
+        'fn label() -> String = "alpha"\nfn wait() -> Duration = 250ms\n',
+    )
+    compiled = _compiled(source)
+
+    label = run_vm(compiled, FunctionId(0), ())
+    wait = run_vm(compiled, FunctionId(1), ())
+
+    assert label.value == StringValue("alpha")
+    assert label.fault is None
+    assert isinstance(wait.value, QuantityValue)
+    assert wait.value.value.value.numerator == 1
+    assert wait.value.value.value.denominator == 4
+    assert wait.fault is None
 
 
 def _compiled(source: SourceFile) -> BytecodeModule:

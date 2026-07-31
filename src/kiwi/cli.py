@@ -20,7 +20,14 @@ from kiwi.dsl.lexer import MAX_INTEGER_DIGITS, lex
 from kiwi.dsl.lower import LowerResult, lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, RuntimeValue, UnitValue
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    QuantityValue,
+    RuntimeValue,
+    StringValue,
+    UnitValue,
+)
 from kiwi.dsl.source import SourceFile, SourceFileId, SourceLoadFailure, load_utf8_file
 from kiwi.dsl.vm import run_vm
 
@@ -186,6 +193,14 @@ def _format_runtime_value(value: RuntimeValue) -> str:
         return f"Boolean({str(value.value).lower()})"
     if isinstance(value, UnitValue):
         return "Unit"
+    if isinstance(value, StringValue):
+        return f"String({value.value!r})"
+    if isinstance(value, QuantityValue):
+        quantity = value.value
+        return (
+            f"Quantity({quantity.dimension.value},"
+            f"{quantity.value.numerator}/{quantity.value.denominator})"
+        )
     return f"Function({value.function_id.value})"
 
 

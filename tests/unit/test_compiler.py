@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BytecodeHeader,
     Call,
@@ -23,7 +24,7 @@ from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
-from kiwi.dsl.runtime_values import IntegerValue
+from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, StringValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 
 
@@ -74,6 +75,28 @@ def test_compiler_rejects_header_from_another_source_file() -> None:
 
     with pytest.raises(ValueError, match="source file"):
         compile_core(_core(source), BytecodeHeader(SourceFileId("other.dtr")))
+
+
+def test_compiler_emits_closed_string_and_exact_quantity_constants() -> None:
+    source = SourceFile(
+        SourceFileId("literals.dtr"),
+        'fn label() -> String = "alpha"\nfn wait() -> Duration = 250ms\n',
+    )
+
+    compiled = compile_core(_core(source), BytecodeHeader(source.file_id))
+
+    assert compiled.constants.values == (
+        StringValue("alpha"),
+        QuantityValue(Quantity(QuantityDimension.DURATION, ExactRational(1, 4))),
+    )
+
+
+def test_compiler_does_not_emit_version_two_values_in_a_legacy_module() -> None:
+    source = SourceFile(SourceFileId("legacy-literals.dtr"), 'fn label() -> String = "alpha"')
+    legacy_header = BytecodeHeader(source.file_id, 1, 1, 1)
+
+    with pytest.raises(ValueError, match="version 1"):
+        compile_core(_core(source), legacy_header)
 
 
 def _core(source: SourceFile) -> CoreModule:

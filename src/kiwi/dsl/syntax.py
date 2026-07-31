@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kiwi.domain.quantities import Quantity
 from kiwi.dsl.source import SourceSpan
 
 
@@ -45,6 +46,22 @@ class BooleanLiteral:
     """A boolean literal."""
 
     value: bool
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class StringLiteral:
+    """A decoded immutable string literal."""
+
+    value: str
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class QuantityLiteral:
+    """An exact quantity literal normalized to its canonical unit."""
+
+    value: Quantity
     span: SourceSpan
 
 
@@ -104,6 +121,8 @@ class IfExpression:
 type Expression = (
     IntegerLiteral
     | BooleanLiteral
+    | StringLiteral
+    | QuantityLiteral
     | NameExpression
     | NegateExpression
     | GroupExpression

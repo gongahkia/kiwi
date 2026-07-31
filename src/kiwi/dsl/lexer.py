@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from kiwi.domain.quantities import quantity_from_literal
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticSeverity, DiagnosticStage
+from kiwi.dsl.runtime_values import MAX_RUNTIME_STRING_BYTES
 from kiwi.dsl.source import ByteOffset, SourceFile
-from kiwi.dsl.token import Token, TokenKind
+from kiwi.dsl.token import Token, TokenKind, TokenValue
 
 MAX_INTEGER_DIGITS = 1_024
 
@@ -17,6 +19,11 @@ class LexerDiagnosticCode(StrEnum):
 
     INVALID_CHARACTER = "E100_INVALID_CHARACTER"
     INTEGER_TOO_LONG = "E101_INTEGER_TOO_LONG"
+    UNTERMINATED_STRING = "E102_UNTERMINATED_STRING"
+    INVALID_STRING_ESCAPE = "E103_INVALID_STRING_ESCAPE"
+    STRING_TOO_LONG = "E104_STRING_TOO_LONG"
+    INVALID_QUANTITY_UNIT = "E105_INVALID_QUANTITY_UNIT"
+    INVALID_PROBABILITY = "E106_INVALID_PROBABILITY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +71,8 @@ def lex(source: SourceFile) -> LexResult:
             _lex_identifier_or_keyword(cursor, tokens)
         elif character.isascii() and character.isdecimal():
             _lex_integer(cursor, tokens, diagnostics)
+        elif character == '"':
+            _lex_string(cursor, tokens, diagnostics)
         elif cursor.starts_with("->"):
             tokens.append(cursor.token(TokenKind.ARROW, 2))
         elif token_kind := _SINGLE_CHARACTER_TOKENS.get(character):
@@ -100,8 +109,15 @@ def _lex_integer(
     start_offset = cursor.byte_offset
     while not cursor.at_end and cursor.current.isascii() and cursor.current.isdecimal():
         cursor.advance()
-    lexeme = cursor.text[start : cursor.index]
-    if len(lexeme) > MAX_INTEGER_DIGITS:
+    digits = cursor.text[start : cursor.index]
+    suffix_start = cursor.index
+    if not cursor.at_end and cursor.current == "%":
+        cursor.advance()
+    elif not cursor.at_end and cursor.current.isascii() and cursor.current.isalpha():
+        while not cursor.at_end and cursor.current.isascii() and cursor.current.isalpha():
+            cursor.advance()
+    suffix = cursor.text[suffix_start : cursor.index]
+    if len(digits) > MAX_INTEGER_DIGITS:
         diagnostics.append(
             cursor.diagnostic_from_start(
                 LexerDiagnosticCode.INTEGER_TOO_LONG,
@@ -111,8 +127,91 @@ def _lex_integer(
             )
         )
         return
+    if suffix:
+        try:
+            quantity = quantity_from_literal(int(digits), suffix)
+        except ValueError as error:
+            code = (
+                LexerDiagnosticCode.INVALID_PROBABILITY
+                if suffix == "%" and int(digits) > 100
+                else LexerDiagnosticCode.INVALID_QUANTITY_UNIT
+            )
+            diagnostics.append(cursor.diagnostic_from_start(code, str(error), start, start_offset))
+            return
+        tokens.append(
+            cursor.token_from_start(TokenKind.QUANTITY, start, start_offset, value=quantity)
+        )
+        return
     tokens.append(
-        cursor.token_from_start(TokenKind.INTEGER, start, start_offset, value=int(lexeme))
+        cursor.token_from_start(TokenKind.INTEGER, start, start_offset, value=int(digits))
+    )
+
+
+def _lex_string(
+    cursor: _Cursor,
+    tokens: list[Token],
+    diagnostics: list[Diagnostic],
+) -> None:
+    start = cursor.index
+    start_offset = cursor.byte_offset
+    cursor.advance()
+    value: list[str] = []
+    while not cursor.at_end and cursor.current not in {'"', "\n", "\r"}:
+        if cursor.current != "\\":
+            value.append(cursor.current)
+            cursor.advance()
+            continue
+        escape_start = cursor.index
+        escape_offset = cursor.byte_offset
+        cursor.advance()
+        if cursor.at_end or cursor.current in {"\n", "\r"}:
+            diagnostics.append(
+                cursor.diagnostic_from_start(
+                    LexerDiagnosticCode.UNTERMINATED_STRING,
+                    "unterminated string literal",
+                    start,
+                    start_offset,
+                )
+            )
+            return
+        escaped = cursor.current
+        decoded = {"\\": "\\", '"': '"', "n": "\n", "r": "\r", "t": "\t"}.get(escaped)
+        cursor.advance()
+        if decoded is None:
+            diagnostics.append(
+                cursor.diagnostic_from_start(
+                    LexerDiagnosticCode.INVALID_STRING_ESCAPE,
+                    f"invalid string escape \\{escaped}",
+                    escape_start,
+                    escape_offset,
+                )
+            )
+            continue
+        value.append(decoded)
+    if cursor.at_end or cursor.current != '"':
+        diagnostics.append(
+            cursor.diagnostic_from_start(
+                LexerDiagnosticCode.UNTERMINATED_STRING,
+                "unterminated string literal",
+                start,
+                start_offset,
+            )
+        )
+        return
+    cursor.advance()
+    decoded_value = "".join(value)
+    if len(decoded_value.encode("utf-8")) > MAX_RUNTIME_STRING_BYTES:
+        diagnostics.append(
+            cursor.diagnostic_from_start(
+                LexerDiagnosticCode.STRING_TOO_LONG,
+                f"string literal exceeds {MAX_RUNTIME_STRING_BYTES} UTF-8 bytes",
+                start,
+                start_offset,
+            )
+        )
+        return
+    tokens.append(
+        cursor.token_from_start(TokenKind.STRING, start, start_offset, value=decoded_value)
     )
 
 
@@ -174,7 +273,7 @@ class _Cursor:
         kind: TokenKind,
         start: int,
         start_offset: int,
-        value: int | bool | None = None,
+        value: TokenValue = None,
     ) -> Token:
         """Create a token from an already consumed source range."""
         return Token(

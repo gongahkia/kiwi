@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from kiwi.dsl.bytecode import (
+    LEGACY_BYTECODE_VERSION,
+    LEGACY_CORE_IR_VERSION,
+    LEGACY_SOURCE_LANGUAGE_VERSION,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeModule,
@@ -93,6 +96,41 @@ def test_bytecode_codec_preserves_unit_and_compound_types() -> None:
     decoded = decode_bytecode(encode_bytecode(module))
 
     assert decoded == module
+
+
+def test_bytecode_codec_round_trips_version_two_strings_and_exact_quantities() -> None:
+    source = SourceFile(
+        SourceFileId("literals-codec.dtr"),
+        'fn label() -> String = "alpha"\n'
+        "fn wait() -> Duration = 250ms\n"
+        "fn aim() -> Angle = 45deg\n"
+        "fn chance() -> Probability = 70%\n"
+        "fn range() -> Distance = 8m\n",
+    )
+    module = _compiled(source)
+
+    decoded = decode_bytecode(encode_bytecode(module))
+
+    assert decoded == module
+    assert decoded.header.bytecode_version == 2
+
+
+def test_bytecode_codec_decodes_legacy_version_one_without_reinterpretation() -> None:
+    source = SourceFile(SourceFileId("legacy.dtr"), "fn value() -> Int = 1")
+    checked = check(resolve(parse(lex(source)).module))
+    assert checked.module is not None
+    legacy_header = BytecodeHeader(
+        source.file_id,
+        LEGACY_SOURCE_LANGUAGE_VERSION,
+        LEGACY_CORE_IR_VERSION,
+        LEGACY_BYTECODE_VERSION,
+    )
+    module = compile_core(lower(checked.module).module, legacy_header)
+
+    decoded = decode_bytecode(encode_bytecode(module))
+
+    assert decoded == module
+    assert decoded.header == legacy_header
 
 
 def test_bytecode_codec_returns_structured_malformed_input_failures() -> None:

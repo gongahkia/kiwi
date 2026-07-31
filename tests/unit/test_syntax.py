@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId, SourceSpan
 from kiwi.dsl.syntax import (
     BooleanLiteral,
@@ -18,6 +19,8 @@ from kiwi.dsl.syntax import (
     NegateExpression,
     Parameter,
     PolicyDeclaration,
+    QuantityLiteral,
+    StringLiteral,
     SurfaceModule,
     TypeReference,
 )
@@ -32,6 +35,8 @@ def test_surface_nodes_are_immutable_and_source_spanned() -> None:
     parameter = Parameter(Identifier("x", span), type_reference, span)
     integer = IntegerLiteral(1, span)
     boolean = BooleanLiteral(True, span)
+    string = StringLiteral("label", span)
+    quantity = QuantityLiteral(Quantity(QuantityDimension.DURATION, ExactRational(1, 4)), span)
     reference = NameExpression(Identifier("x", span), span)
     negate = NegateExpression(integer, span)
     grouped = GroupExpression(reference, span)
@@ -49,6 +54,8 @@ def test_surface_nodes_are_immutable_and_source_spanned() -> None:
         parameter,
         integer,
         boolean,
+        string,
+        quantity,
         reference,
         negate,
         grouped,

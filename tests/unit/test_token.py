@@ -4,19 +4,29 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.token import Token, TokenKind
 
 
 def test_tokens_keep_kind_lexeme_value_and_source_span() -> None:
-    source = SourceFile(SourceFileId("policy.dtr"), "42 true policy")
+    source = SourceFile(SourceFileId("policy.dtr"), '42 true "label" 250ms policy')
     integer = Token(TokenKind.INTEGER, "42", source.span(ByteOffset(0), ByteOffset(2)), value=42)
     boolean = Token(TokenKind.TRUE, "true", source.span(ByteOffset(3), ByteOffset(7)), value=True)
-    keyword = Token(TokenKind.POLICY, "policy", source.span(ByteOffset(8), ByteOffset(14)))
+    string = Token(TokenKind.STRING, '"label"', source.span(ByteOffset(8), ByteOffset(15)), "label")
+    quantity = Token(
+        TokenKind.QUANTITY,
+        "250ms",
+        source.span(ByteOffset(16), ByteOffset(21)),
+        Quantity(QuantityDimension.DURATION, ExactRational(1, 4)),
+    )
+    keyword = Token(TokenKind.POLICY, "policy", source.span(ByteOffset(22), ByteOffset(28)))
 
     assert integer.kind is TokenKind.INTEGER
     assert integer.value == 42
     assert boolean.value is True
+    assert string.value == "label"
+    assert quantity.value == Quantity(QuantityDimension.DURATION, ExactRational(1, 4))
     assert keyword.value is None
     assert keyword.span.file_id == SourceFileId("policy.dtr")
 
@@ -36,6 +46,8 @@ def test_tokens_are_immutable() -> None:
         (TokenKind.INTEGER, "42", True, "integer token"),
         (TokenKind.TRUE, "true", None, "true token"),
         (TokenKind.FALSE, "false", True, "false token"),
+        (TokenKind.STRING, '"label"', None, "string token"),
+        (TokenKind.QUANTITY, "1s", 1, "quantity token"),
         (TokenKind.IDENTIFIER, "name", 1, "only literal"),
     ),
 )
@@ -56,6 +68,8 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.EOF,
         TokenKind.IDENTIFIER,
         TokenKind.INTEGER,
+        TokenKind.STRING,
+        TokenKind.QUANTITY,
         TokenKind.TRUE,
         TokenKind.FALSE,
         TokenKind.POLICY,

@@ -20,6 +20,8 @@ from kiwi.dsl.syntax import (
     NameExpression,
     NegateExpression,
     Parameter,
+    QuantityLiteral,
+    StringLiteral,
     SurfaceModule,
 )
 
@@ -223,7 +225,7 @@ def _resolve_expression(
     references: list[ResolvedReference],
     diagnostics: list[Diagnostic],
 ) -> int:
-    if isinstance(expression, (IntegerLiteral, BooleanLiteral)):
+    if isinstance(expression, (IntegerLiteral, BooleanLiteral, StringLiteral, QuantityLiteral)):
         return next_symbol_value
     if isinstance(expression, NameExpression):
         binding = environment.lookup(expression.name.text)

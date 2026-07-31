@@ -36,10 +36,12 @@ from kiwi.dsl.core_ir import (
     CoreLet,
     CoreModule,
     CoreNegate,
+    CoreQuantity,
     CoreReference,
+    CoreString,
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId, SymbolId
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue
+from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, QuantityValue, StringValue
 from kiwi.dsl.source import SourceSpan
 
 
@@ -123,6 +125,18 @@ class _FunctionCompiler:
         if isinstance(expression, CoreBoolean):
             self._emit(
                 PushConstant(self._constants.intern(BooleanValue(expression.value))),
+                expression,
+            )
+            return
+        if isinstance(expression, CoreString):
+            self._emit(
+                PushConstant(self._constants.intern(StringValue(expression.value))),
+                expression,
+            )
+            return
+        if isinstance(expression, CoreQuantity):
+            self._emit(
+                PushConstant(self._constants.intern(QuantityValue(expression.value))),
                 expression,
             )
             return

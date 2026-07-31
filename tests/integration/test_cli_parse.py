@@ -145,7 +145,7 @@ def test_disassemble_command_renders_compiled_source(tmp_path: Path) -> None:
     assert result.stderr == ""
     assert (
         result.stdout
-        == f"""BytecodeModule source={str(path)!r} language=1 core=1 bytecode=1
+        == f"""BytecodeModule source={str(path)!r} language=2 core=2 bytecode=2
   constants:
     0: Integer(1)
   function_table:

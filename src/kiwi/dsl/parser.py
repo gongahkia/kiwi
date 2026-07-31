@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from kiwi.domain.quantities import Quantity
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.lexer import LexResult
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceSpan
@@ -23,6 +24,8 @@ from kiwi.dsl.syntax import (
     NegateExpression,
     Parameter,
     PolicyDeclaration,
+    QuantityLiteral,
+    StringLiteral,
     SurfaceModule,
     TypeReference,
 )
@@ -252,6 +255,14 @@ class _Parser:
         elif token.kind is TokenKind.FALSE:
             self.advance()
             return BooleanLiteral(False, token.span)
+        elif token.kind is TokenKind.STRING:
+            self.advance()
+            if isinstance(token.value, str):
+                return StringLiteral(token.value, token.span)
+        elif token.kind is TokenKind.QUANTITY:
+            self.advance()
+            if isinstance(token.value, Quantity):
+                return QuantityLiteral(token.value, token.span)
         elif token.kind is TokenKind.IDENTIFIER:
             name = self.parse_identifier()
             if name is not None:

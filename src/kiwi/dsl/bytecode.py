@@ -9,13 +9,32 @@ from typing import ClassVar
 
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, UnitValue
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    QuantityValue,
+    StringValue,
+    UnitValue,
+)
 from kiwi.dsl.source import SourceFileId, SourceSpan
-from kiwi.dsl.types import DslType
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType
 
-SOURCE_LANGUAGE_VERSION = 1
-CORE_IR_VERSION = 1
-BYTECODE_VERSION = 1
+LEGACY_SOURCE_LANGUAGE_VERSION = 1
+LEGACY_CORE_IR_VERSION = 1
+LEGACY_BYTECODE_VERSION = 1
+SOURCE_LANGUAGE_VERSION = 2
+CORE_IR_VERSION = 2
+BYTECODE_VERSION = 2
+_SUPPORTED_VERSION_TRIPLES = frozenset(
+    {
+        (
+            LEGACY_SOURCE_LANGUAGE_VERSION,
+            LEGACY_CORE_IR_VERSION,
+            LEGACY_BYTECODE_VERSION,
+        ),
+        (SOURCE_LANGUAGE_VERSION, CORE_IR_VERSION, BYTECODE_VERSION),
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,7 +185,7 @@ type BytecodeInstruction = (
 )
 
 
-type RuntimeConstant = IntegerValue | BooleanValue | UnitValue
+type RuntimeConstant = IntegerValue | BooleanValue | UnitValue | StringValue | QuantityValue
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +197,10 @@ class ConstantPool:
     def __post_init__(self) -> None:
         seen: list[RuntimeConstant] = []
         for value in self.values:
-            if not isinstance(value, (IntegerValue, BooleanValue, UnitValue)):
+            if not isinstance(
+                value,
+                (IntegerValue, BooleanValue, UnitValue, StringValue, QuantityValue),
+            ):
                 raise ValueError("constant pool values must be runtime constants")
             if value in seen:
                 raise ValueError("constant pool values must be unique")
@@ -203,7 +225,10 @@ class ConstantPoolBuilder:
         for index, candidate in enumerate(self._values):
             if candidate == value:
                 return ConstantId(index)
-        if not isinstance(value, (IntegerValue, BooleanValue, UnitValue)):
+        if not isinstance(
+            value,
+            (IntegerValue, BooleanValue, UnitValue, StringValue, QuantityValue),
+        ):
             raise ValueError("constant pool values must be runtime constants")
         self._values.append(value)
         return ConstantId(len(self._values) - 1)
@@ -326,6 +351,11 @@ class BytecodeModule:
             entry.span.file_id != self.header.source_file_id for entry in self.source_map.entries
         ):
             raise ValueError("bytecode source map spans must match header source file")
+        if self.header.bytecode_version == LEGACY_BYTECODE_VERSION and (
+            any(isinstance(value, (StringValue, QuantityValue)) for value in self.constants.values)
+            or any(_uses_version_two_type(function.return_type) for function in self.functions)
+        ):
+            raise ValueError("bytecode version 1 does not support version 2 values or types")
 
 
 def canonical_function_table(definitions: Sequence[CoreDefinition]) -> FunctionTable:
@@ -354,17 +384,27 @@ class BytecodeHeader:
     bytecode_version: int = BYTECODE_VERSION
 
     def __post_init__(self) -> None:
-        _require_current_version(
+        versions = (
             self.source_language_version,
-            SOURCE_LANGUAGE_VERSION,
-            "source language",
+            self.core_ir_version,
+            self.bytecode_version,
         )
-        _require_current_version(self.core_ir_version, CORE_IR_VERSION, "core IR")
-        _require_current_version(self.bytecode_version, BYTECODE_VERSION, "bytecode")
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in versions):
+            raise ValueError("bytecode compatibility versions must be integers")
+        if versions not in _SUPPORTED_VERSION_TRIPLES:
+            raise ValueError(f"unsupported bytecode compatibility triple {versions}")
 
 
-def _require_current_version(value: int, expected: int, name: str) -> None:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ValueError(f"{name} version must be an integer")
-    if value != expected:
-        raise ValueError(f"unsupported {name} version {value}")
+def _uses_version_two_type(type_: DslType) -> bool:
+    if isinstance(type_, BuiltinType):
+        return type_ in {
+            BuiltinType.STRING,
+            BuiltinType.DURATION,
+            BuiltinType.DISTANCE,
+            BuiltinType.ANGLE,
+            BuiltinType.PROBABILITY,
+        }
+    return isinstance(type_, FunctionType) and (
+        any(_uses_version_two_type(parameter) for parameter in type_.parameters)
+        or _uses_version_two_type(type_.return_type)
+    )

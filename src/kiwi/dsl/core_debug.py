@@ -11,7 +11,9 @@ from kiwi.dsl.core_ir import (
     CoreLet,
     CoreModule,
     CoreNegate,
+    CoreQuantity,
     CoreReference,
+    CoreString,
 )
 from kiwi.dsl.debug import format_span
 from kiwi.dsl.lower import LowerResult, SourceMap
@@ -65,6 +67,14 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
         return [f"{prefix}Integer value={expression.value!r} {metadata}"]
     if isinstance(expression, CoreBoolean):
         return [f"{prefix}Boolean value={expression.value!r} {metadata}"]
+    if isinstance(expression, CoreString):
+        return [f"{prefix}String value={expression.value!r} {metadata}"]
+    if isinstance(expression, CoreQuantity):
+        quantity = expression.value
+        return [
+            f"{prefix}Quantity dimension={quantity.dimension.value} "
+            f"value={quantity.value.numerator}/{quantity.value.denominator} {metadata}"
+        ]
     if isinstance(expression, CoreReference):
         return [f"{prefix}Reference symbol={expression.symbol_id.value} {metadata}"]
     if isinstance(expression, CoreNegate):

@@ -19,7 +19,7 @@ def test_disassembler_renders_stable_bytecode_text() -> None:
     compiled = compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
     assert (
         disassemble(compiled)
-        == """BytecodeModule source='disassemble.dtr' language=1 core=1 bytecode=1
+        == """BytecodeModule source='disassemble.dtr' language=2 core=2 bytecode=2
   constants:
     0: Integer(1)
   function_table:
