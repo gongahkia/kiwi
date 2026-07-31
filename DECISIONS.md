@@ -309,6 +309,15 @@ ordered by `ObstacleId`; it does not use obstacle occlusion to hide geometry.
 These pure values are not added to policy observation ABI version `1` until the
 contact and observation-provenance tasks define the complete exposure model.
 
+### D-040: Contacts are owner-local uncertain estimates
+
+Milestone 8 contact values retain a local `ContactId`, owner entity ID,
+estimated canonical position, non-negative millimetre uncertainty radius,
+inclusive 0–10,000 basis-point confidence, and last observed tick. Age is the
+exact non-negative difference from a supplied current tick. Contacts contain no
+hidden target entity ID, true state, evidence IDs, classification, or velocity;
+those require their later lifecycle and provenance models.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

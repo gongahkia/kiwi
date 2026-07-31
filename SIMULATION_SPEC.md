@@ -208,16 +208,13 @@ hide static geometry. Field of view and policy exposure remain later tasks.
 
 ### 8.2 Contacts
 
-Visible enemies create or update contact estimates. A contact includes:
-
-- stable local contact ID;
-- estimated position;
-- uncertainty radius;
-- confidence;
-- last observation tick;
-- estimated velocity;
-- classification estimate;
-- evidence source IDs.
+Visible enemies create or update contact estimates. The initial contact value
+includes a stable local contact ID, owner entity ID, estimated position,
+non-negative uncertainty radius, inclusive 0–10,000 basis-point confidence,
+and last observation tick. Its age is the exact non-negative difference from a
+supplied current tick. It deliberately contains no hidden target entity ID,
+true state, evidence, classification, or velocity before their respective
+models are defined.
 
 When visibility is lost, the contact may persist and decay according to documented rules.
 
