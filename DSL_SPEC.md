@@ -184,7 +184,11 @@ Anonymous functions:
 fn contact -> contact.confidence >= 60%
 ```
 
-Closures may capture immutable values. The compiler must bound closure allocation and represent captures explicitly.
+The implemented form also permits `fn (first, second) -> body` and `fn () -> body`.
+Anonymous functions require an expected function type; their parameters receive
+those expected types. A closure captures distinct immutable lexical values by
+first source reference, at most 64 values. Capturing costs one allocation unit
+per capture plus one closure container unit.
 
 ### 7.3 Application
 
@@ -406,11 +410,10 @@ Observation -> Memory -> Decision
 
 Functions are first-class within budget and representation limits.
 
-The Milestone 2 compiler type algebra has immutable `Int`, `Bool`, and `Unit`
-primitive types, unresolved named types, and ordered function types. Its stable
-debug rendering uses `() -> A` for no parameters, `A -> B` for one parameter,
-`(A, B) -> C` for multiple parameters, parentheses for a function-typed
-parameter, and right-associative function returns.
+The Milestone 4 parser and compiler support immutable primitive, named, list,
+option, and ordered function types. Function types use `() -> A` for no
+parameters, `A -> B` for one parameter, `(A, B) -> C` for multiple parameters,
+parentheses for a function-typed parameter, and right-associative returns.
 
 ### 9.6 Type inference
 
@@ -637,7 +640,9 @@ record_type_fields := record_type_field ("," record_type_field)*
 record_type_field := identifier ":" type
 parameters  := parameter ("," parameter)*
 parameter   := identifier ":" type
-type        := identifier ("<" type ("," type)* ">")?
+type        := type_atom ("->" type)?
+type_atom   := identifier ("<" type ("," type)* ">")? | "(" type_list? ")" "->" type
+type_list   := type ("," type)*
 expression  := let | conditional | match | application
 let         := "let" identifier "=" expression "in" expression
 conditional := "if" expression "then" expression "else" expression
@@ -647,11 +652,13 @@ match_pattern := "Some" "(" identifier ")" | "None"
 application := unary (("(" arguments? ")") | ("." identifier))*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
-primary     := integer | boolean | string | quantity | record | list | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
+primary     := integer | boolean | string | quantity | record | list | lambda | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
 record      := identifier "{" record_fields? "}"
 record_fields := record_field ("," record_field)*
 record_field := identifier "=" expression
 list        := "[" arguments? "]"
+lambda      := "fn" identifier "->" expression | "fn" "(" identifiers? ")" "->" expression
+identifiers := identifier ("," identifier)*
 ```
 
 Parser output is immutable surface AST. Error recovery should support multiple diagnostics per compile without fabricating misleading trees.
@@ -718,6 +725,9 @@ Option match failures are `E413_INVALID_MATCH_SUBJECT`,
 List annotation arity is `E417_INVALID_LIST_TYPE`; an uncontextual `[]` is
 `E418_AMBIGUOUS_EMPTY_LIST`; differing element types are
 `E419_LIST_ELEMENT_TYPE`; a literal over 1,024 items is `E420_LIST_ITEM_LIMIT`.
+An anonymous function without an expected function type is
+`E421_AMBIGUOUS_LAMBDA`; an arity mismatch is `E422_LAMBDA_ARITY`; more than
+64 captures is `E423_CLOSURE_CAPTURE_LIMIT`.
 
 ### 15.5 Capability checking
 
@@ -786,6 +796,7 @@ JUMP_IF_NONE target
 UNWRAP_SOME
 POP
 BUILD_LIST element_count
+BUILD_CLOSURE function_id capture_count
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -807,6 +818,11 @@ contain Python callables or mutable arbitrary objects.
 `BUILD_LIST` consumes source-ordered element values and pushes one immutable
 list in that same order. It is rejected when the encoded count exceeds the
 runtime list bound.
+
+Anonymous functions compile to synthetic function-table entries after named
+definitions in source-expression order. `BUILD_CLOSURE` consumes the stated
+number of source-ordered captured values and pushes a closure targeting that
+entry. A closure call prepends its captures to explicit call arguments.
 
 The bytecode validator returns ordered structured errors instead of executing
 corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
@@ -877,11 +893,13 @@ Closed value algebra:
 Runtime values have deterministic equality, hashing where permitted, serialisation rules, and allocation costs.
 
 Milestone 4 adds immutable bounded strings, exact quantities, immutable nominal
-records, and closed `Option` values to the integer, boolean, unit, and
-`FunctionId` reference value algebra. Record fields are stored by lexical field
-name, never in a host dictionary. A function value is only an index into the
-module function table; it never contains a Python callable or code object.
-Lists store a tuple in source order and reject more than 1,024 values.
+records, closed `Option` values, lists, and closures to the integer, boolean,
+unit, and `FunctionId` reference value algebra. Record fields are stored by
+lexical field name, never in a host dictionary. A named function value is only
+an index into the module function table; a closure additionally stores at most
+64 source-ordered closed runtime captures. Neither contains a Python callable
+or code object. Lists store a tuple in source order and reject more than 1,024
+values.
 
 ## 18. VM budgets
 
@@ -905,6 +923,9 @@ Option-match control instructions do not allocate values.
 
 `BUILD_LIST` charges its element count plus one container allocation unit before
 creating the immutable list.
+
+`BUILD_CLOSURE` charges its capture count plus one container allocation unit
+before creating the immutable closure.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 

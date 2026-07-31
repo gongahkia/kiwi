@@ -113,11 +113,13 @@ uses `JUMP_IF_NONE`, `UNWRAP_SOME`, and `POP` opcodes `15` through `17`; a
 version-1 module rejects all six. `List<T>` uses version-2 type tag `12` and
 `BUILD_LIST` opcode `18`; a version-1 module rejects both. List values are not
 constants: `BUILD_LIST` encodes an ordered element count and the VM consumes
-that many stack values in source order. Record fields are encoded as an ordered
-field-name sequence and become lexically ordered immutable runtime values. The
-payload decoder has explicit size, collection, text, integer, and type-nesting
-limits, rejects trailing bytes, and validates decoded bytecode before returning
-it. See `DSL_SPEC.md` section 16.1 for the complete canonical layout.
+that many stack values in source order. Closures use `BUILD_CLOSURE` opcode
+`19`, encoding its synthetic function ID and source-ordered capture count;
+version-1 modules reject it. Record fields are encoded as an ordered field-name
+sequence and become lexically ordered immutable runtime values. The payload
+decoder has explicit size, collection, text, integer, and type-nesting limits,
+rejects trailing bytes, and validates decoded bytecode before returning it. See
+`DSL_SPEC.md` section 16.1 for the complete canonical layout.
 
 ## 7. Mission content
 

@@ -5,6 +5,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from kiwi.dsl.bytecode import (
+    BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
@@ -51,6 +52,7 @@ def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
         UnwrapSome(),
         Pop(),
         BuildList(2),
+        BuildClosure(FunctionId(0), 1),
     )
 
     assert tuple(instruction.opcode for instruction in instructions) == tuple(Opcode)
@@ -73,3 +75,5 @@ def test_instruction_operands_reject_invalid_indices_and_counts() -> None:
         LoadField("")
     with pytest.raises(ValueError, match="list element count"):
         BuildList(-1)
+    with pytest.raises(ValueError, match="closure capture count"):
+        BuildClosure(FunctionId(0), -1)

@@ -258,3 +258,18 @@ def test_run_policy_command_returns_immutable_list_values(tmp_path: Path) -> Non
     assert result.returncode == 0
     assert result.stdout == "value: List([Integer(1), Integer(2)])\n"
     assert result.stderr == ""
+
+
+def test_run_policy_command_executes_anonymous_closure_calls(tmp_path: Path) -> None:
+    path = tmp_path / "closures.dtr"
+    path.write_text(
+        "fn capture(seed: Int) -> Int -> Int = fn value -> seed\n"
+        "policy execute() -> Int = capture(7)(0)",
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("run-policy", str(path), "execute")
+
+    assert result.returncode == 0
+    assert result.stdout == "value: Integer(7)\n"
+    assert result.stderr == ""

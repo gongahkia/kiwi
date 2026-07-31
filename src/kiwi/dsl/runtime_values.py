@@ -10,6 +10,7 @@ from kiwi.dsl.ids import FunctionId
 
 MAX_RUNTIME_STRING_BYTES = 65_536
 MAX_RUNTIME_LIST_ITEMS = 1_024
+MAX_RUNTIME_CLOSURE_CAPTURES = 64
 
 
 class RuntimeValueKind(StrEnum):
@@ -25,6 +26,7 @@ class RuntimeValueKind(StrEnum):
     LIST = "list"
     RECORD = "record"
     FUNCTION = "function"
+    CLOSURE = "closure"
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +162,23 @@ class FunctionValue:
             raise ValueError("function value must contain a function ID")
 
 
+@dataclass(frozen=True, slots=True)
+class ClosureValue:
+    """A callable function table reference with immutable captured values."""
+
+    function_id: FunctionId
+    captures: tuple[RuntimeValue, ...]
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.CLOSURE, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.function_id, FunctionId):
+            raise ValueError("closure must contain a function ID")
+        if len(self.captures) > MAX_RUNTIME_CLOSURE_CAPTURES:
+            raise ValueError("closure exceeds the configured capture limit")
+        if any(not _is_runtime_value(value) for value in self.captures):
+            raise ValueError("closure captures must be runtime values")
+
+
 type RuntimeValue = (
     IntegerValue
     | BooleanValue
@@ -171,6 +190,7 @@ type RuntimeValue = (
     | ListValue
     | RecordValue
     | FunctionValue
+    | ClosureValue
 )
 
 
@@ -188,5 +208,6 @@ def _is_runtime_value(value: object) -> bool:
             ListValue,
             RecordValue,
             FunctionValue,
+            ClosureValue,
         ),
     )

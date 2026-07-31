@@ -9,6 +9,7 @@ from kiwi.dsl.core_ir import (
     CoreExpression,
     CoreFieldAccess,
     CoreInteger,
+    CoreLambda,
     CoreLet,
     CoreList,
     CoreMatch,
@@ -122,6 +123,22 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
     if isinstance(expression, CoreLet):
         lines = [f"{prefix}Let symbol={expression.symbol_id.value} {metadata}", f"{prefix}  value:"]
         lines.extend(_format_expression(expression.value, depth + 2))
+        lines.append(f"{prefix}  body:")
+        lines.extend(_format_expression(expression.body, depth + 2))
+        return lines
+    if isinstance(expression, CoreLambda):
+        lines = [f"{prefix}Lambda {metadata}", f"{prefix}  captures:"]
+        for capture in expression.captures:
+            lines.append(
+                f"{prefix}    Capture symbol={capture.symbol_id.value} "
+                f"type={render_type(capture.type_)}"
+            )
+        lines.append(f"{prefix}  parameters:")
+        for parameter in expression.parameters:
+            lines.append(
+                f"{prefix}    Parameter symbol={parameter.symbol_id.value} "
+                f"type={render_type(parameter.type_)} span={format_span(parameter.span)}"
+            )
         lines.append(f"{prefix}  body:")
         lines.extend(_format_expression(expression.body, depth + 2))
         return lines

@@ -22,6 +22,7 @@ from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.runtime_values import (
     BooleanValue,
+    ClosureValue,
     IntegerValue,
     ListValue,
     OptionNoneValue,
@@ -211,6 +212,9 @@ def _format_runtime_value(value: RuntimeValue) -> str:
         return "None"
     if isinstance(value, ListValue):
         return f"List([{', '.join(_format_runtime_value(item) for item in value.values)}])"
+    if isinstance(value, ClosureValue):
+        captures = ", ".join(_format_runtime_value(item) for item in value.captures)
+        return f"Closure({value.function_id.value}, [{captures}])"
     if isinstance(value, RecordValue):
         fields = ", ".join(
             f"{name}={_format_runtime_value(field_value)}"
