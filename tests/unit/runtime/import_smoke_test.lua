@@ -42,6 +42,7 @@ return {
         "renderer.clean",
         "renderer.colour",
         "renderer.dpi",
+        "renderer.effect_canvas",
         "renderer.glyph_cache",
         "renderer.glyph_resolver",
         "renderer.grid",

@@ -1,6 +1,7 @@
 local Colour = require("renderer.colour")
 local Clean = require("renderer.clean")
 local Dpi = require("renderer.dpi")
+local EffectCanvas = require("renderer.effect_canvas")
 local Errors = require("runtime.errors")
 local GlyphCache = require("renderer.glyph_cache")
 local GlyphResolver = require("renderer.glyph_resolver")
@@ -255,6 +256,59 @@ local function graphics_method(graphics, name)
   return graphics[name]
 end
 
+local function effect_host(value)
+  if value == nil then
+    return nil, false
+  end
+  if type(value) ~= "table" then
+    return config_error("renderer effect host must be a table")
+  end
+  for _, name in ipairs({ "begin_canvas_frame", "canvas_capable", "end_canvas_frame" }) do
+    if type(value[name]) ~= "function" then
+      return config_error("renderer effect host is incomplete", { method = name })
+    end
+  end
+  local called, capable, capable_error = pcall(value.canvas_capable, value)
+  if not called then
+    return config_error("renderer effect host canvas capability failed", {
+      cause = tostring(capable),
+    })
+  end
+  if capable == nil then
+    return nil, capable_error
+  end
+  if type(capable) ~= "boolean" then
+    return config_error("renderer effect host canvas capability is invalid")
+  end
+  if capable then
+    for _, name in ipairs({ "after_canvas", "before_canvas", "set_canvas_runtime" }) do
+      if type(value[name]) ~= "function" then
+        return config_error("renderer effect host is incomplete", { method = name })
+      end
+    end
+  end
+  return value, capable
+end
+
+local function frame_context(renderer, columns, rows)
+  local viewport
+  if renderer.grid then
+    viewport = {
+      height = renderer.grid.window_height,
+      width = renderer.grid.window_width,
+    }
+  else
+    viewport = {
+      height = rows * renderer.metrics.cell_height,
+      width = columns * renderer.metrics.cell_width,
+    }
+  end
+  return {
+    terminal = { columns = columns, rows = rows },
+    viewport = viewport,
+  }
+end
+
 local function draw_background(graphics, colour, x, y, width, height)
   graphics.setColor(colour.red, colour.green, colour.blue, 1)
   graphics.rectangle("fill", x, y, width, height)
@@ -341,8 +395,15 @@ function Renderer.new(config)
   if not preset then
     return nil, preset_error
   end
+  local host, canvas_capable_or_error = effect_host(config.effect_host)
+  if host == nil and canvas_capable_or_error ~= false then
+    return nil, canvas_capable_or_error
+  end
   return setmetatable({
+    canvas_runtime = nil,
     config = config,
+    effect_canvas_capable = canvas_capable_or_error == true,
+    effect_host = host,
     font = nil,
     glyph_cache = nil,
     glyph_resolver = nil,
@@ -372,6 +433,19 @@ function renderer_mt:load_font(graphics)
   if not resolver then
     return nil, resolver_error
   end
+  local canvas_runtime
+  if self.effect_canvas_capable then
+    local canvas_error
+    canvas_runtime, canvas_error = EffectCanvas.new(graphics)
+    if not canvas_runtime then
+      return nil, canvas_error
+    end
+    local attached, attach_error = self.effect_host:set_canvas_runtime(canvas_runtime)
+    if not attached then
+      return nil, attach_error
+    end
+  end
+  self.canvas_runtime = canvas_runtime
   self.font = resource.font
   self.graphics = graphics
   self.glyph_cache = cache
@@ -406,7 +480,7 @@ function renderer_mt:glyph(text, style)
   return self.glyph_cache:get(display_text, style)
 end
 
-function renderer_mt:draw(snapshot, damage)
+function renderer_mt:draw_clean(snapshot, damage)
   local columns, rows = validate_snapshot(snapshot)
   if not columns then
     return nil, rows
@@ -546,6 +620,73 @@ function renderer_mt:draw(snapshot, damage)
   end
   self.last_cursor = current_cursor
   self.needs_full_redraw = false
+  return true
+end
+
+function renderer_mt:draw(snapshot, damage)
+  local columns, rows = validate_snapshot(snapshot)
+  if not columns then
+    return nil, rows
+  end
+  if not self.effect_canvas_capable then
+    return self:draw_clean(snapshot, damage)
+  end
+  if not self.canvas_runtime then
+    return nil, Errors.new("renderer_resource_error", "renderer effect canvas is not initialised")
+  end
+  local frame, frame_error = self.effect_host:begin_canvas_frame(frame_context(self, columns, rows))
+  if not frame then
+    return nil, frame_error
+  end
+  if not frame.active then
+    self.effect_host:end_canvas_frame()
+    return self:draw_clean(snapshot, damage)
+  end
+  local saved, save_detail = self.canvas_runtime:save()
+  if not saved then
+    self.effect_host:end_canvas_frame()
+    return nil,
+      Errors.new("renderer_resource_error", "renderer effect canvas state save failed", {
+        cause = tostring(save_detail),
+      })
+  end
+  local completed, drawn, draw_error = xpcall(function()
+    local before, before_error = self.effect_host:before_canvas()
+    if not before then
+      return nil, before_error
+    end
+    local rendered, render_error = self:draw_clean(snapshot, damage)
+    if not rendered then
+      return nil, render_error
+    end
+    local after, after_error = self.effect_host:after_canvas()
+    if not after then
+      return nil, after_error
+    end
+    return true
+  end, debug.traceback)
+  local ended, end_value = pcall(self.effect_host.end_canvas_frame, self.effect_host)
+  local restored, restore_value, restore_detail =
+    pcall(self.canvas_runtime.restore, self.canvas_runtime)
+  if not ended or end_value == false then
+    return nil,
+      Errors.new("internal_invariant_error", "renderer effect canvas frame cleanup failed", {
+        cause = tostring(ended and end_value or end_value),
+      })
+  end
+  if not restored or not restore_value then
+    return nil,
+      Errors.new("renderer_resource_error", "renderer effect canvas state restore failed", {
+        cause = tostring(restored and restore_detail or restore_value),
+      })
+  end
+  if not completed then
+    return nil,
+      Errors.new("renderer_resource_error", "renderer frame failed", { cause = tostring(drawn) })
+  end
+  if not drawn then
+    return nil, draw_error
+  end
   return true
 end
 

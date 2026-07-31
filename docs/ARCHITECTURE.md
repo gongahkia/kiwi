@@ -104,7 +104,7 @@ The renderer:
 - draws the cursor;
 - manages glyph caches and atlases;
 - consumes damage regions;
-- supplies intermediate targets for effects;
+- executes v1 canvas hooks against the caller target with isolated graphics state and no per-effect intermediate targets;
 - draws overlays such as the debugger.
 
 The standalone entrypoint only wires LÖVE callbacks to `app.standalone`, which passes its injected graphics table to the renderer. It does not call LÖVE graphics APIs directly.
