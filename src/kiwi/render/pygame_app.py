@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pygame
 
-from kiwi.render.camera import Camera, rectangle_to_canvas, world_to_canvas
+from kiwi.render.camera import Camera, radius_to_canvas, rectangle_to_canvas, world_to_canvas
 from kiwi.render.pygame_lifecycle import initialise_pygame
 from kiwi.sim.snapshot import PresentationSnapshot
 
@@ -20,8 +20,13 @@ OBSTACLE_COLOR = (53, 69, 75)
 PATH_COLOR = (245, 189, 74)
 OPERATIVE_COLOR = (111, 216, 168)
 OBJECTIVE_COLOR = (239, 99, 99)
+VISIBILITY_RANGE_COLOR = (68, 119, 142)
+VISIBLE_GEOMETRY_COLOR = (111, 174, 196)
+CONTACT_UNCERTAINTY_COLOR = (230, 145, 102)
+CONTACT_MARKER_COLOR = (255, 214, 130)
 OPERATIVE_RADIUS_PIXELS = 4
 OBJECTIVE_RADIUS_PIXELS = 6
+CONTACT_RADIUS_PIXELS = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,12 +91,45 @@ def render_tactical_view(
     """Render copied map, obstacles, paths, operatives, and an optional marker."""
     render_basic_map(logical_canvas, snapshot, camera)
     if snapshot.map_geometry is not None:
-        for obstacle in snapshot.map_geometry.obstacles:
+        for map_obstacle in snapshot.map_geometry.obstacles:
             pygame.draw.rect(
                 logical_canvas,
                 OBSTACLE_COLOR,
-                rectangle_to_canvas(obstacle.bounds, logical_canvas.get_size(), camera),
+                rectangle_to_canvas(map_obstacle.bounds, logical_canvas.get_size(), camera),
             )
+    for overlay in snapshot.visibility_overlays:
+        observer = world_to_canvas(overlay.observer, logical_canvas.get_size(), camera)
+        radius = radius_to_canvas(overlay.sensor_radius, camera)
+        if radius > 0:
+            pygame.draw.circle(logical_canvas, VISIBILITY_RANGE_COLOR, observer, radius, width=1)
+        for visible_obstacle in overlay.visible_obstacles:
+            pygame.draw.rect(
+                logical_canvas,
+                VISIBLE_GEOMETRY_COLOR,
+                rectangle_to_canvas(visible_obstacle.bounds, logical_canvas.get_size(), camera),
+                width=1,
+            )
+    for contact in snapshot.contacts:
+        estimated_position = world_to_canvas(
+            contact.estimated_position,
+            logical_canvas.get_size(),
+            camera,
+        )
+        uncertainty_radius = radius_to_canvas(contact.uncertainty_radius, camera)
+        if uncertainty_radius > 0:
+            pygame.draw.circle(
+                logical_canvas,
+                CONTACT_UNCERTAINTY_COLOR,
+                estimated_position,
+                max(1, uncertainty_radius),
+                width=1,
+            )
+        pygame.draw.circle(
+            logical_canvas,
+            CONTACT_MARKER_COLOR,
+            estimated_position,
+            CONTACT_RADIUS_PIXELS,
+        )
     for operative in snapshot.operatives:
         if len(operative.path) > 1:
             pygame.draw.lines(

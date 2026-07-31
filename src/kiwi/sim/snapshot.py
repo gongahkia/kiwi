@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle
+from kiwi.domain.ids import EntityId
 from kiwi.sim.hashing import (
     StateDecodeFailure,
     StateHash,
@@ -16,6 +17,7 @@ from kiwi.sim.hashing import (
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.state import MissionState
+from kiwi.sim.visibility import VisibleGeometry
 
 
 class SnapshotRestoreCode(StrEnum):
@@ -157,6 +159,89 @@ class PresentationOperative:
 
 
 @dataclass(frozen=True, slots=True)
+class PresentationContact:
+    """One copied owner-local contact estimate without hidden target identity."""
+
+    owner_entity_id: int
+    contact_id: int
+    estimated_position: PresentationPoint
+    uncertainty_radius: float
+    confidence_basis_points: int
+    age_ticks: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.owner_entity_id, int) or isinstance(self.owner_entity_id, bool):
+            raise ValueError("presentation contact owner ID must be an integer")
+        if not isinstance(self.contact_id, int) or isinstance(self.contact_id, bool):
+            raise ValueError("presentation contact ID must be an integer")
+        if self.owner_entity_id <= 0 or self.contact_id <= 0:
+            raise ValueError("presentation contact IDs must be positive")
+        if not isinstance(self.estimated_position, PresentationPoint):
+            raise ValueError("presentation contact position must be a presentation point")
+        if not isinstance(self.uncertainty_radius, float) or self.uncertainty_radius < 0:
+            raise ValueError("presentation contact uncertainty radius must be non-negative")
+        if (
+            not isinstance(self.confidence_basis_points, int)
+            or isinstance(self.confidence_basis_points, bool)
+            or not 1 <= self.confidence_basis_points <= 10_000
+        ):
+            raise ValueError("presentation contact confidence must be between one and 10,000")
+        if (
+            not isinstance(self.age_ticks, int)
+            or isinstance(self.age_ticks, bool)
+            or self.age_ticks < 0
+        ):
+            raise ValueError("presentation contact age must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationVisibleObstacle:
+    """One copied obstacle in a sensor's display-only visible-geometry overlay."""
+
+    obstacle_id: int
+    bounds: PresentationRectangle
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.obstacle_id, int) or isinstance(self.obstacle_id, bool):
+            raise ValueError("presentation visible obstacle ID must be an integer")
+        if self.obstacle_id <= 0:
+            raise ValueError("presentation visible obstacle ID must be positive")
+        if not isinstance(self.bounds, PresentationRectangle):
+            raise ValueError(
+                "presentation visible obstacle bounds must be a presentation rectangle"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationVisibilityOverlay:
+    """One owner-local sensor range and visible geometry display projection."""
+
+    owner_entity_id: int
+    observer: PresentationPoint
+    sensor_radius: float
+    visible_obstacles: tuple[PresentationVisibleObstacle, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.owner_entity_id, int) or isinstance(self.owner_entity_id, bool):
+            raise ValueError("presentation visibility owner ID must be an integer")
+        if self.owner_entity_id <= 0:
+            raise ValueError("presentation visibility owner ID must be positive")
+        if not isinstance(self.observer, PresentationPoint):
+            raise ValueError("presentation visibility observer must be a presentation point")
+        if not isinstance(self.sensor_radius, float) or self.sensor_radius < 0:
+            raise ValueError("presentation visibility sensor radius must be non-negative")
+        if not isinstance(self.visible_obstacles, tuple):
+            raise ValueError("presentation visibility obstacles must be an immutable tuple")
+        previous_obstacle_id = 0
+        for obstacle in self.visible_obstacles:
+            if not isinstance(obstacle, PresentationVisibleObstacle):
+                raise ValueError("presentation visibility obstacles must be visible obstacles")
+            if obstacle.obstacle_id <= previous_obstacle_id:
+                raise ValueError("presentation visibility obstacles must be ID ordered")
+            previous_obstacle_id = obstacle.obstacle_id
+
+
+@dataclass(frozen=True, slots=True)
 class PresentationSnapshot:
     """A non-canonical, display-ready projection with no authority-state reference."""
 
@@ -165,6 +250,8 @@ class PresentationSnapshot:
     map_geometry: PresentationMap | None
     operatives: tuple[PresentationOperative, ...]
     objective_marker: PresentationPoint | None = None
+    contacts: tuple[PresentationContact, ...] = ()
+    visibility_overlays: tuple[PresentationVisibilityOverlay, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -183,6 +270,10 @@ class PresentationSnapshot:
             self.objective_marker, PresentationPoint
         ):
             raise ValueError("presentation snapshot objective marker must be a presentation point")
+        if not isinstance(self.contacts, tuple):
+            raise ValueError("presentation snapshot contacts must be an immutable tuple")
+        if not isinstance(self.visibility_overlays, tuple):
+            raise ValueError("presentation snapshot visibility overlays must be an immutable tuple")
         previous_entity_id = 0
         for operative in self.operatives:
             if not isinstance(operative, PresentationOperative):
@@ -190,9 +281,32 @@ class PresentationSnapshot:
             if operative.entity_id <= previous_entity_id:
                 raise ValueError("presentation snapshot operatives must be ID ordered")
             previous_entity_id = operative.entity_id
+        operative_ids = tuple(operative.entity_id for operative in self.operatives)
+        previous_contact_key = (0, 0)
+        for contact in self.contacts:
+            if not isinstance(contact, PresentationContact):
+                raise ValueError("presentation snapshot contacts must be presentation contacts")
+            if contact.owner_entity_id not in operative_ids:
+                raise ValueError("presentation contacts must belong to snapshot operatives")
+            key = (contact.owner_entity_id, contact.contact_id)
+            if key <= previous_contact_key:
+                raise ValueError("presentation contacts must use owner-and-contact-ID order")
+            previous_contact_key = key
+        previous_owner_id = 0
+        for overlay in self.visibility_overlays:
+            if not isinstance(overlay, PresentationVisibilityOverlay):
+                raise ValueError("presentation snapshot visibility overlays must be overlays")
+            if overlay.owner_entity_id not in operative_ids:
+                raise ValueError("presentation visibility overlays must belong to operatives")
+            if overlay.owner_entity_id <= previous_owner_id:
+                raise ValueError("presentation visibility overlays must be owner-ID ordered")
+            previous_owner_id = overlay.owner_entity_id
 
 
-def build_presentation_snapshot(state: MissionState) -> PresentationSnapshot:
+def build_presentation_snapshot(
+    state: MissionState,
+    visibility_overlays: tuple[PresentationVisibilityOverlay, ...] = (),
+) -> PresentationSnapshot:
     """Copy one authority state into display-only values without changing authority."""
     if not isinstance(state, MissionState):
         raise TypeError("presentation snapshot requires mission state")
@@ -209,6 +323,33 @@ def build_presentation_snapshot(state: MissionState) -> PresentationSnapshot:
                 path=_presentation_path(state, entity.entity_id.value),
             )
             for entity in state.entities
+        ),
+        contacts=tuple(
+            _presentation_contact(contact, state.tick) for contact in state.contacts.estimates
+        ),
+        visibility_overlays=visibility_overlays,
+    )
+
+
+def build_presentation_visibility_overlay(
+    owner_entity_id: EntityId,
+    visible_geometry: VisibleGeometry,
+) -> PresentationVisibilityOverlay:
+    """Copy one authoritative visibility result into a non-authoritative overlay."""
+    if not isinstance(owner_entity_id, EntityId):
+        raise TypeError("presentation visibility overlay requires an entity ID")
+    if not isinstance(visible_geometry, VisibleGeometry):
+        raise TypeError("presentation visibility overlay requires visible geometry")
+    return PresentationVisibilityOverlay(
+        owner_entity_id.value,
+        _presentation_point(visible_geometry.observer),
+        float(visible_geometry.sensor_range.maximum_distance.value),
+        tuple(
+            PresentationVisibleObstacle(
+                obstacle.obstacle_id.value,
+                _presentation_rectangle(obstacle.bounds),
+            )
+            for obstacle in visible_geometry.obstacles
         ),
     )
 
@@ -229,6 +370,21 @@ def _presentation_rectangle(rectangle: object) -> PresentationRectangle:
         float(rectangle.minimum_y.value),
         float(rectangle.maximum_x.value),
         float(rectangle.maximum_y.value),
+    )
+
+
+def _presentation_contact(contact: object, current_tick: int) -> PresentationContact:
+    from kiwi.sim.contacts import ContactEstimate
+
+    if not isinstance(contact, ContactEstimate):
+        raise TypeError("presentation contact requires a contact estimate")
+    return PresentationContact(
+        contact.owner_entity_id.value,
+        contact.contact_id.value,
+        _presentation_point(contact.estimated_position),
+        float(contact.uncertainty_radius.value),
+        contact.confidence.basis_points,
+        contact.age_at(current_tick).ticks,
     )
 
 

@@ -10,11 +10,15 @@ def test_dummy_sdl_window_renders_and_presents_map_bounds() -> None:
 from kiwi.render.camera import Camera
 from kiwi.render.pygame_app import (
     BACKGROUND_COLOR,
+    CONTACT_MARKER_COLOR,
+    CONTACT_UNCERTAINTY_COLOR,
     MAP_FILL_COLOR,
     OBJECTIVE_COLOR,
     OBSTACLE_COLOR,
     OPERATIVE_COLOR,
     PATH_COLOR,
+    VISIBLE_GEOMETRY_COLOR,
+    VISIBILITY_RANGE_COLOR,
     open_pygame_window,
     present,
     render_tactical_view,
@@ -22,11 +26,14 @@ from kiwi.render.pygame_app import (
 from kiwi.render.pygame_lifecycle import pygame_is_initialised, quit_pygame
 from kiwi.sim.snapshot import (
     PresentationMap,
+    PresentationContact,
     PresentationObstacle,
     PresentationOperative,
     PresentationPoint,
     PresentationRectangle,
     PresentationSnapshot,
+    PresentationVisibilityOverlay,
+    PresentationVisibleObstacle,
 )
 
 window = open_pygame_window((160, 90), (160, 90))
@@ -45,14 +52,26 @@ snapshot = PresentationSnapshot(
         ),
     ),
     PresentationPoint(0.0, 300.0, 0),
+    (PresentationContact(1, 1, PresentationPoint(200.0, 200.0, 0), 200.0, 8_000, 1),),
+    (
+        PresentationVisibilityOverlay(
+            1,
+            PresentationPoint(0.0, 0.0, 0),
+            300.0,
+            (PresentationVisibleObstacle(1, PresentationRectangle(-600.0, -100.0, -400.0, 100.0)),),
+        ),
+    ),
 )
 render_tactical_view(window.logical_canvas, snapshot, Camera(pixels_per_millimetre=0.05))
 assert window.logical_canvas.get_at((80, 45))[:3] == MAP_FILL_COLOR
 assert window.logical_canvas.get_at((0, 0))[:3] == BACKGROUND_COLOR
-assert window.logical_canvas.get_at((50, 45))[:3] == OBSTACLE_COLOR
+assert window.logical_canvas.get_at((50, 45))[:3] == VISIBLE_GEOMETRY_COLOR
 assert window.logical_canvas.get_at((60, 55))[:3] == PATH_COLOR
 assert window.logical_canvas.get_at((100, 45))[:3] == OPERATIVE_COLOR
 assert window.logical_canvas.get_at((80, 24))[:3] == OBJECTIVE_COLOR
+assert window.logical_canvas.get_at((94, 45))[:3] == VISIBILITY_RANGE_COLOR
+assert window.logical_canvas.get_at((99, 35))[:3] == CONTACT_UNCERTAINTY_COLOR
+assert window.logical_canvas.get_at((90, 35))[:3] == CONTACT_MARKER_COLOR
 present(window)
 assert pygame_is_initialised()
 quit_pygame()

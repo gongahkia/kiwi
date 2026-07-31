@@ -63,6 +63,15 @@ def rectangle_to_canvas(
     return (left, top, max(1, right - left), max(1, bottom - top))
 
 
+def radius_to_canvas(radius: float, camera: Camera) -> int:
+    """Project one non-negative display-world radius without authority conversion."""
+    if not isinstance(radius, float) or not isfinite(radius) or radius < 0:
+        raise ValueError("display radius must be a finite non-negative float")
+    if not isinstance(camera, Camera):
+        raise TypeError("camera projection requires a camera")
+    return round(radius * camera.pixels_per_millimetre)
+
+
 def _canvas_size(value: tuple[int, int]) -> tuple[int, int]:
     if not isinstance(value, tuple) or len(value) != 2:
         raise ValueError("canvas size must be a two-item tuple")
