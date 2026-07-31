@@ -15,9 +15,11 @@ from kiwi.dsl.syntax import (
     Expression,
     FieldAccessExpression,
     FunctionDeclaration,
+    FunctionTypeReference,
     GroupExpression,
     IfExpression,
     IntegerLiteral,
+    LambdaExpression,
     LetExpression,
     ListExpression,
     MatchArm,
@@ -34,6 +36,7 @@ from kiwi.dsl.syntax import (
     StringLiteral,
     SurfaceModule,
     TypeReference,
+    TypeExpression,
 )
 from kiwi.dsl.typed_ir import (
     TypedBooleanLiteral,
@@ -46,7 +49,9 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedLambdaExpression,
     TypedListExpression,
+    TypedCapture,
     TypedMatchExpression,
     TypedMatchNoneArm,
     TypedMatchSomeArm,
@@ -209,10 +214,21 @@ def _headers(
 
 
 def _annotation_type(
-    annotation: TypeReference,
+    annotation: TypeExpression,
     record_schemas: tuple[_RecordSchema, ...],
     diagnostics: list[Diagnostic],
 ) -> DslType | None:
+    if isinstance(annotation, FunctionTypeReference):
+        parameters = tuple(
+            _annotation_type(parameter, record_schemas, diagnostics)
+            for parameter in annotation.parameters
+        )
+        return_type = _annotation_type(annotation.return_type, record_schemas, diagnostics)
+        if return_type is None or any(parameter is None for parameter in parameters):
+            return None
+        return FunctionType(
+            tuple(parameter for parameter in parameters if parameter is not None), return_type
+        )
     if annotation.name.text == "Option":
         if len(annotation.arguments) != 1:
             diagnostics.append(
@@ -418,6 +434,15 @@ def _check_expression(
         return TypedNoneExpression(expected_type, expression.span)
     if isinstance(expression, ListExpression):
         return _check_list_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+            expected_type,
+        )
+    if isinstance(expression, LambdaExpression):
+        return _check_lambda_expression(
             expression,
             resolution,
             symbol_types,
