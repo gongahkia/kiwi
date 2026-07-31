@@ -254,6 +254,11 @@ memory, allocates a policy-invocation ID in entity order, and retains the raw VM
 result. It only advances the invocation-ID allocator; result validation,
 fallback, and memory updates occur in later phases.
 
+The active-tick reducer runs those phases after commands and scheduled markers:
+invocation, validation, hold-fallback selection, intention arbitration, policy
+event emission, then memory and deployed-version persistence. Policies do not
+run while a mission is prepared or abort-requested.
+
 ## 11. Intention lifecycle
 
 ### 11.1 Creation

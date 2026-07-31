@@ -8,6 +8,7 @@ from kiwi.sim.clock import FixedTickClock
 from kiwi.sim.commands import ExternalCommand, canonical_command_order
 from kiwi.sim.events import CanonicalEvent, canonical_event_order
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.policies import EMPTY_POLICY_BINDINGS, PolicyBindings
 from kiwi.sim.reducer import reduce_one_tick
 from kiwi.sim.snapshot import AuthoritySnapshot, capture_authority_snapshot
 from kiwi.sim.state import MissionState
@@ -45,6 +46,7 @@ def run_headless(
     ticks: int,
     commands: tuple[ExternalCommand, ...] = (),
     checkpoint_interval: int | None = None,
+    policy_bindings: PolicyBindings = EMPTY_POLICY_BINDINGS,
 ) -> HeadlessRun:
     """Advance exactly `ticks` authority steps without frames or presentation state."""
     if not isinstance(state, MissionState):
@@ -59,6 +61,8 @@ def run_headless(
         raise ValueError("headless run would exceed the mission tick limit")
     if not isinstance(commands, tuple):
         raise ValueError("headless run commands must be an immutable tuple")
+    if not isinstance(policy_bindings, PolicyBindings):
+        raise ValueError("headless run policy bindings must be policy bindings")
     if checkpoint_interval is not None and (
         not isinstance(checkpoint_interval, int)
         or isinstance(checkpoint_interval, bool)
@@ -86,7 +90,12 @@ def run_headless(
         ):
             current_commands.append(ordered_commands[command_index])
             command_index += 1
-        result = reduce_one_tick(current_state, clock, tuple(current_commands))
+        result = reduce_one_tick(
+            current_state,
+            clock,
+            tuple(current_commands),
+            policy_bindings,
+        )
         current_state = result.state
         events.extend(result.events)
         if checkpoint_interval is not None and (

@@ -8,6 +8,7 @@ from kiwi.domain.ids import IdKind
 from kiwi.sim.clock import FixedTickClock
 from kiwi.sim.commands import ExternalCommand
 from kiwi.sim.hashing import StateHash, encode_canonical_state, hash_canonical_state
+from kiwi.sim.policies import EMPTY_POLICY_BINDINGS, PolicyBindings
 from kiwi.sim.randomness import RandomStreamId
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.snapshot import AuthoritySnapshot, restore_authority_snapshot
@@ -53,10 +54,13 @@ def run_determinism_harness(
     ticks: int,
     commands: tuple[ExternalCommand, ...] = (),
     checkpoint_interval: int = 1,
+    policy_bindings: PolicyBindings = EMPTY_POLICY_BINDINGS,
 ) -> DeterminismReport:
     """Run the same immutable inputs twice and compare all checkpoint hashes."""
-    expected = run_headless(state, clock, ticks, commands, checkpoint_interval)
-    actual = run_headless(state, clock, ticks, commands, checkpoint_interval)
+    if not isinstance(policy_bindings, PolicyBindings):
+        raise ValueError("determinism harness policy bindings must be policy bindings")
+    expected = run_headless(state, clock, ticks, commands, checkpoint_interval, policy_bindings)
+    actual = run_headless(state, clock, ticks, commands, checkpoint_interval, policy_bindings)
     return DeterminismReport(expected, actual, compare_headless_runs(expected, actual))
 
 
