@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pygame
 
-from kiwi.render.camera import Camera, rectangle_to_canvas
+from kiwi.render.camera import Camera, rectangle_to_canvas, world_to_canvas
 from kiwi.render.pygame_lifecycle import initialise_pygame
 from kiwi.sim.snapshot import PresentationSnapshot
 
@@ -16,6 +16,12 @@ WINDOW_TITLE = "Kiwi"
 BACKGROUND_COLOR = (10, 14, 19)
 MAP_FILL_COLOR = (25, 42, 48)
 MAP_BORDER_COLOR = (88, 150, 144)
+OBSTACLE_COLOR = (53, 69, 75)
+PATH_COLOR = (245, 189, 74)
+OPERATIVE_COLOR = (111, 216, 168)
+OBJECTIVE_COLOR = (239, 99, 99)
+OPERATIVE_RADIUS_PIXELS = 4
+OBJECTIVE_RADIUS_PIXELS = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +76,49 @@ def render_basic_map(
     bounds = rectangle_to_canvas(snapshot.map_geometry.bounds, logical_canvas.get_size(), camera)
     pygame.draw.rect(logical_canvas, MAP_FILL_COLOR, bounds)
     pygame.draw.rect(logical_canvas, MAP_BORDER_COLOR, bounds, width=1)
+
+
+def render_tactical_view(
+    logical_canvas: pygame.Surface,
+    snapshot: PresentationSnapshot,
+    camera: Camera,
+) -> None:
+    """Render copied map, obstacles, paths, operatives, and an optional marker."""
+    render_basic_map(logical_canvas, snapshot, camera)
+    if snapshot.map_geometry is not None:
+        for obstacle in snapshot.map_geometry.obstacles:
+            pygame.draw.rect(
+                logical_canvas,
+                OBSTACLE_COLOR,
+                rectangle_to_canvas(obstacle.bounds, logical_canvas.get_size(), camera),
+            )
+    for operative in snapshot.operatives:
+        if len(operative.path) > 1:
+            pygame.draw.lines(
+                logical_canvas,
+                PATH_COLOR,
+                False,
+                tuple(
+                    world_to_canvas(point, logical_canvas.get_size(), camera)
+                    for point in operative.path
+                ),
+                width=1,
+            )
+    if snapshot.objective_marker is not None:
+        pygame.draw.circle(
+            logical_canvas,
+            OBJECTIVE_COLOR,
+            world_to_canvas(snapshot.objective_marker, logical_canvas.get_size(), camera),
+            OBJECTIVE_RADIUS_PIXELS,
+            width=1,
+        )
+    for operative in snapshot.operatives:
+        pygame.draw.circle(
+            logical_canvas,
+            OPERATIVE_COLOR,
+            world_to_canvas(operative.position, logical_canvas.get_size(), camera),
+            OPERATIVE_RADIUS_PIXELS,
+        )
 
 
 def present(window: PygameWindow) -> None:

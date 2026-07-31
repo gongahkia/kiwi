@@ -510,6 +510,9 @@ import pygame. Headless packages and commands never import or initialise it.
 logical canvas. `kiwi.render.camera.Camera` projects copied presentation-world
 coordinates with positive world Y upward; map drawing and final scaling are
 strictly display transforms and cannot write authority state.
+The current tactical renderer draws only copied map geometry, operative
+positions, planned paths, and an optional display objective marker; the marker
+does not define objective mechanics.
 
 ## 17. Editor architecture
 
