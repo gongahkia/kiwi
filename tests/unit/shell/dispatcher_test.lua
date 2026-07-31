@@ -34,15 +34,16 @@ return {
     end,
   },
   {
-    name = "sandbox dispatcher supplies exact isolated argv after successful tokenization",
+    name = "sandbox dispatcher supplies exact isolated argv and private output after successful tokenization",
     run = function()
       local registry = assert(Registry.new())
       local received
       assert(registry:register("show", {
         capabilities = { "domain_events" },
-        run = function(_, argv)
+        run = function(_, argv, writer)
           received = { argv[1], argv[2], argv[3] }
           argv[2] = "changed"
+          assert(writer:emit("result\0"))
           return 7
         end,
         summary = "Show opaque bytes",
@@ -56,6 +57,11 @@ return {
       assertions.equal(string.char(0, 255), received[3])
       assertions.equal("a b", outcome.argv[2])
       assertions.equal(7, outcome.result)
+      assertions.falsy(outcome.failed)
+      assertions.equal("finished_with_output", outcome.invocation:status().state)
+      local output = assert(outcome.invocation:poll())
+      assertions.equal("result\0", output.events[1].data)
+      assertions.equal(0, output.events[1].delta_us)
     end,
   },
   {
@@ -78,21 +84,58 @@ return {
     end,
   },
   {
-    name = "sandbox dispatcher isolates callback failure as a typed command error",
+    name = "sandbox dispatcher retains private output when a command callback fails",
     run = function()
       local registry = assert(Registry.new())
       assert(registry:register("fail", {
-        run = function()
+        run = function(_, _, writer)
+          assert(writer:emit("before failure"))
           error("failure")
         end,
         summary = "Fail deliberately",
       }))
       local dispatcher = assert(Dispatcher.new(registry))
-      local outcome, dispatch_error = dispatcher:dispatch("fail")
-      assertions.falsy(outcome)
-      assertions.equal("sandbox_command_error", dispatch_error.kind)
-      assertions.equal("command_failed", dispatch_error.detail.reason)
+      local outcome = assert(dispatcher:dispatch("fail"))
+      assertions.truthy(outcome.failed)
+      assertions.equal("sandbox_command_error", outcome.failure.kind)
+      assertions.equal("command_failed", outcome.failure.detail.reason)
+      assertions.equal("failed_with_output", outcome.invocation:status().state)
+      assertions.equal("before failure", assert(outcome.invocation:poll()).events[1].data)
+      assertions.truthy(outcome.invocation:status().settled)
       assertions.truthy(registry:command("fail"))
+    end,
+  },
+  {
+    name = "sandbox dispatcher reports overflow while preserving output and stable poll sequence",
+    run = function()
+      local registry = assert(Registry.new())
+      assert(registry:register("overflow", {
+        run = function(_, _, writer)
+          assert(writer:emit("keep"))
+          local emitted, output_error = writer:emit("drop")
+          assertions.falsy(emitted)
+          assertions.equal("output_overflow", output_error.detail.reason)
+        end,
+        summary = "Overflow output",
+      }))
+      local dispatcher = assert(Dispatcher.new(registry, {
+        output_limits = {
+          max_drain_bytes = 4,
+          max_output_events = 1,
+          max_queued_bytes = 4,
+          max_queued_chunks = 1,
+          max_write_bytes = 4,
+        },
+      }))
+      local outcome = assert(dispatcher:dispatch("overflow"))
+      assertions.truthy(outcome.failed)
+      assertions.equal("output_overflow", outcome.failure.detail.reason)
+      local event = assert(outcome.invocation:poll()).events[1]
+      assertions.equal("keep", event.data)
+      assertions.equal(1, event.source_sequence)
+      local second = assert(dispatcher:dispatch("overflow"))
+      local second_event = assert(second.invocation:poll()).events[1]
+      assertions.equal(2, second_event.source_sequence)
     end,
   },
 }

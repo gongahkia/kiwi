@@ -24,6 +24,7 @@ return {
         "backend.interface",
         "backend.replay",
         "shell.dispatcher",
+        "shell.output",
         "shell.registry",
         "shell.tokenizer",
         "effects.effect",

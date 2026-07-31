@@ -157,6 +157,41 @@ alias, comment, redirection, pipeline, separator, background-job, control-operat
 subshell, here-document, or escape-sequence expansion. `$`, `*`, `?`, `|`, `>`, `<`,
 `;`, `&`, `#`, parentheses, and backticks are ordinary bytes unless quoted or escaped.
 
+### 6.5 Incremental output and backpressure
+
+Each dispatched command owns a private byte FIFO. Its callback receives a writer as its
+third argument and emits opaque Lua bytes with `writer:emit(bytes)`. Emit copies and
+retains one entire logical chunk or none; it is non-blocking and never writes terminal
+state, records, renders, or calls a host callback. Empty emits are no-ops.
+
+Immutable defaults are 16,384 bytes per write, 65,536 queued bytes, 64 queued chunks,
+16,384 drained bytes per poll, and 16 output events per poll. Hosts may lower these
+bounds but cannot raise them; zero and negative limits are invalid. Exceeding either the
+write or queue bound leaves the attempted bytes absent, latches `output_overflow`, and
+closes the writer. An overlarge write itself reports `emit_too_large`; byte/chunk
+capacity exhaustion reports `output_overflow`; later writes report `output_closed`.
+Earlier queued output is preserved.
+
+`invocation:poll({ max_bytes?, max_events? })` validates its requested limits before it
+mutates the queue, drains its FIFO head, and may split only the head chunk to satisfy
+`max_bytes`. API v1 deterministically coalesces the maximal permitted prefix into one
+event, the fewest possible because no output channels exist. It returns
+`runtime.event.output(bytes, 0, source_sequence)`: every event has `delta_us = 0` and a
+stable monotonic sequence in host poll order. Polling neither dispatches commands nor
+advances real or simulated time.
+
+An invocation can finish or fail before its output drains. Its copied status exposes
+execution state, queued bytes/chunks, typed failure, and settlement; it is settled only
+once execution stops and the queue empties. Cancellation closes future writes, reports
+`cancelled`, and preserves queued bytes for polling. Cleanup and final release are
+idempotent. Only polled events reach terminal semantics or recordings. Blocking,
+threads, implicit yielding, resumable producers, timed output, and inter-invocation
+fairness are excluded from API v1. See ADR-0013.
+
+Stable output reasons are `output_overflow`, `output_closed`, `emit_too_large`,
+`invalid_poll_limit`, `output_resource_limit`, and `cancelled`. An
+`output_resource_limit` failure leaves queue bytes unchanged.
+
 ## 7. PTY helper backend
 
 ### 7.1 Boundary
