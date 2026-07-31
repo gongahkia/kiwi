@@ -172,7 +172,7 @@ def test_differential_report_includes_message_ledger_in_canonical_order() -> Non
     )
     evidence_event_id, allocator = state.id_allocator.allocate_event()
     expected = replace(state, id_allocator=allocator)
-    messages, allocator, _ = send_message(
+    sent = send_message(
         expected.messages,
         expected.id_allocator,
         sender.entity_id,
@@ -183,7 +183,7 @@ def test_differential_report_includes_message_ledger_in_canonical_order() -> Non
         5,
         (evidence_event_id,),
     )
-    actual = replace(expected, messages=messages, id_allocator=allocator)
+    actual = replace(expected, messages=sent.ledger, id_allocator=sent.id_allocator)
 
     difference = first_canonical_state_difference(expected, actual)
 

@@ -397,6 +397,7 @@ def first_canonical_state_difference(
             "delivery_tick",
             "expiry_tick",
             "sequence",
+            "send_event_id",
         ):
             expected_value = getattr(expected_message, field)
             actual_value = getattr(actual_message, field)

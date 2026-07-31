@@ -12,6 +12,7 @@ from kiwi.sim.messages import (
     Message,
     MessageChannel,
     MessageLedger,
+    MessageSendResult,
     discard_expired_messages,
     inbox_for,
     inbox_runtime_value,
@@ -81,7 +82,7 @@ def test_inbox_requires_canonical_delivery_order_and_unique_message_ids() -> Non
 
 def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires() -> None:
     evidence_event_id, allocator = IdAllocator().allocate_event()
-    first_ledger, allocator, first = send_message(
+    first_send = send_message(
         MessageLedger(),
         allocator,
         EntityId(2),
@@ -92,9 +93,9 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
         5,
         (evidence_event_id,),
     )
-    second_ledger, allocator, second = send_message(
-        first_ledger,
-        allocator,
+    second_send = send_message(
+        first_send.ledger,
+        first_send.id_allocator,
         EntityId(1),
         EntityId(3),
         MessageChannel.RADIO,
@@ -103,6 +104,8 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
         5,
         (evidence_event_id,),
     )
+    first = first_send.message
+    second = second_send.message
 
     assert first == Message(
         MessageId(1),
@@ -114,15 +117,19 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
         4,
         5,
         0,
+        EventId(2),
         (evidence_event_id,),
     )
+    assert isinstance(first_send, MessageSendResult)
+    assert first_send.message.send_event_id == EventId(2)
+    assert second_send.message.send_event_id == EventId(3)
     assert second.sequence == 1
-    assert second_ledger.messages == (second, first)
-    assert inbox_for(second_ledger, EntityId(3), 3) == InboxObservation()
-    assert inbox_for(second_ledger, EntityId(3), 4) == InboxObservation((second, first))
-    assert discard_expired_messages(second_ledger, 5) == second_ledger
-    assert discard_expired_messages(second_ledger, 6) == MessageLedger((), 2)
-    assert allocator.allocate_message()[0] == MessageId(3)
+    assert second_send.ledger.messages == (second, first)
+    assert inbox_for(second_send.ledger, EntityId(3), 3) == InboxObservation()
+    assert inbox_for(second_send.ledger, EntityId(3), 4) == InboxObservation((second, first))
+    assert discard_expired_messages(second_send.ledger, 5) == second_send.ledger
+    assert discard_expired_messages(second_send.ledger, 6) == MessageLedger((), 2)
+    assert second_send.id_allocator.allocate_message()[0] == MessageId(3)
 
 
 @pytest.mark.parametrize(
@@ -139,6 +146,7 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
                 2,
                 3,
                 0,
+                EventId(2),
                 (EventId(1),),
             ),
             "typed record",
@@ -154,6 +162,7 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
                 2,
                 4,
                 0,
+                EventId(2),
                 (EventId(1),),
             ),
             "send, delivery, then expiry",
@@ -169,6 +178,7 @@ def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires()
                 2,
                 3,
                 0,
+                EventId(3),
                 (EventId(2), EventId(1)),
             ),
             "unique and ascending",
@@ -220,6 +230,7 @@ def _message(
         delivery_tick,
         5,
         sequence,
+        EventId(message_id.value + 1),
         (EventId(1),),
     )
 

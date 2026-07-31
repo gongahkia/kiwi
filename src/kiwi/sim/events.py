@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from kiwi.domain.ids import EventId
 from kiwi.sim.arbitration import (
@@ -20,6 +21,9 @@ from kiwi.sim.policies import PolicyValidation
 from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
 
+if TYPE_CHECKING:
+    from kiwi.sim.messages import Message
+
 
 class EventKind(StrEnum):
     """The current closed set of canonical authority event variants."""
@@ -27,6 +31,8 @@ class EventKind(StrEnum):
     MISSION_STARTED = "mission_started"
     ABORT_REQUESTED = "abort_requested"
     SIGNAL_ISSUED = "signal_issued"
+    MESSAGE_SENT = "message_sent"
+    MESSAGE_DELIVERED = "message_delivered"
     SCHEDULED_TRIGGER_FIRED = "scheduled_trigger_fired"
     RANDOM_DRAW_RECORDED = "random_draw_recorded"
     COMMAND_REJECTED = "command_rejected"
@@ -117,6 +123,44 @@ class SignalIssued:
         if not isinstance(self.command, IssueSignal):
             raise ValueError("signal event requires a signal command")
         _require_matching_tick(self.header, self.command.header.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class MessageSent:
+    """The authoritative send record for one immutable message."""
+
+    header: EventHeader
+    message: Message
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.messages import Message
+
+        _require_header(self.header)
+        if not isinstance(self.message, Message):
+            raise ValueError("message send event requires a message")
+        _require_matching_tick(self.header, self.message.send_tick)
+        if self.header.event_id != self.message.send_event_id:
+            raise ValueError("message send event ID must match its message")
+        if self.header.parent_event_ids != self.message.provenance_event_ids:
+            raise ValueError("message send event parents must match message provenance")
+
+
+@dataclass(frozen=True, slots=True)
+class MessageDelivered:
+    """The authoritative delivery record causally linked to one message send."""
+
+    header: EventHeader
+    message: Message
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.messages import Message
+
+        _require_header(self.header)
+        if not isinstance(self.message, Message):
+            raise ValueError("message delivery event requires a message")
+        _require_matching_tick(self.header, self.message.delivery_tick)
+        if self.header.parent_event_ids != (self.message.send_event_id,):
+            raise ValueError("message delivery event must parent its message send")
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,6 +366,8 @@ CanonicalEvent = (
     MissionStarted
     | AbortRequested
     | SignalIssued
+    | MessageSent
+    | MessageDelivered
     | ScheduledTriggerFired
     | RandomDrawRecorded
     | CommandRejected
@@ -345,6 +391,10 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.ABORT_REQUESTED
     if isinstance(event, SignalIssued):
         return EventKind.SIGNAL_ISSUED
+    if isinstance(event, MessageSent):
+        return EventKind.MESSAGE_SENT
+    if isinstance(event, MessageDelivered):
+        return EventKind.MESSAGE_DELIVERED
     if isinstance(event, ScheduledTriggerFired):
         return EventKind.SCHEDULED_TRIGGER_FIRED
     if isinstance(event, RandomDrawRecorded):
@@ -383,6 +433,8 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 MissionStarted,
                 AbortRequested,
                 SignalIssued,
+                MessageSent,
+                MessageDelivered,
                 ScheduledTriggerFired,
                 RandomDrawRecorded,
                 CommandRejected,
