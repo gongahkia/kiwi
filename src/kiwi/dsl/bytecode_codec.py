@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BYTECODE_VERSION,
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
@@ -44,6 +45,7 @@ from kiwi.dsl.bytecode import (
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
@@ -322,6 +324,8 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
         writer.u32(instruction.function_id.value, "function ID")
     elif isinstance(instruction, PushIntrinsic):
         writer.u8(instruction.intrinsic.value, "intrinsic kind")
+    elif isinstance(instruction, BinaryOperation):
+        writer.u8(instruction.operator.value, "binary operator")
     elif isinstance(instruction, (LoadLocal, StoreLocal)):
         writer.u32(instruction.slot.value, "local slot")
     elif isinstance(instruction, Call):
@@ -560,6 +564,7 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         Opcode.BUILD_LIST,
         Opcode.BUILD_CLOSURE,
         Opcode.PUSH_INTRINSIC,
+        Opcode.BINARY_OPERATION,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -579,6 +584,16 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
                 BytecodeDecodeCode.INVALID_VALUE,
                 intrinsic_offset,
                 "unknown intrinsic kind",
+            ) from error
+    if opcode is Opcode.BINARY_OPERATION:
+        operator_offset = reader.offset
+        try:
+            return BinaryOperation(BinaryOperator(reader.u8()))
+        except ValueError as error:
+            raise _DecodeError(
+                BytecodeDecodeCode.INVALID_VALUE,
+                operator_offset,
+                "unknown binary operator",
             ) from error
     if opcode is Opcode.LOAD_LOCAL:
         return LoadLocal(LocalSlot(reader.u32()))

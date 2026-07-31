@@ -8,10 +8,12 @@ from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.intrinsics import IntrinsicKind, list_intrinsic
 from kiwi.dsl.names import ResolutionResult, ResolvedBinding, SymbolKind
+from kiwi.dsl.operators import BinaryOperator, render_binary_operator
 from kiwi.dsl.runtime_values import MAX_RUNTIME_CLOSURE_CAPTURES, MAX_RUNTIME_LIST_ITEMS
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import (
     BooleanLiteral,
+    BinaryExpression,
     CallExpression,
     Expression,
     FieldAccessExpression,
@@ -40,6 +42,7 @@ from kiwi.dsl.syntax import (
 )
 from kiwi.dsl.typed_ir import (
     TypedBooleanLiteral,
+    TypedBinaryExpression,
     TypedCallExpression,
     TypedCapture,
     TypedDefinition,
@@ -108,6 +111,31 @@ class _RecordSchema:
     name: str
     fields: tuple[_RecordFieldSchema, ...]
     span: SourceSpan
+
+
+_POSITION_TYPE = NamedType("Position")
+_VECTOR_TYPE = NamedType("Vector")
+
+
+def _builtin_record_schemas(span: SourceSpan) -> tuple[_RecordSchema, ...]:
+    return (
+        _RecordSchema(
+            "Position",
+            (
+                _RecordFieldSchema("x", BuiltinType.DISTANCE, span),
+                _RecordFieldSchema("y", BuiltinType.DISTANCE, span),
+            ),
+            span,
+        ),
+        _RecordSchema(
+            "Vector",
+            (
+                _RecordFieldSchema("dx", BuiltinType.DISTANCE, span),
+                _RecordFieldSchema("dy", BuiltinType.DISTANCE, span),
+            ),
+            span,
+        ),
+    )
 
 
 def check(resolution: ResolutionResult) -> CheckResult:
@@ -290,6 +318,7 @@ def _record_schemas(
     module: SurfaceModule,
     diagnostics: list[Diagnostic],
 ) -> tuple[_RecordSchema, ...]:
+    builtins = _builtin_record_schemas(module.span)
     declarations = tuple(
         declaration
         for declaration in module.declarations
@@ -309,7 +338,7 @@ def _record_schemas(
                 )
             )
             continue
-        if declaration.name.text in {"Option", "List"}:
+        if declaration.name.text in {"Option", "List", *(schema.name for schema in builtins)}:
             diagnostics.append(
                 Diagnostic(
                     "E404_DUPLICATE_RECORD_TYPE",
@@ -336,12 +365,12 @@ def _record_schemas(
             )
         )
     schemas: list[_RecordSchema] = []
-    placeholder_schemas = tuple(_RecordSchema(name, (), module.span) for name in names)
+    placeholder_schemas = builtins + tuple(_RecordSchema(name, (), module.span) for name in names)
     for declaration in accepted:
         fields = _record_schema_fields(declaration, placeholder_schemas, diagnostics)
         if fields is not None:
             schemas.append(_RecordSchema(declaration.name.text, fields, declaration.span))
-    return tuple(schemas)
+    return builtins + tuple(schemas)
 
 
 def _record_schema_fields(
@@ -490,6 +519,14 @@ def _check_expression(
             diagnostics.append(_type_mismatch(operand.span, BuiltinType.INT, operand.type_))
             return None
         return TypedNegateExpression(operand, BuiltinType.INT, expression.span)
+    if isinstance(expression, BinaryExpression):
+        return _check_binary_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
     if isinstance(expression, GroupExpression):
         inner = _check_expression(
             expression.expression,
@@ -688,6 +725,90 @@ def _list_intrinsic_for_callee(expression: Expression) -> IntrinsicKind | None:
     if expression.record.name.text != "List":
         return None
     return list_intrinsic(expression.field.text)
+
+
+def _check_binary_expression(
+    expression: BinaryExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    left = _check_expression(
+        expression.left,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+    right = _check_expression(
+        expression.right,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+    if left is None or right is None:
+        return None
+    result_type = _domain_binary_result(expression.operator, left.type_, right.type_)
+    if result_type is None:
+        diagnostics.append(
+            Diagnostic(
+                "E429_INVALID_DOMAIN_OPERATION",
+                DiagnosticSeverity.ERROR,
+                "cannot apply "
+                f"'{render_binary_operator(expression.operator)}' to "
+                f"{render_type(left.type_)} and {render_type(right.type_)}",
+                expression.operator_span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    return TypedBinaryExpression(
+        left,
+        expression.operator,
+        expression.operator_span,
+        right,
+        result_type,
+        expression.span,
+    )
+
+
+def _domain_binary_result(
+    operator: BinaryOperator,
+    left: DslType,
+    right: DslType,
+) -> DslType | None:
+    comparable_types = {
+        BuiltinType.DURATION,
+        BuiltinType.DISTANCE,
+        BuiltinType.PROBABILITY,
+    }
+    if operator in {
+        BinaryOperator.LESS,
+        BinaryOperator.LESS_EQUAL,
+        BinaryOperator.GREATER,
+        BinaryOperator.GREATER_EQUAL,
+    }:
+        return BuiltinType.BOOL if left == right and left in comparable_types else None
+    if operator is BinaryOperator.ADD:
+        if left == right and left in {BuiltinType.DURATION, BuiltinType.DISTANCE}:
+            return left
+        if left == _POSITION_TYPE and right == _VECTOR_TYPE:
+            return _POSITION_TYPE
+        if left == _VECTOR_TYPE and right == _VECTOR_TYPE:
+            return _VECTOR_TYPE
+        return None
+    if operator is BinaryOperator.SUBTRACT:
+        if left == right and left in {BuiltinType.DURATION, BuiltinType.DISTANCE}:
+            return left
+        if left == _POSITION_TYPE and right == _VECTOR_TYPE:
+            return _POSITION_TYPE
+        if left == _POSITION_TYPE and right == _POSITION_TYPE:
+            return _VECTOR_TYPE
+        if left == _VECTOR_TYPE and right == _VECTOR_TYPE:
+            return _VECTOR_TYPE
+    return None
 
 
 def _check_list_intrinsic_call(

@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, ExpressionId, SymbolId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.types import DslType
 
@@ -34,6 +35,7 @@ class CoreExpressionKind(StrEnum):
     RECORD = "record"
     REFERENCE = "reference"
     NEGATE = "negate"
+    BINARY = "binary"
     CALL = "call"
     INTRINSIC_CALL = "intrinsic_call"
     FIELD_ACCESS = "field_access"
@@ -214,6 +216,20 @@ class CoreNegate:
 
 
 @dataclass(frozen=True, slots=True)
+class CoreBinary:
+    """One checked exact domain operation."""
+
+    expression_id: ExpressionId
+    left: CoreExpression
+    operator: BinaryOperator
+    operator_span: SourceSpan
+    right: CoreExpression
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.BINARY
+
+
+@dataclass(frozen=True, slots=True)
 class CoreCall:
     """A function call with source-ordered arguments."""
 
@@ -288,6 +304,7 @@ type CoreExpression = (
     | CoreRecord
     | CoreReference
     | CoreNegate
+    | CoreBinary
     | CoreCall
     | CoreIntrinsicCall
     | CoreFieldAccess

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.domain.quantities import Quantity
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.source import SourceSpan
 
 
@@ -190,6 +191,17 @@ class NegateExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class BinaryExpression:
+    """A source-spanned left-associative binary domain operation."""
+
+    left: Expression
+    operator: BinaryOperator
+    operator_span: SourceSpan
+    right: Expression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class GroupExpression:
     """A parenthesised expression whose span includes the delimiters."""
 
@@ -248,6 +260,7 @@ type Expression = (
     | MatchExpression
     | NameExpression
     | NegateExpression
+    | BinaryExpression
     | GroupExpression
     | CallExpression
     | FieldAccessExpression

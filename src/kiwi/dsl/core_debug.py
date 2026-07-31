@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from kiwi.dsl.core_ir import (
     CoreBoolean,
+    CoreBinary,
     CoreCall,
     CoreDefinition,
     CoreExpression,
@@ -26,6 +27,7 @@ from kiwi.dsl.core_ir import (
 )
 from kiwi.dsl.debug import format_span
 from kiwi.dsl.lower import LowerResult, SourceMap
+from kiwi.dsl.operators import render_binary_operator
 from kiwi.dsl.types import FunctionType, render_type
 
 
@@ -106,6 +108,15 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
     if isinstance(expression, CoreNegate):
         lines = [f"{prefix}Negate {metadata}", f"{prefix}  operand:"]
         lines.extend(_format_expression(expression.operand, depth + 2))
+        return lines
+    if isinstance(expression, CoreBinary):
+        lines = [
+            f"{prefix}Binary operator={render_binary_operator(expression.operator)!r} {metadata}",
+            f"{prefix}  left:",
+        ]
+        lines.extend(_format_expression(expression.left, depth + 2))
+        lines.append(f"{prefix}  right:")
+        lines.extend(_format_expression(expression.right, depth + 2))
         return lines
     if isinstance(expression, CoreCall):
         lines = [f"{prefix}Call {metadata}", f"{prefix}  callee:"]

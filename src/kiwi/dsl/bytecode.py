@@ -10,6 +10,7 @@ from typing import ClassVar
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.intrinsics import IntrinsicKind
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_CLOSURE_CAPTURES,
     MAX_RUNTIME_LIST_ITEMS,
@@ -96,6 +97,7 @@ class Opcode(IntEnum):
     BUILD_LIST = 18
     BUILD_CLOSURE = 19
     PUSH_INTRINSIC = 20
+    BINARY_OPERATION = 21
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,6 +268,18 @@ class PushIntrinsic:
 
 
 @dataclass(frozen=True, slots=True)
+class BinaryOperation:
+    """Apply one closed exact domain operator to two stack values."""
+
+    operator: BinaryOperator
+    opcode: ClassVar[Opcode] = Opcode.BINARY_OPERATION
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.operator, BinaryOperator):
+            raise ValueError("binary instruction requires a binary operator")
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -313,6 +327,7 @@ type BytecodeInstruction = (
     | BuildList
     | BuildClosure
     | PushIntrinsic
+    | BinaryOperation
     | Jump
     | JumpIfFalse
     | Return
@@ -503,6 +518,7 @@ class BytecodeModule:
                         BuildList,
                         BuildClosure,
                         PushIntrinsic,
+                        BinaryOperation,
                     ),
                 )
                 for function in self.functions

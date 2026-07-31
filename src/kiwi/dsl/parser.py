@@ -8,9 +8,11 @@ from enum import StrEnum
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.lexer import LexResult
+from kiwi.dsl.operators import BinaryOperator
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceSpan
 from kiwi.dsl.syntax import (
     BooleanLiteral,
+    BinaryExpression,
     CallExpression,
     Declaration,
     Expression,
@@ -264,7 +266,7 @@ class _Parser:
 
     def parse_pipeline_expression(self) -> Expression | None:
         """Desugar left-associative pipeline stages into ordinary calls."""
-        value = self.parse_application_expression()
+        value = self.parse_comparison_expression()
         if value is None:
             return None
         while self.match(TokenKind.PIPE):
@@ -280,6 +282,49 @@ class _Parser:
             else:
                 value = CallExpression(stage, (value,), _join_spans(value.span, stage.span))
         return value
+
+    def parse_comparison_expression(self) -> Expression | None:
+        """Parse left-associative typed comparison operations."""
+        expression = self.parse_additive_expression()
+        if expression is None:
+            return None
+        while self.current.kind in {
+            TokenKind.LEFT_ANGLE,
+            TokenKind.LESS_EQUAL,
+            TokenKind.RIGHT_ANGLE,
+            TokenKind.GREATER_EQUAL,
+        }:
+            operator = self.advance()
+            right = self.parse_additive_expression()
+            if right is None:
+                return None
+            expression = BinaryExpression(
+                expression,
+                _comparison_operator(operator),
+                operator.span,
+                right,
+                _join_spans(expression.span, right.span),
+            )
+        return expression
+
+    def parse_additive_expression(self) -> Expression | None:
+        """Parse left-associative exact domain addition and subtraction."""
+        expression = self.parse_application_expression()
+        if expression is None:
+            return None
+        while self.current.kind in {TokenKind.PLUS, TokenKind.MINUS}:
+            operator = self.advance()
+            right = self.parse_application_expression()
+            if right is None:
+                return None
+            expression = BinaryExpression(
+                expression,
+                BinaryOperator.ADD if operator.kind is TokenKind.PLUS else BinaryOperator.SUBTRACT,
+                operator.span,
+                right,
+                _join_spans(expression.span, right.span),
+            )
+        return expression
 
     def parse_match_expression(self) -> MatchExpression | None:
         """Parse an exhaustive closed-variant match expression."""
@@ -596,6 +641,21 @@ class _Parser:
                 DiagnosticStage.PARSER,
             )
         )
+
+
+def _comparison_operator(token: Token) -> BinaryOperator:
+    """Map one comparison token to its closed source operator."""
+    match token.kind:
+        case TokenKind.LEFT_ANGLE:
+            return BinaryOperator.LESS
+        case TokenKind.LESS_EQUAL:
+            return BinaryOperator.LESS_EQUAL
+        case TokenKind.RIGHT_ANGLE:
+            return BinaryOperator.GREATER
+        case TokenKind.GREATER_EQUAL:
+            return BinaryOperator.GREATER_EQUAL
+        case _:
+            raise AssertionError("comparison parser consumed a non-comparison token")
 
 
 def _join_spans(start: SourceSpan, end: SourceSpan) -> SourceSpan:
