@@ -373,9 +373,9 @@ pygame receives it rather than `MissionState`.
 
 The initial reducer accepts an immutable exact-tick command tuple, canonicalises
 it, transitions `prepared` missions to `active`, records authorised aborts,
-rejects signals until they become observations, dequeues scheduled markers,
-then advances exactly one clock tick. It allocates a canonical event record for
-every applied or rejected command and dequeued marker.
+records active-mission signals as tick-stamped observations, dequeues scheduled
+markers, then advances exactly one clock tick. It allocates a canonical event
+record for every applied or rejected command and dequeued marker.
 
 After policy validation and channel arbitration, selected `MoveToward` requests
 plan a bounded route against the immutable map. A successful route emits a
@@ -401,6 +401,11 @@ send sequences, delivers at the next tick, discards expired entries, and feeds
 owner-local ABI version 2 inboxes without a shared mutable blackboard or
 presentation dependency.
 
+`kiwi.sim.signals` defines immutable current-tick squad or entity-targeted
+signal observations. The reducer accepts them only for active missions, retains
+their command and event provenance in canonical state, and feeds owner-local
+ABI version 3 values without exposing a writable blackboard.
+
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,
 wall-clock input, or presentation state. It returns the final state and the
@@ -413,10 +418,11 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
-The version-1 runtime observation model is an immutable simulation value with
-owner-visible entity ID, planar position, and tick only. A conversion at the
-simulation/DSL boundary produces closed lexically ordered DSL records; no
-renderer or hidden-world reference crosses that boundary.
+The version-3 runtime observation model is an immutable simulation value with
+owner-visible entity ID, planar position, delivered inbox, current signals, and
+tick only. A conversion at the simulation/DSL boundary produces closed
+lexically ordered DSL records; no renderer or hidden-world reference crosses
+that boundary.
 
 ## 12. Command model
 

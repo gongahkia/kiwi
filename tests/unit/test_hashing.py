@@ -16,6 +16,7 @@ from kiwi.dsl.runtime_values import (
     RecordValue,
     StringValue,
 )
+from kiwi.sim.commands import CommandSource, SignalName
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactField,
@@ -41,6 +42,7 @@ from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.scheduled import ScheduledEventKind
+from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
 
 
@@ -87,7 +89,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "9bd88a704556fe54d0f1748a33f8ab3925768f0bb477b353d289b5093a96df1f"
+    assert first.hex == "87f0e178c26563db2be8697098f3af0b52b9425af15dfb20fb388be25396fd80"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -277,6 +279,36 @@ def test_canonical_state_codec_round_trips_live_messages_and_hashes_them() -> No
     )
 
 
+def test_canonical_state_codec_round_trips_current_signals_and_hashes_them() -> None:
+    initial, first = add_entity(
+        MissionState(tick=4), WorldPosition(WorldSubunits(3), WorldSubunits(4))
+    )
+    state, second = add_entity(initial, WorldPosition(WorldSubunits(5), WorldSubunits(6)))
+    event_id, allocator = state.id_allocator.allocate_event()
+    signals = SignalStore(
+        (
+            SignalObservation(
+                SignalName("hold"),
+                4,
+                0,
+                CommandSource.PLAYER,
+                second.entity_id,
+                event_id,
+            ),
+        )
+    )
+    state = replace(state, signals=signals, id_allocator=allocator)
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.signals.signals == signals.signals
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, signals=SignalStore())
+    )
+
+
 def _contact_provenance(event_id: EventId) -> ContactProvenance:
     return ContactProvenance(
         tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
@@ -295,6 +327,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x06", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x07", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x08", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x09", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

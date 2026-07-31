@@ -16,6 +16,7 @@ from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
+from kiwi.sim.signals import SignalStore
 
 MAX_MISSION_TICK = MAX_AUTHORITY_TICK
 
@@ -129,6 +130,7 @@ class MissionState:
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
+    signals: SignalStore = field(default_factory=SignalStore)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
     random_streams: RandomStreams = field(default_factory=default_random_streams)
 
@@ -155,6 +157,8 @@ class MissionState:
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
             raise ValueError("mission state requires a message ledger")
+        if not isinstance(self.signals, SignalStore):
+            raise ValueError("mission state requires a signal store")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
         if not isinstance(self.random_streams, RandomStreams):
@@ -238,6 +242,16 @@ class MissionState:
             raise ValueError(
                 "message provenance event IDs must be allocated by the current ID allocator"
             )
+        if any(
+            signal.tick > self.tick
+            or (signal.target_entity_id is not None and signal.target_entity_id not in entity_ids)
+            for signal in self.signals.signals
+        ):
+            raise ValueError("signals must be current or prior and target mission entities")
+        if any(
+            signal.provenance_event_id.value >= next_event_id for signal in self.signals.signals
+        ):
+            raise ValueError("signal event IDs must be allocated by the current ID allocator")
 
 
 def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionState, EntityState]:
@@ -260,6 +274,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             policy_versions=state.policy_versions,
             contacts=state.contacts,
             messages=state.messages,
+            signals=state.signals,
             scheduled_events=state.scheduled_events,
             random_streams=state.random_streams,
         ),

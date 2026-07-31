@@ -290,7 +290,7 @@ Replace omniscient policy input with incomplete information.
 - [x] Add observation provenance for contact fields.
 - [x] Define typed messages and inbox observations.
 - [x] Implement deterministic send and delivery ordering.
-- [ ] Add squad signals as tick-stamped commands and observation values.
+- [x] Add squad signals as tick-stamped commands and observation values.
 - [ ] Add communication events and causal links.
 - [ ] Render contact uncertainty and visibility overlays.
 - [ ] Add fixtures for missing, stale, and relayed information.

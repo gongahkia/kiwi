@@ -29,10 +29,9 @@ from kiwi.sim.contacts import (
 from kiwi.sim.events import (
     AbortRequested,
     CanonicalEvent,
-    CommandRejected,
-    CommandRejectionReason,
     MissionStarted,
     ScheduledTriggerFired,
+    SignalIssued,
 )
 from kiwi.sim.reducer import TickResult, reduce_one_tick
 from kiwi.sim.scheduled import ScheduledEventKind
@@ -59,8 +58,7 @@ def test_reducer_applies_current_commands_dequeues_events_and_advances_once() ->
     assert result.state.phase is MissionPhase.ACTIVE
     assert result.state.scheduled_events.pending == ()
     assert isinstance(result.events[0], MissionStarted)
-    assert isinstance(result.events[1], CommandRejected)
-    assert result.events[1].reason is CommandRejectionReason.SIGNALS_UNAVAILABLE
+    assert isinstance(result.events[1], SignalIssued)
     assert isinstance(result.events[2], ScheduledTriggerFired)
     assert result.events[2].scheduled_event == scheduled
     assert tuple(event.header.event_id.value for event in result.events) == (1, 2, 3)

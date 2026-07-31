@@ -34,14 +34,15 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 2
+    assert OBSERVATION_SCHEMA_VERSION == 3
     assert value.type_name == OBSERVATION_RECORD_TYPE
-    assert value.field_names == ("inbox", "self", "tick")
+    assert value.field_names == ("inbox", "self", "signals", "tick")
     inbox_value = value.field_value("inbox")
     assert isinstance(inbox_value, RecordValue)
     assert inbox_value.type_name == INBOX_OBSERVATION_RECORD_TYPE
     assert inbox_value.field_names == ("messages",)
     assert inbox_value.field_value("messages") == ListValue(())
+    assert value.field_value("signals") == ListValue(())
     self_value = value.field_value("self")
     assert isinstance(self_value, RecordValue)
     assert self_value.type_name == SELF_OBSERVATION_RECORD_TYPE

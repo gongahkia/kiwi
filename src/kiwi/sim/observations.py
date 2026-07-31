@@ -9,9 +9,10 @@ from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
+from kiwi.sim.signals import SignalObservation, signals_for, signals_runtime_value
 from kiwi.sim.state import MissionState
 
-OBSERVATION_SCHEMA_VERSION = 2
+OBSERVATION_SCHEMA_VERSION = 3
 OBSERVATION_RECORD_TYPE = "Observation"
 SELF_OBSERVATION_RECORD_TYPE = "SelfObservation"
 POSITION_RECORD_TYPE = "Position"
@@ -33,11 +34,12 @@ class SelfObservation:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeObservation:
-    """The complete version-2 policy input with no hidden or writable state."""
+    """The complete version-3 policy input with no hidden or writable state."""
 
     self_observation: SelfObservation
     tick: int
     inbox: InboxObservation = InboxObservation()
+    signals: tuple[SignalObservation, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.self_observation, SelfObservation):
@@ -58,6 +60,19 @@ class RuntimeObservation:
             for message in self.inbox.messages
         ):
             raise ValueError("runtime observation inbox messages must be delivered and unexpired")
+        if not isinstance(self.signals, tuple):
+            raise ValueError("runtime observation signals must be an immutable tuple")
+        previous_sequence = -1
+        for signal in self.signals:
+            if not isinstance(signal, SignalObservation):
+                raise ValueError("runtime observation signals must contain signal observations")
+            if signal.tick != self.tick:
+                raise ValueError("runtime observation signals must match the observation tick")
+            if signal.target_entity_id not in (None, self.self_observation.entity_id):
+                raise ValueError("runtime observation signals must belong to its entity")
+            if signal.command_sequence <= previous_sequence:
+                raise ValueError("runtime observation signals must be command-sequence ordered")
+            previous_sequence = signal.command_sequence
 
 
 def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation, ...]:
@@ -69,13 +84,14 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
             SelfObservation(entity.entity_id, entity.position),
             state.tick,
             inbox_for(state.messages, entity.entity_id, state.tick),
+            signals_for(state.signals, entity.entity_id, state.tick),
         )
         for entity in state.entities
     )
 
 
 def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
-    """Convert one authority observation to the closed version-2 DSL record layout."""
+    """Convert one authority observation to the closed version-3 DSL record layout."""
     if not isinstance(observation, RuntimeObservation):
         raise TypeError("runtime observation value requires a RuntimeObservation")
     self_observation = observation.self_observation
@@ -95,6 +111,11 @@ def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
     )
     return RecordValue(
         OBSERVATION_RECORD_TYPE,
-        ("inbox", "self", "tick"),
-        (inbox_runtime_value(observation.inbox), self_value, IntegerValue(observation.tick)),
+        ("inbox", "self", "signals", "tick"),
+        (
+            inbox_runtime_value(observation.inbox),
+            self_value,
+            signals_runtime_value(observation.signals),
+            IntegerValue(observation.tick),
+        ),
     )

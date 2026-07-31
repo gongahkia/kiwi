@@ -46,7 +46,7 @@ class CommandRejectionReason(StrEnum):
 
     MISSION_NOT_PREPARED = "mission_not_prepared"
     MISSION_NOT_ACTIVE = "mission_not_active"
-    SIGNALS_UNAVAILABLE = "signals_unavailable"
+    SIGNAL_TARGET_NOT_FOUND = "signal_target_not_found"
 
 
 @dataclass(frozen=True, slots=True)

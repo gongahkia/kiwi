@@ -364,6 +364,20 @@ evaluation, and each policy receives only its addressed delivered messages.
 `KWI-STATE\0` therefore uses version `9`; versions `1` through `8` are rejected
 without migration because development state remains disposable.
 
+### D-045: Signals are current-tick ABI version 3 values
+
+An active-mission `IssueSignal` command is accepted in canonical command order
+and records its signal name, tick, command sequence, source, optional entity
+target, and issuing `SignalIssued` event ID. A squad signal is visible to every
+entity; an entity-targeted signal is visible only to that entity. Signals are
+visible only during their exact tick and are discarded before the following
+tick's policy evaluation. Observation ABI version `3` adds
+`signals: List<Signal>`, with each closed DSL value shaped as
+`Signal { name, tick }`. The authoritative records retain command and event
+provenance for later causal linking. `KWI-STATE\0` therefore uses version `10`;
+versions `1` through `9` are rejected without migration because development
+state remains disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

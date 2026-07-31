@@ -22,6 +22,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
+from kiwi.sim.commands import CommandSource, SignalName
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -52,10 +53,11 @@ from kiwi.sim.randomness import (
     RandomStreamState,
 )
 from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEventQueue
+from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 9
+CANONICAL_STATE_VERSION = 10
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -65,7 +67,9 @@ _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
 _MESSAGE_CHANNEL_RADIO = 1
-_RANDOM_STREAM_COUNT_V9 = 4
+_SIGNAL_SOURCE_PLAYER = 1
+_SIGNAL_SOURCE_SCENARIO = 2
+_RANDOM_STREAM_COUNT_V10 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -127,7 +131,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 9 form."""
+    """Encode one validated mission state in canonical binary version 10 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -147,6 +151,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_policy_versions(writer, state.policy_versions)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
+    _encode_signals(writer, state.signals)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -222,8 +227,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V9:
-        raise ValueError("state format version 9 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V10:
+        raise ValueError("state format version 10 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -242,6 +247,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     policy_versions = _decode_policy_versions(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
+    signals = _decode_signals(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -256,6 +262,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         policy_versions=policy_versions,
         contacts=contacts,
         messages=messages,
+        signals=signals,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -546,6 +553,53 @@ def _decode_messages(reader: _Reader) -> MessageLedger:
     return MessageLedger(tuple(messages), next_sequence)
 
 
+def _encode_signals(writer: _Writer, store: SignalStore) -> None:
+    writer.items(len(store.signals), "signal count")
+    for signal in store.signals:
+        writer.text(signal.signal.value, "signal name")
+        writer.u64(signal.tick, "signal tick")
+        writer.u64(signal.command_sequence, "signal command sequence")
+        writer.u8(_encode_signal_source(signal.source), "signal source")
+        if signal.target_entity_id is None:
+            writer.u8(0, "signal target presence")
+        else:
+            writer.u8(1, "signal target presence")
+            writer.i64(signal.target_entity_id.value, "signal target entity ID")
+        writer.i64(signal.provenance_event_id.value, "signal provenance event ID")
+
+
+def _decode_signals(reader: _Reader) -> SignalStore:
+    signals: list[SignalObservation] = []
+    for _ in range(reader.items("signal count")):
+        name = SignalName(reader.text("signal name", _MAX_MEMORY_TEXT_BYTES))
+        tick = reader.u64()
+        command_sequence = reader.u64()
+        source = _decode_signal_source(reader.u8(), reader.offset - 1)
+        target_presence_offset = reader.offset
+        target_presence = reader.u8()
+        if target_presence == 0:
+            target_entity_id = None
+        elif target_presence == 1:
+            target_entity_id = EntityId(reader.i64())
+        else:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                target_presence_offset,
+                f"invalid signal target presence tag {target_presence}",
+            )
+        signals.append(
+            SignalObservation(
+                signal=name,
+                tick=tick,
+                command_sequence=command_sequence,
+                source=source,
+                target_entity_id=target_entity_id,
+                provenance_event_id=EventId(reader.i64()),
+            )
+        )
+    return SignalStore(tuple(signals))
+
+
 def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:
     if depth >= MAX_POLICY_MEMORY_DEPTH:
         raise ValueError("policy memory value exceeds the configured nesting limit")
@@ -702,7 +756,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V9)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V10)
     )
     return RandomStreams(seed=seed, states=states)
 
@@ -737,6 +791,22 @@ def _decode_message_channel(tag: int, offset: int) -> MessageChannel:
     if tag == _MESSAGE_CHANNEL_RADIO:
         return MessageChannel.RADIO
     raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid message channel tag {tag}")
+
+
+def _encode_signal_source(source: CommandSource) -> int:
+    if source is CommandSource.PLAYER:
+        return _SIGNAL_SOURCE_PLAYER
+    if source is CommandSource.SCENARIO:
+        return _SIGNAL_SOURCE_SCENARIO
+    raise TypeError("signal source is unsupported")
+
+
+def _decode_signal_source(tag: int, offset: int) -> CommandSource:
+    if tag == _SIGNAL_SOURCE_PLAYER:
+        return CommandSource.PLAYER
+    if tag == _SIGNAL_SOURCE_SCENARIO:
+        return CommandSource.SCENARIO
+    raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid signal source tag {tag}")
 
 
 def _encode_scheduled_kind(kind: ScheduledEventKind) -> int:
