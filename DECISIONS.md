@@ -287,6 +287,17 @@ the optional route-origin event ID to each movement action. Versions `1`
 through `5` are rejected with no compatibility decoder or migration because
 development state remains disposable.
 
+### D-038: Initial visibility is exact same-layer map line of sight
+
+Milestone 8 starts perception with a pure query from one canonical observer
+position to one canonical target position over the immutable map. Different
+elevation layers are not visible. Same-layer closed obstacle rectangles occlude
+when the closed centre-to-centre segment touches them, including endpoint and
+corner contact. When several obstacles occlude, the ascending `ObstacleId`
+order selects the retained blocker. Missing maps and out-of-bounds endpoints
+return structured `V001` through `V003` failures. Sensor ranges, field of
+view, contacts, and visible-geometry observations remain separate tasks.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

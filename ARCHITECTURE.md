@@ -384,6 +384,10 @@ failures emit structured route-rejection events. The action persists the
 route-start event ID, so later movement events retain a causal parent without
 consulting presentation state.
 
+`kiwi.sim.visibility` resolves pure map line-of-sight queries from immutable
+positions. It has no policy, renderer, or state mutation dependency; later
+sensor, contact, and observation phases consume its structured result.
+
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,
 wall-clock input, or presentation state. It returns the final state and the
