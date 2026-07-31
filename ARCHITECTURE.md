@@ -203,16 +203,21 @@ The exact filenames may change, but dependency boundaries should remain visible.
 
 Canonical state should not use unrestricted binary floating point.
 
-Recommended MVP representations:
+Canonical Milestone 5 representations:
 
 - ticks and durations: integers;
-- positions and distances: integer subunits, for example millimetres or 1/256 tile;
+- positions, displacements, and simulation distances: signed 64-bit integer millimetres;
+- elevation: non-negative discrete integer layers, separate from planar vectors;
 - angles: integer turns or milliradians;
 - probabilities and confidence: bounded integers, for example 0–10,000;
 - velocities: integer distance units per tick or fixed-point values;
 - health, suppression, and integrity: bounded integers.
 
-The renderer converts canonical values to floats for drawing. Any unavoidable floating-point geometry must be isolated and tested for replay stability on supported builds.
+Exact DSL `Distance` values convert to millimetres only at the simulation
+boundary: 1 metre is 1,000 millimetres and half ties round away from zero.
+The renderer converts canonical values to floats for drawing. Any unavoidable
+floating-point geometry must be isolated and tested for replay stability on
+supported builds.
 
 ## 7. Fixed-step runtime
 

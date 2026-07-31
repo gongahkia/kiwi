@@ -393,7 +393,10 @@ Vector +/- Vector -> Vector
 Quantity and coordinate arithmetic use exact normalized rationals. Probability
 has comparisons only; angle arithmetic, multiplication, division, mixed
 dimensions, reversed coordinate operands, and all other combinations are type
-errors. Simulation subunit conversion and elevation are outside the DSL.
+errors. Simulation conversion remains outside the DSL: exact `Distance` values
+become signed 64-bit millimetres at the simulation boundary (1 metre = 1,000
+millimetres, nearest rounding with half ties away from zero). Elevation remains
+simulation state, not a DSL coordinate field.
 
 Examples:
 
