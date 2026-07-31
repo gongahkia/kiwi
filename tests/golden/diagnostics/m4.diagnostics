@@ -1,0 +1,7 @@
+m4.dtr:2:25: E409_MISSING_RECORD_FIELD: record type 'Point' requires field 'value'
+m4.dtr:3:20: E412_AMBIGUOUS_NONE: None requires an expected Option type
+m4.dtr:4:44: E415_INCOMPLETE_MATCH: non-exhaustive Option match; missing None
+m4.dtr:5:22: E418_AMBIGUOUS_EMPTY_LIST: empty list requires an expected List type
+m4.dtr:6:24: E421_AMBIGUOUS_LAMBDA: anonymous function requires an expected function type
+m4.dtr:7:25: E425_INTRINSIC_ARITY: List.map expects 2 arguments
+m4.dtr:8:31: E429_INVALID_DOMAIN_OPERATION: cannot apply '+' to Distance and Duration

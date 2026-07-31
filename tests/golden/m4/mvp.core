@@ -1,0 +1,107 @@
+CoreModule span='mvp.dtr'@0..580
+  definitions:
+    Definition id=0 symbol=0 kind=policy name='decide' type=(Memory, Option<Position>) -> Decision span='mvp.dtr'@107..579
+      parameters:
+        Parameter symbol=1 type=Memory span='mvp.dtr'@121..135
+        Parameter symbol=2 type=Option<Position> span='mvp.dtr'@137..161
+      body:
+        Let symbol=3 id=0 type=Decision span='mvp.dtr'@179..579
+          value:
+            Record type='Vector' id=1 type=Vector span='mvp.dtr'@192..219
+              fields:
+                Field name='dx' span='mvp.dtr'@201..208
+                  Quantity dimension=Distance value=1/1 id=2 type=Distance span='mvp.dtr'@206..208
+                Field name='dy' span='mvp.dtr'@210..217
+                  Quantity dimension=Distance value=0/1 id=3 type=Distance span='mvp.dtr'@215..217
+          body:
+            Let symbol=4 id=4 type=Decision span='mvp.dtr'@225..579
+              value:
+                MatchOption id=5 type=Position span='mvp.dtr'@236..315
+                  subject:
+                    Reference symbol=2 id=6 type=Option<Position> span='mvp.dtr'@242..248
+                  arms:
+                    Some symbol=5 span='mvp.dtr'@260..289:
+                      Binary operator='+' id=7 type=Position span='mvp.dtr'@275..289
+                        left:
+                          Reference symbol=5 id=8 type=Position span='mvp.dtr'@275..280
+                        right:
+                          Reference symbol=3 id=9 type=Vector span='mvp.dtr'@283..289
+                    None span='mvp.dtr'@296..315:
+                      FieldAccess field='last' id=10 type=Position span='mvp.dtr'@304..315
+                        record:
+                          Reference symbol=1 id=11 type=Memory span='mvp.dtr'@304..310
+              body:
+                Let symbol=6 id=12 type=Decision span='mvp.dtr'@323..579
+                  value:
+                    IntrinsicCall name=LIST_MAP id=13 type=List<Int> span='mvp.dtr'@340..375
+                      arguments:
+                        List id=14 type=List<Int> span='mvp.dtr'@340..346
+                          elements:
+                            Integer value=1 id=15 type=Int span='mvp.dtr'@341..342
+                            Integer value=2 id=16 type=Int span='mvp.dtr'@344..345
+                        Lambda id=17 type=Int -> Int span='mvp.dtr'@359..374
+                          captures:
+                          parameters:
+                            Parameter symbol=7 type=Int span='mvp.dtr'@362..366
+                          body:
+                            Reference symbol=7 id=18 type=Int span='mvp.dtr'@370..374
+                  body:
+                    If id=19 type=Decision span='mvp.dtr'@381..579
+                      condition:
+                        Binary operator='<' id=20 type=Bool span='mvp.dtr'@384..394
+                          left:
+                            Quantity dimension=Duration value=1/4 id=21 type=Duration span='mvp.dtr'@384..389
+                          right:
+                            Quantity dimension=Duration value=1/1 id=22 type=Duration span='mvp.dtr'@392..394
+                      then_branch:
+                        Record type='Decision' id=23 type=Decision span='mvp.dtr'@404..506
+                          fields:
+                            Field name='intentions' span='mvp.dtr'@421..444
+                              Reference symbol=6 id=24 type=List<Int> span='mvp.dtr'@434..444
+                            Field name='memory' span='mvp.dtr'@452..500
+                              Record type='Memory' id=25 type=Memory span='mvp.dtr'@461..500
+                                fields:
+                                  Field name='label' span='mvp.dtr'@470..485
+                                    String value='ready' id=26 type=String span='mvp.dtr'@478..485
+                                  Field name='last' span='mvp.dtr'@487..498
+                                    Reference symbol=4 id=27 type=Position span='mvp.dtr'@494..498
+                      else_branch:
+                        Record type='Decision' id=28 type=Decision span='mvp.dtr'@518..579
+                          fields:
+                            Field name='intentions' span='mvp.dtr'@535..550
+                              List id=29 type=List<Int> span='mvp.dtr'@548..550
+                                elements:
+                            Field name='memory' span='mvp.dtr'@558..573
+                              Reference symbol=1 id=30 type=Memory span='mvp.dtr'@567..573
+  source_map:
+    Entry expression=0 definition=0 span='mvp.dtr'@179..579
+    Entry expression=1 definition=0 span='mvp.dtr'@192..219
+    Entry expression=2 definition=0 span='mvp.dtr'@206..208
+    Entry expression=3 definition=0 span='mvp.dtr'@215..217
+    Entry expression=4 definition=0 span='mvp.dtr'@225..579
+    Entry expression=5 definition=0 span='mvp.dtr'@236..315
+    Entry expression=6 definition=0 span='mvp.dtr'@242..248
+    Entry expression=7 definition=0 span='mvp.dtr'@275..289
+    Entry expression=8 definition=0 span='mvp.dtr'@275..280
+    Entry expression=9 definition=0 span='mvp.dtr'@283..289
+    Entry expression=10 definition=0 span='mvp.dtr'@304..315
+    Entry expression=11 definition=0 span='mvp.dtr'@304..310
+    Entry expression=12 definition=0 span='mvp.dtr'@323..579
+    Entry expression=13 definition=0 span='mvp.dtr'@340..375
+    Entry expression=14 definition=0 span='mvp.dtr'@340..346
+    Entry expression=15 definition=0 span='mvp.dtr'@341..342
+    Entry expression=16 definition=0 span='mvp.dtr'@344..345
+    Entry expression=17 definition=0 span='mvp.dtr'@359..374
+    Entry expression=18 definition=0 span='mvp.dtr'@370..374
+    Entry expression=19 definition=0 span='mvp.dtr'@381..579
+    Entry expression=20 definition=0 span='mvp.dtr'@384..394
+    Entry expression=21 definition=0 span='mvp.dtr'@384..389
+    Entry expression=22 definition=0 span='mvp.dtr'@392..394
+    Entry expression=23 definition=0 span='mvp.dtr'@404..506
+    Entry expression=24 definition=0 span='mvp.dtr'@434..444
+    Entry expression=25 definition=0 span='mvp.dtr'@461..500
+    Entry expression=26 definition=0 span='mvp.dtr'@478..485
+    Entry expression=27 definition=0 span='mvp.dtr'@494..498
+    Entry expression=28 definition=0 span='mvp.dtr'@518..579
+    Entry expression=29 definition=0 span='mvp.dtr'@548..550
+    Entry expression=30 definition=0 span='mvp.dtr'@567..573
