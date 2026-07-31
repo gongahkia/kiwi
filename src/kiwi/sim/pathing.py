@@ -7,9 +7,9 @@ from enum import StrEnum
 from heapq import heappop, heappush
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
+from kiwi.sim.collision import OPERATIVE_FOOTPRINT_RADIUS_MM
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 
-OPERATIVE_FOOTPRINT_RADIUS_MM = 350
 MAX_PATH_OBSTACLES = 64
 
 
