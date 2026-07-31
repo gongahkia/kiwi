@@ -25,9 +25,11 @@ class CoreExpressionKind(StrEnum):
     BOOLEAN = "boolean"
     STRING = "string"
     QUANTITY = "quantity"
+    RECORD = "record"
     REFERENCE = "reference"
     NEGATE = "negate"
     CALL = "call"
+    FIELD_ACCESS = "field_access"
     LET = "let"
     IF = "if"
 
@@ -77,6 +79,27 @@ class CoreQuantity:
 
 
 @dataclass(frozen=True, slots=True)
+class CoreRecordField:
+    """One source-ordered core value used to construct a record."""
+
+    name: str
+    value: CoreExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class CoreRecord:
+    """An immutable nominal record construction."""
+
+    expression_id: ExpressionId
+    type_name: str
+    fields: tuple[CoreRecordField, ...]
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.RECORD
+
+
+@dataclass(frozen=True, slots=True)
 class CoreReference:
     """A resolved lexical or top-level symbol reference."""
 
@@ -111,6 +134,18 @@ class CoreCall:
 
 
 @dataclass(frozen=True, slots=True)
+class CoreFieldAccess:
+    """A statically named record field read."""
+
+    expression_id: ExpressionId
+    record: CoreExpression
+    field_name: str
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.FIELD_ACCESS
+
+
+@dataclass(frozen=True, slots=True)
 class CoreLet:
     """An immutable local binding represented directly in core."""
 
@@ -141,9 +176,11 @@ type CoreExpression = (
     | CoreBoolean
     | CoreString
     | CoreQuantity
+    | CoreRecord
     | CoreReference
     | CoreNegate
     | CoreCall
+    | CoreFieldAccess
     | CoreLet
     | CoreIf
 )

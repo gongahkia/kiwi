@@ -7,11 +7,13 @@ from kiwi.dsl.core_ir import (
     CoreCall,
     CoreDefinition,
     CoreExpression,
+    CoreFieldAccess,
     CoreInteger,
     CoreLet,
     CoreModule,
     CoreNegate,
     CoreQuantity,
+    CoreRecord,
     CoreReference,
     CoreString,
 )
@@ -75,6 +77,12 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
             f"{prefix}Quantity dimension={quantity.dimension.value} "
             f"value={quantity.value.numerator}/{quantity.value.denominator} {metadata}"
         ]
+    if isinstance(expression, CoreRecord):
+        lines = [f"{prefix}Record type={expression.type_name!r} {metadata}", f"{prefix}  fields:"]
+        for field in expression.fields:
+            lines.append(f"{prefix}    Field name={field.name!r} span={format_span(field.span)}")
+            lines.extend(_format_expression(field.value, depth + 3))
+        return lines
     if isinstance(expression, CoreReference):
         return [f"{prefix}Reference symbol={expression.symbol_id.value} {metadata}"]
     if isinstance(expression, CoreNegate):
@@ -87,6 +95,10 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
         lines.append(f"{prefix}  arguments:")
         for argument in expression.arguments:
             lines.extend(_format_expression(argument, depth + 2))
+        return lines
+    if isinstance(expression, CoreFieldAccess):
+        lines = [f"{prefix}FieldAccess field={expression.field_name!r} {metadata}", f"{prefix}  record:"]
+        lines.extend(_format_expression(expression.record, depth + 2))
         return lines
     if isinstance(expression, CoreLet):
         lines = [f"{prefix}Let symbol={expression.symbol_id.value} {metadata}", f"{prefix}  value:"]
