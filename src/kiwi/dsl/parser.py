@@ -260,7 +260,26 @@ class _Parser:
             return self.parse_if_expression()
         if self.current.kind is TokenKind.MATCH:
             return self.parse_match_expression()
-        return self.parse_application_expression()
+        return self.parse_pipeline_expression()
+
+    def parse_pipeline_expression(self) -> Expression | None:
+        """Desugar left-associative pipeline stages into ordinary calls."""
+        value = self.parse_application_expression()
+        if value is None:
+            return None
+        while self.match(TokenKind.PIPE):
+            stage = self.parse_application_expression()
+            if stage is None:
+                return None
+            if isinstance(stage, CallExpression):
+                value = CallExpression(
+                    stage.callee,
+                    (value, *stage.arguments),
+                    _join_spans(value.span, stage.span),
+                )
+            else:
+                value = CallExpression(stage, (value,), _join_spans(value.span, stage.span))
+        return value
 
     def parse_match_expression(self) -> MatchExpression | None:
         """Parse an exhaustive closed-variant match expression."""

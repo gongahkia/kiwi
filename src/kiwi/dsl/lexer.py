@@ -88,6 +88,8 @@ def lex(source: SourceFile) -> LexResult:
             _lex_string(cursor, tokens, diagnostics)
         elif cursor.starts_with("->"):
             tokens.append(cursor.token(TokenKind.ARROW, 2))
+        elif cursor.starts_with("|>"):
+            tokens.append(cursor.token(TokenKind.PIPE, 2))
         elif token_kind := _SINGLE_CHARACTER_TOKENS.get(character):
             tokens.append(cursor.token(token_kind, 1))
         else:

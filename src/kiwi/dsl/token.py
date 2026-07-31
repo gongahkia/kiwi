@@ -44,6 +44,7 @@ class TokenKind(StrEnum):
     RIGHT_BRACKET = "right_bracket"
     DOT = "dot"
     BAR = "bar"
+    PIPE = "pipe"
     LEFT_ANGLE = "left_angle"
     RIGHT_ANGLE = "right_angle"
     ARROW = "arrow"
