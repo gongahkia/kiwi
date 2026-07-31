@@ -34,6 +34,15 @@ class Parameter:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordTypeField:
+    """One source-ordered field in a nominal record type declaration."""
+
+    name: Identifier
+    annotation: TypeReference
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class IntegerLiteral:
     """An exact integer literal."""
 
@@ -62,6 +71,24 @@ class QuantityLiteral:
     """An exact quantity literal normalized to its canonical unit."""
 
     value: Quantity
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class RecordFieldExpression:
+    """One named value supplied while constructing a record."""
+
+    name: Identifier
+    value: Expression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class RecordExpression:
+    """An immutable nominal record construction expression."""
+
+    type_name: Identifier
+    fields: tuple[RecordFieldExpression, ...]
     span: SourceSpan
 
 
@@ -99,6 +126,15 @@ class CallExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class FieldAccessExpression:
+    """Read one statically named field from a record expression."""
+
+    record: Expression
+    field: Identifier
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class LetExpression:
     """A lexically scoped immutable binding."""
 
@@ -123,10 +159,12 @@ type Expression = (
     | BooleanLiteral
     | StringLiteral
     | QuantityLiteral
+    | RecordExpression
     | NameExpression
     | NegateExpression
     | GroupExpression
     | CallExpression
+    | FieldAccessExpression
     | LetExpression
     | IfExpression
 )
@@ -154,7 +192,16 @@ class PolicyDeclaration:
     span: SourceSpan
 
 
-type Declaration = FunctionDeclaration | PolicyDeclaration
+@dataclass(frozen=True, slots=True)
+class RecordTypeDeclaration:
+    """A nominal record schema available in type and construction position."""
+
+    name: Identifier
+    fields: tuple[RecordTypeField, ...]
+    span: SourceSpan
+
+
+type Declaration = FunctionDeclaration | PolicyDeclaration | RecordTypeDeclaration
 
 
 @dataclass(frozen=True, slots=True)

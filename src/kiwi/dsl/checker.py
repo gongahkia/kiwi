@@ -12,6 +12,7 @@ from kiwi.dsl.syntax import (
     BooleanLiteral,
     CallExpression,
     Expression,
+    FieldAccessExpression,
     FunctionDeclaration,
     GroupExpression,
     IfExpression,
@@ -20,6 +21,9 @@ from kiwi.dsl.syntax import (
     NameExpression,
     NegateExpression,
     QuantityLiteral,
+    RecordExpression,
+    RecordTypeDeclaration,
+    RecordTypeField,
     StringLiteral,
     TypeReference,
 )
@@ -29,6 +33,7 @@ from kiwi.dsl.typed_ir import (
     TypedDefinition,
     TypedDefinitionKind,
     TypedExpression,
+    TypedFieldAccessExpression,
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
@@ -38,9 +43,11 @@ from kiwi.dsl.typed_ir import (
     TypedNegateExpression,
     TypedParameter,
     TypedQuantityLiteral,
+    TypedRecordExpression,
+    TypedRecordField,
     TypedStringLiteral,
 )
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, render_type
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, render_type
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,12 +68,27 @@ class _DefinitionHeader:
     function_type: FunctionType
 
 
+@dataclass(frozen=True, slots=True)
+class _RecordFieldSchema:
+    name: str
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class _RecordSchema:
+    name: str
+    fields: tuple[_RecordFieldSchema, ...]
+    span: SourceSpan
+
+
 def check(resolution: ResolutionResult) -> CheckResult:
     """Type-check a resolver-clean module without executing player source."""
     if resolution.diagnostics:
         return CheckResult(None, resolution.diagnostics)
     diagnostics: list[Diagnostic] = []
-    headers = _headers(resolution, diagnostics)
+    record_schemas = _record_schemas(resolution.module, diagnostics)
+    headers = _headers(resolution, record_schemas, diagnostics)
     if diagnostics:
         return CheckResult(None, tuple(diagnostics))
     symbol_types: list[tuple[SymbolId, DslType]] = [
@@ -82,6 +104,7 @@ def check(resolution: ResolutionResult) -> CheckResult:
             resolution,
             symbol_types,
             diagnostics,
+            record_schemas,
         )
         if body is None:
             continue

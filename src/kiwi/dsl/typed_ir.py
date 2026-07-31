@@ -66,6 +66,25 @@ class TypedQuantityLiteral:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedRecordField:
+    """One schema-ordered checked value used to construct a record."""
+
+    name: Identifier
+    value: TypedExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedRecordExpression:
+    """A checked immutable nominal record construction."""
+
+    type_name: str
+    fields: tuple[TypedRecordField, ...]
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedNameExpression:
     """A name expression resolved to a lexical symbol."""
 
@@ -103,6 +122,16 @@ class TypedCallExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedFieldAccessExpression:
+    """A statically resolved read of a record field."""
+
+    record: TypedExpression
+    field: Identifier
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedLetExpression:
     """A checked immutable local binding."""
 
@@ -130,10 +159,12 @@ type TypedExpression = (
     | TypedBooleanLiteral
     | TypedStringLiteral
     | TypedQuantityLiteral
+    | TypedRecordExpression
     | TypedNameExpression
     | TypedNegateExpression
     | TypedGroupExpression
     | TypedCallExpression
+    | TypedFieldAccessExpression
     | TypedLetExpression
     | TypedIfExpression
 )

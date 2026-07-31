@@ -21,6 +21,7 @@ class TokenKind(StrEnum):
     QUANTITY = "quantity"
     TRUE = "true"
     FALSE = "false"
+    TYPE = "type"
     POLICY = "policy"
     FN = "fn"
     LET = "let"
@@ -33,6 +34,9 @@ class TokenKind(StrEnum):
     EQUALS = "equals"
     LEFT_PAREN = "left_paren"
     RIGHT_PAREN = "right_paren"
+    LEFT_BRACE = "left_brace"
+    RIGHT_BRACE = "right_brace"
+    DOT = "dot"
     ARROW = "arrow"
     MINUS = "minus"
 
