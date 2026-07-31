@@ -39,6 +39,7 @@ from kiwi.dsl.bytecode import (
     UnwrapSome,
     canonical_function_table,
 )
+from kiwi.dsl.capabilities import CapabilityManifest, empty_capability_manifest
 from kiwi.dsl.core_ir import (
     CoreBinary,
     CoreBoolean,
@@ -124,6 +125,26 @@ def compile_core(module: CoreModule, header: BytecodeHeader) -> BytecodeModule:
 class _CompiledFunction:
     function: BytecodeFunction
     source_map_entries: tuple[InstructionSourceMapEntry, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CompiledArtifact:
+    """A bytecode module and its separate capability requirement manifest."""
+
+    bytecode: BytecodeModule
+    capability_manifest: CapabilityManifest
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.bytecode, BytecodeModule):
+            raise ValueError("compiled artifact bytecode must be a bytecode module")
+        if not isinstance(self.capability_manifest, CapabilityManifest):
+            raise ValueError("compiled artifact requires a capability manifest")
+
+
+def compile_artifact(module: CoreModule, header: BytecodeHeader) -> CompiledArtifact:
+    """Compile one core module with its current empty capability requirements."""
+    bytecode = compile_core(module, header)
+    return CompiledArtifact(bytecode, empty_capability_manifest(module, bytecode.function_table))
 
 
 class _FunctionCompiler:

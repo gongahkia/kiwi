@@ -788,7 +788,15 @@ binary operation at the operator span.
 
 ### 15.5 Capability checking
 
-Each entry point has a capability environment. The compiler rejects impossible intentions where static information suffices.
+Each entry point has a capability environment. The compiler rejects impossible
+intentions where static information suffices.
+
+Milestone 4 exposes a separate immutable `CapabilityManifest` compiler artifact.
+It has manifest version `1`, policy entry points in ascending `FunctionId`
+order, and source-linked, lexically ordered capability requirements. No
+intention families exist yet, so every current entry has an empty requirement
+tuple. This manifest is deliberately outside the raw `KWI-BC\0` bytecode
+payload; later compiled-policy bundles carry it with their tactical API version.
 
 ### 15.6 Cost analysis
 

@@ -289,6 +289,11 @@ The compiler output includes:
 - capability requirements;
 - cost metadata where statically known.
 
+Milestone 4 represents capability requirements as a separate immutable compiler
+artifact, rather than mutating the raw bytecode format. The initial manifest is
+versioned and contains each policy entry point with an empty requirement tuple;
+Milestone 6 populates source-linked capability requirements before execution.
+
 ## 10. VM architecture
 
 The VM is deterministic and sandboxed by construction.
