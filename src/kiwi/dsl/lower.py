@@ -14,8 +14,8 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreIf,
     CoreInteger,
-    CoreLet,
     CoreLambda,
+    CoreLet,
     CoreList,
     CoreMatch,
     CoreMatchNoneArm,
@@ -43,8 +43,8 @@ from kiwi.dsl.typed_ir import (
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
-    TypedLetExpression,
     TypedLambdaExpression,
+    TypedLetExpression,
     TypedListExpression,
     TypedMatchExpression,
     TypedMatchSomeArm,
@@ -169,7 +169,9 @@ class _Lowerer:
                     CoreParameter(parameter.symbol_id, parameter.type_, parameter.span)
                     for parameter in expression.parameters
                 ),
-                tuple(CoreCapture(capture.symbol_id, capture.type_) for capture in expression.captures),
+                tuple(
+                    CoreCapture(capture.symbol_id, capture.type_) for capture in expression.captures
+                ),
                 self.lower_expression(expression.body, definition_id),
                 expression.type_,
                 expression.span,
