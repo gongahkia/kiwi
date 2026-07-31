@@ -506,6 +506,11 @@ lifecycle. `initialise_pygame()` initialises pygame-ce without creating a
 window, and `quit_pygame()` releases it; only `kiwi.app` and `kiwi.render` may
 import pygame. Headless packages and commands never import or initialise it.
 
+`kiwi.render.pygame_app` creates a 960x540 window around a separate 480x270
+logical canvas. `kiwi.render.camera.Camera` projects copied presentation-world
+coordinates with positive world Y upward; map drawing and final scaling are
+strictly display transforms and cannot write authority state.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:
