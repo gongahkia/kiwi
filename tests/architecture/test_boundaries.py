@@ -7,6 +7,7 @@ from pathlib import Path
 
 SOURCE_ROOT = Path(__file__).resolve().parents[2] / "src" / "kiwi"
 PRESENTATION_PACKAGES = ("kiwi.app", "kiwi.render", "kiwi.ui")
+PYGAME_IMPORT_PACKAGES = frozenset(("app", "render"))
 ALLOWED_INTERNAL_IMPORTS = {
     "domain": ("kiwi.domain",),
     "dsl": ("kiwi.domain", "kiwi.dsl"),
@@ -140,6 +141,20 @@ def test_repository_sources_do_not_execute_player_programs_as_python() -> None:
                 target = call_target(node.func, aliases)
                 if target in {"eval", "exec", "builtins.eval", "builtins.exec"}:
                     violations.append(f"{path}:{node.lineno}: calls {target}")
+
+    assert not violations, "\n".join(violations)
+
+
+def test_pygame_imports_are_restricted_to_application_and_render_packages() -> None:
+    violations: list[str] = []
+    for path in sorted(SOURCE_ROOT.rglob("*.py")):
+        package = path.relative_to(SOURCE_ROOT).parts[0]
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for reference in import_targets(tree, path):
+            if reference.target.startswith("pygame") and package not in PYGAME_IMPORT_PACKAGES:
+                violations.append(
+                    f"{reference.path}:{reference.line}: pygame import outside application/render"
+                )
 
     assert not violations, "\n".join(violations)
 

@@ -501,6 +501,11 @@ The desktop application contains modes such as:
 
 Input is translated into application actions. Only permitted actions become authoritative commands. The mission renderer reads a presentation snapshot containing display-ready entity, geometry, overlay, and event data.
 
+`kiwi.render.pygame_lifecycle` exclusively owns the minimal pygame-ce process
+lifecycle. `initialise_pygame()` initialises pygame-ce without creating a
+window, and `quit_pygame()` releases it; only `kiwi.app` and `kiwi.render` may
+import pygame. Headless packages and commands never import or initialise it.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:
