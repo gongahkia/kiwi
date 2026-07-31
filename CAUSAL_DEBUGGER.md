@@ -111,10 +111,13 @@ ObservationFact {
 ```text
 IntentionOrigin {
   intention_id
+  issuer_entity_id
   invocation_id
-  construction_evaluation_id
-  source_span_id
-  list_order
+  source_expression_id
+  source_span
+  policy_order
+  creation_tick
+  kind
   action_channel
 }
 ```
