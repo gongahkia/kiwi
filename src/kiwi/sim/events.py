@@ -14,6 +14,7 @@ from kiwi.sim.arbitration import (
 )
 from kiwi.sim.commands import ExternalCommand, IssueSignal, RequestAbort, StartMission
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.movement import MovementResolution, MovementResolutionKind
 from kiwi.sim.policies import PolicyValidation
 from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
@@ -32,6 +33,9 @@ class EventKind(StrEnum):
     INTENTION_EMITTED = "intention_emitted"
     INTENTION_SELECTED = "intention_selected"
     INTENTION_REJECTED = "intention_rejected"
+    MOVEMENT_PROGRESSED = "movement_progressed"
+    MOVEMENT_BLOCKED = "movement_blocked"
+    MOVEMENT_ARRIVED = "movement_arrived"
 
 
 class CommandRejectionReason(StrEnum):
@@ -216,6 +220,54 @@ class IntentionRejected:
         _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
 
 
+@dataclass(frozen=True, slots=True)
+class MovementProgressed:
+    """One accepted non-final movement segment advance."""
+
+    header: EventHeader
+    resolution: MovementResolution
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.resolution, MovementResolution):
+            raise ValueError("movement progress event requires a movement resolution")
+        if self.resolution.kind is not MovementResolutionKind.PROGRESSED:
+            raise ValueError("movement progress event requires a progressed resolution")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class MovementBlocked:
+    """One held movement action with a structured collision reason."""
+
+    header: EventHeader
+    resolution: MovementResolution
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.resolution, MovementResolution):
+            raise ValueError("movement block event requires a movement resolution")
+        if self.resolution.kind is not MovementResolutionKind.BLOCKED:
+            raise ValueError("movement block event requires a blocked resolution")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class MovementArrived:
+    """One movement action that reached its final path waypoint."""
+
+    header: EventHeader
+    resolution: MovementResolution
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.resolution, MovementResolution):
+            raise ValueError("movement arrival event requires a movement resolution")
+        if self.resolution.kind is not MovementResolutionKind.ARRIVED:
+            raise ValueError("movement arrival event requires an arrived resolution")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
 CanonicalEvent = (
     MissionStarted
     | AbortRequested
@@ -227,6 +279,9 @@ CanonicalEvent = (
     | IntentionEmitted
     | IntentionSelected
     | IntentionRejected
+    | MovementProgressed
+    | MovementBlocked
+    | MovementArrived
 )
 
 
@@ -252,6 +307,12 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.INTENTION_SELECTED
     if isinstance(event, IntentionRejected):
         return EventKind.INTENTION_REJECTED
+    if isinstance(event, MovementProgressed):
+        return EventKind.MOVEMENT_PROGRESSED
+    if isinstance(event, MovementBlocked):
+        return EventKind.MOVEMENT_BLOCKED
+    if isinstance(event, MovementArrived):
+        return EventKind.MOVEMENT_ARRIVED
     raise ValueError("event kind requires a canonical event")
 
 
@@ -273,6 +334,9 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 IntentionEmitted,
                 IntentionSelected,
                 IntentionRejected,
+                MovementProgressed,
+                MovementBlocked,
+                MovementArrived,
             ),
         ):
             raise ValueError("canonical event ordering requires canonical events")

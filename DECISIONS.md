@@ -253,6 +253,14 @@ trajectories and unprocessed entities at their current positions. A blocked
 candidate retains its prior action progress. This is a bounded deterministic
 avoidance rule, not crowd-dynamics simulation.
 
+### D-035: Movement resolutions emit one structured authority event
+
+Every active movement action produces exactly one canonical event each active
+tick: progress, block, or arrival. The event retains the entity ID, tick,
+start, attempted, and result positions; block events additionally retain the
+stable map-collision or operative-separation reason. Event IDs allocate after
+earlier same-tick command, schedule, and policy events in reducer phase order.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
