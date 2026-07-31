@@ -1,6 +1,8 @@
 local assertions = require("support.assertions")
 local Checksum = require("recording.checksum")
 local Coordinator = require("runtime.coordinator")
+local Effect = require("effects.effect")
+local EffectHost = require("effects.host")
 local Format = require("recording.format")
 local Frames = require("recording.frames")
 local Replay = require("backend.replay")
@@ -103,6 +105,38 @@ return {
     end,
   },
   {
+    name = "coordinator publishes completed control-sequence frames to effects once",
+    run = function()
+      local observed = {}
+      local effect = assert(Effect.new({
+        api_version = 1,
+        capabilities = { "terminal_events" },
+        determinism = "deterministic",
+        id = "test.control-subscriptions",
+        parameters = {},
+        version = "0.1.0",
+      }, {
+        on_event = function(_, _, event)
+          observed[#observed + 1] = event.kind
+        end,
+      }))
+      local host = assert(EffectHost.new({ effect }))
+      local frame = assert(Frames.from_event(assert(Event.output("A\7", 3))))
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      local replay = assert(Replay.new(source(recording({ frame }))))
+      local coordinator = assert(Coordinator.new(terminal, replay, { effect_host = host }))
+      local step = assert(coordinator:step_control_sequence())
+      assertions.truthy(step.completed_frame)
+      assertions.equal(3, host:status().elapsed_us)
+      assertions.equal("output", observed[1])
+      assertions.equal("cursor", observed[2])
+      assertions.equal("bell", observed[3])
+      assertions.equal("damage", observed[4])
+      assertions.equal(nil, observed[5])
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
     name = "coordinator preserves frame order during regular replay updates",
     run = function()
       local terminal = assert(Terminal.new({ columns = 4, rows = 1 }))
@@ -144,6 +178,137 @@ return {
         Coordinator.new(terminal, replay, { max_backend_events_per_update = 0 })
       assertions.falsy(value)
       assertions.equal("config_error", error_value.kind)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
+    name = "coordinator publishes bounded lifecycle subscriptions after semantic mutation",
+    run = function()
+      local records = {}
+      local deltas = {}
+      local effect = assert(Effect.new({
+        api_version = 1,
+        capabilities = { "frame_update", "terminal_events" },
+        determinism = "deterministic",
+        id = "test.coordinator-subscriptions",
+        parameters = {},
+        version = "0.1.0",
+      }, {
+        on_event = function(_, context, event)
+          records[#records + 1] = {
+            context_columns = context.terminal.columns,
+            context_rows = context.terminal.rows,
+            event = event,
+          }
+        end,
+        update = function(_, _, delta_us)
+          deltas[#deltas + 1] = delta_us
+        end,
+      }))
+      local host = assert(EffectHost.new({ effect }, {
+        max_delta_us = 5,
+        max_event_payload_bytes = 3,
+        terminal = { columns = 2, rows = 1 },
+        viewport = { height = 10, width = 10 },
+      }))
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      local replay = assert(Replay.new(source(recording({
+        assert(Frames.from_event(assert(Event.input("i", 1)))),
+        assert(Frames.from_event(assert(Event.output("A\7B\n", 12)))),
+        assert(Frames.from_event(assert(Event.resize(3, 2, 80, 40, 3)))),
+        assert(Frames.from_event(assert(Event.output("\27[?47h", 1)))),
+      }))))
+      local coordinator = assert(Coordinator.new(terminal, replay, { effect_host = host }))
+      assertions.equal(4, #assert(coordinator:update(17)))
+      assertions.equal(17, host:status().elapsed_us)
+      assertions.equal(1, deltas[1])
+      assertions.equal(5, deltas[2])
+      assertions.equal(5, deltas[3])
+      assertions.equal(2, deltas[4])
+      assertions.equal(3, deltas[5])
+      assertions.equal(1, deltas[6])
+
+      local output = {}
+      local kinds = {}
+      local previous_timestamp = 0
+      local resize
+      local scroll
+      local switch
+      local damage_count = 0
+      for _, record in ipairs(records) do
+        local event = record.event
+        assertions.truthy(event.timestamp_us >= previous_timestamp)
+        previous_timestamp = event.timestamp_us
+        kinds[event.kind] = (kinds[event.kind] or 0) + 1
+        if event.kind == "output" then
+          output[#output + 1] = event.payload.bytes
+        elseif event.kind == "resize" then
+          resize = record
+        elseif event.kind == "scroll" then
+          scroll = event
+        elseif event.kind == "screen_switch" then
+          switch = event
+        elseif event.kind == "damage" then
+          damage_count = damage_count + 1
+        end
+      end
+      assertions.equal("A\7B\n\27[?47h", table.concat(output))
+      assertions.equal(1, kinds.input)
+      assertions.equal(1, kinds.bell)
+      assertions.truthy((kinds.cursor or 0) >= 1)
+      assertions.equal("up", scroll.payload.direction)
+      assertions.equal(1, scroll.payload.count)
+      assertions.equal("alternate", switch.payload.screen)
+      assertions.equal(3, resize.context_columns)
+      assertions.equal(2, resize.context_rows)
+      assertions.equal(3, resize.event.payload.columns)
+      assertions.equal(2, resize.event.payload.rows)
+      assertions.equal(80, resize.event.payload.pixel_width)
+      assertions.equal(40, resize.event.payload.pixel_height)
+      assertions.truthy(damage_count >= 3)
+      assertions.equal("alternate", terminal.active_buffer)
+      assertions.truthy(coordinator:stop())
+    end,
+  },
+  {
+    name = "coordinator isolates lifecycle callback failure from terminal replay",
+    run = function()
+      local failing = assert(Effect.new({
+        api_version = 1,
+        capabilities = { "terminal_events" },
+        determinism = "deterministic",
+        id = "test.failing-subscription",
+        parameters = {},
+        version = "0.1.0",
+      }, {
+        on_event = function()
+          error("expected lifecycle callback failure")
+        end,
+      }))
+      local healthy_calls = 0
+      local healthy = assert(Effect.new({
+        api_version = 1,
+        capabilities = { "terminal_events" },
+        determinism = "deterministic",
+        id = "test.healthy-subscription",
+        parameters = {},
+        version = "0.1.0",
+      }, {
+        on_event = function()
+          healthy_calls = healthy_calls + 1
+        end,
+      }))
+      local host = assert(EffectHost.new({ failing, healthy }))
+      local terminal = assert(Terminal.new({ columns = 2, rows = 1 }))
+      local replay = assert(Replay.new(source(recording({
+        assert(Frames.from_event(assert(Event.output("A", 1)))),
+      }))))
+      local coordinator = assert(Coordinator.new(terminal, replay, { effect_host = host }))
+      assertions.equal(1, #assert(coordinator:update(1)))
+      assertions.equal("A", terminal.primary_screen.rows[1].cells[1].text)
+      assertions.falsy(host:status().effects[1].enabled)
+      assertions.truthy(host:status().effects[2].enabled)
+      assertions.truthy(healthy_calls > 0)
       assertions.truthy(coordinator:stop())
     end,
   },

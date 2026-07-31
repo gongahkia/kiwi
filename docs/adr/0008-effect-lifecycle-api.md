@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-31
+- Amended: 2026-07-31
 
 ## Context
 
@@ -26,7 +27,9 @@ The host creates fresh scalar-record contexts for every callback. They contain e
 
 `update` receives a non-negative integer `delta_us`, bounded by the configured `max_delta_us` (default 1,000,000). The host rejects fractional, negative, and oversized values; it does not use or accumulate wall-clock seconds. Callers provide recorded/replay-derived timing. API v1 rejects rather than subdivides an oversized delta.
 
-`on_event` receives versioned immutable records with `kind`, monotonic `sequence`, integer `timestamp_us`, and bounded schema-specific payloads. V1 kinds are `input`, `output`, `cursor`, `damage`, `screen_switch`, `resize`, `bell`, `title`, `mode`, `replay_seek`, `replay_reset`, and `checkpoint_restored`.
+`on_event` receives versioned immutable records with `kind`, monotonic `sequence`, integer `timestamp_us`, and bounded schema-specific payloads. V1 kinds are `input`, `output`, `cursor`, `damage`, `screen_switch`, `scroll`, `resize`, `bell`, `title`, `mode`, `replay_seek`, `replay_reset`, and `checkpoint_restored`. A scroll payload has a direction (`up` or `down`), inclusive top and bottom rows, and a positive count no larger than that region.
+
+The forward coordinator adapter is the v1 terminal-to-lifecycle translation point. It advances the host from each recorded backend delta after terminal mutation, slices high-volume input/output bytes at the host limit, then emits semantic records and active-screen damage ranges. `advance(delta_us)` deterministically subdivides a positive recorded delta into `update` calls no larger than `max_delta_us`; direct oversized `update` calls are still rejected. The adapter cannot seek while a host is attached: arbitrary effect-local state has no rewind or checkpoint contract. A future visual-state seek model requires a separate ADR.
 
 `on_cell` receives a copied renderable visible cell record. The caller supplies damaged visible cells in strict row-major order; on a full redraw it supplies all renderable visible cells in the same order and the host sets `damage = true`. The host never exposes a backing grid cell.
 

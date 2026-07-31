@@ -1,4 +1,5 @@
 local Backend = require("backend.interface")
+local EffectSubscriptions = require("effects.subscriptions")
 local Errors = require("runtime.errors")
 local Event = require("runtime.event")
 
@@ -43,14 +44,21 @@ local function options(value)
     return config_error("coordinator options must be a table")
   end
   for name in pairs(value) do
-    if name ~= "max_backend_events_per_update" then
+    if name ~= "effect_host" and name ~= "max_backend_events_per_update" then
       return config_error("unknown coordinator option", { option = name })
     end
   end
-  return positive_integer(
+  local max_backend_events_per_update, max_error = positive_integer(
     value.max_backend_events_per_update or 1024,
     "coordinator max backend events per update"
   )
+  if not max_backend_events_per_update then
+    return nil, max_error
+  end
+  return {
+    effect_host = value.effect_host,
+    max_backend_events_per_update = max_backend_events_per_update,
+  }
 end
 
 local function unavailable(message)
@@ -95,11 +103,23 @@ local function apply_prepared_event(coordinator, event)
       return nil, resize_error
     end
   end
-  return {
+  local result = {
     event = event,
     parser_events = parser_events,
     semantic_events = semantic_events,
   }
+  if coordinator.effect_subscriptions then
+    local published, publish_error = coordinator.effect_subscriptions:apply(
+      event,
+      semantic_events,
+      coordinator.terminal,
+      coordinator.terminal_time_us
+    )
+    if not published then
+      return nil, publish_error
+    end
+  end
+  return result
 end
 
 local function apply_event(coordinator, event)
@@ -141,14 +161,24 @@ function Coordinator.new(terminal, backend, configuration)
   if not valid_backend then
     return nil, backend_error
   end
-  local max_backend_events_per_update, options_error = options(configuration)
-  if not max_backend_events_per_update then
+  local settings, options_error = options(configuration)
+  if not settings then
     return nil, options_error
+  end
+  local effect_subscriptions
+  if settings.effect_host ~= nil then
+    local subscriptions, subscriptions_error =
+      EffectSubscriptions.new(settings.effect_host, valid_terminal_value)
+    if not subscriptions then
+      return nil, subscriptions_error
+    end
+    effect_subscriptions = subscriptions
   end
   return setmetatable({
     backend = valid_backend,
+    effect_subscriptions = effect_subscriptions,
     event_sequence = 0,
-    max_backend_events_per_update = max_backend_events_per_update,
+    max_backend_events_per_update = settings.max_backend_events_per_update,
     pending_backend_events = nil,
     pending_backend_index = nil,
     pending_output = nil,
@@ -266,6 +296,7 @@ function coordinator_mt:step_control_sequence()
     end
     self.pending_output = {
       event = event,
+      effect_semantic_events = {},
       frame = step.frame,
       frame_index = step.frame_index,
       index = 1,
@@ -284,6 +315,7 @@ function coordinator_mt:step_control_sequence()
       return nil, parser
     end
     append_events(semantic_events, semantic)
+    append_events(pending.effect_semantic_events, semantic)
     append_events(parser_events, parser)
     found_boundary = boundary(parser)
     if found_boundary then
@@ -293,6 +325,17 @@ function coordinator_mt:step_control_sequence()
   local completed = pending.index > #pending.event.data
   if completed then
     self.pending_output = nil
+    if self.effect_subscriptions then
+      local published, publish_error = self.effect_subscriptions:apply(
+        pending.event,
+        pending.effect_semantic_events,
+        self.terminal,
+        self.terminal_time_us
+      )
+      if not published then
+        return nil, publish_error
+      end
+    end
   end
   return {
     boundary = found_boundary,
@@ -310,6 +353,9 @@ end
 function coordinator_mt:seek(target_terminal_us)
   if self.pending_output then
     return config_error("cannot seek while a control-sequence step has pending output")
+  end
+  if self.effect_subscriptions then
+    return config_error("cannot seek while effect subscriptions are active")
   end
   local started, start_error = self:start()
   if not started then

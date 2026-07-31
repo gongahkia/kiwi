@@ -26,6 +26,7 @@ local modules = {
   "property.parser_recovery_test",
   "property.recording_resize_test",
   "property.effect_lifecycle_test",
+  "property.effect_subscriptions_test",
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
   "unit.runtime.coordinator_test",

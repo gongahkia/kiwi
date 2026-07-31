@@ -6,12 +6,14 @@ local host_mt = {}
 host_mt.__index = host_mt
 
 Host.contract = {
+  advance = "advance(delta_us) -> true | nil, error",
   before_canvas = "before_canvas() -> true | nil, error",
   after_canvas = "after_canvas() -> true | nil, error",
   constructor = "new(effects, options?) -> effect_host | nil, error",
   emit = "emit(kind, payload, timestamp_us) -> event | nil, error",
+  limits = "limits() -> lifecycle_limits",
   observe_cells = "observe_cells(cells, full_redraw) -> true | nil, error",
-  resize = "resize(viewport, terminal, timestamp_us) -> event | nil, error",
+  resize = "resize(viewport|nil, terminal, timestamp_us) -> event | nil, error",
   shutdown = "shutdown() -> true",
   status = "status() -> effect_host_status",
   update = "update(delta_us) -> true | nil, error",
@@ -43,6 +45,7 @@ local event_kinds = {
   replay_seek = true,
   resize = true,
   screen_switch = true,
+  scroll = true,
   title = true,
 }
 
@@ -571,6 +574,36 @@ local function event_payload(host, kind, payload)
     end
     return { screen = payload.screen }
   end
+  if kind == "scroll" then
+    local accepted, accepted_error = exact_fields(
+      payload,
+      { bottom = true, count = true, direction = true, top = true },
+      "effect scroll payload"
+    )
+    if not accepted then
+      return nil, accepted_error
+    end
+    local copied, copied_error = dimensions({
+      bottom = payload.bottom,
+      count = payload.count,
+      top = payload.top,
+    }, { bottom = true, count = true, top = true }, "effect scroll payload")
+    if not copied then
+      return nil, copied_error
+    end
+    if copied.top > copied.bottom or copied.count > copied.bottom - copied.top + 1 then
+      return config_error("effect scroll payload is invalid")
+    end
+    if payload.direction ~= "up" and payload.direction ~= "down" then
+      return config_error("effect scroll direction is invalid")
+    end
+    return {
+      bottom = copied.bottom,
+      count = copied.count,
+      direction = payload.direction,
+      top = copied.top,
+    }
+  end
   if kind == "title" or kind == "replay_reset" then
     local field = kind == "title" and "title" or "reason"
     local accepted, accepted_error =
@@ -794,6 +827,25 @@ function host_mt:update(delta_us)
   return true
 end
 
+function host_mt:advance(delta_us)
+  local delta, delta_error = bounded_integer(delta_us, "effect advance delta_us", MAX_TIME_US)
+  if not delta then
+    return nil, delta_error
+  end
+  if delta == 0 then
+    return self:update(0)
+  end
+  while delta > 0 do
+    local step = math.min(delta, self.max_delta_us)
+    local advanced, advance_error = self:update(step)
+    if not advanced then
+      return nil, advance_error
+    end
+    delta = delta - step
+  end
+  return true
+end
+
 function host_mt:emit(kind, payload, timestamp_us)
   local timestamp, timestamp_error =
     bounded_integer(timestamp_us, "effect event timestamp_us", MAX_TIME_US)
@@ -890,10 +942,16 @@ function host_mt:after_canvas()
 end
 
 function host_mt:resize(viewport, terminal, timestamp_us)
-  local next_viewport, viewport_error =
-    dimensions(viewport, { height = true, width = true }, "effect host viewport")
-  if not next_viewport then
-    return nil, viewport_error
+  local next_viewport
+  if viewport == nil then
+    next_viewport = { height = self.viewport.height, width = self.viewport.width }
+  else
+    local viewport_error
+    next_viewport, viewport_error =
+      dimensions(viewport, { height = true, width = true }, "effect host viewport")
+    if not next_viewport then
+      return nil, viewport_error
+    end
   end
   local next_terminal, terminal_error =
     dimensions(terminal, { columns = true, rows = true }, "effect host terminal")
@@ -915,6 +973,14 @@ function host_mt:shutdown()
     shutdown_entry(self, entry)
   end
   return true
+end
+
+function host_mt:limits()
+  return {
+    max_callbacks_per_frame = self.max_callbacks_per_frame,
+    max_delta_us = self.max_delta_us,
+    max_event_payload_bytes = self.max_event_payload_bytes,
+  }
 end
 
 function host_mt:status()

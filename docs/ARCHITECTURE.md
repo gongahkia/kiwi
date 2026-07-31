@@ -56,7 +56,11 @@ The coordinator should be small. It must not contain parser logic, PTY protocol 
 
 The bootstrap coordinator owns applying replay events to a terminal. Frame and control-sequence stepping remain here: the replay backend exposes raw framed data, while only the coordinator feeds output bytes into the parser and terminal model.
 
-`Coordinator.new(terminal, backend, { max_backend_events_per_update = 1024 })` bounds regular `update` work. If a poll yields more events than the bound, the coordinator retains the remainder in FIFO order and drains it before polling again. During that catch-up interval, later update advances are not passed to the backend, and terminal time advances only as queued events are applied. Frame and control-sequence stepping reject while this backlog exists; seeking discards it before installing the backend’s seek plan.
+`Coordinator.new(terminal, backend, { max_backend_events_per_update = 1024, effect_host = host? })` bounds regular `update` work. If a poll yields more events than the bound, the coordinator retains the remainder in FIFO order and drains it before polling again. During that catch-up interval, later update advances are not passed to the backend, and terminal time advances only as queued events are applied. Frame and control-sequence stepping reject while this backlog exists; seeking discards it before installing the backend’s seek plan.
+
+When supplied, `effect_host` is the narrow lifecycle host from `effects.host`. After each accepted backend event fully mutates terminal state, the coordinator advances the host by that recorded event delta and publishes copied lifecycle records. It maps backend input and output, bell, cursor movement, scroll direction/range, alternate-screen switches, resize, and consumed active-screen damage. Output and input payloads are split into deterministic bounded slices using the host’s declared byte limit. `Terminal:take_damage()` returns ordered active-screen ranges then clears only presentation damage; it does not alter semantic state or its digest.
+
+The adapter supports only forward application. `Coordinator:seek` rejects while `effect_host` is active because arbitrary effect-local visual state cannot be rewound safely. Recreating or checkpointing effect state for seek needs a separate lifecycle decision; terminal replay without an effect host remains seekable.
 
 ### 2.3 Terminal core
 
@@ -118,6 +122,8 @@ Effects may:
 - run post-processing shaders;
 - react to deterministic terminal time;
 - use a supplied seeded PRNG.
+
+Effects receive lifecycle records only through the host; coordinator-owned subscription translation never passes a terminal object or mutable screen data into a callback.
 
 Effects may not:
 

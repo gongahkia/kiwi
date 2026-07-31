@@ -79,6 +79,29 @@ return {
     end,
   },
   {
+    name = "terminal hands off active-screen damage without changing semantics",
+    run = function()
+      local terminal = assert(Terminal.new({ columns = 2, rows = 2 }))
+      local before = assert(terminal:digest())
+      local initial = terminal:take_damage()
+      assertions.equal(2, #initial)
+      assertions.equal(1, initial[1].row)
+      assertions.equal(1, initial[1].first_column)
+      assertions.equal(2, initial[1].last_column)
+      assertions.equal(before, assert(terminal:digest()))
+      assertions.equal(0, #terminal:take_damage())
+
+      assert(terminal:feed_output("A"))
+      local changed = terminal:take_damage()
+      assertions.equal(1, #changed)
+      assertions.equal(1, changed[1].row)
+      assertions.equal(1, changed[1].first_column)
+      assertions.equal(1, changed[1].last_column)
+      assert(terminal:feed_output("\27[?47h"))
+      assertions.equal(2, #terminal:take_damage())
+    end,
+  },
+  {
     name = "terminal applies required C0 control semantics",
     run = function()
       local terminal = assert(Terminal.new({ columns = 10, rows = 2, scrollback_limit = 2 }))
