@@ -381,7 +381,10 @@ Randomness is permitted only through named deterministic streams, for example:
 - scenario spawn variation;
 - enemy policy choices.
 
-Each draw records:
+Version 1 uses independent PCG XSH RR 64/32 streams derived with fixed
+SplitMix64 arithmetic from one unsigned 64-bit mission seed. The initial API
+draws raw uniform unsigned 32-bit values only; distributions are added only
+with an explicit bounded conversion rule. Each draw records:
 
 - stream ID;
 - draw index;

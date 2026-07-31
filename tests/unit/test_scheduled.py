@@ -62,6 +62,7 @@ def test_due_events_are_removed_only_at_the_exact_tick() -> None:
             "sequences must be unique",
         ),
         (lambda: ScheduledEventQueue(next_sequence=MAX_STABLE_ID + 2), "signed 64-bit"),
+        (lambda: ScheduledEventQueue(pending=[]), "immutable tuple"),  # type: ignore[arg-type]
         (
             lambda: ScheduledEventQueue(next_sequence=MAX_STABLE_ID + 1).schedule(
                 0, ScheduledEventKind.SCENARIO_TRIGGER

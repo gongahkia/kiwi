@@ -39,6 +39,7 @@ def test_authority_ids_are_typed_and_value_based() -> None:
         (lambda: EntityId(True), "integer"),
         (lambda: canonical_id_value(3), "stable ID"),  # type: ignore[arg-type]
         (lambda: IdAllocator((FIRST_DYNAMIC_ID,)), "one counter"),
+        (lambda: IdAllocator([]), "immutable tuple"),  # type: ignore[arg-type]
     ),
 )
 def test_authority_ids_and_allocator_state_reject_invalid_values(

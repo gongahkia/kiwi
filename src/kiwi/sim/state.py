@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 
 MAX_MISSION_TICK = MAX_AUTHORITY_TICK
@@ -34,16 +35,21 @@ class MissionState:
     entities: tuple[EntityState, ...] = ()
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
+    random_streams: RandomStreams = field(default_factory=default_random_streams)
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
             raise ValueError("mission tick must be an integer")
         if not 0 <= self.tick <= MAX_MISSION_TICK:
             raise ValueError("mission tick must fit non-negative signed 64-bit range")
+        if not isinstance(self.entities, tuple):
+            raise ValueError("mission entities must be an immutable tuple")
         if not isinstance(self.id_allocator, IdAllocator):
             raise ValueError("mission state requires an ID allocator")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
+        if not isinstance(self.random_streams, RandomStreams):
+            raise ValueError("mission state requires random streams")
         previous_id = 0
         for entity in self.entities:
             if not isinstance(entity, EntityState):
@@ -70,6 +76,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             entities=state.entities + (entity,),
             id_allocator=id_allocator,
             scheduled_events=state.scheduled_events,
+            random_streams=state.random_streams,
         ),
         entity,
     )

@@ -44,6 +44,8 @@ class ScheduledEventQueue:
     next_sequence: int = 0
 
     def __post_init__(self) -> None:
+        if not isinstance(self.pending, tuple):
+            raise ValueError("scheduled queue entries must be an immutable tuple")
         if not isinstance(self.next_sequence, int) or isinstance(self.next_sequence, bool):
             raise ValueError("scheduled queue sequence must be an integer")
         if not 0 <= self.next_sequence <= MAX_STABLE_ID + 1:
