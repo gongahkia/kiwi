@@ -9,9 +9,11 @@ local hook_capabilities = {
   after_canvas = "canvas_after",
   before_canvas = "canvas_before",
   init = "lifecycle",
+  needs_redraw = "visual_state",
   on_cell = "cell_observation",
   on_event = "terminal_events",
   shutdown = "lifecycle",
+  transform_cell = "cell_transform",
   update = "frame_update",
 }
 

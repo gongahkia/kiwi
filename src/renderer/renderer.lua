@@ -171,6 +171,13 @@ local function validate_snapshot(snapshot)
   if snapshot.cursor_visible ~= nil and type(snapshot.cursor_visible) ~= "boolean" then
     return config_error("renderer snapshot cursor visibility is invalid")
   end
+  if
+    snapshot.screen_name ~= nil
+    and snapshot.screen_name ~= "primary"
+    and snapshot.screen_name ~= "alternate"
+  then
+    return config_error("renderer snapshot screen name is invalid")
+  end
   return columns, rows
 end
 
@@ -263,7 +270,12 @@ local function effect_host(value)
   if type(value) ~= "table" then
     return config_error("renderer effect host must be a table")
   end
-  for _, name in ipairs({ "begin_canvas_frame", "canvas_capable", "end_canvas_frame" }) do
+  for _, name in ipairs({
+    "begin_canvas_frame",
+    "canvas_capable",
+    "cell_transform_capable",
+    "end_canvas_frame",
+  }) do
     if type(value[name]) ~= "function" then
       return config_error("renderer effect host is incomplete", { method = name })
     end
@@ -287,7 +299,31 @@ local function effect_host(value)
       end
     end
   end
-  return value, capable
+  local cell_called, cell_capable, cell_capable_error = pcall(value.cell_transform_capable, value)
+  if not cell_called then
+    return config_error("renderer effect host cell-transform capability failed", {
+      cause = tostring(cell_capable),
+    })
+  end
+  if cell_capable == nil then
+    return nil, cell_capable_error
+  end
+  if type(cell_capable) ~= "boolean" then
+    return config_error("renderer effect host cell-transform capability is invalid")
+  end
+  if cell_capable then
+    for _, name in ipairs({
+      "begin_visual_frame",
+      "end_visual_frame",
+      "transform_cell",
+      "visual_needs_redraw",
+    }) do
+      if type(value[name]) ~= "function" then
+        return config_error("renderer effect host is incomplete", { method = name })
+      end
+    end
+  end
+  return value, capable, cell_capable
 end
 
 local function frame_context(renderer, columns, rows)
@@ -395,7 +431,7 @@ function Renderer.new(config)
   if not preset then
     return nil, preset_error
   end
-  local host, canvas_capable_or_error = effect_host(config.effect_host)
+  local host, canvas_capable_or_error, cell_capable_or_error = effect_host(config.effect_host)
   if host == nil and canvas_capable_or_error ~= false then
     return nil, canvas_capable_or_error
   end
@@ -403,6 +439,7 @@ function Renderer.new(config)
     canvas_runtime = nil,
     config = config,
     effect_canvas_capable = canvas_capable_or_error == true,
+    effect_cell_capable = cell_capable_or_error == true,
     effect_host = host,
     font = nil,
     glyph_cache = nil,
@@ -493,7 +530,7 @@ function renderer_mt:draw_clean(snapshot, damage)
       snapshot_rows = rows,
     })
   end
-  local full_redraw = damage == nil or self.needs_full_redraw
+  local full_redraw = damage == nil or self.needs_full_redraw or self.visual_needs_redraw
   local ranges, ordered_rows_or_error =
     validate_damage(full_redraw and nil or damage, columns, rows)
   if not full_redraw and not ranges then
@@ -565,6 +602,31 @@ function renderer_mt:draw_clean(snapshot, damage)
       local cell = source.cells[column]
       if not cell.continuation then
         local x = origin_x + (column - 1) * metrics.cell_width
+        local cell_y = y
+        local transform
+        if self.effect_cell_capable then
+          local transform_error
+          transform, transform_error = self.effect_host:transform_cell({
+            attributes = cell.attributes,
+            background = cell.background,
+            column = column,
+            cursor = current_cursor
+                and current_cursor.row == row
+                and current_cursor.column == column
+              or false,
+            damage = true,
+            foreground = cell.foreground,
+            row = row,
+            screen = snapshot.screen_name or "primary",
+            text = cell.text,
+            width = cell.width,
+          }, full_redraw)
+          if not transform then
+            return nil, transform_error
+          end
+          x = x + transform.offset_x * metrics.cell_width
+          cell_y = cell_y + transform.offset_y * metrics.cell_height
+        end
         local width = cell.width * metrics.cell_width
         local foreground, foreground_error =
           Colour.resolve(cell.foreground, Colour.default_foreground)
@@ -579,15 +641,22 @@ function renderer_mt:draw_clean(snapshot, damage)
         if has_attribute(cell.attributes, attributes.inverse) then
           foreground, background = background, foreground
         end
-        draw_background(self.graphics, background, x, y, width, metrics.cell_height)
+        draw_background(self.graphics, background, x, cell_y, width, metrics.cell_height)
         local glyph_foreground = has_attribute(cell.attributes, attributes.conceal) and background
           or foreground
-        local drawn, draw_error = draw_glyph(self.graphics, self, cell, glyph_foreground, x, y)
+        local drawn, draw_error = draw_glyph(self.graphics, self, cell, glyph_foreground, x, cell_y)
         if not drawn then
           return nil, draw_error
         end
-        local decorated, decoration_error =
-          draw_decorations(self.graphics, cell, glyph_foreground, x, y, width, metrics.cell_height)
+        local decorated, decoration_error = draw_decorations(
+          self.graphics,
+          cell,
+          glyph_foreground,
+          x,
+          cell_y,
+          width,
+          metrics.cell_height
+        )
         if not decorated then
           return nil, decoration_error
         end
@@ -628,23 +697,69 @@ function renderer_mt:draw(snapshot, damage)
   if not columns then
     return nil, rows
   end
+  local visual_frame
+  if self.effect_cell_capable then
+    local visual_error
+    visual_frame, visual_error =
+      self.effect_host:begin_visual_frame(frame_context(self, columns, rows))
+    if not visual_frame then
+      return nil, visual_error
+    end
+    self.visual_needs_redraw = visual_frame.redraw
+  end
+  local function end_visual_frame()
+    if not visual_frame then
+      return true
+    end
+    self.visual_needs_redraw = false
+    local ended, end_value = pcall(self.effect_host.end_visual_frame, self.effect_host)
+    if not ended or end_value == false then
+      return nil,
+        Errors.new("internal_invariant_error", "renderer effect visual frame cleanup failed", {
+          cause = tostring(ended and end_value or end_value),
+        })
+    end
+    return true
+  end
   if not self.effect_canvas_capable then
-    return self:draw_clean(snapshot, damage)
+    local drawn, draw_error = self:draw_clean(snapshot, damage)
+    local ended, end_error = end_visual_frame()
+    if not ended then
+      return nil, end_error
+    end
+    return drawn, draw_error
   end
   if not self.canvas_runtime then
+    local ended, end_error = end_visual_frame()
+    if not ended then
+      return nil, end_error
+    end
     return nil, Errors.new("renderer_resource_error", "renderer effect canvas is not initialised")
   end
   local frame, frame_error = self.effect_host:begin_canvas_frame(frame_context(self, columns, rows))
   if not frame then
+    local ended, end_error = end_visual_frame()
+    if not ended then
+      return nil, end_error
+    end
     return nil, frame_error
   end
   if not frame.active then
     self.effect_host:end_canvas_frame()
-    return self:draw_clean(snapshot, damage)
+    local drawn, draw_error = self:draw_clean(snapshot, damage)
+    local ended, end_error = end_visual_frame()
+    if not ended then
+      return nil, end_error
+    end
+    return drawn, draw_error
   end
   local saved, save_detail = self.canvas_runtime:save()
   if not saved then
     self.effect_host:end_canvas_frame()
+    local ended, end_error = end_visual_frame()
+    if not ended then
+      return nil, end_error
+    end
     return nil,
       Errors.new("renderer_resource_error", "renderer effect canvas state save failed", {
         cause = tostring(save_detail),
@@ -668,6 +783,7 @@ function renderer_mt:draw(snapshot, damage)
   local ended, end_value = pcall(self.effect_host.end_canvas_frame, self.effect_host)
   local restored, restore_value, restore_detail =
     pcall(self.canvas_runtime.restore, self.canvas_runtime)
+  local visual_ended, visual_error = end_visual_frame()
   if not ended or end_value == false then
     return nil,
       Errors.new("internal_invariant_error", "renderer effect canvas frame cleanup failed", {
@@ -679,6 +795,9 @@ function renderer_mt:draw(snapshot, damage)
       Errors.new("renderer_resource_error", "renderer effect canvas state restore failed", {
         cause = tostring(restored and restore_detail or restore_value),
       })
+  end
+  if not visual_ended then
+    return nil, visual_error
   end
   if not completed then
     return nil,

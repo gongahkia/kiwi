@@ -78,6 +78,8 @@ local effect = Effect.new(manifest, {
   init = function(effect, context) end,
   on_event = function(effect, context, event) end,
   on_cell = function(effect, context, cell) end,
+  transform_cell = function(effect, context, cell) end,
+  needs_redraw = function(effect, context) end,
   before_canvas = function(effect, context, canvas) end,
   after_canvas = function(effect, context, canvas) end,
   update = function(effect, context, delta_us) end,
@@ -85,7 +87,7 @@ local effect = Effect.new(manifest, {
 })
 ```
 
-Hooks are optional. `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, and `frame_update` respectively gate `init`/`shutdown`, `on_event`, `on_cell`, `before_canvas`, `after_canvas`, and `update`. A missing hook is a no-op; an undeclared hook fails loading. Effects run in manifest order.
+Hooks are optional. `lifecycle`, `terminal_events`, `cell_observation`, `cell_transform`, `visual_state`, `canvas_before`, `canvas_after`, and `frame_update` respectively gate `init`/`shutdown`, `on_event`, `on_cell`, `transform_cell`, `needs_redraw`, `before_canvas`, `after_canvas`, and `update`. A missing hook is a no-op; an undeclared hook fails loading. Effects run in manifest order.
 
 `host:disable(effect_id)`, `host:enable(effect_id)`, and `host:reorder({ effect_id, ... })` control a loaded chain without changing terminal state. Reorder requires every unique loaded ID exactly once. Manual disable is reversible and preserves effect-local visual state. A callback failure records a diagnostic, runs shutdown once, and marks that instance terminally failed; it cannot be re-enabled without constructing a new instance. `host:status()` returns copied diagnostics and per-effect enabled/disabled reason.
 
@@ -100,7 +102,7 @@ The fresh context contains only:
 - granted capability set;
 - headless and canvas feature flags.
 
-For canvas hooks, `frame_sequence` is the renderer's monotonic canvas-frame sequence, shared by that frame's before and after phases. It is deterministic for identical draw and lifecycle inputs.
+For canvas hooks, `frame_sequence` is the renderer's monotonic canvas-frame sequence, shared by that frame's before and after phases. For transform hooks, it is the monotonic visual-frame sequence shared by `needs_redraw` and every cell callback in that draw. Both are deterministic for identical draw and lifecycle inputs.
 
 It contains no terminal, screen, parser, backend, renderer, process, filesystem, or unrestricted callback reference. A callback may mutate its own copy, but the mutation is discarded and cannot affect runtime state.
 
@@ -127,6 +129,8 @@ A visual-cell object is an immutable copied rendering description:
 ```
 
 The host invokes `on_cell` for caller-supplied, renderable visible cells in strict row-major order. Normal rendering supplies damaged cells; a full redraw supplies all renderable visible cells and marks each as damaged. The hook never receives a backing terminal cell.
+
+`transform_cell` receives the same copied visual-cell shape and returns `nil` or `{ offset_x, offset_y }`. Both offsets are finite normalized cell units in `-1..1`; host composition follows stable effect order and clamps the final components to that range. `needs_redraw` returns a boolean and may request a full presentation redraw without changing semantic damage; its `visual_state` capability requires `cell_transform` on the same manifest.
 
 ### 4.4 Events and canvas
 
@@ -178,9 +182,11 @@ Effects:
 - `lifecycle`;
 - `terminal_events`;
 - `cell_observation`;
+- `cell_transform`;
 - `canvas_before`;
 - `canvas_after`;
-- `frame_update`.
+- `frame_update`;
+- `visual_state`;
 - `deterministic_random`.
 
 Sandbox commands:
@@ -195,7 +201,7 @@ Capabilities document intent and allow validation; they are not a strong securit
 
 ## 7. API versioning
 
-Effect Manifest API v1 is defined by ADR-0007. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`. Unknown fields and unsupported versions are rejected before hooks load. `Effect.new(manifest, hooks, { intensity = 0.5 })` validates a partial override and fills omitted values from manifest defaults. `effect:parameters()` returns a scalar copy; `effect:set_parameters({ intensity = 0.7 })` atomically merges a partial update, retaining prior values when validation fails.
+Effect Manifest API v1 is defined by ADR-0007 and ADR-0010. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`. Unknown fields and unsupported versions are rejected before hooks load. `Effect.new(manifest, hooks, { intensity = 0.5 })` validates a partial override and fills omitted values from manifest defaults. `effect:parameters()` returns a scalar copy; `effect:set_parameters({ intensity = 0.7 })` atomically merges a partial update, retaining prior values when validation fails.
 
 Policy:
 

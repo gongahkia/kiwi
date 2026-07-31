@@ -9,12 +9,15 @@ host_mt.__index = host_mt
 Host.contract = {
   advance = "advance(delta_us) -> true | nil, error",
   before_canvas = "before_canvas() -> true | nil, error",
+  begin_visual_frame = "begin_visual_frame(frame) -> visual_frame | nil, error",
   after_canvas = "after_canvas() -> true | nil, error",
   begin_canvas_frame = "begin_canvas_frame(frame) -> canvas_frame | nil, error",
   canvas_capable = "canvas_capable() -> boolean",
+  cell_transform_capable = "cell_transform_capable() -> boolean",
   constructor = "new(effects, options?) -> effect_host | nil, error",
   disable = "disable(effect_id) -> true | nil, error",
   end_canvas_frame = "end_canvas_frame() -> true",
+  end_visual_frame = "end_visual_frame() -> true",
   enable = "enable(effect_id) -> true | nil, error",
   emit = "emit(kind, payload, timestamp_us) -> event | nil, error",
   limits = "limits() -> lifecycle_limits",
@@ -24,7 +27,9 @@ Host.contract = {
   set_canvas_runtime = "set_canvas_runtime(runtime) -> true | nil, error",
   shutdown = "shutdown() -> true",
   status = "status() -> effect_host_status",
+  transform_cell = "transform_cell(cell, full_redraw) -> cell_transform | nil, error",
   update = "update(delta_us) -> true | nil, error",
+  visual_needs_redraw = "visual_needs_redraw() -> boolean | nil, error",
 }
 
 local MAX_TIME_US = 9007199254740991
@@ -33,9 +38,11 @@ local hook_capabilities = {
   after_canvas = "canvas_after",
   before_canvas = "canvas_before",
   init = "lifecycle",
+  needs_redraw = "visual_state",
   on_cell = "cell_observation",
   on_event = "terminal_events",
   shutdown = "lifecycle",
+  transform_cell = "cell_transform",
   update = "frame_update",
 }
 
@@ -210,8 +217,10 @@ end
 
 local function context_for(host, entry, hook)
   local canvas_frame = canvas_capabilities[hook_capabilities[hook]] and host.canvas_frame or nil
-  local terminal = canvas_frame and canvas_frame.terminal or host.terminal
-  local viewport = canvas_frame and canvas_frame.viewport or host.viewport
+  local visual_frame = canvas_frame and nil or host.visual_frame
+  local frame = canvas_frame or visual_frame
+  local terminal = frame and frame.terminal or host.terminal
+  local viewport = frame and frame.viewport or host.viewport
   local capabilities = {}
   for _, capability in ipairs(entry.manifest.capabilities) do
     capabilities[capability] = true
@@ -221,7 +230,7 @@ local function context_for(host, entry, hook)
     capabilities = capabilities,
     effect_id = entry.manifest.id,
     elapsed_us = host.elapsed_us,
-    frame_sequence = canvas_frame and canvas_frame.sequence or host.frame_sequence,
+    frame_sequence = frame and frame.sequence or host.frame_sequence,
     runtime = {
       canvas = host.canvas_runtime ~= nil or host.canvas_capability,
       headless = host.headless,
@@ -402,6 +411,10 @@ local function effect_methods(effect)
       end
     end
   end
+  if capabilities.visual_state and not capabilities.cell_transform then
+    return nil,
+      Errors.new("effect_load_error", "visual-state capability requires cell-transform capability")
+  end
   return {
     capabilities = capabilities,
     effect = effect,
@@ -452,7 +465,7 @@ local function options(value)
   end
   local result = {
     headless = headless,
-    max_callbacks_per_frame = 4096,
+    max_callbacks_per_frame = 65536,
     max_delta_us = 1000000,
     max_draw_operations = 1024,
     max_effects = 16,
@@ -903,6 +916,77 @@ local function cell_snapshot(value, full_redraw)
   }
 end
 
+local function cell_transform(value)
+  if value == nil then
+    return nil
+  end
+  local accepted, accepted_error =
+    exact_fields(value, { offset_x = true, offset_y = true }, "effect cell transform")
+  if not accepted then
+    return nil, accepted_error
+  end
+  local result = {}
+  for _, field in ipairs({ "offset_x", "offset_y" }) do
+    local offset = value[field]
+    if
+      type(offset) ~= "number"
+      or offset ~= offset
+      or offset == math.huge
+      or offset == -math.huge
+      or offset < -1
+      or offset > 1
+    then
+      return config_error("effect cell transform offset is invalid", { field = field })
+    end
+    result[field] = offset
+  end
+  return result
+end
+
+local function call_transform(host, entry, cell)
+  local callback = entry.hooks.transform_cell
+  if callback == nil then
+    return true
+  end
+  if host.callback_count >= host.max_callbacks_per_frame then
+    return runtime_error("effect callback frame limit exceeded", { hook = "transform_cell" })
+  end
+  host.callback_count = host.callback_count + 1
+  local context = context_for(host, entry, "transform_cell")
+  local completed, result = pcall(callback, entry.effect, context, cell)
+  if not completed then
+    return nil, callback_error("transform_cell", result)
+  end
+  local transform, transform_error = cell_transform(result)
+  if not transform and transform_error then
+    return runtime_error("effect cell transform is invalid", {
+      cause = transform_error.message,
+      cause_kind = transform_error.kind,
+    })
+  end
+  return true, transform
+end
+
+local function call_needs_redraw(host, entry)
+  local callback = entry.hooks.needs_redraw
+  if callback == nil then
+    return false
+  end
+  if host.callback_count >= host.max_callbacks_per_frame then
+    return runtime_error("effect callback frame limit exceeded", { hook = "needs_redraw" })
+  end
+  host.callback_count = host.callback_count + 1
+  local context = context_for(host, entry, "needs_redraw")
+  local completed, result = pcall(callback, entry.effect, context)
+  if not completed then
+    return nil, callback_error("needs_redraw", result)
+  end
+  if type(result) ~= "boolean" then
+    return runtime_error("effect needs_redraw hook returned an invalid value")
+  end
+  return result
+end
+
 function Host.new(effects, configuration)
   local settings, settings_error = options(configuration)
   if not settings then
@@ -917,6 +1001,7 @@ function Host.new(effects, configuration)
   end
   local entries = {}
   local has_canvas_capability = false
+  local has_cell_transform_capability = false
   local seen_ids = {}
   for index, effect in ipairs(effects) do
     local entry, entry_error = effect_methods(effect)
@@ -936,6 +1021,9 @@ function Host.new(effects, configuration)
             { capability = capability }
           )
         end
+      end
+      if capability == "cell_transform" then
+        has_cell_transform_capability = true
       end
     end
     if entry.capabilities.deterministic_random then
@@ -957,6 +1045,7 @@ function Host.new(effects, configuration)
     canvas_frame = nil,
     canvas_frame_sequence = 0,
     callback_count = 0,
+    cell_transform_capability = has_cell_transform_capability,
     canvas_runtime = settings.canvas_runtime,
     diagnostics = {},
     effects = entries,
@@ -971,6 +1060,8 @@ function Host.new(effects, configuration)
     max_event_payload_bytes = settings.max_event_payload_bytes,
     session_id = settings.session_id,
     terminal = settings.terminal,
+    visual_frame = nil,
+    visual_frame_sequence = 0,
     viewport = settings.viewport,
   }, host_mt)
   for _, entry in ipairs(host.effects) do
@@ -991,6 +1082,10 @@ end
 
 function host_mt:canvas_capable()
   return self.canvas_capability
+end
+
+function host_mt:cell_transform_capable()
+  return self.cell_transform_capability
 end
 
 function host_mt:set_canvas_runtime(runtime)
@@ -1061,6 +1156,112 @@ end
 function host_mt:end_canvas_frame()
   self.canvas_frame = nil
   return true
+end
+
+function host_mt:begin_visual_frame(frame)
+  local accepted, accepted_error =
+    exact_fields(frame, { terminal = true, viewport = true }, "effect visual frame")
+  if not accepted then
+    return nil, accepted_error
+  end
+  if self.visual_frame ~= nil then
+    return runtime_error("effect visual frame is already active")
+  end
+  local terminal, terminal_error =
+    dimensions(frame.terminal, { columns = true, rows = true }, "effect visual frame terminal")
+  if not terminal then
+    return nil, terminal_error
+  end
+  local viewport, viewport_error =
+    dimensions(frame.viewport, { height = true, width = true }, "effect visual frame viewport")
+  if not viewport then
+    return nil, viewport_error
+  end
+  if self.visual_frame_sequence >= MAX_TIME_US then
+    return runtime_error("effect visual frame sequence is exhausted")
+  end
+  self.visual_frame_sequence = self.visual_frame_sequence + 1
+  self.callback_count = 0
+  local entries = {}
+  for _, entry in ipairs(self.effects) do
+    if
+      entry.enabled
+      and (
+        (entry.capabilities.cell_transform and entry.hooks.transform_cell ~= nil)
+        or (entry.capabilities.visual_state and entry.hooks.needs_redraw ~= nil)
+      )
+    then
+      entries[#entries + 1] = entry
+    end
+  end
+  self.visual_frame = {
+    entries = entries,
+    redraw = false,
+    sequence = self.visual_frame_sequence,
+    terminal = terminal,
+    viewport = viewport,
+  }
+  for _, entry in ipairs(entries) do
+    if entry.enabled and entry.capabilities.visual_state and entry.hooks.needs_redraw then
+      local redraw, redraw_error = call_needs_redraw(self, entry)
+      if redraw == nil then
+        disable_entry(self, entry, "needs_redraw", redraw_error)
+      elseif redraw then
+        self.visual_frame.redraw = true
+      end
+    end
+  end
+  return {
+    active = #entries > 0,
+    redraw = self.visual_frame.redraw,
+    sequence = self.visual_frame.sequence,
+    terminal = { columns = terminal.columns, rows = terminal.rows },
+    viewport = { height = viewport.height, width = viewport.width },
+  }
+end
+
+function host_mt:end_visual_frame()
+  self.visual_frame = nil
+  return true
+end
+
+function host_mt:visual_needs_redraw()
+  if self.visual_frame == nil then
+    return runtime_error("effect visual frame is not active")
+  end
+  return self.visual_frame.redraw
+end
+
+function host_mt:transform_cell(source, full_redraw)
+  if self.visual_frame == nil then
+    return runtime_error("effect visual frame is not active")
+  end
+  if type(full_redraw) ~= "boolean" then
+    return config_error("effect full_redraw must be a boolean")
+  end
+  local cell, cell_error = cell_snapshot(source, full_redraw)
+  if not cell then
+    return nil, cell_error
+  end
+  cell.frame_sequence = self.visual_frame.sequence
+  local result = { offset_x = 0, offset_y = 0 }
+  for _, entry in ipairs(self.visual_frame.entries) do
+    if entry.enabled and entry.capabilities.cell_transform and entry.hooks.transform_cell then
+      local delivered, delivered_error = cell_snapshot(cell, false)
+      if not delivered then
+        return nil, delivered_error
+      end
+      delivered.frame_sequence = cell.frame_sequence
+      local transformed, transform_or_error = call_transform(self, entry, delivered)
+      if not transformed then
+        disable_entry(self, entry, "transform_cell", transform_or_error)
+      elseif transform_or_error then
+        result.offset_x = math.max(-1, math.min(1, result.offset_x + transform_or_error.offset_x))
+        result.offset_y = math.max(-1, math.min(1, result.offset_y + transform_or_error.offset_y))
+      end
+    end
+  end
+  return result
 end
 
 function host_mt:update(delta_us)

@@ -34,13 +34,13 @@ The broader visual pipeline is therefore:
 ```text
 terminal snapshot + damage
         ↓
+per-cell transform resolution
+        ↓
 base cell backgrounds
         ↓
 glyph and decoration geometry
         ↓
 cursor
-        ↓
-per-cell/per-row effect transforms
         ↓
 terminal canvas
         ↓
@@ -150,6 +150,8 @@ Adjust visual properties per cell:
 
 These must not alter cell text or attributes in the terminal model.
 
+API-v1 cell transforms are capability-gated `transform_cell` callbacks. They receive copied visual cells and return only bounded normalized horizontal and vertical offsets. The host composes offsets in effect order, clamps each final component to `-1..1` cell units, and never writes to terminal cells. Effects with transient transform state may request presentation-only redraws through a separate `needs_redraw` callback.
+
 ### 6.3 Row or region effects
 
 Operate on rows or damage regions:
@@ -238,6 +240,8 @@ Features:
 - all motion decays to exact baseline positions.
 
 This preset demonstrates the event architecture rather than merely adding a shader.
+
+The API-v1 implementation is `effects.kinetic.new(parameters?)`. It uses `terminal_events`, `frame_update`, `cell_transform`, and `visual_state` only. Output, scroll, and bell events update four bounded scalar values; `transform_cell` deterministically derives offsets from those values and copied row/column coordinates. No terminal cell, recording, canvas, shader, retained frame buffer, or per-cell retained state is changed. While motion is active, `needs_redraw` requests a full presentation redraw; offsets return exactly to zero after deterministic decay, reduced motion, or replay reset.
 
 ## 9. Effect manifests
 
