@@ -11,6 +11,7 @@ from kiwi.dsl.runtime_values import (
     FunctionValue,
     IntegerValue,
     QuantityValue,
+    RecordValue,
     RuntimeValueKind,
     StringValue,
     UnitValue,
@@ -24,6 +25,7 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         UnitValue(),
         StringValue("alpha"),
         QuantityValue(Quantity(QuantityDimension.DURATION, ExactRational(1, 4))),
+        RecordValue("Point", ("x",), (IntegerValue(1),)),
         FunctionValue(FunctionId(3)),
     )
 
@@ -33,6 +35,7 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         RuntimeValueKind.UNIT,
         RuntimeValueKind.STRING,
         RuntimeValueKind.QUANTITY,
+        RuntimeValueKind.RECORD,
         RuntimeValueKind.FUNCTION,
     )
     with pytest.raises(FrozenInstanceError):
@@ -52,3 +55,5 @@ def test_runtime_values_reject_host_type_confusion() -> None:
         StringValue(1)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="quantity"):
         QuantityValue(1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="lexically"):
+        RecordValue("Point", ("y", "x"), (IntegerValue(1), IntegerValue(2)))

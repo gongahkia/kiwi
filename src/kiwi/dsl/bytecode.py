@@ -71,7 +71,7 @@ class InstructionIndex:
 
 
 class Opcode(IntEnum):
-    """The initial encoded instruction tags for bytecode version 1."""
+    """The fixed encoded instruction tags through bytecode version 2."""
 
     PUSH_CONSTANT = 1
     PUSH_FUNCTION = 2
@@ -83,6 +83,8 @@ class Opcode(IntEnum):
     JUMP_IF_FALSE = 8
     RETURN = 9
     TRACE_EXPRESSION = 10
+    BUILD_RECORD = 11
+    LOAD_FIELD = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +143,35 @@ class Call:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildRecord:
+    """Build one immutable record from source-ordered stack values."""
+
+    type_name: str
+    field_names: tuple[str, ...]
+    opcode: ClassVar[Opcode] = Opcode.BUILD_RECORD
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.type_name, str) or not self.type_name:
+            raise ValueError("record type name must be a non-empty string")
+        if any(not isinstance(name, str) or not name for name in self.field_names):
+            raise ValueError("record field names must be non-empty strings")
+        if len(set(self.field_names)) != len(self.field_names):
+            raise ValueError("record field names must be unique")
+
+
+@dataclass(frozen=True, slots=True)
+class LoadField:
+    """Pop a record and push one statically named field value."""
+
+    field_name: str
+    opcode: ClassVar[Opcode] = Opcode.LOAD_FIELD
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.field_name, str) or not self.field_name:
+            raise ValueError("record field name must be a non-empty string")
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -178,6 +209,8 @@ type BytecodeInstruction = (
     | StoreLocal
     | Negate
     | Call
+    | BuildRecord
+    | LoadField
     | Jump
     | JumpIfFalse
     | Return
@@ -354,6 +387,11 @@ class BytecodeModule:
         if self.header.bytecode_version == LEGACY_BYTECODE_VERSION and (
             any(isinstance(value, (StringValue, QuantityValue)) for value in self.constants.values)
             or any(_uses_version_two_type(function.return_type) for function in self.functions)
+            or any(
+                isinstance(instruction, (BuildRecord, LoadField))
+                for function in self.functions
+                for instruction in function.instructions
+            )
         ):
             raise ValueError("bytecode version 1 does not support version 2 values or types")
 

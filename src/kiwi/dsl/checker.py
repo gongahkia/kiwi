@@ -246,9 +246,7 @@ def _record_schemas(
             )
         )
     schemas: list[_RecordSchema] = []
-    placeholder_schemas = tuple(
-        _RecordSchema(name, (), module.span) for name in names
-    )
+    placeholder_schemas = tuple(_RecordSchema(name, (), module.span) for name in names)
     for declaration in accepted:
         fields = _record_schema_fields(declaration, placeholder_schemas, diagnostics)
         if fields is not None:
@@ -546,13 +544,13 @@ def _check_record_expression(
             is_valid = False
         else:
             typed_fields.append(TypedRecordField(field.name, value, field.span))
-    for field in schema.fields:
-        if field.name not in supplied_names:
+    for schema_field in schema.fields:
+        if schema_field.name not in supplied_names:
             diagnostics.append(
                 Diagnostic(
                     "E409_MISSING_RECORD_FIELD",
                     DiagnosticSeverity.ERROR,
-                    f"record type '{schema.name}' requires field '{field.name}'",
+                    f"record type '{schema.name}' requires field '{schema_field.name}'",
                     expression.type_name.span,
                     DiagnosticStage.CHECKER,
                 )

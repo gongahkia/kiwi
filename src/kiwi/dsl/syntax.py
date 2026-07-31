@@ -201,7 +201,8 @@ class RecordTypeDeclaration:
     span: SourceSpan
 
 
-type Declaration = FunctionDeclaration | PolicyDeclaration | RecordTypeDeclaration
+type ValueDeclaration = FunctionDeclaration | PolicyDeclaration
+type Declaration = ValueDeclaration | RecordTypeDeclaration
 
 
 @dataclass(frozen=True, slots=True)

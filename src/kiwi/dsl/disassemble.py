@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from kiwi.dsl.bytecode import (
+    BuildRecord,
     BytecodeInstruction,
     BytecodeModule,
     Call,
     Jump,
     JumpIfFalse,
+    LoadField,
     LoadLocal,
     Negate,
     PushConstant,
@@ -86,6 +88,10 @@ def _format_instruction(instruction: BytecodeInstruction) -> str:
         return "NEGATE"
     if isinstance(instruction, Call):
         return f"CALL {instruction.argument_count}"
+    if isinstance(instruction, BuildRecord):
+        return f"BUILD_RECORD {instruction.type_name!r} ({', '.join(instruction.field_names)})"
+    if isinstance(instruction, LoadField):
+        return f"LOAD_FIELD {instruction.field_name!r}"
     if isinstance(instruction, Jump):
         return f"JUMP {instruction.target.value}"
     if isinstance(instruction, JumpIfFalse):

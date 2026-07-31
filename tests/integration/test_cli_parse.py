@@ -201,3 +201,17 @@ def test_run_policy_command_returns_string_and_exact_quantity_literals(tmp_path:
     assert wait.returncode == 0
     assert wait.stdout == "value: Quantity(Duration,1/4)\n"
     assert wait.stderr == ""
+
+
+def test_run_policy_command_returns_canonically_ordered_record_fields(tmp_path: Path) -> None:
+    path = tmp_path / "record.dtr"
+    path.write_text(
+        "type Point = { x: Int, y: Int }\npolicy origin() -> Point = Point { y = 2, x = 1 }",
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("run-policy", str(path), "origin")
+
+    assert result.returncode == 0
+    assert result.stdout == "value: Record(Point, {x=Integer(1), y=Integer(2)})\n"
+    assert result.stderr == ""

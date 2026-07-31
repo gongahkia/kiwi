@@ -5,6 +5,7 @@ from kiwi.dsl.parser import ParserDiagnosticCode, ParseResult, parse
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.syntax import (
     CallExpression,
+    FieldAccessExpression,
     FunctionDeclaration,
     GroupExpression,
     IfExpression,
@@ -12,6 +13,8 @@ from kiwi.dsl.syntax import (
     NegateExpression,
     PolicyDeclaration,
     QuantityLiteral,
+    RecordExpression,
+    RecordTypeDeclaration,
     StringLiteral,
 )
 
@@ -104,3 +107,22 @@ def test_parser_builds_string_and_quantity_literals_with_source_spans() -> None:
     assert isinstance(wait.body, QuantityLiteral)
     literal_start = source.text.index("250ms")
     assert wait.body.span == source.span(ByteOffset(literal_start), ByteOffset(literal_start + 5))
+
+
+def test_parser_builds_record_type_construction_and_field_access() -> None:
+    source, result = parse_text(
+        "type Point = { x: Int, y: Int }\n"
+        "fn x(point: Point) -> Int = point.x\n"
+        "fn origin() -> Point = Point { y = 0, x = 0 }"
+    )
+
+    assert result.diagnostics == ()
+    point, x, origin = result.module.declarations
+    assert isinstance(point, RecordTypeDeclaration)
+    assert tuple(field.name.text for field in point.fields) == ("x", "y")
+    assert isinstance(x, FunctionDeclaration)
+    assert isinstance(x.body, FieldAccessExpression)
+    assert x.body.field.text == "x"
+    assert isinstance(origin, FunctionDeclaration)
+    assert isinstance(origin.body, RecordExpression)
+    assert tuple(field.name.text for field in origin.body.fields) == ("y", "x")

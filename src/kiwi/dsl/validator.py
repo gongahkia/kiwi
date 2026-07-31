@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
+    BuildRecord,
     BytecodeFunction,
     BytecodeInstruction,
     BytecodeModule,
@@ -14,6 +15,7 @@ from kiwi.dsl.bytecode import (
     InstructionIndex,
     Jump,
     JumpIfFalse,
+    LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
@@ -129,6 +131,8 @@ def _validate_instruction_operands(
             StoreLocal,
             Negate,
             Call,
+            BuildRecord,
+            LoadField,
             Jump,
             JumpIfFalse,
             Return,
@@ -261,6 +265,8 @@ _INSTRUCTION_TYPES = (
     StoreLocal,
     Negate,
     Call,
+    BuildRecord,
+    LoadField,
     Jump,
     JumpIfFalse,
     Return,
@@ -277,6 +283,10 @@ def _stack_effect(instruction: BytecodeInstruction, height: int) -> tuple[int, i
         return (1, height)
     if isinstance(instruction, Call):
         return (instruction.argument_count + 1, height - instruction.argument_count)
+    if isinstance(instruction, BuildRecord):
+        return (len(instruction.field_names), height - len(instruction.field_names) + 1)
+    if isinstance(instruction, LoadField):
+        return (1, height)
     if isinstance(instruction, JumpIfFalse):
         return (1, height - 1)
     if isinstance(instruction, Return):

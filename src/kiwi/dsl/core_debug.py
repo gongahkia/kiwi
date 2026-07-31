@@ -97,7 +97,10 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
             lines.extend(_format_expression(argument, depth + 2))
         return lines
     if isinstance(expression, CoreFieldAccess):
-        lines = [f"{prefix}FieldAccess field={expression.field_name!r} {metadata}", f"{prefix}  record:"]
+        lines = [
+            f"{prefix}FieldAccess field={expression.field_name!r} {metadata}",
+            f"{prefix}  record:",
+        ]
         lines.extend(_format_expression(expression.record, depth + 2))
         return lines
     if isinstance(expression, CoreLet):

@@ -106,10 +106,13 @@ version `1`. It has fixed big-endian integer fields and ordered length-prefixed
 collections; its source map inherits source-file ID from the module header. The
 current compiler emits source, core, and bytecode version `2`; the decoder also
 accepts legacy `(1, 1, 1)` modules without reinterpreting them. Version 2 adds
-bounded strings and dimension-tagged normalized rational quantities. The payload
-decoder has explicit size, collection, text, integer, and type-nesting limits,
-rejects trailing bytes, and validates decoded bytecode before returning it. See
-`DSL_SPEC.md` section 16.1 for the complete canonical layout.
+bounded strings, dimension-tagged normalized rational quantities, and explicit
+record-construction and field-read instructions. Record fields are encoded as an
+ordered field-name sequence and become lexically ordered immutable runtime
+values. The payload decoder has explicit size, collection, text, integer, and
+type-nesting limits, rejects trailing bytes, and validates decoded bytecode
+before returning it. See `DSL_SPEC.md` section 16.1 for the complete canonical
+layout.
 
 ## 7. Mission content
 
