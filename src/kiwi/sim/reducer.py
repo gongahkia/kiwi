@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 
 from kiwi.sim.arbitration import arbitrate_intentions
 from kiwi.sim.clock import FixedTickClock
+from kiwi.sim.contacts import advance_contacts
 from kiwi.sim.commands import (
     ExternalCommand,
     IssueSignal,
@@ -85,6 +86,8 @@ def reduce_one_tick(
         next_state, header = _allocate_event_header(next_state)
         emitted.append(ScheduledTriggerFired(header, scheduled_event))
 
+    if next_state.phase is MissionPhase.ACTIVE:
+        next_state = replace(next_state, contacts=advance_contacts(next_state.contacts, next_state.tick))
     if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
         next_state, policy_events = _reduce_policies(next_state, policy_bindings)
         emitted.extend(policy_events)
