@@ -325,6 +325,13 @@ Later candidates in an occupied channel are retained as `channel_occupied`
 rejections with the selected competing intention ID; validation failures create
 no candidates.
 
+Each policy pass emits a `policy_evaluated` event for every invocation, an
+`intention_emitted` event for every validated candidate, then exactly one
+`intention_selected` or `intention_rejected` event for that candidate. Candidate
+events name their policy event as their sole causal parent; resolution events
+name their candidate event. Events are allocated in that phase order, and then
+in canonical entity and returned-list order.
+
 ### 11.4 Execution
 
 Selected intentions become state transitions or longer-lived action states. Some complete immediately; others take ticks.
