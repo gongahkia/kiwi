@@ -462,7 +462,10 @@ Objective transitions are canonical events.
 
 ## 21. State hashing
 
-At configured checkpoints, serialise canonical state into a stable byte representation and hash it.
+At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
+`1` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+fixed-width big-endian scalars and explicitly ordered bounded collections;
+unsupported versions and noncanonical values are rejected.
 
 Exclude:
 

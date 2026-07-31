@@ -355,6 +355,11 @@ Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor
 state and a causal record; authoritative code never uses Python's random APIs.
 
+Canonical mission-state bytes use the versioned `KWI-STATE\0` binary format:
+fixed-width big-endian scalars and explicit ordered bounded collections. The
+authority hash is BLAKE2b-256 over exactly those bytes; unsupported format
+versions are rejected rather than reinterpreted.
+
 The initial reducer accepts an immutable exact-tick command tuple, canonicalises
 it, transitions `prepared` missions to `active`, records authorised aborts,
 rejects signals until they become observations, dequeues scheduled markers,
