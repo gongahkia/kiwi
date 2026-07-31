@@ -90,7 +90,7 @@ def test_runtime_observations_project_only_each_owner_delivered_messages() -> No
     )
     state, recipient = add_entity(first_state, WorldPosition(WorldSubunits(-3), WorldSubunits(4)))
     evidence_event_id, allocator = state.id_allocator.allocate_event()
-    messages, allocator, message = send_message(
+    sent = send_message(
         state.messages,
         allocator,
         sender.entity_id,
@@ -101,12 +101,12 @@ def test_runtime_observations_project_only_each_owner_delivered_messages() -> No
         5,
         (evidence_event_id,),
     )
-    state = replace(state, messages=messages, id_allocator=allocator)
+    state = replace(state, messages=sent.ledger, id_allocator=sent.id_allocator)
 
     observations = build_runtime_observations(state)
 
     assert observations[0].inbox == InboxObservation()
-    assert observations[1].inbox == InboxObservation((message,))
+    assert observations[1].inbox == InboxObservation((sent.message,))
 
 
 @pytest.mark.parametrize(

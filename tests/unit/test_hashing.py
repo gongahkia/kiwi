@@ -89,7 +89,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "87f0e178c26563db2be8697098f3af0b52b9425af15dfb20fb388be25396fd80"
+    assert first.hex == "49bb78faaee4fab66ffc96e81ed4e47bdc96f7ecd922dcd88849ab9f09796f1a"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -256,7 +256,7 @@ def test_canonical_state_codec_round_trips_live_messages_and_hashes_them() -> No
     )
     state, recipient = add_entity(initial, WorldPosition(WorldSubunits(5), WorldSubunits(6)))
     evidence_event_id, allocator = state.id_allocator.allocate_event()
-    messages, allocator, message = send_message(
+    sent = send_message(
         state.messages,
         allocator,
         sender.entity_id,
@@ -267,15 +267,15 @@ def test_canonical_state_codec_round_trips_live_messages_and_hashes_them() -> No
         5,
         (evidence_event_id,),
     )
-    state = replace(state, messages=messages, id_allocator=allocator)
+    state = replace(state, messages=sent.ledger, id_allocator=sent.id_allocator)
 
     decoded = decode_canonical_state(encode_canonical_state(state))
 
     assert decoded == state
     assert isinstance(decoded, MissionState)
-    assert decoded.messages.messages == (message,)
+    assert decoded.messages.messages == (sent.message,)
     assert hash_canonical_state(state) != hash_canonical_state(
-        replace(state, messages=type(messages)())
+        replace(state, messages=type(sent.ledger)())
     )
 
 
@@ -328,6 +328,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x07", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x08", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x09", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x0a", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

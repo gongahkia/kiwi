@@ -242,6 +242,8 @@ class MissionState:
             raise ValueError(
                 "message provenance event IDs must be allocated by the current ID allocator"
             )
+        if any(message.send_event_id.value >= next_event_id for message in self.messages.messages):
+            raise ValueError("message send event IDs must be allocated by the current ID allocator")
         if any(
             signal.tick > self.tick
             or (signal.target_entity_id is not None and signal.target_entity_id not in entity_ids)

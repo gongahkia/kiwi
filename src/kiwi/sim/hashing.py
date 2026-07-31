@@ -57,7 +57,7 @@ from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 10
+CANONICAL_STATE_VERSION = 11
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -69,7 +69,7 @@ _SCHEDULED_SCENARIO_TRIGGER = 1
 _MESSAGE_CHANNEL_RADIO = 1
 _SIGNAL_SOURCE_PLAYER = 1
 _SIGNAL_SOURCE_SCENARIO = 2
-_RANDOM_STREAM_COUNT_V10 = 4
+_RANDOM_STREAM_COUNT_V11 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -131,7 +131,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 10 form."""
+    """Encode one validated mission state in canonical binary version 11 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -227,8 +227,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V10:
-        raise ValueError("state format version 10 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V11:
+        raise ValueError("state format version 11 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -513,6 +513,7 @@ def _encode_messages(writer: _Writer, ledger: MessageLedger) -> None:
         writer.u64(message.delivery_tick, "message delivery tick")
         writer.u64(message.expiry_tick, "message expiry tick")
         writer.u64(message.sequence, "message sequence")
+        writer.i64(message.send_event_id.value, "message send event ID")
         writer.items(len(message.provenance_event_ids), "message provenance event count")
         for event_id in message.provenance_event_ids:
             writer.i64(event_id.value, "message provenance event ID")
@@ -544,6 +545,7 @@ def _decode_messages(reader: _Reader) -> MessageLedger:
                 delivery_tick=reader.u64(),
                 expiry_tick=reader.u64(),
                 sequence=reader.u64(),
+                send_event_id=EventId(reader.i64()),
                 provenance_event_ids=tuple(
                     EventId(reader.i64())
                     for _ in range(reader.items("message provenance event count"))
@@ -756,7 +758,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V10)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V11)
     )
     return RandomStreams(seed=seed, states=states)
 

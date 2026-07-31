@@ -34,6 +34,7 @@ class Message:
     delivery_tick: int
     expiry_tick: int
     sequence: int
+    send_event_id: EventId
     provenance_event_ids: tuple[EventId, ...]
 
     def __post_init__(self) -> None:
@@ -64,6 +65,8 @@ class Message:
             raise ValueError("message sequence must be an integer")
         if not 0 <= self.sequence <= MAX_AUTHORITY_TICK:
             raise ValueError("message sequence must fit non-negative signed 64-bit range")
+        if not isinstance(self.send_event_id, EventId):
+            raise ValueError("message requires a send event ID")
         if not isinstance(self.provenance_event_ids, tuple):
             raise ValueError("message provenance IDs must be an immutable tuple")
         if not 1 <= len(self.provenance_event_ids) <= MAX_MESSAGE_PROVENANCE_EVENTS:
@@ -74,6 +77,8 @@ class Message:
                 raise ValueError("message provenance IDs must contain event IDs")
             if event_id.value <= previous_id:
                 raise ValueError("message provenance IDs must be unique and ascending")
+            if event_id.value >= self.send_event_id.value:
+                raise ValueError("message provenance IDs must precede the send event")
             previous_id = event_id.value
 
 
@@ -119,6 +124,7 @@ class MessageLedger:
         previous_key: tuple[int, int, int, int] = (0, 0, -1, 0)
         message_ids: tuple[MessageId, ...] = ()
         sequences: tuple[int, ...] = ()
+        send_event_ids: tuple[EventId, ...] = ()
         for message in self.messages:
             if not isinstance(message, Message):
                 raise ValueError("message ledger entries must contain messages")
@@ -126,6 +132,8 @@ class MessageLedger:
                 raise ValueError("message ledger entries must have unique message IDs")
             if message.sequence in sequences:
                 raise ValueError("message ledger entries must have unique sequences")
+            if message.send_event_id in send_event_ids:
+                raise ValueError("message ledger entries must have unique send event IDs")
             if message.sequence >= self.next_sequence:
                 raise ValueError("message ledger next sequence must follow every message")
             key = message_order_key(message)
@@ -134,6 +142,26 @@ class MessageLedger:
             previous_key = key
             message_ids += (message.message_id,)
             sequences += (message.sequence,)
+            send_event_ids += (message.send_event_id,)
+
+
+@dataclass(frozen=True, slots=True)
+class MessageSendResult:
+    """The atomic message-ledger update and its allocated send identity."""
+
+    ledger: MessageLedger
+    id_allocator: IdAllocator
+    message: Message
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ledger, MessageLedger):
+            raise ValueError("message send result requires a message ledger")
+        if not isinstance(self.id_allocator, IdAllocator):
+            raise ValueError("message send result requires an ID allocator")
+        if not isinstance(self.message, Message):
+            raise ValueError("message send result requires a message")
+        if self.message not in self.ledger.messages:
+            raise ValueError("message send result ledger must retain its message")
 
 
 def message_order_key(message: Message) -> tuple[int, int, int, int]:
@@ -158,8 +186,8 @@ def send_message(
     send_tick: int,
     expiry_tick: int,
     provenance_event_ids: tuple[EventId, ...],
-) -> tuple[MessageLedger, IdAllocator, Message]:
-    """Allocate one message that becomes visible at the next authoritative tick."""
+) -> MessageSendResult:
+    """Atomically allocate one message and its causal send identity."""
     if not isinstance(ledger, MessageLedger):
         raise ValueError("message send requires a message ledger")
     if not isinstance(id_allocator, IdAllocator):
@@ -171,6 +199,7 @@ def send_message(
     if ledger.next_sequence > MAX_AUTHORITY_TICK:
         raise ValueError("message send sequence allocation exhausted")
     message_id, next_allocator = id_allocator.allocate_message()
+    send_event_id, next_allocator = next_allocator.allocate_event()
     message = Message(
         message_id=message_id,
         sender_entity_id=sender_entity_id,
@@ -181,13 +210,15 @@ def send_message(
         delivery_tick=send_tick + 1,
         expiry_tick=expiry_tick,
         sequence=ledger.next_sequence,
+        send_event_id=send_event_id,
         provenance_event_ids=provenance_event_ids,
     )
-    return (
-        MessageLedger(
-            tuple(sorted((*ledger.messages, message), key=message_order_key)),
-            ledger.next_sequence + 1,
-        ),
+    next_ledger = MessageLedger(
+        tuple(sorted((*ledger.messages, message), key=message_order_key)),
+        ledger.next_sequence + 1,
+    )
+    return MessageSendResult(
+        next_ledger,
         next_allocator,
         message,
     )

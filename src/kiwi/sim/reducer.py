@@ -13,6 +13,7 @@ from kiwi.sim.commands import (
     StartMission,
     canonical_command_order,
 )
+from kiwi.sim.communication import emit_message_delivery_events
 from kiwi.sim.contacts import advance_contacts
 from kiwi.sim.events import (
     AbortRequested,
@@ -90,11 +91,13 @@ def reduce_one_tick(
         emitted.append(ScheduledTriggerFired(header, scheduled_event))
 
     if next_state.phase is MissionPhase.ACTIVE:
+        delivery = emit_message_delivery_events(next_state)
         next_state = replace(
-            next_state,
+            delivery.state,
             contacts=advance_contacts(next_state.contacts, next_state.tick),
             messages=discard_expired_messages(next_state.messages, next_state.tick),
         )
+        emitted.extend(delivery.events)
     if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
         next_state, policy_events = _reduce_policies(next_state, policy_bindings)
         emitted.extend(policy_events)
