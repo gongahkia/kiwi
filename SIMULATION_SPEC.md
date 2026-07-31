@@ -50,6 +50,13 @@ entity. Each command records a tick, a globally unique non-negative signed
 content-defined identifiers and may target the squad or one entity; they become
 policy observations only when communication is implemented.
 
+The initial reducer accepts only commands stamped for the current mission tick.
+`StartMission` transitions `prepared` to `active`; `RequestAbort` transitions
+`active` to `abort_requested`; signals produce structured
+`signals_unavailable` rejections until their observation semantics are added.
+It then dequeues scheduled markers, records canonical events, and advances one
+tick.
+
 ## 3. Determinism contract
 
 A run is reproducible when these inputs match:

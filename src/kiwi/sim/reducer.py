@@ -1,0 +1,108 @@
+"""One fixed authoritative tick over the currently defined kernel state."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+
+from kiwi.sim.clock import FixedTickClock
+from kiwi.sim.commands import (
+    ExternalCommand,
+    IssueSignal,
+    RequestAbort,
+    StartMission,
+    canonical_command_order,
+)
+from kiwi.sim.events import (
+    AbortRequested,
+    CanonicalEvent,
+    CommandRejected,
+    CommandRejectionReason,
+    EventHeader,
+    MissionStarted,
+    ScheduledTriggerFired,
+    canonical_event_order,
+)
+from kiwi.sim.state import MissionPhase, MissionState
+
+
+@dataclass(frozen=True, slots=True)
+class TickResult:
+    """The successor authority state and canonical events from one tick."""
+
+    state: MissionState
+    events: tuple[CanonicalEvent, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, MissionState):
+            raise ValueError("tick result requires mission state")
+        if not isinstance(self.events, tuple):
+            raise ValueError("tick result events must be an immutable tuple")
+        if canonical_event_order(self.events) != self.events:
+            raise ValueError("tick result events must be canonically ordered")
+
+
+def reduce_one_tick(
+    state: MissionState,
+    clock: FixedTickClock,
+    commands: tuple[ExternalCommand, ...] = (),
+) -> TickResult:
+    """Apply exact-tick inputs, dequeue markers, emit events, and advance once."""
+    if not isinstance(state, MissionState):
+        raise ValueError("tick reduction requires mission state")
+    if not isinstance(clock, FixedTickClock):
+        raise ValueError("tick reduction requires a fixed tick clock")
+    if not isinstance(commands, tuple):
+        raise ValueError("tick reduction commands must be an immutable tuple")
+    ordered_commands = canonical_command_order(commands)
+    for command in ordered_commands:
+        if command.header.tick != state.tick:
+            raise ValueError("tick reduction commands must target the current mission tick")
+
+    next_state = state
+    emitted: list[CanonicalEvent] = []
+    for command in ordered_commands:
+        next_state, event = _apply_command(next_state, command)
+        emitted.append(event)
+
+    due, scheduled_events = next_state.scheduled_events.due_at(next_state.tick)
+    next_state = replace(next_state, scheduled_events=scheduled_events)
+    for scheduled_event in due:
+        next_state, header = _allocate_event_header(next_state)
+        emitted.append(ScheduledTriggerFired(header, scheduled_event))
+
+    advanced_state = clock.advance(next_state)
+    return TickResult(state=advanced_state, events=canonical_event_order(emitted))
+
+
+def _apply_command(
+    state: MissionState, command: ExternalCommand
+) -> tuple[MissionState, CanonicalEvent]:
+    if isinstance(command, StartMission):
+        if state.phase is MissionPhase.PREPARED:
+            state = replace(state, phase=MissionPhase.ACTIVE)
+            state, header = _allocate_event_header(state)
+            return state, MissionStarted(header, command)
+        return _reject_command(state, command, CommandRejectionReason.MISSION_NOT_PREPARED)
+    if isinstance(command, RequestAbort):
+        if state.phase is MissionPhase.ACTIVE:
+            state = replace(state, phase=MissionPhase.ABORT_REQUESTED)
+            state, header = _allocate_event_header(state)
+            return state, AbortRequested(header, command)
+        return _reject_command(state, command, CommandRejectionReason.MISSION_NOT_ACTIVE)
+    if isinstance(command, IssueSignal):
+        return _reject_command(state, command, CommandRejectionReason.SIGNALS_UNAVAILABLE)
+    raise ValueError("tick reduction requires an external command")
+
+
+def _reject_command(
+    state: MissionState,
+    command: ExternalCommand,
+    reason: CommandRejectionReason,
+) -> tuple[MissionState, CommandRejected]:
+    state, header = _allocate_event_header(state)
+    return state, CommandRejected(header, command, reason)
+
+
+def _allocate_event_header(state: MissionState) -> tuple[MissionState, EventHeader]:
+    event_id, id_allocator = state.id_allocator.allocate_event()
+    return replace(state, id_allocator=id_allocator), EventHeader(event_id, state.tick)
