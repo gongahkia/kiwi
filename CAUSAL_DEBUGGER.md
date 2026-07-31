@@ -109,8 +109,10 @@ ObservationFact {
 Contact observations resolve each policy-relevant field to its retained ordered
 evidence event IDs. A trace records `OBSERVED_FROM` edges for direct sensor
 evidence and `DERIVED_FROM_MESSAGE` edges when later message delivery contributes
-to a field. Contact decay preserves the original evidence links while age and
-confidence change under documented deterministic rules.
+to a field. A message delivery event has its send event as sole parent, and the
+send event parents the message's ordered source evidence. Contact decay preserves
+the original evidence links while age and confidence change under documented
+deterministic rules.
 
 ### 5.4 Intention origin
 

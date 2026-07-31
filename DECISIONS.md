@@ -378,6 +378,18 @@ provenance for later causal linking. `KWI-STATE\0` therefore uses version `10`;
 versions `1` through `9` are rejected without migration because development
 state remains disposable.
 
+### D-046: Message events preserve send-to-delivery causality
+
+Message allocation reserves an authority `send_event_id` after all ordered
+source-provenance IDs. `MessageSent` uses that ID and exactly those source IDs
+as causal parents. The active reducer emits `MessageDelivered` events before
+policy evaluation for delivery-tick messages in canonical ledger order; each
+delivery event has only its message's send event as parent. The message ledger
+retains the send ID, so later observation provenance can resolve an unbroken
+source-to-send-to-delivery chain without presentation state. `KWI-STATE\0`
+therefore uses version `11`; versions `1` through `10` are rejected without
+migration because development state remains disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

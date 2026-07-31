@@ -399,7 +399,9 @@ resolve evidence without exposing omniscient state.
 delivery-ordered inbox values. Its canonical authority ledger assigns global
 send sequences, delivers at the next tick, discards expired entries, and feeds
 owner-local ABI version 2 inboxes without a shared mutable blackboard or
-presentation dependency.
+presentation dependency. `kiwi.sim.communication` materialises source-linked
+send events and emits delivery events in ledger order before policy evaluation;
+each delivery parents its message send.
 
 `kiwi.sim.signals` defines immutable current-tick squad or entity-targeted
 signal observations. The reducer accepts them only for active missions, retains
@@ -472,9 +474,9 @@ ObjectiveUpdated
 Events carry stable IDs and causal parent references where applicable. Human-readable text is derived at the UI boundary.
 
 The initial closed algebra records applied start, abort, and signal commands;
-scheduled trigger dequeues; and deterministic random draws. Its header carries
-an event ID, tick, and ascending causal-parent event IDs. Canonical streams sort
-by `(tick, event ID)` and reject duplicate IDs.
+message sends and deliveries; scheduled trigger dequeues; and deterministic
+random draws. Its header carries an event ID, tick, and ascending causal-parent
+event IDs. Canonical streams sort by `(tick, event ID)` and reject duplicate IDs.
 
 ## 14. Replay architecture
 
