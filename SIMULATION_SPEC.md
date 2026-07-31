@@ -408,7 +408,16 @@ using host exceptions for ordinary routing outcomes.
 
 ### 12.3 Local movement
 
-Movement resolves:
+An active movement action stores its entity, endpoint-inclusive path, next
+waypoint index, and dominant-axis segment progress. Active missions advance
+each action by at most 100 millimetres per tick before the authoritative clock
+advances. For a segment from `(x0, y0)` to `(x1, y1)`, progress uses
+`max(abs(x1-x0), abs(y1-y0))`; each coordinate is reconstructed with nearest
+integer rounding and ties away from zero. Reaching an intermediate waypoint
+starts the next segment at zero progress; the final waypoint removes the
+action. Collision, separation, and events are separate resolution phases.
+
+Subsequent local movement phases resolve:
 
 - desired velocity;
 - acceleration limit;
@@ -559,9 +568,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`4` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`5` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1`, `2`, and `3`, unsupported versions, and noncanonical values are
+versions `1` through `4`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -576,6 +585,7 @@ Include:
 - all authority that can influence future ticks;
 - random-stream state;
 - map bounds and obstacle geometry;
+- active movement actions;
 - policy memory;
 - policy versions;
 - pending messages and scheduled events;

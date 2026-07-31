@@ -209,7 +209,7 @@ obstacle lies wholly within its map and has a discrete elevation layer; map
 bounds contain entity centres, while disc clearance and collision are movement
 concerns. `KWI-STATE\0` therefore uses version `4`; versions `1`, `2`, and `3`
 are rejected with no compatibility decoder or migration because development
-state remains disposable.
+state remains disposable. Its current format version is superseded by D-033.
 
 ### D-031: Paths retain exact endpoint-inclusive waypoints
 
@@ -229,6 +229,18 @@ integer millimetre beyond that boundary. Routing examines at most 64 relevant
 obstacles, uses exact Manhattan edge costs, and selects equal-cost paths by the
 lexicographic ordered waypoint coordinates. This retains deterministic integer
 behaviour without a third-party navigation dependency.
+
+### D-033: Movement advances dominant-axis progress at 100 millimetres per tick
+
+An active movement action records its entity, endpoint-inclusive path, next
+waypoint index, and non-negative dominant-axis segment progress. Each active
+tick advances at most 100 millimetres of that progress; planar coordinates use
+integer nearest rounding with ties away from zero. Reaching an intermediate
+waypoint resets progress for the next segment, and reaching the final waypoint
+removes the action. `KWI-STATE\0` therefore uses version `5`; versions `1`
+through `4` are rejected with no compatibility decoder or migration because
+development state remains disposable. Collision and resulting events remain
+separate movement phases.
 
 ## 2. Prohibited shortcuts
 

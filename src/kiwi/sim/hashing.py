@@ -29,6 +29,7 @@ from kiwi.sim.memory import (
     PolicyMemoryStore,
     is_persistable_memory_value,
 )
+from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import (
     POLICY_VERSION_DIGEST_BYTES,
     EntityPolicyVersion,
@@ -42,10 +43,10 @@ from kiwi.sim.randomness import (
     RandomStreamState,
 )
 from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEventQueue
-from kiwi.sim.state import EntityState, MissionPhase, MissionState
+from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 4
+CANONICAL_STATE_VERSION = 5
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -54,7 +55,7 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V4 = 4
+_RANDOM_STREAM_COUNT_V5 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -116,7 +117,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 4 form."""
+    """Encode one validated mission state in canonical binary version 5 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -131,6 +132,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
         writer.i64(entity.position.y.value, "entity y")
         writer.u64(entity.position.elevation.value, "entity elevation")
     _encode_map_geometry(writer, state.map_geometry)
+    _encode_movement_actions(writer, state.movement_actions)
     _encode_policy_memory(writer, state.policy_memory)
     _encode_policy_versions(writer, state.policy_versions)
     for next_id in state.id_allocator.next_ids:
@@ -208,8 +210,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V4:
-        raise ValueError("state format version 4 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V5:
+        raise ValueError("state format version 5 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -223,6 +225,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     entity_count = reader.items("entity count")
     entities = tuple(_decode_entity(reader) for _ in range(entity_count))
     map_geometry = _decode_map_geometry(reader)
+    movement_actions = _decode_movement_actions(reader, map_geometry)
     policy_memory = _decode_policy_memory(reader)
     policy_versions = _decode_policy_versions(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
@@ -233,6 +236,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         phase=phase,
         entities=entities,
         map_geometry=map_geometry,
+        movement_actions=movement_actions,
         id_allocator=id_allocator,
         policy_memory=policy_memory,
         policy_versions=policy_versions,
@@ -286,6 +290,63 @@ def _decode_map_geometry(reader: _Reader) -> MapGeometry | None:
         for _ in range(reader.items("map obstacle count"))
     )
     return MapGeometry(bounds, obstacles)
+
+
+def _encode_movement_actions(writer: _Writer, actions: tuple[MovementAction, ...]) -> None:
+    writer.items(len(actions), "movement action count")
+    for action in actions:
+        writer.i64(action.entity_id.value, "movement action entity ID")
+        writer.u32(action.next_waypoint_index, "movement action next waypoint index")
+        writer.u64(action.segment_progress, "movement action segment progress")
+        writer.items(len(action.path.waypoints), "movement action waypoint count")
+        for waypoint in action.path.waypoints:
+            writer.i64(waypoint.x.value, "movement action waypoint x")
+            writer.i64(waypoint.y.value, "movement action waypoint y")
+            writer.u64(waypoint.elevation.value, "movement action waypoint elevation")
+
+
+def _decode_movement_actions(
+    reader: _Reader, map_geometry: MapGeometry | None
+) -> tuple[MovementAction, ...]:
+    count = reader.items("movement action count")
+    if count and map_geometry is None:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            reader.offset - 4,
+            "movement actions require map geometry",
+        )
+    actions: list[MovementAction] = []
+    for _ in range(count):
+        entity_id = EntityId(reader.i64())
+        next_waypoint_index = reader.u32()
+        segment_progress = reader.u64()
+        waypoint_count_offset = reader.offset
+        waypoint_count = reader.items("movement action waypoint count")
+        if waypoint_count < 2:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                waypoint_count_offset,
+                "movement action path requires at least two waypoints",
+            )
+        waypoints = tuple(
+            WorldPosition(
+                x=WorldSubunits(reader.i64()),
+                y=WorldSubunits(reader.i64()),
+                elevation=ElevationLayer(reader.u64()),
+            )
+            for _ in range(waypoint_count)
+        )
+        if map_geometry is None:
+            raise AssertionError("movement action decoding requires map geometry")
+        actions.append(
+            MovementAction(
+                entity_id,
+                Path(PathQuery(map_geometry, waypoints[0], waypoints[-1]), waypoints),
+                next_waypoint_index,
+                segment_progress,
+            )
+        )
+    return tuple(actions)
 
 
 def _encode_rectangle(writer: _Writer, rectangle: WorldRectangle, name: str) -> None:
@@ -499,7 +560,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V4)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V5)
     )
     return RandomStreams(seed=seed, states=states)
 

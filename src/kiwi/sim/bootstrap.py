@@ -33,6 +33,7 @@ def build_initial_state(
             phase=state.phase,
             entities=state.entities,
             map_geometry=state.map_geometry,
+            movement_actions=state.movement_actions,
             id_allocator=state.id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,

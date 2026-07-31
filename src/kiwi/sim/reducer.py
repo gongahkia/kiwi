@@ -24,6 +24,7 @@ from kiwi.sim.events import (
     canonical_event_order,
 )
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
+from kiwi.sim.movement import progress_movement_actions
 from kiwi.sim.policies import (
     EMPTY_POLICY_BINDINGS,
     PolicyBindings,
@@ -85,6 +86,8 @@ def reduce_one_tick(
     if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
         next_state, policy_events = _reduce_policies(next_state, policy_bindings)
         emitted.extend(policy_events)
+    if next_state.phase is MissionPhase.ACTIVE:
+        next_state = progress_movement_actions(next_state)
 
     advanced_state = clock.advance(next_state)
     return TickResult(state=advanced_state, events=canonical_event_order(emitted))
