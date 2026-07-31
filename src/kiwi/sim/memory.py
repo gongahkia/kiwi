@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_STRING_BYTES,
     BooleanValue,
     IntegerValue,
     ListValue,
@@ -93,5 +94,12 @@ def is_persistable_memory_value(value: RuntimeValue, depth: int = 0) -> bool:
     if isinstance(value, ListValue):
         return all(is_persistable_memory_value(item, depth + 1) for item in value.values)
     if isinstance(value, RecordValue):
-        return all(is_persistable_memory_value(item, depth + 1) for item in value.values)
+        return (
+            len(value.type_name.encode("utf-8")) <= MAX_RUNTIME_STRING_BYTES
+            and all(
+                len(field_name.encode("utf-8")) <= MAX_RUNTIME_STRING_BYTES
+                for field_name in value.field_names
+            )
+            and all(is_persistable_memory_value(item, depth + 1) for item in value.values)
+        )
     return False

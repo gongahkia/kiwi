@@ -7,7 +7,13 @@ import pytest
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.ids import FunctionId
-from kiwi.dsl.runtime_values import FunctionValue, IntegerValue, RecordValue, StringValue
+from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_STRING_BYTES,
+    FunctionValue,
+    IntegerValue,
+    RecordValue,
+    StringValue,
+)
 from kiwi.sim.memory import EntityPolicyMemory, PolicyMemoryStore
 from kiwi.sim.state import MissionState, add_entity
 
@@ -55,3 +61,8 @@ def test_mission_state_requires_memory_entries_to_belong_to_entities() -> None:
 def test_policy_memory_requires_record_values() -> None:
     with pytest.raises(ValueError, match="record value"):
         EntityPolicyMemory(EntityId(1), IntegerValue(1))  # type: ignore[arg-type]
+
+
+def test_policy_memory_rejects_record_names_that_cannot_be_canonically_encoded() -> None:
+    with pytest.raises(ValueError, match="persistable"):
+        EntityPolicyMemory(EntityId(1), RecordValue("x" * (MAX_RUNTIME_STRING_BYTES + 1), (), ()))
