@@ -374,7 +374,9 @@ every applied or rejected command and dequeued marker.
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,
 wall-clock input, or presentation state. It returns the final state and the
-complete canonically ordered event stream.
+complete canonically ordered event stream. Configured checkpoint intervals
+capture authority-only snapshots. The determinism harness repeats those inputs
+and reports the earliest checkpoint mismatch with a canonical field path.
 
 ## 12. Command model
 
