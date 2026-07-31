@@ -205,15 +205,15 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 - [x] Implement canonical snapshots distinct from presentation snapshots.
 - [x] Add headless runner for N ticks.
 - [x] Add determinism harness and differential report.
-- [ ] Add fixture content loader with validation.
+- [x] Add fixture content loader with validation.
 
 ### Exit criteria
 
-- [ ] Repeated minimal runs produce identical checkpoint hashes.
-- [ ] Initial mapping insertion order does not affect hashes.
-- [ ] Snapshot restore continues with identical hashes.
-- [ ] No pygame import occurs.
-- [ ] All checks pass and milestone is committed.
+- [x] Repeated minimal runs produce identical checkpoint hashes.
+- [x] Initial mapping insertion order does not affect hashes.
+- [x] Snapshot restore continues with identical hashes.
+- [x] No pygame import occurs.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 6 — Policies, observations, memory, and intentions
 

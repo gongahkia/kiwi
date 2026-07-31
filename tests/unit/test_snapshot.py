@@ -7,6 +7,8 @@ import pytest
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.hashing import StateDecodeCode, hash_canonical_state
 from kiwi.sim.reducer import reduce_one_tick
+from kiwi.sim.runner import run_headless
+from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.snapshot import (
     AuthoritySnapshot,
     SnapshotRestoreCode,
@@ -71,3 +73,19 @@ def test_authority_snapshot_restore_reports_structured_failures(
 def test_authority_snapshot_restore_requires_snapshot_value() -> None:
     with pytest.raises(TypeError, match="AuthoritySnapshot"):
         restore_authority_snapshot(object())  # type: ignore[arg-type]
+
+
+def test_snapshot_restore_continues_with_identical_hash_and_events() -> None:
+    _, queue = MissionState().scheduled_events.schedule(3, ScheduledEventKind.SCENARIO_TRIGGER)
+    initial = MissionState(scheduled_events=queue)
+    clock = FixedTickClock(TickRate.HZ_30)
+    prefix = run_headless(initial, clock, 2)
+    snapshot = capture_authority_snapshot(prefix.state)
+    restored = restore_authority_snapshot(snapshot)
+
+    assert isinstance(restored, MissionState)
+    expected = run_headless(prefix.state, clock, 2)
+    actual = run_headless(restored, clock, 2)
+
+    assert hash_canonical_state(actual.state) == hash_canonical_state(expected.state)
+    assert actual.events == expected.events
