@@ -7,7 +7,7 @@ from enum import StrEnum
 from hashlib import blake2b
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import EntityId, IdAllocator, IdKind, ObstacleId
+from kiwi.domain.ids import EntityId, EventId, IdAllocator, IdKind, ObstacleId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_STRING_BYTES,
@@ -46,7 +46,7 @@ from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEven
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 5
+CANONICAL_STATE_VERSION = 6
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -55,7 +55,7 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V5 = 4
+_RANDOM_STREAM_COUNT_V6 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -117,7 +117,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 5 form."""
+    """Encode one validated mission state in canonical binary version 6 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -210,8 +210,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V5:
-        raise ValueError("state format version 5 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V6:
+        raise ValueError("state format version 6 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -298,6 +298,9 @@ def _encode_movement_actions(writer: _Writer, actions: tuple[MovementAction, ...
         writer.i64(action.entity_id.value, "movement action entity ID")
         writer.u32(action.next_waypoint_index, "movement action next waypoint index")
         writer.u64(action.segment_progress, "movement action segment progress")
+        writer.u8(int(action.origin_event_id is not None), "movement action origin event presence")
+        if action.origin_event_id is not None:
+            writer.u64(action.origin_event_id.value, "movement action origin event ID")
         writer.items(len(action.path.waypoints), "movement action waypoint count")
         for waypoint in action.path.waypoints:
             writer.i64(waypoint.x.value, "movement action waypoint x")
@@ -320,6 +323,15 @@ def _decode_movement_actions(
         entity_id = EntityId(reader.i64())
         next_waypoint_index = reader.u32()
         segment_progress = reader.u64()
+        origin_presence_offset = reader.offset
+        origin_presence = reader.u8()
+        if origin_presence not in (0, 1):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                origin_presence_offset,
+                f"invalid movement action origin event presence tag {origin_presence}",
+            )
+        origin_event_id = EventId(reader.u64()) if origin_presence else None
         waypoint_count_offset = reader.offset
         waypoint_count = reader.items("movement action waypoint count")
         if waypoint_count < 2:
@@ -344,6 +356,7 @@ def _decode_movement_actions(
                 Path(PathQuery(map_geometry, waypoints[0], waypoints[-1]), waypoints),
                 next_waypoint_index,
                 segment_progress,
+                origin_event_id,
             )
         )
     return tuple(actions)
@@ -560,7 +573,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V5)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V6)
     )
     return RandomStreams(seed=seed, states=states)
 

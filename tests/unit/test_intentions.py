@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.ids import ExpressionId
@@ -14,6 +15,7 @@ from kiwi.sim.intentions import (
     IntentionOrigin,
     IntentionValidationCode,
     IntentionValidationFailure,
+    MoveTowardIntention,
     WaitIntention,
     action_channel_for,
     validate_runtime_intention,
@@ -49,16 +51,35 @@ def test_action_channel_lookup_rejects_non_intention_kinds() -> None:
         action_channel_for("wait")  # type: ignore[arg-type]
 
 
-def test_runtime_intention_validation_accepts_only_well_formed_available_waits() -> None:
+def test_runtime_intention_validation_accepts_well_formed_available_intentions() -> None:
     duration = Quantity(QuantityDimension.DURATION, ExactRational(1, 2))
+    distance_x = Quantity(QuantityDimension.DISTANCE, ExactRational(3, 2))
+    distance_y = Quantity(QuantityDimension.DISTANCE, ExactRational(-1, 2))
 
     validated = validate_runtime_intention(
         RecordValue("Wait", ("duration",), (QuantityValue(duration),))
     )
+    move = validate_runtime_intention(
+        RecordValue(
+            "MoveToward",
+            ("target",),
+            (
+                RecordValue(
+                    "Position",
+                    ("x", "y"),
+                    (QuantityValue(distance_x), QuantityValue(distance_y)),
+                ),
+            ),
+        )
+    )
     malformed = validate_runtime_intention(RecordValue("Wait", ("duration",), (IntegerValue(1),)))
+    malformed_target = validate_runtime_intention(
+        RecordValue("MoveToward", ("target",), (IntegerValue(1),))
+    )
     unavailable = validate_runtime_intention(RecordValue("Fire", (), ()))
 
     assert validated == WaitIntention(duration)
+    assert move == MoveTowardIntention(WorldPosition(WorldSubunits(1_500), WorldSubunits(-500)))
     assert malformed == IntentionValidationFailure(
         IntentionValidationCode.INVALID_DURATION,
         "Wait.duration must be a Duration value",
@@ -67,6 +88,11 @@ def test_runtime_intention_validation_accepts_only_well_formed_available_waits()
     assert unavailable == IntentionValidationFailure(
         IntentionValidationCode.UNSUPPORTED_KIND,
         "intention kind 'Fire' is unavailable",
+    )
+    assert malformed_target == IntentionValidationFailure(
+        IntentionValidationCode.INVALID_TARGET,
+        "MoveToward.target must be a Position value",
+        ("target",),
     )
 
 
@@ -92,6 +118,11 @@ def test_intention_origin_retains_typed_causal_metadata() -> None:
     assert origin.policy_order == 0
     assert origin.creation_tick == 19
     assert origin.action_channel is ActionChannel.LOCOMOTION
+
+
+def test_move_toward_intention_rejects_a_nonplanar_target() -> None:
+    with pytest.raises(ValueError, match="planar"):
+        MoveTowardIntention(WorldPosition(WorldSubunits(0), WorldSubunits(0), ElevationLayer(1)))
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, PolicyInvocationId
-from kiwi.dsl.capabilities import WAIT_CAPABILITY, CapabilityId
+from kiwi.dsl.capabilities import MOVE_TOWARD_CAPABILITY, WAIT_CAPABILITY, CapabilityId
 from kiwi.dsl.compiler import CompiledArtifact
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.policy_result import (
@@ -20,6 +20,7 @@ from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMFault, VMFaultCode, VMRunResult, run_vm
 from kiwi.sim.intentions import (
     IntentionValidationFailure,
+    MoveTowardIntention,
     ValidatedIntention,
     WaitIntention,
     required_capability_for,
@@ -45,7 +46,7 @@ class PolicyBinding:
     memory_schema: MemorySchema
     initial_memory: RecordValue
     budgets: VMBudgets = DEFAULT_VM_BUDGETS
-    available_capabilities: tuple[CapabilityId, ...] = (WAIT_CAPABILITY,)
+    available_capabilities: tuple[CapabilityId, ...] = (MOVE_TOWARD_CAPABILITY, WAIT_CAPABILITY)
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, EntityId):
@@ -236,7 +237,10 @@ class PolicyValidation:
             raise ValueError("policy validation requires a policy evaluation")
         if not isinstance(self.intentions, tuple):
             raise ValueError("policy validation intentions must be an immutable tuple")
-        if any(not isinstance(intention, WaitIntention) for intention in self.intentions):
+        if any(
+            not isinstance(intention, (MoveTowardIntention, WaitIntention))
+            for intention in self.intentions
+        ):
             raise ValueError("policy validation intentions must be validated intentions")
         if self.failure is None:
             if not isinstance(self.memory, RecordValue):

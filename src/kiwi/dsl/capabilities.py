@@ -47,6 +47,7 @@ class CapabilityId:
             raise ValueError("capability ID must be a non-empty lowercase ASCII identifier")
 
 
+MOVE_TOWARD_CAPABILITY = CapabilityId("move_toward")
 WAIT_CAPABILITY = CapabilityId("wait")
 
 
@@ -133,10 +134,25 @@ def capability_manifest(module: CoreModule, function_table: FunctionTable) -> Ca
 
 
 def _requirements_for_expression(expression: CoreExpression) -> tuple[CapabilityRequirement, ...]:
+    requirements: list[CapabilityRequirement] = []
     for candidate in _walk_expressions(expression):
-        if isinstance(candidate, CoreRecord) and candidate.type_name == "Wait":
-            return (CapabilityRequirement(WAIT_CAPABILITY, candidate.span),)
-    return ()
+        if not isinstance(candidate, CoreRecord):
+            continue
+        capability = _capability_for_record_type(candidate.type_name)
+        if capability is None or any(
+            requirement.capability == capability for requirement in requirements
+        ):
+            continue
+        requirements.append(CapabilityRequirement(capability, candidate.span))
+    return tuple(sorted(requirements, key=lambda requirement: requirement.capability.value))
+
+
+def _capability_for_record_type(type_name: str) -> CapabilityId | None:
+    if type_name == "MoveToward":
+        return MOVE_TOWARD_CAPABILITY
+    if type_name == "Wait":
+        return WAIT_CAPABILITY
+    return None
 
 
 def _walk_expressions(expression: CoreExpression) -> tuple[CoreExpression, ...]:

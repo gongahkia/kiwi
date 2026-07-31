@@ -26,6 +26,7 @@ from kiwi.sim.events import (
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
 from kiwi.sim.movement import resolve_movement_actions
 from kiwi.sim.movement_events import emit_movement_events
+from kiwi.sim.movement_intentions import emit_movement_route_events, plan_selected_movement_routes
 from kiwi.sim.policies import (
     EMPTY_POLICY_BINDINGS,
     PolicyBindings,
@@ -104,8 +105,15 @@ def _reduce_policies(
     validations = validate_policy_evaluations(evaluations, bindings)
     decisions = resolve_policy_decisions(validations)
     arbitration = arbitrate_intentions(validations, bindings)
-    events = emit_policy_events(validations, arbitration)
-    return commit_policy_decisions(events.state, decisions, bindings), events.events
+    policy_events = emit_policy_events(validations, arbitration)
+    routes = emit_movement_route_events(
+        plan_selected_movement_routes(policy_events.state, arbitration),
+        policy_events.events,
+    )
+    return (
+        commit_policy_decisions(routes.state, decisions, bindings),
+        policy_events.events + routes.events,
+    )
 
 
 def _apply_command(

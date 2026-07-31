@@ -269,11 +269,11 @@ Resolve movement headlessly and display the same state through pygame-ce.
 
 ### Exit criteria
 
-- [ ] A compiled policy moves an operative around an obstacle to an objective.
-- [ ] Path ties and occupancy conflicts are deterministic.
-- [ ] Graphical rendering does not alter state hashes.
-- [ ] Application starts and exits cleanly on supported development platform.
-- [ ] All checks pass and milestone is committed.
+- [x] A compiled policy moves an operative around an obstacle to an objective.
+- [x] Path ties and occupancy conflicts are deterministic.
+- [x] Graphical rendering does not alter state hashes.
+- [x] Application starts and exits cleanly on supported development platform.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 8 — Perception, contacts, and communication
 

@@ -240,7 +240,7 @@ waypoint resets progress for the next segment, and reaching the final waypoint
 removes the action. `KWI-STATE\0` therefore uses version `5`; versions `1`
 through `4` are rejected with no compatibility decoder or migration because
 development state remains disposable. Collision and resulting events remain
-separate movement phases.
+separate movement phases. Its current format version is superseded by D-037.
 
 ### D-034: Movement collision uses exact swept discs and entity-ID priority
 
@@ -268,6 +268,24 @@ native 8x12 pixel height. The user approved its CC-BY-SA-4.0 terms. The exact
 licence, attribution, release URL, and SHA-256 remain in the packaged render
 asset manifest; rendering disables antialiasing and only applies integer
 unfiltered scaling. No font asset is authoritative.
+
+### D-037: MoveToward activates source-linked canonical routes
+
+`MoveToward { target: Position }` is the first executable policy intention.
+Its exact `Distance` coordinates convert to canonical millimetres at the
+simulation boundary and inherit the issuing entity's current elevation layer.
+The compiler declares the source-linked `move_toward` capability. After
+locomotion arbitration, a selected request either starts a bounded canonical
+route or records its structured query or search failure. A request for the
+currently active route target retains that action; a new successful target
+replaces it.
+
+Route-start events parent the selected intention event. Active movement actions
+retain that route-start event ID, so every subsequent progress, block, or
+arrival event parents it. `KWI-STATE\0` therefore uses version `6`, which adds
+the optional route-origin event ID to each movement action. Versions `1`
+through `5` are rejected with no compatibility decoder or migration because
+development state remains disposable.
 
 ## 2. Prohibited shortcuts
 

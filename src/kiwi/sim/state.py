@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, round_nearest_ties_away_from_zero
-from kiwi.domain.ids import EntityId, IdAllocator, IdKind
+from kiwi.domain.ids import EntityId, EventId, IdAllocator, IdKind
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
@@ -48,6 +48,7 @@ class MovementAction:
     path: Path
     next_waypoint_index: int = 1
     segment_progress: int = 0
+    origin_event_id: EventId | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, EntityId):
@@ -68,6 +69,8 @@ class MovementAction:
             or not 0 <= self.segment_progress < movement_action_segment_length(self)
         ):
             raise ValueError("movement action segment progress is outside the active segment")
+        if self.origin_event_id is not None and not isinstance(self.origin_event_id, EventId):
+            raise ValueError("movement action origin event must be an event ID or absent")
 
 
 def movement_action_segment_length(action: MovementAction) -> int:
@@ -170,6 +173,7 @@ class MissionState:
                 raise ValueError("mission entity positions must lie within map bounds")
         entity_ids = tuple(entity.entity_id for entity in self.entities)
         previous_movement_entity_id = 0
+        next_event_id = self.id_allocator.next_ids[int(IdKind.EVENT)]
         for action in self.movement_actions:
             if not isinstance(action, MovementAction):
                 raise ValueError("mission movement actions must be movement actions")
@@ -184,6 +188,8 @@ class MissionState:
             )
             if entity.position != movement_action_position(action):
                 raise ValueError("movement action progress must match the entity position")
+            if action.origin_event_id is not None and action.origin_event_id.value >= next_event_id:
+                raise ValueError("movement action origin event must already be allocated")
             previous_movement_entity_id = action.entity_id.value
         if any(entry.entity_id not in entity_ids for entry in self.policy_memory.entries):
             raise ValueError("policy memory entries must belong to mission entities")

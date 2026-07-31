@@ -294,17 +294,22 @@ Validation checks:
 - basic range or existence where required;
 - content constraints.
 
-The initial validator accepts only `Wait { duration: Duration }`: duration
-must be positive and the typed result occupies `locomotion`. Other named core
-kinds return the structured `I002_UNSUPPORTED_KIND` result until their payload
-models exist. A malformed `Wait` record returns a stable `I001` through `I004`
-validation code; policy-result and VM failures retain a structured `P001`
-through `P003` result for later deterministic fallback.
+The initial validator accepts `Wait { duration: Duration }` and
+`MoveToward { target: Position }`. Wait duration must be positive. MoveToward
+requires exactly `Position { x: Distance, y: Distance }`; its exact planar
+coordinates convert to canonical millimetres with the domain rounding rule and
+inherit the issuer's current elevation layer during route planning. Both occupy
+`locomotion`. Other named core kinds return the structured
+`I002_UNSUPPORTED_KIND` result until their payload models exist. Malformed
+records return stable `I001` through `I005` validation codes; policy-result and
+VM failures retain a structured `P001` through `P003` result for deterministic
+fallback.
 
-`Wait` requires the source-linked `wait` capability. Each policy binding has
-an immutable lexically ordered set of available capabilities. A missing
-declared requirement prevents VM execution and records `P004_CAPABILITY` with
-the requirement span; decoded requests repeat the same availability check.
+`Wait` requires the source-linked `wait` capability and MoveToward requires
+`move_toward`. Each policy binding has an immutable lexically ordered set of
+available capabilities. A missing declared requirement prevents VM execution
+and records `P004_CAPABILITY` with the requirement span; decoded requests
+repeat the same availability check.
 
 The initial fallback resolves every failed policy validation, including VM
 faults, to `hold`: it preserves that invocation's input memory and emits no
@@ -346,7 +351,15 @@ in canonical entity and returned-list order.
 
 ### 11.4 Execution
 
-Selected intentions become state transitions or longer-lived action states. Some complete immediately; others take ticks.
+Selected intentions become state transitions or longer-lived action states. A
+selected MoveToward plans a route from the issuer's current position. A
+successful nontrivial path starts or replaces that entity's movement action;
+the action retains the route-start event ID. A selected request for the active
+route target retains the action. A one-waypoint path clears any prior movement
+action. Query or bounded-search failures leave the prior action intact and emit
+a structured route-rejection event. Route-start and route-rejection events
+parent the corresponding selection; movement progress, block, and arrival
+events parent the retained route-start event.
 
 ### 11.5 Outcome
 
@@ -578,9 +591,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`5` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`6` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `4`, unsupported versions, and noncanonical values are
+versions `1` through `5`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:

@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from kiwi.domain.geometry import WorldPosition, world_subunits_from_distance
 from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
 from kiwi.domain.quantities import Quantity, QuantityDimension
-from kiwi.dsl.capabilities import WAIT_CAPABILITY, CapabilityId
+from kiwi.dsl.capabilities import MOVE_TOWARD_CAPABILITY, WAIT_CAPABILITY, CapabilityId
 from kiwi.dsl.ids import ExpressionId
 from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS, QuantityValue, RecordValue, RuntimeValue
 from kiwi.dsl.source import SourceSpan
@@ -49,6 +50,7 @@ class IntentionValidationCode(StrEnum):
     UNSUPPORTED_KIND = "I002_UNSUPPORTED_KIND"
     INVALID_FIELDS = "I003_INVALID_FIELDS"
     INVALID_DURATION = "I004_INVALID_DURATION"
+    INVALID_TARGET = "I005_INVALID_TARGET"
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +89,22 @@ class WaitIntention:
             raise ValueError("wait intention duration must be positive")
 
 
-type ValidatedIntention = WaitIntention
+@dataclass(frozen=True, slots=True)
+class MoveTowardIntention:
+    """A planar destination resolved on the issuer's current elevation layer."""
+
+    target: WorldPosition
+    kind: IntentionKind = field(default=IntentionKind.MOVE_TOWARD, init=False)
+    action_channel: ActionChannel = field(default=ActionChannel.LOCOMOTION, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.target, WorldPosition):
+            raise ValueError("move-toward intention requires a world position")
+        if self.target.elevation.value != 0:
+            raise ValueError("move-toward intention target must be planar")
+
+
+type ValidatedIntention = MoveTowardIntention | WaitIntention
 type IntentionValidationResult = ValidatedIntention | IntentionValidationFailure
 
 
@@ -163,6 +180,8 @@ def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult
             IntentionValidationCode.EXPECTED_RECORD,
             "intention must be a record value",
         )
+    if value.type_name == "MoveToward":
+        return _validate_move_toward(value)
     if value.type_name != "Wait":
         return IntentionValidationFailure(
             IntentionValidationCode.UNSUPPORTED_KIND,
@@ -192,8 +211,54 @@ def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult
     return WaitIntention(duration.value)
 
 
+def _validate_move_toward(value: RecordValue) -> IntentionValidationResult:
+    if value.field_names != ("target",):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_FIELDS,
+            "MoveToward intention must contain exactly a target field",
+        )
+    target = value.field_value("target")
+    if not isinstance(target, RecordValue) or target.type_name != "Position":
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            "MoveToward.target must be a Position value",
+            ("target",),
+        )
+    if target.field_names != ("x", "y"):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            "MoveToward.target must contain exactly x and y fields",
+            ("target",),
+        )
+    x, y = target.values
+    if (
+        not isinstance(x, QuantityValue)
+        or x.value.dimension is not QuantityDimension.DISTANCE
+        or not isinstance(y, QuantityValue)
+        or y.value.dimension is not QuantityDimension.DISTANCE
+    ):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            "MoveToward.target coordinates must be Distance values",
+            ("target",),
+        )
+    try:
+        target_position = WorldPosition(
+            world_subunits_from_distance(x.value), world_subunits_from_distance(y.value)
+        )
+    except ValueError:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            "MoveToward.target coordinates are outside canonical world bounds",
+            ("target",),
+        )
+    return MoveTowardIntention(target_position)
+
+
 def required_capability_for(intention: ValidatedIntention) -> CapabilityId:
     """Return the declared tactical capability required by an available intention."""
+    if isinstance(intention, MoveTowardIntention):
+        return MOVE_TOWARD_CAPABILITY
     if isinstance(intention, WaitIntention):
         return WAIT_CAPABILITY
     raise TypeError("intention capability lookup requires a validated intention")

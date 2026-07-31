@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition
-from kiwi.domain.ids import EntityId
+from kiwi.domain.ids import EntityId, EventId
 from kiwi.sim.collision import movement_segment_collides_map, movement_segments_violate_separation
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.state import (
@@ -46,6 +46,7 @@ class MovementResolution:
     result_position: WorldPosition
     kind: MovementResolutionKind
     block_reason: MovementBlockReason | None = None
+    origin_event_id: EventId | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -61,6 +62,8 @@ class MovementResolution:
             raise ValueError("movement resolution positions must share an elevation layer")
         if not isinstance(self.kind, MovementResolutionKind):
             raise ValueError("movement resolution requires a resolution kind")
+        if self.origin_event_id is not None and not isinstance(self.origin_event_id, EventId):
+            raise ValueError("movement resolution origin event must be an event ID or absent")
         if self.kind is MovementResolutionKind.BLOCKED:
             if not isinstance(self.block_reason, MovementBlockReason):
                 raise ValueError("blocked movement resolutions require a block reason")
@@ -166,6 +169,7 @@ def resolve_movement_actions(state: MissionState) -> MovementPhase:
                     )
                 ),
                 block_reason,
+                action.origin_event_id,
             )
         )
     next_state = replace(
