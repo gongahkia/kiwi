@@ -236,6 +236,23 @@ Completion does not invoke command handlers, emit output, access filesystem/envi
 or processes, advance time, yield, or return a future. Command-specific callbacks are
 documented separately. See ADR-0015.
 
+When a later argument follows an exactly registered command, that command may declare a
+validated synchronous `complete(request)` callback or the optional `completion`
+capability. Its immutable request contains only command/argument byte data, cursor and
+replacement offsets, quote state, and pending-escape state. It exposes no terminal,
+output writer, registry, invocation, renderer, process, filesystem, environment, or
+host callback. Callback order is preserved after atomic candidate validation; exact
+duplicates are removed, while candidates with distinct metadata/ranges remain.
+
+Callback candidates use logical byte values and optional bounded presentation/range
+fields. The engine applies the canonical Stanczyk double-quote encoder and validates
+candidate count, insertion/display bytes, total bytes, and replacement ranges before any
+candidate is exposed. Stable callback failures are `unknown_completion_capability`,
+`callback_failure`, `invalid_callback_return`, `too_many_candidates`,
+`candidate_too_large`, `invalid_replacement_range`, and
+`reentrant_completion_call`. Failures do not disable command handlers or mutate any
+semantic/session state. See ADR-0016.
+
 ## 7. PTY helper backend
 
 ### 7.1 Boundary

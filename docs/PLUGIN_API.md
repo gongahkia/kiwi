@@ -170,6 +170,10 @@ Registration:
 ```lua
 terminal:register_command("status", {
   summary = "Show system status",
+  capabilities = { "completion" },
+  complete = function(request)
+    return { "--brief", "--verbose" }
+  end,
   run = function(context, argv, writer)
     writer:emit("All systems nominal.\r\n")
     return 0
@@ -202,6 +206,11 @@ Completion uses zero-based byte cursors and candidate byte-range edits. Registry
 names use exact byte-prefix matching and a project-owned Stanczyk quoting encoder; it
 never dispatches a command or writes output. See ADR-0015.
 
+Command-specific completion uses synchronous `complete(request)` callbacks. The request
+is immutable and omits terminal, output, registry, process, filesystem, environment,
+renderer, and host authority. Callbacks return bounded logical values/candidates; the
+engine validates and encodes them atomically. See ADR-0016.
+
 ## 6. Capabilities
 
 Plugins and commands declare capabilities. Examples:
@@ -224,7 +233,8 @@ Sandbox commands:
 - `virtual_fs_write`;
 - `domain_events`;
 - `scheduled_jobs`;
-- `deterministic_random`.
+- `deterministic_random`;
+- `completion`.
 
 Capabilities document intent and allow validation; they are not a strong security sandbox in v0.1.
 
