@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
@@ -11,6 +12,14 @@ from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 
 MAX_MISSION_TICK = MAX_AUTHORITY_TICK
+
+
+class MissionPhase(StrEnum):
+    """The minimal authoritative mission lifecycle."""
+
+    PREPARED = "prepared"
+    ACTIVE = "active"
+    ABORT_REQUESTED = "abort_requested"
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +41,7 @@ class MissionState:
     """The canonical state fields defined by the initial simulation kernel."""
 
     tick: int = 0
+    phase: MissionPhase = MissionPhase.PREPARED
     entities: tuple[EntityState, ...] = ()
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
@@ -42,6 +52,8 @@ class MissionState:
             raise ValueError("mission tick must be an integer")
         if not 0 <= self.tick <= MAX_MISSION_TICK:
             raise ValueError("mission tick must fit non-negative signed 64-bit range")
+        if not isinstance(self.phase, MissionPhase):
+            raise ValueError("mission phase must be a MissionPhase")
         if not isinstance(self.entities, tuple):
             raise ValueError("mission entities must be an immutable tuple")
         if not isinstance(self.id_allocator, IdAllocator):
@@ -73,6 +85,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
     return (
         MissionState(
             tick=state.tick,
+            phase=state.phase,
             entities=state.entities + (entity,),
             id_allocator=id_allocator,
             scheduled_events=state.scheduled_events,
