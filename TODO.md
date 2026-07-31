@@ -197,7 +197,7 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 - [x] Define mission state and entity skeleton.
 - [x] Implement fixed tick clock.
 - [x] Define external command schema and canonical ordering.
-- [ ] Define deterministic scheduled-event queue.
+- [x] Define deterministic scheduled-event queue.
 - [ ] Define named deterministic random streams and draw records.
 - [ ] Define canonical event algebra.
 - [ ] Implement one-tick reducer pipeline.

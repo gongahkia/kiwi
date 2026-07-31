@@ -6,7 +6,8 @@ from dataclasses import dataclass, replace
 from enum import IntEnum
 
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
-from kiwi.sim.state import MAX_MISSION_TICK, MissionState
+from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.state import MissionState
 
 
 class TickRate(IntEnum):
@@ -36,6 +37,6 @@ class FixedTickClock:
         """Advance immutable mission state by exactly one authoritative tick."""
         if not isinstance(state, MissionState):
             raise ValueError("clock advance requires mission state")
-        if state.tick >= MAX_MISSION_TICK:
+        if state.tick >= MAX_AUTHORITY_TICK:
             raise ValueError("mission tick advancement exhausted")
         return replace(state, tick=state.tick + 1)
