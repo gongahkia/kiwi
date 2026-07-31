@@ -388,6 +388,15 @@ Obstacle overlap is represented faithfully and has no implicit merge rule.
 
 ### 12.2 Pathing
 
+A path query pairs one immutable map with same-elevation start and goal
+positions. Query preparation returns a stable structured failure for a missing
+map, elevation mismatch, or out-of-bounds endpoint; it does not silently clamp
+coordinates. A `Path` stores an ordered immutable tuple of exact
+`WorldPosition` waypoints including the query start and goal. A one-waypoint
+path represents an already-arrived query; otherwise adjacent waypoints must be
+distinct. Pathfinding and obstacle clearance are separate from query
+precondition validation.
+
 The MVP may use:
 
 - navigation grid;

@@ -211,6 +211,15 @@ concerns. `KWI-STATE\0` therefore uses version `4`; versions `1`, `2`, and `3`
 are rejected with no compatibility decoder or migration because development
 state remains disposable.
 
+### D-031: Paths retain exact endpoint-inclusive waypoints
+
+Milestone 7 represents a route request as one immutable map and same-elevation
+start and goal positions. Its resolved path is an immutable ordered tuple of
+exact `WorldPosition` waypoints including both endpoints; one waypoint denotes
+an already-arrived request and adjacent duplicate waypoints are invalid.
+Precondition validation reports stable structured failures before routing, and
+the selected pathfinding algorithm separately establishes obstacle clearance.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
