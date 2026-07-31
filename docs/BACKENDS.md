@@ -253,6 +253,63 @@ candidate is exposed. Stable callback failures are `unknown_completion_capabilit
 `reentrant_completion_call`. Failures do not disable command handlers or mutate any
 semantic/session state. See ADR-0016.
 
+### 6.8 Session-local virtual filesystem
+
+Every sandbox session owns one bounded, ephemeral in-memory filesystem. The optional
+initial description is copied during session construction; it has one directory root
+record, `{ kind = "directory", entries = { name = child, ... } }`, and children are
+either that directory shape or `{ kind = "file", data = bytes }`. It never mounts or
+retains host storage. It is isolated from every other session and is destroyed with its
+session. Filesystem state is deliberately absent from terminal semantic recordings and
+checkpoints; replaying terminal output does not reconstruct it.
+
+The tree has only directories and opaque-byte regular files. Paths are byte-oriented:
+`/` is the only separator, NUL is forbidden, and complete `.`/`..` components have
+lexical navigation meaning. Repeated separators collapse, `..` clamps at the root,
+and every successful resolution returns canonical absolute components. No UTF-8
+normalisation, case folding, locale collation, host-path rules, tilde/environment/shell
+expansion, links, mounts, permissions, timestamps, or executable semantics exist.
+Non-root trailing slashes require a directory target.
+
+The session stores cwd as a canonical absolute component sequence and logical directory
+node. Relative paths resolve from that cwd. A directory rename updates a cwd held in
+that directory or one of its descendants to its canonical new path without changing
+the logical cwd node.
+
+`fs:stat(path)`, `list(path, options?)`, `read_file(path, options?)`, `write_file(path,
+bytes)`, `append_file(path, bytes)`, `make_directory(path)`, `remove(path)`,
+`rename(source, destination)`, `get_cwd()`, and `change_directory(path)` return copied
+values only. `list` returns immediate names in explicit ascending unsigned-byte order
+and supports zero-based `offset` plus bounded `max_entries`; `read_file` supports
+zero-based `offset` plus bounded `length`. Writes and appends are whole-operation
+atomic. Append requires an existing regular file. Directory creation creates exactly
+one node. Remove never recurses and rejects root, cwd, and cwd ancestors. Rename never
+replaces an existing destination or moves a directory inside itself.
+
+Immutable session limits bound input/canonical path bytes, component count/bytes,
+nodes, directories, files, file and total bytes, directory entries, initial-tree depth,
+and returned data. Hosts may only lower defaults. All limits are checked before an
+allocation or mutation; a failed operation leaves the tree, cwd, and counters unchanged.
+Stable errors are `empty_path`, `path_too_large`, `component_too_large`,
+`too_many_components`, `invalid_path_byte`, `not_found`, `already_exists`,
+`not_a_directory`, `is_a_directory`, `directory_not_empty`,
+`root_operation_forbidden`, `cwd_operation_forbidden`, `invalid_move`,
+`file_too_large`, `filesystem_full`, `directory_full`, `invalid_range`, and
+`resource_limit`.
+
+Filesystem access is command-capability gated. Session construction accepts copied
+`granted_capabilities`; a command must declare and receive every required capability
+before its handler begins. `vfs.read` provides `stat`, `list`, `read_file`, and
+`get_cwd`; `vfs.write` provides `write_file`, `append_file`, `make_directory`,
+`remove`, and `rename`; `vfs.chdir` provides `change_directory`. These are independent
+grants. A qualifying handler receives only an expiring `context.fs` facade. Missing
+grants fail with `capability_denied`; undeclared names fail registry validation with
+`unsupported_capability`. Completion callbacks never receive filesystem access.
+
+Host mounts, persistent/snapshotted filesystems, providers, shared namespaces, path
+ACLs, recursive removal, and filesystem completion are excluded from API v1. See
+ADR-0017.
+
 ## 7. PTY helper backend
 
 ### 7.1 Boundary
