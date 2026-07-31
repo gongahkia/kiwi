@@ -281,6 +281,13 @@ Intentions compete within action channels, for example:
 
 Recommended rule: first valid intention in returned order wins per exclusive channel, with compatible channels allowed together. Every rejection has a reason event.
 
+The initial core mapping is closed and explicit: `MoveToward`, `TakeCover`,
+and `Wait` use `locomotion`; `Aim` and `Fire` use `weapon`; `Use` uses
+`interaction`; `Stabilise` uses `medical`; and `Emit` uses `communication`.
+`Wait` therefore excludes another locomotion request but remains compatible
+with weapon, interaction, medical, and communication requests. Payload
+decoding and validation are separate from this kind-and-channel definition.
+
 ### 11.4 Execution
 
 Selected intentions become state transitions or longer-lived action states. Some complete immediately; others take ticks.
