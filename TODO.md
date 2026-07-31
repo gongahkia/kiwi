@@ -173,7 +173,7 @@ Add the functional data features required by tactical policies.
 - [x] Add domain type operations for duration, distance, probability, position, and vector.
 - [x] Reject dimensionally invalid operations.
 - [x] Add capability manifest skeleton.
-- [ ] Add full language diagnostics and golden fixtures.
+- [x] Add full language diagnostics and golden fixtures.
 - [ ] Update language version and documentation examples if syntax changes.
 
 ### Exit criteria
