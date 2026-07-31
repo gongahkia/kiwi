@@ -295,8 +295,19 @@ elevation layers are not visible. Same-layer closed obstacle rectangles occlude
 when the closed centre-to-centre segment touches them, including endpoint and
 corner contact. When several obstacles occlude, the ascending `ObstacleId`
 order selects the retained blocker. Missing maps and out-of-bounds endpoints
-return structured `V001` through `V003` failures. Sensor ranges, field of
-view, contacts, and visible-geometry observations remain separate tasks.
+return structured `V001` through `V003` failures. Field of view, contacts, and
+visible-geometry observations remain separate tasks.
+
+### D-039: Sensors use inclusive squared-distance ranges
+
+Milestone 8 represents a sensor range as one non-negative canonical millimetre
+radius. Range checks compare integer squared planar distance and include the
+exact boundary; out-of-range precedes elevation and obstacle evaluation in a
+visibility result. The initial visible-geometry projection contains the
+same-layer static obstacles whose nearest closed-rectangle point is in range,
+ordered by `ObstacleId`; it does not use obstacle occlusion to hide geometry.
+These pure values are not added to policy observation ABI version `1` until the
+contact and observation-provenance tasks define the complete exposure model.
 
 ## 2. Prohibited shortcuts
 

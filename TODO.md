@@ -284,7 +284,7 @@ Replace omniscient policy input with incomplete information.
 ### Tasks
 
 - [x] Implement deterministic visibility queries.
-- [ ] Add sensor ranges and visible geometry.
+- [x] Add sensor ranges and visible geometry.
 - [ ] Define contact estimates, confidence, age, and uncertainty.
 - [ ] Implement contact creation, update, decay, and loss.
 - [ ] Add observation provenance for contact fields.
