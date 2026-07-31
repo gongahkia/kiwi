@@ -438,6 +438,16 @@ contains its ID, endpoints, height tag, integrity basis points, and slotted
 positions/sides. It exposes neither occupancy nor hidden cover state. This ABI
 change does not alter canonical state format version `12`.
 
+### D-050: Initial cover exposure is side, height, and integrity based
+
+`estimate_cover_exposure` accepts only a cover segment, one of its slots, and a
+contact estimate. It derives the contact's side from the directed segment and
+the estimate position; same-side, collinear, or cross-elevation contacts have
+full 10,000-basis-point exposure. A slot is protected only from the opposite
+side: low cover protects 5,000 basis points and high cover 7,500, each scaled
+down by integer-floor integrity. This is an estimate, not hidden-world line of
+fire or occupancy resolution.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
