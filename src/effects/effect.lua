@@ -5,46 +5,68 @@ local Effect = {}
 local effect_mt = {}
 effect_mt.__index = effect_mt
 
+local hook_capabilities = {
+  after_canvas = "canvas_after",
+  before_canvas = "canvas_before",
+  init = "lifecycle",
+  on_cell = "cell_observation",
+  on_event = "terminal_events",
+  shutdown = "lifecycle",
+  update = "frame_update",
+}
+
 Effect.contract = {
-  constructor = "new(manifest) -> effect | nil, error",
-  on_event = "on_event(event) -> nil, error?",
+  constructor = "new(manifest, hooks?) -> effect | nil, error",
+  hook = "hook(name) -> callback | nil",
   manifest = "manifest() -> effect_manifest",
-  update = "update(visual_time_us) -> nil, error?",
-  transform_cell = "transform_cell(visual_cell) -> nil, error?",
   destroy = "destroy()",
 }
 
-function Effect.new(manifest)
+function Effect.new(manifest, hooks)
   local normalised, manifest_error = Manifest.normalise(manifest)
   if not normalised then
     return nil, manifest_error
   end
-  return setmetatable({ manifest_value = normalised, state = "bootstrap" }, effect_mt)
+  if hooks == nil then
+    hooks = {}
+  end
+  if type(hooks) ~= "table" then
+    return nil, Errors.new("effect_load_error", "effect hooks must be a table")
+  end
+  local granted = {}
+  for _, capability in ipairs(normalised.capabilities) do
+    granted[capability] = true
+  end
+  local copied_hooks = {}
+  for name, callback in pairs(hooks) do
+    local capability = hook_capabilities[name]
+    if not capability then
+      return nil, Errors.new("effect_load_error", "effect hook is unsupported", { hook = name })
+    end
+    if type(callback) ~= "function" then
+      return nil, Errors.new("effect_load_error", "effect hook must be a function", { hook = name })
+    end
+    if not granted[capability] then
+      return nil,
+        Errors.new("effect_load_error", "effect hook capability is undeclared", {
+          capability = capability,
+          hook = name,
+        })
+    end
+    copied_hooks[name] = callback
+  end
+  return setmetatable(
+    { hooks = copied_hooks, manifest_value = normalised, state = "bootstrap" },
+    effect_mt
+  )
 end
 
 function effect_mt:manifest()
   return Manifest.copy(self.manifest_value)
 end
 
-function effect_mt:on_event(event)
-  if type(event) ~= "table" then
-    return nil, Errors.new("effect_runtime_error", "effect event must be a table")
-  end
-  return nil, Errors.new("effect_runtime_error", "effect event hook is not implemented")
-end
-
-function effect_mt:update(visual_time_us)
-  if type(visual_time_us) ~= "number" then
-    return nil, Errors.new("effect_runtime_error", "effect visual time must be a number")
-  end
-  return nil, Errors.new("effect_runtime_error", "effect update hook is not implemented")
-end
-
-function effect_mt:transform_cell(visual_cell)
-  if type(visual_cell) ~= "table" then
-    return nil, Errors.new("effect_runtime_error", "visual cell must be a table")
-  end
-  return nil, Errors.new("effect_runtime_error", "effect transform hook is not implemented")
+function effect_mt:hook(name)
+  return self.hooks[name]
 end
 
 function effect_mt:destroy()
