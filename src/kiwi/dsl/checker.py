@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.names import ResolutionResult, ResolvedBinding, SymbolKind
+from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import (
     BooleanLiteral,
@@ -640,6 +641,17 @@ def _check_list_expression(
     record_schemas: tuple[_RecordSchema, ...],
     expected_type: DslType | None,
 ) -> TypedExpression | None:
+    if len(expression.elements) > MAX_RUNTIME_LIST_ITEMS:
+        diagnostics.append(
+            Diagnostic(
+                "E420_LIST_ITEM_LIMIT",
+                DiagnosticSeverity.ERROR,
+                f"list literal exceeds {MAX_RUNTIME_LIST_ITEMS} items",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
     expected_element = expected_type.element_type if isinstance(expected_type, ListType) else None
     if not expression.elements:
         if expected_element is None:
