@@ -23,6 +23,7 @@ return {
         "terminal.utf8",
         "backend.interface",
         "backend.replay",
+        "backend.sandbox",
         "shell.completion",
         "shell.builtins",
         "shell.scheduler",
