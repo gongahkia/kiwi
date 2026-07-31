@@ -184,21 +184,21 @@ Goal: add visual differentiation without compromising terminal semantics.
 - [x] Implement a kinetic output preset with bounded cell displacement and decay.
 - [x] Implement effect intensity controls.
 - [x] Implement a one-action reset to the clean renderer.
-- [ ] Implement hot reload for built-in or development effects.
+- [x] Implement host-coordinated atomic hot reload for built-in or development effects.
 
 ### Tests and performance
 
 - [x] Add deterministic effect tests using fixed seeds and times.
 - [x] Add failure-isolation tests for invalid hooks.
-- [ ] Add performance budgets by effect class.
-- [ ] Add screenshots or image hashes only where the CI environment is stable; prefer renderer command/state tests otherwise.
+- [x] Add fixture-specific performance budgets by effect class.
+- [x] Add deterministic screenshot scenarios and manual capture tooling; CI pixel goldens remain deferred until the graphics environment is pinned.
 
 ### Exit criteria
 
-- [ ] Effects can be changed without restarting a replay.
-- [ ] Disabling all effects yields the baseline renderer exactly.
-- [ ] Built-in effects do not mutate terminal state or recording state.
-- [ ] Deterministic presets reproduce the same event-driven visual state under a fixed seed.
+- [x] Effects can be changed without restarting a replay.
+- [x] Disabling all effects yields the baseline renderer exactly.
+- [x] Built-in effects do not mutate terminal state or recording state.
+- [x] Deterministic presets reproduce the same event-driven visual state under a fixed seed.
 
 ## Milestone 5 — Sandboxed terminal backend and embedding API
 

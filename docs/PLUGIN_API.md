@@ -91,6 +91,15 @@ Hooks are optional. `lifecycle`, `terminal_events`, `cell_observation`, `cell_tr
 
 `host:disable(effect_id)`, `host:enable(effect_id)`, and `host:reorder({ effect_id, ... })` control a loaded chain without changing terminal state. Reorder requires every unique loaded ID exactly once. Manual disable is reversible and preserves effect-local visual state. A callback failure records a diagnostic, runs shutdown once, and marks that instance terminally failed; it cannot be re-enabled without constructing a new instance. `host:status()` returns copied diagnostics and per-effect enabled/disabled reason.
 
+`host:replace(effect_id, candidate, options?)` performs host-coordinated atomic
+development replacement at a quiescent frame boundary. The candidate is validated,
+configured, and initialised before it reaches the active chain. It keeps the target's
+logical ID, position, enabled state, compatible serialisable parameters, and copied
+host metadata; each incompatible parameter falls back to its candidate default with a
+diagnostic. It starts with fresh local state and the stable seed derived for that ID.
+No terminal semantic state or recording is changed. See ADR-0011 and
+`docs/RENDERER_AND_EFFECTS.md` for lifecycle and failure semantics.
+
 ### 4.2 Context
 
 The fresh context contains only:
