@@ -23,6 +23,8 @@ return {
         "terminal.utf8",
         "backend.interface",
         "backend.replay",
+        "shell.completion",
+        "shell.completion_scanner",
         "shell.dispatcher",
         "shell.history",
         "shell.output",

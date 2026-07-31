@@ -198,6 +198,10 @@ overflow, cancellation, and recording isolation.
 Sandbox command history is session-local, bounded, byte-preserving convenience state;
 it is not persistent or part of recordings/checkpoints. See ADR-0014.
 
+Completion uses zero-based byte cursors and candidate byte-range edits. Registry command
+names use exact byte-prefix matching and a project-owned Stanczyk quoting encoder; it
+never dispatches a command or writes output. See ADR-0015.
+
 ## 6. Capabilities
 
 Plugins and commands declare capabilities. Examples:

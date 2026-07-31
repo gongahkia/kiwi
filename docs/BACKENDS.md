@@ -214,6 +214,28 @@ History is not terminal semantic state: it is not placed in recordings or checkp
 does not alter registered commands or active output invocations, and is not reconstructed
 from recordings. See ADR-0014.
 
+### 6.7 Completion scanner and registry names
+
+Completion is synchronous, bounded, deterministic, and non-dispatching. It scans the
+original byte line only through its zero-based cursor offset. The scanner follows the
+Stanczyk sandbox command grammar but represents open single/double quotes and pending
+unquoted/double escapes as state, allowing interactive incomplete input. Bytes after the
+cursor never affect the decoded prefix. Invalid cursor offsets, oversized inputs, and
+scan-resource bounds return typed errors without changing history, output, recordings,
+terminal state, or registry state.
+
+Registry command-name completion applies only within the first argument. It snapshots
+the registry, uses exact byte-prefix matching, and returns names in bytewise ascending
+order without fuzzy matching or locale collation. Candidates contain zero-based raw
+replacement offsets and a copied insertion. API v1 replaces the whole active raw
+argument with a project-owned canonical double-quoted encoding, escaping only backslash
+and double quote under the Stanczyk grammar. This remains valid at token starts, middles,
+ends, and incomplete quote contexts. Candidate count and byte limits validate atomically.
+
+Completion does not invoke command handlers, emit output, access filesystem/environment
+or processes, advance time, yield, or return a future. Command-specific callbacks are
+documented separately. See ADR-0015.
+
 ## 7. PTY helper backend
 
 ### 7.1 Boundary

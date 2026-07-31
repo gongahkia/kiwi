@@ -1,4 +1,5 @@
 local Errors = require("runtime.errors")
+local Completion = require("shell.completion")
 local Dispatcher = require("shell.dispatcher")
 local History = require("shell.history")
 local Tokenizer = require("shell.tokenizer")
@@ -8,6 +9,7 @@ local session_mt = {}
 session_mt.__index = session_mt
 
 Session.contract = {
+  complete = "complete(bytes, cursor_offset) -> completion_result | nil, error",
   destroy = "destroy() -> true",
   dispatch = "dispatch(bytes, context) -> command_dispatch | nil, error",
   history = "history() -> command_history",
@@ -42,7 +44,12 @@ local function options(value)
   end
   local has_unsupported_option = false
   for name in pairs(value) do
-    if name ~= "history_limits" and name ~= "output_limits" and name ~= "tokenizer_limits" then
+    if
+      name ~= "completion_limits"
+      and name ~= "history_limits"
+      and name ~= "output_limits"
+      and name ~= "tokenizer_limits"
+    then
       has_unsupported_option = true
     end
   end
@@ -59,6 +66,7 @@ local function options(value)
   end
   return {
     history = history,
+    completion_limits = value.completion_limits,
     output_limits = value.output_limits,
     tokenizer_limits = tokenizer_limits,
   }
@@ -76,13 +84,25 @@ function Session.new(registry, configuration)
   if not dispatcher then
     return nil, dispatcher_error
   end
+  local completion, completion_error = Completion.new(registry, settings.completion_limits)
+  if not completion then
+    return nil, completion_error
+  end
   return setmetatable({
+    completion = completion,
     destroyed = false,
     dispatcher = dispatcher,
     history_value = settings.history,
     last_history_diagnostic = nil,
     tokenizer_limits = settings.tokenizer_limits,
   }, session_mt)
+end
+
+function session_mt:complete(bytes, cursor_offset)
+  if self.destroyed then
+    return command_error("sandbox session is destroyed", { reason = "session_closed" })
+  end
+  return self.completion:complete(bytes, cursor_offset)
 end
 
 function session_mt:dispatch(bytes, context)
