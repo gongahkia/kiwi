@@ -211,9 +211,9 @@ Goal: make Stanczyk useful inside games and portable builds without host executi
 - [x] Implement incremental command output.
 - [x] Implement command history and completion.
 - [x] Implement a virtual working directory and minimal virtual filesystem interface.
-- [ ] Implement built-in demonstration commands without imitating a full POSIX environment.
-- [ ] Implement asynchronous application jobs through explicit scheduled callbacks.
-- [ ] Ensure sandbox mode has no path to host process execution by default.
+- [x] Implement built-in demonstration commands without imitating a full POSIX environment.
+- [x] Implement asynchronous application jobs through explicit scheduled callbacks.
+- [x] Ensure sandbox mode has no path to host process execution by default.
 
 ### Embedding API
 
