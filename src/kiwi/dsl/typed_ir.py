@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import Identifier
@@ -42,6 +43,24 @@ class TypedBooleanLiteral:
     """A boolean literal with type `Bool`."""
 
     value: bool
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedStringLiteral:
+    """A string literal with type `String`."""
+
+    value: str
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class TypedQuantityLiteral:
+    """A normalized quantity literal with its dimension-specific type."""
+
+    value: Quantity
     type_: DslType
     span: SourceSpan
 
@@ -109,6 +128,8 @@ class TypedIfExpression:
 type TypedExpression = (
     TypedIntegerLiteral
     | TypedBooleanLiteral
+    | TypedStringLiteral
+    | TypedQuantityLiteral
     | TypedNameExpression
     | TypedNegateExpression
     | TypedGroupExpression

@@ -11,6 +11,8 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NegateExpression,
     PolicyDeclaration,
+    QuantityLiteral,
+    StringLiteral,
 )
 
 
@@ -88,3 +90,17 @@ def test_parser_reports_stable_source_linked_expected_token_diagnostics() -> Non
     assert diagnostic.code == ParserDiagnosticCode.EXPECTED_TOKEN
     assert diagnostic.message == "expected ':'"
     assert diagnostic.primary_span == source.span(ByteOffset(13), ByteOffset(16))
+
+
+def test_parser_builds_string_and_quantity_literals_with_source_spans() -> None:
+    source, result = parse_text('fn label() -> String = "alpha"\nfn wait() -> Duration = 250ms')
+
+    assert result.diagnostics == ()
+    label, wait = result.module.declarations
+    assert isinstance(label, FunctionDeclaration)
+    assert isinstance(label.body, StringLiteral)
+    assert label.body.value == "alpha"
+    assert isinstance(wait, FunctionDeclaration)
+    assert isinstance(wait.body, QuantityLiteral)
+    literal_start = source.text.index("250ms")
+    assert wait.body.span == source.span(ByteOffset(literal_start), ByteOffset(literal_start + 5))

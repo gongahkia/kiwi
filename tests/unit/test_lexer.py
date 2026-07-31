@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.lexer import MAX_INTEGER_DIGITS, LexerDiagnosticCode, lex
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.token import TokenKind
@@ -103,3 +104,47 @@ def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     assert tuple(token.kind for token in result.tokens) == (TokenKind.TRUE, TokenKind.EOF)
     assert result.diagnostics[0].code == LexerDiagnosticCode.INTEGER_TOO_LONG
     assert result.diagnostics[0].primary_span == source.span(ByteOffset(0), ByteOffset(len(digits)))
+
+
+def test_lexer_decodes_strings_and_normalizes_exact_quantity_literals() -> None:
+    source = SourceFile(
+        SourceFileId("literals.dtr"),
+        '"alpha\\n\\"beta\\"" 250ms 3s 8m 45deg 70%',
+    )
+
+    result = lex(source)
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.STRING,
+        TokenKind.QUANTITY,
+        TokenKind.QUANTITY,
+        TokenKind.QUANTITY,
+        TokenKind.QUANTITY,
+        TokenKind.QUANTITY,
+        TokenKind.EOF,
+    )
+    assert result.tokens[0].value == 'alpha\n"beta"'
+    assert result.tokens[1].value == Quantity(QuantityDimension.DURATION, ExactRational(1, 4))
+    assert result.tokens[2].value == Quantity(QuantityDimension.DURATION, ExactRational(3, 1))
+    assert result.tokens[3].value == Quantity(QuantityDimension.DISTANCE, ExactRational(8, 1))
+    assert result.tokens[4].value == Quantity(QuantityDimension.ANGLE, ExactRational(1, 8))
+    assert result.tokens[5].value == Quantity(QuantityDimension.PROBABILITY, ExactRational(7, 10))
+    assert result.diagnostics == ()
+
+
+def test_lexer_reports_recoverable_string_and_quantity_diagnostics() -> None:
+    source = SourceFile(SourceFileId("literals.dtr"), '"bad\\q" 101% 2km "open\ntrue')
+
+    result = lex(source)
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.STRING,
+        TokenKind.TRUE,
+        TokenKind.EOF,
+    )
+    assert tuple(diagnostic.code for diagnostic in result.diagnostics) == (
+        LexerDiagnosticCode.INVALID_STRING_ESCAPE,
+        LexerDiagnosticCode.INVALID_PROBABILITY,
+        LexerDiagnosticCode.INVALID_QUANTITY_UNIT,
+        LexerDiagnosticCode.UNTERMINATED_STRING,
+    )

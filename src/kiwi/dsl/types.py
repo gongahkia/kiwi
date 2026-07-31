@@ -11,7 +11,12 @@ class BuiltinType(StrEnum):
 
     INT = "Int"
     BOOL = "Bool"
+    STRING = "String"
     UNIT = "Unit"
+    DURATION = "Duration"
+    DISTANCE = "Distance"
+    ANGLE = "Angle"
+    PROBABILITY = "Probability"
 
 
 @dataclass(frozen=True, slots=True)

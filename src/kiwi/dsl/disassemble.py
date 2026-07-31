@@ -15,7 +15,13 @@ from kiwi.dsl.bytecode import (
     Return,
     StoreLocal,
 )
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, UnitValue
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    QuantityValue,
+    StringValue,
+    UnitValue,
+)
 from kiwi.dsl.types import render_type
 
 
@@ -49,11 +55,21 @@ def disassemble(module: BytecodeModule) -> str:
     return "\n".join(lines)
 
 
-def _format_constant(constant: IntegerValue | BooleanValue | UnitValue) -> str:
+def _format_constant(
+    constant: IntegerValue | BooleanValue | UnitValue | StringValue | QuantityValue,
+) -> str:
     if isinstance(constant, IntegerValue):
         return f"Integer({constant.value})"
     if isinstance(constant, BooleanValue):
         return f"Boolean({str(constant.value).lower()})"
+    if isinstance(constant, StringValue):
+        return f"String({constant.value!r})"
+    if isinstance(constant, QuantityValue):
+        quantity = constant.value
+        return (
+            f"Quantity({quantity.dimension.value},"
+            f"{quantity.value.numerator}/{quantity.value.denominator})"
+        )
     return "Unit"
 
 

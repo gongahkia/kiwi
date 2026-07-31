@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, ExpressionId, SymbolId
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.types import DslType
@@ -22,6 +23,8 @@ class CoreExpressionKind(StrEnum):
 
     INTEGER = "integer"
     BOOLEAN = "boolean"
+    STRING = "string"
+    QUANTITY = "quantity"
     REFERENCE = "reference"
     NEGATE = "negate"
     CALL = "call"
@@ -49,6 +52,28 @@ class CoreBoolean:
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.BOOLEAN
+
+
+@dataclass(frozen=True, slots=True)
+class CoreString:
+    """An immutable string core value."""
+
+    expression_id: ExpressionId
+    value: str
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.STRING
+
+
+@dataclass(frozen=True, slots=True)
+class CoreQuantity:
+    """An exact dimension-tagged core value."""
+
+    expression_id: ExpressionId
+    value: Quantity
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.QUANTITY
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +137,15 @@ class CoreIf:
 
 
 type CoreExpression = (
-    CoreInteger | CoreBoolean | CoreReference | CoreNegate | CoreCall | CoreLet | CoreIf
+    CoreInteger
+    | CoreBoolean
+    | CoreString
+    | CoreQuantity
+    | CoreReference
+    | CoreNegate
+    | CoreCall
+    | CoreLet
+    | CoreIf
 )
 
 

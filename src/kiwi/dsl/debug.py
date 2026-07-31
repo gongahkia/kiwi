@@ -18,6 +18,8 @@ from kiwi.dsl.syntax import (
     NameExpression,
     NegateExpression,
     Parameter,
+    QuantityLiteral,
+    StringLiteral,
     SurfaceModule,
     TypeReference,
 )
@@ -100,6 +102,17 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
     if isinstance(expression, BooleanLiteral):
         return [
             f"{prefix}BooleanLiteral value={expression.value!r} span={format_span(expression.span)}"
+        ]
+    if isinstance(expression, StringLiteral):
+        return [
+            f"{prefix}StringLiteral value={expression.value!r} span={format_span(expression.span)}"
+        ]
+    if isinstance(expression, QuantityLiteral):
+        quantity = expression.value
+        return [
+            f"{prefix}QuantityLiteral dimension={quantity.dimension.value} "
+            f"value={quantity.value.numerator}/{quantity.value.denominator} "
+            f"span={format_span(expression.span)}"
         ]
     if isinstance(expression, NameExpression):
         lines = [f"{prefix}NameExpression span={format_span(expression.span)}", f"{prefix}  name:"]

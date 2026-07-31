@@ -27,7 +27,9 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     FunctionValue,
     IntegerValue,
+    QuantityValue,
     RuntimeValue,
+    StringValue,
     UnitValue,
 )
 from kiwi.dsl.validator import BytecodeValidationError, validate_bytecode
@@ -131,7 +133,10 @@ def run_vm(
     ):
         return VMRunResult(None, VMFault(VMFaultCode.ENTRY, "entry function is outside the module"))
     if any(
-        not isinstance(argument, (IntegerValue, BooleanValue, FunctionValue, UnitValue))
+        not isinstance(
+            argument,
+            (IntegerValue, BooleanValue, StringValue, QuantityValue, FunctionValue, UnitValue),
+        )
         for argument in arguments
     ):
         return VMRunResult(
@@ -266,7 +271,10 @@ def run_vm_with_fallback(
     budgets: VMBudgets = DEFAULT_VM_BUDGETS,
 ) -> VMRunResult:
     """Execute bytecode and return an explicit immutable fallback after a fault."""
-    if not isinstance(fallback, (IntegerValue, BooleanValue, FunctionValue, UnitValue)):
+    if not isinstance(
+        fallback,
+        (IntegerValue, BooleanValue, StringValue, QuantityValue, FunctionValue, UnitValue),
+    ):
         raise ValueError("fallback must be a runtime value")
     result = run_vm(module, entry_function_id, arguments, budgets)
     return result if result.succeeded else VMRunResult(fallback, result.fault)

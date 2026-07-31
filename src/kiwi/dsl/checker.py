@@ -19,6 +19,8 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NameExpression,
     NegateExpression,
+    QuantityLiteral,
+    StringLiteral,
     TypeReference,
 )
 from kiwi.dsl.typed_ir import (
@@ -35,6 +37,8 @@ from kiwi.dsl.typed_ir import (
     TypedNameExpression,
     TypedNegateExpression,
     TypedParameter,
+    TypedQuantityLiteral,
+    TypedStringLiteral,
 )
 from kiwi.dsl.types import BuiltinType, DslType, FunctionType, render_type
 
@@ -179,6 +183,14 @@ def _check_expression(
         return TypedIntegerLiteral(expression.value, BuiltinType.INT, expression.span)
     if isinstance(expression, BooleanLiteral):
         return TypedBooleanLiteral(expression.value, BuiltinType.BOOL, expression.span)
+    if isinstance(expression, StringLiteral):
+        return TypedStringLiteral(expression.value, BuiltinType.STRING, expression.span)
+    if isinstance(expression, QuantityLiteral):
+        return TypedQuantityLiteral(
+            expression.value,
+            BuiltinType(expression.value.dimension.value),
+            expression.span,
+        )
     if isinstance(expression, NameExpression):
         binding = resolution.binding_for(expression)
         if binding is None:
