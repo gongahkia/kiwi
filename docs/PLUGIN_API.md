@@ -195,6 +195,9 @@ It queues output for `invocation:poll(...)`; it never writes terminal state dire
 See ADR-0013 and `docs/BACKENDS.md` for limits, typed failures, zero-time events,
 overflow, cancellation, and recording isolation.
 
+Sandbox command history is session-local, bounded, byte-preserving convenience state;
+it is not persistent or part of recordings/checkpoints. See ADR-0014.
+
 ## 6. Capabilities
 
 Plugins and commands declare capabilities. Examples:
