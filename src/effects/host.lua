@@ -23,6 +23,7 @@ Host.contract = {
   limits = "limits() -> lifecycle_limits",
   observe_cells = "observe_cells(cells, full_redraw) -> true | nil, error",
   reorder = "reorder(effect_ids) -> true | nil, error",
+  replace = "replace(effect_id, candidate, options?) -> true | nil, error",
   resize = "resize(viewport|nil, terminal, timestamp_us) -> event | nil, error",
   set_canvas_runtime = "set_canvas_runtime(runtime) -> true | nil, error",
   shutdown = "shutdown() -> true",
@@ -83,6 +84,15 @@ end
 
 local function runtime_failure(message, detail)
   local _, error_value = runtime_error(message, detail)
+  return error_value
+end
+
+local function reload_error(message, detail)
+  return nil, Errors.new("effect_reload_error", message, detail)
+end
+
+local function reload_failure(message, detail)
+  local _, error_value = reload_error(message, detail)
   return error_value
 end
 
@@ -299,7 +309,9 @@ local function call_hook(host, entry, name, argument)
   end
   host.callback_count = host.callback_count + 1
   local context = context_for(host, entry, name)
+  host.callback_depth = host.callback_depth + 1
   local ok, result = pcall(callback, entry.effect, context, argument)
+  host.callback_depth = host.callback_depth - 1
   if not ok then
     return nil, callback_error(name, result)
   end
@@ -442,6 +454,7 @@ local function options(value)
   end
   local accepted, accepted_error = exact_fields(value, {
     canvas_runtime = true,
+    effect_metadata = true,
     headless = true,
     max_callbacks_per_frame = true,
     max_delta_us = true,
@@ -464,6 +477,7 @@ local function options(value)
     return config_error("effect host headless must be a boolean")
   end
   local result = {
+    effect_metadata = {},
     headless = headless,
     max_callbacks_per_frame = 65536,
     max_delta_us = 1000000,
@@ -506,6 +520,12 @@ local function options(value)
     end
     result.random_seed = random_seed
   end
+  if value.effect_metadata ~= nil then
+    if type(value.effect_metadata) ~= "table" then
+      return config_error("effect host metadata must be a table")
+    end
+    result.effect_metadata = value.effect_metadata
+  end
   if value.viewport ~= nil then
     local viewport, viewport_error =
       dimensions(value.viewport, { height = true, width = true }, "effect host viewport")
@@ -530,6 +550,204 @@ local function options(value)
     result.canvas_runtime = runtime
   end
   return result
+end
+
+local function copy_metadata(value)
+  local copy = {}
+  if value.label ~= nil then
+    copy.label = value.label
+  end
+  if value.source_identity ~= nil then
+    copy.source_identity = value.source_identity
+  end
+  return copy
+end
+
+local function metadata_by_effect(value, ids)
+  local result = {}
+  for effect_id, metadata in pairs(value) do
+    if type(effect_id) ~= "string" or ids[effect_id] == nil then
+      return config_error("effect host metadata contains an unknown effect", { effect_id = effect_id })
+    end
+    local accepted, accepted_error =
+      exact_fields(metadata, { label = true, source_identity = true }, "effect host metadata")
+    if not accepted then
+      return nil, accepted_error
+    end
+    local copy = {}
+    for _, field in ipairs({ "label", "source_identity" }) do
+      if metadata[field] ~= nil then
+        local bounded, bounded_error = bounded_string(
+          metadata[field],
+          "effect host metadata " .. field,
+          field == "label" and 128 or 256
+        )
+        if not bounded or bounded == "" then
+          return nil, bounded_error or Errors.new("config_error", "effect host metadata must be non-empty")
+        end
+        copy[field] = bounded
+      end
+    end
+    result[effect_id] = copy
+  end
+  return result
+end
+
+local function reload_options(value)
+  if value == nil then
+    return {}
+  end
+  local accepted, accepted_error = exact_fields(value, { source_identity = true }, "effect reload options")
+  if not accepted then
+    return nil, accepted_error
+  end
+  if value.source_identity == nil then
+    return {}
+  end
+  local source_identity, source_error =
+    bounded_string(value.source_identity, "effect reload source identity", 256)
+  if not source_identity or source_identity == "" then
+    return config_error("effect reload source identity must be non-empty")
+  end
+  return { source_identity = source_identity }
+end
+
+local function sorted_keys(value)
+  local keys = {}
+  for key in pairs(value) do
+    keys[#keys + 1] = key
+  end
+  table.sort(keys)
+  return keys
+end
+
+local function error_cause(error_value)
+  if Errors.is(error_value) then
+    return {
+      cause = error_value.message,
+      cause_kind = error_value.kind,
+    }
+  end
+  return { cause = tostring(error_value), cause_kind = "unknown" }
+end
+
+local function reload_from(stage, error_value)
+  local detail = error_cause(error_value)
+  detail.stage = stage
+  return reload_failure("effect replacement failed", detail)
+end
+
+local function entry_parameters(entry)
+  if type(entry.effect.parameters) ~= "function" then
+    return nil, Errors.new("effect_load_error", "effect instance must expose parameters")
+  end
+  local ok, values_or_error, detail = pcall(entry.effect.parameters, entry.effect)
+  if not ok or values_or_error == nil then
+    return nil, Errors.new("effect_load_error", "effect parameter accessor failed", {
+      cause = ok and tostring(detail) or tostring(values_or_error),
+    })
+  end
+  return Manifest.parameters(entry.manifest, values_or_error)
+end
+
+local function configure_parameters(entry, values)
+  if type(entry.effect.set_parameters) ~= "function" then
+    return nil, Errors.new("effect_load_error", "effect instance must expose set_parameters")
+  end
+  local ok, configured, configure_error = pcall(entry.effect.set_parameters, entry.effect, values)
+  if not ok or configured ~= true then
+    return nil, Errors.new("effect_load_error", "effect parameter configuration failed", {
+      cause = ok and tostring(configure_error) or tostring(configured),
+    })
+  end
+  return true
+end
+
+local function initialise_random(host, entry)
+  if not entry.capabilities.deterministic_random then
+    return true
+  end
+  local seed, seed_error = Random.derive(host.random_seed, entry.manifest.id)
+  if not seed then
+    return nil, seed_error
+  end
+  local random, random_error = Random.new(seed)
+  if not random then
+    return nil, random_error
+  end
+  entry.random = random
+  entry.random_seed = seed
+  return true
+end
+
+local function capability_compatible(host, entry)
+  for _, capability in ipairs(entry.manifest.capabilities) do
+    if canvas_capabilities[capability] and (host.headless or not host.canvas_capability) then
+      return incompatible_failure("effect replacement requires an unnegotiated canvas capability", {
+        capability = capability,
+      })
+    end
+    if capability == "cell_transform" and not host.cell_transform_capability then
+      return incompatible_failure("effect replacement requires an unnegotiated cell-transform capability")
+    end
+  end
+  return true
+end
+
+local function migration_values(old_entry, candidate_entry)
+  local old_values, old_values_error = entry_parameters(old_entry)
+  if not old_values then
+    return nil, old_values_error
+  end
+  local values = {}
+  local migrations = {}
+  for _, name in ipairs(sorted_keys(old_entry.manifest.parameters)) do
+    local old_schema = old_entry.manifest.parameters[name]
+    local new_schema = candidate_entry.manifest.parameters[name]
+    if new_schema == nil then
+      migrations[#migrations + 1] = { name = name, reason = "removed" }
+    elseif old_schema.type ~= new_schema.type then
+      migrations[#migrations + 1] = { name = name, reason = "type_changed" }
+    else
+      local normalised, validation_error = Manifest.parameters(candidate_entry.manifest, {
+        [name] = old_values[name],
+      })
+      if normalised then
+        values[name] = normalised[name]
+      else
+        migrations[#migrations + 1] = {
+          name = name,
+          reason = "invalid",
+          validation_kind = validation_error.kind,
+        }
+      end
+    end
+  end
+  for _, name in ipairs(sorted_keys(candidate_entry.manifest.parameters)) do
+    if old_entry.manifest.parameters[name] == nil then
+      migrations[#migrations + 1] = { name = name, reason = "new_default" }
+    end
+  end
+  local migrated, migrated_error = Manifest.parameters(candidate_entry.manifest, values)
+  if not migrated then
+    return nil, migrated_error
+  end
+  return migrated, migrations
+end
+
+local function add_reload_migration(host, entry, migration)
+  host.diagnostics[#host.diagnostics + 1] = {
+    detail = {
+      parameter = migration.name,
+      reason = migration.reason,
+      validation_kind = migration.validation_kind,
+    },
+    effect_id = entry.manifest.id,
+    frame_sequence = host.frame_sequence,
+    hook = "replace",
+    kind = "effect_reload_migration",
+    message = "effect parameter used replacement default",
+  }
 end
 
 local function canvas_viewport(host)
@@ -953,7 +1171,9 @@ local function call_transform(host, entry, cell)
   end
   host.callback_count = host.callback_count + 1
   local context = context_for(host, entry, "transform_cell")
+  host.callback_depth = host.callback_depth + 1
   local completed, result = pcall(callback, entry.effect, context, cell)
+  host.callback_depth = host.callback_depth - 1
   if not completed then
     return nil, callback_error("transform_cell", result)
   end
@@ -977,7 +1197,9 @@ local function call_needs_redraw(host, entry)
   end
   host.callback_count = host.callback_count + 1
   local context = context_for(host, entry, "needs_redraw")
+  host.callback_depth = host.callback_depth + 1
   local completed, result = pcall(callback, entry.effect, context)
+  host.callback_depth = host.callback_depth - 1
   if not completed then
     return nil, callback_error("needs_redraw", result)
   end
@@ -1026,25 +1248,28 @@ function Host.new(effects, configuration)
         has_cell_transform_capability = true
       end
     end
-    if entry.capabilities.deterministic_random then
-      local seed, seed_error = Random.derive(settings.random_seed, entry.manifest.id)
-      if not seed then
-        return nil, seed_error
-      end
-      local random, random_error = Random.new(seed)
-      if not random then
-        return nil, random_error
-      end
-      entry.random = random
-      entry.random_seed = seed
-    end
     entries[index] = entry
+  end
+  local configured_metadata, metadata_error = metadata_by_effect(settings.effect_metadata, seen_ids)
+  if not configured_metadata then
+    return nil, metadata_error
+  end
+  for _, entry in ipairs(entries) do
+    entry.metadata = configured_metadata[entry.manifest.id] or {}
+    entry.reload_generation = 0
+    local initialised_random, random_error = initialise_random({
+      random_seed = settings.random_seed,
+    }, entry)
+    if not initialised_random then
+      return nil, random_error
+    end
   end
   local host = setmetatable({
     canvas_capability = has_canvas_capability,
     canvas_frame = nil,
     canvas_frame_sequence = 0,
     callback_count = 0,
+    callback_depth = 0,
     cell_transform_capability = has_cell_transform_capability,
     canvas_runtime = settings.canvas_runtime,
     diagnostics = {},
@@ -1058,6 +1283,7 @@ function Host.new(effects, configuration)
     max_delta_us = settings.max_delta_us,
     max_draw_operations = settings.max_draw_operations,
     max_event_payload_bytes = settings.max_event_payload_bytes,
+    random_seed = settings.random_seed,
     session_id = settings.session_id,
     terminal = settings.terminal,
     visual_frame = nil,
@@ -1363,6 +1589,94 @@ function host_mt:reorder(effect_ids)
   return true
 end
 
+function host_mt:replace(effect_id, candidate, replacement)
+  if self.callback_depth ~= 0 then
+    return reload_error("effect replacement requires a quiescent frame boundary", { stage = "callback" })
+  end
+  if self.canvas_frame ~= nil or self.visual_frame ~= nil then
+    return reload_error("effect replacement requires a quiescent frame boundary", { stage = "frame" })
+  end
+  local request, request_error = reload_options(replacement)
+  if not request then
+    return nil, reload_from("request", request_error)
+  end
+  local old_entry, old_error = entry_for(self, effect_id)
+  if not old_entry then
+    return nil, reload_from("target", old_error)
+  end
+  local index
+  for candidate_index, entry in ipairs(self.effects) do
+    if entry == old_entry then
+      index = candidate_index
+      break
+    end
+  end
+  if index == nil then
+    return nil, reload_error("effect replacement target is unavailable", { stage = "target" })
+  end
+  local candidate_entry, candidate_error = effect_methods(candidate)
+  if not candidate_entry then
+    local failure = reload_from("manifest", candidate_error)
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  if candidate_entry.manifest.id ~= old_entry.manifest.id then
+    local failure = reload_failure("effect replacement id does not match target", {
+      expected = old_entry.manifest.id,
+      provided = candidate_entry.manifest.id,
+      stage = "manifest",
+    })
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  local compatible, compatible_error = capability_compatible(self, candidate_entry)
+  if not compatible then
+    local failure = reload_from("capability", compatible_error)
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  local values, migrations_or_error = migration_values(old_entry, candidate_entry)
+  if not values then
+    local failure = reload_from("parameters", migrations_or_error)
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  local configured, configure_error = configure_parameters(candidate_entry, values)
+  if not configured then
+    local failure = reload_from("parameters", configure_error)
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  local initialised_random, random_error = initialise_random(self, candidate_entry)
+  if not initialised_random then
+    local failure = reload_from("random", random_error)
+    add_diagnostic(self, old_entry, "replace", failure)
+    return nil, failure
+  end
+  candidate_entry.disabled_reason = old_entry.disabled_reason
+  candidate_entry.enabled = old_entry.enabled
+  candidate_entry.metadata = copy_metadata(old_entry.metadata)
+  if request.source_identity then
+    candidate_entry.metadata.source_identity = request.source_identity
+  end
+  candidate_entry.reload_generation = old_entry.reload_generation + 1
+  if candidate_entry.hooks.init then
+    local initialised, init_error = call_hook(self, candidate_entry, "init")
+    if not initialised then
+      local failure = reload_from("init", init_error)
+      add_diagnostic(self, old_entry, "replace", failure)
+      return nil, failure
+    end
+  end
+  candidate_entry.initialised = true
+  self.effects[index] = candidate_entry
+  for _, migration in ipairs(migrations_or_error) do
+    add_reload_migration(self, candidate_entry, migration)
+  end
+  shutdown_entry(self, old_entry)
+  return true
+end
+
 function host_mt:emit(kind, payload, timestamp_us)
   local timestamp, timestamp_error =
     bounded_integer(timestamp_us, "effect event timestamp_us", MAX_TIME_US)
@@ -1538,6 +1852,8 @@ function host_mt:status()
       disabled_reason = entry.disabled_reason,
       id = entry.manifest.id,
       initialised = entry.initialised,
+      metadata = copy_metadata(entry.metadata or {}),
+      reload_generation = entry.reload_generation or 0,
       shutdown_attempted = entry.shutdown_attempted == true,
     }
   end
