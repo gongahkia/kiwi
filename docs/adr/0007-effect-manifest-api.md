@@ -18,7 +18,7 @@ Effect Manifest API v1 requires exactly these fields:
 - `capabilities`: a dense, duplicate-free array from the API v1 capability allowlist;
 - `parameters`: a map of typed parameter schemas.
 
-API v1 capabilities are `terminal_events`, `cell_transform`, `row_transform`, `draw_before`, `draw_after`, `post_process`, `persistent_canvas`, and `interactive_time`. `interactive_time` is valid only for manifests whose determinism is `interactive`.
+API v1 capabilities are `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, and `frame_update`. ADR-0008 maps each capability to its lifecycle hook and defines headless negotiation.
 
 Parameters have a serialisable default and are one of: `number` with optional finite `min` and `max`; `integer` with optional integer `min` and `max`; `boolean`; `string` with optional bounded `max_length`; or `enum` with a dense list of string, boolean, or finite numeric values. Unknown fields, duplicate capabilities, invalid bounds, and unsupported API versions fail with typed `effect_load_error` values before effect construction.
 

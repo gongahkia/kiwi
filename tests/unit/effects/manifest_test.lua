@@ -54,7 +54,7 @@ return {
       assertions.falsy(result)
       assertions.equal("effect_load_error", error_value.kind)
       value = manifest()
-      value.capabilities = { "interactive_time" }
+      value.capabilities = { "unknown" }
       result, error_value = Manifest.normalise(value)
       assertions.falsy(result)
       assertions.equal("effect_load_error", error_value.kind)
