@@ -8,6 +8,7 @@ from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.runtime_values import (
     BooleanValue,
+    ClosureValue,
     FunctionValue,
     IntegerValue,
     ListValue,
@@ -33,6 +34,7 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         ListValue((IntegerValue(1),)),
         RecordValue("Point", ("x",), (IntegerValue(1),)),
         FunctionValue(FunctionId(3)),
+        ClosureValue(FunctionId(3), (IntegerValue(1),)),
     )
 
     assert tuple(value.kind for value in values) == (
@@ -46,6 +48,7 @@ def test_runtime_values_are_closed_immutable_tagged_values() -> None:
         RuntimeValueKind.LIST,
         RuntimeValueKind.RECORD,
         RuntimeValueKind.FUNCTION,
+        RuntimeValueKind.CLOSURE,
     )
     with pytest.raises(FrozenInstanceError):
         values[0].value = 1  # type: ignore[misc]
@@ -60,6 +63,8 @@ def test_runtime_values_reject_host_type_confusion() -> None:
         FunctionId(-1)
     with pytest.raises(ValueError, match="function value"):
         FunctionValue(1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="closure captures"):
+        ClosureValue(FunctionId(1), (1,))  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="string"):
         StringValue(1)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="quantity"):

@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BYTECODE_VERSION,
+    BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
@@ -323,6 +324,9 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
         writer.u32(instruction.argument_count, "call argument count")
     elif isinstance(instruction, BuildList):
         writer.u32(instruction.element_count, "list element count")
+    elif isinstance(instruction, BuildClosure):
+        writer.u32(instruction.function_id.value, "closure function ID")
+        writer.u32(instruction.capture_count, "closure capture count")
     elif isinstance(instruction, BuildRecord):
         writer.text(instruction.type_name)
         writer.items(len(instruction.field_names), "record field count")
@@ -550,6 +554,7 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         Opcode.UNWRAP_SOME,
         Opcode.POP,
         Opcode.BUILD_LIST,
+        Opcode.BUILD_CLOSURE,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -570,6 +575,8 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         return Call(reader.u32())
     if opcode is Opcode.BUILD_LIST:
         return BuildList(reader.u32())
+    if opcode is Opcode.BUILD_CLOSURE:
+        return BuildClosure(FunctionId(reader.u32()), reader.u32())
     if opcode is Opcode.BUILD_RECORD:
         return BuildRecord(
             reader.text("record type name"),

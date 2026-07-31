@@ -7,9 +7,11 @@ from kiwi.dsl.syntax import (
     CallExpression,
     FieldAccessExpression,
     FunctionDeclaration,
+    FunctionTypeReference,
     GroupExpression,
     IfExpression,
     IntegerLiteral,
+    LambdaExpression,
     LetExpression,
     ListExpression,
     NegateExpression,
@@ -20,6 +22,7 @@ from kiwi.dsl.syntax import (
     RecordTypeDeclaration,
     SomeExpression,
     StringLiteral,
+    TypeReference,
 )
 
 
@@ -37,6 +40,7 @@ def test_parser_builds_source_spanned_policy_expression_tree() -> None:
     assert result.diagnostics == ()
     declaration = result.module.declarations[0]
     assert isinstance(declaration, PolicyDeclaration)
+    assert isinstance(declaration.return_annotation, TypeReference)
     assert declaration.name.text == "cautious"
     assert tuple(parameter.name.text for parameter in declaration.parameters) == ("view", "memory")
     assert declaration.return_annotation.name.text == "Decision"
@@ -140,10 +144,15 @@ def test_parser_builds_option_types_and_closed_constructors() -> None:
     assert result.diagnostics == ()
     some, none = result.module.declarations
     assert isinstance(some, FunctionDeclaration)
+    assert isinstance(some.return_annotation, TypeReference)
     assert some.return_annotation.name.text == "Option"
+    assert isinstance(some.return_annotation.arguments[0], TypeReference)
     assert some.return_annotation.arguments[0].name.text == "Int"
     assert isinstance(some.body, SomeExpression)
     assert isinstance(none, FunctionDeclaration)
+    assert isinstance(none.return_annotation, TypeReference)
+    assert isinstance(none.return_annotation.arguments[0], TypeReference)
+    assert isinstance(none.return_annotation.arguments[0].arguments[0], TypeReference)
     assert none.return_annotation.arguments[0].arguments[0].name.text == "Int"
     assert isinstance(none.body, NoneExpression)
     assert none.span == source.span(
@@ -162,3 +171,16 @@ def test_parser_builds_source_ordered_list_literals() -> None:
     assert isinstance(first, IntegerLiteral)
     assert isinstance(second, IntegerLiteral)
     assert (first.value, second.value) == (1, 2)
+
+
+def test_parser_builds_function_types_and_anonymous_functions() -> None:
+    _, result = parse_text("fn factory(seed: Int) -> Int -> Int = fn value -> seed")
+
+    assert result.diagnostics == ()
+    declaration = result.module.declarations[0]
+    assert isinstance(declaration, FunctionDeclaration)
+    assert isinstance(declaration.return_annotation, FunctionTypeReference)
+    assert isinstance(declaration.return_annotation.parameters[0], TypeReference)
+    assert declaration.return_annotation.parameters[0].name.text == "Int"
+    assert isinstance(declaration.body, LambdaExpression)
+    assert tuple(parameter.text for parameter in declaration.body.parameters) == ("value",)

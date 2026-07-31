@@ -33,7 +33,6 @@ from kiwi.dsl.syntax import (
     StringLiteral,
     SurfaceModule,
     TypeExpression,
-    TypeReference,
 )
 from kiwi.dsl.token import Token
 

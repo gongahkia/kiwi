@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import (
+    BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
@@ -15,6 +16,8 @@ from kiwi.dsl.bytecode import (
     BytecodeSourceMap,
     Call,
     ConstantPoolBuilder,
+    FunctionTable,
+    FunctionTableEntry,
     InstructionIndex,
     InstructionSourceMapEntry,
     Jump,
@@ -42,6 +45,7 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreIf,
     CoreInteger,
+    CoreLambda,
     CoreLet,
     CoreList,
     CoreMatch,
@@ -59,27 +63,51 @@ from kiwi.dsl.core_ir import (
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId, SymbolId
 from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, QuantityValue, StringValue
 from kiwi.dsl.source import SourceSpan
+from kiwi.dsl.types import FunctionType
 
 
 def compile_core(module: CoreModule, header: BytecodeHeader) -> BytecodeModule:
     """Compile a source-matched core module using only explicit orderings."""
     if header.source_file_id != module.span.file_id:
         raise ValueError("bytecode header source file does not match core module")
-    function_table = canonical_function_table(module.definitions)
+    top_level_table = canonical_function_table(module.definitions)
+    lambdas = tuple(sorted(_lambdas_in_module(module), key=lambda item: item.expression_id.value))
+    first_lambda_definition = (
+        max((definition.definition_id.value for definition in module.definitions), default=-1) + 1
+    )
+    lambda_entries = tuple(
+        FunctionTableEntry(
+            FunctionId(len(top_level_table.entries) + index),
+            DefinitionId(first_lambda_definition + index),
+            f"<lambda#{index}>",
+            len(lambda_.captures) + len(lambda_.parameters),
+        )
+        for index, lambda_ in enumerate(lambdas)
+    )
+    function_table = FunctionTable(top_level_table.entries + lambda_entries)
     constants = ConstantPoolBuilder()
     global_functions = tuple(
         (
             _definition_for_id(module.definitions, entry.definition_id).symbol_id,
             entry.function_id,
         )
-        for entry in function_table.entries
+        for entry in top_level_table.entries
+    )
+    lambda_functions = tuple(
+        (lambda_.expression_id, entry.function_id)
+        for lambda_, entry in zip(lambdas, lambda_entries, strict=True)
     )
     compiled_functions = tuple(
-        _FunctionCompiler(constants, global_functions).compile(
+        _FunctionCompiler(constants, global_functions, lambda_functions).compile(
             _definition_for_id(module.definitions, entry.definition_id),
             entry.function_id,
         )
-        for entry in function_table.entries
+        for entry in top_level_table.entries
+    ) + tuple(
+        _FunctionCompiler(constants, global_functions, lambda_functions).compile_lambda(
+            lambda_, entry.function_id, entry.definition_id, entry.name
+        )
+        for lambda_, entry in zip(lambdas, lambda_entries, strict=True)
     )
     functions = tuple(compiled.function for compiled in compiled_functions)
     source_map = BytecodeSourceMap(
@@ -99,9 +127,11 @@ class _FunctionCompiler:
         self,
         constants: ConstantPoolBuilder,
         global_functions: tuple[tuple[SymbolId, FunctionId], ...],
+        lambda_functions: tuple[tuple[ExpressionId, FunctionId], ...],
     ) -> None:
         self._constants = constants
         self._global_functions = global_functions
+        self._lambda_functions = lambda_functions
         self._instructions: list[BytecodeInstruction] = []
         self._origins: list[tuple[ExpressionId, SourceSpan]] = []
         self._locals: list[tuple[SymbolId, LocalSlot]] = []
@@ -120,6 +150,40 @@ class _FunctionCompiler:
             len(definition.parameters),
             self._next_slot,
             definition.return_type,
+            tuple(self._instructions),
+        )
+        return _CompiledFunction(
+            function,
+            tuple(
+                InstructionSourceMapEntry(function_id, InstructionIndex(index), expression_id, span)
+                for index, (expression_id, span) in enumerate(self._origins)
+            ),
+        )
+
+    def compile_lambda(
+        self,
+        lambda_: CoreLambda,
+        function_id: FunctionId,
+        definition_id: DefinitionId,
+        name: str,
+    ) -> _CompiledFunction:
+        if not isinstance(lambda_.type_, FunctionType):
+            raise AssertionError("core lambda has no function type")
+        for capture in lambda_.captures:
+            self._locals.append((capture.symbol_id, LocalSlot(self._next_slot)))
+            self._next_slot += 1
+        for parameter in lambda_.parameters:
+            self._locals.append((parameter.symbol_id, LocalSlot(self._next_slot)))
+            self._next_slot += 1
+        self._compile_expression(lambda_.body)
+        self._emit(Return(), lambda_.body)
+        function = BytecodeFunction(
+            function_id,
+            definition_id,
+            name,
+            len(lambda_.captures) + len(lambda_.parameters),
+            self._next_slot,
+            lambda_.type_.return_type,
             tuple(self._instructions),
         )
         return _CompiledFunction(
@@ -167,6 +231,20 @@ class _FunctionCompiler:
             for element in expression.elements:
                 self._compile_expression(element)
             self._emit(BuildList(len(expression.elements)), expression)
+            return
+        if isinstance(expression, CoreLambda):
+            for capture in expression.captures:
+                slot = _slot_for(self._locals, capture.symbol_id)
+                if slot is None:
+                    raise AssertionError("lambda capture has no enclosing local slot")
+                self._emit(LoadLocal(slot), expression)
+            self._emit(
+                BuildClosure(
+                    _lambda_function_for(self._lambda_functions, expression.expression_id),
+                    len(expression.captures),
+                ),
+                expression,
+            )
             return
         if isinstance(expression, CoreMatch):
             some_arm, none_arm = _option_match_arms(expression)
@@ -261,6 +339,54 @@ def _definition_for_id(
     raise AssertionError("function table references no core definition")
 
 
+def _lambdas_in_module(module: CoreModule) -> tuple[CoreLambda, ...]:
+    """Collect anonymous functions in enclosing-definition source pre-order."""
+    lambdas: list[CoreLambda] = []
+
+    def visit(expression: CoreExpression) -> None:
+        if isinstance(expression, CoreLambda):
+            lambdas.append(expression)
+            visit(expression.body)
+        elif isinstance(
+            expression,
+            (CoreInteger, CoreBoolean, CoreString, CoreQuantity, CoreNone, CoreReference),
+        ):
+            return
+        elif isinstance(expression, CoreSome):
+            visit(expression.value)
+        elif isinstance(expression, CoreList):
+            for element in expression.elements:
+                visit(element)
+        elif isinstance(expression, CoreMatch):
+            visit(expression.subject)
+            for arm in expression.arms:
+                visit(arm.body)
+        elif isinstance(expression, CoreRecord):
+            for field in expression.fields:
+                visit(field.value)
+        elif isinstance(expression, CoreNegate):
+            visit(expression.operand)
+        elif isinstance(expression, CoreCall):
+            visit(expression.callee)
+            for argument in expression.arguments:
+                visit(argument)
+        elif isinstance(expression, CoreFieldAccess):
+            visit(expression.record)
+        elif isinstance(expression, CoreLet):
+            visit(expression.value)
+            visit(expression.body)
+        elif isinstance(expression, CoreIf):
+            visit(expression.condition)
+            visit(expression.then_branch)
+            visit(expression.else_branch)
+        else:
+            raise TypeError(f"unsupported core expression: {type(expression).__name__}")
+
+    for definition in module.definitions:
+        visit(definition.body)
+    return tuple(lambdas)
+
+
 def _slot_for(
     locals_: list[tuple[SymbolId, LocalSlot]],
     symbol_id: SymbolId,
@@ -279,6 +405,16 @@ def _function_for(
         if candidate_symbol == symbol_id:
             return function_id
     raise AssertionError("core reference has no local slot or global function")
+
+
+def _lambda_function_for(
+    functions: tuple[tuple[ExpressionId, FunctionId], ...],
+    expression_id: ExpressionId,
+) -> FunctionId:
+    for candidate_expression_id, function_id in functions:
+        if candidate_expression_id == expression_id:
+            return function_id
+    raise AssertionError("core lambda has no compiled function")
 
 
 def _option_match_arms(expression: CoreMatch) -> tuple[CoreMatchSomeArm, CoreMatchNoneArm]:

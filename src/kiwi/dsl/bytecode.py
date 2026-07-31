@@ -10,6 +10,7 @@ from typing import ClassVar
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_CLOSURE_CAPTURES,
     MAX_RUNTIME_LIST_ITEMS,
     BooleanValue,
     IntegerValue,
@@ -92,6 +93,7 @@ class Opcode(IntEnum):
     UNWRAP_SOME = 16
     POP = 17
     BUILD_LIST = 18
+    BUILD_CLOSURE = 19
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +233,25 @@ class BuildList:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildClosure:
+    """Build a callable closure from source-ordered captured stack values."""
+
+    function_id: FunctionId
+    capture_count: int
+    opcode: ClassVar[Opcode] = Opcode.BUILD_CLOSURE
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.function_id, FunctionId):
+            raise ValueError("closure function ID must be a function ID")
+        if (
+            not isinstance(self.capture_count, int)
+            or isinstance(self.capture_count, bool)
+            or not 0 <= self.capture_count <= MAX_RUNTIME_CLOSURE_CAPTURES
+        ):
+            raise ValueError("closure capture count exceeds the configured capture limit")
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -276,6 +297,7 @@ type BytecodeInstruction = (
     | UnwrapSome
     | Pop
     | BuildList
+    | BuildClosure
     | Jump
     | JumpIfFalse
     | Return
@@ -464,6 +486,7 @@ class BytecodeModule:
                         UnwrapSome,
                         Pop,
                         BuildList,
+                        BuildClosure,
                     ),
                 )
                 for function in self.functions

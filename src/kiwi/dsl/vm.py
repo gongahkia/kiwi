@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
+    BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
@@ -33,6 +34,7 @@ from kiwi.dsl.bytecode import (
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.runtime_values import (
     BooleanValue,
+    ClosureValue,
     FunctionValue,
     IntegerValue,
     ListValue,
@@ -158,6 +160,7 @@ def run_vm(
                 OptionNoneValue,
                 RecordValue,
                 FunctionValue,
+                ClosureValue,
                 UnitValue,
             ),
         )
@@ -277,6 +280,29 @@ def run_vm(
             allocations += allocation_cost
             if not _push(stack, ListValue(values), budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, BuildClosure):
+            start = len(stack) - instruction.capture_count
+            if start < frame.stack_base:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "closure construction has insufficient stack values",
+                    frame,
+                )
+            captures = tuple(stack[start:])
+            del stack[start:]
+            allocation_cost = instruction.capture_count + 1
+            if allocations + allocation_cost > budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            allocations += allocation_cost
+            if not _push(
+                stack,
+                ClosureValue(instruction.function_id, captures),
+                budgets,
+            ):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, BuildSome):
             value = _pop(stack, frame.stack_base)
             if value is None:
@@ -369,14 +395,19 @@ def run_vm(
             callee = stack[start]
             call_arguments = tuple(stack[start + 1 :])
             del stack[start:]
-            if not isinstance(callee, FunctionValue):
+            if isinstance(callee, FunctionValue):
+                captured_arguments: tuple[RuntimeValue, ...] = ()
+            elif isinstance(callee, ClosureValue):
+                captured_arguments = callee.captures
+            else:
                 return _fault(module, VMFaultCode.CALL, "call requires a function value", frame)
             if callee.function_id.value >= len(module.functions):
                 return _fault(
                     module, VMFaultCode.CALL, "function value is outside the module", frame
                 )
             target = module.functions[callee.function_id.value]
-            if len(call_arguments) != target.arity:
+            all_arguments = captured_arguments + call_arguments
+            if len(all_arguments) != target.arity:
                 return _fault(
                     module,
                     VMFaultCode.CALL,
@@ -387,7 +418,7 @@ def run_vm(
                 return _fault(
                     module, VMFaultCode.CALL_DEPTH_BUDGET, "call-depth budget exhausted", frame
                 )
-            frames.append(_frame(target, call_arguments, len(stack)))
+            frames.append(_frame(target, all_arguments, len(stack)))
         elif isinstance(instruction, Jump):
             frame.instruction_index = instruction.target.value
         elif isinstance(instruction, JumpIfFalse):
@@ -434,6 +465,7 @@ def run_vm_with_fallback(
             OptionNoneValue,
             RecordValue,
             FunctionValue,
+            ClosureValue,
             UnitValue,
         ),
     ):

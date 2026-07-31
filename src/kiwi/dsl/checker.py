@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.names import ResolutionResult, ResolvedBinding, SymbolKind
-from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS
+from kiwi.dsl.runtime_values import MAX_RUNTIME_CLOSURE_CAPTURES, MAX_RUNTIME_LIST_ITEMS
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import (
     BooleanLiteral,
@@ -720,9 +720,21 @@ def _check_lambda_expression(
     if body.type_ != expected_type.return_type:
         diagnostics.append(_type_mismatch(body.span, expected_type.return_type, body.type_))
         return None
+    captures = _lambda_captures(expression, resolution, symbol_types)
+    if len(captures) > MAX_RUNTIME_CLOSURE_CAPTURES:
+        diagnostics.append(
+            Diagnostic(
+                "E423_CLOSURE_CAPTURE_LIMIT",
+                DiagnosticSeverity.ERROR,
+                f"anonymous function exceeds {MAX_RUNTIME_CLOSURE_CAPTURES} captures",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
     return TypedLambdaExpression(
         parameters,
-        _lambda_captures(expression, resolution, symbol_types),
+        captures,
         body,
         expected_type,
         expression.span,
@@ -735,7 +747,7 @@ def _lambda_captures(
     symbol_types: list[tuple[SymbolId, DslType]],
 ) -> tuple[TypedCapture, ...]:
     captures: list[TypedCapture] = []
-    for reference in _direct_lambda_references(expression.body):
+    for reference in _lambda_references(expression.body):
         binding = resolution.binding_for(reference)
         if binding is None:
             raise AssertionError("resolver-clean lambda has an unresolved name")
@@ -751,7 +763,7 @@ def _lambda_captures(
     return tuple(captures)
 
 
-def _direct_lambda_references(expression: Expression) -> tuple[NameExpression, ...]:
+def _lambda_references(expression: Expression) -> tuple[NameExpression, ...]:
     references: list[NameExpression] = []
 
     def visit(candidate: Expression) -> None:
@@ -768,7 +780,7 @@ def _direct_lambda_references(expression: Expression) -> tuple[NameExpression, .
             for element in candidate.elements:
                 visit(element)
         elif isinstance(candidate, LambdaExpression):
-            return
+            visit(candidate.body)
         elif isinstance(candidate, MatchExpression):
             visit(candidate.subject)
             for arm in candidate.arms:
