@@ -423,9 +423,9 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
-The version-4 runtime observation model is an immutable simulation value with
+The version-5 runtime observation model is an immutable simulation value with
 owner-visible entity ID, planar position, delivered inbox, current signals,
-tick, and `nearest_contact: Option<Contact>`. A conversion at the
+tick, `nearest_contact: Option<Contact>`, and range-visible cover records. A conversion at the
 simulation/DSL boundary produces closed lexically ordered DSL records; no
 renderer or hidden-world reference crosses that boundary.
 

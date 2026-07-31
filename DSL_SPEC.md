@@ -510,8 +510,8 @@ Fields must encode uncertainty explicitly. A missing value is `None`, not a sent
 
 Observation reads are instrumented. The VM trace can record that a branch depended on `target.confidence`, `view.self.suppression`, or `cover.exposure`.
 
-The current runtime observation ABI is version `4`. It exposes
-`Observation { inbox, nearest_contact, self, signals, tick }`, where `self` is
+The current runtime observation ABI is version `5`. It exposes
+`Observation { inbox, nearest_contact, self, signals, tick, visible_covers }`, where `self` is
 `SelfObservation { entity_id, position }`, `position` is the existing
 `Position { x: Distance, y: Distance }` record, and `inbox` is
 `InboxObservation { messages: List<Message> }`. The observation builder derives
@@ -528,6 +528,12 @@ target entity ID, owner identity, elevation, true state, or provenance IDs. A
 a contact. These immutable values contain no hidden entity state, renderer data,
 or writable references. Adding observable fields requires an ABI version and
 policy-compatibility update.
+
+`visible_covers` is a `List<Cover>` in ascending cover ID order. `Cover` is
+`{ cover_id: Int, end: Position, height: String, integrity_basis_points: Int,
+slots: List<CoverSlot>, start: Position }`, and `CoverSlot` is
+`{ position: Position, side: String, slot_index: Int }`. This projection has no
+occupancy or reservation state.
 
 ## 12. Intention API
 

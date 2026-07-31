@@ -171,7 +171,7 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
-The current observation ABI is version `4`: each operative input contains its
+The current observation ABI is version `5`: each operative input contains its
 own entity ID, planar position, delivered addressed inbox, current owner-local
 signals, current tick, and `nearest_contact: Option<Contact>`. The builder
 selects the nearest owner-local contact by exact planar squared distance and
@@ -522,6 +522,12 @@ stores its same-elevation standing position and its side; slot positions are
 unique within a segment. Segments are stored by ascending `CoverId` in authority
 state. Occupancy, reservation, material, blocking, exposure, and damage rules
 remain separate phases.
+
+Observed cover is an owner-local `CoverId`-ordered projection. A same-elevation
+segment is included when its exact nearest planar point is within the fixed
+10,000 millimetre initial observation range. This static-geometry projection is
+not obstacle-occluded and exposes segment endpoints, height, integrity, and
+slots only; occupancy and reservation remain hidden until their own phase.
 
 Exposure to a threat is computed from geometry, stance, and contact estimate. Because contacts are uncertain, policy-facing exposure may differ from ground truth. Record both where useful for explanation.
 

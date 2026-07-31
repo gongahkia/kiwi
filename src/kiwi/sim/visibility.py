@@ -11,7 +11,8 @@ from kiwi.domain.geometry import (
     WorldSubunits,
     segment_intersects_closed_rectangle,
 )
-from kiwi.domain.ids import ObstacleId
+from kiwi.domain.ids import CoverId, ObstacleId
+from kiwi.sim.covers import CoverSegment, CoverStore
 from kiwi.sim.map_geometry import MapGeometry
 
 
@@ -81,6 +82,22 @@ class VisibleGeometry:
             if obstacle.obstacle_id.value <= previous_id:
                 raise ValueError("visible geometry obstacles must be obstacle-ID ordered")
             previous_id = obstacle.obstacle_id.value
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleCover:
+    """One same-layer range-visible cover projection."""
+
+    segment: CoverSegment
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.segment, CoverSegment):
+            raise ValueError("visible cover requires a cover segment")
+
+    @property
+    def cover_id(self) -> CoverId:
+        """Return the stable source cover identity."""
+        return self.segment.cover_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +261,26 @@ def visible_geometry(
     return VisibleGeometry(observer, sensor_range, obstacles)
 
 
+def visible_covers(
+    store: CoverStore,
+    observer: WorldPosition,
+    sensor_range: SensorRange,
+) -> tuple[VisibleCover, ...]:
+    """Project same-layer cover segments within exact sensor range by cover ID."""
+    if not isinstance(store, CoverStore):
+        raise ValueError("visible covers require a cover store")
+    if not isinstance(observer, WorldPosition):
+        raise ValueError("visible covers require an observer position")
+    if not isinstance(sensor_range, SensorRange):
+        raise ValueError("visible covers require a sensor range")
+    return tuple(
+        VisibleCover(segment)
+        for segment in store.segments
+        if segment.start.elevation == observer.elevation
+        and _segment_is_within_sensor_range(observer, segment, sensor_range)
+    )
+
+
 def _is_within_sensor_range(
     observer: WorldPosition,
     target: WorldPosition,
@@ -270,3 +307,27 @@ def _rectangle_is_within_sensor_range(
         distance_x * distance_x + distance_y * distance_y
         <= sensor_range.maximum_distance.value * sensor_range.maximum_distance.value
     )
+
+
+def _segment_is_within_sensor_range(
+    observer: WorldPosition,
+    segment: CoverSegment,
+    sensor_range: SensorRange,
+) -> bool:
+    start_x = segment.start.x.value
+    start_y = segment.start.y.value
+    vector_x = segment.end.x.value - start_x
+    vector_y = segment.end.y.value - start_y
+    offset_x = observer.x.value - start_x
+    offset_y = observer.y.value - start_y
+    projection = offset_x * vector_x + offset_y * vector_y
+    length_squared = vector_x * vector_x + vector_y * vector_y
+    radius_squared = sensor_range.maximum_distance.value * sensor_range.maximum_distance.value
+    if projection <= 0:
+        return offset_x * offset_x + offset_y * offset_y <= radius_squared
+    if projection >= length_squared:
+        end_offset_x = observer.x.value - segment.end.x.value
+        end_offset_y = observer.y.value - segment.end.y.value
+        return end_offset_x * end_offset_x + end_offset_y * end_offset_y <= radius_squared
+    cross = offset_x * vector_y - offset_y * vector_x
+    return cross * cross <= radius_squared * length_squared

@@ -426,6 +426,18 @@ rules. `KWI-STATE\0` therefore uses version `12`, serialising the cover store
 before contacts. Versions `1` through `11` are rejected with no migration or
 compatibility decoder because development state remains disposable.
 
+### D-049: Observation ABI version 5 projects range-visible cover
+
+Observation ABI version `5` adds `visible_covers: List<Cover>`. Until
+per-entity sensor equipment exists, the builder uses one fixed 10,000 millimetre
+sensor range. A cover is visible when it shares the observer's elevation and
+the exact minimum planar distance to its segment is within that inclusive range;
+the projection remains `CoverId` ordered. As with initial visible geometry,
+obstacles do not occlude static cover projection. The closed `Cover` value
+contains its ID, endpoints, height tag, integrity basis points, and slotted
+positions/sides. It exposes neither occupancy nor hidden cover state. This ABI
+change does not alter canonical state format version `12`.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
