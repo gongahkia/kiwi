@@ -502,7 +502,10 @@ Do not confuse the two formats.
 The headless runner advances an exact non-negative tick count using a supplied
 fixed clock and immutable command log. It rejects commands outside the executed
 tick window and returns the final authority state with its canonical event
-stream. It has no frame or presentation inputs.
+stream. It has no frame or presentation inputs. An optional positive checkpoint
+interval captures the initial state, each interval boundary, and the final
+state. The determinism harness repeats identical inputs and reports the earliest
+different checkpoint with the first canonical field path.
 
 The CLI must eventually support:
 

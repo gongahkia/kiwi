@@ -1,0 +1,234 @@
+"""Repeatable headless-run verification and canonical state differences."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from kiwi.domain.ids import IdKind
+from kiwi.sim.clock import FixedTickClock
+from kiwi.sim.commands import ExternalCommand
+from kiwi.sim.hashing import StateHash, encode_canonical_state, hash_canonical_state
+from kiwi.sim.randomness import RandomStreamId
+from kiwi.sim.runner import HeadlessRun, run_headless
+from kiwi.sim.snapshot import AuthoritySnapshot, restore_authority_snapshot
+from kiwi.sim.state import MissionState
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalStateDifference:
+    """The first canonical field with distinct expected and actual values."""
+
+    path: str
+    expected: str
+    actual: str
+
+
+@dataclass(frozen=True, slots=True)
+class DeterminismDivergence:
+    """One earliest differing checkpoint with its hashes and state difference."""
+
+    tick: int
+    expected_hash: StateHash
+    actual_hash: StateHash
+    difference: CanonicalStateDifference
+
+
+@dataclass(frozen=True, slots=True)
+class DeterminismReport:
+    """Two reruns and their first known divergence, if any."""
+
+    expected: HeadlessRun
+    actual: HeadlessRun
+    divergence: DeterminismDivergence | None
+
+    @property
+    def matches(self) -> bool:
+        """Return whether identical inputs produced identical checkpoint hashes."""
+        return self.divergence is None
+
+
+def run_determinism_harness(
+    state: MissionState,
+    clock: FixedTickClock,
+    ticks: int,
+    commands: tuple[ExternalCommand, ...] = (),
+    checkpoint_interval: int = 1,
+) -> DeterminismReport:
+    """Run the same immutable inputs twice and compare all checkpoint hashes."""
+    expected = run_headless(state, clock, ticks, commands, checkpoint_interval)
+    actual = run_headless(state, clock, ticks, commands, checkpoint_interval)
+    return DeterminismReport(expected, actual, compare_headless_runs(expected, actual))
+
+
+def compare_headless_runs(
+    expected: HeadlessRun, actual: HeadlessRun
+) -> DeterminismDivergence | None:
+    """Return the earliest checkpoint or final-state divergence between two runs."""
+    if not isinstance(expected, HeadlessRun) or not isinstance(actual, HeadlessRun):
+        raise TypeError("determinism comparison requires headless runs")
+    if len(expected.checkpoints) != len(actual.checkpoints):
+        return _divergence(
+            min(expected.state.tick, actual.state.tick),
+            hash_canonical_state(expected.state),
+            hash_canonical_state(actual.state),
+            CanonicalStateDifference(
+                "checkpoints/count",
+                str(len(expected.checkpoints)),
+                str(len(actual.checkpoints)),
+            ),
+        )
+    for index, (expected_checkpoint, actual_checkpoint) in enumerate(
+        zip(expected.checkpoints, actual.checkpoints, strict=True)
+    ):
+        if expected_checkpoint.tick != actual_checkpoint.tick:
+            return _divergence(
+                min(expected_checkpoint.tick, actual_checkpoint.tick),
+                expected_checkpoint.state_hash,
+                actual_checkpoint.state_hash,
+                CanonicalStateDifference(
+                    f"checkpoints/{index}/tick",
+                    str(expected_checkpoint.tick),
+                    str(actual_checkpoint.tick),
+                ),
+            )
+        if expected_checkpoint.state_hash != actual_checkpoint.state_hash:
+            return _divergence_from_checkpoints(expected_checkpoint, actual_checkpoint)
+    expected_hash = hash_canonical_state(expected.state)
+    actual_hash = hash_canonical_state(actual.state)
+    if expected_hash != actual_hash:
+        difference = first_canonical_state_difference(expected.state, actual.state)
+        if difference is None:
+            raise AssertionError("distinct canonical hashes require a state difference")
+        return _divergence(
+            max(expected.state.tick, actual.state.tick), expected_hash, actual_hash, difference
+        )
+    return None
+
+
+def first_canonical_state_difference(
+    expected: MissionState, actual: MissionState
+) -> CanonicalStateDifference | None:
+    """Find the first differing field in canonical-state encoding order."""
+    if not isinstance(expected, MissionState) or not isinstance(actual, MissionState):
+        raise TypeError("canonical state comparison requires mission states")
+    expected_bytes = encode_canonical_state(expected)
+    actual_bytes = encode_canonical_state(actual)
+    if expected_bytes == actual_bytes:
+        return None
+    if expected.tick != actual.tick:
+        return _difference("tick", expected.tick, actual.tick)
+    if expected.phase != actual.phase:
+        return _difference("phase", expected.phase.value, actual.phase.value)
+    if len(expected.entities) != len(actual.entities):
+        return _difference("entities/count", len(expected.entities), len(actual.entities))
+    for index, (expected_entity, actual_entity) in enumerate(
+        zip(expected.entities, actual.entities, strict=True)
+    ):
+        prefix = f"entities/{index}"
+        if expected_entity.entity_id != actual_entity.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_entity.entity_id.value,
+                actual_entity.entity_id.value,
+            )
+        if expected_entity.position.x != actual_entity.position.x:
+            return _difference(
+                f"{prefix}/position/x",
+                expected_entity.position.x.value,
+                actual_entity.position.x.value,
+            )
+        if expected_entity.position.y != actual_entity.position.y:
+            return _difference(
+                f"{prefix}/position/y",
+                expected_entity.position.y.value,
+                actual_entity.position.y.value,
+            )
+        if expected_entity.position.elevation != actual_entity.position.elevation:
+            return _difference(
+                f"{prefix}/position/elevation",
+                expected_entity.position.elevation.value,
+                actual_entity.position.elevation.value,
+            )
+    for kind in IdKind:
+        expected_next_id = expected.id_allocator.next_ids[int(kind)]
+        actual_next_id = actual.id_allocator.next_ids[int(kind)]
+        if expected_next_id != actual_next_id:
+            return _difference(
+                f"id_allocator/{kind.name.lower()}", expected_next_id, actual_next_id
+            )
+    if expected.scheduled_events.next_sequence != actual.scheduled_events.next_sequence:
+        return _difference(
+            "scheduled_events/next_sequence",
+            expected.scheduled_events.next_sequence,
+            actual.scheduled_events.next_sequence,
+        )
+    if len(expected.scheduled_events.pending) != len(actual.scheduled_events.pending):
+        return _difference(
+            "scheduled_events/pending/count",
+            len(expected.scheduled_events.pending),
+            len(actual.scheduled_events.pending),
+        )
+    for index, (expected_event, actual_event) in enumerate(
+        zip(expected.scheduled_events.pending, actual.scheduled_events.pending, strict=True)
+    ):
+        prefix = f"scheduled_events/pending/{index}"
+        if expected_event.tick != actual_event.tick:
+            return _difference(f"{prefix}/tick", expected_event.tick, actual_event.tick)
+        if expected_event.sequence != actual_event.sequence:
+            return _difference(f"{prefix}/sequence", expected_event.sequence, actual_event.sequence)
+    if expected.random_streams.seed != actual.random_streams.seed:
+        return _difference(
+            "random_streams/seed",
+            expected.random_streams.seed.value,
+            actual.random_streams.seed.value,
+        )
+    for stream_id in RandomStreamId:
+        expected_stream = expected.random_streams.stream_state(stream_id)
+        actual_stream = actual.random_streams.stream_state(stream_id)
+        prefix = f"random_streams/{stream_id.name.lower()}"
+        if expected_stream.state != actual_stream.state:
+            return _difference(f"{prefix}/state", expected_stream.state, actual_stream.state)
+        if expected_stream.next_draw_index != actual_stream.next_draw_index:
+            return _difference(
+                f"{prefix}/next_draw_index",
+                expected_stream.next_draw_index,
+                actual_stream.next_draw_index,
+            )
+    return _byte_difference(expected_bytes, actual_bytes)
+
+
+def _divergence_from_checkpoints(
+    expected: AuthoritySnapshot, actual: AuthoritySnapshot
+) -> DeterminismDivergence:
+    expected_state = restore_authority_snapshot(expected)
+    actual_state = restore_authority_snapshot(actual)
+    if not isinstance(expected_state, MissionState) or not isinstance(actual_state, MissionState):
+        raise ValueError("determinism comparison requires valid authority checkpoints")
+    difference = first_canonical_state_difference(expected_state, actual_state)
+    if difference is None:
+        raise AssertionError("distinct checkpoint hashes require a state difference")
+    return _divergence(expected.tick, expected.state_hash, actual.state_hash, difference)
+
+
+def _divergence(
+    tick: int,
+    expected_hash: StateHash,
+    actual_hash: StateHash,
+    difference: CanonicalStateDifference,
+) -> DeterminismDivergence:
+    return DeterminismDivergence(tick, expected_hash, actual_hash, difference)
+
+
+def _difference(path: str, expected: int | str, actual: int | str) -> CanonicalStateDifference:
+    return CanonicalStateDifference(path, str(expected), str(actual))
+
+
+def _byte_difference(expected: bytes, actual: bytes) -> CanonicalStateDifference:
+    for index, (expected_byte, actual_byte) in enumerate(zip(expected, actual, strict=False)):
+        if expected_byte != actual_byte:
+            return _difference(
+                f"canonical_state/bytes/{index}",
+                f"0x{expected_byte:02x}",
+                f"0x{actual_byte:02x}",
+            )
+    return _difference("canonical_state/bytes/length", len(expected), len(actual))

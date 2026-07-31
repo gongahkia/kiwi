@@ -1,0 +1,98 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.determinism import (
+    compare_headless_runs,
+    first_canonical_state_difference,
+    run_determinism_harness,
+)
+from kiwi.sim.runner import HeadlessRun, run_headless
+from kiwi.sim.snapshot import capture_authority_snapshot
+from kiwi.sim.state import MissionPhase, MissionState, add_entity
+
+
+def test_determinism_harness_repeats_checkpoint_hashes_exactly() -> None:
+    report = run_determinism_harness(
+        MissionState(),
+        FixedTickClock(TickRate.HZ_30),
+        3,
+        checkpoint_interval=2,
+    )
+
+    assert report.matches
+    assert report.divergence is None
+    assert tuple(snapshot.tick for snapshot in report.expected.checkpoints) == (0, 2, 3)
+    assert report.expected.checkpoints == report.actual.checkpoints
+
+
+def test_differential_report_uses_first_canonical_entity_path() -> None:
+    expected, _ = add_entity(
+        MissionState(),
+        WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000)),
+    )
+    actual = replace(
+        expected,
+        entities=(
+            replace(
+                expected.entities[0],
+                position=WorldPosition(WorldSubunits(1_001), WorldSubunits(2_000)),
+            ),
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "entities/0/position/x"
+    assert difference.expected == "1000"
+    assert difference.actual == "1001"
+
+
+def test_run_comparison_reports_first_divergent_checkpoint() -> None:
+    expected_state = MissionState(tick=1)
+    actual_state = replace(expected_state, phase=MissionPhase.ACTIVE)
+    expected = HeadlessRun(
+        expected_state,
+        (),
+        (capture_authority_snapshot(expected_state),),
+    )
+    actual = HeadlessRun(
+        actual_state,
+        (),
+        (capture_authority_snapshot(actual_state),),
+    )
+
+    divergence = compare_headless_runs(expected, actual)
+
+    assert divergence is not None
+    assert divergence.tick == 1
+    assert divergence.difference.path == "phase"
+    assert divergence.expected_hash != divergence.actual_hash
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (
+            lambda: run_headless(
+                MissionState(),
+                FixedTickClock(TickRate.HZ_30),
+                1,
+                checkpoint_interval=0,
+            ),
+            "positive integer",
+        ),
+        (
+            lambda: first_canonical_state_difference(object(), MissionState()),  # type: ignore[arg-type]
+            "mission states",
+        ),
+    ),
+)
+def test_determinism_helpers_reject_invalid_inputs(factory: object, message: str) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        factory()  # type: ignore[operator]

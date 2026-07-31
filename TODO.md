@@ -204,7 +204,7 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 - [x] Implement canonical state encoding and hashing.
 - [x] Implement canonical snapshots distinct from presentation snapshots.
 - [x] Add headless runner for N ticks.
-- [ ] Add determinism harness and differential report.
+- [x] Add determinism harness and differential report.
 - [ ] Add fixture content loader with validation.
 
 ### Exit criteria

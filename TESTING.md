@@ -182,6 +182,11 @@ The determinism test runner should:
 
 Include tests with different insertion orders when constructing initial mappings.
 
+The initial headless harness records authority snapshots at the initial tick,
+each configured positive interval boundary, and the final tick. It repeats the
+same immutable inputs in-process and returns a structured first-checkpoint
+divergence with canonical field path and expected/actual values.
+
 ## 4. Canonical-state differential report
 
 On hash mismatch, report the first differing canonical path:
