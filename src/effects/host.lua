@@ -567,7 +567,10 @@ local function metadata_by_effect(value, ids)
   local result = {}
   for effect_id, metadata in pairs(value) do
     if type(effect_id) ~= "string" or ids[effect_id] == nil then
-      return config_error("effect host metadata contains an unknown effect", { effect_id = effect_id })
+      return config_error(
+        "effect host metadata contains an unknown effect",
+        { effect_id = effect_id }
+      )
     end
     local accepted, accepted_error =
       exact_fields(metadata, { label = true, source_identity = true }, "effect host metadata")
@@ -583,7 +586,8 @@ local function metadata_by_effect(value, ids)
           field == "label" and 128 or 256
         )
         if not bounded or bounded == "" then
-          return nil, bounded_error or Errors.new("config_error", "effect host metadata must be non-empty")
+          return nil,
+            bounded_error or Errors.new("config_error", "effect host metadata must be non-empty")
         end
         copy[field] = bounded
       end
@@ -597,7 +601,8 @@ local function reload_options(value)
   if value == nil then
     return {}
   end
-  local accepted, accepted_error = exact_fields(value, { source_identity = true }, "effect reload options")
+  local accepted, accepted_error =
+    exact_fields(value, { source_identity = true }, "effect reload options")
   if not accepted then
     return nil, accepted_error
   end
@@ -643,9 +648,10 @@ local function entry_parameters(entry)
   end
   local ok, values_or_error, detail = pcall(entry.effect.parameters, entry.effect)
   if not ok or values_or_error == nil then
-    return nil, Errors.new("effect_load_error", "effect parameter accessor failed", {
-      cause = ok and tostring(detail) or tostring(values_or_error),
-    })
+    return nil,
+      Errors.new("effect_load_error", "effect parameter accessor failed", {
+        cause = ok and tostring(detail) or tostring(values_or_error),
+      })
   end
   return Manifest.parameters(entry.manifest, values_or_error)
 end
@@ -656,9 +662,10 @@ local function configure_parameters(entry, values)
   end
   local ok, configured, configure_error = pcall(entry.effect.set_parameters, entry.effect, values)
   if not ok or configured ~= true then
-    return nil, Errors.new("effect_load_error", "effect parameter configuration failed", {
-      cause = ok and tostring(configure_error) or tostring(configured),
-    })
+    return nil,
+      Errors.new("effect_load_error", "effect parameter configuration failed", {
+        cause = ok and tostring(configure_error) or tostring(configured),
+      })
   end
   return true
 end
@@ -683,12 +690,16 @@ end
 local function capability_compatible(host, entry)
   for _, capability in ipairs(entry.manifest.capabilities) do
     if canvas_capabilities[capability] and (host.headless or not host.canvas_capability) then
-      return incompatible_failure("effect replacement requires an unnegotiated canvas capability", {
-        capability = capability,
-      })
+      return nil,
+        incompatible_failure("effect replacement requires an unnegotiated canvas capability", {
+          capability = capability,
+        })
     end
     if capability == "cell_transform" and not host.cell_transform_capability then
-      return incompatible_failure("effect replacement requires an unnegotiated cell-transform capability")
+      return nil,
+        incompatible_failure(
+          "effect replacement requires an unnegotiated cell-transform capability"
+        )
     end
   end
   return true
@@ -1591,10 +1602,16 @@ end
 
 function host_mt:replace(effect_id, candidate, replacement)
   if self.callback_depth ~= 0 then
-    return reload_error("effect replacement requires a quiescent frame boundary", { stage = "callback" })
+    return reload_error(
+      "effect replacement requires a quiescent frame boundary",
+      { stage = "callback" }
+    )
   end
   if self.canvas_frame ~= nil or self.visual_frame ~= nil then
-    return reload_error("effect replacement requires a quiescent frame boundary", { stage = "frame" })
+    return reload_error(
+      "effect replacement requires a quiescent frame boundary",
+      { stage = "frame" }
+    )
   end
   local request, request_error = reload_options(replacement)
   if not request then
