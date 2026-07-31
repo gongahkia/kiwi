@@ -402,6 +402,11 @@ ObjectiveUpdated
 
 Events carry stable IDs and causal parent references where applicable. Human-readable text is derived at the UI boundary.
 
+The initial closed algebra records applied start, abort, and signal commands;
+scheduled trigger dequeues; and deterministic random draws. Its header carries
+an event ID, tick, and ascending causal-parent event IDs. Canonical streams sort
+by `(tick, event ID)` and reject duplicate IDs.
+
 ## 14. Replay architecture
 
 A replay package contains:
