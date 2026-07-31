@@ -21,7 +21,7 @@ return {
       local registry = assert(Registry.new({ max_commands = 2 }))
       local command_definition = definition()
       assert(registry:register("unlock", command_definition))
-      command_definition.capabilities[1] = "virtual_fs_write"
+      command_definition.capabilities[1] = "vfs.write"
       command_definition.summary = "mutated"
 
       local command = assert(registry:command("unlock"))
@@ -53,7 +53,12 @@ return {
         registry:register("bad-capability", definition({ capabilities = { "process" } }))
       assertions.falsy(command)
       assertions.equal("sandbox_command_error", command_error.kind)
+      assertions.equal("unsupported_capability", command_error.detail.reason)
       assertions.equal(0, registry:status().commands)
+      assertions.truthy(Registry.capability_supported("vfs.read"))
+      assertions.truthy(Registry.capability_supported("vfs.write"))
+      assertions.truthy(Registry.capability_supported("vfs.chdir"))
+      assertions.falsy(Registry.capability_supported("virtual_fs_read"))
     end,
   },
   {

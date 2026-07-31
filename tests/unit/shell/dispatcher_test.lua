@@ -74,7 +74,7 @@ return {
         summary = "Original summary",
       }
       assert(registry:register("status", definition))
-      definition.capabilities[1] = "virtual_fs_write"
+      definition.capabilities[1] = "vfs.write"
       definition.summary = "mutated"
       local dispatcher = assert(Dispatcher.new(registry))
       assert(dispatcher:dispatch('status "quoted argument"'))
