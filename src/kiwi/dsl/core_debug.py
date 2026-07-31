@@ -9,6 +9,7 @@ from kiwi.dsl.core_ir import (
     CoreExpression,
     CoreFieldAccess,
     CoreInteger,
+    CoreIntrinsicCall,
     CoreLambda,
     CoreLet,
     CoreList,
@@ -110,6 +111,14 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
         lines = [f"{prefix}Call {metadata}", f"{prefix}  callee:"]
         lines.extend(_format_expression(expression.callee, depth + 2))
         lines.append(f"{prefix}  arguments:")
+        for argument in expression.arguments:
+            lines.extend(_format_expression(argument, depth + 2))
+        return lines
+    if isinstance(expression, CoreIntrinsicCall):
+        lines = [
+            f"{prefix}IntrinsicCall name={expression.intrinsic.name} {metadata}",
+            f"{prefix}  arguments:",
+        ]
         for argument in expression.arguments:
             lines.extend(_format_expression(argument, depth + 2))
         return lines

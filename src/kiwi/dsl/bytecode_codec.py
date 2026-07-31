@@ -35,6 +35,7 @@ from kiwi.dsl.bytecode import (
     Pop,
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     PushNone,
     Return,
     StoreLocal,
@@ -42,6 +43,7 @@ from kiwi.dsl.bytecode import (
     UnwrapSome,
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
@@ -318,6 +320,8 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
         writer.u32(instruction.constant_id.value, "constant ID")
     elif isinstance(instruction, PushFunction):
         writer.u32(instruction.function_id.value, "function ID")
+    elif isinstance(instruction, PushIntrinsic):
+        writer.u8(instruction.intrinsic.value, "intrinsic kind")
     elif isinstance(instruction, (LoadLocal, StoreLocal)):
         writer.u32(instruction.slot.value, "local slot")
     elif isinstance(instruction, Call):
@@ -555,6 +559,7 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         Opcode.POP,
         Opcode.BUILD_LIST,
         Opcode.BUILD_CLOSURE,
+        Opcode.PUSH_INTRINSIC,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -565,6 +570,16 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         return PushConstant(ConstantId(reader.u32()))
     if opcode is Opcode.PUSH_FUNCTION:
         return PushFunction(FunctionId(reader.u32()))
+    if opcode is Opcode.PUSH_INTRINSIC:
+        intrinsic_offset = reader.offset
+        try:
+            return PushIntrinsic(IntrinsicKind(reader.u8()))
+        except ValueError as error:
+            raise _DecodeError(
+                BytecodeDecodeCode.INVALID_VALUE,
+                intrinsic_offset,
+                "unknown intrinsic kind",
+            ) from error
     if opcode is Opcode.LOAD_LOCAL:
         return LoadLocal(LocalSlot(reader.u32()))
     if opcode is Opcode.STORE_LOCAL:

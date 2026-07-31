@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, ExpressionId, SymbolId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.types import DslType
 
@@ -34,6 +35,7 @@ class CoreExpressionKind(StrEnum):
     REFERENCE = "reference"
     NEGATE = "negate"
     CALL = "call"
+    INTRINSIC_CALL = "intrinsic_call"
     FIELD_ACCESS = "field_access"
     LET = "let"
     IF = "if"
@@ -224,6 +226,18 @@ class CoreCall:
 
 
 @dataclass(frozen=True, slots=True)
+class CoreIntrinsicCall:
+    """A typed bounded standard-library call."""
+
+    expression_id: ExpressionId
+    intrinsic: IntrinsicKind
+    arguments: tuple[CoreExpression, ...]
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.INTRINSIC_CALL
+
+
+@dataclass(frozen=True, slots=True)
 class CoreFieldAccess:
     """A statically named record field read."""
 
@@ -275,6 +289,7 @@ type CoreExpression = (
     | CoreReference
     | CoreNegate
     | CoreCall
+    | CoreIntrinsicCall
     | CoreFieldAccess
     | CoreLet
     | CoreIf

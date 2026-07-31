@@ -19,6 +19,7 @@ from kiwi.dsl.bytecode import (
     Pop,
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     PushNone,
     Return,
     StoreLocal,
@@ -87,6 +88,8 @@ def _format_instruction(instruction: BytecodeInstruction) -> str:
         return f"PUSH_CONSTANT {instruction.constant_id.value}"
     if isinstance(instruction, PushFunction):
         return f"PUSH_FUNCTION {instruction.function_id.value}"
+    if isinstance(instruction, PushIntrinsic):
+        return f"PUSH_INTRINSIC {instruction.intrinsic.name}"
     if isinstance(instruction, LoadLocal):
         return f"LOAD_LOCAL {instruction.slot.value}"
     if isinstance(instruction, StoreLocal):

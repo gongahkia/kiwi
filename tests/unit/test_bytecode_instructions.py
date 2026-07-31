@@ -23,6 +23,7 @@ from kiwi.dsl.bytecode import (
     Pop,
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     PushNone,
     Return,
     StoreLocal,
@@ -30,6 +31,7 @@ from kiwi.dsl.bytecode import (
     UnwrapSome,
 )
 from kiwi.dsl.ids import ExpressionId, FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 
 
 def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
@@ -53,6 +55,7 @@ def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
         Pop(),
         BuildList(2),
         BuildClosure(FunctionId(0), 1),
+        PushIntrinsic(IntrinsicKind.LIST_MAP),
     )
 
     assert tuple(instruction.opcode for instruction in instructions) == tuple(Opcode)
@@ -77,3 +80,5 @@ def test_instruction_operands_reject_invalid_indices_and_counts() -> None:
         BuildList(-1)
     with pytest.raises(ValueError, match="closure capture count"):
         BuildClosure(FunctionId(0), -1)
+    with pytest.raises(ValueError, match="intrinsic kind"):
+        PushIntrinsic(1)  # type: ignore[arg-type]

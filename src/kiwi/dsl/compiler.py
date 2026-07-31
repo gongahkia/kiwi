@@ -30,6 +30,7 @@ from kiwi.dsl.bytecode import (
     Pop,
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     PushNone,
     Return,
     StoreLocal,
@@ -45,6 +46,7 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreIf,
     CoreInteger,
+    CoreIntrinsicCall,
     CoreLambda,
     CoreLet,
     CoreList,
@@ -297,6 +299,12 @@ class _FunctionCompiler:
                 self._compile_expression(argument)
             self._emit(Call(len(expression.arguments)), expression)
             return
+        if isinstance(expression, CoreIntrinsicCall):
+            self._emit(PushIntrinsic(expression.intrinsic), expression)
+            for argument in expression.arguments:
+                self._compile_expression(argument)
+            self._emit(Call(len(expression.arguments)), expression)
+            return
         if isinstance(expression, CoreFieldAccess):
             self._compile_expression(expression.record)
             self._emit(LoadField(expression.field_name), expression)
@@ -368,6 +376,9 @@ def _lambdas_in_module(module: CoreModule) -> tuple[CoreLambda, ...]:
             visit(expression.operand)
         elif isinstance(expression, CoreCall):
             visit(expression.callee)
+            for argument in expression.arguments:
+                visit(argument)
+        elif isinstance(expression, CoreIntrinsicCall):
             for argument in expression.arguments:
                 visit(argument)
         elif isinstance(expression, CoreFieldAccess):

@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 
 MAX_RUNTIME_STRING_BYTES = 65_536
 MAX_RUNTIME_LIST_ITEMS = 1_024
@@ -27,6 +28,7 @@ class RuntimeValueKind(StrEnum):
     RECORD = "record"
     FUNCTION = "function"
     CLOSURE = "closure"
+    INTRINSIC = "intrinsic"
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +181,18 @@ class ClosureValue:
             raise ValueError("closure captures must be runtime values")
 
 
+@dataclass(frozen=True, slots=True)
+class IntrinsicValue:
+    """A closed VM-dispatched standard-library function identifier."""
+
+    intrinsic: IntrinsicKind
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.INTRINSIC, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.intrinsic, IntrinsicKind):
+            raise ValueError("intrinsic value must contain an intrinsic kind")
+
+
 type RuntimeValue = (
     IntegerValue
     | BooleanValue
@@ -191,6 +205,7 @@ type RuntimeValue = (
     | RecordValue
     | FunctionValue
     | ClosureValue
+    | IntrinsicValue
 )
 
 
@@ -209,5 +224,6 @@ def _is_runtime_value(value: object) -> bool:
             RecordValue,
             FunctionValue,
             ClosureValue,
+            IntrinsicValue,
         ),
     )

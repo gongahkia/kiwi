@@ -167,8 +167,8 @@ Add the functional data features required by tactical policies.
 - [x] Implement immutable lists.
 - [x] Implement anonymous functions with bounded closures.
 - [x] Implement pipeline syntax as desugaring.
-- [ ] Add bounded `List.map`, `filter`, `fold`, `find`, `min_by`, and `sort_by` intrinsics.
-- [ ] Define deterministic tie-breaking for collection selection and sorting.
+- [x] Add bounded `List.map`, `filter`, `fold`, `find`, `min_by`, and `sort_by` intrinsics.
+- [x] Define deterministic tie-breaking for collection selection and sorting.
 - [ ] Add memory and decision record validation.
 - [ ] Add domain type operations for duration, distance, probability, position, and vector.
 - [ ] Reject dimensionally invalid operations.

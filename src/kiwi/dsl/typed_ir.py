@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import DefinitionId, SymbolId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import Identifier
 from kiwi.dsl.types import DslType
@@ -198,6 +199,16 @@ class TypedCallExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedIntrinsicCallExpression:
+    """A checked bounded standard-library call without host callables."""
+
+    intrinsic: IntrinsicKind
+    arguments: tuple[TypedExpression, ...]
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedFieldAccessExpression:
     """A statically resolved read of a record field."""
 
@@ -245,6 +256,7 @@ type TypedExpression = (
     | TypedNegateExpression
     | TypedGroupExpression
     | TypedCallExpression
+    | TypedIntrinsicCallExpression
     | TypedFieldAccessExpression
     | TypedLetExpression
     | TypedIfExpression
