@@ -101,6 +101,11 @@ A bundle contains:
 
 Bytecode must not contain Python code objects, import paths, callables, or pickled values.
 
+Milestone 4's in-memory `CapabilityManifest` is versioned separately from the
+raw bytecode payload and currently has empty requirements. Adding it to a
+compiled-policy bundle is deferred until the bundle format exists; it must not
+silently alter the canonical `KWI-BC\0` encoding.
+
 Kiwi encodes bytecode payloads with the `KWI-BC\0` binary format, encoding
 version `1`. It has fixed big-endian integer fields and ordered length-prefixed
 collections; its source map inherits source-file ID from the module header. The
