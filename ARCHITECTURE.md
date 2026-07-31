@@ -352,24 +352,25 @@ their invariants; canonical encoding is deferred to its dedicated task.
 
 ## 12. Command model
 
-All external authority enters through typed commands:
+All external authority enters through typed commands. The initial kernel admits:
 
 ```text
 StartMission
-SetSimulationRate (non-authoritative presentation preference unless mode makes it authority)
 IssueSignal(signal, target)
 RequestAbort
-DeployPolicy(bundle_id)  # only if scenario supports it
 ```
 
-Commands include:
+`SetSimulationRate` is presentation-only, and policy deployment is deferred
+until policy state exists. These commands include:
 
 - tick;
-- monotonic sequence number;
+- globally unique monotonic sequence number;
 - source kind;
 - validated payload.
 
-The replay stores the canonical command log.
+The canonical command log sorts by `(tick, sequence)` and rejects duplicate
+sequences; source identifies provenance but does not break ties. The replay
+stores this canonical command log.
 
 ## 13. Event model
 
