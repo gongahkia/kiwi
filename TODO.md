@@ -179,7 +179,7 @@ Goal: add visual differentiation without compromising terminal semantics.
 
 ### Built-in effects
 
-- [ ] Implement the clean baseline as an explicit no-op effect chain.
+- [x] Implement the clean baseline as an explicit no-op effect chain.
 - [ ] Implement a CRT/phosphor preset with scanlines, persistence, controlled bloom, and reduced-motion settings.
 - [ ] Implement a kinetic output preset with bounded cell displacement and decay.
 - [ ] Implement effect intensity controls.

@@ -8,6 +8,8 @@ The default clean renderer is the reference presentation. Every effect is option
 
 The bootstrap renderer selects the explicit `stanczyk.clean` preset by default. It contains no effects and disables post-processing; callers may inspect it through `renderer:preset()`. No other preset is accepted before the effects pipeline milestone.
 
+The effects API also provides `effects.clean.new()`: a static `stanczyk.clean` no-op effect suitable as the explicit baseline entry in an effect host chain. It has no capabilities, hooks, parameters, or semantic effects.
+
 ## 2. Rendering pipeline
 
 Suggested frame pipeline:
