@@ -84,6 +84,15 @@ Registered commands are trusted application code. The command context should exp
 
 The project must avoid describing this as secure execution of hostile Lua code.
 
+`backend.sandbox` has no documented operation for `os.execute`, `io.popen`, host
+`io.open`, process or PTY helpers, environment mutation, dynamic native loading, host
+filesystem mounts, LÖVE system launch, or network access. Its built-ins use only the
+per-session VFS facade and bounded output writer; its public `send_input(bytes)` never
+injects host context into a handler. This is authority isolation for the documented API.
+It does not stop malicious trusted Lua callbacks from reading global `os`, `io`,
+`package`, or other globals available in the embedding process. Restricting hostile Lua
+requires a separate restricted loading/runtime design.
+
 ## 6. Effect plugins
 
 Effects run inside the LÖVE process and are trusted in v0.1.

@@ -181,15 +181,12 @@ terminal:register_command("status", {
 })
 ```
 
-Command context may expose:
-
-- `write_line(text)`;
-- `emit(name, payload)`;
-- `schedule(delay_us, callback)`;
-- `cwd()`;
-- virtual filesystem operations granted to the command;
-- environment lookups from the sandbox environment;
-- deterministic random functions if granted.
+Command context exposes only declared, granted capability facades. API v1 may expose
+`context.fs` for `vfs.read`, `vfs.write`, and `vfs.chdir`, and `context.jobs` for
+`jobs.schedule`; these facades expire after the synchronous handler or scheduled
+callback returns. Output is only the third `writer` argument. Context exposes no
+terminal, renderer, backend, registry, host filesystem, environment, process, network,
+or unrestricted callback reference.
 
 Commands return a numeric or structured status.
 
@@ -220,6 +217,19 @@ exposes `stat`, `list`, `read_file`, and `get_cwd`; `vfs.write` exposes `write_f
 session-local, in-memory, bounded, and excluded from semantic recordings/checkpoints.
 Completion has no filesystem authority. See ADR-0017 and `docs/BACKENDS.md`.
 
+Each session owns logical scheduler time beginning at zero. A command declaring and
+receiving `jobs.schedule` gets `context.jobs:schedule(delay_us, callback)`,
+`cancel(job_id)`, and `is_pending(job_id)`. Jobs are one-shot, due in deterministic
+`(due_us, insertion_sequence)` order, and run only through explicit
+`session:advance(delta_us)`. A command invocation remains live while owned jobs remain
+pending; callback output is queued through its original writer and later polled as
+zero-time output events. See ADR-0018.
+
+`backend.sandbox` accepts complete submitted command-line bytes with `send_input(bytes)`
+and exposes bounded `poll(delta_us)`, completion, and history wrappers. It does not pass
+host context into handlers or provide process, host-file, environment, network, native,
+or PTY authority. Built-ins are ordinary registered commands. See ADR-0019.
+
 ## 6. Capabilities
 
 Plugins and commands declare capabilities. Examples:
@@ -242,7 +252,7 @@ Sandbox commands:
 - `vfs.write`;
 - `vfs.chdir`;
 - `domain_events`;
-- `scheduled_jobs`;
+- `jobs.schedule`;
 - `deterministic_random`;
 - `completion`.
 

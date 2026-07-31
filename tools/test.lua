@@ -32,6 +32,7 @@ local modules = {
   "property.sandbox_output_test",
   "property.sandbox_completion_scanner_test",
   "property.sandbox_builtins_test",
+  "property.sandbox_backend_test",
   "property.sandbox_scheduler_test",
   "property.virtual_fs_test",
   "unit.runtime.errors_test",

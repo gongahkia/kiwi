@@ -95,7 +95,7 @@ The sandbox backend provides a command-oriented terminal environment without hos
 - completion;
 - scheduled jobs;
 - output emitter;
-- host-domain event emitter.
+- host-domain event emitter only when a future explicit capability adds one.
 
 ### 6.3 Command contract
 
@@ -104,10 +104,9 @@ Conceptual registration:
 ```lua
 terminal:register_command("unlock", {
   summary = "Unlock a game object",
-  complete = function(context, partial) end,
-  run = function(context, argv)
-    context:write("Access granted.\r\n")
-    context:emit("game.unlock", { id = "laboratory" })
+  complete = function(request) end,
+  run = function(context, argv, writer)
+    writer:emit("Access granted.\r\n")
     return 0
   end
 })
@@ -309,6 +308,43 @@ grants fail with `capability_denied`; undeclared names fail registry validation 
 Host mounts, persistent/snapshotted filesystems, providers, shared namespaces, path
 ACLs, recursive removal, and filesystem completion are excluded from API v1. See
 ADR-0017.
+
+### 6.9 Built-ins
+
+The optional v1 built-in registry entries are ordinary commands: `help`, `pwd`, `ls`,
+`cat`, `write`, `mkdir`, `rm`, `mv`, and `cd`. They use no parser privilege, host path,
+host process, terminal, renderer, or mutable VFS node. `help` requires no capability;
+`pwd`, `ls`, and `cat` require `vfs.read`; `write`, `mkdir`, `rm`, and `mv` require
+`vfs.write`; `cd` requires `vfs.chdir`. Their syntax is exactly `help [COMMAND]`,
+`pwd`, `ls [PATH]`, `cat PATH`, `write PATH DATA`, `mkdir PATH`, `rm PATH`,
+`mv SOURCE DESTINATION`, and `cd PATH`. Argument-count diagnostics are typed and
+deterministic; VFS errors are retained. All output uses the invocation writer.
+
+### 6.10 Jobs
+
+Each session has deterministic logical time, starting at zero. Only
+`session:advance(delta_us)` advances it. A `jobs.schedule` command receives an expiring
+`context.jobs` facade with one-shot `schedule`, `cancel`, and `is_pending` operations;
+it receives no scheduler, session, terminal, registry, host-timer, or process object.
+Jobs sort by due microseconds then insertion order. They retain their creating
+invocation until callbacks end and its output drains. Callback output uses the existing
+FIFO and only becomes terminal output when polled with `delta_us = 0`. See ADR-0018.
+
+### 6.11 Backend integration and trust boundary
+
+`backend.sandbox` owns one session. `send_input(bytes)` accepts one complete submitted
+command line without shell line editing, echo, a host context, or automatic input-event
+recording. `poll(delta_us)` advances session logical time then returns bounded queued
+resize events and drained command output in deterministic order. It has bounded active
+invocations and resize backlog. `complete(bytes, cursor_offset)` and `history()` expose
+the existing session-local APIs; `stop()` cancels backend-owned work and destroys the
+session.
+
+The sandbox backend has no public process, host filesystem, environment, native-load,
+network, PTY, mount, or LÖVE-system-launch operation. This prevents accidental authority
+through the documented API. Registered Lua handlers remain trusted in-process code, not
+hostile-code sandboxing: a malicious callback can access Lua globals unless loaded in a
+separate restricted environment. See ADR-0019 and `docs/SECURITY.md`.
 
 ## 7. PTY helper backend
 
