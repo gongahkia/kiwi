@@ -126,6 +126,10 @@ The host invokes `on_cell` for caller-supplied, renderable visible cells in stri
 
 `on_event` receives `{ version, kind, sequence, timestamp_us, payload }`. Kinds and bounded payload schemas are defined by ADR-0008. Sequences and timestamps are monotonic; timestamps and `update` deltas are non-negative integer microseconds, never floating seconds.
 
+`effects.host:advance(delta_us)` is the coordinator-facing clock entrypoint. It splits a positive recorded delta into ordered `update` calls no larger than its immutable `max_delta_us`; direct `update` calls above that limit remain rejected. `limits()` exposes only scalar lifecycle bounds for this adapter.
+
+`runtime.coordinator` accepts an optional `effect_host`. For forward backend application it advances that host from each recorded delta after semantic mutation, then publishes `input`, `output`, `bell`, `cursor`, `scroll`, `screen_switch`, `resize`, and `damage` records. Input/output are deterministic contiguous slices at the host event-byte limit. Scroll payloads are `{ direction = "up"|"down", top, bottom, count }`; damage ranges are active-screen `{ row, first_column, last_column }` records in row order. A resize with unknown pixel dimensions preserves the prior viewport dimensions. `Coordinator:seek` rejects while an effect host is attached; visual-state rewind is not implemented by lifecycle API v1.
+
 Canvas hooks are unavailable in headless hosts. In graphical hosts they receive a narrow facade with dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations. The host saves and restores graphics state around each callback and disables only an effect that fails.
 
 ## 5. Sandbox command API

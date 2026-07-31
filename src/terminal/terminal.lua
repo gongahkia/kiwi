@@ -28,6 +28,7 @@ Terminal.contract = {
   feed_output = "feed_output(bytes) -> semantic_events, parser_events | nil, error",
   resize = "resize(columns, rows) -> true | nil, error",
   snapshot = "snapshot() -> nil, error",
+  take_damage = "take_damage() -> dense_damage_ranges",
   destroy = "destroy()",
 }
 
@@ -142,6 +143,8 @@ local function line_feed(terminal, events, offset, byte)
   cursor.pending_wrap = false
   events[#events + 1] = {
     byte = byte,
+    count = 1,
+    direction = "up",
     kind = "scrolled",
     offset = offset,
     top = terminal.margins.top,
@@ -327,6 +330,7 @@ local function scroll_up(terminal, events, offset, count, blank_cell)
     events[#events + 1] = {
       bottom = terminal.margins.bottom,
       count = actual,
+      direction = "up",
       kind = "scrolled",
       offset = offset,
       top = terminal.margins.top,
@@ -785,6 +789,16 @@ local function apply_csi(terminal, events, event)
     if not moved then
       return nil, move_error
     end
+    if #moved > 0 then
+      events[#events + 1] = {
+        bottom = terminal.margins.bottom,
+        count = #moved,
+        direction = "down",
+        kind = "scrolled",
+        offset = event.offset,
+        top = terminal.margins.top,
+      }
+    end
     return true
   elseif final == "m" then
     return apply_sgr(terminal, events, event.offset, values)
@@ -919,6 +933,23 @@ function terminal_mt:resize(columns, rows)
   self.saved_cursor = saved_cursor
   self.tab_stops = default_tab_stops(config.columns)
   return true
+end
+
+function terminal_mt:take_damage()
+  local screen = active_screen(self)
+  local ranges = {}
+  for row_index, row in ipairs(screen.rows) do
+    local first_column, last_column = row:dirty_range()
+    if first_column then
+      ranges[#ranges + 1] = {
+        first_column = first_column,
+        last_column = last_column,
+        row = row_index,
+      }
+    end
+  end
+  screen:clear_damage()
+  return ranges
 end
 
 function terminal_mt:snapshot()

@@ -67,7 +67,10 @@ Required properties include:
    Enabling any built-in effect does not change the terminal state digest.
 
 8. **Deterministic effect replay**  
-   Fixed events, time, parameters, and seed reproduce the same effect-state digest.
+Fixed events, time, parameters, and seed reproduce the same effect-state digest.
+
+9. **Lifecycle subscription non-interference**
+Generated recorded output, resize, scroll, and screen-switch streams produce the same terminal digest with and without a lifecycle host; repeated runs produce the same copied event order and timestamps.
 
 Every generated failure must print the seed and a minimisable case representation.
 

@@ -287,6 +287,27 @@ return {
     end,
   },
   {
+    name = "effect host deterministically subdivides coordinator timing advances",
+    run = function()
+      local deltas = {}
+      local effect = assert(Effect.new(manifest("test.advance", { "frame_update" }), {
+        update = function(_, _, delta_us)
+          deltas[#deltas + 1] = delta_us
+        end,
+      }))
+      local host = assert(Host.new({ effect }, { max_delta_us = 10 }))
+      assert(host:advance(25))
+      assertions.equal(3, host:status().frame_sequence)
+      assertions.equal(25, host:status().elapsed_us)
+      assertions.equal(10, deltas[1])
+      assertions.equal(10, deltas[2])
+      assertions.equal(5, deltas[3])
+      local value, error_value = host:advance(0.5)
+      assertions.falsy(value)
+      assertions.equal("config_error", error_value.kind)
+    end,
+  },
+  {
     name = "effect host enforces configured effect callback and payload limits",
     run = function()
       local first = assert(Effect.new(manifest("test.first")))
@@ -409,6 +430,12 @@ return {
       assert(host:emit("screen_switch", { screen = "alternate" }, 1))
       assert(host:emit("checkpoint_restored", { checkpoint_us = 1 }, 1))
       assert(host:emit("replay_seek", { target_us = 1 }, 1))
+      assert(host:emit("scroll", {
+        bottom = 2,
+        count = 1,
+        direction = "up",
+        top = 1,
+      }, 1))
       local cell = {
         attributes = 0,
         background = "default",
@@ -427,6 +454,7 @@ return {
       assertions.equal("screen_switch", kinds[2])
       assertions.equal("checkpoint_restored", kinds[3])
       assertions.equal("replay_seek", kinds[4])
+      assertions.equal("scroll", kinds[5])
       assertions.equal(false, damage[1])
       assertions.equal(true, damage[2])
     end,
