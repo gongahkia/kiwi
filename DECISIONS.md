@@ -169,6 +169,15 @@ immutable values before dynamic authority ID allocation. This narrow fixture
 format is separate from the later full mission schema; incompatible evolution
 requires a new version and migration or compatibility policy.
 
+### D-027: Observation ABI begins with owner-visible state only
+
+Observation ABI version `1` provides each policy only its own entity ID, planar
+position, and current tick. It excludes elevation, other entities, contacts,
+messages, signals, objectives, and presentation state until those fields have
+defined authority semantics and provenance. The simulation converts this data to
+closed immutable DSL records; ABI changes require explicit policy compatibility
+handling.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

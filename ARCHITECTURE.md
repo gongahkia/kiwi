@@ -383,6 +383,11 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
+The version-1 runtime observation model is an immutable simulation value with
+owner-visible entity ID, planar position, and tick only. A conversion at the
+simulation/DSL boundary produces closed lexically ordered DSL records; no
+renderer or hidden-world reference crosses that boundary.
+
 ## 12. Command model
 
 All external authority enters through typed commands. The initial kernel admits:
