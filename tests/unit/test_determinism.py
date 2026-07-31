@@ -8,6 +8,7 @@ from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import EventId
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.commands import CommandSource, SignalName
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactField,
@@ -26,6 +27,7 @@ from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.runner import HeadlessRun, run_headless
+from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.snapshot import capture_authority_snapshot
 from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
 
@@ -187,6 +189,36 @@ def test_differential_report_includes_message_ledger_in_canonical_order() -> Non
 
     assert difference is not None
     assert difference.path == "messages/next_sequence"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_current_signals_in_canonical_order() -> None:
+    state, entity = add_entity(
+        MissionState(tick=4), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    event_id, allocator = state.id_allocator.allocate_event()
+    expected = replace(state, id_allocator=allocator)
+    actual = replace(
+        expected,
+        signals=SignalStore(
+            (
+                SignalObservation(
+                    SignalName("hold"),
+                    4,
+                    0,
+                    CommandSource.PLAYER,
+                    entity.entity_id,
+                    event_id,
+                ),
+            )
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "signals/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

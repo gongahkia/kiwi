@@ -48,14 +48,15 @@ entity. Each command records a tick, a globally unique non-negative signed
 64-bit sequence, and player or scenario source. Canonical command logs sort by
 `(tick, sequence)` and reject duplicate sequences. Signals are typed,
 content-defined identifiers and may target the squad or one entity; they become
-policy observations only when communication is implemented.
+owner-local policy observations during their exact issued tick.
 
 The initial reducer accepts only commands stamped for the current mission tick.
 `StartMission` transitions `prepared` to `active`; `RequestAbort` transitions
-`active` to `abort_requested`; signals produce structured
-`signals_unavailable` rejections until their observation semantics are added.
-It then dequeues scheduled markers, records canonical events, and advances one
-tick.
+`active` to `abort_requested`; active-mission signals emit `SignalIssued` and
+are visible to the squad or valid targeted entity in the current policy phase.
+Signals outside an active mission reject with `mission_not_active`; unknown
+targets reject with `signal_target_not_found`. The reducer then dequeues
+scheduled markers, records canonical events, and advances one tick.
 
 ## 3. Determinism contract
 
@@ -170,10 +171,11 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
-The initial observation ABI is version `1`: each operative input contains only
-its own entity ID, planar position, and the current tick. Contacts, allies,
-geometry, signals, messages, objectives, and elevation are absent until their
-respective authority models define explicit observable semantics.
+The current observation ABI is version `3`: each operative input contains its
+own entity ID, planar position, delivered addressed inbox, current owner-local
+signals, and current tick. Contacts, allies, geometry, objectives, and elevation
+remain absent until their respective authority models define explicit observable
+semantics.
 
 The initial builder consumes one validated `MissionState` and produces an
 entity-ID-ascending immutable tuple before any policy executes. Successor
@@ -634,9 +636,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`9` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`10` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `8`, unsupported versions, and noncanonical values are
+versions `1` through `9`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -653,6 +655,7 @@ Include:
 - map bounds and obstacle geometry;
 - active movement actions;
 - contact estimates and field evidence event IDs;
+- current signal observations and issuing event IDs;
 - live message ledger entries and send sequence;
 - policy memory;
 - policy versions;

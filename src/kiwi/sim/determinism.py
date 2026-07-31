@@ -433,6 +433,37 @@ def first_canonical_state_difference(
                     expected_event_id.value,
                     actual_event_id.value,
                 )
+    if len(expected.signals.signals) != len(actual.signals.signals):
+        return _difference(
+            "signals/count",
+            len(expected.signals.signals),
+            len(actual.signals.signals),
+        )
+    for index, (expected_signal, actual_signal) in enumerate(
+        zip(expected.signals.signals, actual.signals.signals, strict=True)
+    ):
+        prefix = f"signals/{index}"
+        for field in ("signal", "tick", "command_sequence", "source", "target_entity_id"):
+            expected_value = getattr(expected_signal, field)
+            actual_value = getattr(actual_signal, field)
+            if expected_value != actual_value:
+                if expected_value is None:
+                    return _difference(f"{prefix}/{field}", "absent", "present")
+                if actual_value is None:
+                    return _difference(f"{prefix}/{field}", "present", "absent")
+                if hasattr(expected_value, "value"):
+                    expected_rendered = expected_value.value
+                    actual_rendered = actual_value.value
+                else:
+                    expected_rendered = expected_value
+                    actual_rendered = actual_value
+                return _difference(f"{prefix}/{field}", expected_rendered, actual_rendered)
+        if expected_signal.provenance_event_id != actual_signal.provenance_event_id:
+            return _difference(
+                f"{prefix}/provenance_event_id",
+                expected_signal.provenance_event_id.value,
+                actual_signal.provenance_event_id.value,
+            )
     for kind in IdKind:
         expected_next_id = expected.id_allocator.next_ids[int(kind)]
         actual_next_id = actual.id_allocator.next_ids[int(kind)]

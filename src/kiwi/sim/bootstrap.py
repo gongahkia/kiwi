@@ -39,6 +39,7 @@ def build_initial_state(
             policy_versions=state.policy_versions,
             contacts=state.contacts,
             messages=state.messages,
+            signals=state.signals,
             scheduled_events=queue,
             random_streams=state.random_streams,
         )

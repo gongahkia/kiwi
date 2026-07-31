@@ -22,6 +22,7 @@ from kiwi.sim.events import (
     EventHeader,
     MissionStarted,
     ScheduledTriggerFired,
+    SignalIssued,
     canonical_event_order,
 )
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
@@ -36,6 +37,7 @@ from kiwi.sim.policies import (
     validate_policy_evaluations,
 )
 from kiwi.sim.policy_events import emit_policy_events
+from kiwi.sim.signals import SignalObservation, add_signal, discard_signals_before
 from kiwi.sim.state import MissionPhase, MissionState
 
 
@@ -75,7 +77,7 @@ def reduce_one_tick(
         if command.header.tick != state.tick:
             raise ValueError("tick reduction commands must target the current mission tick")
 
-    next_state = state
+    next_state = replace(state, signals=discard_signals_before(state.signals, state.tick))
     emitted: list[CanonicalEvent] = []
     for command in ordered_commands:
         next_state, event = _apply_command(next_state, command)
@@ -140,7 +142,24 @@ def _apply_command(
             return state, AbortRequested(header, command)
         return _reject_command(state, command, CommandRejectionReason.MISSION_NOT_ACTIVE)
     if isinstance(command, IssueSignal):
-        return _reject_command(state, command, CommandRejectionReason.SIGNALS_UNAVAILABLE)
+        if state.phase is not MissionPhase.ACTIVE:
+            return _reject_command(state, command, CommandRejectionReason.MISSION_NOT_ACTIVE)
+        if command.target is not None and command.target not in tuple(
+            entity.entity_id for entity in state.entities
+        ):
+            return _reject_command(state, command, CommandRejectionReason.SIGNAL_TARGET_NOT_FOUND)
+        state, header = _allocate_event_header(state)
+        signal = SignalObservation(
+            signal=command.signal,
+            tick=state.tick,
+            command_sequence=command.header.sequence,
+            source=command.header.source,
+            target_entity_id=command.target,
+            provenance_event_id=header.event_id,
+        )
+        return replace(state, signals=add_signal(state.signals, signal)), SignalIssued(
+            header, command
+        )
     raise ValueError("tick reduction requires an external command")
 
 

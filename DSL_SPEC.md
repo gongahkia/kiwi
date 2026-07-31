@@ -510,15 +510,18 @@ Fields must encode uncertainty explicitly. A missing value is `None`, not a sent
 
 Observation reads are instrumented. The VM trace can record that a branch depended on `target.confidence`, `view.self.suppression`, or `cover.exposure`.
 
-The current runtime observation ABI is version `2`. It exposes
-`Observation { inbox, self, tick }`, where `self` is
+The current runtime observation ABI is version `3`. It exposes
+`Observation { inbox, self, signals, tick }`, where `self` is
 `SelfObservation { entity_id, position }`, `position` is the existing
 `Position { x: Distance, y: Distance }` record, and `inbox` is
 `InboxObservation { messages: List<Message> }`. The observation builder derives
 this inbox from the authoritative delivered-message ledger and never exposes
-another entity's inbox. These immutable values contain no hidden entity state,
-elevation, renderer data, or writable references. Adding observable fields
-requires an ABI version and policy-compatibility update.
+another entity's inbox. `signals` is the owner-local current-tick
+`List<Signal>`, where `Signal { name: String, tick: Int }`; squad signals are
+visible to every policy and targeted signals only to their target. These
+immutable values contain no hidden entity state, elevation, renderer data, or
+writable references. Adding observable fields requires an ABI version and
+policy-compatibility update.
 
 ## 12. Intention API
 
