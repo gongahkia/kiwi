@@ -499,7 +499,12 @@ Do not confuse the two formats.
 
 ## 23. Headless runner
 
-The CLI must support:
+The headless runner advances an exact non-negative tick count using a supplied
+fixed clock and immutable command log. It rejects commands outside the executed
+tick window and returns the final authority state with its canonical event
+stream. It has no frame or presentation inputs.
+
+The CLI must eventually support:
 
 - run mission for N ticks;
 - run until completion or failure;

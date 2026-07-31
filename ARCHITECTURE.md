@@ -371,6 +371,11 @@ rejects signals until they become observations, dequeues scheduled markers,
 then advances exactly one clock tick. It allocates a canonical event record for
 every applied or rejected command and dequeued marker.
 
+The headless runner consumes an immutable command log, rejects commands outside
+its exact tick window, and groups canonical commands per tick without frames,
+wall-clock input, or presentation state. It returns the final state and the
+complete canonically ordered event stream.
+
 ## 12. Command model
 
 All external authority enters through typed commands. The initial kernel admits:
