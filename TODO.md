@@ -260,7 +260,7 @@ Resolve movement headlessly and display the same state through pygame-ce.
 - [x] Implement movement action state and per-tick progression.
 - [x] Implement obstacle collision and bounded operative separation.
 - [x] Emit movement, block, and arrival events.
-- [ ] Add presentation snapshot model.
+- [x] Add presentation snapshot model.
 - [ ] Initialise pygame-ce only in render/application packages.
 - [ ] Implement window, logical canvas, camera, and basic map rendering.
 - [ ] Render operatives, obstacles, paths, and objective marker.

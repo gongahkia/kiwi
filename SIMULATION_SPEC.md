@@ -612,7 +612,14 @@ hash mismatches before returning mission state.
 
 ### 22.2 Presentation snapshots
 
-A separate, non-canonical read model contains display information. It may include derived floats and interpolatable states.
+A separate, non-canonical read model contains display information. The current
+`PresentationSnapshot` copies the tick, phase tag, optional map bounds and
+ID-ordered obstacles, ID-ordered operative positions, and each active
+operative's endpoint-inclusive planned path. Its coordinates are display-only
+floats derived from authoritative millimetres; it carries no `MissionState`,
+entity, map, or path object reference and is never encoded or hashed as
+authority. Render interpolation and later overlays may derive further values
+from this snapshot.
 
 Do not confuse the two formats.
 
