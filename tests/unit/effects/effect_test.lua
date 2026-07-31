@@ -4,7 +4,7 @@ local Effect = require("effects.effect")
 local function manifest()
   return {
     api_version = 1,
-    capabilities = { "terminal_events" },
+    capabilities = { "lifecycle", "terminal_events" },
     determinism = "deterministic",
     id = "test.effect",
     parameters = {},
@@ -27,20 +27,22 @@ return {
     end,
   },
   {
-    name = "effect bootstrap does not mutate semantic events",
+    name = "effect hooks require declared lifecycle capabilities",
     run = function()
       local source = manifest()
-      local effect = assert(Effect.new(source))
+      local effect = assert(Effect.new(source, {
+        on_event = function() end,
+      }))
       source.capabilities[1] = "draw_after"
       local definition = effect:manifest()
-      assertions.equal("terminal_events", definition.capabilities[1])
+      assertions.equal("lifecycle", definition.capabilities[1])
       definition.capabilities[1] = "draw_after"
-      assertions.equal("terminal_events", effect:manifest().capabilities[1])
-      local event = { kind = "output", data = "hello" }
-      local value, error_value = effect:on_event(event)
+      assertions.equal("lifecycle", effect:manifest().capabilities[1])
+      local value, error_value = Effect.new(manifest(), {
+        update = function() end,
+      })
       assertions.falsy(value)
-      assertions.equal("effect_runtime_error", error_value.kind)
-      assertions.equal("hello", event.data)
+      assertions.equal("effect_load_error", error_value.kind)
     end,
   },
 }

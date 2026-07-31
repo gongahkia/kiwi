@@ -4,7 +4,7 @@ local Manifest = require("effects.manifest")
 local function manifest()
   return {
     api_version = 1,
-    capabilities = { "terminal_events", "cell_transform" },
+    capabilities = { "terminal_events", "cell_observation" },
     determinism = "deterministic",
     id = "test.manifest",
     parameters = {
@@ -25,7 +25,7 @@ return {
       local source = manifest()
       local value = assert(Manifest.normalise(source))
       assertions.equal(1, value.api_version)
-      assertions.equal("cell_transform", value.capabilities[2])
+      assertions.equal("cell_observation", value.capabilities[2])
       assertions.equal(true, value.parameters.enabled.default)
       assertions.equal(0.35, value.parameters.intensity.default)
       assertions.equal("soft", value.parameters.mode.values[1])

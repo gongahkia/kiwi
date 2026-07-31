@@ -11,6 +11,7 @@ local known_kinds = {
   backend_unavailable = true,
   config_error = true,
   effect_load_error = true,
+  effect_incompatible = true,
   effect_runtime_error = true,
   internal_invariant_error = true,
   parser_error = true,

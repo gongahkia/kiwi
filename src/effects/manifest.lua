@@ -9,13 +9,11 @@ Manifest.contract = {
 }
 
 local capabilities = {
-  cell_transform = true,
-  draw_after = true,
-  draw_before = true,
-  interactive_time = true,
-  persistent_canvas = true,
-  post_process = true,
-  row_transform = true,
+  canvas_after = true,
+  canvas_before = true,
+  cell_observation = true,
+  frame_update = true,
+  lifecycle = true,
   terminal_events = true,
 }
 
@@ -316,9 +314,6 @@ function Manifest.normalise(manifest)
     end
     seen_capabilities[capability] = true
     normalised.capabilities[index] = capability
-  end
-  if seen_capabilities.interactive_time and manifest.determinism ~= "interactive" then
-    return load_error("interactive time requires interactive determinism")
   end
   if type(manifest.parameters) ~= "table" then
     return load_error("effect manifest parameters must be a table")
