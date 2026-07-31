@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.domain.ids import EventId
-from kiwi.sim.commands import IssueSignal, RequestAbort, StartMission
+from kiwi.sim.commands import ExternalCommand, IssueSignal, RequestAbort, StartMission
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
@@ -21,6 +21,15 @@ class EventKind(StrEnum):
     SIGNAL_ISSUED = "signal_issued"
     SCHEDULED_TRIGGER_FIRED = "scheduled_trigger_fired"
     RANDOM_DRAW_RECORDED = "random_draw_recorded"
+    COMMAND_REJECTED = "command_rejected"
+
+
+class CommandRejectionReason(StrEnum):
+    """Stable reasons the initial reducer can reject an external command."""
+
+    MISSION_NOT_PREPARED = "mission_not_prepared"
+    MISSION_NOT_ACTIVE = "mission_not_active"
+    SIGNALS_UNAVAILABLE = "signals_unavailable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,8 +129,30 @@ class RandomDrawRecorded:
             raise ValueError("random draw event requires a random draw")
 
 
+@dataclass(frozen=True, slots=True)
+class CommandRejected:
+    """A structured record of an invalid or unsupported command application."""
+
+    header: EventHeader
+    command: ExternalCommand
+    reason: CommandRejectionReason
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.command, (StartMission, RequestAbort, IssueSignal)):
+            raise ValueError("command rejection event requires an external command")
+        if not isinstance(self.reason, CommandRejectionReason):
+            raise ValueError("command rejection event requires a rejection reason")
+        _require_matching_tick(self.header, self.command.header.tick)
+
+
 CanonicalEvent = (
-    MissionStarted | AbortRequested | SignalIssued | ScheduledTriggerFired | RandomDrawRecorded
+    MissionStarted
+    | AbortRequested
+    | SignalIssued
+    | ScheduledTriggerFired
+    | RandomDrawRecorded
+    | CommandRejected
 )
 
 
@@ -137,6 +168,8 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.SCHEDULED_TRIGGER_FIRED
     if isinstance(event, RandomDrawRecorded):
         return EventKind.RANDOM_DRAW_RECORDED
+    if isinstance(event, CommandRejected):
+        return EventKind.COMMAND_REJECTED
     raise ValueError("event kind requires a canonical event")
 
 
@@ -153,6 +186,7 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 SignalIssued,
                 ScheduledTriggerFired,
                 RandomDrawRecorded,
+                CommandRejected,
             ),
         ):
             raise ValueError("canonical event ordering requires canonical events")
