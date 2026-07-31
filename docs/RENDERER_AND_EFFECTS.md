@@ -260,6 +260,8 @@ The host should still:
 - show a precise error;
 - avoid corrupting core state.
 
+Effect chains may be manually enabled, disabled, and reordered by stable manifest ID. Manual disable is reversible. A failed instance remains disabled after its one shutdown attempt and reports its copied diagnostic; recreating it is the recovery path.
+
 ## 11. Hot reload
 
 Development hot reload may:

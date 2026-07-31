@@ -11,9 +11,12 @@ Host.contract = {
   before_canvas = "before_canvas() -> true | nil, error",
   after_canvas = "after_canvas() -> true | nil, error",
   constructor = "new(effects, options?) -> effect_host | nil, error",
+  disable = "disable(effect_id) -> true | nil, error",
+  enable = "enable(effect_id) -> true | nil, error",
   emit = "emit(kind, payload, timestamp_us) -> event | nil, error",
   limits = "limits() -> lifecycle_limits",
   observe_cells = "observe_cells(cells, full_redraw) -> true | nil, error",
+  reorder = "reorder(effect_ids) -> true | nil, error",
   resize = "resize(viewport|nil, terminal, timestamp_us) -> event | nil, error",
   shutdown = "shutdown() -> true",
   status = "status() -> effect_host_status",
@@ -257,8 +260,21 @@ local function disable_entry(host, entry, hook, error_value)
     return
   end
   entry.enabled = false
+  entry.disabled_reason = "failure"
   add_diagnostic(host, entry, hook, error_value)
   shutdown_entry(host, entry)
+end
+
+local function entry_for(host, effect_id)
+  if type(effect_id) ~= "string" or effect_id == "" then
+    return config_error("effect id must be a non-empty string")
+  end
+  for _, entry in ipairs(host.effects) do
+    if entry.manifest.id == effect_id then
+      return entry
+    end
+  end
+  return config_error("effect id is not loaded", { effect_id = effect_id })
 end
 
 shutdown_entry = function(host, entry)
@@ -780,11 +796,16 @@ function Host.new(effects, configuration)
     return config_error("effect host effect limit exceeded")
   end
   local entries = {}
+  local seen_ids = {}
   for index, effect in ipairs(effects) do
     local entry, entry_error = effect_methods(effect)
     if not entry then
       return nil, entry_error
     end
+    if seen_ids[entry.manifest.id] then
+      return config_error("effect host ids must be unique", { effect_id = entry.manifest.id })
+    end
+    seen_ids[entry.manifest.id] = true
     for _, capability in ipairs(entry.manifest.capabilities) do
       if canvas_capabilities[capability] then
         if settings.headless then
@@ -882,6 +903,69 @@ function host_mt:advance(delta_us)
     end
     delta = delta - step
   end
+  return true
+end
+
+function host_mt:disable(effect_id)
+  local entry, entry_error = entry_for(self, effect_id)
+  if not entry then
+    return nil, entry_error
+  end
+  if entry.disabled_reason == "failure" then
+    return runtime_error(
+      "failed effect cannot be manually disabled or re-enabled",
+      { effect_id = effect_id }
+    )
+  end
+  entry.enabled = false
+  entry.disabled_reason = "manual"
+  return true
+end
+
+function host_mt:enable(effect_id)
+  local entry, entry_error = entry_for(self, effect_id)
+  if not entry then
+    return nil, entry_error
+  end
+  if entry.disabled_reason == "failure" then
+    return runtime_error("failed effect cannot be re-enabled", { effect_id = effect_id })
+  end
+  entry.enabled = true
+  entry.disabled_reason = nil
+  return true
+end
+
+function host_mt:reorder(effect_ids)
+  local length, ids_error = dense_array(effect_ids, "effect host reorder ids")
+  if not length then
+    return nil, ids_error
+  end
+  if length ~= #self.effects then
+    return config_error("effect host reorder must include every loaded effect")
+  end
+  local by_id = {}
+  for _, entry in ipairs(self.effects) do
+    by_id[entry.manifest.id] = entry
+  end
+  local reordered = {}
+  local seen = {}
+  for index, effect_id in ipairs(effect_ids) do
+    if type(effect_id) ~= "string" or by_id[effect_id] == nil then
+      return config_error(
+        "effect host reorder contains an unknown effect",
+        { effect_id = effect_id }
+      )
+    end
+    if seen[effect_id] then
+      return config_error(
+        "effect host reorder contains a duplicate effect",
+        { effect_id = effect_id }
+      )
+    end
+    seen[effect_id] = true
+    reordered[index] = by_id[effect_id]
+  end
+  self.effects = reordered
   return true
 end
 
@@ -1038,6 +1122,7 @@ function host_mt:status()
   for index, entry in ipairs(self.effects) do
     effects[index] = {
       enabled = entry.enabled,
+      disabled_reason = entry.disabled_reason,
       id = entry.manifest.id,
       initialised = entry.initialised,
       shutdown_attempted = entry.shutdown_attempted == true,
