@@ -10,6 +10,7 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreInteger,
     CoreLet,
+    CoreList,
     CoreMatch,
     CoreMatchSomeArm,
     CoreModule,
@@ -87,6 +88,11 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
         return lines
     if isinstance(expression, CoreNone):
         return [f"{prefix}None {metadata}"]
+    if isinstance(expression, CoreList):
+        lines = [f"{prefix}List {metadata}", f"{prefix}  elements:"]
+        for element in expression.elements:
+            lines.extend(_format_expression(element, depth + 2))
+        return lines
     if isinstance(expression, CoreRecord):
         lines = [f"{prefix}Record type={expression.type_name!r} {metadata}", f"{prefix}  fields:"]
         for field in expression.fields:

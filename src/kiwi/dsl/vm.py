@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
+    BuildList,
     BuildRecord,
     BuildSome,
     BytecodeFunction,
@@ -34,6 +35,7 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     FunctionValue,
     IntegerValue,
+    ListValue,
     OptionNoneValue,
     OptionSomeValue,
     QuantityValue,
@@ -151,6 +153,7 @@ def run_vm(
                 BooleanValue,
                 StringValue,
                 QuantityValue,
+                ListValue,
                 OptionSomeValue,
                 OptionNoneValue,
                 RecordValue,
@@ -254,6 +257,25 @@ def run_vm(
                 tuple(field[1] for field in fields),
             )
             if not _push(stack, record, budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, BuildList):
+            start = len(stack) - instruction.element_count
+            if start < frame.stack_base:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "list construction has insufficient stack values",
+                    frame,
+                )
+            values = tuple(stack[start:])
+            del stack[start:]
+            allocation_cost = instruction.element_count + 1
+            if allocations + allocation_cost > budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            allocations += allocation_cost
+            if not _push(stack, ListValue(values), budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, BuildSome):
             value = _pop(stack, frame.stack_base)
@@ -407,6 +429,7 @@ def run_vm_with_fallback(
             BooleanValue,
             StringValue,
             QuantityValue,
+            ListValue,
             OptionSomeValue,
             OptionNoneValue,
             RecordValue,

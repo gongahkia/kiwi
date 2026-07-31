@@ -18,6 +18,7 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    ListExpression,
     MatchArm,
     MatchExpression,
     NameExpression,
@@ -44,6 +45,7 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedListExpression,
     TypedMatchExpression,
     TypedMatchNoneArm,
     TypedMatchSomeArm,
@@ -58,7 +60,15 @@ from kiwi.dsl.typed_ir import (
     TypedSomeExpression,
     TypedStringLiteral,
 )
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, OptionType, render_type
+from kiwi.dsl.types import (
+    BuiltinType,
+    DslType,
+    FunctionType,
+    ListType,
+    NamedType,
+    OptionType,
+    render_type,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +226,20 @@ def _annotation_type(
             return None
         element_type = _annotation_type(annotation.arguments[0], record_schemas, diagnostics)
         return OptionType(element_type) if element_type is not None else None
+    if annotation.name.text == "List":
+        if len(annotation.arguments) != 1:
+            diagnostics.append(
+                Diagnostic(
+                    "E417_INVALID_LIST_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    "List requires exactly one type argument",
+                    annotation.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            return None
+        element_type = _annotation_type(annotation.arguments[0], record_schemas, diagnostics)
+        return ListType(element_type) if element_type is not None else None
     if annotation.arguments:
         diagnostics.append(
             Diagnostic(
@@ -262,6 +286,17 @@ def _record_schemas(
                     "E404_DUPLICATE_RECORD_TYPE",
                     DiagnosticSeverity.ERROR,
                     f"duplicate record type '{declaration.name.text}'",
+                    declaration.name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            continue
+        if declaration.name.text in {"Option", "List"}:
+            diagnostics.append(
+                Diagnostic(
+                    "E404_DUPLICATE_RECORD_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    f"record type '{declaration.name.text}' conflicts with a built-in type",
                     declaration.name.span,
                     DiagnosticStage.CHECKER,
                 )
@@ -380,6 +415,15 @@ def _check_expression(
             )
             return None
         return TypedNoneExpression(expected_type, expression.span)
+    if isinstance(expression, ListExpression):
+        return _check_list_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+            expected_type,
+        )
     if isinstance(expression, MatchExpression):
         return _check_match_expression(
             expression,
@@ -586,6 +630,67 @@ def _check_expression(
             condition, then_branch, else_branch, then_branch.type_, expression.span
         )
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
+
+
+def _check_list_expression(
+    expression: ListExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+    expected_type: DslType | None,
+) -> TypedExpression | None:
+    expected_element = expected_type.element_type if isinstance(expected_type, ListType) else None
+    if not expression.elements:
+        if expected_element is None:
+            diagnostics.append(
+                Diagnostic(
+                    "E418_AMBIGUOUS_EMPTY_LIST",
+                    DiagnosticSeverity.ERROR,
+                    "empty list requires an expected List type",
+                    expression.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            return None
+        return TypedListExpression((), ListType(expected_element), expression.span)
+    typed_elements: list[TypedExpression] = []
+    element_type: DslType | None = None
+    first_element: TypedExpression | None = None
+    for element in expression.elements:
+        context = element_type if element_type is not None else expected_element
+        typed_element = _check_expression(
+            element,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+            context,
+        )
+        if typed_element is None:
+            return None
+        if element_type is None:
+            element_type = typed_element.type_
+            first_element = typed_element
+        elif typed_element.type_ != element_type:
+            if first_element is None:
+                raise AssertionError("list element type has no first element")
+            diagnostics.append(
+                Diagnostic(
+                    "E419_LIST_ELEMENT_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    "list elements have types "
+                    f"{render_type(element_type)} and {render_type(typed_element.type_)}",
+                    typed_element.span,
+                    DiagnosticStage.CHECKER,
+                    (DiagnosticLabel(first_element.span, "first list element is here"),),
+                )
+            )
+            return None
+        typed_elements.append(typed_element)
+    if element_type is None:
+        raise AssertionError("non-empty list has no element type")
+    return TypedListExpression(tuple(typed_elements), ListType(element_type), expression.span)
 
 
 def _check_match_expression(

@@ -16,6 +16,7 @@ from kiwi.dsl.syntax import (
     Identifier,
     IntegerLiteral,
     LetExpression,
+    ListExpression,
     MatchExpression,
     NameExpression,
     NegateExpression,
@@ -151,6 +152,14 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
         return lines
     if isinstance(expression, NoneExpression):
         return [f"{prefix}NoneExpression span={format_span(expression.span)}"]
+    if isinstance(expression, ListExpression):
+        lines = [
+            f"{prefix}ListExpression span={format_span(expression.span)}",
+            f"{prefix}  elements:",
+        ]
+        for element in expression.elements:
+            lines.extend(_format_expression(element, depth + 2))
+        return lines
     if isinstance(expression, RecordExpression):
         lines = [
             f"{prefix}RecordExpression span={format_span(expression.span)}",

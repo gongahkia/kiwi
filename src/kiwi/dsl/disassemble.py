@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from kiwi.dsl.bytecode import (
+    BuildList,
     BuildRecord,
     BuildSome,
     BytecodeInstruction,
@@ -95,6 +96,8 @@ def _format_instruction(instruction: BytecodeInstruction) -> str:
         return f"CALL {instruction.argument_count}"
     if isinstance(instruction, BuildRecord):
         return f"BUILD_RECORD {instruction.type_name!r} ({', '.join(instruction.field_names)})"
+    if isinstance(instruction, BuildList):
+        return f"BUILD_LIST {instruction.element_count}"
     if isinstance(instruction, LoadField):
         return f"LOAD_FIELD {instruction.field_name!r}"
     if isinstance(instruction, BuildSome):

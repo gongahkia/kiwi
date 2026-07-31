@@ -109,6 +109,14 @@ class NoneExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class ListExpression:
+    """An immutable source-ordered list literal."""
+
+    elements: tuple[Expression, ...]
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class SomePattern:
     """A `Some` match arm with one payload binding."""
 
@@ -214,6 +222,7 @@ type Expression = (
     | RecordExpression
     | SomeExpression
     | NoneExpression
+    | ListExpression
     | MatchExpression
     | NameExpression
     | NegateExpression

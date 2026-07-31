@@ -9,7 +9,9 @@ from kiwi.dsl.syntax import (
     FunctionDeclaration,
     GroupExpression,
     IfExpression,
+    IntegerLiteral,
     LetExpression,
+    ListExpression,
     NegateExpression,
     NoneExpression,
     PolicyDeclaration,
@@ -147,3 +149,16 @@ def test_parser_builds_option_types_and_closed_constructors() -> None:
     assert none.span == source.span(
         ByteOffset(source.text.index("fn none")), ByteOffset(len(source.text))
     )
+
+
+def test_parser_builds_source_ordered_list_literals() -> None:
+    _, result = parse_text("fn values() -> List<Int> = [1, 2]")
+
+    assert result.diagnostics == ()
+    declaration = result.module.declarations[0]
+    assert isinstance(declaration, FunctionDeclaration)
+    assert isinstance(declaration.body, ListExpression)
+    first, second = declaration.body.elements
+    assert isinstance(first, IntegerLiteral)
+    assert isinstance(second, IntegerLiteral)
+    assert (first.value, second.value) == (1, 2)

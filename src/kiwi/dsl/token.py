@@ -40,6 +40,8 @@ class TokenKind(StrEnum):
     RIGHT_PAREN = "right_paren"
     LEFT_BRACE = "left_brace"
     RIGHT_BRACE = "right_brace"
+    LEFT_BRACKET = "left_bracket"
+    RIGHT_BRACKET = "right_bracket"
     DOT = "dot"
     BAR = "bar"
     LEFT_ANGLE = "left_angle"

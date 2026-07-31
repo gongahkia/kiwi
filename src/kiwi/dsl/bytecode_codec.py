@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BYTECODE_VERSION,
+    BuildList,
     BuildRecord,
     BuildSome,
     BytecodeFunction,
@@ -48,7 +49,7 @@ from kiwi.dsl.runtime_values import (
     UnitValue,
 )
 from kiwi.dsl.source import ByteOffset, SourceFileId, SourceSpan
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, OptionType
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, ListType, NamedType, OptionType
 from kiwi.dsl.validator import BytecodeValidationError, validate_bytecode
 
 BYTECODE_FORMAT_MAGIC = b"KWI-BC\x00"
@@ -80,6 +81,7 @@ _TYPE_DISTANCE = 8
 _TYPE_ANGLE = 9
 _TYPE_PROBABILITY = 10
 _TYPE_OPTION = 11
+_TYPE_LIST = 12
 
 
 class BytecodeDecodeCode(StrEnum):
@@ -296,6 +298,9 @@ def _encode_type(writer: _Writer, type_: DslType, depth: int) -> None:
     elif isinstance(type_, OptionType):
         writer.u8(_TYPE_OPTION, "type tag")
         _encode_type(writer, type_.element_type, depth + 1)
+    elif isinstance(type_, ListType):
+        writer.u8(_TYPE_LIST, "type tag")
+        _encode_type(writer, type_.element_type, depth + 1)
     elif isinstance(type_, FunctionType):
         writer.u8(_TYPE_FUNCTION, "type tag")
         writer.items(len(type_.parameters), "function-type parameter count")
@@ -316,6 +321,8 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
         writer.u32(instruction.slot.value, "local slot")
     elif isinstance(instruction, Call):
         writer.u32(instruction.argument_count, "call argument count")
+    elif isinstance(instruction, BuildList):
+        writer.u32(instruction.element_count, "list element count")
     elif isinstance(instruction, BuildRecord):
         writer.text(instruction.type_name)
         writer.items(len(instruction.field_names), "record field count")
@@ -506,6 +513,8 @@ def _decode_type(reader: _Reader, depth: int, bytecode_version: int) -> DslType:
             return builtin_type
         if tag == _TYPE_OPTION:
             return OptionType(_decode_type(reader, depth + 1, bytecode_version))
+        if tag == _TYPE_LIST:
+            return ListType(_decode_type(reader, depth + 1, bytecode_version))
     if tag == _TYPE_NAMED:
         return NamedType(reader.text("named type"))
     if tag == _TYPE_FUNCTION:
@@ -540,6 +549,7 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         Opcode.JUMP_IF_NONE,
         Opcode.UNWRAP_SOME,
         Opcode.POP,
+        Opcode.BUILD_LIST,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -558,6 +568,8 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         return Negate()
     if opcode is Opcode.CALL:
         return Call(reader.u32())
+    if opcode is Opcode.BUILD_LIST:
+        return BuildList(reader.u32())
     if opcode is Opcode.BUILD_RECORD:
         return BuildRecord(
             reader.text("record type name"),

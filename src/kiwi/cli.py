@@ -23,6 +23,7 @@ from kiwi.dsl.parser import parse
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
+    ListValue,
     OptionNoneValue,
     OptionSomeValue,
     QuantityValue,
@@ -208,6 +209,8 @@ def _format_runtime_value(value: RuntimeValue) -> str:
         return f"Some({_format_runtime_value(value.value)})"
     if isinstance(value, OptionNoneValue):
         return "None"
+    if isinstance(value, ListValue):
+        return f"List([{', '.join(_format_runtime_value(item) for item in value.values)}])"
     if isinstance(value, RecordValue):
         fields = ", ".join(
             f"{name}={_format_runtime_value(field_value)}"

@@ -10,6 +10,7 @@ from typing import ClassVar
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_LIST_ITEMS,
     BooleanValue,
     IntegerValue,
     QuantityValue,
@@ -17,7 +18,7 @@ from kiwi.dsl.runtime_values import (
     UnitValue,
 )
 from kiwi.dsl.source import SourceFileId, SourceSpan
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, OptionType
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, ListType, OptionType
 
 LEGACY_SOURCE_LANGUAGE_VERSION = 1
 LEGACY_CORE_IR_VERSION = 1
@@ -90,6 +91,7 @@ class Opcode(IntEnum):
     JUMP_IF_NONE = 15
     UNWRAP_SOME = 16
     POP = 17
+    BUILD_LIST = 18
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +215,22 @@ class Pop:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildList:
+    """Build one immutable list from source-ordered stack values."""
+
+    element_count: int
+    opcode: ClassVar[Opcode] = Opcode.BUILD_LIST
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.element_count, int)
+            or isinstance(self.element_count, bool)
+            or not 0 <= self.element_count <= MAX_RUNTIME_LIST_ITEMS
+        ):
+            raise ValueError("list element count exceeds the configured item limit")
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -257,6 +275,7 @@ type BytecodeInstruction = (
     | JumpIfNone
     | UnwrapSome
     | Pop
+    | BuildList
     | Jump
     | JumpIfFalse
     | Return
@@ -436,7 +455,16 @@ class BytecodeModule:
             or any(
                 isinstance(
                     instruction,
-                    (BuildRecord, LoadField, BuildSome, PushNone, JumpIfNone, UnwrapSome, Pop),
+                    (
+                        BuildRecord,
+                        LoadField,
+                        BuildSome,
+                        PushNone,
+                        JumpIfNone,
+                        UnwrapSome,
+                        Pop,
+                        BuildList,
+                    ),
                 )
                 for function in self.functions
                 for instruction in function.instructions
@@ -492,6 +520,8 @@ def _uses_version_two_type(type_: DslType) -> bool:
             BuiltinType.PROBABILITY,
         }
     if isinstance(type_, OptionType):
+        return True
+    if isinstance(type_, ListType):
         return True
     return isinstance(type_, FunctionType) and (
         any(_uses_version_two_type(parameter) for parameter in type_.parameters)

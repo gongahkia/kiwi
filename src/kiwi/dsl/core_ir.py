@@ -27,6 +27,7 @@ class CoreExpressionKind(StrEnum):
     QUANTITY = "quantity"
     OPTION_SOME = "option_some"
     OPTION_NONE = "option_none"
+    LIST = "list"
     MATCH_OPTION = "match_option"
     RECORD = "record"
     REFERENCE = "reference"
@@ -100,6 +101,17 @@ class CoreNone:
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.OPTION_NONE
+
+
+@dataclass(frozen=True, slots=True)
+class CoreList:
+    """An immutable source-ordered list literal."""
+
+    expression_id: ExpressionId
+    elements: tuple[CoreExpression, ...]
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.LIST
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +246,7 @@ type CoreExpression = (
     | CoreQuantity
     | CoreSome
     | CoreNone
+    | CoreList
     | CoreMatch
     | CoreRecord
     | CoreReference

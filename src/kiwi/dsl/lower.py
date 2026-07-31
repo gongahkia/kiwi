@@ -14,6 +14,7 @@ from kiwi.dsl.core_ir import (
     CoreIf,
     CoreInteger,
     CoreLet,
+    CoreList,
     CoreMatch,
     CoreMatchNoneArm,
     CoreMatchSomeArm,
@@ -41,6 +42,7 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedListExpression,
     TypedMatchExpression,
     TypedMatchSomeArm,
     TypedModule,
@@ -148,6 +150,15 @@ class _Lowerer:
             )
         if isinstance(expression, TypedNoneExpression):
             return CoreNone(expression_id, expression.type_, expression.span)
+        if isinstance(expression, TypedListExpression):
+            return CoreList(
+                expression_id,
+                tuple(
+                    self.lower_expression(element, definition_id) for element in expression.elements
+                ),
+                expression.type_,
+                expression.span,
+            )
         if isinstance(expression, TypedMatchExpression):
             return CoreMatch(
                 expression_id,
