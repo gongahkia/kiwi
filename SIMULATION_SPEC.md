@@ -248,11 +248,11 @@ Evaluation order is canonical by policy layer and entity ID. Policies cannot obs
 
 The initial invocation phase receives entity-ID-ordered external policy
 bindings. A binding names one compiled two-argument policy entry, initial
-record memory, and immutable VM budgets. For each bound entity, the phase uses
-the pre-phase stored memory when present or the binding's initial memory,
-allocates a policy-invocation ID in entity order, and retains the raw VM result.
-It only advances the invocation-ID allocator; result validation, fallback, and
-memory updates occur in later phases.
+record memory with its schema, and immutable VM budgets. For each bound entity,
+the phase uses the pre-phase stored memory when present or the binding's initial
+memory, allocates a policy-invocation ID in entity order, and retains the raw VM
+result. It only advances the invocation-ID allocator; result validation,
+fallback, and memory updates occur in later phases.
 
 ## 11. Intention lifecycle
 
@@ -286,6 +286,13 @@ Validation checks:
 - current resource availability;
 - basic range or existence where required;
 - content constraints.
+
+The initial validator accepts only `Wait { duration: Duration }`: duration
+must be positive and the typed result occupies `locomotion`. Other named core
+kinds return the structured `I002_UNSUPPORTED_KIND` result until their payload
+models exist. A malformed `Wait` record returns a stable `I001` through `I004`
+validation code; policy-result and VM failures retain a structured `P001`
+through `P003` result for later deterministic fallback.
 
 ### 11.3 Arbitration
 

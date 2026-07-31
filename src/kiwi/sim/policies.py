@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, PolicyInvocationId
 from kiwi.dsl.compiler import CompiledArtifact
 from kiwi.dsl.ids import FunctionId
+from kiwi.dsl.policy_result import (
+    MemorySchema,
+    PolicyResultValidationFailure,
+    validate_memory,
+    validate_policy_result,
+)
 from kiwi.dsl.runtime_values import RecordValue
-from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMRunResult, run_vm
+from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMFaultCode, VMRunResult, run_vm
+from kiwi.sim.intentions import (
+    IntentionValidationFailure,
+    ValidatedIntention,
+    WaitIntention,
+    validate_runtime_intention,
+)
 from kiwi.sim.memory import EntityPolicyMemory
 from kiwi.sim.observations import (
     RuntimeObservation,
@@ -25,6 +38,7 @@ class PolicyBinding:
     entity_id: EntityId
     artifact: CompiledArtifact
     function_id: FunctionId
+    memory_schema: MemorySchema
     initial_memory: RecordValue
     budgets: VMBudgets = DEFAULT_VM_BUDGETS
 
@@ -44,9 +58,15 @@ class PolicyBinding:
             raise ValueError("policy binding function must be a policy entry point")
         if self.artifact.bytecode.functions[self.function_id.value].arity != 2:
             raise ValueError("policy binding entry point must accept observation and memory")
+        if not isinstance(self.memory_schema, MemorySchema):
+            raise ValueError("policy binding requires a memory schema")
         if not isinstance(self.initial_memory, RecordValue):
             raise ValueError("policy binding initial memory must be a record value")
         EntityPolicyMemory(self.entity_id, self.initial_memory)
+        if isinstance(
+            validate_memory(self.initial_memory, self.memory_schema), PolicyResultValidationFailure
+        ):
+            raise ValueError("policy binding initial memory does not match its schema")
         if not isinstance(self.budgets, VMBudgets):
             raise ValueError("policy binding requires VM budgets")
 
@@ -128,6 +148,85 @@ class PolicyEvaluationPhase:
             previous_invocation_id = evaluation.invocation_id.value
 
 
+class PolicyValidationCode(StrEnum):
+    """Stable per-policy result validation outcomes before fallback handling."""
+
+    VM_FAULT = "P001_VM_FAULT"
+    RESULT = "P002_RESULT"
+    INTENTION = "P003_INTENTION"
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyValidationFailure:
+    """One structured boundary failure retained for deterministic fallback."""
+
+    code: PolicyValidationCode
+    message: str
+    path: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, PolicyValidationCode):
+            raise ValueError("policy validation failure requires a validation code")
+        if not isinstance(self.message, str) or not self.message:
+            raise ValueError("policy validation failure requires a message")
+        if not isinstance(self.path, tuple) or any(
+            not isinstance(part, str) or not part for part in self.path
+        ):
+            raise ValueError("policy validation failure path must be non-empty strings")
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyValidation:
+    """One validated decision or a structured failure with no fallback applied."""
+
+    evaluation: PolicyEvaluation
+    memory: RecordValue | None = None
+    intentions: tuple[ValidatedIntention, ...] = ()
+    failure: PolicyValidationFailure | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.evaluation, PolicyEvaluation):
+            raise ValueError("policy validation requires a policy evaluation")
+        if not isinstance(self.intentions, tuple):
+            raise ValueError("policy validation intentions must be an immutable tuple")
+        if any(not isinstance(intention, WaitIntention) for intention in self.intentions):
+            raise ValueError("policy validation intentions must be validated intentions")
+        if self.failure is None:
+            if not isinstance(self.memory, RecordValue):
+                raise ValueError("successful policy validation requires record memory")
+            return
+        if not isinstance(self.failure, PolicyValidationFailure):
+            raise ValueError("policy validation failure must be structured")
+        if self.memory is not None or self.intentions:
+            raise ValueError("failed policy validation cannot contain a decision")
+
+    @property
+    def succeeded(self) -> bool:
+        """Return whether the policy produced a fully validated decision."""
+        return self.failure is None
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyValidationPhase:
+    """Raw-evaluation successor state plus entity-ID-ordered validation results."""
+
+    state: MissionState
+    validations: tuple[PolicyValidation, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, MissionState):
+            raise ValueError("policy validation phase requires mission state")
+        if not isinstance(self.validations, tuple):
+            raise ValueError("policy validations must be an immutable tuple")
+        previous_entity_id = 0
+        for validation in self.validations:
+            if not isinstance(validation, PolicyValidation):
+                raise ValueError("policy validations must contain policy validations")
+            if validation.evaluation.entity_id.value <= previous_entity_id:
+                raise ValueError("policy validations must be entity-ID ordered")
+            previous_entity_id = validation.evaluation.entity_id.value
+
+
 def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEvaluationPhase:
     """Invoke applicable policy entries in canonical entity-ID order without state mutation."""
     if not isinstance(state, MissionState):
@@ -164,3 +263,67 @@ def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEval
             )
         )
     return PolicyEvaluationPhase(next_state, tuple(evaluations))
+
+
+def validate_policy_evaluations(
+    phase: PolicyEvaluationPhase,
+    bindings: PolicyBindings,
+) -> PolicyValidationPhase:
+    """Validate raw VM results in canonical order without applying fallback or state updates."""
+    if not isinstance(phase, PolicyEvaluationPhase):
+        raise TypeError("policy validation requires an evaluation phase")
+    if not isinstance(bindings, PolicyBindings):
+        raise TypeError("policy validation requires policy bindings")
+    validations: list[PolicyValidation] = []
+    for evaluation in phase.evaluations:
+        binding = bindings.binding_for(evaluation.entity_id)
+        if binding is None:
+            raise ValueError("policy validation requires a binding for every evaluation")
+        validations.append(_validate_policy_evaluation(evaluation, binding))
+    return PolicyValidationPhase(phase.state, tuple(validations))
+
+
+def _validate_policy_evaluation(
+    evaluation: PolicyEvaluation,
+    binding: PolicyBinding,
+) -> PolicyValidation:
+    if evaluation.result.fault is not None:
+        return PolicyValidation(
+            evaluation,
+            failure=PolicyValidationFailure(
+                PolicyValidationCode.VM_FAULT,
+                f"policy VM fault: {evaluation.result.fault.code.value}",
+            ),
+        )
+    if evaluation.result.value is None:
+        return PolicyValidation(
+            evaluation,
+            failure=PolicyValidationFailure(
+                PolicyValidationCode.VM_FAULT,
+                f"policy VM fault: {VMFaultCode.ENTRY.value}",
+            ),
+        )
+    result = validate_policy_result(evaluation.result.value, binding.memory_schema)
+    if isinstance(result, PolicyResultValidationFailure):
+        return PolicyValidation(
+            evaluation,
+            failure=PolicyValidationFailure(
+                PolicyValidationCode.RESULT,
+                f"policy result validation failed: {result.code.value}",
+                result.path,
+            ),
+        )
+    intentions: list[ValidatedIntention] = []
+    for index, value in enumerate(result.intentions):
+        intention = validate_runtime_intention(value)
+        if isinstance(intention, IntentionValidationFailure):
+            return PolicyValidation(
+                evaluation,
+                failure=PolicyValidationFailure(
+                    PolicyValidationCode.INTENTION,
+                    f"policy intention validation failed: {intention.code.value}",
+                    ("intentions", str(index)) + intention.path,
+                ),
+            )
+        intentions.append(intention)
+    return PolicyValidation(evaluation, result.memory, tuple(intentions))
