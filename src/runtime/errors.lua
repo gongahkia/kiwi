@@ -12,6 +12,7 @@ local known_kinds = {
   config_error = true,
   effect_load_error = true,
   effect_incompatible = true,
+  effect_reload_error = true,
   effect_runtime_error = true,
   internal_invariant_error = true,
   parser_error = true,
