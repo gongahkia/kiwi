@@ -211,6 +211,15 @@ is immutable and omits terminal, output, registry, process, filesystem, environm
 renderer, and host authority. Callbacks return bounded logical values/candidates; the
 engine validates and encodes them atomically. See ADR-0016.
 
+Each sandbox session may configure a copied initial virtual filesystem and a copied,
+immutable `granted_capabilities` array. A handler declaring filesystem capabilities
+receives an expiring `context.fs` facade, never raw nodes or host paths. `vfs.read`
+exposes `stat`, `list`, `read_file`, and `get_cwd`; `vfs.write` exposes `write_file`,
+`append_file`, `make_directory`, `remove`, and `rename`; `vfs.chdir` exposes
+`change_directory`. Read and write are intentionally independent. The namespace is
+session-local, in-memory, bounded, and excluded from semantic recordings/checkpoints.
+Completion has no filesystem authority. See ADR-0017 and `docs/BACKENDS.md`.
+
 ## 6. Capabilities
 
 Plugins and commands declare capabilities. Examples:
@@ -229,8 +238,9 @@ Effects:
 
 Sandbox commands:
 
-- `virtual_fs_read`;
-- `virtual_fs_write`;
+- `vfs.read`;
+- `vfs.write`;
+- `vfs.chdir`;
 - `domain_events`;
 - `scheduled_jobs`;
 - `deterministic_random`;
