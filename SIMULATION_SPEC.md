@@ -274,7 +274,10 @@ ledger assigns one global non-negative sequence, orders entries by `(delivery
 tick, sender entity ID, sequence, message ID)`, and discards entries after
 expiry before active policy evaluation. Inbox projection filters this ledger by
 recipient and observation tick, so a sender cannot affect any same-tick policy
-input. Range, configurable delay, relay, and loss remain later work.
+input. A `MessageSent` event parents the message's ordered source evidence;
+the reducer emits one `MessageDelivered` event per current-tick ledger entry
+before policy evaluation, with its send event as sole causal parent. Range,
+configurable delay, relay, and loss remain later work.
 
 ### 9.3 No shared mutable memory
 
@@ -636,9 +639,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`10` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`11` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `9`, unsupported versions, and noncanonical values are
+versions `1` through `10`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -656,7 +659,7 @@ Include:
 - active movement actions;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
-- live message ledger entries and send sequence;
+- live message ledger entries, send-event IDs, and send sequence;
 - policy memory;
 - policy versions;
 - pending messages and scheduled events;
