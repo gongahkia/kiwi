@@ -174,7 +174,7 @@ Goal: add visual differentiation without compromising terminal semantics.
 - [x] Implement semantic event subscriptions for output, bell, cursor movement, scroll, resize, and damage.
 - [x] Implement seeded random-number access.
 - [x] Implement serialisable effect parameters.
-- [ ] Implement effect enable, disable, reorder, and failure reporting.
+- [x] Implement effect enable, disable, reorder, and failure reporting.
 - [ ] Prevent effects from mutating terminal state objects.
 
 ### Built-in effects

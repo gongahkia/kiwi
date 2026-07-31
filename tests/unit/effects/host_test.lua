@@ -380,6 +380,45 @@ return {
     end,
   },
   {
+    name = "effect host controls reversible ordering and reports terminal failures",
+    run = function()
+      local calls = {}
+      local function effect(id)
+        return assert(Effect.new(manifest(id, { "terminal_events" }), {
+          on_event = function()
+            calls[#calls + 1] = id
+          end,
+        }))
+      end
+      local first = effect("test.first-control")
+      local second = effect("test.second-control")
+      local host = assert(Host.new({ first, second }))
+      assert(host:disable("test.first-control"))
+      assert(host:emit("bell", {}, 0))
+      assertions.equal("test.second-control", calls[1])
+      assert(host:enable("test.first-control"))
+      assert(host:reorder({ "test.second-control", "test.first-control" }))
+      assert(host:emit("bell", {}, 0))
+      assertions.equal("test.second-control", calls[2])
+      assertions.equal("test.first-control", calls[3])
+      local unknown, unknown_error = host:reorder({ "test.first-control", "test.first-control" })
+      assertions.falsy(unknown)
+      assertions.equal("config_error", unknown_error.kind)
+
+      local failing = assert(Effect.new(manifest("test.failure-control", { "terminal_events" }), {
+        on_event = function()
+          error("expected")
+        end,
+      }))
+      local failed_host = assert(Host.new({ failing }))
+      assert(failed_host:emit("bell", {}, 0))
+      assertions.equal("failure", failed_host:status().effects[1].disabled_reason)
+      local value, error_value = failed_host:enable("test.failure-control")
+      assertions.falsy(value)
+      assertions.equal("effect_runtime_error", error_value.kind)
+    end,
+  },
+  {
     name = "effect host preserves stable ordering and replay-derived event timing",
     run = function()
       local function trace()

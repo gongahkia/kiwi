@@ -87,6 +87,8 @@ local effect = Effect.new(manifest, {
 
 Hooks are optional. `lifecycle`, `terminal_events`, `cell_observation`, `canvas_before`, `canvas_after`, and `frame_update` respectively gate `init`/`shutdown`, `on_event`, `on_cell`, `before_canvas`, `after_canvas`, and `update`. A missing hook is a no-op; an undeclared hook fails loading. Effects run in manifest order.
 
+`host:disable(effect_id)`, `host:enable(effect_id)`, and `host:reorder({ effect_id, ... })` control a loaded chain without changing terminal state. Reorder requires every unique loaded ID exactly once. Manual disable is reversible and preserves effect-local visual state. A callback failure records a diagnostic, runs shutdown once, and marks that instance terminally failed; it cannot be re-enabled without constructing a new instance. `host:status()` returns copied diagnostics and per-effect enabled/disabled reason.
+
 ### 4.2 Context
 
 The fresh context contains only:
