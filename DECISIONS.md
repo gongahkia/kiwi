@@ -93,6 +93,20 @@ Persistent injuries, recruitment, relationships, broad progression, procedural c
 
 Every language release has a version. Breaking syntax or semantic changes require either migration tooling, explicit rejection with actionable diagnostics, or a documented decision that pre-release programs are not preserved.
 
+### D-019: Milestone 4 emits language and bytecode version 2
+
+Milestone 4 source and bytecode additions emit version `2`. The decoder retains
+explicit version `1` support so existing bytecode is decoded with its original
+semantics; version `1` artifacts are never reinterpreted as version `2`.
+
+### D-020: Domain quantities are exact normalized rationals
+
+DSL quantities carry a dimension tag and a normalized signed rational value.
+Duration literals normalize to seconds, distance literals to metres, angle
+literals to turns, and probability literals to fractions. Conversion to
+integer simulation ticks or world subunits occurs only at the simulation
+boundary under an explicit rounding rule.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
