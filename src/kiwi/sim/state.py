@@ -9,6 +9,7 @@ from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 
@@ -46,6 +47,7 @@ class MissionState:
     entities: tuple[EntityState, ...] = ()
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     policy_memory: PolicyMemoryStore = field(default_factory=PolicyMemoryStore)
+    policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
     random_streams: RandomStreams = field(default_factory=default_random_streams)
 
@@ -62,6 +64,8 @@ class MissionState:
             raise ValueError("mission state requires an ID allocator")
         if not isinstance(self.policy_memory, PolicyMemoryStore):
             raise ValueError("mission state requires policy memory")
+        if not isinstance(self.policy_versions, PolicyVersionStore):
+            raise ValueError("mission state requires policy versions")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
         if not isinstance(self.random_streams, RandomStreams):
@@ -79,6 +83,8 @@ class MissionState:
         entity_ids = tuple(entity.entity_id for entity in self.entities)
         if any(entry.entity_id not in entity_ids for entry in self.policy_memory.entries):
             raise ValueError("policy memory entries must belong to mission entities")
+        if any(entry.entity_id not in entity_ids for entry in self.policy_versions.entries):
+            raise ValueError("policy version entries must belong to mission entities")
 
 
 def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionState, EntityState]:
@@ -96,6 +102,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             entities=state.entities + (entity,),
             id_allocator=id_allocator,
             policy_memory=state.policy_memory,
+            policy_versions=state.policy_versions,
             scheduled_events=state.scheduled_events,
             random_streams=state.random_streams,
         ),

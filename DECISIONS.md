@@ -159,7 +159,7 @@ state hash is a 32-byte BLAKE2b digest of those exact bytes. Version `1` and
 unknown versions are rejected rather than reinterpreted: policy-memory support
 is an intentional breaking change with no compatibility decoder or migration.
 Later evolution requires a new version and explicit migration or compatibility
-policy.
+policy. Its current format version is superseded by D-028.
 
 ### D-026: Early kernel fixtures use strict versioned JSON
 
@@ -179,6 +179,16 @@ messages, signals, objectives, and presentation state until those fields have
 defined authority semantics and provenance. The simulation converts this data to
 closed immutable DSL records; ABI changes require explicit policy compatibility
 handling.
+
+### D-028: Policy versions require canonical-state version 3
+
+Milestone 6 adds an entity-ID-ordered deployed-policy version store to
+authority state. Each version is the 32-byte BLAKE2b digest of canonical
+`KWI-BC\0` bytes plus the selected entry `FunctionId`, domain-separated as
+`KWI-POLICY-VERSION\0`. It identifies the exact compiled entry that supplied an
+entity's persisted memory and future policy input. `KWI-STATE\0` therefore uses
+version `3`; versions `1` and `2` are rejected with no compatibility decoder or
+migration because the project remains in development.
 
 ## 2. Prohibited shortcuts
 

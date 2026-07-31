@@ -27,6 +27,7 @@ from kiwi.sim.hashing import (
     hash_canonical_state,
 )
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.state import MissionPhase, MissionState, add_entity
@@ -60,7 +61,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "1d306b0afe3c9fd964620b9417bbd9f350b9f87b9441894afe6dd098ec911395"
+    assert first.hex == "830cc3409114b572fdf59beafe33847f1e44c8aed6051669661382a707e357c7"
 
 
 def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
@@ -107,11 +108,31 @@ def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
     assert malformed.code is StateDecodeCode.INVALID_VALUE
 
 
+def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(3), WorldSubunits(4)))
+    version = PolicyVersion(bytes(range(32)))
+    state = replace(
+        state,
+        policy_versions=PolicyVersionStore().with_version(entity.entity_id, version),
+    )
+
+    encoded = encode_canonical_state(state)
+    decoded = decode_canonical_state(encoded)
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.policy_versions.version_for(entity.entity_id) == version
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, policy_versions=PolicyVersionStore())
+    )
+
+
 @pytest.mark.parametrize(
     ("data", "code"),
     (
         (b"", StateDecodeCode.INVALID_MAGIC),
         (CANONICAL_STATE_MAGIC + b"\x00\x01", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x02", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

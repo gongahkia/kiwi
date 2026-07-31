@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from kiwi.dsl.runtime_values import RecordValue
 from kiwi.sim.intentions import ValidatedIntention
-from kiwi.sim.policies import PolicyValidation, PolicyValidationPhase
+from kiwi.sim.policies import PolicyBindings, PolicyValidation, PolicyValidationPhase
 from kiwi.sim.state import MissionState
 
 
@@ -99,3 +99,47 @@ def resolve_policy_decisions(phase: PolicyValidationPhase) -> PolicyDecisionPhas
             )
         )
     return PolicyDecisionPhase(phase.state, tuple(decisions))
+
+
+def commit_policy_decisions(
+    state: MissionState,
+    phase: PolicyDecisionPhase,
+    bindings: PolicyBindings,
+) -> MissionState:
+    """Persist resolved memory and deployed policy versions in entity-ID order."""
+    if not isinstance(state, MissionState):
+        raise TypeError("policy decision commit requires mission state")
+    if not isinstance(phase, PolicyDecisionPhase):
+        raise TypeError("policy decision commit requires a policy decision phase")
+    if not isinstance(bindings, PolicyBindings):
+        raise TypeError("policy decision commit requires policy bindings")
+    if state.tick != phase.state.tick:
+        raise ValueError("policy decision state and phase must share a mission tick")
+    if state.entities != phase.state.entities:
+        raise ValueError("policy decision state and phase must share mission entities")
+    if any(
+        current < required
+        for current, required in zip(
+            state.id_allocator.next_ids,
+            phase.state.id_allocator.next_ids,
+            strict=True,
+        )
+    ):
+        raise ValueError("policy decision state must retain prior authority allocations")
+    decision_entity_ids = tuple(
+        decision.validation.evaluation.entity_id for decision in phase.decisions
+    )
+    binding_entity_ids = tuple(binding.entity_id for binding in bindings.entries)
+    if decision_entity_ids != binding_entity_ids:
+        raise ValueError("policy decisions must match policy bindings in entity-ID order")
+    next_state = state
+    for decision, binding in zip(phase.decisions, bindings.entries, strict=True):
+        next_state = replace(
+            next_state,
+            policy_memory=next_state.policy_memory.with_memory(binding.entity_id, decision.memory),
+            policy_versions=next_state.policy_versions.with_version(
+                binding.entity_id,
+                binding.policy_version,
+            ),
+        )
+    return next_state
