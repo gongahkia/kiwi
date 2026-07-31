@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 
 from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
+from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.scheduled import ScheduledEventQueue
 
-MAX_MISSION_TICK = (1 << 63) - 1
+MAX_MISSION_TICK = MAX_AUTHORITY_TICK
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +33,7 @@ class MissionState:
     tick: int = 0
     entities: tuple[EntityState, ...] = ()
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
+    scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -39,6 +42,8 @@ class MissionState:
             raise ValueError("mission tick must fit non-negative signed 64-bit range")
         if not isinstance(self.id_allocator, IdAllocator):
             raise ValueError("mission state requires an ID allocator")
+        if not isinstance(self.scheduled_events, ScheduledEventQueue):
+            raise ValueError("mission state requires a scheduled event queue")
         previous_id = 0
         for entity in self.entities:
             if not isinstance(entity, EntityState):
@@ -64,6 +69,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             tick=state.tick,
             entities=state.entities + (entity,),
             id_allocator=id_allocator,
+            scheduled_events=state.scheduled_events,
         ),
         entity,
     )

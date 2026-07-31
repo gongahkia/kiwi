@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.domain.ids import MAX_STABLE_ID, EntityId
-from kiwi.sim.state import MAX_MISSION_TICK
+from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
 
 class CommandSource(StrEnum):
@@ -28,7 +28,7 @@ class CommandHeader:
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
             raise ValueError("command tick must be an integer")
-        if not 0 <= self.tick <= MAX_MISSION_TICK:
+        if not 0 <= self.tick <= MAX_AUTHORITY_TICK:
             raise ValueError("command tick must fit non-negative signed 64-bit range")
         if not isinstance(self.sequence, int) or isinstance(self.sequence, bool):
             raise ValueError("command sequence must be an integer")

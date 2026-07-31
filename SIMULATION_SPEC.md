@@ -34,7 +34,11 @@ Rendering frame time does not affect authoritative state. The graphical client m
 
 ### 2.3 Scheduling
 
-Scheduled events use `(tick, sequence)` ordering. Sequence values are allocated deterministically.
+Scheduled events use `(tick, sequence)` ordering. The initial immutable queue
+allocates a local non-negative signed 64-bit sequence beginning at zero, sorts
+pending events by that key, and removes events only at their exact tick. Queue
+state is authoritative. Initial events are scenario-trigger markers; their
+effects are added with the event algebra and reducer.
 
 ### 2.4 External command ordering
 
@@ -132,10 +136,11 @@ MissionState {
 
 Mappings are serialised and iterated in canonical key order.
 
-The initial kernel materialises `tick`, `entities`, and `id_allocator` first.
-Each entity is an immutable `(entity ID, world position)` value; entity tuples
-are strictly ascending by entity ID. Later state fields are added only when
-their own invariants and canonical representation are defined.
+The initial kernel materialises `tick`, `entities`, `id_allocator`, and
+`scheduled_events` first. Each entity is an immutable `(entity ID, world
+position)` value; entity tuples are strictly ascending by entity ID. Later
+state fields are added only when their own invariants and canonical
+representation are defined.
 
 ## 7. Observation cycle
 

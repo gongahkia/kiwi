@@ -4,6 +4,7 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId, IdAllocator
+from kiwi.sim.scheduled import ScheduledEventQueue
 from kiwi.sim.state import MAX_MISSION_TICK, EntityState, MissionState, add_entity
 
 
@@ -12,7 +13,12 @@ def position(x: int = 0, y: int = 0) -> WorldPosition:
 
 
 def test_mission_state_defaults_to_empty_tick_zero_authority() -> None:
-    assert MissionState() == MissionState(tick=0, entities=(), id_allocator=IdAllocator())
+    assert MissionState() == MissionState(
+        tick=0,
+        entities=(),
+        id_allocator=IdAllocator(),
+        scheduled_events=ScheduledEventQueue(),
+    )
 
 
 def test_add_entity_preserves_prior_state_and_canonical_id_order() -> None:

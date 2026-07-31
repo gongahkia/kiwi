@@ -346,9 +346,10 @@ Recommended state style:
 - local mutable builders permitted inside a tick only if output semantics are deterministic and not exposed.
 
 The initial kernel materialises a non-negative signed 64-bit mission tick, a
-strictly entity-ID-ordered tuple of minimal entity states, and immutable ID
-allocator state. State components are added only with the task that defines
-their invariants; canonical encoding is deferred to its dedicated task.
+strictly entity-ID-ordered tuple of minimal entity states, immutable ID
+allocator state, and a `(tick, sequence)` scheduled-event queue. State
+components are added only with the task that defines their invariants;
+canonical encoding is deferred to its dedicated task.
 
 ## 12. Command model
 
