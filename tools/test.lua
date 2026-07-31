@@ -70,6 +70,7 @@ local modules = {
   "unit.shell.registry_test",
   "unit.shell.builtins_test",
   "unit.shell.scheduler_test",
+  "unit.shell.scheduler_session_test",
   "unit.shell.tokenizer_test",
   "unit.shell.dispatcher_test",
   "unit.shell.history_test",

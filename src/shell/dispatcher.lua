@@ -7,7 +7,7 @@ local dispatcher_mt = {}
 dispatcher_mt.__index = dispatcher_mt
 
 Dispatcher.contract = {
-  dispatch = "dispatch(bytes, context) -> command_dispatch | nil, error",
+  dispatch = "dispatch(bytes, context, options?) -> command_dispatch | nil, error",
   new = "new(registry, options?) -> command_dispatcher | nil, error",
 }
 
@@ -88,7 +88,32 @@ local function outcome(command, argv, invocation, result)
   }
 end
 
-function dispatcher_mt:dispatch(bytes, context)
+local function dispatch_options(value)
+  if value == nil then
+    return {}
+  end
+  if type(value) ~= "table" then
+    return command_error("sandbox command dispatch options must be a table")
+  end
+  for name in pairs(value) do
+    if name ~= "context_factory" and name ~= "on_cancel" then
+      return command_error("sandbox command dispatch option is unsupported")
+    end
+  end
+  if value.context_factory ~= nil and type(value.context_factory) ~= "function" then
+    return command_error("sandbox command context factory must be a function")
+  end
+  if value.on_cancel ~= nil and type(value.on_cancel) ~= "function" then
+    return command_error("sandbox command cancellation callback must be a function")
+  end
+  return value
+end
+
+function dispatcher_mt:dispatch(bytes, context, configuration)
+  local settings, settings_error = dispatch_options(configuration)
+  if not settings then
+    return nil, settings_error
+  end
   local argv, token_error = Tokenizer.tokenize(bytes, self.tokenizer_limits)
   if not argv then
     return nil, token_error
@@ -100,15 +125,35 @@ function dispatcher_mt:dispatch(bytes, context)
   if not command then
     return nil, command_error_value
   end
-  local invocation, invocation_error = Output.new(self.output_limits, function()
+  local invocation
+  local invocation_error
+  invocation, invocation_error = Output.new(self.output_limits, function()
     return output_sequence(self)
+  end, function()
+    if settings.on_cancel then
+      settings.on_cancel(invocation)
+    end
   end)
   if not invocation then
     return nil, invocation_error
   end
+  local callback_context = context
+  local close_context = nil
+  if settings.context_factory then
+    local built, close_or_error = settings.context_factory(command, invocation, context)
+    if built == nil and Errors.is(close_or_error) then
+      invocation:fail(close_or_error)
+      return outcome(command, argv, invocation)
+    end
+    callback_context = built
+    close_context = close_or_error
+  end
   local callback_argv = copy_argv(argv)
   local ok, result, callback_error_value =
-    pcall(command.run, context, callback_argv, invocation:writer())
+    pcall(command.run, callback_context, callback_argv, invocation:writer())
+  if type(close_context) == "function" then
+    pcall(close_context)
+  end
   if not ok then
     local _, callback_error = command_error("sandbox command callback failed", {
       name = command.name,

@@ -4,7 +4,7 @@ local Event = require("runtime.event")
 local Output = {}
 
 Output.contract = {
-  new = "new(limits?, next_sequence?) -> command_output_invocation | nil, error",
+  new = "new(limits?, next_sequence?, on_cancel?) -> command_output_invocation | nil, error",
   normalise_limits = "normalise_limits(limits?) -> command_output_limits | nil, error",
 }
 
@@ -215,7 +215,7 @@ local function next_sequence_factory(next_sequence)
   end
 end
 
-function Output.new(configuration, next_sequence)
+function Output.new(configuration, next_sequence, on_cancel)
   local limits, limits_error = Output.normalise_limits(configuration)
   if not limits then
     return nil, limits_error
@@ -224,9 +224,16 @@ function Output.new(configuration, next_sequence)
   if not sequence_source then
     return nil, sequence_error
   end
+  if on_cancel ~= nil and type(on_cancel) ~= "function" then
+    return command_error("sandbox output cancellation callback must be a function", {
+      reason = "output_resource_limit",
+    })
+  end
 
   local execution_state = "running"
   local failure_value = nil
+  local completion_requested = false
+  local pending_work = 0
   local queue = {}
   local queue_head = 1
   local queue_tail = 1
@@ -249,7 +256,13 @@ function Output.new(configuration, next_sequence)
   end
 
   local function settled()
-    return execution_state ~= "running" and queued_chunks == 0
+    return execution_state ~= "running" and pending_work == 0 and queued_chunks == 0
+  end
+
+  local function finish_if_ready()
+    if completion_requested and pending_work == 0 and execution_state == "running" then
+      execution_state = failure_value and "failed" or "finished"
+    end
   end
 
   local function status()
@@ -267,6 +280,7 @@ function Output.new(configuration, next_sequence)
       failure = copy_error(failure_value),
       queued_bytes = queued_bytes,
       queued_chunks = queued_chunks,
+      pending_work = pending_work,
       released = released,
       settled = settled(),
       state = state,
@@ -353,9 +367,27 @@ function Output.new(configuration, next_sequence)
   end
 
   function methods:complete()
-    if execution_state == "running" then
-      execution_state = failure_value and "failed" or "finished"
+    completion_requested = true
+    finish_if_ready()
+    return true
+  end
+
+  function methods:hold()
+    if released or execution_state ~= "running" then
+      return command_error("sandbox output invocation is closed", { reason = "output_closed" })
     end
+    pending_work = pending_work + 1
+    return true
+  end
+
+  function methods:release_hold()
+    if pending_work == 0 then
+      return command_error("sandbox output invocation has no retained work", {
+        reason = "output_resource_limit",
+      })
+    end
+    pending_work = pending_work - 1
+    finish_if_ready()
     return true
   end
 
@@ -374,6 +406,9 @@ function Output.new(configuration, next_sequence)
     if execution_state ~= "cancelled" then
       close_with_failure(failure("cancelled", "sandbox output invocation was cancelled"))
       execution_state = "cancelled"
+      if on_cancel then
+        pcall(on_cancel)
+      end
     end
     return true
   end
