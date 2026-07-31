@@ -172,6 +172,10 @@ its own entity ID, planar position, and the current tick. Contacts, allies,
 geometry, signals, messages, objectives, and elevation are absent until their
 respective authority models define explicit observable semantics.
 
+The initial builder consumes one validated `MissionState` and produces an
+entity-ID-ascending immutable tuple before any policy executes. Successor
+state changes cannot alter that tuple.
+
 ## 8. Perception
 
 ### 8.1 Visibility

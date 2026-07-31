@@ -8,6 +8,7 @@ from kiwi.domain.geometry import WorldPosition, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.state import MissionState
 
 OBSERVATION_SCHEMA_VERSION = 1
 OBSERVATION_RECORD_TYPE = "Observation"
@@ -43,6 +44,16 @@ class RuntimeObservation:
             raise ValueError("runtime observation tick must be an integer")
         if not 0 <= self.tick <= MAX_AUTHORITY_TICK:
             raise ValueError("runtime observation tick must fit non-negative signed 64-bit range")
+
+
+def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation, ...]:
+    """Snapshot owner-visible policy inputs from one immutable pre-evaluation state."""
+    if not isinstance(state, MissionState):
+        raise TypeError("runtime observation building requires mission state")
+    return tuple(
+        RuntimeObservation(SelfObservation(entity.entity_id, entity.position), state.tick)
+        for entity in state.entities
+    )
 
 
 def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
