@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, PolicyInvocationId
+from kiwi.dsl.capabilities import WAIT_CAPABILITY, CapabilityId
 from kiwi.dsl.compiler import CompiledArtifact
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.policy_result import (
@@ -15,11 +16,13 @@ from kiwi.dsl.policy_result import (
     validate_policy_result,
 )
 from kiwi.dsl.runtime_values import RecordValue
-from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMFaultCode, VMRunResult, run_vm
+from kiwi.dsl.source import SourceSpan
+from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMFault, VMFaultCode, VMRunResult, run_vm
 from kiwi.sim.intentions import (
     IntentionValidationFailure,
     ValidatedIntention,
     WaitIntention,
+    required_capability_for,
     validate_runtime_intention,
 )
 from kiwi.sim.memory import EntityPolicyMemory
@@ -41,6 +44,7 @@ class PolicyBinding:
     memory_schema: MemorySchema
     initial_memory: RecordValue
     budgets: VMBudgets = DEFAULT_VM_BUDGETS
+    available_capabilities: tuple[CapabilityId, ...] = (WAIT_CAPABILITY,)
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, EntityId):
@@ -69,6 +73,17 @@ class PolicyBinding:
             raise ValueError("policy binding initial memory does not match its schema")
         if not isinstance(self.budgets, VMBudgets):
             raise ValueError("policy binding requires VM budgets")
+        if not isinstance(self.available_capabilities, tuple):
+            raise ValueError("policy binding capabilities must be an immutable tuple")
+        if any(
+            not isinstance(capability, CapabilityId) for capability in self.available_capabilities
+        ):
+            raise ValueError("policy binding capabilities must contain capability IDs")
+        capability_ids = tuple(capability.value for capability in self.available_capabilities)
+        if capability_ids != tuple(sorted(capability_ids)) or len(set(capability_ids)) != len(
+            capability_ids
+        ):
+            raise ValueError("policy binding capabilities must be unique and lexically ordered")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +122,7 @@ class PolicyEvaluation:
     observation: RuntimeObservation
     input_memory: RecordValue
     result: VMRunResult
+    capability_failure: PolicyCapabilityFailure | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.invocation_id, PolicyInvocationId):
@@ -121,6 +137,10 @@ class PolicyEvaluation:
             raise ValueError("policy evaluation requires record memory")
         if not isinstance(self.result, VMRunResult):
             raise ValueError("policy evaluation requires a VM result")
+        if self.capability_failure is not None and not isinstance(
+            self.capability_failure, PolicyCapabilityFailure
+        ):
+            raise ValueError("policy evaluation capability failure must be structured")
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +174,21 @@ class PolicyValidationCode(StrEnum):
     VM_FAULT = "P001_VM_FAULT"
     RESULT = "P002_RESULT"
     INTENTION = "P003_INTENTION"
+    CAPABILITY = "P004_CAPABILITY"
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyCapabilityFailure:
+    """One unavailable source-linked capability before or after VM execution."""
+
+    capability: CapabilityId
+    primary_span: SourceSpan | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.capability, CapabilityId):
+            raise ValueError("policy capability failure requires a capability ID")
+        if self.primary_span is not None and not isinstance(self.primary_span, SourceSpan):
+            raise ValueError("policy capability failure primary span must be a source span")
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +198,7 @@ class PolicyValidationFailure:
     code: PolicyValidationCode
     message: str
     path: tuple[str, ...] = ()
+    primary_span: SourceSpan | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.code, PolicyValidationCode):
@@ -173,6 +209,8 @@ class PolicyValidationFailure:
             not isinstance(part, str) or not part for part in self.path
         ):
             raise ValueError("policy validation failure path must be non-empty strings")
+        if self.primary_span is not None and not isinstance(self.primary_span, SourceSpan):
+            raise ValueError("policy validation failure primary span must be a source span")
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,18 +286,32 @@ def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEval
         input_memory = binding.initial_memory if stored_memory is None else stored_memory
         invocation_id, id_allocator = next_state.id_allocator.allocate_policy_invocation()
         next_state = replace(next_state, id_allocator=id_allocator)
+        capability_failure = _first_unavailable_declared_capability(binding)
+        result = (
+            VMRunResult(
+                None,
+                VMFault(
+                    VMFaultCode.ENTRY,
+                    "policy has an unavailable capability",
+                    binding.function_id,
+                ),
+            )
+            if capability_failure is not None
+            else run_vm(
+                binding.artifact.bytecode,
+                binding.function_id,
+                (observation_runtime_value(observation), input_memory),
+                binding.budgets,
+            )
+        )
         evaluations.append(
             PolicyEvaluation(
                 invocation_id,
                 entity.entity_id,
                 observation,
                 input_memory,
-                run_vm(
-                    binding.artifact.bytecode,
-                    binding.function_id,
-                    (observation_runtime_value(observation), input_memory),
-                    binding.budgets,
-                ),
+                result,
+                capability_failure,
             )
         )
     return PolicyEvaluationPhase(next_state, tuple(evaluations))
@@ -287,6 +339,16 @@ def _validate_policy_evaluation(
     evaluation: PolicyEvaluation,
     binding: PolicyBinding,
 ) -> PolicyValidation:
+    if evaluation.capability_failure is not None:
+        failure = evaluation.capability_failure
+        return PolicyValidation(
+            evaluation,
+            failure=PolicyValidationFailure(
+                PolicyValidationCode.CAPABILITY,
+                f"policy capability is unavailable: {failure.capability.value}",
+                primary_span=failure.primary_span,
+            ),
+        )
     if evaluation.result.fault is not None:
         return PolicyValidation(
             evaluation,
@@ -325,5 +387,42 @@ def _validate_policy_evaluation(
                     ("intentions", str(index)) + intention.path,
                 ),
             )
+        capability = required_capability_for(intention)
+        if capability not in binding.available_capabilities:
+            return PolicyValidation(
+                evaluation,
+                failure=PolicyValidationFailure(
+                    PolicyValidationCode.CAPABILITY,
+                    f"policy capability is unavailable: {capability.value}",
+                    primary_span=_declared_capability_span(binding, capability),
+                ),
+            )
         intentions.append(intention)
     return PolicyValidation(evaluation, result.memory, tuple(intentions))
+
+
+def _first_unavailable_declared_capability(
+    binding: PolicyBinding,
+) -> PolicyCapabilityFailure | None:
+    for entry in binding.artifact.capability_manifest.entries:
+        if entry.function_id != binding.function_id:
+            continue
+        for requirement in entry.requirements:
+            if requirement.capability not in binding.available_capabilities:
+                return PolicyCapabilityFailure(requirement.capability, requirement.primary_span)
+        return None
+    raise AssertionError("policy binding entry point is absent from its capability manifest")
+
+
+def _declared_capability_span(
+    binding: PolicyBinding,
+    capability: CapabilityId,
+) -> SourceSpan | None:
+    for entry in binding.artifact.capability_manifest.entries:
+        if entry.function_id != binding.function_id:
+            continue
+        for requirement in entry.requirements:
+            if requirement.capability == capability:
+                return requirement.primary_span
+        return None
+    raise AssertionError("policy binding entry point is absent from its capability manifest")

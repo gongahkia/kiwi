@@ -810,10 +810,12 @@ intentions where static information suffices.
 
 Milestone 4 exposes a separate immutable `CapabilityManifest` compiler artifact.
 It has manifest version `1`, policy entry points in ascending `FunctionId`
-order, and source-linked, lexically ordered capability requirements. No
-intention families exist yet, so every current entry has an empty requirement
-tuple. This manifest is deliberately outside the raw `KWI-BC\0` bytecode
-payload; later compiled-policy bundles carry it with their tactical API version.
+order, and source-linked, lexically ordered capability requirements. Milestone
+6 records the `wait` requirement at a direct `Wait` record construction. The
+simulation repeats this check for decoded requests, including values returned
+through helpers, before accepting an intention. This manifest is deliberately
+outside the raw `KWI-BC\0` bytecode payload; later compiled-policy bundles carry
+it with their tactical API version.
 
 ### 15.6 Cost analysis
 
