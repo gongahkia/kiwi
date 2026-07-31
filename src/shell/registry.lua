@@ -5,6 +5,7 @@ local registry_mt = {}
 registry_mt.__index = registry_mt
 
 Registry.contract = {
+  capability_supported = "capability_supported(name) -> boolean",
   command = "command(name) -> command_definition | nil, error",
   commands = "commands() -> command_descriptors",
   constructor = "new(options?) -> command_registry | nil, error",
@@ -22,9 +23,14 @@ local capabilities = {
   deterministic_random = true,
   domain_events = true,
   scheduled_jobs = true,
-  virtual_fs_read = true,
-  virtual_fs_write = true,
+  ["vfs.chdir"] = true,
+  ["vfs.read"] = true,
+  ["vfs.write"] = true,
 }
+
+function Registry.capability_supported(value)
+  return type(value) == "string" and capabilities[value] == true
+end
 
 local function command_error(message, detail)
   return nil, Errors.new("sandbox_command_error", message, detail)
@@ -84,7 +90,7 @@ local function copy_capabilities(value)
   local result = {}
   local seen = {}
   for index, capability in ipairs(value) do
-    if type(capability) ~= "string" or not capabilities[capability] then
+    if not Registry.capability_supported(capability) then
       return command_error("command capability is unsupported", { capability = capability })
     end
     if seen[capability] then
