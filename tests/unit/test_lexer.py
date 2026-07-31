@@ -128,6 +128,17 @@ def test_lexer_recognises_immutable_list_delimiters() -> None:
     )
 
 
+def test_lexer_prefers_pipeline_operator_over_match_arm_marker() -> None:
+    result = lex(SourceFile(SourceFileId("pipeline.dtr"), "value |> transform"))
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.IDENTIFIER,
+        TokenKind.PIPE,
+        TokenKind.IDENTIFIER,
+        TokenKind.EOF,
+    )
+
+
 def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     digits = "1" * (MAX_INTEGER_DIGITS + 1)
     source = SourceFile(SourceFileId("policy.dtr"), f"{digits} true")

@@ -273,3 +273,17 @@ def test_run_policy_command_executes_anonymous_closure_calls(tmp_path: Path) -> 
     assert result.returncode == 0
     assert result.stdout == "value: Integer(7)\n"
     assert result.stderr == ""
+
+
+def test_run_policy_command_executes_desugared_pipelines(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.dtr"
+    path.write_text(
+        "fn first(input: Int, ignored: Int) -> Int = input\npolicy result() -> Int = 7 |> first(9)",
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("run-policy", str(path), "result")
+
+    assert result.returncode == 0
+    assert result.stdout == "value: Integer(7)\n"
+    assert result.stderr == ""

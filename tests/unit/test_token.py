@@ -95,6 +95,7 @@ def test_token_kind_covers_the_milestone_one_grammar() -> None:
         TokenKind.RIGHT_BRACKET,
         TokenKind.DOT,
         TokenKind.BAR,
+        TokenKind.PIPE,
         TokenKind.LEFT_ANGLE,
         TokenKind.RIGHT_ANGLE,
         TokenKind.ARROW,

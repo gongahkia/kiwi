@@ -206,7 +206,9 @@ view.contacts
 |> List.sort_by(Contact.distance)
 ```
 
-`value |> function(args...)` desugars to `function(value, args...)` or a documented consistent alternative.
+`value |> function(args...)` desugars to `function(value, args...)`. Bare callable
+stages desugar to `function(value)`. Stages associate left to right, and the
+desugared call retains the full pipeline span for diagnostics and provenance.
 
 ### 7.5 Conditional
 
@@ -643,13 +645,14 @@ parameter   := identifier ":" type
 type        := type_atom ("->" type)?
 type_atom   := identifier ("<" type ("," type)* ">")? | "(" type_list? ")" "->" type
 type_list   := type ("," type)*
-expression  := let | conditional | match | application
+expression  := let | conditional | match | pipeline
 let         := "let" identifier "=" expression "in" expression
 conditional := "if" expression "then" expression "else" expression
 match       := "match" expression "with" match_arm+
 match_arm   := "|" match_pattern "->" expression
 match_pattern := "Some" "(" identifier ")" | "None"
 application := unary (("(" arguments? ")") | ("." identifier))*
+pipeline    := application ("|>" application)*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
 primary     := integer | boolean | string | quantity | record | list | lambda | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
