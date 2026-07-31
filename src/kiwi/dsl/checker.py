@@ -12,8 +12,8 @@ from kiwi.dsl.operators import BinaryOperator, render_binary_operator
 from kiwi.dsl.runtime_values import MAX_RUNTIME_CLOSURE_CAPTURES, MAX_RUNTIME_LIST_ITEMS
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import (
-    BooleanLiteral,
     BinaryExpression,
+    BooleanLiteral,
     CallExpression,
     Expression,
     FieldAccessExpression,
@@ -41,8 +41,8 @@ from kiwi.dsl.syntax import (
     TypeExpression,
 )
 from kiwi.dsl.typed_ir import (
-    TypedBooleanLiteral,
     TypedBinaryExpression,
+    TypedBooleanLiteral,
     TypedCallExpression,
     TypedCapture,
     TypedDefinition,
@@ -1154,6 +1154,9 @@ def _lambda_references(expression: Expression) -> tuple[NameExpression, ...]:
                 visit(field.value)
         elif isinstance(candidate, NegateExpression):
             visit(candidate.operand)
+        elif isinstance(candidate, BinaryExpression):
+            visit(candidate.left)
+            visit(candidate.right)
         elif isinstance(candidate, GroupExpression):
             visit(candidate.expression)
         elif isinstance(candidate, CallExpression):

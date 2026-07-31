@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.syntax import (
+    BinaryExpression,
     BooleanLiteral,
     CallExpression,
     Declaration,
@@ -196,6 +197,16 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
             f"{prefix}  operand:",
         ]
         lines.extend(_format_expression(expression.operand, depth + 2))
+        return lines
+    if isinstance(expression, BinaryExpression):
+        lines = [
+            f"{prefix}BinaryExpression operator={expression.operator.name} "
+            f"span={format_span(expression.span)}",
+            f"{prefix}  left:",
+        ]
+        lines.extend(_format_expression(expression.left, depth + 2))
+        lines.append(f"{prefix}  right:")
+        lines.extend(_format_expression(expression.right, depth + 2))
         return lines
     if isinstance(expression, GroupExpression):
         lines = [

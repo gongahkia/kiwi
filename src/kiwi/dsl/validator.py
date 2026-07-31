@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
+    BinaryOperation,
     BuildClosure,
     BuildList,
     BuildRecord,
     BuildSome,
-    BinaryOperation,
     BytecodeFunction,
     BytecodeInstruction,
     BytecodeModule,

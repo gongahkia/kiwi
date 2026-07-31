@@ -107,6 +107,17 @@ literals to turns, and probability literals to fractions. Conversion to
 integer simulation ticks or world subunits occurs only at the simulation
 boundary under an explicit rounding rule.
 
+### D-021: Milestone 4 domain operations use exact two-dimensional records
+
+`Position` is the closed nominal record `Position { x: Distance, y: Distance }`
+and `Vector` is `Vector { dx: Distance, dy: Distance }`. Their coordinate
+operations are exact rational component arithmetic: `Position + Vector`,
+`Position - Vector`, `Position - Position`, and `Vector +/- Vector`. Duration
+and distance support `+` and `-`; duration, distance, and probability support
+`<`, `<=`, `>`, and `>=`. Other combinations, including probability arithmetic,
+are static errors. This is a language ABI within existing version 2; canonical
+simulation subunits and elevation remain a Milestone 5 decision.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

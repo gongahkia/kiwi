@@ -373,11 +373,29 @@ A module may export only explicitly declared policy entry points.
 - `Vector`
 
 Milestone 4 resolves `Duration`, `Distance`, `Angle`, and `Probability` as
-built-in types for the corresponding literals. It also resolves nominal record
-types declared with `type Name = { field: Type, ... }`. Operations on quantities
-remain unavailable until the domain-operation task defines their semantics.
+built-in types for the corresponding literals. It also reserves the closed
+nominal records `Position { x: Distance, y: Distance }` and
+`Vector { dx: Distance, dy: Distance }`; user declarations cannot redefine
+them. Other nominal record types use `type Name = { field: Type, ... }`.
 
-Operations are dimensionally checked. Examples:
+The checked binary operator matrix is deliberately closed:
+
+```text
+Duration +/- Duration -> Duration
+Distance +/- Distance -> Distance
+Duration, Distance, Probability < <= > >= same type -> Bool
+Position + Vector -> Position
+Position - Vector -> Position
+Position - Position -> Vector
+Vector +/- Vector -> Vector
+```
+
+Quantity and coordinate arithmetic use exact normalized rationals. Probability
+has comparisons only; angle arithmetic, multiplication, division, mixed
+dimensions, reversed coordinate operands, and all other combinations are type
+errors. Simulation subunit conversion and elevation are outside the DSL.
+
+Examples:
 
 ```text
 Distance / Duration -> Speed
@@ -765,6 +783,9 @@ List intrinsic diagnostics are `E424_INTRINSIC_CALL` for a non-direct intrinsic
 reference, `E425_INTRINSIC_ARITY`, `E426_INTRINSIC_LIST`,
 `E427_INTRINSIC_CALLBACK`, and `E428_INTRINSIC_ORDER_KEY`.
 
+`E429_INVALID_DOMAIN_OPERATION` reports an unsupported or dimensionally invalid
+binary operation at the operator span.
+
 ### 15.5 Capability checking
 
 Each entry point has a capability environment. The compiler rejects impossible intentions where static information suffices.
@@ -834,6 +855,7 @@ POP
 BUILD_LIST element_count
 BUILD_CLOSURE function_id capture_count
 PUSH_INTRINSIC intrinsic_kind
+BINARY_OPERATION operator
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -864,6 +886,10 @@ entry. A closure call prepends its captures to explicit call arguments.
 `PUSH_INTRINSIC` pushes one closed standard-library identifier. It has no host
 callable, import path, or dynamic lookup; `CALL` dispatches it only to the
 documented bounded List operations.
+
+`BINARY_OPERATION` consumes a left and right value and pushes the statically
+checked exact domain result. Its closed one-byte operator tag is `+`, `-`, `<`,
+`<=`, `>`, or `>=`; the VM still rejects incompatible corrupted runtime values.
 
 The bytecode validator returns ordered structured errors instead of executing
 corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
@@ -901,6 +927,7 @@ unsigned denominator. Function types encode their parameter count, parameters,
 then return type. Version 2 additionally defines instruction tag
 `BUILD_RECORD` `11`, encoded as type-name text followed by an ordered count and
 field-name texts, and `LOAD_FIELD` `12`, encoded as its field-name text.
+`BINARY_OPERATION` `21` is encoded as its closed one-byte operator tag.
 Instruction tags are the numeric `Opcode` values in section 16; operands are
 their unsigned fields in instruction order. Instructions without an operand
 have no following field.
@@ -967,6 +994,10 @@ creating the immutable list.
 
 `BUILD_CLOSURE` charges its capture count plus one container allocation unit
 before creating the immutable closure.
+
+`BINARY_OPERATION` charges one allocation unit for a quantity or boolean result
+and three for a coordinate result (two quantities plus its record), before any
+result is created.
 
 Each List callback scheduling step charges one instruction unit in addition to
 the callback's own bytecode. `min_by` charges one additional unit for each key

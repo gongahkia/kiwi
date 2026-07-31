@@ -9,8 +9,8 @@ from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity
 from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.intrinsics import list_intrinsic
 from kiwi.dsl.syntax import (
-    BooleanLiteral,
     BinaryExpression,
+    BooleanLiteral,
     CallExpression,
     Expression,
     FieldAccessExpression,

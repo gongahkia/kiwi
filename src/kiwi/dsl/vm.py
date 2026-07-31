@@ -559,12 +559,16 @@ def _apply_binary_operation(
         comparison = _compare_domain_quantities(left, right)
         if comparison is None:
             return None
-        result = {
-            BinaryOperator.LESS: comparison < 0,
-            BinaryOperator.LESS_EQUAL: comparison <= 0,
-            BinaryOperator.GREATER: comparison > 0,
-            BinaryOperator.GREATER_EQUAL: comparison >= 0,
-        }[operator]
+        if operator is BinaryOperator.LESS:
+            result = comparison < 0
+        elif operator is BinaryOperator.LESS_EQUAL:
+            result = comparison <= 0
+        elif operator is BinaryOperator.GREATER:
+            result = comparison > 0
+        elif operator is BinaryOperator.GREATER_EQUAL:
+            result = comparison >= 0
+        else:
+            raise AssertionError("unknown comparison operator")
         return BooleanValue(result), 1
     if operator is BinaryOperator.ADD:
         quantity = _combine_domain_quantities(left, right, subtract=False)
@@ -650,10 +654,10 @@ def _combine_domain_quantities(
 ) -> QuantityValue | None:
     if not isinstance(left, QuantityValue) or not isinstance(right, QuantityValue):
         return None
-    if (
-        left.value.dimension != right.value.dimension
-        or left.value.dimension not in {QuantityDimension.DURATION, QuantityDimension.DISTANCE}
-    ):
+    if left.value.dimension != right.value.dimension or left.value.dimension not in {
+        QuantityDimension.DURATION,
+        QuantityDimension.DISTANCE,
+    }:
         return None
     return _combine_quantities(left, right, subtract)
 
