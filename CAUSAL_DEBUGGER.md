@@ -134,6 +134,12 @@ IntentionResolution {
 }
 ```
 
+The canonical event stream represents the initial policy chain as a
+`policy_evaluated` event, an `intention_emitted` child for each candidate, and
+one `intention_selected` or `intention_rejected` child of that candidate. The
+candidate retains its full `IntentionOrigin`; a rejection retains its stable
+reason and competing intention IDs.
+
 ### 5.6 Consequence record
 
 ```text

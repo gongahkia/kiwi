@@ -7,8 +7,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.domain.ids import EventId
+from kiwi.sim.arbitration import (
+    ArbitrationStatus,
+    IntentionArbitration,
+    IntentionCandidate,
+)
 from kiwi.sim.commands import ExternalCommand, IssueSignal, RequestAbort, StartMission
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.policies import PolicyValidation
 from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
 
@@ -22,6 +28,10 @@ class EventKind(StrEnum):
     SCHEDULED_TRIGGER_FIRED = "scheduled_trigger_fired"
     RANDOM_DRAW_RECORDED = "random_draw_recorded"
     COMMAND_REJECTED = "command_rejected"
+    POLICY_EVALUATED = "policy_evaluated"
+    INTENTION_EMITTED = "intention_emitted"
+    INTENTION_SELECTED = "intention_selected"
+    INTENTION_REJECTED = "intention_rejected"
 
 
 class CommandRejectionReason(StrEnum):
@@ -146,6 +156,66 @@ class CommandRejected:
         _require_matching_tick(self.header, self.command.header.tick)
 
 
+@dataclass(frozen=True, slots=True)
+class PolicyEvaluated:
+    """The retained result of one policy invocation and boundary validation."""
+
+    header: EventHeader
+    validation: PolicyValidation
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.validation, PolicyValidation):
+            raise ValueError("policy evaluated event requires a policy validation")
+        _require_matching_tick(self.header, self.validation.evaluation.observation.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class IntentionEmitted:
+    """One source-linked validated candidate returned by a policy."""
+
+    header: EventHeader
+    candidate: IntentionCandidate
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.candidate, IntentionCandidate):
+            raise ValueError("intention emitted event requires an intention candidate")
+        _require_matching_tick(self.header, self.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class IntentionSelected:
+    """The canonical selection of one emitted candidate."""
+
+    header: EventHeader
+    resolution: IntentionArbitration
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.resolution, IntentionArbitration):
+            raise ValueError("intention selected event requires an arbitration")
+        if self.resolution.status is not ArbitrationStatus.SELECTED:
+            raise ValueError("intention selected event requires a selected arbitration")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class IntentionRejected:
+    """The canonical rejection of one emitted candidate."""
+
+    header: EventHeader
+    resolution: IntentionArbitration
+
+    def __post_init__(self) -> None:
+        _require_header(self.header)
+        if not isinstance(self.resolution, IntentionArbitration):
+            raise ValueError("intention rejected event requires an arbitration")
+        if self.resolution.status is not ArbitrationStatus.REJECTED:
+            raise ValueError("intention rejected event requires a rejected arbitration")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
 CanonicalEvent = (
     MissionStarted
     | AbortRequested
@@ -153,6 +223,10 @@ CanonicalEvent = (
     | ScheduledTriggerFired
     | RandomDrawRecorded
     | CommandRejected
+    | PolicyEvaluated
+    | IntentionEmitted
+    | IntentionSelected
+    | IntentionRejected
 )
 
 
@@ -170,6 +244,14 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.RANDOM_DRAW_RECORDED
     if isinstance(event, CommandRejected):
         return EventKind.COMMAND_REJECTED
+    if isinstance(event, PolicyEvaluated):
+        return EventKind.POLICY_EVALUATED
+    if isinstance(event, IntentionEmitted):
+        return EventKind.INTENTION_EMITTED
+    if isinstance(event, IntentionSelected):
+        return EventKind.INTENTION_SELECTED
+    if isinstance(event, IntentionRejected):
+        return EventKind.INTENTION_REJECTED
     raise ValueError("event kind requires a canonical event")
 
 
@@ -187,6 +269,10 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 ScheduledTriggerFired,
                 RandomDrawRecorded,
                 CommandRejected,
+                PolicyEvaluated,
+                IntentionEmitted,
+                IntentionSelected,
+                IntentionRejected,
             ),
         ):
             raise ValueError("canonical event ordering requires canonical events")
