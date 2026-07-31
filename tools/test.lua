@@ -69,6 +69,7 @@ local modules = {
   "unit.effects.random_test",
   "unit.effects.effect_test",
   "unit.effects.host_test",
+  "unit.effects.reload_test",
 }
 
 local total = 0
