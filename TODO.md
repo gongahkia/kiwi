@@ -175,7 +175,7 @@ Goal: add visual differentiation without compromising terminal semantics.
 - [x] Implement seeded random-number access.
 - [x] Implement serialisable effect parameters.
 - [x] Implement effect enable, disable, reorder, and failure reporting.
-- [ ] Prevent effects from mutating terminal state objects.
+- [x] Prevent effects from mutating terminal state objects.
 
 ### Built-in effects
 
