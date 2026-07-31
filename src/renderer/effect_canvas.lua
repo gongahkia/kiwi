@@ -183,6 +183,19 @@ function effect_canvas_mt:draw(operation)
     return false, "effect canvas operation is invalid"
   end
   local invoked, invoke_error
+  if operation.colour then
+    invoked, invoke_error = invoke(
+      self.graphics,
+      "setColor",
+      operation.colour.red,
+      operation.colour.green,
+      operation.colour.blue,
+      operation.colour.alpha
+    )
+    if not invoked then
+      return false, invoke_error.message
+    end
+  end
   if operation.kind == "fill_rect" then
     invoked, invoke_error = invoke(
       self.graphics,

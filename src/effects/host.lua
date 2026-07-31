@@ -178,6 +178,36 @@ local function colour(value, name)
   return copy
 end
 
+local function canvas_colour(value)
+  if value == nil then
+    return nil
+  end
+  local accepted, accepted_error = exact_fields(
+    value,
+    { alpha = true, blue = true, green = true, red = true },
+    "effect canvas colour"
+  )
+  if not accepted then
+    return nil, accepted_error
+  end
+  local copy = {}
+  for _, field in ipairs({ "red", "green", "blue", "alpha" }) do
+    local component = value[field]
+    if
+      type(component) ~= "number"
+      or component ~= component
+      or component == math.huge
+      or component == -math.huge
+      or component < 0
+      or component > 1
+    then
+      return config_error("effect canvas colour component is invalid", { field = field })
+    end
+    copy[field] = component
+  end
+  return copy
+end
+
 local function context_for(host, entry, hook)
   local canvas_frame = canvas_capabilities[hook_capabilities[hook]] and host.canvas_frame or nil
   local terminal = canvas_frame and canvas_frame.terminal or host.terminal
@@ -495,9 +525,9 @@ end
 
 local function draw_operation(host, kind, arguments)
   local schemas = {
-    fill_rect = { height = true, width = true, x = true, y = true },
-    line = { x1 = true, x2 = true, y1 = true, y2 = true },
-    text = { text = true, x = true, y = true },
+    fill_rect = { colour = true, height = true, width = true, x = true, y = true },
+    line = { colour = true, x1 = true, x2 = true, y1 = true, y2 = true },
+    text = { colour = true, text = true, x = true, y = true },
   }
   local fields = schemas[kind]
   if not fields then
@@ -510,7 +540,13 @@ local function draw_operation(host, kind, arguments)
   local copy = { kind = kind }
   for field in pairs(fields) do
     local value = arguments[field]
-    if field == "text" then
+    if field == "colour" then
+      local selected, selected_error = canvas_colour(value)
+      if selected_error then
+        return nil, selected_error
+      end
+      copy.colour = selected
+    elseif field == "text" then
       local text, text_error = bounded_string(value, "effect canvas text", 4096)
       if not text then
         return nil, text_error
@@ -585,14 +621,20 @@ local function canvas_facade(host, entry, phase, invocation)
     invocation.draw_operations = invocation.draw_operations + 1
     return true
   end
-  function facade:fill_rect(x, y, width, height)
-    return self:draw("fill_rect", { height = height, width = width, x = x, y = y })
+  function facade:fill_rect(x, y, width, height, colour)
+    return self:draw("fill_rect", {
+      colour = colour,
+      height = height,
+      width = width,
+      x = x,
+      y = y,
+    })
   end
-  function facade:line(x1, y1, x2, y2)
-    return self:draw("line", { x1 = x1, x2 = x2, y1 = y1, y2 = y2 })
+  function facade:line(x1, y1, x2, y2, colour)
+    return self:draw("line", { colour = colour, x1 = x1, x2 = x2, y1 = y1, y2 = y2 })
   end
-  function facade:text(text, x, y)
-    return self:draw("text", { text = text, x = x, y = y })
+  function facade:text(text, x, y, colour)
+    return self:draw("text", { colour = colour, text = text, x = x, y = y })
   end
   return facade
 end

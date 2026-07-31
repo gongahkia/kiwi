@@ -25,6 +25,7 @@ return {
         "backend.replay",
         "effects.effect",
         "effects.clean",
+        "effects.crt",
         "effects.host",
         "effects.manifest",
         "effects.random",

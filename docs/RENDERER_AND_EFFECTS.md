@@ -6,7 +6,7 @@ Stanczyk’s renderer is a programmable presentation layer over terminal state. 
 
 The default clean renderer is the reference presentation. Every effect is optional.
 
-The bootstrap renderer selects the explicit `stanczyk.clean` preset by default. It contains no effects and disables post-processing; callers may inspect it through `renderer:preset()`. No other preset is accepted before the effects pipeline milestone.
+The bootstrap renderer selects the explicit `stanczyk.clean` preset by default. It contains no effects and disables post-processing; callers may inspect it through `renderer:preset()`. Built-in visual presets are explicit effect instances installed in an `effects.host`; renderer preset names do not grant renderer-specific behaviour.
 
 The effects API also provides `effects.clean.new()`: a static `stanczyk.clean` no-op effect suitable as the explicit baseline entry in an effect host chain. It has no capabilities, hooks, parameters, or semantic effects.
 
@@ -220,12 +220,12 @@ Features:
 Features:
 
 - subtle scanlines;
-- configurable curvature;
-- temporal persistence using prior-frame canvas;
+- event-driven phosphor persistence using bounded scalar visual state;
 - controlled bloom;
-- optional chromatic separation;
 - reduced-motion and zero-persistence settings;
 - intensity bounded to preserve text readability.
+
+The API-v1 implementation is `effects.crt.new(parameters?)`. It declares `terminal_events`, `frame_update`, and `canvas_after`; it draws at most 256 scanlines plus one phosphor overlay per frame. Its `persistence` is a deterministic event-response decay, not a retained prior-frame canvas. `bloom`, `intensity`, and the reduced-motion setting are bounded serialisable parameters. Curvature and chromatic separation are deferred pending a future capability that does not expose shaders or render targets to effects.
 
 ### 8.3 Kinetic
 
@@ -257,7 +257,9 @@ return {
   parameters = {
     intensity = { type = "number", min = 0, max = 1, default = 0.35 },
     persistence = { type = "number", min = 0, max = 1, default = 0.2 },
-    curvature = { type = "number", min = 0, max = 1, default = 0.1 }
+    bloom = { type = "number", min = 0, max = 0.5, default = 0.2 },
+    scanline_spacing = { type = "integer", min = 2, max = 8, default = 3 },
+    reduced_motion = { type = "boolean", default = false }
   }
 }
 ```
@@ -303,6 +305,8 @@ Reduced-motion behaviour should:
 - remove rapid flashing;
 - retain static visual identity where possible;
 - preserve the clean fallback.
+
+`effects.clean.reset(host)` is the one-action clean fallback. It disables every enabled non-clean effect through the host’s public controls and re-enables a loaded clean effect. With no clean effect loaded, the resulting empty visual chain still takes the exact baseline renderer path.
 
 ## 13. Performance budgets
 

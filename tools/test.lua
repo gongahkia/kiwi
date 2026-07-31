@@ -64,6 +64,7 @@ local modules = {
   "unit.renderer.canvas_hooks_test",
   "unit.effects.manifest_test",
   "unit.effects.clean_test",
+  "unit.effects.crt_test",
   "unit.effects.random_test",
   "unit.effects.effect_test",
   "unit.effects.host_test",
