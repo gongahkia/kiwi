@@ -5,9 +5,17 @@ from dataclasses import replace
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
+from kiwi.domain.ids import EventId
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
-from kiwi.sim.contacts import ContactConfidence, ContactSighting, apply_contact_sightings
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactSighting,
+    apply_contact_sightings,
+)
 from kiwi.sim.determinism import (
     compare_headless_runs,
     first_canonical_state_difference,
@@ -82,9 +90,10 @@ def test_differential_report_includes_contacts_in_canonical_order() -> None:
     expected, owner = add_entity(
         MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
     )
+    evidence_event_id, allocator = expected.id_allocator.allocate_event()
     contacts, allocator = apply_contact_sightings(
         expected.contacts,
-        expected.id_allocator,
+        allocator,
         expected.tick,
         (
             ContactSighting(
@@ -92,6 +101,7 @@ def test_differential_report_includes_contacts_in_canonical_order() -> None:
                 WorldPosition(WorldSubunits(2_000), WorldSubunits(3_000)),
                 WorldSubunits(250),
                 ContactConfidence(7_500),
+                _contact_provenance(evidence_event_id),
             ),
         ),
     )
@@ -103,6 +113,57 @@ def test_differential_report_includes_contacts_in_canonical_order() -> None:
     assert difference.path == "contacts/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
+
+
+def test_differential_report_includes_contact_field_evidence() -> None:
+    state, owner = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    first_evidence_event_id, allocator = state.id_allocator.allocate_event()
+    second_evidence_event_id, allocator = allocator.allocate_event()
+    contacts, allocator = apply_contact_sightings(
+        state.contacts,
+        allocator,
+        state.tick,
+        (
+            ContactSighting(
+                owner.entity_id,
+                WorldPosition(WorldSubunits(2_000), WorldSubunits(3_000)),
+                WorldSubunits(250),
+                ContactConfidence(7_500),
+                _contact_provenance(first_evidence_event_id),
+            ),
+        ),
+    )
+    expected = replace(state, contacts=contacts, id_allocator=allocator)
+    contact = expected.contacts.estimates[0]
+    changed_provenance = ContactProvenance(
+        (
+            *contact.provenance.fields[:2],
+            ContactFieldProvenance(ContactField.CONFIDENCE, (second_evidence_event_id,)),
+            contact.provenance.fields[3],
+        )
+    )
+    actual = replace(
+        expected,
+        contacts=replace(
+            expected.contacts,
+            estimates=(replace(contact, provenance=changed_provenance),),
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "contacts/0/provenance/confidence/evidence_event_ids/0"
+    assert difference.expected == "1"
+    assert difference.actual == "2"
+
+
+def _contact_provenance(event_id: EventId) -> ContactProvenance:
+    return ContactProvenance(
+        tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
+    )
 
 
 def test_differential_report_includes_map_geometry_in_canonical_order() -> None:

@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import EntityId, IdAllocator
+from kiwi.domain.ids import EntityId, EventId, IdAllocator
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactStore,
+)
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.randomness import default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
@@ -73,6 +81,29 @@ def test_mission_state_validates_entity_order_and_allocator_provenance() -> None
         MissionState(entities=(second, first), id_allocator=after_second)
     with pytest.raises(ValueError, match="allocated by"):
         MissionState(entities=(first,), id_allocator=IdAllocator())
+
+
+def test_mission_state_rejects_contact_evidence_without_an_allocated_event() -> None:
+    entity_id, allocator = IdAllocator().allocate_entity()
+    contact_id, allocator = allocator.allocate_contact()
+    estimate = ContactEstimate(
+        contact_id,
+        entity_id,
+        position(),
+        WorldSubunits(0),
+        ContactConfidence(100),
+        0,
+        ContactProvenance(
+            tuple(ContactFieldProvenance(field, (EventId(1),)) for field in ContactField)
+        ),
+    )
+
+    with pytest.raises(ValueError, match="contact evidence event IDs"):
+        MissionState(
+            entities=(EntityState(entity_id, position()),),
+            id_allocator=allocator,
+            contacts=ContactStore((estimate,)),
+        )
 
 
 @pytest.mark.parametrize(

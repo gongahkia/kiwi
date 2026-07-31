@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import IdAllocator
+from kiwi.domain.ids import EventId, IdAllocator
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
     BooleanValue,
@@ -16,7 +16,14 @@ from kiwi.dsl.runtime_values import (
     RecordValue,
     StringValue,
 )
-from kiwi.sim.contacts import ContactConfidence, ContactSighting, apply_contact_sightings
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactSighting,
+    apply_contact_sightings,
+)
 from kiwi.sim.hashing import (
     CANONICAL_STATE_MAGIC,
     CANONICAL_STATE_VERSION,
@@ -79,7 +86,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "0c6fa9d89bfd0cd07accd227752278cf6282997616daa1d2acbcb2af41196ff6"
+    assert first.hex == "06baec5061cd6536841e7e1cbb6265742083e47778738c02ef4a43b7b2b2fc0b"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -210,9 +217,10 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
 
 def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
     state, owner = add_entity(MissionState(), WorldPosition(WorldSubunits(3), WorldSubunits(4)))
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
     contacts, allocator = apply_contact_sightings(
         state.contacts,
-        state.id_allocator,
+        allocator,
         state.tick,
         (
             ContactSighting(
@@ -220,6 +228,7 @@ def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
                 WorldPosition(WorldSubunits(300), WorldSubunits(400), ElevationLayer(1)),
                 WorldSubunits(200),
                 ContactConfidence(8_000),
+                _contact_provenance(evidence_event_id),
             ),
         ),
     )
@@ -238,6 +247,12 @@ def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
     )
 
 
+def _contact_provenance(event_id: EventId) -> ContactProvenance:
+    return ContactProvenance(
+        tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
+    )
+
+
 @pytest.mark.parametrize(
     ("data", "code"),
     (
@@ -247,6 +262,8 @@ def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
         (CANONICAL_STATE_MAGIC + b"\x00\x03", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x04", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x05", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x06", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x07", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

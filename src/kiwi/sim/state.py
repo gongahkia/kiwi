@@ -208,6 +208,15 @@ class MissionState:
             estimate.contact_id.value >= next_contact_id for estimate in self.contacts.estimates
         ):
             raise ValueError("contact IDs must be allocated by the current ID allocator")
+        if any(
+            event_id.value >= next_event_id
+            for estimate in self.contacts.estimates
+            for field_provenance in estimate.provenance.fields
+            for event_id in field_provenance.evidence_event_ids
+        ):
+            raise ValueError(
+                "contact evidence event IDs must be allocated by the current ID allocator"
+            )
 
 
 def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionState, EntityState]:

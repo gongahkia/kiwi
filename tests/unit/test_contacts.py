@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import ContactId, EntityId, IdAllocator
+from kiwi.domain.ids import ContactId, EntityId, EventId, IdAllocator
 from kiwi.sim.contacts import (
     CONTACT_CONFIDENCE_DECAY_PER_TICK,
     CONTACT_UNCERTAINTY_GROWTH_PER_TICK,
@@ -11,6 +11,9 @@ from kiwi.sim.contacts import (
     ContactAge,
     ContactConfidence,
     ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
     ContactSighting,
     ContactStore,
     advance_contacts,
@@ -19,6 +22,9 @@ from kiwi.sim.contacts import (
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
 _DEFAULT_SIGHTING_CONFIDENCE = ContactConfidence(7_500)
+_DEFAULT_PROVENANCE = ContactProvenance(
+    tuple(ContactFieldProvenance(field, (EventId(1),)) for field in ContactField)
+)
 
 
 def test_contact_estimate_is_owner_local_uncertain_and_ages_by_ticks() -> None:
@@ -29,6 +35,7 @@ def test_contact_estimate_is_owner_local_uncertain_and_ages_by_ticks() -> None:
         WorldSubunits(600),
         ContactConfidence(7_500),
         12,
+        _DEFAULT_PROVENANCE,
     )
 
     assert estimate.contact_id == ContactId(3)
@@ -56,6 +63,7 @@ def test_contact_estimate_is_owner_local_uncertain_and_ages_by_ticks() -> None:
                 WorldSubunits(-1),
                 ContactConfidence(1),
                 0,
+                _DEFAULT_PROVENANCE,
             ),
             "uncertainty",
         ),
@@ -67,6 +75,7 @@ def test_contact_estimate_is_owner_local_uncertain_and_ages_by_ticks() -> None:
                 WorldSubunits(0),
                 ContactConfidence(1),
                 MAX_AUTHORITY_TICK + 1,
+                _DEFAULT_PROVENANCE,
             ),
             "last observation",
         ),
@@ -85,10 +94,56 @@ def test_contact_age_rejects_a_tick_before_the_last_observation() -> None:
         WorldSubunits(0),
         ContactConfidence(10_000),
         4,
+        _DEFAULT_PROVENANCE,
     )
 
     with pytest.raises(ValueError, match="must not precede"):
         estimate.age_at(3)
+
+
+def test_contact_provenance_resolves_each_policy_relevant_field_to_evidence_events() -> None:
+    provenance = ContactProvenance(
+        (
+            ContactFieldProvenance(ContactField.ESTIMATED_POSITION, (EventId(1), EventId(3))),
+            ContactFieldProvenance(ContactField.UNCERTAINTY_RADIUS, (EventId(1),)),
+            ContactFieldProvenance(ContactField.CONFIDENCE, (EventId(1), EventId(2))),
+            ContactFieldProvenance(ContactField.LAST_OBSERVED_TICK, (EventId(1),)),
+        )
+    )
+
+    assert provenance.evidence_for(ContactField.ESTIMATED_POSITION) == (EventId(1), EventId(3))
+    assert provenance.evidence_for(ContactField.UNCERTAINTY_RADIUS) == (EventId(1),)
+    assert provenance.evidence_for(ContactField.CONFIDENCE) == (EventId(1), EventId(2))
+    assert provenance.evidence_for(ContactField.LAST_OBSERVED_TICK) == (EventId(1),)
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (
+            lambda: ContactFieldProvenance(ContactField.CONFIDENCE, ()),
+            "between one and 64",
+        ),
+        (
+            lambda: ContactFieldProvenance(ContactField.CONFIDENCE, (EventId(2), EventId(1))),
+            "unique and ascending",
+        ),
+        (
+            lambda: ContactProvenance(
+                tuple(
+                    ContactFieldProvenance(field, (EventId(1),))
+                    for field in tuple(ContactField)[:-1]
+                )
+            ),
+            "cover every",
+        ),
+    ),
+)
+def test_contact_provenance_rejects_incomplete_or_noncanonical_evidence(
+    factory: object, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        factory()  # type: ignore[operator]
 
 
 def test_contact_sightings_allocate_canonically_and_replace_owner_local_estimates() -> None:
@@ -114,13 +169,22 @@ def test_contact_sightings_allocate_canonically_and_replace_owner_local_estimate
         WorldSubunits(300),
         ContactConfidence(7_500),
         4,
+        _DEFAULT_PROVENANCE,
     )
 
     second_store, updated_allocator = apply_contact_sightings(
         first_store,
         allocator,
         4,
-        (_sighting(owner_one, 1_500, 4_500, contact_id=ContactId(1)),),
+        (
+            _sighting(
+                owner_one,
+                1_500,
+                4_500,
+                provenance=_provenance(EventId(2)),
+                contact_id=ContactId(1),
+            ),
+        ),
     )
 
     assert updated_allocator == allocator
@@ -131,6 +195,7 @@ def test_contact_sightings_allocate_canonically_and_replace_owner_local_estimate
         WorldSubunits(300),
         ContactConfidence(7_500),
         4,
+        _provenance(EventId(2)),
     )
     assert second_store.estimate_for(owner_two, ContactId(2)) == first_store.estimate_for(
         owner_two, ContactId(2)
@@ -145,6 +210,7 @@ def test_contact_lifecycle_decays_uncertainty_and_removes_exhausted_contacts() -
         WorldSubunits(300),
         ContactConfidence(250),
         5,
+        _DEFAULT_PROVENANCE,
     )
     store = ContactStore((estimate,), lifecycle_tick=5)
 
@@ -160,6 +226,7 @@ def test_contact_lifecycle_decays_uncertainty_and_removes_exhausted_contacts() -
     )
     assert second.estimates[0].confidence == ContactConfidence(50)
     assert second.estimates[0].last_observed_tick == 5
+    assert second.estimates[0].provenance == _DEFAULT_PROVENANCE
     assert lost.estimates == ()
     assert lost.lifecycle_tick == 8
 
@@ -202,6 +269,7 @@ def test_zero_confidence_sightings_remove_contacts_without_allocating_a_replacem
                         WorldSubunits(0),
                         ContactConfidence(100),
                         2,
+                        _DEFAULT_PROVENANCE,
                     ),
                 ),
                 lifecycle_tick=1,
@@ -234,6 +302,7 @@ def _sighting(
     y: int,
     *,
     confidence: ContactConfidence = _DEFAULT_SIGHTING_CONFIDENCE,
+    provenance: ContactProvenance = _DEFAULT_PROVENANCE,
     contact_id: ContactId | None = None,
 ) -> ContactSighting:
     return ContactSighting(
@@ -241,9 +310,16 @@ def _sighting(
         _position(x, y),
         WorldSubunits(300),
         confidence,
+        provenance,
         contact_id,
     )
 
 
 def _position(x: int, y: int) -> WorldPosition:
     return WorldPosition(WorldSubunits(x), WorldSubunits(y), ElevationLayer(1))
+
+
+def _provenance(event_id: EventId) -> ContactProvenance:
+    return ContactProvenance(
+        tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
+    )
