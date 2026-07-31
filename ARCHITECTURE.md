@@ -360,6 +360,11 @@ fixed-width big-endian scalars and explicit ordered bounded collections. The
 authority hash is BLAKE2b-256 over exactly those bytes; unsupported format
 versions are rejected rather than reinterpreted.
 
+An `AuthoritySnapshot` holds the exact canonical-state payload, redundant tick,
+and state hash. Restore decodes the payload and verifies its tick and hash
+before returning authoritative state. It contains no display data; the separate
+presentation snapshot model is deferred to Milestone 7.
+
 The initial reducer accepts an immutable exact-tick command tuple, canonicalises
 it, transitions `prepared` missions to `active`, records authorised aborts,
 rejects signals until they become observations, dequeues scheduled markers,

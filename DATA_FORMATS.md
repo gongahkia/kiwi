@@ -193,7 +193,9 @@ and named random-stream states. Counts are 32-bit big-endian values bounded to
 65,536 items. Entity coordinates are signed 64-bit millimetres; elevation,
 sequences, stream state, and seed use unsigned 64-bit values. A snapshot
 container will add content/replay metadata around this payload without changing
-its hash semantics.
+its hash semantics. Milestone 5's in-memory `AuthoritySnapshot` carries that
+payload with a redundant tick and BLAKE2b-256 state hash; restore rejects invalid
+payloads and tick or hash mismatches. It is not a `.dsnap` container yet.
 
 ## 9. Replay package
 
