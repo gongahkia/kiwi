@@ -190,6 +190,15 @@ entity's persisted memory and future policy input. `KWI-STATE\0` therefore uses
 version `3`; versions `1` and `2` are rejected with no compatibility decoder or
 migration because the project remains in development.
 
+### D-029: Operatives use fixed 350 millimetre disc footprints
+
+Milestone 7 represents each operative as a closed planar disc centred at its
+`WorldPosition`, with a fixed 350 millimetre radius. Boundary contact is a
+collision; elevation is a separate discrete layer. This gives movement,
+clearance, separation, and later projectile tests one integer-only geometry
+primitive without committing authority to a third-party physics engine. Stance,
+injury, equipment, and rendering do not change the footprint initially.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
