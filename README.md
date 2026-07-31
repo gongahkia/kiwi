@@ -136,6 +136,11 @@ Compile a type-clean source file with `uv run --extra dev python -m kiwi.cli com
 
 Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cli run-policy path/to/policy.dtr entry --arg true`. Repeat `--arg` in parameter order; command-line arguments currently accept decimal integers, `true`, `false`, and `unit`. Milestone 4 source also supports strings, exact `ms`, `s`, `m`, `deg`, and `%` quantity literals; checked exact `+`, `-`, `<`, `<=`, `>`, and `>=` domain operations; built-in `Position { x, y }` and `Vector { dx, dy }` records; nominal immutable records declared with `type Name = { field: Type }`; closed `Option<T>` values using `Some(value)` or contextually typed `None`; exhaustive `match value with | Some(item) -> ... | None -> ...`; immutable `List<T>` literals such as `[1, 2]`; context-typed anonymous functions such as `fn item -> item`; and `value |> function(args...)` pipelines. Output renders closed runtime values. The command never evaluates Python source.
 
+The simulation policy boundary accepts `MoveToward { target: Position }` and
+`Wait { duration: Duration }`. MoveToward is capability-gated, uses canonical
+integer route planning, and emits source-linked route and movement events; it
+does not expose Python or renderer state to policy code.
+
 The current authoring language, core IR, and bytecode use version `2`; `.dtr`
 source has no header and compiles as version `2`. Historical `(1, 1, 1)`
 bytecode decodes with its original semantics but cannot contain version-2

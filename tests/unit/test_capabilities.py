@@ -6,6 +6,7 @@ from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.capabilities import (
     CAPABILITY_MANIFEST_VERSION,
+    MOVE_TOWARD_CAPABILITY,
     WAIT_CAPABILITY,
     CapabilityId,
     CapabilityManifest,
@@ -85,6 +86,25 @@ def test_compiler_records_wait_requirement_at_its_source_construction() -> None:
     assert requirement.capability == WAIT_CAPABILITY
     assert requirement.primary_span == source.span(
         ByteOffset(wait_start), ByteOffset(wait_start + len("Wait { duration = 1s }"))
+    )
+
+
+def test_compiler_records_move_toward_requirement_at_its_source_construction() -> None:
+    source = SourceFile(
+        SourceFileId("move-capability.dtr"),
+        "type MoveToward = { target: Position }\n"
+        "policy decide() -> MoveToward = "
+        "MoveToward { target = Position { x = 1m, y = 2m } }\n",
+    )
+
+    artifact = compile_artifact(_core(source), BytecodeHeader(source.file_id))
+    requirement = artifact.capability_manifest.entries[0].requirements[0]
+    move_text = "MoveToward { target = Position { x = 1m, y = 2m } }"
+    move_start = source.text.index(move_text)
+
+    assert requirement.capability == MOVE_TOWARD_CAPABILITY
+    assert requirement.primary_span == source.span(
+        ByteOffset(move_start), ByteOffset(move_start + len(move_text))
     )
 
 

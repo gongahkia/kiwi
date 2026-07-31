@@ -15,6 +15,7 @@ from kiwi.sim.arbitration import (
 from kiwi.sim.commands import ExternalCommand, IssueSignal, RequestAbort, StartMission
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.movement import MovementResolution, MovementResolutionKind
+from kiwi.sim.pathing import Path, PathQueryFailure, PathSearchFailure
 from kiwi.sim.policies import PolicyValidation
 from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
@@ -36,6 +37,8 @@ class EventKind(StrEnum):
     MOVEMENT_PROGRESSED = "movement_progressed"
     MOVEMENT_BLOCKED = "movement_blocked"
     MOVEMENT_ARRIVED = "movement_arrived"
+    MOVEMENT_ROUTE_STARTED = "movement_route_started"
+    MOVEMENT_ROUTE_REJECTED = "movement_route_rejected"
 
 
 class CommandRejectionReason(StrEnum):
@@ -221,6 +224,53 @@ class IntentionRejected:
 
 
 @dataclass(frozen=True, slots=True)
+class MovementRouteStarted:
+    """One selected move request whose canonical route was activated."""
+
+    header: EventHeader
+    candidate: IntentionCandidate
+    path: Path
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.intentions import MoveTowardIntention
+
+        _require_header(self.header)
+        if not isinstance(self.candidate, IntentionCandidate):
+            raise ValueError("movement route start requires an intention candidate")
+        if not isinstance(self.candidate.intention, MoveTowardIntention):
+            raise ValueError("movement route start requires a move-toward intention")
+        if not isinstance(self.path, Path):
+            raise ValueError("movement route start requires a path")
+        if (
+            self.path.query.goal.x != self.candidate.intention.target.x
+            or self.path.query.goal.y != self.candidate.intention.target.y
+        ):
+            raise ValueError("movement route target must match the selected intention")
+        _require_matching_tick(self.header, self.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class MovementRouteRejected:
+    """One selected move request with a structured route-planning failure."""
+
+    header: EventHeader
+    candidate: IntentionCandidate
+    failure: PathQueryFailure | PathSearchFailure
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.intentions import MoveTowardIntention
+
+        _require_header(self.header)
+        if not isinstance(self.candidate, IntentionCandidate):
+            raise ValueError("movement route rejection requires an intention candidate")
+        if not isinstance(self.candidate.intention, MoveTowardIntention):
+            raise ValueError("movement route rejection requires a move-toward intention")
+        if not isinstance(self.failure, (PathQueryFailure, PathSearchFailure)):
+            raise ValueError("movement route rejection requires a path failure")
+        _require_matching_tick(self.header, self.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
 class MovementProgressed:
     """One accepted non-final movement segment advance."""
 
@@ -279,6 +329,8 @@ CanonicalEvent = (
     | IntentionEmitted
     | IntentionSelected
     | IntentionRejected
+    | MovementRouteStarted
+    | MovementRouteRejected
     | MovementProgressed
     | MovementBlocked
     | MovementArrived
@@ -307,6 +359,10 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.INTENTION_SELECTED
     if isinstance(event, IntentionRejected):
         return EventKind.INTENTION_REJECTED
+    if isinstance(event, MovementRouteStarted):
+        return EventKind.MOVEMENT_ROUTE_STARTED
+    if isinstance(event, MovementRouteRejected):
+        return EventKind.MOVEMENT_ROUTE_REJECTED
     if isinstance(event, MovementProgressed):
         return EventKind.MOVEMENT_PROGRESSED
     if isinstance(event, MovementBlocked):
@@ -334,6 +390,8 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 IntentionEmitted,
                 IntentionSelected,
                 IntentionRejected,
+                MovementRouteStarted,
+                MovementRouteRejected,
                 MovementProgressed,
                 MovementBlocked,
                 MovementArrived,

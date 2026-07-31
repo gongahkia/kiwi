@@ -41,7 +41,10 @@ def emit_movement_events(phase: MovementPhase) -> MovementEventPhase:
     for resolution in phase.resolutions:
         event_id, id_allocator = next_state.id_allocator.allocate_event()
         next_state = replace(next_state, id_allocator=id_allocator)
-        header = EventHeader(event_id, resolution.tick)
+        parent_event_ids = (
+            () if resolution.origin_event_id is None else (resolution.origin_event_id,)
+        )
+        header = EventHeader(event_id, resolution.tick, parent_event_ids)
         if resolution.kind is MovementResolutionKind.PROGRESSED:
             events.append(MovementProgressed(header, resolution))
         elif resolution.kind is MovementResolutionKind.BLOCKED:

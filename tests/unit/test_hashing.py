@@ -78,7 +78,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "0410e8888393371a0846f853d2bf96e5413341775296c25e6d58e1b9d4d54ca3"
+    assert first.hex == "07ee0e2165d9841643a3f20fdc69816f80c9920d307b749ab7d37794f656d5e9"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -117,6 +117,31 @@ def test_canonical_state_codec_round_trips_movement_actions() -> None:
     assert decoded == state
     assert isinstance(decoded, MissionState)
     assert hash_canonical_state(decoded) == hash_canonical_state(state)
+
+
+def test_canonical_state_codec_preserves_movement_action_causal_origin() -> None:
+    map_geometry, id_allocator = _map_geometry()
+    route_event_id, id_allocator = id_allocator.allocate_event()
+    start = WorldPosition(WorldSubunits(-600), WorldSubunits(-1_500))
+    goal = WorldPosition(WorldSubunits(-600), WorldSubunits(-1_000))
+    state, entity = add_entity(
+        MissionState(map_geometry=map_geometry, id_allocator=id_allocator),
+        start,
+    )
+    path = Path(PathQuery(map_geometry, start, goal), (start, goal))
+    state = replace(
+        state,
+        movement_actions=(MovementAction(entity.entity_id, path, origin_event_id=route_event_id),),
+    )
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.movement_actions[0].origin_event_id == route_event_id
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, movement_actions=(MovementAction(entity.entity_id, path),))
+    )
 
 
 def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
@@ -190,6 +215,7 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
         (CANONICAL_STATE_MAGIC + b"\x00\x02", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x03", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x04", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x05", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),
