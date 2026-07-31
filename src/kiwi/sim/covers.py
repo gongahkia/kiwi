@@ -7,9 +7,13 @@ from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import CoverId
+from kiwi.sim.contacts import ContactEstimate
 
 MAX_COVER_INTEGRITY_BASIS_POINTS = 10_000
 MAX_COVER_SLOTS_PER_SEGMENT = 16
+FULL_EXPOSURE_BASIS_POINTS = 10_000
+LOW_COVER_PROTECTION_BASIS_POINTS = 5_000
+HIGH_COVER_PROTECTION_BASIS_POINTS = 7_500
 
 
 class CoverSide(StrEnum):
@@ -132,5 +136,72 @@ class CoverStore:
         return None
 
 
+@dataclass(frozen=True, slots=True)
+class ExposureEstimate:
+    """One deterministic slot exposure estimate against one contact estimate."""
+
+    cover_id: CoverId
+    slot_index: int
+    contact_id: int
+    basis_points: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cover_id, CoverId):
+            raise ValueError("exposure estimate requires a cover ID")
+        if not isinstance(self.slot_index, int) or isinstance(self.slot_index, bool):
+            raise ValueError("exposure estimate slot index must be an integer")
+        if not isinstance(self.contact_id, int) or isinstance(self.contact_id, bool):
+            raise ValueError("exposure estimate contact ID must be an integer")
+        if not 0 <= self.basis_points <= FULL_EXPOSURE_BASIS_POINTS:
+            raise ValueError("exposure estimate must be between zero and 10,000 basis points")
+
+
+def estimate_cover_exposure(
+    segment: CoverSegment, slot_index: int, contact: ContactEstimate
+) -> ExposureEstimate:
+    """Estimate exposure from one uncertain contact without reading hidden target state."""
+    if not isinstance(segment, CoverSegment):
+        raise ValueError("cover exposure requires a cover segment")
+    if not isinstance(contact, ContactEstimate):
+        raise ValueError("cover exposure requires a contact estimate")
+    slot = segment.slot_for(slot_index)
+    if slot is None:
+        raise ValueError("cover exposure slot index must exist on its segment")
+    if contact.estimated_position.elevation != segment.start.elevation:
+        return ExposureEstimate(
+            segment.cover_id, slot_index, contact.contact_id.value, FULL_EXPOSURE_BASIS_POINTS
+        )
+    contact_side = _side_of_segment(segment, contact.estimated_position)
+    if contact_side is None or contact_side is slot.side:
+        return ExposureEstimate(
+            segment.cover_id, slot_index, contact.contact_id.value, FULL_EXPOSURE_BASIS_POINTS
+        )
+    protection = (
+        LOW_COVER_PROTECTION_BASIS_POINTS
+        if segment.height is CoverHeight.LOW
+        else HIGH_COVER_PROTECTION_BASIS_POINTS
+    )
+    protected = protection * segment.integrity.basis_points // FULL_EXPOSURE_BASIS_POINTS
+    return ExposureEstimate(
+        segment.cover_id,
+        slot_index,
+        contact.contact_id.value,
+        FULL_EXPOSURE_BASIS_POINTS - protected,
+    )
+
+
 def _position_key(position: WorldPosition) -> tuple[int, int]:
     return (position.x.value, position.y.value)
+
+
+def _side_of_segment(segment: CoverSegment, position: WorldPosition) -> CoverSide | None:
+    vector_x = segment.end.x.value - segment.start.x.value
+    vector_y = segment.end.y.value - segment.start.y.value
+    offset_x = position.x.value - segment.start.x.value
+    offset_y = position.y.value - segment.start.y.value
+    cross = vector_x * offset_y - vector_y * offset_x
+    if cross > 0:
+        return CoverSide.LEFT
+    if cross < 0:
+        return CoverSide.RIGHT
+    return None

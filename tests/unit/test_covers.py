@@ -3,8 +3,17 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import CoverId
+from kiwi.domain.ids import ContactId, CoverId, EntityId, EventId
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+)
 from kiwi.sim.covers import (
+    FULL_EXPOSURE_BASIS_POINTS,
+    HIGH_COVER_PROTECTION_BASIS_POINTS,
     MAX_COVER_INTEGRITY_BASIS_POINTS,
     CoverHeight,
     CoverIntegrity,
@@ -12,6 +21,7 @@ from kiwi.sim.covers import (
     CoverSide,
     CoverSlot,
     CoverStore,
+    estimate_cover_exposure,
 )
 from kiwi.sim.visibility import SensorRange, visible_covers
 
@@ -70,6 +80,22 @@ def test_visible_covers_use_same_layer_exact_segment_range_and_cover_id_order() 
     )
 
     assert tuple(cover.cover_id for cover in visible) == (CoverId(1),)
+
+
+def test_cover_exposure_uses_contact_estimate_side_height_and_integrity() -> None:
+    segment = _segment()
+    right_contact = _contact(1, 500, -1_000)
+    left_contact = _contact(2, 500, 1_000)
+    collinear_contact = _contact(3, 500, 0)
+
+    protected = estimate_cover_exposure(segment, 0, right_contact)
+    exposed = estimate_cover_exposure(segment, 0, left_contact)
+    collinear = estimate_cover_exposure(segment, 0, collinear_contact)
+
+    assert protected.basis_points == FULL_EXPOSURE_BASIS_POINTS - (
+        HIGH_COVER_PROTECTION_BASIS_POINTS * 8_500 // FULL_EXPOSURE_BASIS_POINTS
+    )
+    assert exposed.basis_points == collinear.basis_points == FULL_EXPOSURE_BASIS_POINTS
 
 
 @pytest.mark.parametrize(
@@ -165,5 +191,19 @@ def _segment(cover_id: CoverId | None = None) -> CoverSegment:
         (
             CoverSlot(0, WorldPosition(WorldSubunits(0), WorldSubunits(-350)), CoverSide.LEFT),
             CoverSlot(1, WorldPosition(WorldSubunits(1_000), WorldSubunits(350)), CoverSide.RIGHT),
+        ),
+    )
+
+
+def _contact(contact_id: int, x: int, y: int) -> ContactEstimate:
+    return ContactEstimate(
+        ContactId(contact_id),
+        EntityId(1),
+        WorldPosition(WorldSubunits(x), WorldSubunits(y)),
+        WorldSubunits(100),
+        ContactConfidence(7_500),
+        0,
+        ContactProvenance(
+            tuple(ContactFieldProvenance(field, (EventId(1),)) for field in ContactField)
         ),
     )

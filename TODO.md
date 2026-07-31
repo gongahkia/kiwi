@@ -313,7 +313,7 @@ Make spatial safety a programmable tactical concern.
 
 - [x] Define cover segments, sides, occupancy slots, height, and integrity.
 - [x] Implement cover visibility and observed cover values.
-- [ ] Implement deterministic exposure estimate against contacts.
+- [x] Implement deterministic exposure estimate against contacts.
 - [ ] Implement cover reservation or contention rules.
 - [ ] Add `TakeCover` intention validation and execution.
 - [ ] Add standard-library cover selection helpers.

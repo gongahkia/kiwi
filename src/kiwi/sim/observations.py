@@ -48,7 +48,7 @@ class SelfObservation:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeObservation:
-    """The complete version-4 policy input with no hidden or writable state."""
+    """The complete version-5 policy input with no hidden or writable state."""
 
     self_observation: SelfObservation
     tick: int

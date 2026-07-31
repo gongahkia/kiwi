@@ -529,6 +529,12 @@ segment is included when its exact nearest planar point is within the fixed
 not obstacle-occluded and exposes segment endpoints, height, integrity, and
 slots only; occupancy and reservation remain hidden until their own phase.
 
+Initial exposure estimates consume only one cover slot and contact estimate.
+The contact's estimated position determines its side of the directed segment;
+the slot is protected only from the opposite side. Low/high cover contributes
+5,000/7,500 protection basis points scaled by integer-floor integrity; same
+side, collinear, and cross-elevation estimates have full exposure.
+
 Exposure to a threat is computed from geometry, stance, and contact estimate. Because contacts are uncertain, policy-facing exposure may differ from ground truth. Record both where useful for explanation.
 
 ## 14. Aiming
