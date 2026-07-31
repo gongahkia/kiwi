@@ -265,7 +265,8 @@ function session_mt:dispatch(bytes, context)
       return capability_error(capability)
     end
   end
-  local callback_context, close_facade = invocation_context(context, self.filesystem, command.capabilities)
+  local callback_context, close_facade =
+    invocation_context(context, self.filesystem, command.capabilities)
   local outcome, dispatch_error = self.dispatcher:dispatch(bytes, callback_context)
   if close_facade then
     close_facade()

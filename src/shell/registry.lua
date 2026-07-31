@@ -91,7 +91,10 @@ local function copy_capabilities(value)
   local seen = {}
   for index, capability in ipairs(value) do
     if not Registry.capability_supported(capability) then
-      return command_error("command capability is unsupported", { capability = capability })
+      return command_error("command capability is unsupported", {
+        capability = capability,
+        reason = "unsupported_capability",
+      })
     end
     if seen[capability] then
       return command_error("command capabilities must be unique", { capability = capability })

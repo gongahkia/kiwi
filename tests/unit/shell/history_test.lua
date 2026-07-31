@@ -163,4 +163,135 @@ return {
       assertions.equal("session_closed", destroyed_error.detail.reason)
     end,
   },
+  {
+    name = "sandbox session capability dispatch supplies only declared virtual filesystem operations",
+    run = function()
+      local command_registry = assert(Registry.new())
+      local seen = {}
+      assert(command_registry:register("none", {
+        run = function(context)
+          seen.no_facade = context.fs
+        end,
+        summary = "No filesystem",
+      }))
+      assert(command_registry:register("read", {
+        capabilities = { "vfs.read" },
+        run = function(context)
+          seen.read_data = context.fs:read_file("/note")
+          seen.read_write = context.fs.write_file
+          seen.read_cwd = context.fs:get_cwd()
+        end,
+        summary = "Read filesystem",
+      }))
+      assert(command_registry:register("write", {
+        capabilities = { "vfs.write" },
+        run = function(context)
+          seen.write_read = context.fs.read_file
+          assert(context.fs:write_file("/written", "ok"))
+        end,
+        summary = "Write filesystem",
+      }))
+      assert(command_registry:register("cd", {
+        capabilities = { "vfs.chdir" },
+        run = function(context)
+          seen.chdir_read = context.fs.read_file
+          assert(context.fs:change_directory("/work"))
+        end,
+        summary = "Change directory",
+      }))
+      local session = assert(Session.new(command_registry, {
+        filesystem = {
+          initial_tree = {
+            entries = {
+              note = { data = "seed", kind = "file" },
+              work = { entries = {}, kind = "directory" },
+            },
+            kind = "directory",
+          },
+        },
+        granted_capabilities = { "vfs.read", "vfs.write", "vfs.chdir" },
+      }))
+      assert(session:dispatch("none", { fs = "host filesystem" }))
+      assertions.equal(nil, seen.no_facade)
+      assert(session:dispatch("read"))
+      assertions.equal("seed", seen.read_data)
+      assertions.equal(nil, seen.read_write)
+      assertions.equal("/", seen.read_cwd)
+      assert(session:dispatch("write"))
+      assertions.equal(nil, seen.write_read)
+      assert(session:dispatch("cd"))
+      assertions.equal(nil, seen.chdir_read)
+      local other = assert(Session.new(command_registry, { granted_capabilities = { "vfs.read" } }))
+      assert(other:dispatch("read"))
+      assertions.equal(nil, seen.read_data)
+      assertions.equal("/", other:status().filesystem.cwd)
+      assertions.equal("/work", session:status().filesystem.cwd)
+    end,
+  },
+  {
+    name = "sandbox virtual filesystem grants deny before handlers and expire after invocation",
+    run = function()
+      local command_registry = assert(Registry.new())
+      local called = false
+      local retained
+      assert(command_registry:register("read", {
+        capabilities = { "vfs.read" },
+        run = function(context)
+          called = true
+          retained = context.fs
+          assert(context.fs:stat("/"))
+        end,
+        summary = "Read filesystem",
+      }))
+      local denied_session = assert(Session.new(command_registry))
+      local denied, denied_error = denied_session:dispatch("read")
+      assertions.falsy(denied)
+      assertions.equal("capability_denied", denied_error.detail.reason)
+      assertions.falsy(called)
+      assertions.equal("read", assert(denied_session:history():get(1)))
+      local allowed_session = assert(Session.new(command_registry, {
+        granted_capabilities = { "vfs.read" },
+      }))
+      assert(allowed_session:dispatch("read"))
+      assertions.truthy(called)
+      local later, later_error = retained:stat("/")
+      assertions.falsy(later)
+      assertions.equal("capability_denied", later_error.detail.reason)
+      assertions.truthy(allowed_session:destroy())
+      assertions.equal(0, allowed_session:status().filesystem.nodes)
+    end,
+  },
+  {
+    name = "sandbox filesystem capability and completion isolation preserve independent session state",
+    run = function()
+      local command_registry = assert(Registry.new())
+      local completion_request
+      assert(command_registry:register("edit", {
+        capabilities = { "completion", "vfs.write" },
+        complete = function(request)
+          completion_request = request
+          return { "value" }
+        end,
+        run = function(context)
+          assert(context.fs:write_file("/entry", "first"))
+        end,
+        summary = "Edit filesystem",
+      }))
+      local first = assert(Session.new(command_registry, {
+        granted_capabilities = { "completion", "vfs.write" },
+      }))
+      local second = assert(Session.new(command_registry, {
+        granted_capabilities = { "completion", "vfs.write" },
+      }))
+      local completion = assert(first:complete("edit va", 7))
+      assertions.equal("value", completion.candidates[1].display)
+      assertions.equal(nil, completion_request.fs)
+      assert(first:dispatch("edit"))
+      assert(second:dispatch("edit"))
+      assertions.equal(2, first:status().filesystem.nodes)
+      assertions.equal(2, second:status().filesystem.nodes)
+      assertions.equal("edit", assert(first:history():get(1)))
+      assertions.equal("edit", assert(second:history():get(1)))
+    end,
+  },
 }
