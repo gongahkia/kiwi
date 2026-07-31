@@ -239,11 +239,11 @@ Connect compiled policies to the simulation without adding combat.
 
 ### Exit criteria
 
-- [ ] DSL source compiles and changes simulation events.
-- [ ] Identical run produces identical intentions and hashes.
-- [ ] Invalid memory or intention produces structured fallback.
-- [ ] Intention events retain source expression ID.
-- [ ] All checks pass and milestone is committed.
+- [x] DSL source compiles and changes simulation events.
+- [x] Identical run produces identical intentions and hashes.
+- [x] Invalid memory or intention produces structured fallback.
+- [x] Intention events retain source expression ID.
+- [x] All checks pass and milestone is committed.
 
 ## Milestone 7 — Movement, geometry, and graphical shell
 
