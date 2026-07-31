@@ -160,7 +160,7 @@ Add the functional data features required by tactical policies.
 
 ### Tasks
 
-- [ ] Add string and exact domain-quantity literals.
+- [x] Add string and exact domain-quantity literals.
 - [ ] Implement records and field access.
 - [ ] Implement built-in algebraic variants, beginning with `Option`.
 - [ ] Implement exhaustive pattern matching.

@@ -183,3 +183,21 @@ def test_run_policy_command_executes_explicit_arguments(tmp_path: Path) -> None:
     assert missing_entry.returncode == 1
     assert missing_entry.stdout == ""
     assert missing_entry.stderr == f"{path}: R013_ENTRY: no function named 'missing'\n"
+
+
+def test_run_policy_command_returns_string_and_exact_quantity_literals(tmp_path: Path) -> None:
+    path = tmp_path / "literals.dtr"
+    path.write_text(
+        'policy label() -> String = "alpha"\npolicy wait() -> Duration = 250ms',
+        encoding="utf-8",
+    )
+
+    label = run_cli_arguments("run-policy", str(path), "label")
+    wait = run_cli_arguments("run-policy", str(path), "wait")
+
+    assert label.returncode == 0
+    assert label.stdout == "value: String('alpha')\n"
+    assert label.stderr == ""
+    assert wait.returncode == 0
+    assert wait.stdout == "value: Quantity(Duration,1/4)\n"
+    assert wait.stderr == ""
