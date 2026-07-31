@@ -10,7 +10,7 @@ Use a milestone-driven goal rather than an undifferentiated request to “finish
 4. Define its verification evidence.
 5. Implement the smallest coherent slice.
 6. Run focused and milestone checks.
-7. Update TODO and specifications.
+7. Update GitHub issues and specifications; close an issue only with passing exit evidence.
 8. Commit a valid rollback point.
 9. Proceed only after the milestone exit criteria pass.
 
@@ -46,7 +46,7 @@ Only after the headless path is stable, add a window, snapshot renderer, bitmap 
 
 ### Session 8 onward
 
-Continue through perception, cover, projectiles, debugger queries, run comparison, and the Glasshouse vertical slice according to TODO.md.
+Continue through perception, cover, projectiles, debugger queries, run comparison, and the Glasshouse vertical slice according to the GitHub issue milestones.
 
 ## First proof policy
 

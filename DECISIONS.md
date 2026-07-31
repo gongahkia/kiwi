@@ -457,7 +457,7 @@ The following are not acceptable implementation substitutions:
 - letting pygame objects leak into simulation state;
 - using wall-clock time inside authoritative simulation;
 - iterating unordered sets or dictionaries where order affects state;
-- marking TODO items complete without verification evidence;
+- closing GitHub issues without verification evidence;
 - weakening deterministic or provenance requirements to make a feature easier;
 - recording only human-readable logs instead of structured causal data;
 - implementing direct RTS controls as a temporary default that becomes permanent;

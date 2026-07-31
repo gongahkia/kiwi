@@ -59,7 +59,7 @@ Pymunk, Box2D, or another external physics engine is **not** part of the MVP aut
 - `DATA_FORMATS.md` — source, bytecode, mission, replay, trace, save, and schema-versioning rules.
 - `TESTING.md` — test layers, determinism harnesses, compiler goldens, properties, performance, and CI.
 - `DECISIONS.md` — settled decisions, prohibited shortcuts, open decisions, and change process.
-- `TODO.md` — gated implementation milestones and concrete exit criteria.
+- [GitHub Issues](https://github.com/gongahkia/kiwi/issues) — gated implementation milestones, tasks, and exit evidence.
 - `AGENTS.md` — rules for Codex and other repository agents.
 - `CODEX_HANDOFF.md` — exact initial prompt and recommended implementation workflow.
 
@@ -72,7 +72,7 @@ Pymunk, Box2D, or another external physics engine is **not** part of the MVP aut
 5. `DSL_SPEC.md`
 6. `SIMULATION_SPEC.md`
 7. `CAUSAL_DEBUGGER.md`
-8. `TODO.md`
+8. The active GitHub issue
 9. The specification relevant to the active milestone
 
 ## First technical proof

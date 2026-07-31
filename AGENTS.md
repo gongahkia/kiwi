@@ -4,7 +4,7 @@
 
 Kiwi is a Python and pygame-ce real-time squad tactics game in which players program autonomous squad logic using a small functional DSL. The compiler, deterministic VM, tactical simulation, replay system, and causal debugger are the core engineering work. The graphical client is a consumer of snapshots, not the authority.
 
-Read `PRD.md`, `DECISIONS.md`, `ARCHITECTURE.md`, and the active milestone in `TODO.md` before making architectural changes.
+Read `PRD.md`, `DECISIONS.md`, `ARCHITECTURE.md`, and the active milestone's GitHub issue before making architectural changes.
 
 ## Non-negotiable invariants
 
@@ -16,13 +16,13 @@ Read `PRD.md`, `DECISIONS.md`, `ARCHITECTURE.md`, and the active milestone in `T
 6. The compiler, VM, simulation, replay verifier, and trace queries run headlessly.
 7. pygame imports are restricted to presentation and application-shell packages.
 8. Important decisions retain machine-readable source provenance.
-9. TODO items are completed only after their exit evidence passes.
+9. GitHub issues are closed only after their exit evidence passes.
 10. No later milestone may be used to justify leaving the current milestone incomplete.
 
 ## Repository discipline
 
-- Work in the milestone order defined by `TODO.md`.
-- Select the smallest coherent unchecked task.
+- Work in the milestone order defined by open GitHub issues.
+- Select the smallest coherent open task.
 - Inspect existing code and tests before editing.
 - Preserve a clean dependency direction.
 - Add tests with each behavioural change.
