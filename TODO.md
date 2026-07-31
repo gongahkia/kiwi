@@ -208,7 +208,7 @@ Goal: make Stanczyk useful inside games and portable builds without host executi
 
 - [x] Implement command tokenisation with documented quoting rules.
 - [x] Implement a command registry.
-- [ ] Implement incremental command output.
+- [x] Implement incremental command output.
 - [ ] Implement command history and completion.
 - [ ] Implement a virtual working directory and minimal virtual filesystem interface.
 - [ ] Implement built-in demonstration commands without imitating a full POSIX environment.

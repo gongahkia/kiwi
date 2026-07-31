@@ -170,8 +170,8 @@ Registration:
 ```lua
 terminal:register_command("status", {
   summary = "Show system status",
-  run = function(context, argv)
-    context:write("All systems nominal.\r\n")
+  run = function(context, argv, writer)
+    writer:emit("All systems nominal.\r\n")
     return 0
   end
 })
@@ -179,7 +179,6 @@ terminal:register_command("status", {
 
 Command context may expose:
 
-- `write(bytes_or_text)`;
 - `write_line(text)`;
 - `emit(name, payload)`;
 - `schedule(delay_us, callback)`;
@@ -189,6 +188,12 @@ Command context may expose:
 - deterministic random functions if granted.
 
 Commands return a numeric or structured status.
+
+The third callback argument is the command's private output writer. Its
+`writer:emit(bytes)` operation is byte-oriented, atomic, bounded, and non-blocking.
+It queues output for `invocation:poll(...)`; it never writes terminal state directly.
+See ADR-0013 and `docs/BACKENDS.md` for limits, typed failures, zero-time events,
+overflow, cancellation, and recording isolation.
 
 ## 6. Capabilities
 
