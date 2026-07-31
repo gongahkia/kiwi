@@ -36,6 +36,16 @@ Rendering frame time does not affect authoritative state. The graphical client m
 
 Scheduled events use `(tick, sequence)` ordering. Sequence values are allocated deterministically.
 
+### 2.4 External command ordering
+
+The initial authority command algebra is `StartMission`, `IssueSignal`, and
+`RequestAbort`; it cannot directly move, attack, heal, or otherwise control an
+entity. Each command records a tick, a globally unique non-negative signed
+64-bit sequence, and player or scenario source. Canonical command logs sort by
+`(tick, sequence)` and reject duplicate sequences. Signals are typed,
+content-defined identifiers and may target the squad or one entity; they become
+policy observations only when communication is implemented.
+
 ## 3. Determinism contract
 
 A run is reproducible when these inputs match:
