@@ -24,6 +24,7 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
     QuantityValue,
+    RecordValue,
     RuntimeValue,
     StringValue,
     UnitValue,
@@ -201,6 +202,12 @@ def _format_runtime_value(value: RuntimeValue) -> str:
             f"Quantity({quantity.dimension.value},"
             f"{quantity.value.numerator}/{quantity.value.denominator})"
         )
+    if isinstance(value, RecordValue):
+        fields = ", ".join(
+            f"{name}={_format_runtime_value(field_value)}"
+            for name, field_value in zip(value.field_names, value.values, strict=True)
+        )
+        return f"Record({value.type_name}, {{{fields}}})"
     return f"Function({value.function_id.value})"
 
 

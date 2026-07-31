@@ -10,9 +10,9 @@ from kiwi.dsl.ids import DefinitionId, SymbolId
 from kiwi.dsl.syntax import (
     BooleanLiteral,
     CallExpression,
-    Declaration,
     Expression,
     FieldAccessExpression,
+    FunctionDeclaration,
     GroupExpression,
     Identifier,
     IfExpression,
@@ -21,11 +21,12 @@ from kiwi.dsl.syntax import (
     NameExpression,
     NegateExpression,
     Parameter,
+    PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
-    RecordTypeDeclaration,
     StringLiteral,
     SurfaceModule,
+    ValueDeclaration,
 )
 
 
@@ -62,7 +63,7 @@ class ResolvedDefinition:
 
     definition_id: DefinitionId
     symbol_id: SymbolId
-    declaration: Declaration
+    declaration: ValueDeclaration
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,10 +119,10 @@ class ResolutionResult:
 
 def resolve(module: SurfaceModule) -> ResolutionResult:
     """Resolve module value names in canonical declaration and expression order."""
-    value_declarations = tuple(
+    value_declarations: tuple[ValueDeclaration, ...] = tuple(
         declaration
         for declaration in module.declarations
-        if not isinstance(declaration, RecordTypeDeclaration)
+        if isinstance(declaration, (FunctionDeclaration, PolicyDeclaration))
     )
     definitions = tuple(
         ResolvedDefinition(DefinitionId(index), SymbolId(index), declaration)

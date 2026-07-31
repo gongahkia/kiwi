@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import (
+    BuildRecord,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -16,6 +17,7 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
@@ -31,12 +33,14 @@ from kiwi.dsl.core_ir import (
     CoreCall,
     CoreDefinition,
     CoreExpression,
+    CoreFieldAccess,
     CoreIf,
     CoreInteger,
     CoreLet,
     CoreModule,
     CoreNegate,
     CoreQuantity,
+    CoreRecord,
     CoreReference,
     CoreString,
 )
@@ -140,6 +144,17 @@ class _FunctionCompiler:
                 expression,
             )
             return
+        if isinstance(expression, CoreRecord):
+            for field in expression.fields:
+                self._compile_expression(field.value)
+            self._emit(
+                BuildRecord(
+                    expression.type_name,
+                    tuple(field.name for field in expression.fields),
+                ),
+                expression,
+            )
+            return
         if isinstance(expression, CoreReference):
             slot = _slot_for(self._locals, expression.symbol_id)
             if slot is not None:
@@ -159,6 +174,10 @@ class _FunctionCompiler:
             for argument in expression.arguments:
                 self._compile_expression(argument)
             self._emit(Call(len(expression.arguments)), expression)
+            return
+        if isinstance(expression, CoreFieldAccess):
+            self._compile_expression(expression.record)
+            self._emit(LoadField(expression.field_name), expression)
             return
         if isinstance(expression, CoreLet):
             slot = LocalSlot(self._next_slot)

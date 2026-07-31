@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BYTECODE_VERSION,
+    BuildRecord,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -22,6 +23,7 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
@@ -305,6 +307,13 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
         writer.u32(instruction.slot.value, "local slot")
     elif isinstance(instruction, Call):
         writer.u32(instruction.argument_count, "call argument count")
+    elif isinstance(instruction, BuildRecord):
+        writer.text(instruction.type_name)
+        writer.items(len(instruction.field_names), "record field count")
+        for field_name in instruction.field_names:
+            writer.text(field_name)
+    elif isinstance(instruction, LoadField):
+        writer.text(instruction.field_name)
     elif isinstance(instruction, (Jump, JumpIfFalse)):
         writer.u32(instruction.target.value, "jump target")
     elif isinstance(instruction, TraceExpression):
@@ -454,7 +463,10 @@ def _decode_function(reader: _Reader, bytecode_version: int) -> BytecodeFunction
         reader.u32(),
         reader.u32(),
         _decode_type(reader, 0, bytecode_version),
-        tuple(_decode_instruction(reader) for _ in range(reader.items("instruction count"))),
+        tuple(
+            _decode_instruction(reader, bytecode_version)
+            for _ in range(reader.items("instruction count"))
+        ),
     )
 
 
@@ -498,7 +510,7 @@ def _decode_type(reader: _Reader, depth: int, bytecode_version: int) -> DslType:
     )
 
 
-def _decode_instruction(reader: _Reader) -> BytecodeInstruction:
+def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstruction:
     opcode_offset = reader.offset
     opcode_value = reader.u8()
     try:
@@ -509,6 +521,15 @@ def _decode_instruction(reader: _Reader) -> BytecodeInstruction:
             opcode_offset,
             f"unknown opcode {opcode_value}",
         ) from error
+    if bytecode_version != BYTECODE_VERSION and opcode in {
+        Opcode.BUILD_RECORD,
+        Opcode.LOAD_FIELD,
+    }:
+        raise _DecodeError(
+            BytecodeDecodeCode.INVALID_OPCODE,
+            opcode_offset,
+            f"opcode {opcode_value} is not available in bytecode version {bytecode_version}",
+        )
     if opcode is Opcode.PUSH_CONSTANT:
         return PushConstant(ConstantId(reader.u32()))
     if opcode is Opcode.PUSH_FUNCTION:
@@ -521,13 +542,24 @@ def _decode_instruction(reader: _Reader) -> BytecodeInstruction:
         return Negate()
     if opcode is Opcode.CALL:
         return Call(reader.u32())
+    if opcode is Opcode.BUILD_RECORD:
+        return BuildRecord(
+            reader.text("record type name"),
+            tuple(
+                reader.text("record field name") for _ in range(reader.items("record field count"))
+            ),
+        )
+    if opcode is Opcode.LOAD_FIELD:
+        return LoadField(reader.text("record field name"))
     if opcode is Opcode.JUMP:
         return Jump(InstructionIndex(reader.u32()))
     if opcode is Opcode.JUMP_IF_FALSE:
         return JumpIfFalse(InstructionIndex(reader.u32()))
     if opcode is Opcode.RETURN:
         return Return()
-    return TraceExpression(ExpressionId(reader.u32()))
+    if opcode is Opcode.TRACE_EXPRESSION:
+        return TraceExpression(ExpressionId(reader.u32()))
+    raise AssertionError("recognized opcode was not decoded")
 
 
 def _decode_source_map_entry(

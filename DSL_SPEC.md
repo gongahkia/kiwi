@@ -233,10 +233,8 @@ Matches over closed variants must be exhaustive. Redundant arms produce warnings
 ### 7.7 Records
 
 ```text
-Memory {
-  retreat_threshold = 65%,
-  last_objective = Some(view.objective.id)
-}
+type Memory = { retreat_threshold: Probability, label: String }
+Memory { retreat_threshold = 65%, label = "cautious" }
 ```
 
 Field access:
@@ -244,6 +242,13 @@ Field access:
 ```text
 memory.retreat_threshold
 ```
+
+Milestone 4 records are nominal, immutable, and closed by their declared
+schema. Construction must supply every declared field exactly once; field values
+are checked against their declarations. Field expressions evaluate in source
+order, while the runtime representation stores fields in lexical field-name
+order so equal records have one canonical value layout. Field access uses a
+statically named field and is rejected for non-record values or unknown fields.
 
 Record update syntax may be added later:
 
@@ -320,8 +325,9 @@ A module may export only explicitly declared policy entry points.
 - `Vector`
 
 Milestone 4 resolves `Duration`, `Distance`, `Angle`, and `Probability` as
-built-in types for the corresponding literals. Operations on quantities remain
-unavailable until the domain-operation task defines their semantics.
+built-in types for the corresponding literals. It also resolves nominal record
+types declared with `type Name = { field: Type, ... }`. Operations on quantities
+remain unavailable until the domain-operation task defines their semantics.
 
 Operations are dimensionally checked. Examples:
 
@@ -579,21 +585,28 @@ create an unbounded host-integer allocation. String errors are
 
 Use a hand-written recursive-descent or Pratt parser with explicit precedence. Avoid a parser-generator dependency unless demonstrated to improve diagnostics and maintenance.
 
-The Milestone 1 recursive-descent grammar is:
+The implemented Milestone 4 recursive-descent grammar is:
 
 ```text
 module      := declaration* EOF
-declaration := ("policy" | "fn") identifier "(" parameters? ")" "->" type "=" expression
+declaration := value_declaration | record_declaration
+value_declaration := ("policy" | "fn") identifier "(" parameters? ")" "->" type "=" expression
+record_declaration := "type" identifier "=" "{" record_type_fields? "}"
+record_type_fields := record_type_field ("," record_type_field)*
+record_type_field := identifier ":" type
 parameters  := parameter ("," parameter)*
 parameter   := identifier ":" type
 type        := identifier
 expression  := let | conditional | application
 let         := "let" identifier "=" expression "in" expression
 conditional := "if" expression "then" expression "else" expression
-application := unary ("(" arguments? ")")*
+application := unary (("(" arguments? ")") | ("." identifier))*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
-primary     := integer | boolean | string | quantity | identifier | "(" expression ")"
+primary     := integer | boolean | string | quantity | record | identifier | "(" expression ")"
+record      := identifier "{" record_fields? "}"
+record_fields := record_field ("," record_field)*
+record_field := identifier "=" expression
 ```
 
 Parser output is immutable surface AST. Error recovery should support multiple diagnostics per compile without fabricating misleading trees.
@@ -646,6 +659,11 @@ condition with equal branch types. The checker emits `E400_UNKNOWN_TYPE`,
 `E401_TYPE_MISMATCH`, `E402_BRANCH_TYPE_MISMATCH`, and `E403_INVALID_CALL`;
 each diagnostic has a source span and uses the `checker` stage.
 
+Record schema failures are `E404_DUPLICATE_RECORD_TYPE`,
+`E405_DUPLICATE_RECORD_FIELD`, `E406_UNKNOWN_RECORD_TYPE`,
+`E407_DUPLICATE_RECORD_VALUE`, `E408_UNKNOWN_RECORD_FIELD`,
+`E409_MISSING_RECORD_FIELD`, and `E410_INVALID_FIELD_ACCESS`.
+
 ### 15.5 Capability checking
 
 Each entry point has a capability environment. The compiler rejects impossible intentions where static information suffices.
@@ -658,13 +676,13 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
-Core retains integer, boolean, string, and quantity literals, resolved
-references, negation, calls, `let`, and `if`. Expression IDs start at zero and
-follow definition source order then expression pre-order. Each ID has one
-`SourceMapEntry` containing its enclosing `DefinitionId` and source span.
-Parentheses do not create core nodes because they have no runtime semantics.
-The `format_lower_result` debug renderer is a stable inspection format for core
-golden fixtures, not a bytecode format.
+Core retains integer, boolean, string, quantity, and record construction
+literals, resolved references, field access, negation, calls, `let`, and `if`.
+Expression IDs start at zero and follow definition source order then expression
+pre-order. Each ID has one `SourceMapEntry` containing its enclosing
+`DefinitionId` and source span. Parentheses do not create core nodes because
+they have no runtime semantics. The `format_lower_result` debug renderer is a
+stable inspection format for core golden fixtures, not a bytecode format.
 
 ### 15.8 Bytecode generation
 
@@ -704,6 +722,8 @@ LOAD_LOCAL slot
 STORE_LOCAL slot
 NEGATE
 CALL argument_count
+BUILD_RECORD type_name field_names
+LOAD_FIELD field_name
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -711,8 +731,10 @@ TRACE_EXPRESSION expr_id
 ```
 
 `CALL` consumes a function value followed by source-ordered arguments and pushes
-the result. `STORE_LOCAL` consumes its value; conditional branches consume a
-boolean. The validator defines stack, local-slot, and in-range jump rules
+the result. `BUILD_RECORD` consumes its source-ordered field values and pushes
+one canonically ordered immutable record; `LOAD_FIELD` replaces a record with
+the named field. `STORE_LOCAL` consumes its value; conditional branches consume
+a boolean. The validator defines stack, local-slot, and in-range jump rules
 before execution. The exact set should remain small. Instructions must not
 contain Python callables or mutable arbitrary objects.
 
@@ -749,9 +771,12 @@ adds string constant `4`, quantity constant `5`, and type tags `String` `6`,
 is its dimension tag (`Duration` `1`, `Distance` `2`, `Angle` `3`,
 `Probability` `4`), then a canonical signed numerator and positive minimal
 unsigned denominator. Function types encode their parameter count, parameters,
-then return type. Instruction tags are the numeric `Opcode` values in section
-16; operands are their unsigned fields in instruction order. Instructions
-without an operand have no following field.
+then return type. Version 2 additionally defines instruction tag
+`BUILD_RECORD` `11`, encoded as type-name text followed by an ordered count and
+field-name texts, and `LOAD_FIELD` `12`, encoded as its field-name text.
+Instruction tags are the numeric `Opcode` values in section 16; operands are
+their unsigned fields in instruction order. Instructions without an operand
+have no following field.
 
 The decoder accepts at most 16 MiB, 65,536 entries per collection, 65,536
 UTF-8 bytes per text value, 512 integer-magnitude bytes, and 64 nested type
@@ -781,10 +806,11 @@ Closed value algebra:
 
 Runtime values have deterministic equality, hashing where permitted, serialisation rules, and allocation costs.
 
-Milestone 4 adds immutable bounded strings and exact quantities to the closed
-integer, boolean, unit, and `FunctionId` reference value algebra. A function
-value is only an index into the module function table; it never contains a
-Python callable or code object.
+Milestone 4 adds immutable bounded strings, exact quantities, and immutable
+nominal records to the closed integer, boolean, unit, and `FunctionId` reference
+value algebra. Record fields are stored by lexical field name, never in a host
+dictionary. A function value is only an index into the module function table;
+it never contains a Python callable or code object.
 
 ## 18. VM budgets
 
@@ -799,9 +825,10 @@ Per invocation budgets include:
 - trace nodes according to trace mode.
 
 Milestone 3 enforces instruction, global value-stack, call-depth, and allocated
-runtime-value limits. A pushed function reference and a negated integer each
-allocate one value; immutable constants and frame slots do not. Exhaustion is
-checked before the operation that would exceed its limit.
+runtime-value limits. A pushed function reference, a negated integer, and a
+record construction each allocate one value; immutable constants and frame
+slots do not. Exhaustion is checked before the operation that would exceed its
+limit.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 

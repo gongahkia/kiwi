@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.dsl.bytecode import (
+    BuildRecord,
     BytecodeFunction,
     BytecodeModule,
     Call,
@@ -14,6 +15,7 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    LoadField,
     LoadLocal,
     Negate,
     PushConstant,
@@ -28,6 +30,7 @@ from kiwi.dsl.runtime_values import (
     FunctionValue,
     IntegerValue,
     QuantityValue,
+    RecordValue,
     RuntimeValue,
     StringValue,
     UnitValue,
@@ -42,6 +45,7 @@ class VMFaultCode(StrEnum):
     INSTRUCTION_BUDGET = "R002_INSTRUCTION_BUDGET"
     ALLOCATION_BUDGET = "R003_ALLOCATION_BUDGET"
     STACK_BUDGET = "R004_STACK_BUDGET"
+    INVALID_FIELD = "R005_INVALID_FIELD"
     CALL_DEPTH_BUDGET = "R009_CALL_DEPTH_BUDGET"
     TYPE = "R010_TYPE"
     CALL = "R011_CALL"
@@ -135,7 +139,15 @@ def run_vm(
     if any(
         not isinstance(
             argument,
-            (IntegerValue, BooleanValue, StringValue, QuantityValue, FunctionValue, UnitValue),
+            (
+                IntegerValue,
+                BooleanValue,
+                StringValue,
+                QuantityValue,
+                RecordValue,
+                FunctionValue,
+                UnitValue,
+            ),
         )
         for argument in arguments
     ):
@@ -206,6 +218,53 @@ def run_vm(
             allocations += 1
             if not _push(stack, IntegerValue(-value.value), budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, BuildRecord):
+            start = len(stack) - len(instruction.field_names)
+            if start < frame.stack_base:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_BYTECODE,
+                    "record construction has insufficient stack values",
+                    frame,
+                )
+            values = tuple(stack[start:])
+            del stack[start:]
+            if allocations >= budgets.allocation_limit:
+                return _fault(
+                    module, VMFaultCode.ALLOCATION_BUDGET, "allocation budget exhausted", frame
+                )
+            allocations += 1
+            fields = tuple(
+                sorted(
+                    zip(instruction.field_names, values, strict=True), key=lambda field: field[0]
+                )
+            )
+            record = RecordValue(
+                instruction.type_name,
+                tuple(field[0] for field in fields),
+                tuple(field[1] for field in fields),
+            )
+            if not _push(stack, record, budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
+        elif isinstance(instruction, LoadField):
+            record_value = _pop(stack, frame.stack_base)
+            if not isinstance(record_value, RecordValue):
+                return _fault(
+                    module,
+                    VMFaultCode.TYPE,
+                    "field access requires a record value",
+                    frame,
+                )
+            field_value = record_value.field_value(instruction.field_name)
+            if field_value is None:
+                return _fault(
+                    module,
+                    VMFaultCode.INVALID_FIELD,
+                    f"record has no field '{instruction.field_name}'",
+                    frame,
+                )
+            if not _push(stack, field_value, budgets):
+                return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, Call):
             start = len(stack) - instruction.argument_count - 1
             if start < frame.stack_base:
@@ -273,7 +332,15 @@ def run_vm_with_fallback(
     """Execute bytecode and return an explicit immutable fallback after a fault."""
     if not isinstance(
         fallback,
-        (IntegerValue, BooleanValue, StringValue, QuantityValue, FunctionValue, UnitValue),
+        (
+            IntegerValue,
+            BooleanValue,
+            StringValue,
+            QuantityValue,
+            RecordValue,
+            FunctionValue,
+            UnitValue,
+        ),
     ):
         raise ValueError("fallback must be a runtime value")
     result = run_vm(module, entry_function_id, arguments, budgets)

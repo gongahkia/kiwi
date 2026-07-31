@@ -22,7 +22,6 @@ from kiwi.dsl.syntax import (
     PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
-    RecordTypeDeclaration,
     RecordTypeField,
     StringLiteral,
     SurfaceModule,

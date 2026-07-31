@@ -167,6 +167,13 @@ def test_bytecode_codec_returns_structured_malformed_input_failures() -> None:
     )
 
 
+def test_bytecode_codec_rejects_version_two_record_opcodes_in_legacy_modules() -> None:
+    decoded = decode_bytecode(_single_instruction_module(b"\x0b", b""))
+
+    assert isinstance(decoded, BytecodeDecodeFailure)
+    assert decoded.code is BytecodeDecodeCode.INVALID_OPCODE
+
+
 def _unknown_opcode_module() -> bytes:
     return _single_instruction_module(b"\xff", b"")
 

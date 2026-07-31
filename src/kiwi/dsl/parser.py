@@ -160,7 +160,9 @@ class _Parser:
             annotation = self.parse_type_reference()
             if annotation is None:
                 return None
-            fields.append(RecordTypeField(name, annotation, _join_spans(name.span, annotation.span)))
+            fields.append(
+                RecordTypeField(name, annotation, _join_spans(name.span, annotation.span))
+            )
             if not self.match(TokenKind.COMMA):
                 return tuple(fields)
 
@@ -350,7 +352,9 @@ class _Parser:
                 value = self.parse_expression()
                 if value is None:
                     return None
-                fields.append(RecordFieldExpression(name, value, _join_spans(name.span, value.span)))
+                fields.append(
+                    RecordFieldExpression(name, value, _join_spans(name.span, value.span))
+                )
                 if not self.match(TokenKind.COMMA):
                     break
         closing = self.expect(TokenKind.RIGHT_BRACE, "'}'")

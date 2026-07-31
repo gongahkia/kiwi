@@ -137,5 +137,13 @@ type RuntimeValue = (
 def _is_runtime_value(value: object) -> bool:
     return isinstance(
         value,
-        (IntegerValue, BooleanValue, UnitValue, StringValue, QuantityValue, RecordValue, FunctionValue),
+        (
+            IntegerValue,
+            BooleanValue,
+            UnitValue,
+            StringValue,
+            QuantityValue,
+            RecordValue,
+            FunctionValue,
+        ),
     )
