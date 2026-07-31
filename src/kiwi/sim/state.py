@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, round_nearest_ties_away_from_zero
 from kiwi.domain.ids import EntityId, EventId, IdAllocator, IdKind
 from kiwi.sim.contacts import ContactStore
+from kiwi.sim.covers import CoverStore
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
@@ -128,6 +129,7 @@ class MissionState:
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     policy_memory: PolicyMemoryStore = field(default_factory=PolicyMemoryStore)
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
+    covers: CoverStore = field(default_factory=CoverStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
@@ -153,6 +155,8 @@ class MissionState:
             raise ValueError("mission state requires policy memory")
         if not isinstance(self.policy_versions, PolicyVersionStore):
             raise ValueError("mission state requires policy versions")
+        if not isinstance(self.covers, CoverStore):
+            raise ValueError("mission state requires a cover store")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
@@ -207,6 +211,9 @@ class MissionState:
             raise ValueError("policy memory entries must belong to mission entities")
         if any(entry.entity_id not in entity_ids for entry in self.policy_versions.entries):
             raise ValueError("policy version entries must belong to mission entities")
+        next_cover_id = self.id_allocator.next_ids[int(IdKind.COVER)]
+        if any(segment.cover_id.value >= next_cover_id for segment in self.covers.segments):
+            raise ValueError("cover IDs must be allocated by the current ID allocator")
         if any(estimate.owner_entity_id not in entity_ids for estimate in self.contacts.estimates):
             raise ValueError("contact estimates must belong to mission entities")
         if self.contacts.lifecycle_tick > self.tick:
@@ -274,6 +281,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             id_allocator=id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,
+            covers=state.covers,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

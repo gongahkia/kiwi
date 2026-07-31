@@ -7,7 +7,16 @@ from enum import StrEnum
 from hashlib import blake2b
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
-from kiwi.domain.ids import ContactId, EntityId, EventId, IdAllocator, IdKind, MessageId, ObstacleId
+from kiwi.domain.ids import (
+    ContactId,
+    CoverId,
+    EntityId,
+    EventId,
+    IdAllocator,
+    IdKind,
+    MessageId,
+    ObstacleId,
+)
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_STRING_BYTES,
@@ -30,6 +39,14 @@ from kiwi.sim.contacts import (
     ContactFieldProvenance,
     ContactProvenance,
     ContactStore,
+)
+from kiwi.sim.covers import (
+    CoverHeight,
+    CoverIntegrity,
+    CoverSegment,
+    CoverSide,
+    CoverSlot,
+    CoverStore,
 )
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import (
@@ -57,7 +74,7 @@ from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 11
+CANONICAL_STATE_VERSION = 12
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -69,7 +86,7 @@ _SCHEDULED_SCENARIO_TRIGGER = 1
 _MESSAGE_CHANNEL_RADIO = 1
 _SIGNAL_SOURCE_PLAYER = 1
 _SIGNAL_SOURCE_SCENARIO = 2
-_RANDOM_STREAM_COUNT_V11 = 4
+_RANDOM_STREAM_COUNT_V12 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -131,7 +148,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 11 form."""
+    """Encode one validated mission state in canonical binary version 12 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -149,6 +166,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_movement_actions(writer, state.movement_actions)
     _encode_policy_memory(writer, state.policy_memory)
     _encode_policy_versions(writer, state.policy_versions)
+    _encode_covers(writer, state.covers)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
@@ -227,8 +245,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V11:
-        raise ValueError("state format version 11 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
+        raise ValueError("state format version 12 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -245,6 +263,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     movement_actions = _decode_movement_actions(reader, map_geometry)
     policy_memory = _decode_policy_memory(reader)
     policy_versions = _decode_policy_versions(reader)
+    covers = _decode_covers(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
@@ -260,6 +279,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         id_allocator=id_allocator,
         policy_memory=policy_memory,
         policy_versions=policy_versions,
+        covers=covers,
         contacts=contacts,
         messages=messages,
         signals=signals,
@@ -392,6 +412,20 @@ def _encode_rectangle(writer: _Writer, rectangle: WorldRectangle, name: str) -> 
     writer.i64(rectangle.maximum_y.value, f"{name} maximum y")
 
 
+def _encode_position(writer: _Writer, position: WorldPosition, name: str) -> None:
+    writer.i64(position.x.value, f"{name} x")
+    writer.i64(position.y.value, f"{name} y")
+    writer.u64(position.elevation.value, f"{name} elevation")
+
+
+def _decode_position(reader: _Reader) -> WorldPosition:
+    return WorldPosition(
+        x=WorldSubunits(reader.i64()),
+        y=WorldSubunits(reader.i64()),
+        elevation=ElevationLayer(reader.u64()),
+    )
+
+
 def _decode_rectangle(reader: _Reader) -> WorldRectangle:
     return WorldRectangle(
         minimum_x=WorldSubunits(reader.i64()),
@@ -438,6 +472,41 @@ def _decode_policy_versions(reader: _Reader) -> PolicyVersionStore:
         version = PolicyVersion(reader.read(POLICY_VERSION_DIGEST_BYTES))
         entries.append(EntityPolicyVersion(entity_id, version))
     return PolicyVersionStore(tuple(entries))
+
+
+def _encode_covers(writer: _Writer, store: CoverStore) -> None:
+    writer.items(len(store.segments), "cover segment count")
+    for segment in store.segments:
+        writer.i64(segment.cover_id.value, "cover ID")
+        _encode_position(writer, segment.start, "cover start")
+        _encode_position(writer, segment.end, "cover end")
+        writer.u8(_encode_cover_height(segment.height), "cover height")
+        writer.u16(segment.integrity.basis_points, "cover integrity basis points")
+        writer.items(len(segment.slots), "cover slot count")
+        for slot in segment.slots:
+            writer.u16(slot.slot_index, "cover slot index")
+            _encode_position(writer, slot.position, "cover slot position")
+            writer.u8(_encode_cover_side(slot.side), "cover slot side")
+
+
+def _decode_covers(reader: _Reader) -> CoverStore:
+    segments: list[CoverSegment] = []
+    for _ in range(reader.items("cover segment count")):
+        cover_id = CoverId(reader.i64())
+        start = _decode_position(reader)
+        end = _decode_position(reader)
+        height = _decode_cover_height(reader.u8(), reader.offset - 1)
+        integrity = CoverIntegrity(reader.u16())
+        slots = tuple(
+            CoverSlot(
+                reader.u16(),
+                _decode_position(reader),
+                _decode_cover_side(reader.u8(), reader.offset - 1),
+            )
+            for _ in range(reader.items("cover slot count"))
+        )
+        segments.append(CoverSegment(cover_id, start, end, height, integrity, slots))
+    return CoverStore(tuple(segments))
 
 
 def _encode_contacts(writer: _Writer, store: ContactStore) -> None:
@@ -758,7 +827,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V11)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V12)
     )
     return RandomStreams(seed=seed, states=states)
 
@@ -781,6 +850,38 @@ def _decode_phase(tag: int, offset: int) -> MissionPhase:
     if tag == _PHASE_ABORT_REQUESTED:
         return MissionPhase.ABORT_REQUESTED
     raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid mission phase tag {tag}")
+
+
+def _encode_cover_height(height: CoverHeight) -> int:
+    if height is CoverHeight.LOW:
+        return 1
+    if height is CoverHeight.HIGH:
+        return 2
+    raise ValueError("cover height must be a cover height")
+
+
+def _decode_cover_height(tag: int, offset: int) -> CoverHeight:
+    if tag == 1:
+        return CoverHeight.LOW
+    if tag == 2:
+        return CoverHeight.HIGH
+    raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid cover height tag {tag}")
+
+
+def _encode_cover_side(side: CoverSide) -> int:
+    if side is CoverSide.LEFT:
+        return 1
+    if side is CoverSide.RIGHT:
+        return 2
+    raise ValueError("cover side must be a cover side")
+
+
+def _decode_cover_side(tag: int, offset: int) -> CoverSide:
+    if tag == 1:
+        return CoverSide.LEFT
+    if tag == 2:
+        return CoverSide.RIGHT
+    raise _DecodeError(StateDecodeCode.INVALID_VALUE, offset, f"invalid cover side tag {tag}")
 
 
 def _encode_message_channel(channel: MessageChannel) -> int:
