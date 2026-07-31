@@ -1,0 +1,13 @@
+type Memory = { origin: Position }
+type Decision = { intentions: List<Int>, memory: Memory }
+
+policy choose(memory: Memory, target: Option<Position>) -> Decision =
+  let offset = Vector { dx = 1m, dy = 0m } in
+  let next = match target with
+    | Some(point) -> point + offset
+    | None -> memory.origin
+  in
+  Decision {
+    intentions = [1, 2] |> List.map(fn item -> item),
+    memory = Memory { origin = next }
+  }
