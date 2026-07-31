@@ -3,14 +3,73 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
-from kiwi.domain.ids import ContactId, EntityId, IdAllocator
+from kiwi.domain.ids import ContactId, EntityId, EventId, IdAllocator
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
 MAX_CONFIDENCE_BASIS_POINTS = 10_000
 CONTACT_CONFIDENCE_DECAY_PER_TICK = 100
 CONTACT_UNCERTAINTY_GROWTH_PER_TICK = WorldSubunits(100)
+MAX_CONTACT_FIELD_EVIDENCE_EVENTS = 64
+
+
+class ContactField(StrEnum):
+    """The policy-relevant fields whose evidence must remain resolvable."""
+
+    ESTIMATED_POSITION = "estimated_position"
+    UNCERTAINTY_RADIUS = "uncertainty_radius"
+    CONFIDENCE = "confidence"
+    LAST_OBSERVED_TICK = "last_observed_tick"
+
+
+@dataclass(frozen=True, slots=True)
+class ContactFieldProvenance:
+    """Canonical evidence-event IDs for one policy-relevant contact field."""
+
+    field: ContactField
+    evidence_event_ids: tuple[EventId, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.field, ContactField):
+            raise ValueError("contact field provenance requires a contact field")
+        if not isinstance(self.evidence_event_ids, tuple):
+            raise ValueError("contact field evidence IDs must be an immutable tuple")
+        if not 1 <= len(self.evidence_event_ids) <= MAX_CONTACT_FIELD_EVIDENCE_EVENTS:
+            raise ValueError("contact field evidence IDs must contain between one and 64 event IDs")
+        previous_id = 0
+        for event_id in self.evidence_event_ids:
+            if not isinstance(event_id, EventId):
+                raise ValueError("contact field evidence IDs must contain event IDs")
+            if event_id.value <= previous_id:
+                raise ValueError("contact field evidence IDs must be unique and ascending")
+            previous_id = event_id.value
+
+
+@dataclass(frozen=True, slots=True)
+class ContactProvenance:
+    """A complete field-ordered evidence mapping for one contact estimate."""
+
+    fields: tuple[ContactFieldProvenance, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.fields, tuple):
+            raise ValueError("contact provenance fields must be an immutable tuple")
+        expected_fields = tuple(ContactField)
+        if len(self.fields) != len(expected_fields):
+            raise ValueError("contact provenance must cover every policy-relevant field")
+        for expected_field, provenance in zip(expected_fields, self.fields, strict=True):
+            if not isinstance(provenance, ContactFieldProvenance):
+                raise ValueError("contact provenance fields must contain field provenance")
+            if provenance.field is not expected_field:
+                raise ValueError("contact provenance fields must use canonical field order")
+
+    def evidence_for(self, field: ContactField) -> tuple[EventId, ...]:
+        """Resolve a policy-relevant field to its canonical evidence event IDs."""
+        if not isinstance(field, ContactField):
+            raise ValueError("contact provenance lookup requires a contact field")
+        return self.fields[tuple(ContactField).index(field)].evidence_event_ids
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +108,7 @@ class ContactEstimate:
     uncertainty_radius: WorldSubunits
     confidence: ContactConfidence
     last_observed_tick: int
+    provenance: ContactProvenance
 
     def __post_init__(self) -> None:
         if not isinstance(self.contact_id, ContactId):
@@ -71,6 +131,8 @@ class ContactEstimate:
             raise ValueError(
                 "contact estimate last observation tick must fit non-negative signed 64-bit range"
             )
+        if not isinstance(self.provenance, ContactProvenance):
+            raise ValueError("contact estimate requires contact provenance")
 
     def age_at(self, current_tick: int) -> ContactAge:
         """Return exact elapsed age, rejecting a tick before the observation."""
@@ -89,6 +151,7 @@ class ContactSighting:
     estimated_position: WorldPosition
     uncertainty_radius: WorldSubunits
     confidence: ContactConfidence
+    provenance: ContactProvenance
     contact_id: ContactId | None = None
 
     def __post_init__(self) -> None:
@@ -102,6 +165,8 @@ class ContactSighting:
             raise ValueError("contact sighting uncertainty must be non-negative")
         if not isinstance(self.confidence, ContactConfidence):
             raise ValueError("contact sighting requires contact confidence")
+        if not isinstance(self.provenance, ContactProvenance):
+            raise ValueError("contact sighting requires contact provenance")
         if self.contact_id is not None and not isinstance(self.contact_id, ContactId):
             raise ValueError("contact sighting contact ID must be a contact ID or absent")
 
@@ -231,6 +296,7 @@ def apply_contact_sightings(
                 uncertainty_radius=sighting.uncertainty_radius,
                 confidence=sighting.confidence,
                 last_observed_tick=observation_tick,
+                provenance=sighting.provenance,
             )
         )
     return (

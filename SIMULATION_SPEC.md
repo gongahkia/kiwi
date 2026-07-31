@@ -232,7 +232,14 @@ while it decays, so reported age remains exact.
 
 ### 8.3 Provenance
 
-Each observation field that may influence kiwi carries or can resolve to provenance IDs. For example, a contact estimate can link to the sensor event and prior message that formed it.
+Each observation field that may influence kiwi carries or can resolve to
+provenance IDs. Every contact stores a complete canonical mapping for estimated
+position, uncertainty radius, confidence, and last-observed tick. Each mapping
+contains one to 64 unique ascending `EventId` values; a direct sensor event and
+later message-delivery events may both contribute. Contact creation and update
+require this mapping, while deterministic decay preserves it. Contact evidence
+IDs must already be allocated authority event IDs, so canonical state cannot
+refer to a future event.
 
 ## 9. Communication
 
@@ -613,9 +620,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`6` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`8` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `5`, unsupported versions, and noncanonical values are
+versions `1` through `7`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -631,6 +638,7 @@ Include:
 - random-stream state;
 - map bounds and obstacle geometry;
 - active movement actions;
+- contact estimates and field evidence event IDs;
 - policy memory;
 - policy versions;
 - pending messages and scheduled events;

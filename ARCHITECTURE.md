@@ -391,8 +391,9 @@ consume its structured result.
 
 `kiwi.sim.contacts` owns the canonical owner-local contact store and pure
 lifecycle transforms. It receives only explicit visibility-associated sightings,
-retains no target entity identity, and therefore cannot expose omniscient state
-to later policy observations.
+retains no target entity identity, and carries required field-level evidence
+event IDs through decay and canonical state. Later policy observations can
+resolve evidence without exposing omniscient state.
 
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,

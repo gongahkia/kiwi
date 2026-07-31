@@ -6,6 +6,7 @@ from typing import cast
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.ids import EventId
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import (
     CommandHeader,
@@ -18,6 +19,9 @@ from kiwi.sim.commands import (
 )
 from kiwi.sim.contacts import (
     ContactConfidence,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
     ContactSighting,
     advance_contacts,
     apply_contact_sightings,
@@ -79,9 +83,10 @@ def test_active_reducer_advances_persisted_contact_lifecycle() -> None:
         WorldPosition(WorldSubunits(0), WorldSubunits(0)),
     )
     resolved_contacts = advance_contacts(state.contacts, state.tick)
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
     contacts, allocator = apply_contact_sightings(
         resolved_contacts,
-        state.id_allocator,
+        allocator,
         state.tick,
         (
             ContactSighting(
@@ -89,6 +94,7 @@ def test_active_reducer_advances_persisted_contact_lifecycle() -> None:
                 WorldPosition(WorldSubunits(200), WorldSubunits(300)),
                 WorldSubunits(300),
                 ContactConfidence(200),
+                _contact_provenance(evidence_event_id),
             ),
         ),
     )
@@ -101,6 +107,12 @@ def test_active_reducer_advances_persisted_contact_lifecycle() -> None:
     assert first.state.contacts.estimates[0].confidence == ContactConfidence(200)
     assert second.state.contacts.lifecycle_tick == 2
     assert second.state.contacts.estimates[0].confidence == ContactConfidence(100)
+
+
+def _contact_provenance(event_id: EventId) -> ContactProvenance:
+    return ContactProvenance(
+        tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
+    )
 
 
 @pytest.mark.parametrize(

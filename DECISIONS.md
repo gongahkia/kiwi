@@ -331,6 +331,17 @@ version `7`, which serialises this store and lifecycle tick. Versions `1`
 through `6` are rejected with no migration because development state remains
 disposable.
 
+### D-042: Contact provenance is complete per policy-relevant field
+
+Every contact stores immutable evidence mappings for estimated position,
+uncertainty radius, confidence, and last-observed tick. Each mapping contains
+one to 64 unique ascending authority `EventId` values. Direct sensor evidence
+and later relayed-message evidence may share a mapping; automatic lifecycle
+decay preserves the mappings. The state validator rejects evidence IDs not yet
+allocated, preventing references to future events. `KWI-STATE\0` therefore uses
+version `8`; versions `1` through `7` are rejected without migration because
+development state remains disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

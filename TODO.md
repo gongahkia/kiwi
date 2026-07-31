@@ -287,7 +287,7 @@ Replace omniscient policy input with incomplete information.
 - [x] Add sensor ranges and visible geometry.
 - [x] Define contact estimates, confidence, age, and uncertainty.
 - [x] Implement contact creation, update, decay, and loss.
-- [ ] Add observation provenance for contact fields.
+- [x] Add observation provenance for contact fields.
 - [ ] Define typed messages and inbox observations.
 - [ ] Implement deterministic send and delivery ordering.
 - [ ] Add squad signals as tick-stamped commands and observation values.

@@ -345,6 +345,33 @@ def first_canonical_state_difference(
                 expected_contact.last_observed_tick,
                 actual_contact.last_observed_tick,
             )
+        for expected_field, actual_field in zip(
+            expected_contact.provenance.fields,
+            actual_contact.provenance.fields,
+            strict=True,
+        ):
+            provenance_prefix = f"{prefix}/provenance/{expected_field.field.value}"
+            if expected_field.field != actual_field.field:
+                return _difference(
+                    f"{provenance_prefix}/field",
+                    expected_field.field.value,
+                    actual_field.field.value,
+                )
+            if len(expected_field.evidence_event_ids) != len(actual_field.evidence_event_ids):
+                return _difference(
+                    f"{provenance_prefix}/evidence_event_ids/count",
+                    len(expected_field.evidence_event_ids),
+                    len(actual_field.evidence_event_ids),
+                )
+            for evidence_index, (expected_event_id, actual_event_id) in enumerate(
+                zip(expected_field.evidence_event_ids, actual_field.evidence_event_ids, strict=True)
+            ):
+                if expected_event_id != actual_event_id:
+                    return _difference(
+                        f"{provenance_prefix}/evidence_event_ids/{evidence_index}",
+                        expected_event_id.value,
+                        actual_event_id.value,
+                    )
     for kind in IdKind:
         expected_next_id = expected.id_allocator.next_ids[int(kind)]
         actual_next_id = actual.id_allocator.next_ids[int(kind)]
