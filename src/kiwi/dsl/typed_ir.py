@@ -100,13 +100,15 @@ class TypedMatchNoneArm:
     span: SourceSpan
 
 
+type TypedMatchArm = TypedMatchSomeArm | TypedMatchNoneArm
+
+
 @dataclass(frozen=True, slots=True)
 class TypedMatchExpression:
-    """An exhaustive checked `Option` match in canonical arm order."""
+    """An exhaustive checked `Option` match with source-ordered arms."""
 
     subject: TypedExpression
-    some_arm: TypedMatchSomeArm
-    none_arm: TypedMatchNoneArm
+    arms: tuple[TypedMatchArm, ...]
     type_: DslType
     span: SourceSpan
 

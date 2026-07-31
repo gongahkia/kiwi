@@ -42,6 +42,7 @@ from kiwi.dsl.typed_ir import (
     TypedIntegerLiteral,
     TypedLetExpression,
     TypedMatchExpression,
+    TypedMatchSomeArm,
     TypedModule,
     TypedNameExpression,
     TypedNegateExpression,
@@ -151,14 +152,18 @@ class _Lowerer:
             return CoreMatch(
                 expression_id,
                 self.lower_expression(expression.subject, definition_id),
-                CoreMatchSomeArm(
-                    expression.some_arm.symbol_id,
-                    self.lower_expression(expression.some_arm.body, definition_id),
-                    expression.some_arm.span,
-                ),
-                CoreMatchNoneArm(
-                    self.lower_expression(expression.none_arm.body, definition_id),
-                    expression.none_arm.span,
+                tuple(
+                    CoreMatchSomeArm(
+                        arm.symbol_id,
+                        self.lower_expression(arm.body, definition_id),
+                        arm.span,
+                    )
+                    if isinstance(arm, TypedMatchSomeArm)
+                    else CoreMatchNoneArm(
+                        self.lower_expression(arm.body, definition_id),
+                        arm.span,
+                    )
+                    for arm in expression.arms
                 ),
                 expression.type_,
                 expression.span,

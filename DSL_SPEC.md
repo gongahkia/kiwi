@@ -241,7 +241,17 @@ None
 payload and must occur where an `Option<T>` is already expected: a declared
 return type, a function parameter, a record field, or the corresponding branch
 of a typed conditional. It cannot be inferred for an unannotated `let` value.
-Pattern matching is the following task and is not yet surface syntax.
+The current match grammar is intentionally limited to `Option<T>`:
+
+```text
+match value with
+| Some(item) -> expression
+| None -> expression
+```
+
+Each arm must appear exactly once. `Some(item)` binds `item` only in its arm;
+both arm expressions must have the same type. Literal, wildcard, and record
+patterns remain deferred until their source variants exist.
 
 ### 7.7 Records
 
@@ -614,9 +624,12 @@ record_type_field := identifier ":" type
 parameters  := parameter ("," parameter)*
 parameter   := identifier ":" type
 type        := identifier ("<" type ("," type)* ">")?
-expression  := let | conditional | application
+expression  := let | conditional | match | application
 let         := "let" identifier "=" expression "in" expression
 conditional := "if" expression "then" expression "else" expression
+match       := "match" expression "with" match_arm+
+match_arm   := "|" match_pattern "->" expression
+match_pattern := "Some" "(" identifier ")" | "None"
 application := unary (("(" arguments? ")") | ("." identifier))*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
@@ -684,6 +697,9 @@ Record schema failures are `E404_DUPLICATE_RECORD_TYPE`,
 `Option` annotation arity is `E411_INVALID_OPTION_TYPE`; a payload-free `None`
 without an expected `Option<T>` is `E412_AMBIGUOUS_NONE`. `Some` payloads and
 all expected option values use `E401_TYPE_MISMATCH` when their types differ.
+Option match failures are `E413_INVALID_MATCH_SUBJECT`,
+`E414_DUPLICATE_MATCH_ARM`, `E415_INCOMPLETE_MATCH`, and
+`E416_MATCH_BRANCH_TYPE`.
 
 ### 15.5 Capability checking
 
@@ -698,8 +714,8 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
 Core retains integer, boolean, string, quantity, record construction, `Some`,
-and `None` literals, resolved references, field access, negation, calls, `let`,
-and `if`.
+and `None` literals, source-ordered exhaustive `Option` matches, resolved references,
+field access, negation, calls, `let`, and `if`.
 Expression IDs start at zero and follow definition source order then expression
 pre-order. Each ID has one `SourceMapEntry` containing its enclosing
 `DefinitionId` and source span. Parentheses do not create core nodes because
@@ -748,6 +764,9 @@ BUILD_RECORD type_name field_names
 LOAD_FIELD field_name
 BUILD_SOME
 PUSH_NONE
+JUMP_IF_NONE target
+UNWRAP_SOME
+POP
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -759,8 +778,10 @@ the result. `BUILD_RECORD` consumes its source-ordered field values and pushes
 one canonically ordered immutable record; `LOAD_FIELD` replaces a record with
 the named field. `BUILD_SOME` consumes a payload and pushes a new immutable
 `Some` value; `PUSH_NONE` pushes a new payload-free immutable `Option` value.
-`STORE_LOCAL` consumes its value; conditional branches consume a boolean. The
-validator defines stack, local-slot, and in-range jump rules
+`JUMP_IF_NONE` tests an `Option` without removing it; the Some arm uses
+`UNWRAP_SOME` to replace it with the payload and the None arm uses `POP` to
+discard it. `STORE_LOCAL` consumes its value; conditional branches consume a
+boolean. The validator defines stack, local-slot, and in-range jump rules
 before execution. The exact set should remain small. Instructions must not
 contain Python callables or mutable arbitrary objects.
 
@@ -855,6 +876,8 @@ runtime-value limits. A pushed function reference, a negated integer, record
 construction, `BUILD_SOME`, and `PUSH_NONE` each allocate one value; immutable
 constants and frame slots do not. Exhaustion is checked before the operation
 that would exceed its limit.
+
+Option-match control instructions do not allocate values.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 

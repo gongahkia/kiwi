@@ -233,3 +233,17 @@ def test_run_policy_command_returns_closed_option_values(tmp_path: Path) -> None
     assert absent.returncode == 0
     assert absent.stdout == "value: None\n"
     assert absent.stderr == ""
+
+
+def test_run_policy_command_executes_exhaustive_option_matches(tmp_path: Path) -> None:
+    path = tmp_path / "matching.dtr"
+    path.write_text(
+        "policy choose() -> Int = match Some(1) with | Some(item) -> item | None -> 0",
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("run-policy", str(path), "choose")
+
+    assert result.returncode == 0
+    assert result.stdout == "value: Integer(1)\n"
+    assert result.stderr == ""
