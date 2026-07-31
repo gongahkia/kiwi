@@ -6,7 +6,8 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
-from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
+from kiwi.dsl.runtime_values import IntegerValue, ListValue, QuantityValue, RecordValue
+from kiwi.sim.messages import INBOX_OBSERVATION_RECORD_TYPE
 from kiwi.sim.observations import (
     OBSERVATION_RECORD_TYPE,
     OBSERVATION_SCHEMA_VERSION,
@@ -28,9 +29,14 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 1
+    assert OBSERVATION_SCHEMA_VERSION == 2
     assert value.type_name == OBSERVATION_RECORD_TYPE
-    assert value.field_names == ("self", "tick")
+    assert value.field_names == ("inbox", "self", "tick")
+    inbox_value = value.field_value("inbox")
+    assert isinstance(inbox_value, RecordValue)
+    assert inbox_value.type_name == INBOX_OBSERVATION_RECORD_TYPE
+    assert inbox_value.field_names == ("messages",)
+    assert inbox_value.field_value("messages") == ListValue(())
     self_value = value.field_value("self")
     assert isinstance(self_value, RecordValue)
     assert self_value.type_name == SELF_OBSERVATION_RECORD_TYPE
