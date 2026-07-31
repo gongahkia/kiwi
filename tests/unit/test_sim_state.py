@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+import pytest
+
+from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.ids import EntityId, IdAllocator
+from kiwi.sim.state import MAX_MISSION_TICK, EntityState, MissionState, add_entity
+
+
+def position(x: int = 0, y: int = 0) -> WorldPosition:
+    return WorldPosition(WorldSubunits(x), WorldSubunits(y))
+
+
+def test_mission_state_defaults_to_empty_tick_zero_authority() -> None:
+    assert MissionState() == MissionState(tick=0, entities=(), id_allocator=IdAllocator())
+
+
+def test_add_entity_preserves_prior_state_and_canonical_id_order() -> None:
+    initial = MissionState(tick=7)
+    after_first, first = add_entity(initial, position(10, -20))
+    after_second, second = add_entity(after_first, position(30, 40))
+
+    assert initial.entities == ()
+    assert first == EntityState(EntityId(1), position(10, -20))
+    assert second == EntityState(EntityId(2), position(30, 40))
+    assert after_second.tick == 7
+    assert after_second.entities == (first, second)
+    assert after_second.id_allocator.next_ids[0] == 3
+
+
+def test_mission_state_validates_entity_order_and_allocator_provenance() -> None:
+    first_id, after_first = IdAllocator().allocate_entity()
+    second_id, after_second = after_first.allocate_entity()
+    first = EntityState(first_id, position())
+    second = EntityState(second_id, position(1))
+
+    with pytest.raises(ValueError, match="unique ascending"):
+        MissionState(entities=(second, first), id_allocator=after_second)
+    with pytest.raises(ValueError, match="allocated by"):
+        MissionState(entities=(first,), id_allocator=IdAllocator())
+
+
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    (
+        (lambda: MissionState(tick=-1), "non-negative"),
+        (lambda: MissionState(tick=MAX_MISSION_TICK + 1), "signed 64-bit"),
+        (lambda: MissionState(tick=True), "integer"),
+        (lambda: EntityState(EntityId(1), position=object()), "world position"),  # type: ignore[arg-type]
+        (lambda: add_entity(MissionState(), object()), "world position"),  # type: ignore[arg-type]
+    ),
+)
+def test_mission_state_rejects_invalid_canonical_values(factory: object, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        factory()  # type: ignore[operator]

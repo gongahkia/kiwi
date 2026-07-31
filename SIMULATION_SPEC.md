@@ -119,6 +119,11 @@ MissionState {
 
 Mappings are serialised and iterated in canonical key order.
 
+The initial kernel materialises `tick`, `entities`, and `id_allocator` first.
+Each entity is an immutable `(entity ID, world position)` value; entity tuples
+are strictly ascending by entity ID. Later state fields are added only when
+their own invariants and canonical representation are defined.
+
 ## 7. Observation cycle
 
 Observations are built from the stable state at the beginning of the policy-evaluation phase.

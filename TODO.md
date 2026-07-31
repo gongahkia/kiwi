@@ -194,7 +194,7 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 
 - [x] Define canonical quantity and geometry representations.
 - [x] Define typed IDs and deterministic ID allocation.
-- [ ] Define mission state and entity skeleton.
+- [x] Define mission state and entity skeleton.
 - [ ] Implement fixed tick clock.
 - [ ] Define external command schema and canonical ordering.
 - [ ] Define deterministic scheduled-event queue.
