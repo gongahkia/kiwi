@@ -62,6 +62,7 @@ local modules = {
   "unit.recording.writer_test",
   "unit.renderer.renderer_test",
   "unit.effects.manifest_test",
+  "unit.effects.clean_test",
   "unit.effects.random_test",
   "unit.effects.effect_test",
   "unit.effects.host_test",
