@@ -318,6 +318,13 @@ and `Wait` use `locomotion`; `Aim` and `Fire` use `weapon`; `Use` uses
 with weapon, interaction, medical, and communication requests. Payload
 decoding and validation are separate from this kind-and-channel definition.
 
+The initial arbitration phase allocates one intention ID for every validated
+candidate in entity-ID then returned-list order. It attaches invocation and
+source provenance, then selects the first candidate in each entity channel.
+Later candidates in an occupied channel are retained as `channel_occupied`
+rejections with the selected competing intention ID; validation failures create
+no candidates.
+
 ### 11.4 Execution
 
 Selected intentions become state transitions or longer-lived action states. Some complete immediately; others take ticks.
