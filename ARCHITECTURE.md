@@ -355,6 +355,12 @@ Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor
 state and a causal record; authoritative code never uses Python's random APIs.
 
+The initial reducer accepts an immutable exact-tick command tuple, canonicalises
+it, transitions `prepared` missions to `active`, records authorised aborts,
+rejects signals until they become observations, dequeues scheduled markers,
+then advances exactly one clock tick. It allocates a canonical event record for
+every applied or rejected command and dequeued marker.
+
 ## 12. Command model
 
 All external authority enters through typed commands. The initial kernel admits:

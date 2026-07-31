@@ -200,7 +200,7 @@ Create deterministic fixed-step authority with commands, events, hashing, and sn
 - [x] Define deterministic scheduled-event queue.
 - [x] Define named deterministic random streams and draw records.
 - [x] Define canonical event algebra.
-- [ ] Implement one-tick reducer pipeline.
+- [x] Implement one-tick reducer pipeline.
 - [ ] Implement canonical state encoding and hashing.
 - [ ] Implement canonical snapshots distinct from presentation snapshots.
 - [ ] Add headless runner for N ticks.
