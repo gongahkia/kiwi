@@ -23,6 +23,7 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NameExpression,
     NegateExpression,
+    NoneExpression,
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
@@ -31,6 +32,7 @@ from kiwi.dsl.syntax import (
     RecordTypeDeclaration,
     RecordTypeField,
     StringLiteral,
+    SomeExpression,
     SurfaceModule,
     TypeReference,
 )
@@ -196,7 +198,20 @@ class _Parser:
         name = self.parse_identifier()
         if name is None:
             return None
-        return TypeReference(name, name.span)
+        if not self.match(TokenKind.LEFT_ANGLE):
+            return TypeReference(name, name.span)
+        arguments: list[TypeReference] = []
+        while True:
+            argument = self.parse_type_reference()
+            if argument is None:
+                return None
+            arguments.append(argument)
+            if not self.match(TokenKind.COMMA):
+                break
+        closing = self.expect(TokenKind.RIGHT_ANGLE, "'>'")
+        if closing is None:
+            return None
+        return TypeReference(name, _join_spans(name.span, closing.span), tuple(arguments))
 
     def parse_expression(self) -> Expression | None:
         """Parse one expression at the M1 expression precedence levels."""
@@ -320,6 +335,20 @@ class _Parser:
             self.advance()
             if isinstance(token.value, Quantity):
                 return QuantityLiteral(token.value, token.span)
+        elif token.kind is TokenKind.SOME:
+            opening = self.advance()
+            if self.expect(TokenKind.LEFT_PAREN, "'('") is None:
+                return None
+            value = self.parse_expression()
+            if value is None:
+                return None
+            closing = self.expect(TokenKind.RIGHT_PAREN, "')'")
+            if closing is None:
+                return None
+            return SomeExpression(value, _join_spans(opening.span, closing.span))
+        elif token.kind is TokenKind.NONE:
+            self.advance()
+            return NoneExpression(token.span)
         elif token.kind is TokenKind.IDENTIFIER:
             name = self.parse_identifier()
             if name is not None:

@@ -22,6 +22,7 @@ class TypeReference:
 
     name: Identifier
     span: SourceSpan
+    arguments: tuple[TypeReference, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,21 @@ class RecordExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class SomeExpression:
+    """The payload-bearing built-in `Option` variant constructor."""
+
+    value: Expression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class NoneExpression:
+    """The payload-free built-in `Option` variant constructor."""
+
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class NameExpression:
     """A reference to a surface identifier."""
 
@@ -160,6 +176,8 @@ type Expression = (
     | StringLiteral
     | QuantityLiteral
     | RecordExpression
+    | SomeExpression
+    | NoneExpression
     | NameExpression
     | NegateExpression
     | GroupExpression
