@@ -1077,6 +1077,10 @@ Decision {
 }
 ```
 
+The initial simulation boundary uses a narrower `hold` fallback: it preserves
+the policy's input memory and emits no intentions for that evaluation tick.
+It applies to VM and policy-result validation failures alike.
+
 Fallback use is visible in mission UI and trace output. It must not silently continue as if the policy succeeded.
 
 The VM accepts an explicit immutable fallback value at its caller boundary. A

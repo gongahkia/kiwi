@@ -140,6 +140,10 @@ one `intention_selected` or `intention_rejected` child of that candidate. The
 candidate retains its full `IntentionOrigin`; a rejection retains its stable
 reason and competing intention IDs.
 
+When policy validation fails, the corresponding `policy_evaluated` event
+retains the structured failure and its resolved decision is a `hold` fallback:
+the input memory persists and no candidate is emitted.
+
 ### 5.6 Consequence record
 
 ```text

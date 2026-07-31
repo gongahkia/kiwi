@@ -299,6 +299,11 @@ an immutable lexically ordered set of available capabilities. A missing
 declared requirement prevents VM execution and records `P004_CAPABILITY` with
 the requirement span; decoded requests repeat the same availability check.
 
+The initial fallback resolves every failed policy validation, including VM
+faults, to `hold`: it preserves that invocation's input memory and emits no
+intentions. The `policy_evaluated` event retains the original structured
+failure, so fallback is visible rather than treated as a successful result.
+
 ### 11.3 Arbitration
 
 Intentions compete within action channels, for example:
