@@ -1,0 +1,12 @@
+{
+  "format": "kiwi-kernel-fixture",
+  "version": 1,
+  "id": "minimal",
+  "tick_rate": 30,
+  "seed": 7,
+  "entities": {
+    "alpha": {"x": 0, "y": 0},
+    "bravo": {"x": 1000, "y": -500, "elevation": 1}
+  },
+  "scheduled_triggers": [2, 1]
+}

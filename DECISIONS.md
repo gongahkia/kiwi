@@ -159,6 +159,16 @@ those exact bytes. Unknown versions are rejected rather than reinterpreted;
 format evolution requires a new version and explicit migration or compatibility
 policy.
 
+### D-026: Early kernel fixtures use strict versioned JSON
+
+Milestone 5 kernel fixtures use UTF-8 JSON with format identifier
+`kiwi-kernel-fixture` and version `1`. JSON needs no dependency beyond the
+standard library and remains inspectable in tests. The loader rejects duplicate
+or unknown fields and converts content-ID keyed entity maps into explicit sorted
+immutable values before dynamic authority ID allocation. This narrow fixture
+format is separate from the later full mission schema; incompatible evolution
+requires a new version and migration or compatibility policy.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

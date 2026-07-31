@@ -227,6 +227,7 @@ Fixture policy:
 
 Recommended initial fixtures:
 
+- `minimal` kernel fixture;
 - `minimal_move`;
 - `missing_contact`;
 - `cover_contention`;

@@ -378,6 +378,11 @@ complete canonically ordered event stream. Configured checkpoint intervals
 capture authority-only snapshots. The determinism harness repeats those inputs
 and reports the earliest checkpoint mismatch with a canonical field path.
 
+The content package validates versioned fixture JSON into immutable primitive
+models without importing simulation. The simulation bootstrap consumes those
+canonical primitive values to allocate initial authority state; it never reads
+files during ticks.
+
 ## 12. Command model
 
 All external authority enters through typed commands. The initial kernel admits:
