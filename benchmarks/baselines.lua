@@ -4,8 +4,8 @@ return {
       fixtures = {
         clean_120x40 = {
           bytes_per_frame = 1080,
-          frames = 30,
-          frame_time_us = 180,
+          frames = 5,
+          frame_time_us = 400,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -15,12 +15,12 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         clean_240x80 = {
           bytes_per_frame = 1080,
-          frames = 30,
-          frame_time_us = 650,
+          frames = 5,
+          frame_time_us = 1500,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -30,11 +30,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         combined_120x40 = {
           bytes_per_frame = 14500000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 35000,
           resources = {
             canvases = 0,
@@ -45,11 +45,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         combined_240x80 = {
           bytes_per_frame = 57000000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 130000,
           resources = {
             canvases = 0,
@@ -60,11 +60,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         crt_120x40 = {
           bytes_per_frame = 450000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 1600,
           resources = {
             canvases = 0,
@@ -75,11 +75,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         crt_240x80 = {
           bytes_per_frame = 450000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 2400,
           resources = {
             canvases = 0,
@@ -90,12 +90,12 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         effects_disabled_120x40 = {
           bytes_per_frame = 120000,
-          frames = 30,
-          frame_time_us = 200,
+          frames = 5,
+          frame_time_us = 400,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -105,12 +105,12 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         effects_disabled_240x80 = {
           bytes_per_frame = 240000,
-          frames = 30,
-          frame_time_us = 650,
+          frames = 5,
+          frame_time_us = 1200,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -120,11 +120,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         kinetic_120x40 = {
           bytes_per_frame = 14000000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 30000,
           resources = {
             canvases = 0,
@@ -135,11 +135,11 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         kinetic_240x80 = {
           bytes_per_frame = 56000000,
-          frames = 30,
+          frames = 5,
           frame_time_us = 120000,
           resources = {
             canvases = 0,
@@ -150,12 +150,12 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         quarantined_120x40 = {
           bytes_per_frame = 1080,
-          frames = 30,
-          frame_time_us = 130,
+          frames = 5,
+          frame_time_us = 400,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -165,12 +165,12 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
         quarantined_240x80 = {
           bytes_per_frame = 1080,
-          frames = 30,
-          frame_time_us = 550,
+          frames = 5,
+          frame_time_us = 1500,
           resources = {
             canvases = 0,
             effect_instances = 0,
@@ -180,10 +180,10 @@ return {
             temporary_canvases = 0,
           },
           samples = 3,
-          warmup = 60,
+          warmup = 20,
         },
       },
-      reason = "recalibrated after fixture-process isolation and 30-frame timing windows",
+      reason = "recalibrated after fixture-process isolation and bounded timing windows",
     },
   },
   version = 1,
