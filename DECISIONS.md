@@ -151,12 +151,14 @@ own named, bounded conversion policy before use in authority.
 ### D-025: Canonical mission state is versioned binary and BLAKE2b-256 hashed
 
 Canonical mission state uses the project-owned `KWI-STATE\0` binary format,
-version `1`, with fixed-width big-endian scalars and ordered length-prefixed
+version `2`, with fixed-width big-endian scalars and ordered length-prefixed
 collections. It serialises all currently materialised authority state: mission
-tick and phase, entity geometry, ID allocation, scheduled events, root seed,
-and named random-stream state. The state hash is a 32-byte BLAKE2b digest of
-those exact bytes. Unknown versions are rejected rather than reinterpreted;
-format evolution requires a new version and explicit migration or compatibility
+tick and phase, entity geometry, per-entity data-only policy memory, ID
+allocation, scheduled events, root seed, and named random-stream state. The
+state hash is a 32-byte BLAKE2b digest of those exact bytes. Version `1` and
+unknown versions are rejected rather than reinterpreted: policy-memory support
+is an intentional breaking change with no compatibility decoder or migration.
+Later evolution requires a new version and explicit migration or compatibility
 policy.
 
 ### D-026: Early kernel fixtures use strict versioned JSON

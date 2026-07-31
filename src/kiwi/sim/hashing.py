@@ -8,6 +8,25 @@ from hashlib import blake2b
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
+from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    ListValue,
+    OptionNoneValue,
+    OptionSomeValue,
+    QuantityValue,
+    RecordValue,
+    RuntimeValue,
+    StringValue,
+    UnitValue,
+)
+from kiwi.sim.memory import (
+    MAX_POLICY_MEMORY_DEPTH,
+    EntityPolicyMemory,
+    PolicyMemoryStore,
+    is_persistable_memory_value,
+)
 from kiwi.sim.randomness import (
     RANDOM_ALGORITHM_VERSION,
     MissionSeed,
@@ -18,7 +37,7 @@ from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEven
 from kiwi.sim.state import EntityState, MissionPhase, MissionState
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 1
+CANONICAL_STATE_VERSION = 2
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -27,7 +46,22 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V1 = 4
+_RANDOM_STREAM_COUNT_V2 = 4
+_MEMORY_INTEGER = 1
+_MEMORY_BOOLEAN = 2
+_MEMORY_UNIT = 3
+_MEMORY_STRING = 4
+_MEMORY_QUANTITY = 5
+_MEMORY_OPTION_SOME = 6
+_MEMORY_OPTION_NONE = 7
+_MEMORY_LIST = 8
+_MEMORY_RECORD = 9
+_MEMORY_DURATION = 1
+_MEMORY_DISTANCE = 2
+_MEMORY_ANGLE = 3
+_MEMORY_PROBABILITY = 4
+_MAX_MEMORY_TEXT_BYTES = 65_536
+_MAX_MEMORY_INTEGER_BYTES = 512
 
 
 class StateDecodeCode(StrEnum):
@@ -73,7 +107,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 1 form."""
+    """Encode one validated mission state in canonical binary version 2 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -87,6 +121,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
         writer.i64(entity.position.x.value, "entity x")
         writer.i64(entity.position.y.value, "entity y")
         writer.u64(entity.position.elevation.value, "entity elevation")
+    _encode_policy_memory(writer, state.policy_memory)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -162,8 +197,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V1:
-        raise ValueError("state format version 1 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V2:
+        raise ValueError("state format version 2 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -176,6 +211,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     phase = _decode_phase(reader.u8(), reader.offset - 1)
     entity_count = reader.items("entity count")
     entities = tuple(_decode_entity(reader) for _ in range(entity_count))
+    policy_memory = _decode_policy_memory(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -184,6 +220,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         phase=phase,
         entities=entities,
         id_allocator=id_allocator,
+        policy_memory=policy_memory,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -196,6 +233,158 @@ def _decode_entity(reader: _Reader) -> EntityState:
             x=WorldSubunits(reader.i64()),
             y=WorldSubunits(reader.i64()),
             elevation=ElevationLayer(reader.u64()),
+        ),
+    )
+
+
+def _encode_policy_memory(writer: _Writer, store: PolicyMemoryStore) -> None:
+    writer.items(len(store.entries), "policy memory entry count")
+    for entry in store.entries:
+        writer.i64(entry.entity_id.value, "policy memory entity ID")
+        _encode_memory_value(writer, entry.value, 0)
+
+
+def _decode_policy_memory(reader: _Reader) -> PolicyMemoryStore:
+    count = reader.items("policy memory entry count")
+    entries: list[EntityPolicyMemory] = []
+    for _ in range(count):
+        entity_id = EntityId(reader.i64())
+        value = _decode_memory_value(reader, 0)
+        if not isinstance(value, RecordValue):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                reader.offset,
+                "policy memory root value must be a record",
+            )
+        entries.append(EntityPolicyMemory(entity_id, value))
+    return PolicyMemoryStore(tuple(entries))
+
+
+def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:
+    if depth >= MAX_POLICY_MEMORY_DEPTH:
+        raise ValueError("policy memory value exceeds the configured nesting limit")
+    if not is_persistable_memory_value(value, depth):
+        raise ValueError("policy memory value is not persistable")
+    if isinstance(value, IntegerValue):
+        writer.u8(_MEMORY_INTEGER, "policy memory value tag")
+        writer.integer(value.value, "policy memory integer")
+    elif isinstance(value, BooleanValue):
+        writer.u8(_MEMORY_BOOLEAN, "policy memory value tag")
+        writer.u8(int(value.value), "policy memory boolean")
+    elif isinstance(value, UnitValue):
+        writer.u8(_MEMORY_UNIT, "policy memory value tag")
+    elif isinstance(value, StringValue):
+        writer.u8(_MEMORY_STRING, "policy memory value tag")
+        writer.text(value.value, "policy memory string")
+    elif isinstance(value, QuantityValue):
+        writer.u8(_MEMORY_QUANTITY, "policy memory value tag")
+        _encode_memory_quantity(writer, value.value)
+    elif isinstance(value, OptionSomeValue):
+        writer.u8(_MEMORY_OPTION_SOME, "policy memory value tag")
+        _encode_memory_value(writer, value.value, depth + 1)
+    elif isinstance(value, OptionNoneValue):
+        writer.u8(_MEMORY_OPTION_NONE, "policy memory value tag")
+    elif isinstance(value, ListValue):
+        writer.u8(_MEMORY_LIST, "policy memory value tag")
+        writer.items(len(value.values), "policy memory list item count")
+        for item in value.values:
+            _encode_memory_value(writer, item, depth + 1)
+    elif isinstance(value, RecordValue):
+        writer.u8(_MEMORY_RECORD, "policy memory value tag")
+        writer.text(value.type_name, "policy memory record type")
+        writer.items(len(value.field_names), "policy memory record field count")
+        for field_name, field_value in zip(value.field_names, value.values, strict=True):
+            writer.text(field_name, "policy memory record field")
+            _encode_memory_value(writer, field_value, depth + 1)
+    else:
+        raise ValueError("policy memory value is not persistable")
+
+
+def _decode_memory_value(reader: _Reader, depth: int) -> RuntimeValue:
+    if depth >= MAX_POLICY_MEMORY_DEPTH:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            reader.offset,
+            "policy memory value exceeds the configured nesting limit",
+        )
+    tag_offset = reader.offset
+    tag = reader.u8()
+    if tag == _MEMORY_INTEGER:
+        return IntegerValue(reader.integer("policy memory integer"))
+    if tag == _MEMORY_BOOLEAN:
+        value = reader.u8()
+        if value not in (0, 1):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                reader.offset - 1,
+                "policy memory boolean must be zero or one",
+            )
+        return BooleanValue(bool(value))
+    if tag == _MEMORY_UNIT:
+        return UnitValue()
+    if tag == _MEMORY_STRING:
+        return StringValue(reader.text("policy memory string", _MAX_MEMORY_TEXT_BYTES))
+    if tag == _MEMORY_QUANTITY:
+        return QuantityValue(_decode_memory_quantity(reader))
+    if tag == _MEMORY_OPTION_SOME:
+        return OptionSomeValue(_decode_memory_value(reader, depth + 1))
+    if tag == _MEMORY_OPTION_NONE:
+        return OptionNoneValue()
+    if tag == _MEMORY_LIST:
+        return ListValue(
+            tuple(
+                _decode_memory_value(reader, depth + 1)
+                for _ in range(reader.items("policy memory list item count"))
+            )
+        )
+    if tag == _MEMORY_RECORD:
+        type_name = reader.text("policy memory record type", _MAX_MEMORY_TEXT_BYTES)
+        count = reader.items("policy memory record field count")
+        field_names: list[str] = []
+        values: list[RuntimeValue] = []
+        for _ in range(count):
+            field_names.append(reader.text("policy memory record field", _MAX_MEMORY_TEXT_BYTES))
+            values.append(_decode_memory_value(reader, depth + 1))
+        return RecordValue(type_name, tuple(field_names), tuple(values))
+    raise _DecodeError(
+        StateDecodeCode.INVALID_VALUE,
+        tag_offset,
+        f"invalid policy memory value tag {tag}",
+    )
+
+
+def _encode_memory_quantity(writer: _Writer, quantity: Quantity) -> None:
+    tags = {
+        QuantityDimension.DURATION: _MEMORY_DURATION,
+        QuantityDimension.DISTANCE: _MEMORY_DISTANCE,
+        QuantityDimension.ANGLE: _MEMORY_ANGLE,
+        QuantityDimension.PROBABILITY: _MEMORY_PROBABILITY,
+    }
+    writer.u8(tags[quantity.dimension], "policy memory quantity dimension")
+    writer.integer(quantity.value.numerator, "policy memory quantity numerator")
+    writer.natural(quantity.value.denominator, "policy memory quantity denominator")
+
+
+def _decode_memory_quantity(reader: _Reader) -> Quantity:
+    offset = reader.offset
+    dimensions = {
+        _MEMORY_DURATION: QuantityDimension.DURATION,
+        _MEMORY_DISTANCE: QuantityDimension.DISTANCE,
+        _MEMORY_ANGLE: QuantityDimension.ANGLE,
+        _MEMORY_PROBABILITY: QuantityDimension.PROBABILITY,
+    }
+    dimension = dimensions.get(reader.u8())
+    if dimension is None:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            offset,
+            "invalid policy memory quantity dimension",
+        )
+    return Quantity(
+        dimension,
+        ExactRational(
+            reader.integer("policy memory quantity numerator"),
+            reader.natural("policy memory quantity denominator"),
         ),
     )
 
@@ -224,7 +413,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V1)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V2)
     )
     return RandomStreams(seed=seed, states=states)
 
@@ -292,6 +481,34 @@ class _Writer:
             raise ValueError(f"{name} exceeds the configured item limit")
         self.u32(value, name)
 
+    def text(self, value: str, name: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError(f"{name} must be text")
+        encoded = value.encode("utf-8")
+        if len(encoded) > _MAX_MEMORY_TEXT_BYTES:
+            raise ValueError(f"{name} exceeds the configured byte limit")
+        self.u32(len(encoded), f"{name} byte length")
+        self.write(encoded)
+
+    def integer(self, value: int, name: str) -> None:
+        value = self._bounded(value, -(1 << 4_096), (1 << 4_096) - 1, name)
+        magnitude = abs(value)
+        count = (magnitude.bit_length() + 7) // 8
+        if count > _MAX_MEMORY_INTEGER_BYTES:
+            raise ValueError(f"{name} exceeds the configured byte limit")
+        self.u8(int(value < 0), f"{name} sign")
+        self.u16(count, f"{name} byte length")
+        if count:
+            self.write(magnitude.to_bytes(count, "big"))
+
+    def natural(self, value: int, name: str) -> None:
+        value = self._bounded(value, 1, (1 << 4_096) - 1, name)
+        count = (value.bit_length() + 7) // 8
+        if count > _MAX_MEMORY_INTEGER_BYTES:
+            raise ValueError(f"{name} exceeds the configured byte limit")
+        self.u16(count, f"{name} byte length")
+        self.write(value.to_bytes(count, "big"))
+
     @staticmethod
     def _bounded(value: int, lower: int, upper: int, name: str) -> int:
         if not isinstance(value, int) or isinstance(value, bool):
@@ -335,6 +552,80 @@ class _Reader:
                 f"{name} exceeds the configured item limit",
             )
         return value
+
+    def text(self, name: str, maximum_length: int) -> str:
+        length_offset = self.offset
+        length = self.u32()
+        if length > maximum_length:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                length_offset,
+                f"{name} exceeds the configured byte limit",
+            )
+        text_offset = self.offset
+        try:
+            return self.read(length).decode("utf-8")
+        except UnicodeDecodeError:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                text_offset,
+                f"{name} is not valid UTF-8",
+            ) from None
+
+    def integer(self, name: str) -> int:
+        sign_offset = self.offset
+        sign = self.u8()
+        if sign not in (0, 1):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                sign_offset,
+                f"{name} sign must be zero or one",
+            )
+        length_offset = self.offset
+        length = self.u16()
+        if length > _MAX_MEMORY_INTEGER_BYTES:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                length_offset,
+                f"{name} exceeds the configured byte limit",
+            )
+        magnitude_offset = self.offset
+        magnitude_bytes = self.read(length)
+        if not magnitude_bytes:
+            if sign:
+                raise _DecodeError(
+                    StateDecodeCode.INVALID_VALUE,
+                    sign_offset,
+                    f"{name} must not encode negative zero",
+                )
+            return 0
+        if magnitude_bytes[0] == 0:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                magnitude_offset,
+                f"{name} has a noncanonical leading zero",
+            )
+        magnitude = int.from_bytes(magnitude_bytes, "big")
+        return -magnitude if sign else magnitude
+
+    def natural(self, name: str) -> int:
+        length_offset = self.offset
+        length = self.u16()
+        if not 1 <= length <= _MAX_MEMORY_INTEGER_BYTES:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                length_offset,
+                f"{name} byte length is invalid",
+            )
+        magnitude_offset = self.offset
+        magnitude_bytes = self.read(length)
+        if magnitude_bytes[0] == 0:
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                magnitude_offset,
+                f"{name} has a noncanonical leading zero",
+            )
+        return int.from_bytes(magnitude_bytes, "big")
 
     def read(self, count: int) -> bytes:
         if self.remaining < count:
