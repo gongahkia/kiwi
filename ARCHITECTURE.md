@@ -389,6 +389,10 @@ range-visible obstacle projections from immutable positions. It has no policy,
 renderer, or state mutation dependency; later contact and observation phases
 consume its structured result.
 
+`kiwi.sim.contacts` defines owner-local uncertain values independently from
+contact storage and lifecycle. These estimates contain no hidden target entity
+identity, so later policy observations need not expose omniscient state.
+
 The headless runner consumes an immutable command log, rejects commands outside
 its exact tick window, and groups canonical commands per tick without frames,
 wall-clock input, or presentation state. It returns the final state and the
