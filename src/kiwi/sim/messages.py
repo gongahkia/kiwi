@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from kiwi.domain.ids import EntityId, EventId, MessageId
+from kiwi.domain.ids import EntityId, EventId, IdAllocator, MessageId
 from kiwi.dsl.runtime_values import IntegerValue, ListValue, RecordValue, StringValue
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.memory import is_persistable_memory_value
@@ -100,6 +100,42 @@ class InboxObservation:
             message_ids += (message.message_id,)
 
 
+@dataclass(frozen=True, slots=True)
+class MessageLedger:
+    """Canonical live messages plus the next globally ordered send sequence."""
+
+    messages: tuple[Message, ...] = ()
+    next_sequence: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.messages, tuple):
+            raise ValueError("message ledger entries must be an immutable tuple")
+        if not isinstance(self.next_sequence, int) or isinstance(self.next_sequence, bool):
+            raise ValueError("message ledger next sequence must be an integer")
+        if not 0 <= self.next_sequence <= MAX_AUTHORITY_TICK + 1:
+            raise ValueError(
+                "message ledger next sequence must fit non-negative signed 64-bit range"
+            )
+        previous_key: tuple[int, int, int, int] = (0, 0, -1, 0)
+        message_ids: tuple[MessageId, ...] = ()
+        sequences: tuple[int, ...] = ()
+        for message in self.messages:
+            if not isinstance(message, Message):
+                raise ValueError("message ledger entries must contain messages")
+            if message.message_id in message_ids:
+                raise ValueError("message ledger entries must have unique message IDs")
+            if message.sequence in sequences:
+                raise ValueError("message ledger entries must have unique sequences")
+            if message.sequence >= self.next_sequence:
+                raise ValueError("message ledger next sequence must follow every message")
+            key = message_order_key(message)
+            if key <= previous_key:
+                raise ValueError("message ledger entries must use canonical delivery order")
+            previous_key = key
+            message_ids += (message.message_id,)
+            sequences += (message.sequence,)
+
+
 def message_order_key(message: Message) -> tuple[int, int, int, int]:
     """Return the explicit delivery key used by inboxes and future queues."""
     if not isinstance(message, Message):
@@ -109,6 +145,87 @@ def message_order_key(message: Message) -> tuple[int, int, int, int]:
         message.sender_entity_id.value,
         message.sequence,
         message.message_id.value,
+    )
+
+
+def send_message(
+    ledger: MessageLedger,
+    id_allocator: IdAllocator,
+    sender_entity_id: EntityId,
+    recipient_entity_id: EntityId,
+    channel: MessageChannel,
+    payload: RecordValue,
+    send_tick: int,
+    expiry_tick: int,
+    provenance_event_ids: tuple[EventId, ...],
+) -> tuple[MessageLedger, IdAllocator, Message]:
+    """Allocate one message that becomes visible at the next authoritative tick."""
+    if not isinstance(ledger, MessageLedger):
+        raise ValueError("message send requires a message ledger")
+    if not isinstance(id_allocator, IdAllocator):
+        raise ValueError("message send requires an ID allocator")
+    if not isinstance(send_tick, int) or isinstance(send_tick, bool):
+        raise ValueError("message send tick must be an integer")
+    if not 0 <= send_tick < MAX_AUTHORITY_TICK:
+        raise ValueError("message send tick must permit next-tick delivery")
+    if ledger.next_sequence > MAX_AUTHORITY_TICK:
+        raise ValueError("message send sequence allocation exhausted")
+    message_id, next_allocator = id_allocator.allocate_message()
+    message = Message(
+        message_id=message_id,
+        sender_entity_id=sender_entity_id,
+        recipient_entity_id=recipient_entity_id,
+        channel=channel,
+        payload=payload,
+        send_tick=send_tick,
+        delivery_tick=send_tick + 1,
+        expiry_tick=expiry_tick,
+        sequence=ledger.next_sequence,
+        provenance_event_ids=provenance_event_ids,
+    )
+    return (
+        MessageLedger(
+            tuple(sorted((*ledger.messages, message), key=message_order_key)),
+            ledger.next_sequence + 1,
+        ),
+        next_allocator,
+        message,
+    )
+
+
+def discard_expired_messages(ledger: MessageLedger, current_tick: int) -> MessageLedger:
+    """Drop messages whose inclusive expiry tick precedes the current tick."""
+    if not isinstance(ledger, MessageLedger):
+        raise ValueError("message expiry requires a message ledger")
+    if not isinstance(current_tick, int) or isinstance(current_tick, bool):
+        raise ValueError("message expiry tick must be an integer")
+    if not 0 <= current_tick <= MAX_AUTHORITY_TICK:
+        raise ValueError("message expiry tick must fit non-negative signed 64-bit range")
+    retained = tuple(message for message in ledger.messages if message.expiry_tick >= current_tick)
+    if retained == ledger.messages:
+        return ledger
+    return MessageLedger(retained, ledger.next_sequence)
+
+
+def inbox_for(
+    ledger: MessageLedger, recipient_entity_id: EntityId, current_tick: int
+) -> InboxObservation:
+    """Project one recipient's delivered, unexpired messages in canonical order."""
+    if not isinstance(ledger, MessageLedger):
+        raise ValueError("inbox projection requires a message ledger")
+    if not isinstance(recipient_entity_id, EntityId):
+        raise ValueError("inbox projection requires a recipient entity ID")
+    if not isinstance(current_tick, int) or isinstance(current_tick, bool):
+        raise ValueError("inbox projection tick must be an integer")
+    if not 0 <= current_tick <= MAX_AUTHORITY_TICK:
+        raise ValueError("inbox projection tick must fit non-negative signed 64-bit range")
+    return InboxObservation(
+        tuple(
+            message
+            for message in ledger.messages
+            if message.recipient_entity_id == recipient_entity_id
+            and message.delivery_tick <= current_tick <= message.expiry_tick
+        )
     )
 
 

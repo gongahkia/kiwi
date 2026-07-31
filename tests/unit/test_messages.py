@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
-from kiwi.domain.ids import EntityId, EventId, MessageId
+from kiwi.domain.ids import EntityId, EventId, IdAllocator, MessageId
 from kiwi.dsl.runtime_values import IntegerValue, ListValue, RecordValue, StringValue
 from kiwi.sim.messages import (
     INBOX_OBSERVATION_RECORD_TYPE,
@@ -11,9 +11,13 @@ from kiwi.sim.messages import (
     InboxObservation,
     Message,
     MessageChannel,
+    MessageLedger,
+    discard_expired_messages,
+    inbox_for,
     inbox_runtime_value,
     message_order_key,
     message_runtime_value,
+    send_message,
 )
 from kiwi.sim.observations import RuntimeObservation, SelfObservation, observation_runtime_value
 
@@ -73,6 +77,52 @@ def test_inbox_requires_canonical_delivery_order_and_unique_message_ids() -> Non
         InboxObservation((second, first))
     with pytest.raises(ValueError, match="unique message IDs"):
         InboxObservation((first, duplicate))
+
+
+def test_message_ledger_sends_next_tick_projects_in_delivery_order_and_expires() -> None:
+    evidence_event_id, allocator = IdAllocator().allocate_event()
+    first_ledger, allocator, first = send_message(
+        MessageLedger(),
+        allocator,
+        EntityId(2),
+        EntityId(3),
+        MessageChannel.RADIO,
+        _payload(),
+        3,
+        5,
+        (evidence_event_id,),
+    )
+    second_ledger, allocator, second = send_message(
+        first_ledger,
+        allocator,
+        EntityId(1),
+        EntityId(3),
+        MessageChannel.RADIO,
+        _payload(),
+        3,
+        5,
+        (evidence_event_id,),
+    )
+
+    assert first == Message(
+        MessageId(1),
+        EntityId(2),
+        EntityId(3),
+        MessageChannel.RADIO,
+        _payload(),
+        3,
+        4,
+        5,
+        0,
+        (evidence_event_id,),
+    )
+    assert second.sequence == 1
+    assert second_ledger.messages == (second, first)
+    assert inbox_for(second_ledger, EntityId(3), 3) == InboxObservation()
+    assert inbox_for(second_ledger, EntityId(3), 4) == InboxObservation((second, first))
+    assert discard_expired_messages(second_ledger, 5) == second_ledger
+    assert discard_expired_messages(second_ledger, 6) == MessageLedger((), 2)
+    assert allocator.allocate_message()[0] == MessageId(3)
 
 
 @pytest.mark.parametrize(

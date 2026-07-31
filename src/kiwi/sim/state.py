@@ -11,6 +11,7 @@ from kiwi.sim.contacts import ContactStore
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.messages import MessageLedger
 from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
@@ -127,6 +128,7 @@ class MissionState:
     policy_memory: PolicyMemoryStore = field(default_factory=PolicyMemoryStore)
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
     contacts: ContactStore = field(default_factory=ContactStore)
+    messages: MessageLedger = field(default_factory=MessageLedger)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
     random_streams: RandomStreams = field(default_factory=default_random_streams)
 
@@ -151,6 +153,8 @@ class MissionState:
             raise ValueError("mission state requires policy versions")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
+        if not isinstance(self.messages, MessageLedger):
+            raise ValueError("mission state requires a message ledger")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
         if not isinstance(self.random_streams, RandomStreams):
@@ -217,6 +221,23 @@ class MissionState:
             raise ValueError(
                 "contact evidence event IDs must be allocated by the current ID allocator"
             )
+        if any(
+            message.sender_entity_id not in entity_ids
+            or message.recipient_entity_id not in entity_ids
+            for message in self.messages.messages
+        ):
+            raise ValueError("messages must reference mission entities")
+        next_message_id = self.id_allocator.next_ids[int(IdKind.MESSAGE)]
+        if any(message.message_id.value >= next_message_id for message in self.messages.messages):
+            raise ValueError("message IDs must be allocated by the current ID allocator")
+        if any(
+            event_id.value >= next_event_id
+            for message in self.messages.messages
+            for event_id in message.provenance_event_ids
+        ):
+            raise ValueError(
+                "message provenance event IDs must be allocated by the current ID allocator"
+            )
 
 
 def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionState, EntityState]:
@@ -238,6 +259,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,
             contacts=state.contacts,
+            messages=state.messages,
             scheduled_events=state.scheduled_events,
             random_streams=state.random_streams,
         ),

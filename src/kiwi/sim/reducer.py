@@ -25,6 +25,7 @@ from kiwi.sim.events import (
     canonical_event_order,
 )
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
+from kiwi.sim.messages import discard_expired_messages
 from kiwi.sim.movement import resolve_movement_actions
 from kiwi.sim.movement_events import emit_movement_events
 from kiwi.sim.movement_intentions import emit_movement_route_events, plan_selected_movement_routes
@@ -88,7 +89,9 @@ def reduce_one_tick(
 
     if next_state.phase is MissionPhase.ACTIVE:
         next_state = replace(
-            next_state, contacts=advance_contacts(next_state.contacts, next_state.tick)
+            next_state,
+            contacts=advance_contacts(next_state.contacts, next_state.tick),
+            messages=discard_expired_messages(next_state.messages, next_state.tick),
         )
     if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
         next_state, policy_events = _reduce_policies(next_state, policy_bindings)

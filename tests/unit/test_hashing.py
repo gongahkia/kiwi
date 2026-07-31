@@ -36,6 +36,7 @@ from kiwi.sim.hashing import (
 )
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
@@ -86,7 +87,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "06baec5061cd6536841e7e1cbb6265742083e47778738c02ef4a43b7b2b2fc0b"
+    assert first.hex == "9bd88a704556fe54d0f1748a33f8ab3925768f0bb477b353d289b5093a96df1f"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -247,6 +248,35 @@ def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
     )
 
 
+def test_canonical_state_codec_round_trips_live_messages_and_hashes_them() -> None:
+    initial, sender = add_entity(
+        MissionState(tick=4), WorldPosition(WorldSubunits(3), WorldSubunits(4))
+    )
+    state, recipient = add_entity(initial, WorldPosition(WorldSubunits(5), WorldSubunits(6)))
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    messages, allocator, message = send_message(
+        state.messages,
+        allocator,
+        sender.entity_id,
+        recipient.entity_id,
+        MessageChannel.RADIO,
+        RecordValue("Status", ("label",), (StringValue("ready"),)),
+        3,
+        5,
+        (evidence_event_id,),
+    )
+    state = replace(state, messages=messages, id_allocator=allocator)
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.messages.messages == (message,)
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, messages=type(messages)())
+    )
+
+
 def _contact_provenance(event_id: EventId) -> ContactProvenance:
     return ContactProvenance(
         tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
@@ -264,6 +294,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x05", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x06", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x07", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x08", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

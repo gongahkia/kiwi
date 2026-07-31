@@ -354,6 +354,16 @@ to their owner. Observation ABI version `2` adds an immutable
 until delivery state is implemented. This supersedes D-027. No compatibility
 adapter is retained because development policy artifacts remain disposable.
 
+### D-044: Initial messages deliver on the next authoritative tick
+
+`send_message` allocates a message ID and global sequence, records delivery at
+exactly `send tick + 1`, and retains the message through its inclusive expiry
+tick. The canonical ledger is ordered by `(delivery tick, sender entity ID,
+sequence, message ID)`; active reduction discards expired entries before policy
+evaluation, and each policy receives only its addressed delivered messages.
+`KWI-STATE\0` therefore uses version `9`; versions `1` through `8` are rejected
+without migration because development state remains disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

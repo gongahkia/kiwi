@@ -8,7 +8,7 @@ from kiwi.domain.geometry import WorldPosition, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
-from kiwi.sim.messages import InboxObservation, inbox_runtime_value
+from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
 from kiwi.sim.state import MissionState
 
 OBSERVATION_SCHEMA_VERSION = 2
@@ -65,7 +65,11 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
     if not isinstance(state, MissionState):
         raise TypeError("runtime observation building requires mission state")
     return tuple(
-        RuntimeObservation(SelfObservation(entity.entity_id, entity.position), state.tick)
+        RuntimeObservation(
+            SelfObservation(entity.entity_id, entity.position),
+            state.tick,
+            inbox_for(state.messages, entity.entity_id, state.tick),
+        )
         for entity in state.entities
     )
 

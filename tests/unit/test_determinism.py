@@ -23,6 +23,7 @@ from kiwi.sim.determinism import (
 )
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
+from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.snapshot import capture_authority_snapshot
@@ -158,6 +159,36 @@ def test_differential_report_includes_contact_field_evidence() -> None:
     assert difference.path == "contacts/0/provenance/confidence/evidence_event_ids/0"
     assert difference.expected == "1"
     assert difference.actual == "2"
+
+
+def test_differential_report_includes_message_ledger_in_canonical_order() -> None:
+    initial, sender = add_entity(
+        MissionState(tick=4), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    state, recipient = add_entity(
+        initial, WorldPosition(WorldSubunits(3_000), WorldSubunits(4_000))
+    )
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    expected = replace(state, id_allocator=allocator)
+    messages, allocator, _ = send_message(
+        expected.messages,
+        expected.id_allocator,
+        sender.entity_id,
+        recipient.entity_id,
+        MessageChannel.RADIO,
+        RecordValue("Status", ("label",), (StringValue("ready"),)),
+        3,
+        5,
+        (evidence_event_id,),
+    )
+    actual = replace(expected, messages=messages, id_allocator=allocator)
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "messages/next_sequence"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
 
 
 def _contact_provenance(event_id: EventId) -> ContactProvenance:

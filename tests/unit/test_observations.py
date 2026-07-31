@@ -7,7 +7,12 @@ import pytest
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import IntegerValue, ListValue, QuantityValue, RecordValue
-from kiwi.sim.messages import INBOX_OBSERVATION_RECORD_TYPE
+from kiwi.sim.messages import (
+    INBOX_OBSERVATION_RECORD_TYPE,
+    InboxObservation,
+    MessageChannel,
+    send_message,
+)
 from kiwi.sim.observations import (
     OBSERVATION_RECORD_TYPE,
     OBSERVATION_SCHEMA_VERSION,
@@ -76,6 +81,31 @@ def test_runtime_observations_snapshot_pre_evaluation_state_in_entity_id_order()
         RuntimeObservation(SelfObservation(second.entity_id, second.position), 7),
     )
     assert observations[1].self_observation.position != successor.entities[1].position
+
+
+def test_runtime_observations_project_only_each_owner_delivered_messages() -> None:
+    first_state, sender = add_entity(
+        MissionState(tick=4), WorldPosition(WorldSubunits(1), WorldSubunits(2))
+    )
+    state, recipient = add_entity(first_state, WorldPosition(WorldSubunits(-3), WorldSubunits(4)))
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    messages, allocator, message = send_message(
+        state.messages,
+        allocator,
+        sender.entity_id,
+        recipient.entity_id,
+        MessageChannel.RADIO,
+        RecordValue("Status", ("label",), (IntegerValue(1),)),
+        3,
+        5,
+        (evidence_event_id,),
+    )
+    state = replace(state, messages=messages, id_allocator=allocator)
+
+    observations = build_runtime_observations(state)
+
+    assert observations[0].inbox == InboxObservation()
+    assert observations[1].inbox == InboxObservation((message,))
 
 
 @pytest.mark.parametrize(
