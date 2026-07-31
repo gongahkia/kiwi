@@ -89,7 +89,10 @@ Every durable object has a typed stable ID:
 - objective;
 - message.
 
-IDs must not depend on Python object identity. Dynamic IDs use deterministic counters or content-derived schemes defined per type.
+IDs must not depend on Python object identity. Dynamic IDs use immutable,
+type-local counters starting at one and increasing through the positive signed
+64-bit range. Allocation fails deterministically on exhaustion. Content-derived
+IDs, if introduced, must define an equally canonical scheme.
 
 ## 6. State model
 
