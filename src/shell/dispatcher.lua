@@ -107,13 +107,18 @@ function dispatcher_mt:dispatch(bytes, context)
     return nil, invocation_error
   end
   local callback_argv = copy_argv(argv)
-  local ok, result = pcall(command.run, context, callback_argv, invocation:writer())
+  local ok, result, callback_error_value =
+    pcall(command.run, context, callback_argv, invocation:writer())
   if not ok then
     local _, callback_error = command_error("sandbox command callback failed", {
       name = command.name,
       reason = "command_failed",
     })
     invocation:fail(callback_error)
+    return outcome(command, argv, invocation)
+  end
+  if result == nil and Errors.is(callback_error_value) then
+    invocation:fail(callback_error_value)
     return outcome(command, argv, invocation)
   end
   invocation:complete()

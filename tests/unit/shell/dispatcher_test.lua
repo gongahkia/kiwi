@@ -1,6 +1,7 @@
 local assertions = require("support.assertions")
 local Dispatcher = require("shell.dispatcher")
 local Registry = require("shell.registry")
+local Errors = require("runtime.errors")
 
 return {
   {
@@ -136,6 +137,24 @@ return {
       local second = assert(dispatcher:dispatch("overflow"))
       local second_event = assert(second.invocation:poll()).events[1]
       assertions.equal(2, second_event.source_sequence)
+    end,
+  },
+  {
+    name = "sandbox dispatcher retains typed callback failures without replacing their causes",
+    run = function()
+      local registry = assert(Registry.new())
+      assert(registry:register("typed", {
+        run = function()
+          local error_value = Errors.new("sandbox_command_error", "typed failure", {
+            reason = "typed_failure",
+          })
+          return nil, error_value
+        end,
+        summary = "Return a typed failure",
+      }))
+      local outcome = assert(Dispatcher.new(registry)):dispatch("typed")
+      assertions.truthy(outcome.failed)
+      assertions.equal("typed_failure", outcome.failure.detail.reason)
     end,
   },
 }
