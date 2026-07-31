@@ -31,6 +31,7 @@ local modules = {
   "property.sandbox_tokenizer_test",
   "property.sandbox_output_test",
   "property.sandbox_completion_scanner_test",
+  "property.sandbox_builtins_test",
   "property.virtual_fs_test",
   "unit.runtime.errors_test",
   "unit.runtime.event_test",
