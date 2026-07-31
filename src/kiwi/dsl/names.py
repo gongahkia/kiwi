@@ -20,10 +20,12 @@ from kiwi.dsl.syntax import (
     LetExpression,
     NameExpression,
     NegateExpression,
+    NoneExpression,
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
+    SomeExpression,
     StringLiteral,
     SurfaceModule,
     ValueDeclaration,
@@ -234,8 +236,21 @@ def _resolve_expression(
     references: list[ResolvedReference],
     diagnostics: list[Diagnostic],
 ) -> int:
-    if isinstance(expression, (IntegerLiteral, BooleanLiteral, StringLiteral, QuantityLiteral)):
+    if isinstance(
+        expression,
+        (IntegerLiteral, BooleanLiteral, StringLiteral, QuantityLiteral, NoneExpression),
+    ):
         return next_symbol_value
+    if isinstance(expression, SomeExpression):
+        return _resolve_expression(
+            expression.value,
+            environment,
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
     if isinstance(expression, RecordExpression):
         for field in expression.fields:
             next_symbol_value = _resolve_expression(

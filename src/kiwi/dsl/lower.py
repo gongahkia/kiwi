@@ -16,11 +16,13 @@ from kiwi.dsl.core_ir import (
     CoreLet,
     CoreModule,
     CoreNegate,
+    CoreNone,
     CoreParameter,
     CoreQuantity,
     CoreRecord,
     CoreRecordField,
     CoreReference,
+    CoreSome,
     CoreString,
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId
@@ -39,8 +41,10 @@ from kiwi.dsl.typed_ir import (
     TypedModule,
     TypedNameExpression,
     TypedNegateExpression,
+    TypedNoneExpression,
     TypedQuantityLiteral,
     TypedRecordExpression,
+    TypedSomeExpression,
     TypedStringLiteral,
 )
 
@@ -130,6 +134,15 @@ class _Lowerer:
             return CoreString(expression_id, expression.value, expression.type_, expression.span)
         if isinstance(expression, TypedQuantityLiteral):
             return CoreQuantity(expression_id, expression.value, expression.type_, expression.span)
+        if isinstance(expression, TypedSomeExpression):
+            return CoreSome(
+                expression_id,
+                self.lower_expression(expression.value, definition_id),
+                expression.type_,
+                expression.span,
+            )
+        if isinstance(expression, TypedNoneExpression):
+            return CoreNone(expression_id, expression.type_, expression.span)
         if isinstance(expression, TypedRecordExpression):
             return CoreRecord(
                 expression_id,

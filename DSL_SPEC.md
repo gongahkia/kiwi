@@ -230,6 +230,19 @@ Patterns include:
 
 Matches over closed variants must be exhaustive. Redundant arms produce warnings or errors according to policy.
 
+Milestone 4 first implements the closed built-in `Option<T>` constructors:
+
+```text
+Some(value)
+None
+```
+
+`Some(value)` has type `Option<T>` when `value` has type `T`. `None` has no
+payload and must occur where an `Option<T>` is already expected: a declared
+return type, a function parameter, a record field, or the corresponding branch
+of a typed conditional. It cannot be inferred for an unannotated `let` value.
+Pattern matching is the following task and is not yet surface syntax.
+
 ### 7.7 Records
 
 ```text
@@ -355,6 +368,10 @@ Distance + Duration -> type error
 - `Option<T>`
 - `List<T>`
 - `Result<T, E>` may be added after MVP if needed
+
+The implemented `Option<T>` is a closed one-argument type constructor. Its only
+values are `Some(value)` and contextually typed `None`; it has no null value or
+implicit conversion.
 
 ### 9.5 Function types
 
@@ -596,14 +613,14 @@ record_type_fields := record_type_field ("," record_type_field)*
 record_type_field := identifier ":" type
 parameters  := parameter ("," parameter)*
 parameter   := identifier ":" type
-type        := identifier
+type        := identifier ("<" type ("," type)* ">")?
 expression  := let | conditional | application
 let         := "let" identifier "=" expression "in" expression
 conditional := "if" expression "then" expression "else" expression
 application := unary (("(" arguments? ")") | ("." identifier))*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
-primary     := integer | boolean | string | quantity | record | identifier | "(" expression ")"
+primary     := integer | boolean | string | quantity | record | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
 record      := identifier "{" record_fields? "}"
 record_fields := record_field ("," record_field)*
 record_field := identifier "=" expression
@@ -664,6 +681,10 @@ Record schema failures are `E404_DUPLICATE_RECORD_TYPE`,
 `E407_DUPLICATE_RECORD_VALUE`, `E408_UNKNOWN_RECORD_FIELD`,
 `E409_MISSING_RECORD_FIELD`, and `E410_INVALID_FIELD_ACCESS`.
 
+`Option` annotation arity is `E411_INVALID_OPTION_TYPE`; a payload-free `None`
+without an expected `Option<T>` is `E412_AMBIGUOUS_NONE`. `Some` payloads and
+all expected option values use `E401_TYPE_MISMATCH` when their types differ.
+
 ### 15.5 Capability checking
 
 Each entry point has a capability environment. The compiler rejects impossible intentions where static information suffices.
@@ -676,8 +697,9 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
-Core retains integer, boolean, string, quantity, and record construction
-literals, resolved references, field access, negation, calls, `let`, and `if`.
+Core retains integer, boolean, string, quantity, record construction, `Some`,
+and `None` literals, resolved references, field access, negation, calls, `let`,
+and `if`.
 Expression IDs start at zero and follow definition source order then expression
 pre-order. Each ID has one `SourceMapEntry` containing its enclosing
 `DefinitionId` and source span. Parentheses do not create core nodes because
@@ -724,6 +746,8 @@ NEGATE
 CALL argument_count
 BUILD_RECORD type_name field_names
 LOAD_FIELD field_name
+BUILD_SOME
+PUSH_NONE
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -733,8 +757,10 @@ TRACE_EXPRESSION expr_id
 `CALL` consumes a function value followed by source-ordered arguments and pushes
 the result. `BUILD_RECORD` consumes its source-ordered field values and pushes
 one canonically ordered immutable record; `LOAD_FIELD` replaces a record with
-the named field. `STORE_LOCAL` consumes its value; conditional branches consume
-a boolean. The validator defines stack, local-slot, and in-range jump rules
+the named field. `BUILD_SOME` consumes a payload and pushes a new immutable
+`Some` value; `PUSH_NONE` pushes a new payload-free immutable `Option` value.
+`STORE_LOCAL` consumes its value; conditional branches consume a boolean. The
+validator defines stack, local-slot, and in-range jump rules
 before execution. The exact set should remain small. Instructions must not
 contain Python callables or mutable arbitrary objects.
 
@@ -806,11 +832,11 @@ Closed value algebra:
 
 Runtime values have deterministic equality, hashing where permitted, serialisation rules, and allocation costs.
 
-Milestone 4 adds immutable bounded strings, exact quantities, and immutable
-nominal records to the closed integer, boolean, unit, and `FunctionId` reference
-value algebra. Record fields are stored by lexical field name, never in a host
-dictionary. A function value is only an index into the module function table;
-it never contains a Python callable or code object.
+Milestone 4 adds immutable bounded strings, exact quantities, immutable nominal
+records, and closed `Option` values to the integer, boolean, unit, and
+`FunctionId` reference value algebra. Record fields are stored by lexical field
+name, never in a host dictionary. A function value is only an index into the
+module function table; it never contains a Python callable or code object.
 
 ## 18. VM budgets
 
@@ -825,10 +851,10 @@ Per invocation budgets include:
 - trace nodes according to trace mode.
 
 Milestone 3 enforces instruction, global value-stack, call-depth, and allocated
-runtime-value limits. A pushed function reference, a negated integer, and a
-record construction each allocate one value; immutable constants and frame
-slots do not. Exhaustion is checked before the operation that would exceed its
-limit.
+runtime-value limits. A pushed function reference, a negated integer, record
+construction, `BUILD_SOME`, and `PUSH_NONE` each allocate one value; immutable
+constants and frame slots do not. Exhaustion is checked before the operation
+that would exceed its limit.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 

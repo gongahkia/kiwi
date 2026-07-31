@@ -19,6 +19,8 @@ class RuntimeValueKind(StrEnum):
     UNIT = "unit"
     STRING = "string"
     QUANTITY = "quantity"
+    OPTION_SOME = "option_some"
+    OPTION_NONE = "option_none"
     RECORD = "record"
     FUNCTION = "function"
 
@@ -81,6 +83,25 @@ class QuantityValue:
 
 
 @dataclass(frozen=True, slots=True)
+class OptionSomeValue:
+    """An immutable `Option` value that contains one closed runtime value."""
+
+    value: RuntimeValue
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.OPTION_SOME, init=False)
+
+    def __post_init__(self) -> None:
+        if not _is_runtime_value(self.value):
+            raise ValueError("option payload must be a runtime value")
+
+
+@dataclass(frozen=True, slots=True)
+class OptionNoneValue:
+    """The immutable payload-free `Option` value."""
+
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.OPTION_NONE, init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class RecordValue:
     """An immutable nominal record with lexically ordered field names."""
 
@@ -129,6 +150,8 @@ type RuntimeValue = (
     | UnitValue
     | StringValue
     | QuantityValue
+    | OptionSomeValue
+    | OptionNoneValue
     | RecordValue
     | FunctionValue
 )
@@ -143,6 +166,8 @@ def _is_runtime_value(value: object) -> bool:
             UnitValue,
             StringValue,
             QuantityValue,
+            OptionSomeValue,
+            OptionNoneValue,
             RecordValue,
             FunctionValue,
         ),

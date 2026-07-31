@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import (
     BuildRecord,
+    BuildSome,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -23,6 +24,7 @@ from kiwi.dsl.bytecode import (
     Negate,
     PushConstant,
     PushFunction,
+    PushNone,
     Return,
     StoreLocal,
     TraceExpression,
@@ -39,9 +41,11 @@ from kiwi.dsl.core_ir import (
     CoreLet,
     CoreModule,
     CoreNegate,
+    CoreNone,
     CoreQuantity,
     CoreRecord,
     CoreReference,
+    CoreSome,
     CoreString,
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId, SymbolId
@@ -143,6 +147,13 @@ class _FunctionCompiler:
                 PushConstant(self._constants.intern(QuantityValue(expression.value))),
                 expression,
             )
+            return
+        if isinstance(expression, CoreSome):
+            self._compile_expression(expression.value)
+            self._emit(BuildSome(), expression)
+            return
+        if isinstance(expression, CoreNone):
+            self._emit(PushNone(), expression)
             return
         if isinstance(expression, CoreRecord):
             for field in expression.fields:

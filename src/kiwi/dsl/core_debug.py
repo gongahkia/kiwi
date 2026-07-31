@@ -12,9 +12,11 @@ from kiwi.dsl.core_ir import (
     CoreLet,
     CoreModule,
     CoreNegate,
+    CoreNone,
     CoreQuantity,
     CoreRecord,
     CoreReference,
+    CoreSome,
     CoreString,
 )
 from kiwi.dsl.debug import format_span
@@ -77,6 +79,12 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
             f"{prefix}Quantity dimension={quantity.dimension.value} "
             f"value={quantity.value.numerator}/{quantity.value.denominator} {metadata}"
         ]
+    if isinstance(expression, CoreSome):
+        lines = [f"{prefix}Some {metadata}", f"{prefix}  value:"]
+        lines.extend(_format_expression(expression.value, depth + 2))
+        return lines
+    if isinstance(expression, CoreNone):
+        return [f"{prefix}None {metadata}"]
     if isinstance(expression, CoreRecord):
         lines = [f"{prefix}Record type={expression.type_name!r} {metadata}", f"{prefix}  fields:"]
         for field in expression.fields:

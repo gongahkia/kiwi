@@ -9,6 +9,7 @@ from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BYTECODE_VERSION,
     BuildRecord,
+    BuildSome,
     BytecodeFunction,
     BytecodeHeader,
     BytecodeInstruction,
@@ -30,6 +31,7 @@ from kiwi.dsl.bytecode import (
     Opcode,
     PushConstant,
     PushFunction,
+    PushNone,
     Return,
     StoreLocal,
     TraceExpression,
@@ -43,7 +45,7 @@ from kiwi.dsl.runtime_values import (
     UnitValue,
 )
 from kiwi.dsl.source import ByteOffset, SourceFileId, SourceSpan
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, NamedType, OptionType
 from kiwi.dsl.validator import BytecodeValidationError, validate_bytecode
 
 BYTECODE_FORMAT_MAGIC = b"KWI-BC\x00"
@@ -74,6 +76,7 @@ _TYPE_DURATION = 7
 _TYPE_DISTANCE = 8
 _TYPE_ANGLE = 9
 _TYPE_PROBABILITY = 10
+_TYPE_OPTION = 11
 
 
 class BytecodeDecodeCode(StrEnum):
@@ -287,6 +290,9 @@ def _encode_type(writer: _Writer, type_: DslType, depth: int) -> None:
     elif isinstance(type_, NamedType):
         writer.u8(_TYPE_NAMED, "type tag")
         writer.text(type_.name)
+    elif isinstance(type_, OptionType):
+        writer.u8(_TYPE_OPTION, "type tag")
+        _encode_type(writer, type_.element_type, depth + 1)
     elif isinstance(type_, FunctionType):
         writer.u8(_TYPE_FUNCTION, "type tag")
         writer.items(len(type_.parameters), "function-type parameter count")
@@ -495,6 +501,8 @@ def _decode_type(reader: _Reader, depth: int, bytecode_version: int) -> DslType:
         }
         if builtin_type := modern_builtin_types.get(tag):
             return builtin_type
+        if tag == _TYPE_OPTION:
+            return OptionType(_decode_type(reader, depth + 1, bytecode_version))
     if tag == _TYPE_NAMED:
         return NamedType(reader.text("named type"))
     if tag == _TYPE_FUNCTION:
@@ -524,6 +532,8 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
     if bytecode_version != BYTECODE_VERSION and opcode in {
         Opcode.BUILD_RECORD,
         Opcode.LOAD_FIELD,
+        Opcode.BUILD_SOME,
+        Opcode.PUSH_NONE,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -551,6 +561,10 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         )
     if opcode is Opcode.LOAD_FIELD:
         return LoadField(reader.text("record field name"))
+    if opcode is Opcode.BUILD_SOME:
+        return BuildSome()
+    if opcode is Opcode.PUSH_NONE:
+        return PushNone()
     if opcode is Opcode.JUMP:
         return Jump(InstructionIndex(reader.u32()))
     if opcode is Opcode.JUMP_IF_FALSE:

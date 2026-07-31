@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from kiwi.dsl.bytecode import (
     LEGACY_BYTECODE_VERSION,
     LEGACY_CORE_IR_VERSION,
@@ -167,8 +169,11 @@ def test_bytecode_codec_returns_structured_malformed_input_failures() -> None:
     )
 
 
-def test_bytecode_codec_rejects_version_two_record_opcodes_in_legacy_modules() -> None:
-    decoded = decode_bytecode(_single_instruction_module(b"\x0b", b""))
+@pytest.mark.parametrize("opcode", (b"\x0b", b"\x0d", b"\x0e"))
+def test_bytecode_codec_rejects_version_two_data_opcodes_in_legacy_modules(
+    opcode: bytes,
+) -> None:
+    decoded = decode_bytecode(_single_instruction_module(opcode, b""))
 
     assert isinstance(decoded, BytecodeDecodeFailure)
     assert decoded.code is BytecodeDecodeCode.INVALID_OPCODE

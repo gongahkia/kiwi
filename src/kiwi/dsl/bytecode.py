@@ -17,7 +17,7 @@ from kiwi.dsl.runtime_values import (
     UnitValue,
 )
 from kiwi.dsl.source import SourceFileId, SourceSpan
-from kiwi.dsl.types import BuiltinType, DslType, FunctionType
+from kiwi.dsl.types import BuiltinType, DslType, FunctionType, OptionType
 
 LEGACY_SOURCE_LANGUAGE_VERSION = 1
 LEGACY_CORE_IR_VERSION = 1
@@ -85,6 +85,8 @@ class Opcode(IntEnum):
     TRACE_EXPRESSION = 10
     BUILD_RECORD = 11
     LOAD_FIELD = 12
+    BUILD_SOME = 13
+    PUSH_NONE = 14
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +174,20 @@ class LoadField:
 
 
 @dataclass(frozen=True, slots=True)
+class BuildSome:
+    """Wrap the top stack value in a payload-bearing `Option`."""
+
+    opcode: ClassVar[Opcode] = Opcode.BUILD_SOME
+
+
+@dataclass(frozen=True, slots=True)
+class PushNone:
+    """Push a payload-free `Option`."""
+
+    opcode: ClassVar[Opcode] = Opcode.PUSH_NONE
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -211,6 +227,8 @@ type BytecodeInstruction = (
     | Call
     | BuildRecord
     | LoadField
+    | BuildSome
+    | PushNone
     | Jump
     | JumpIfFalse
     | Return
@@ -388,7 +406,7 @@ class BytecodeModule:
             any(isinstance(value, (StringValue, QuantityValue)) for value in self.constants.values)
             or any(_uses_version_two_type(function.return_type) for function in self.functions)
             or any(
-                isinstance(instruction, (BuildRecord, LoadField))
+                isinstance(instruction, (BuildRecord, LoadField, BuildSome, PushNone))
                 for function in self.functions
                 for instruction in function.instructions
             )
@@ -442,6 +460,8 @@ def _uses_version_two_type(type_: DslType) -> bool:
             BuiltinType.ANGLE,
             BuiltinType.PROBABILITY,
         }
+    if isinstance(type_, OptionType):
+        return True
     return isinstance(type_, FunctionType) and (
         any(_uses_version_two_type(parameter) for parameter in type_.parameters)
         or _uses_version_two_type(type_.return_type)
