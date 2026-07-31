@@ -37,8 +37,8 @@ Rendering frame time does not affect authoritative state. The graphical client m
 Scheduled events use `(tick, sequence)` ordering. The initial immutable queue
 allocates a local non-negative signed 64-bit sequence beginning at zero, sorts
 pending events by that key, and removes events only at their exact tick. Queue
-state is authoritative. Initial events are scenario-trigger markers; their
-effects are added with the event algebra and reducer.
+state is authoritative. Scheduled trigger dequeues are canonical events; their
+state effects are added with the reducer.
 
 ### 2.4 External command ordering
 
