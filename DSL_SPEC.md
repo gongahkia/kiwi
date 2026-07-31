@@ -510,6 +510,14 @@ Fields must encode uncertainty explicitly. A missing value is `None`, not a sent
 
 Observation reads are instrumented. The VM trace can record that a branch depended on `target.confidence`, `view.self.suppression`, or `cover.exposure`.
 
+The initial runtime observation ABI is version `1`. Until perception, messages,
+and objectives exist, it exposes only `Observation { self, tick }`, where
+`self` is `SelfObservation { entity_id, position }` and `position` is the
+existing `Position { x: Distance, y: Distance }` record. These immutable values
+are constructed by simulation code; they contain no hidden entity state,
+elevation, renderer data, or writable references. Adding observable fields
+requires an ABI version and policy-compatibility update.
+
 ## 12. Intention API
 
 Core intent variants:

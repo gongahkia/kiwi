@@ -167,6 +167,11 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
+The initial observation ABI is version `1`: each operative input contains only
+its own entity ID, planar position, and the current tick. Contacts, allies,
+geometry, signals, messages, objectives, and elevation are absent until their
+respective authority models define explicit observable semantics.
+
 ## 8. Perception
 
 ### 8.1 Visibility
