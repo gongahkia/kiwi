@@ -187,7 +187,7 @@ Capabilities document intent and allow validation; they are not a strong securit
 
 ## 7. API versioning
 
-Effect Manifest API v1 is defined by ADR-0007. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`. Unknown fields and unsupported versions are rejected before hooks load.
+Effect Manifest API v1 is defined by ADR-0007. It requires `id`, canonical stable SemVer `version`, integer `api_version = 1`, `determinism`, a dense duplicate-free `capabilities` array, and typed `parameters` with serialisable defaults. Supported determinism values are `static`, `deterministic`, and `interactive`. Unknown fields and unsupported versions are rejected before hooks load. `Effect.new(manifest, hooks, { intensity = 0.5 })` validates a partial override and fills omitted values from manifest defaults. `effect:parameters()` returns a scalar copy; `effect:set_parameters({ intensity = 0.7 })` atomically merges a partial update, retaining prior values when validation fails.
 
 Policy:
 
