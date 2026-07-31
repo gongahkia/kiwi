@@ -22,7 +22,19 @@ class TypeReference:
 
     name: Identifier
     span: SourceSpan
-    arguments: tuple[TypeReference, ...] = ()
+    arguments: tuple[TypeExpression, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionTypeReference:
+    """A source-spanned function type annotation."""
+
+    parameters: tuple[TypeExpression, ...]
+    return_type: TypeExpression
+    span: SourceSpan
+
+
+type TypeExpression = TypeReference | FunctionTypeReference
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +42,7 @@ class Parameter:
     """A typed function parameter."""
 
     name: Identifier
-    annotation: TypeReference
+    annotation: TypeExpression
     span: SourceSpan
 
 
@@ -39,7 +51,7 @@ class RecordTypeField:
     """One source-ordered field in a nominal record type declaration."""
 
     name: Identifier
-    annotation: TypeReference
+    annotation: TypeExpression
     span: SourceSpan
 
 
@@ -113,6 +125,15 @@ class ListExpression:
     """An immutable source-ordered list literal."""
 
     elements: tuple[Expression, ...]
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class LambdaExpression:
+    """An anonymous function with source-ordered unannotated parameters."""
+
+    parameters: tuple[Identifier, ...]
+    body: Expression
     span: SourceSpan
 
 
@@ -223,6 +244,7 @@ type Expression = (
     | SomeExpression
     | NoneExpression
     | ListExpression
+    | LambdaExpression
     | MatchExpression
     | NameExpression
     | NegateExpression
@@ -240,7 +262,7 @@ class FunctionDeclaration:
 
     name: Identifier
     parameters: tuple[Parameter, ...]
-    return_annotation: TypeReference
+    return_annotation: TypeExpression
     body: Expression
     span: SourceSpan
 
@@ -251,7 +273,7 @@ class PolicyDeclaration:
 
     name: Identifier
     parameters: tuple[Parameter, ...]
-    return_annotation: TypeReference
+    return_annotation: TypeExpression
     body: Expression
     span: SourceSpan
 

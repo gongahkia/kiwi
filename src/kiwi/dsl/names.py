@@ -17,6 +17,7 @@ from kiwi.dsl.syntax import (
     Identifier,
     IfExpression,
     IntegerLiteral,
+    LambdaExpression,
     LetExpression,
     ListExpression,
     MatchExpression,
@@ -43,6 +44,7 @@ class SymbolKind(StrEnum):
     PARAMETER = "parameter"
     LOCAL = "local"
     MATCH_BINDING = "match_binding"
+    LAMBDA_PARAMETER = "lambda_parameter"
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +234,45 @@ def _resolve_parameters(
     return resolved, next_symbol_value
 
 
+def _resolve_lambda_parameters(
+    parameters: tuple[Identifier, ...],
+    definition_id: DefinitionId,
+    environment: LexicalEnvironment,
+    next_symbol_value: int,
+    bindings: list[ResolvedBinding],
+    diagnostics: list[Diagnostic],
+) -> tuple[list[ResolvedBinding], int]:
+    """Resolve one anonymous function's unannotated lexical parameters."""
+    resolved: list[ResolvedBinding] = []
+    for parameter in parameters:
+        binding = ResolvedBinding(
+            SymbolId(next_symbol_value),
+            parameter,
+            SymbolKind.LAMBDA_PARAMETER,
+            definition_id,
+        )
+        next_symbol_value += 1
+        bindings.append(binding)
+        duplicate = _find_binding(resolved, parameter.text)
+        if duplicate is not None:
+            diagnostics.append(
+                _diagnostic(
+                    "E302_DUPLICATE_PARAMETER",
+                    f"duplicate parameter '{parameter.text}'",
+                    parameter,
+                    duplicate.name,
+                    "first parameter is here",
+                )
+            )
+            continue
+        shadowed = environment.lookup(parameter.text)
+        if shadowed is not None:
+            diagnostics.append(_shadowing_diagnostic(parameter, shadowed))
+            continue
+        resolved.append(binding)
+    return resolved, next_symbol_value
+
+
 def _resolve_expression(
     expression: Expression,
     environment: LexicalEnvironment,
@@ -268,6 +309,24 @@ def _resolve_expression(
                 diagnostics,
             )
         return next_symbol_value
+    if isinstance(expression, LambdaExpression):
+        parameters, next_symbol_value = _resolve_lambda_parameters(
+            expression.parameters,
+            definition_id,
+            environment,
+            next_symbol_value,
+            bindings,
+            diagnostics,
+        )
+        return _resolve_expression(
+            expression.body,
+            environment.extend(tuple(parameters)),
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
     if isinstance(expression, MatchExpression):
         next_symbol_value = _resolve_expression(
             expression.subject,

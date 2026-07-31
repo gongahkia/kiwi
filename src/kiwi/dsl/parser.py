@@ -16,11 +16,13 @@ from kiwi.dsl.syntax import (
     Expression,
     FieldAccessExpression,
     FunctionDeclaration,
+    FunctionTypeReference,
     GroupExpression,
     Identifier,
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    LambdaExpression,
     ListExpression,
     MatchArm,
     MatchExpression,
@@ -39,6 +41,7 @@ from kiwi.dsl.syntax import (
     SomePattern,
     StringLiteral,
     SurfaceModule,
+    TypeExpression,
     TypeReference,
 )
 from kiwi.dsl.token import Token, TokenKind
@@ -199,25 +202,53 @@ class _Parser:
             return None
         return Parameter(name, annotation, _join_spans(name.span, annotation.span))
 
-    def parse_type_reference(self) -> TypeReference | None:
-        """Parse one named type annotation."""
+    def parse_type_reference(self) -> TypeExpression | None:
+        """Parse a right-associative named or function type annotation."""
+        if self.current.kind is TokenKind.LEFT_PAREN:
+            opening = self.advance()
+            parameters: list[TypeExpression] = []
+            if self.current.kind is not TokenKind.RIGHT_PAREN:
+                while True:
+                    parameter = self.parse_type_reference()
+                    if parameter is None:
+                        return None
+                    parameters.append(parameter)
+                    if not self.match(TokenKind.COMMA):
+                        break
+            if self.expect(TokenKind.RIGHT_PAREN, "')'") is None:
+                return None
+            if self.expect(TokenKind.ARROW, "'->'") is None:
+                return None
+            return_type = self.parse_type_reference()
+            if return_type is None:
+                return None
+            return FunctionTypeReference(
+                tuple(parameters), return_type, _join_spans(opening.span, return_type.span)
+            )
         name = self.parse_identifier()
         if name is None:
             return None
-        if not self.match(TokenKind.LEFT_ANGLE):
-            return TypeReference(name, name.span)
-        arguments: list[TypeReference] = []
-        while True:
-            argument = self.parse_type_reference()
-            if argument is None:
+        if self.match(TokenKind.LEFT_ANGLE):
+            arguments: list[TypeExpression] = []
+            while True:
+                argument = self.parse_type_reference()
+                if argument is None:
+                    return None
+                arguments.append(argument)
+                if not self.match(TokenKind.COMMA):
+                    break
+            closing = self.expect(TokenKind.RIGHT_ANGLE, "'>'")
+            if closing is None:
                 return None
-            arguments.append(argument)
-            if not self.match(TokenKind.COMMA):
-                break
-        closing = self.expect(TokenKind.RIGHT_ANGLE, "'>'")
-        if closing is None:
+            type_ = TypeReference(name, _join_spans(name.span, closing.span), tuple(arguments))
+        else:
+            type_ = TypeReference(name, name.span)
+        if not self.match(TokenKind.ARROW):
+            return type_
+        return_type = self.parse_type_reference()
+        if return_type is None:
             return None
-        return TypeReference(name, _join_spans(name.span, closing.span), tuple(arguments))
+        return FunctionTypeReference((type_,), return_type, _join_spans(type_.span, return_type.span))
 
     def parse_expression(self) -> Expression | None:
         """Parse one expression at the M1 expression precedence levels."""
@@ -371,6 +402,8 @@ class _Parser:
     def parse_primary_expression(self) -> Expression | None:
         """Parse literal, name, or parenthesised primary expression."""
         token = self.current
+        if token.kind is TokenKind.FN:
+            return self.parse_lambda_expression()
         if token.kind is TokenKind.INTEGER:
             self.advance()
             if isinstance(token.value, int) and not isinstance(token.value, bool):
@@ -429,6 +462,33 @@ class _Parser:
             return GroupExpression(expression, _join_spans(opening.span, closing.span))
         self.error(ParserDiagnosticCode.EXPECTED_EXPRESSION, "expected an expression")
         return None
+
+    def parse_lambda_expression(self) -> LambdaExpression | None:
+        """Parse `fn name -> body` or `fn (name, ...) -> body`."""
+        keyword = self.advance()
+        parameters: list[Identifier] = []
+        if self.match(TokenKind.LEFT_PAREN):
+            if self.current.kind is not TokenKind.RIGHT_PAREN:
+                while True:
+                    parameter = self.parse_identifier()
+                    if parameter is None:
+                        return None
+                    parameters.append(parameter)
+                    if not self.match(TokenKind.COMMA):
+                        break
+            if self.expect(TokenKind.RIGHT_PAREN, "')'") is None:
+                return None
+        else:
+            parameter = self.parse_identifier()
+            if parameter is None:
+                return None
+            parameters.append(parameter)
+        if self.expect(TokenKind.ARROW, "'->'") is None:
+            return None
+        body = self.parse_expression()
+        if body is None:
+            return None
+        return LambdaExpression(tuple(parameters), body, _join_spans(keyword.span, body.span))
 
     def parse_record_expression(self, type_name: Identifier) -> RecordExpression | None:
         """Parse `Type { field = expression, ... }`."""

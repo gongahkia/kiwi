@@ -28,6 +28,7 @@ class CoreExpressionKind(StrEnum):
     OPTION_SOME = "option_some"
     OPTION_NONE = "option_none"
     LIST = "list"
+    LAMBDA = "lambda"
     MATCH_OPTION = "match_option"
     RECORD = "record"
     REFERENCE = "reference"
@@ -112,6 +113,27 @@ class CoreList:
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.LIST
+
+
+@dataclass(frozen=True, slots=True)
+class CoreCapture:
+    """One immutable lexical value captured in source-reference order."""
+
+    symbol_id: SymbolId
+    type_: DslType
+
+
+@dataclass(frozen=True, slots=True)
+class CoreLambda:
+    """An anonymous function body plus explicit captured lexical values."""
+
+    expression_id: ExpressionId
+    parameters: tuple[CoreParameter, ...]
+    captures: tuple[CoreCapture, ...]
+    body: CoreExpression
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.LAMBDA
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +269,7 @@ type CoreExpression = (
     | CoreSome
     | CoreNone
     | CoreList
+    | CoreLambda
     | CoreMatch
     | CoreRecord
     | CoreReference

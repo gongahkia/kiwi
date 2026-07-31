@@ -92,6 +92,25 @@ class TypedListExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedCapture:
+    """One source-ordered immutable value captured by an anonymous function."""
+
+    symbol_id: SymbolId
+    type_: DslType
+
+
+@dataclass(frozen=True, slots=True)
+class TypedLambdaExpression:
+    """An anonymous function with context-checked parameters and captures."""
+
+    parameters: tuple[TypedParameter, ...]
+    captures: tuple[TypedCapture, ...]
+    body: TypedExpression
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedMatchSomeArm:
     """The payload-binding arm of a checked `Option` match."""
 
@@ -219,6 +238,7 @@ type TypedExpression = (
     | TypedSomeExpression
     | TypedNoneExpression
     | TypedListExpression
+    | TypedLambdaExpression
     | TypedMatchExpression
     | TypedRecordExpression
     | TypedNameExpression

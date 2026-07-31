@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from kiwi.dsl.core_ir import (
     CoreBoolean,
     CoreCall,
+    CoreCapture,
     CoreDefinition,
     CoreDefinitionKind,
     CoreExpression,
@@ -14,6 +15,7 @@ from kiwi.dsl.core_ir import (
     CoreIf,
     CoreInteger,
     CoreLet,
+    CoreLambda,
     CoreList,
     CoreMatch,
     CoreMatchNoneArm,
@@ -42,6 +44,7 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedLambdaExpression,
     TypedListExpression,
     TypedMatchExpression,
     TypedMatchSomeArm,
@@ -156,6 +159,18 @@ class _Lowerer:
                 tuple(
                     self.lower_expression(element, definition_id) for element in expression.elements
                 ),
+                expression.type_,
+                expression.span,
+            )
+        if isinstance(expression, TypedLambdaExpression):
+            return CoreLambda(
+                expression_id,
+                tuple(
+                    CoreParameter(parameter.symbol_id, parameter.type_, parameter.span)
+                    for parameter in expression.parameters
+                ),
+                tuple(CoreCapture(capture.symbol_id, capture.type_) for capture in expression.captures),
+                self.lower_expression(expression.body, definition_id),
                 expression.type_,
                 expression.span,
             )
