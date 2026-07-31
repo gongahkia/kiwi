@@ -18,6 +18,7 @@ from kiwi.sim.contacts import (
     ContactStore,
     advance_contacts,
     apply_contact_sightings,
+    nearest_contact_for,
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
@@ -99,6 +100,47 @@ def test_contact_age_rejects_a_tick_before_the_last_observation() -> None:
 
     with pytest.raises(ValueError, match="must not precede"):
         estimate.age_at(3)
+
+
+def test_nearest_contact_uses_exact_planar_distance_then_contact_id() -> None:
+    owner = EntityId(1)
+    store = ContactStore(
+        (
+            ContactEstimate(
+                ContactId(1),
+                owner,
+                _position(3, 4),
+                WorldSubunits(100),
+                ContactConfidence(7_500),
+                7,
+                _DEFAULT_PROVENANCE,
+            ),
+            ContactEstimate(
+                ContactId(2),
+                owner,
+                _position(-3, -4),
+                WorldSubunits(100),
+                ContactConfidence(7_500),
+                7,
+                _DEFAULT_PROVENANCE,
+            ),
+            ContactEstimate(
+                ContactId(3),
+                owner,
+                _position(2, 0),
+                WorldSubunits(100),
+                ContactConfidence(7_500),
+                7,
+                _DEFAULT_PROVENANCE,
+            ),
+        ),
+        lifecycle_tick=7,
+    )
+
+    assert nearest_contact_for(store, owner, _position(0, 0), 7) == store.estimates[2]
+    tied_store = ContactStore(store.estimates[:2], lifecycle_tick=7)
+
+    assert nearest_contact_for(tied_store, owner, _position(0, 0), 7) == tied_store.estimates[0]
 
 
 def test_contact_provenance_resolves_each_policy_relevant_field_to_evidence_events() -> None:

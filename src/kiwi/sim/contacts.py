@@ -216,6 +216,39 @@ class ContactStore:
         return None
 
 
+def nearest_contact_for(
+    store: ContactStore,
+    owner_entity_id: EntityId,
+    owner_position: WorldPosition,
+    current_tick: int,
+) -> ContactEstimate | None:
+    """Return an owner's nearest contact by exact planar distance then contact ID."""
+    if not isinstance(store, ContactStore):
+        raise ValueError("nearest contact lookup requires a contact store")
+    if not isinstance(owner_entity_id, EntityId):
+        raise ValueError("nearest contact lookup requires an owner entity ID")
+    if not isinstance(owner_position, WorldPosition):
+        raise ValueError("nearest contact lookup requires an owner position")
+    if not isinstance(current_tick, int) or isinstance(current_tick, bool):
+        raise ValueError("nearest contact lookup tick must be an integer")
+    if not store.lifecycle_tick <= current_tick <= MAX_AUTHORITY_TICK:
+        raise ValueError("nearest contact lookup tick must not precede the stored tick")
+
+    selected: ContactEstimate | None = None
+    selected_key: tuple[int, int] | None = None
+    for estimate in store.estimates:
+        if estimate.owner_entity_id != owner_entity_id:
+            continue
+        estimate.age_at(current_tick)
+        delta_x = estimate.estimated_position.x.value - owner_position.x.value
+        delta_y = estimate.estimated_position.y.value - owner_position.y.value
+        key = (delta_x * delta_x + delta_y * delta_y, estimate.contact_id.value)
+        if selected_key is None or key < selected_key:
+            selected = estimate
+            selected_key = key
+    return selected
+
+
 def advance_contacts(store: ContactStore, current_tick: int) -> ContactStore:
     """Decay all contacts through a later authoritative tick and drop exhausted ones."""
     if not isinstance(store, ContactStore):
