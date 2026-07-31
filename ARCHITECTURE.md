@@ -207,6 +207,7 @@ Canonical Milestone 5 representations:
 
 - ticks and durations: integers;
 - positions, displacements, and simulation distances: signed 64-bit integer millimetres;
+- operative footprint: closed fixed-radius 350 millimetre planar disc;
 - elevation: non-negative discrete integer layers, separate from planar vectors;
 - angles: integer turns or milliradians;
 - probabilities and confidence: bounded integers, for example 0–10,000;

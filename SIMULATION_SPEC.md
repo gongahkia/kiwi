@@ -363,7 +363,16 @@ Outcomes link to resulting world events.
 
 ### 12.1 Representation
 
-Operatives use circles, capsules, or simple convex footprints. Select one representation during the movement milestone and document it.
+The initial operative footprint is a closed planar disc with a fixed radius of
+350 millimetres, centred at the operative's `WorldPosition`. Elevation remains
+separate: only equal-elevation geometry can collide. Boundary contact counts as
+collision. Movement, obstacle clearance, operative separation, and later
+projectile-versus-operative tests use this same disc, expressed entirely in
+integer millimetres; no float geometry or physics engine is authoritative.
+
+Stance, injury, equipment, and animation do not alter the footprint in the
+initial movement model. Any later variable footprint requires a new authority
+field, collision rules, canonical-format update, and replay decision.
 
 ### 12.2 Pathing
 
