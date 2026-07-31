@@ -182,4 +182,63 @@ return {
       assertions.equal("a\n", output(overflow))
     end,
   },
+  {
+    name = "sandbox mutating built-ins use exact arguments and atomic virtual filesystem operations",
+    run = function()
+      local registry = assert(Registry.new())
+      assertions.truthy(Builtins.register(registry))
+      local sandbox = session(registry)
+      local created = assert(sandbox:dispatch('write /note "first value"'))
+      assertions.equal(0, created.invocation:status().queued_chunks)
+      assertions.equal("first value", output(assert(sandbox:dispatch("cat /note"))))
+      assert(sandbox:dispatch('write /note ""'))
+      assertions.equal("", output(assert(sandbox:dispatch("cat /note"))))
+      assert(sandbox:dispatch("mkdir /work"))
+      assert(sandbox:dispatch("mkdir /work/src"))
+      assert(sandbox:dispatch("write /work/src/readme bytes"))
+      assert(sandbox:dispatch("mv /work/src/readme /work/src/guide"))
+      assertions.equal("bytes", output(assert(sandbox:dispatch("cat /work/src/guide"))))
+      assert(sandbox:dispatch("cd /work/src"))
+      assertions.equal("/work/src\n", output(assert(sandbox:dispatch("pwd"))))
+      assert(sandbox:dispatch("rm guide"))
+      assert(sandbox:dispatch("cd /"))
+      assert(sandbox:dispatch("rm /work/src"))
+      assert(sandbox:dispatch("rm /work"))
+    end,
+  },
+  {
+    name = "sandbox mutating built-ins reject invalid usage and preserve virtual filesystem failures",
+    run = function()
+      local registry = assert(Registry.new())
+      assertions.truthy(Builtins.register(registry))
+      local sandbox = session(registry)
+      assert(sandbox:dispatch("write /note original"))
+      local invalid = assert(sandbox:dispatch("write /note changed extra"))
+      assertions.truthy(invalid.failed)
+      assertions.equal("invalid_argument_count", invalid.failure.detail.reason)
+      assertions.equal("usage: write PATH DATA\n", output(invalid))
+      assertions.equal("original", output(assert(sandbox:dispatch("cat /note"))))
+      local missing_parent = assert(sandbox:dispatch("mkdir /missing/child"))
+      assertions.truthy(missing_parent.failed)
+      assertions.equal("not_found", missing_parent.failure.detail.reason)
+      assert(sandbox:dispatch("mkdir /a"))
+      assert(sandbox:dispatch("write /a/file bytes"))
+      local nonempty = assert(sandbox:dispatch("rm /a"))
+      assertions.truthy(nonempty.failed)
+      assertions.equal("directory_not_empty", nonempty.failure.detail.reason)
+      assert(sandbox:dispatch("write /target target"))
+      local replacement = assert(sandbox:dispatch("mv /a/file /target"))
+      assertions.truthy(replacement.failed)
+      assertions.equal("already_exists", replacement.failure.detail.reason)
+      assertions.equal("bytes", output(assert(sandbox:dispatch("cat /a/file"))))
+      for _, command in ipairs({ "mkdir", "rm", "cd" }) do
+        local invalid_count = assert(sandbox:dispatch(command))
+        assertions.truthy(invalid_count.failed)
+        assertions.equal("invalid_argument_count", invalid_count.failure.detail.reason)
+      end
+      local invalid_mv = assert(sandbox:dispatch("mv /a/file"))
+      assertions.truthy(invalid_mv.failed)
+      assertions.equal("invalid_argument_count", invalid_mv.failure.detail.reason)
+    end,
+  },
 }

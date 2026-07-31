@@ -197,6 +197,61 @@ local function run_cat(context, argv, writer)
   return emit(writer, data)
 end
 
+local function run_write(context, argv, writer)
+  if #argv ~= 3 then
+    return usage(writer, "usage: write PATH DATA")
+  end
+  local written, write_error = context.fs:write_file(argv[2], argv[3])
+  if not written then
+    return nil, write_error
+  end
+  return true
+end
+
+local function run_mkdir(context, argv, writer)
+  if #argv ~= 2 then
+    return usage(writer, "usage: mkdir PATH")
+  end
+  local created, create_error = context.fs:make_directory(argv[2])
+  if not created then
+    return nil, create_error
+  end
+  return true
+end
+
+local function run_rm(context, argv, writer)
+  if #argv ~= 2 then
+    return usage(writer, "usage: rm PATH")
+  end
+  local removed, remove_error = context.fs:remove(argv[2])
+  if not removed then
+    return nil, remove_error
+  end
+  return true
+end
+
+local function run_mv(context, argv, writer)
+  if #argv ~= 3 then
+    return usage(writer, "usage: mv SOURCE DESTINATION")
+  end
+  local renamed, rename_error = context.fs:rename(argv[2], argv[3])
+  if not renamed then
+    return nil, rename_error
+  end
+  return true
+end
+
+local function run_cd(context, argv, writer)
+  if #argv ~= 2 then
+    return usage(writer, "usage: cd PATH")
+  end
+  local changed, change_error = context.fs:change_directory(argv[2])
+  if not changed then
+    return nil, change_error
+  end
+  return true
+end
+
 local function copy_capabilities(value)
   local result = {}
   for index, capability in ipairs(value or {}) do
@@ -227,11 +282,16 @@ function Builtins.register(registry)
   }
   local handlers = {
     cat = run_cat,
+    cd = run_cd,
     help = function(context, argv, writer)
       return run_help(source, context, argv, writer)
     end,
     ls = run_ls,
+    mkdir = run_mkdir,
+    mv = run_mv,
     pwd = run_pwd,
+    rm = run_rm,
+    write = run_write,
   }
   for _, definition in ipairs(definitions) do
     local command_name = definition.name
