@@ -26,6 +26,7 @@ return {
         "effects.effect",
         "effects.clean",
         "effects.crt",
+        "effects.kinetic",
         "effects.host",
         "effects.manifest",
         "effects.random",

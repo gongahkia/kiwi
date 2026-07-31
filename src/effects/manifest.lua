@@ -13,10 +13,12 @@ local capabilities = {
   canvas_after = true,
   canvas_before = true,
   cell_observation = true,
+  cell_transform = true,
   deterministic_random = true,
   frame_update = true,
   lifecycle = true,
   terminal_events = true,
+  visual_state = true,
 }
 
 local determinism = {

@@ -37,6 +37,7 @@ function Snapshot.from_terminal(terminal)
     cursor_visible = terminal.modes.cursor_visible,
     rows = terminal.config.rows,
     screen = screen,
+    screen_name = terminal.active_buffer,
   }
 end
 

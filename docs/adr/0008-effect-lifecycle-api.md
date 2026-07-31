@@ -17,6 +17,8 @@ Lifecycle API v1 uses optional hooks gated by immutable manifest capabilities:
 | `lifecycle` | `init`, `shutdown` |
 | `terminal_events` | `on_event` |
 | `cell_observation` | `on_cell` |
+| `cell_transform` | `transform_cell` |
+| `visual_state` | `needs_redraw` |
 | `canvas_before` | `before_canvas` |
 | `canvas_after` | `after_canvas` |
 | `frame_update` | `update` |
@@ -35,6 +37,8 @@ The host accepts an explicit unsigned-32-bit `random_seed` (default `0`). For ev
 The forward coordinator adapter is the v1 terminal-to-lifecycle translation point. It advances the host from each recorded backend delta after terminal mutation, slices high-volume input/output bytes at the host limit, then emits semantic records and active-screen damage ranges. `advance(delta_us)` deterministically subdivides a positive recorded delta into `update` calls no larger than `max_delta_us`; direct oversized `update` calls are still rejected. The adapter cannot seek while a host is attached: arbitrary effect-local state has no rewind or checkpoint contract. A future visual-state seek model requires a separate ADR.
 
 `on_cell` receives a copied renderable visible cell record. The caller supplies damaged visible cells in strict row-major order; on a full redraw it supplies all renderable visible cells in the same order and the host sets `damage = true`. The host never exposes a backing grid cell.
+
+ADR-0010 adds bounded cell-transform frames. `transform_cell` receives a copied visual cell and returns `nil` or offsets in normalized cell units; it cannot change text, rendition, semantic damage, or terminal state. `needs_redraw` returns whether transient visual state requires a full presentation redraw. The host snapshots the eligible visual chain, applies transforms in manifest order, clamps final offsets, and closes the visual frame after the renderer returns.
 
 Canvas hooks require non-headless operation and a narrow canvas facade. The facade exposes dimensions, phase, and bounded `fill_rect`, `line`, and `text` operations only; each may carry the optional bounded scalar colour defined by ADR-0009. The host saves and restores the supplied graphics state around every canvas hook. Headless canvas requirements fail before `init` with typed `effect_incompatible`.
 
