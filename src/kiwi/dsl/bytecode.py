@@ -9,6 +9,7 @@ from typing import ClassVar
 
 from kiwi.dsl.core_ir import CoreDefinition
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_CLOSURE_CAPTURES,
     MAX_RUNTIME_LIST_ITEMS,
@@ -94,6 +95,7 @@ class Opcode(IntEnum):
     POP = 17
     BUILD_LIST = 18
     BUILD_CLOSURE = 19
+    PUSH_INTRINSIC = 20
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +254,18 @@ class BuildClosure:
 
 
 @dataclass(frozen=True, slots=True)
+class PushIntrinsic:
+    """Push one closed standard-library intrinsic reference."""
+
+    intrinsic: IntrinsicKind
+    opcode: ClassVar[Opcode] = Opcode.PUSH_INTRINSIC
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.intrinsic, IntrinsicKind):
+            raise ValueError("intrinsic instruction requires an intrinsic kind")
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -298,6 +312,7 @@ type BytecodeInstruction = (
     | Pop
     | BuildList
     | BuildClosure
+    | PushIntrinsic
     | Jump
     | JumpIfFalse
     | Return
@@ -487,6 +502,7 @@ class BytecodeModule:
                         Pop,
                         BuildList,
                         BuildClosure,
+                        PushIntrinsic,
                     ),
                 )
                 for function in self.functions

@@ -24,6 +24,7 @@ from kiwi.dsl.runtime_values import (
     BooleanValue,
     ClosureValue,
     IntegerValue,
+    IntrinsicValue,
     ListValue,
     OptionNoneValue,
     OptionSomeValue,
@@ -221,6 +222,8 @@ def _format_runtime_value(value: RuntimeValue) -> str:
             for name, field_value in zip(value.field_names, value.values, strict=True)
         )
         return f"Record({value.type_name}, {{{fields}}})"
+    if isinstance(value, IntrinsicValue):
+        return f"Intrinsic({value.intrinsic.name})"
     return f"Function({value.function_id.value})"
 
 

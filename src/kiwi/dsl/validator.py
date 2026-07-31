@@ -26,6 +26,7 @@ from kiwi.dsl.bytecode import (
     Pop,
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     PushNone,
     Return,
     StoreLocal,
@@ -134,6 +135,7 @@ def _validate_instruction_operands(
         (
             PushConstant,
             PushFunction,
+            PushIntrinsic,
             LoadLocal,
             StoreLocal,
             Negate,
@@ -275,6 +277,7 @@ def _validate_stack_flow(
 _INSTRUCTION_TYPES = (
     PushConstant,
     PushFunction,
+    PushIntrinsic,
     LoadLocal,
     StoreLocal,
     Negate,
@@ -296,7 +299,7 @@ _INSTRUCTION_TYPES = (
 
 
 def _stack_effect(instruction: BytecodeInstruction, height: int) -> tuple[int, int]:
-    if isinstance(instruction, (PushConstant, PushFunction, LoadLocal)):
+    if isinstance(instruction, (PushConstant, PushFunction, PushIntrinsic, LoadLocal)):
         return (0, height + 1)
     if isinstance(instruction, StoreLocal):
         return (1, height - 1)

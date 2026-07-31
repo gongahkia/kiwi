@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.ids import DefinitionId, SymbolId
+from kiwi.dsl.intrinsics import IntrinsicKind, list_intrinsic
 from kiwi.dsl.names import ResolutionResult, ResolvedBinding, SymbolKind
 from kiwi.dsl.runtime_values import MAX_RUNTIME_CLOSURE_CAPTURES, MAX_RUNTIME_LIST_ITEMS
 from kiwi.dsl.source import SourceSpan
@@ -48,6 +49,7 @@ from kiwi.dsl.typed_ir import (
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
+    TypedIntrinsicCallExpression,
     TypedLambdaExpression,
     TypedLetExpression,
     TypedListExpression,
@@ -501,6 +503,17 @@ def _check_expression(
             return None
         return TypedGroupExpression(inner, inner.type_, expression.span)
     if isinstance(expression, FieldAccessExpression):
+        if _list_intrinsic_for_callee(expression) is not None:
+            diagnostics.append(
+                Diagnostic(
+                    "E424_INTRINSIC_CALL",
+                    DiagnosticSeverity.ERROR,
+                    "List intrinsics must be called directly",
+                    expression.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            return None
         return _check_field_access_expression(
             expression,
             resolution,
@@ -509,6 +522,16 @@ def _check_expression(
             record_schemas,
         )
     if isinstance(expression, CallExpression):
+        intrinsic = _list_intrinsic_for_callee(expression.callee)
+        if intrinsic is not None:
+            return _check_list_intrinsic_call(
+                expression,
+                intrinsic,
+                resolution,
+                symbol_types,
+                diagnostics,
+                record_schemas,
+            )
         callee = _check_expression(
             expression.callee,
             resolution,
@@ -657,6 +680,164 @@ def _check_expression(
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
 
 
+def _list_intrinsic_for_callee(expression: Expression) -> IntrinsicKind | None:
+    if not isinstance(expression, FieldAccessExpression) or not isinstance(
+        expression.record, NameExpression
+    ):
+        return None
+    if expression.record.name.text != "List":
+        return None
+    return list_intrinsic(expression.field.text)
+
+
+def _check_list_intrinsic_call(
+    expression: CallExpression,
+    intrinsic: IntrinsicKind,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    expected_arity = 3 if intrinsic is IntrinsicKind.LIST_FOLD else 2
+    if len(expression.arguments) != expected_arity:
+        diagnostics.append(
+            Diagnostic(
+                "E425_INTRINSIC_ARITY",
+                DiagnosticSeverity.ERROR,
+                f"{_intrinsic_name(intrinsic)} expects {expected_arity} arguments",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    list_value = _check_expression(
+        expression.arguments[0], resolution, symbol_types, diagnostics, record_schemas
+    )
+    if list_value is None:
+        return None
+    if not isinstance(list_value.type_, ListType):
+        diagnostics.append(
+            Diagnostic(
+                "E426_INTRINSIC_LIST",
+                DiagnosticSeverity.ERROR,
+                f"{_intrinsic_name(intrinsic)} requires a List value",
+                list_value.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    element_type = list_value.type_.element_type
+    if intrinsic is IntrinsicKind.LIST_FOLD:
+        initial = _check_expression(
+            expression.arguments[1], resolution, symbol_types, diagnostics, record_schemas
+        )
+        if initial is None:
+            return None
+        callback = _check_intrinsic_callback(
+            expression.arguments[2],
+            intrinsic,
+            (initial.type_, element_type),
+            initial.type_,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
+        if callback is None:
+            return None
+        return TypedIntrinsicCallExpression(
+            intrinsic, (list_value, initial, callback), initial.type_, expression.span
+        )
+    expected_return = (
+        BuiltinType.BOOL
+        if intrinsic
+        in {
+            IntrinsicKind.LIST_FILTER,
+            IntrinsicKind.LIST_FIND,
+        }
+        else None
+    )
+    callback = _check_intrinsic_callback(
+        expression.arguments[1],
+        intrinsic,
+        (element_type,),
+        expected_return,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+    if callback is None or not isinstance(callback.type_, FunctionType):
+        return None
+    if intrinsic is IntrinsicKind.LIST_MAP:
+        result_type: DslType = ListType(callback.type_.return_type)
+    elif intrinsic is IntrinsicKind.LIST_FILTER:
+        result_type = ListType(element_type)
+    elif intrinsic is IntrinsicKind.LIST_FIND:
+        result_type = OptionType(element_type)
+    elif intrinsic is IntrinsicKind.LIST_MIN_BY:
+        if not _is_orderable(callback.type_.return_type):
+            diagnostics.append(_non_orderable_key_diagnostic(callback, intrinsic))
+            return None
+        result_type = OptionType(element_type)
+    else:
+        if not _is_orderable(callback.type_.return_type):
+            diagnostics.append(_non_orderable_key_diagnostic(callback, intrinsic))
+            return None
+        result_type = ListType(element_type)
+    return TypedIntrinsicCallExpression(
+        intrinsic, (list_value, callback), result_type, expression.span
+    )
+
+
+def _check_intrinsic_callback(
+    expression: Expression,
+    intrinsic: IntrinsicKind,
+    parameter_types: tuple[DslType, ...],
+    expected_return: DslType | None,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    if isinstance(expression, LambdaExpression):
+        return _check_lambda_signature(
+            expression,
+            parameter_types,
+            expected_return,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
+    callback = _check_expression(expression, resolution, symbol_types, diagnostics, record_schemas)
+    if callback is None or not isinstance(callback.type_, FunctionType):
+        diagnostics.append(
+            Diagnostic(
+                "E427_INTRINSIC_CALLBACK",
+                DiagnosticSeverity.ERROR,
+                f"{_intrinsic_name(intrinsic)} requires a function callback",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    if callback.type_.parameters != parameter_types or (
+        expected_return is not None and callback.type_.return_type != expected_return
+    ):
+        diagnostics.append(
+            Diagnostic(
+                "E427_INTRINSIC_CALLBACK",
+                DiagnosticSeverity.ERROR,
+                "List callback has an incompatible function type",
+                callback.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    return callback
+
+
 def _check_lambda_expression(
     expression: LambdaExpression,
     resolution: ResolutionResult,
@@ -689,6 +870,38 @@ def _check_lambda_expression(
             )
         )
         return None
+    return _check_lambda_signature(
+        expression,
+        expected_type.parameters,
+        expected_type.return_type,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+
+
+def _check_lambda_signature(
+    expression: LambdaExpression,
+    parameter_types: tuple[DslType, ...],
+    expected_return: DslType | None,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    if len(expression.parameters) != len(parameter_types):
+        diagnostics.append(
+            Diagnostic(
+                "E422_LAMBDA_ARITY",
+                DiagnosticSeverity.ERROR,
+                "anonymous function expects "
+                f"{len(parameter_types)} parameters but declares {len(expression.parameters)}",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
     parameters = tuple(
         TypedParameter(
             _binding_for_identifier(
@@ -702,9 +915,7 @@ def _check_lambda_expression(
             parameter_type,
             parameter.span,
         )
-        for parameter, parameter_type in zip(
-            expression.parameters, expected_type.parameters, strict=True
-        )
+        for parameter, parameter_type in zip(expression.parameters, parameter_types, strict=True)
     )
     symbol_types.extend((parameter.symbol_id, parameter.type_) for parameter in parameters)
     body = _check_expression(
@@ -713,12 +924,12 @@ def _check_lambda_expression(
         symbol_types,
         diagnostics,
         record_schemas,
-        expected_type.return_type,
+        expected_return,
     )
     if body is None:
         return None
-    if body.type_ != expected_type.return_type:
-        diagnostics.append(_type_mismatch(body.span, expected_type.return_type, body.type_))
+    if expected_return is not None and body.type_ != expected_return:
+        diagnostics.append(_type_mismatch(body.span, expected_return, body.type_))
         return None
     captures = _lambda_captures(expression, resolution, symbol_types)
     if len(captures) > MAX_RUNTIME_CLOSURE_CAPTURES:
@@ -736,9 +947,41 @@ def _check_lambda_expression(
         parameters,
         captures,
         body,
-        expected_type,
+        FunctionType(parameter_types, body.type_),
         expression.span,
     )
+
+
+def _is_orderable(type_: DslType) -> bool:
+    return type_ in {
+        BuiltinType.INT,
+        BuiltinType.BOOL,
+        BuiltinType.STRING,
+        BuiltinType.DURATION,
+        BuiltinType.DISTANCE,
+        BuiltinType.ANGLE,
+        BuiltinType.PROBABILITY,
+    }
+
+
+def _non_orderable_key_diagnostic(
+    callback: TypedExpression,
+    intrinsic: IntrinsicKind,
+) -> Diagnostic:
+    if not isinstance(callback.type_, FunctionType):
+        raise AssertionError("List key callback has no function type")
+    return Diagnostic(
+        "E428_INTRINSIC_ORDER_KEY",
+        DiagnosticSeverity.ERROR,
+        f"{_intrinsic_name(intrinsic)} key type "
+        f"{render_type(callback.type_.return_type)} is not orderable",
+        callback.span,
+        DiagnosticStage.CHECKER,
+    )
+
+
+def _intrinsic_name(intrinsic: IntrinsicKind) -> str:
+    return f"List.{intrinsic.name.removeprefix('LIST_').lower()}"
 
 
 def _lambda_captures(

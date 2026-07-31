@@ -14,6 +14,7 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreIf,
     CoreInteger,
+    CoreIntrinsicCall,
     CoreLambda,
     CoreLet,
     CoreList,
@@ -43,6 +44,7 @@ from kiwi.dsl.typed_ir import (
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
+    TypedIntrinsicCallExpression,
     TypedLambdaExpression,
     TypedLetExpression,
     TypedListExpression,
@@ -226,6 +228,17 @@ class _Lowerer:
             return CoreCall(
                 expression_id,
                 self.lower_expression(expression.callee, definition_id),
+                tuple(
+                    self.lower_expression(argument, definition_id)
+                    for argument in expression.arguments
+                ),
+                expression.type_,
+                expression.span,
+            )
+        if isinstance(expression, TypedIntrinsicCallExpression):
+            return CoreIntrinsicCall(
+                expression_id,
+                expression.intrinsic,
                 tuple(
                     self.lower_expression(argument, definition_id)
                     for argument in expression.arguments

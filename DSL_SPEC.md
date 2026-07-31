@@ -523,6 +523,27 @@ The standard library should provide safe reusable tactics without adding hidden 
 
 All traversals consume predictable budget proportional to list length.
 
+Milestone 4 provides these direct, closed calls; `List.map` and its siblings
+are not first-class values:
+
+```text
+List.map(list, callback)       : List<T> × (T -> U) -> List<U>
+List.filter(list, predicate)   : List<T> × (T -> Bool) -> List<T>
+List.fold(list, initial, step) : List<T> × A × (A, T -> A) -> A
+List.find(list, predicate)     : List<T> × (T -> Bool) -> Option<T>
+List.min_by(list, key)         : List<T> × (T -> K) -> Option<T>
+List.sort_by(list, key)        : List<T> × (T -> K) -> List<T>
+```
+
+Callbacks run left to right. `filter` preserves retained input order, `find`
+returns the first matching item, and `fold` applies `step` from the initial
+accumulator through input order. `min_by` and `sort_by` accept only `Int`,
+`Bool`, `String`, `Duration`, `Distance`, `Angle`, or `Probability` keys;
+booleans order `false < true`, strings use Unicode code-point order, and
+quantities compare only within one dimension. Equal keys preserve input order:
+`min_by` selects the first minimum and `sort_by` is stable. Each input and
+output list remains bounded to 1,024 items.
+
 #### `Option`
 
 - `map`
@@ -732,6 +753,10 @@ An anonymous function without an expected function type is
 `E421_AMBIGUOUS_LAMBDA`; an arity mismatch is `E422_LAMBDA_ARITY`; more than
 64 captures is `E423_CLOSURE_CAPTURE_LIMIT`.
 
+List intrinsic diagnostics are `E424_INTRINSIC_CALL` for a non-direct intrinsic
+reference, `E425_INTRINSIC_ARITY`, `E426_INTRINSIC_LIST`,
+`E427_INTRINSIC_CALLBACK`, and `E428_INTRINSIC_ORDER_KEY`.
+
 ### 15.5 Capability checking
 
 Each entry point has a capability environment. The compiler rejects impossible intentions where static information suffices.
@@ -800,6 +825,7 @@ UNWRAP_SOME
 POP
 BUILD_LIST element_count
 BUILD_CLOSURE function_id capture_count
+PUSH_INTRINSIC intrinsic_kind
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -826,6 +852,10 @@ Anonymous functions compile to synthetic function-table entries after named
 definitions in source-expression order. `BUILD_CLOSURE` consumes the stated
 number of source-ordered captured values and pushes a closure targeting that
 entry. A closure call prepends its captures to explicit call arguments.
+
+`PUSH_INTRINSIC` pushes one closed standard-library identifier. It has no host
+callable, import path, or dynamic lookup; `CALL` dispatches it only to the
+documented bounded List operations.
 
 The bytecode validator returns ordered structured errors instead of executing
 corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
@@ -917,10 +947,10 @@ Per invocation budgets include:
 - trace nodes according to trace mode.
 
 Milestone 3 enforces instruction, global value-stack, call-depth, and allocated
-runtime-value limits. A pushed function reference, a negated integer, record
-construction, `BUILD_SOME`, and `PUSH_NONE` each allocate one value; immutable
-constants and frame slots do not. Exhaustion is checked before the operation
-that would exceed its limit.
+runtime-value limits. A pushed function or intrinsic reference, a negated
+integer, record construction, `BUILD_SOME`, and `PUSH_NONE` each allocate one
+value; immutable constants and frame slots do not. Exhaustion is checked before
+the operation that would exceed its limit.
 
 Option-match control instructions do not allocate values.
 
@@ -929,6 +959,15 @@ creating the immutable list.
 
 `BUILD_CLOSURE` charges its capture count plus one container allocation unit
 before creating the immutable closure.
+
+Each List callback scheduling step charges one instruction unit in addition to
+the callback's own bytecode. `min_by` charges one additional unit for each key
+comparison after its first candidate; `sort_by` uses stable insertion order
+and charges one unit for every key comparison (at most `n * (n - 1) / 2` for
+`n` items). `map`, `filter`, and `sort_by` charge their output length plus one
+container allocation unit; `find` and `min_by` charge one `Option` allocation
+unit; `fold` adds no intrinsic result allocation. These checks occur before
+the result is created and share the invocation's VM budgets with callbacks.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 
