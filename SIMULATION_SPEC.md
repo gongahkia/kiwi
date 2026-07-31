@@ -258,6 +258,12 @@ An intention receives:
 - policy order index;
 - creation tick.
 
+The initial `IntentionOrigin` authority value stores the identity and
+provenance fields with typed intention, entity, policy-invocation, and
+expression IDs plus the exact DSL source span. Its action channel is derived
+from the closed intention kind, so provenance cannot assert a channel
+inconsistent with its request. Payload decoding is deferred to validation.
+
 ### 11.2 Validation
 
 Validation checks:
