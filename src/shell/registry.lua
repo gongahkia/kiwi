@@ -9,6 +9,7 @@ Registry.contract = {
   command = "command(name) -> command_definition | nil, error",
   commands = "commands() -> command_descriptors",
   constructor = "new(options?) -> command_registry | nil, error",
+  describe = "describe(name) -> command_descriptor | nil, error",
   register = "register(name, definition) -> true | nil, error",
   status = "status() -> command_registry_status",
 }
@@ -17,6 +18,7 @@ local DEFAULT_MAX_COMMANDS = 128
 local MAX_CAPABILITIES = 8
 local MAX_COMMAND_NAME_BYTES = 64
 local MAX_SUMMARY_BYTES = 256
+local MAX_USAGE_BYTES = 128
 
 local capabilities = {
   completion = true,
@@ -125,6 +127,7 @@ local function definition(value)
       and field ~= "complete"
       and field ~= "run"
       and field ~= "summary"
+      and field ~= "usage"
     then
       return command_error("command definition contains an unsupported field", { field = field })
     end
@@ -139,6 +142,12 @@ local function definition(value)
   if type(value.run) ~= "function" then
     return command_error("command run callback must be a function")
   end
+  if
+    value.usage ~= nil
+    and (type(value.usage) ~= "string" or #value.usage == 0 or #value.usage > MAX_USAGE_BYTES)
+  then
+    return command_error("command usage must be a non-empty bounded byte string")
+  end
   if value.complete ~= nil and type(value.complete) ~= "function" then
     return command_error("command complete callback must be a function")
   end
@@ -152,6 +161,7 @@ local function definition(value)
     complete = value.complete,
     run = value.run,
     summary = value.summary,
+    usage = value.usage,
   }
 end
 
@@ -160,6 +170,7 @@ local function copy_command(name_value, value, callbacks)
     capabilities = {},
     name = name_value,
     summary = value.summary,
+    usage = value.usage,
   }
   for index, capability in ipairs(value.capabilities) do
     result.capabilities[index] = capability
@@ -221,6 +232,18 @@ function registry_mt:commands()
     result[index] = copy_command(command_name, self.by_name[command_name], false)
   end
   return result
+end
+
+function registry_mt:describe(command_name)
+  local valid_name, name_error = name(command_name)
+  if not valid_name then
+    return nil, name_error
+  end
+  local command_definition = self.by_name[valid_name]
+  if not command_definition then
+    return command_error("command is not registered", { name = valid_name })
+  end
+  return copy_command(valid_name, command_definition, false)
 end
 
 function registry_mt:status()

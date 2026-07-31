@@ -66,6 +66,7 @@ local modules = {
   "unit.recording.reader_test",
   "unit.recording.writer_test",
   "unit.shell.registry_test",
+  "unit.shell.builtins_test",
   "unit.shell.tokenizer_test",
   "unit.shell.dispatcher_test",
   "unit.shell.history_test",

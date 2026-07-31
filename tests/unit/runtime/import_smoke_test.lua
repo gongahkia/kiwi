@@ -24,6 +24,7 @@ return {
         "backend.interface",
         "backend.replay",
         "shell.completion",
+        "shell.builtins",
         "shell.completion_scanner",
         "shell.dispatcher",
         "shell.history",
