@@ -21,8 +21,8 @@ from kiwi.dsl.syntax import (
     Identifier,
     IfExpression,
     IntegerLiteral,
-    LetExpression,
     LambdaExpression,
+    LetExpression,
     ListExpression,
     MatchArm,
     MatchExpression,
@@ -204,8 +204,8 @@ class _Parser:
 
     def parse_type_reference(self) -> TypeExpression | None:
         """Parse a right-associative named or function type annotation."""
-        if self.current.kind is TokenKind.LEFT_PAREN:
-            opening = self.advance()
+        if self.match(TokenKind.LEFT_PAREN):
+            opening = self.tokens[self.index - 1]
             parameters: list[TypeExpression] = []
             if self.current.kind is not TokenKind.RIGHT_PAREN:
                 while True:
@@ -248,7 +248,9 @@ class _Parser:
         return_type = self.parse_type_reference()
         if return_type is None:
             return None
-        return FunctionTypeReference((type_,), return_type, _join_spans(type_.span, return_type.span))
+        return FunctionTypeReference(
+            (type_,), return_type, _join_spans(type_.span, return_type.span)
+        )
 
     def parse_expression(self) -> Expression | None:
         """Parse one expression at the M1 expression precedence levels."""

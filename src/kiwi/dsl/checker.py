@@ -35,12 +35,12 @@ from kiwi.dsl.syntax import (
     SomePattern,
     StringLiteral,
     SurfaceModule,
-    TypeReference,
     TypeExpression,
 )
 from kiwi.dsl.typed_ir import (
     TypedBooleanLiteral,
     TypedCallExpression,
+    TypedCapture,
     TypedDefinition,
     TypedDefinitionKind,
     TypedExpression,
@@ -48,10 +48,9 @@ from kiwi.dsl.typed_ir import (
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
-    TypedLetExpression,
     TypedLambdaExpression,
+    TypedLetExpression,
     TypedListExpression,
-    TypedCapture,
     TypedMatchExpression,
     TypedMatchNoneArm,
     TypedMatchSomeArm,
@@ -656,6 +655,153 @@ def _check_expression(
             condition, then_branch, else_branch, then_branch.type_, expression.span
         )
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
+
+
+def _check_lambda_expression(
+    expression: LambdaExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+    expected_type: DslType | None,
+) -> TypedExpression | None:
+    if not isinstance(expected_type, FunctionType):
+        diagnostics.append(
+            Diagnostic(
+                "E421_AMBIGUOUS_LAMBDA",
+                DiagnosticSeverity.ERROR,
+                "anonymous function requires an expected function type",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    if len(expression.parameters) != len(expected_type.parameters):
+        diagnostics.append(
+            Diagnostic(
+                "E422_LAMBDA_ARITY",
+                DiagnosticSeverity.ERROR,
+                "anonymous function expects "
+                f"{len(expected_type.parameters)} parameters but declares "
+                f"{len(expression.parameters)}",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    parameters = tuple(
+        TypedParameter(
+            _binding_for_identifier(
+                resolution.bindings,
+                parameter.text,
+                parameter.span.start.value,
+                SymbolKind.LAMBDA_PARAMETER,
+                None,
+            ).symbol_id,
+            parameter,
+            parameter_type,
+            parameter.span,
+        )
+        for parameter, parameter_type in zip(
+            expression.parameters, expected_type.parameters, strict=True
+        )
+    )
+    symbol_types.extend((parameter.symbol_id, parameter.type_) for parameter in parameters)
+    body = _check_expression(
+        expression.body,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+        expected_type.return_type,
+    )
+    if body is None:
+        return None
+    if body.type_ != expected_type.return_type:
+        diagnostics.append(_type_mismatch(body.span, expected_type.return_type, body.type_))
+        return None
+    return TypedLambdaExpression(
+        parameters,
+        _lambda_captures(expression, resolution, symbol_types),
+        body,
+        expected_type,
+        expression.span,
+    )
+
+
+def _lambda_captures(
+    expression: LambdaExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+) -> tuple[TypedCapture, ...]:
+    captures: list[TypedCapture] = []
+    for reference in _direct_lambda_references(expression.body):
+        binding = resolution.binding_for(reference)
+        if binding is None:
+            raise AssertionError("resolver-clean lambda has an unresolved name")
+        if binding.kind is SymbolKind.DEFINITION or _span_contains(
+            expression.span, binding.name.span
+        ):
+            continue
+        if any(capture.symbol_id == binding.symbol_id for capture in captures):
+            continue
+        captures.append(
+            TypedCapture(binding.symbol_id, _type_for_symbol(symbol_types, binding.symbol_id))
+        )
+    return tuple(captures)
+
+
+def _direct_lambda_references(expression: Expression) -> tuple[NameExpression, ...]:
+    references: list[NameExpression] = []
+
+    def visit(candidate: Expression) -> None:
+        if isinstance(candidate, NameExpression):
+            references.append(candidate)
+        elif isinstance(
+            candidate,
+            (IntegerLiteral, BooleanLiteral, StringLiteral, QuantityLiteral, NoneExpression),
+        ):
+            return
+        elif isinstance(candidate, SomeExpression):
+            visit(candidate.value)
+        elif isinstance(candidate, ListExpression):
+            for element in candidate.elements:
+                visit(element)
+        elif isinstance(candidate, LambdaExpression):
+            return
+        elif isinstance(candidate, MatchExpression):
+            visit(candidate.subject)
+            for arm in candidate.arms:
+                visit(arm.body)
+        elif isinstance(candidate, RecordExpression):
+            for field in candidate.fields:
+                visit(field.value)
+        elif isinstance(candidate, NegateExpression):
+            visit(candidate.operand)
+        elif isinstance(candidate, GroupExpression):
+            visit(candidate.expression)
+        elif isinstance(candidate, CallExpression):
+            visit(candidate.callee)
+            for argument in candidate.arguments:
+                visit(argument)
+        elif isinstance(candidate, FieldAccessExpression):
+            visit(candidate.record)
+        elif isinstance(candidate, LetExpression):
+            visit(candidate.value)
+            visit(candidate.body)
+        elif isinstance(candidate, IfExpression):
+            visit(candidate.condition)
+            visit(candidate.then_branch)
+            visit(candidate.else_branch)
+        else:
+            raise TypeError(f"unsupported surface expression: {type(candidate).__name__}")
+
+    visit(expression)
+    return tuple(references)
+
+
+def _span_contains(container: SourceSpan, nested: SourceSpan) -> bool:
+    return container.start.value <= nested.start.value and nested.end.value <= container.end.value
 
 
 def _check_list_expression(

@@ -12,9 +12,11 @@ from kiwi.dsl.syntax import (
     Expression,
     FieldAccessExpression,
     FunctionDeclaration,
+    FunctionTypeReference,
     GroupExpression,
     Identifier,
     IntegerLiteral,
+    LambdaExpression,
     LetExpression,
     ListExpression,
     MatchExpression,
@@ -30,6 +32,7 @@ from kiwi.dsl.syntax import (
     SomePattern,
     StringLiteral,
     SurfaceModule,
+    TypeExpression,
     TypeReference,
 )
 from kiwi.dsl.token import Token
@@ -109,8 +112,18 @@ def _format_record_type_field(field: RecordTypeField, depth: int) -> list[str]:
     return lines
 
 
-def _format_type_reference(annotation: TypeReference, depth: int) -> list[str]:
+def _format_type_reference(annotation: TypeExpression, depth: int) -> list[str]:
     prefix = "  " * depth
+    if isinstance(annotation, FunctionTypeReference):
+        lines = [
+            f"{prefix}FunctionTypeReference span={format_span(annotation.span)}",
+            f"{prefix}  parameters:",
+        ]
+        for parameter in annotation.parameters:
+            lines.extend(_format_type_reference(parameter, depth + 2))
+        lines.append(f"{prefix}  return_type:")
+        lines.extend(_format_type_reference(annotation.return_type, depth + 2))
+        return lines
     lines = [f"{prefix}TypeReference span={format_span(annotation.span)}", f"{prefix}  name:"]
     lines.extend(_format_identifier(annotation.name, depth + 2))
     if annotation.arguments:
@@ -216,6 +229,16 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
         lines.extend(_format_identifier(expression.name, depth + 2))
         lines.append(f"{prefix}  value:")
         lines.extend(_format_expression(expression.value, depth + 2))
+        lines.append(f"{prefix}  body:")
+        lines.extend(_format_expression(expression.body, depth + 2))
+        return lines
+    if isinstance(expression, LambdaExpression):
+        lines = [
+            f"{prefix}LambdaExpression span={format_span(expression.span)}",
+            f"{prefix}  parameters:",
+        ]
+        for parameter in expression.parameters:
+            lines.extend(_format_identifier(parameter, depth + 2))
         lines.append(f"{prefix}  body:")
         lines.extend(_format_expression(expression.body, depth + 2))
         return lines
