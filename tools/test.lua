@@ -61,6 +61,7 @@ local modules = {
   "unit.recording.metadata_test",
   "unit.recording.reader_test",
   "unit.recording.writer_test",
+  "unit.shell.registry_test",
   "unit.renderer.renderer_test",
   "unit.renderer.canvas_hooks_test",
   "unit.renderer.benchmark_policy_test",
