@@ -653,6 +653,7 @@ def _check_match_expression(
         return None
     some_arm: TypedMatchSomeArm | None = None
     none_arm: TypedMatchNoneArm | None = None
+    typed_arms: list[TypedMatchSomeArm | TypedMatchNoneArm] = []
     branch_type: DslType | None = None
     first_body: TypedExpression | None = None
     for arm in expression.arms:
@@ -677,6 +678,7 @@ def _check_match_expression(
             if body is None:
                 return None
             some_arm = TypedMatchSomeArm(binding.symbol_id, arm.pattern.binding, body, arm.span)
+            typed_arms.append(some_arm)
         else:
             body = _check_expression(
                 arm.body,
@@ -689,6 +691,7 @@ def _check_match_expression(
             if body is None:
                 return None
             none_arm = TypedMatchNoneArm(body, arm.span)
+            typed_arms.append(none_arm)
         if branch_type is None:
             branch_type = body.type_
             first_body = body
@@ -709,7 +712,7 @@ def _check_match_expression(
             return None
     if some_arm is None or none_arm is None or branch_type is None:
         raise AssertionError("exhaustive Option match has missing checked arms")
-    return TypedMatchExpression(subject, some_arm, none_arm, branch_type, expression.span)
+    return TypedMatchExpression(subject, tuple(typed_arms), branch_type, expression.span)
 
 
 def _duplicate_match_arm(

@@ -119,14 +119,16 @@ class CoreMatchNoneArm:
     span: SourceSpan
 
 
+type CoreMatchArm = CoreMatchSomeArm | CoreMatchNoneArm
+
+
 @dataclass(frozen=True, slots=True)
 class CoreMatch:
-    """An exhaustive `Option` match with canonical Some then None arms."""
+    """An exhaustive `Option` match retaining source-ordered arms."""
 
     expression_id: ExpressionId
     subject: CoreExpression
-    some_arm: CoreMatchSomeArm
-    none_arm: CoreMatchNoneArm
+    arms: tuple[CoreMatchArm, ...]
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.MATCH_OPTION

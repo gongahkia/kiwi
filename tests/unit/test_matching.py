@@ -36,7 +36,11 @@ def test_exhaustive_option_matches_compile_encode_and_execute() -> None:
     assert parsed.diagnostics == ()
     assert checked.diagnostics == ()
     assert checked.module is not None
-    module = compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
+    lowered = lower(checked.module)
+    assert tuple(entry.span.start.value for entry in lowered.source_map.entries) == tuple(
+        sorted(entry.span.start.value for entry in lowered.source_map.entries)
+    )
+    module = compile_core(lowered.module, BytecodeHeader(source.file_id))
     instructions = tuple(
         instruction for function in module.functions for instruction in function.instructions
     )
