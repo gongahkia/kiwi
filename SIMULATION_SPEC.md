@@ -58,16 +58,20 @@ The simulation must avoid:
 
 ## 4. Canonical numeric model
 
-Recommended units:
+Canonical spatial units:
 
-- position: integer world subunits;
+- position, displacement, and distance: signed 64-bit integer millimetres;
+- elevation: non-negative discrete layers, with layer zero as the default;
 - angle: integer turn units;
-- speed: subunits per tick;
+- speed: millimetres per tick;
 - probability/confidence: integer basis points;
 - health/suppression: integer ranges;
 - projectile lifetime: ticks.
 
-All operations specify rounding. Division uses a named deterministic rounding mode.
+Exact DSL `Distance` values cross into simulation geometry as 1 metre = 1,000
+millimetres with nearest rounding and half ties away from zero. Planar vectors
+do not implicitly cross elevation layers; arithmetic rejects signed-64-bit
+overflow. All future division specifies a named deterministic rounding mode.
 
 ## 5. Stable identifiers
 

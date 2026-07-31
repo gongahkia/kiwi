@@ -116,7 +116,18 @@ operations are exact rational component arithmetic: `Position + Vector`,
 and distance support `+` and `-`; duration, distance, and probability support
 `<`, `<=`, `>`, and `>=`. Other combinations, including probability arithmetic,
 are static errors. This is a language ABI within existing version 2; canonical
-simulation subunits and elevation remain a Milestone 5 decision.
+simulation subunits and elevation are defined separately by D-022.
+
+### D-022: Canonical simulation geometry uses signed 64-bit millimetres
+
+Authoritative planar coordinates, displacements, and distances use signed
+64-bit integer millimetres. A canonical `WorldPosition` has `x`, `y`, and a
+non-negative discrete `ElevationLayer`, which defaults to zero; a
+`WorldVector` is planar and cannot silently cross elevation layers. At the
+simulation boundary, an exact DSL `Distance` converts with 1 metre = 1,000
+millimetres and nearest rounding with half ties away from zero. Arithmetic
+fails on signed-64-bit overflow. Tick-duration conversion remains separate
+from this spatial ABI and is selected with the fixed tick clock.
 
 ## 2. Prohibited shortcuts
 
