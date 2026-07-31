@@ -199,8 +199,12 @@ endpoints. Different elevation layers are blocked. On the same layer, the exact
 closed centre-to-centre segment is occluded by a same-layer closed obstacle
 rectangle, including endpoint and corner contact. Obstacles are checked in
 ascending `ObstacleId` order; the first intersected ID is retained as the
-canonical blocker. Sensor ranges, field of view, and visible-geometry outputs
-are not part of this initial query.
+canonical blocker. A sensor range is a non-negative canonical millimetre radius
+with inclusive integer squared-distance comparison; an out-of-range target is
+blocked before elevation or obstacle evaluation. The initial visible-geometry
+projection contains same-layer obstacle rectangles whose nearest point is in
+range, in ascending `ObstacleId` order. It does not apply obstacle occlusion to
+hide static geometry. Field of view and policy exposure remain later tasks.
 
 ### 8.2 Contacts
 
