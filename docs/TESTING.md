@@ -173,9 +173,11 @@ Testable renderer components:
 
 Renderer unit tests use deterministic fixture fonts for ascent, height, width, and glyph coverage. They do not depend on host-installed fonts or screenshot output.
 
-`tests/fixtures/renderer/continuous_output.lua` supplies a reusable 120×40 log-style snapshot and one-row damage range per advance. Renderer benchmarks use it to separate steady-state presentation work from terminal parsing and snapshot construction.
+`tests/fixtures/renderer/continuous_output.lua` supplies a reusable log-style snapshot and one-row damage range per advance. Renderer benchmarks use it to separate steady-state presentation work from terminal parsing and snapshot construction.
 
-Run `make benchmark-renderer FRAMES=1000` to measure clean-renderer fixture throughput and GC-stopped Lua heap growth per frame. The continuous-output responsiveness target is at least 60 frames per second for a 120×40 grid with one changed row per frame. On 2026-07-31, the 1,000-frame run on macOS arm64 with LuaJIT 2.1.1785192264 measured 35,705.36 frames per second and 867.20 GC-stopped Lua heap-growth bytes per frame. This LÖVE-free estimate excludes GPU allocations and visual-frame timing.
+`make benchmark-effects` runs the named clean, CRT, Kinetic, combined, disabled, and quarantined fixtures at fixed `120×40` and `240×80` grids. The fixture suite has fixed seed, time, parameters, warm-up, frame-count, and sample-count inputs. It compares median frame time and GC-stopped bytes per frame against the fixture-specific baseline only when the complete environment and measurement configuration match. On an unmatched environment it reports without failing. See `benchmarks/README.md` and `benchmarks/baselines.lua` for the exact policy and local evidence.
+
+The initial limit for a matching fixture is a regression of no more than 15% in median frame time and no more than the greater of 15% or 128 bytes per frame. The suite independently rejects steady-state retained canvas, shader, font, or effect-instance growth, per-frame shader compilation, and temporary-canvas growth. These are relative fixture budgets, not universal FPS requirements. The 2026-07-31 clean local evidence is `120×40 / 1,000 frames: 6,433.68 FPS and 1,080.00 B/frame` under the fixture graphics boundary; it is not a portable project-wide requirement.
 
 `renderer.snapshot.from_terminal` retains terminal screen, row, and cell references rather than constructing a full-grid presentation copy. Its unit test protects that boundary; renderer-owned glyph cache entries remain bounded separately.
 
@@ -208,7 +210,7 @@ Record:
 - allocations where measurable;
 - memory growth.
 
-Do not make performance claims without publishing the fixture and environment.
+Do not make performance claims without publishing the fixture and environment. CI does not compare unmatched environment signatures.
 
 ## 8. Determinism controls
 
