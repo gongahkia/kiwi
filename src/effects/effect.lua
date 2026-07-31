@@ -1,4 +1,5 @@
 local Errors = require("runtime.errors")
+local Manifest = require("effects.manifest")
 
 local Effect = {}
 local effect_mt = {}
@@ -7,16 +8,22 @@ effect_mt.__index = effect_mt
 Effect.contract = {
   constructor = "new(manifest) -> effect | nil, error",
   on_event = "on_event(event) -> nil, error?",
+  manifest = "manifest() -> effect_manifest",
   update = "update(visual_time_us) -> nil, error?",
   transform_cell = "transform_cell(visual_cell) -> nil, error?",
   destroy = "destroy()",
 }
 
 function Effect.new(manifest)
-  if type(manifest) ~= "table" or type(manifest.id) ~= "string" or manifest.id == "" then
-    return nil, Errors.new("effect_load_error", "effect manifest requires a non-empty id")
+  local normalised, manifest_error = Manifest.normalise(manifest)
+  if not normalised then
+    return nil, manifest_error
   end
-  return setmetatable({ manifest = manifest, state = "bootstrap" }, effect_mt)
+  return setmetatable({ manifest_value = normalised, state = "bootstrap" }, effect_mt)
+end
+
+function effect_mt:manifest()
+  return Manifest.copy(self.manifest_value)
 end
 
 function effect_mt:on_event(event)

@@ -220,7 +220,7 @@ This preset demonstrates the event architecture rather than merely adding a shad
 
 ## 9. Effect manifests
 
-Conceptual manifest:
+API v1 manifest:
 
 ```lua
 return {
@@ -239,6 +239,8 @@ return {
   }
 }
 ```
+
+ADR-0007 defines the exact validation and parameter-schema rules. Manifests are copied into effect-owned state; callers cannot mutate an accepted definition through the supplied table or a manifest accessor.
 
 ## 10. Failure isolation
 

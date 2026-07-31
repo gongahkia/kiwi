@@ -169,7 +169,7 @@ Goal: add visual differentiation without compromising terminal semantics.
 
 ### Effect API
 
-- [ ] Implement effect manifests with ID, version, capabilities, parameter schema, and deterministic flag.
+- [x] Implement effect manifests with ID, version, capabilities, parameter schema, and deterministic flag.
 - [ ] Implement lifecycle hooks defined in `docs/PLUGIN_API.md`.
 - [ ] Implement semantic event subscriptions for output, bell, cursor movement, scroll, resize, and damage.
 - [ ] Implement seeded random-number access.
