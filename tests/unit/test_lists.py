@@ -11,7 +11,13 @@ from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
-from kiwi.dsl.runtime_values import IntegerValue, ListValue, OptionNoneValue, OptionSomeValue
+from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_LIST_ITEMS,
+    IntegerValue,
+    ListValue,
+    OptionNoneValue,
+    OptionSomeValue,
+)
 from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.dsl.vm import VMBudgets, VMFaultCode, run_vm
 
@@ -94,3 +100,15 @@ def test_lists_charge_element_count_plus_container_and_require_version_two() -> 
     assert completed.value == ListValue((IntegerValue(1), IntegerValue(2)))
     with pytest.raises(ValueError, match="version 1"):
         compile_core(lower(checked.module).module, BytecodeHeader(source.file_id, 1, 1, 1))
+
+
+def test_lists_reject_literals_above_the_runtime_item_limit() -> None:
+    elements = ", ".join("1" for _ in range(MAX_RUNTIME_LIST_ITEMS + 1))
+    source = SourceFile(
+        SourceFileId("list-limit.dtr"), f"fn values() -> List<Int> = [{elements}]\n"
+    )
+
+    result = check(resolve(parse(lex(source)).module))
+
+    assert result.module is None
+    assert tuple(diagnostic.code for diagnostic in result.diagnostics) == ("E420_LIST_ITEM_LIMIT",)

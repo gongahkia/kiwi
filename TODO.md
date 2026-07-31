@@ -164,7 +164,7 @@ Add the functional data features required by tactical policies.
 - [x] Implement records and field access.
 - [x] Implement built-in algebraic variants, beginning with `Option`.
 - [x] Implement exhaustive pattern matching.
-- [ ] Implement immutable lists.
+- [x] Implement immutable lists.
 - [ ] Implement anonymous functions with bounded closures.
 - [ ] Implement pipeline syntax as desugaring.
 - [ ] Add bounded `List.map`, `filter`, `fold`, `find`, `min_by`, and `sort_by` intrinsics.

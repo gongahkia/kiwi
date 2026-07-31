@@ -287,7 +287,7 @@ The MVP may instead require explicit constructors if update syntax complicates i
 [Move.toward(position, Normal), Emit.radio(message)]
 ```
 
-Lists are immutable and bounded by runtime allocation limits.
+Lists are immutable, contain at most 1,024 values, and are bounded by runtime allocation limits.
 
 The current list literal is source ordered:
 
@@ -717,7 +717,7 @@ Option match failures are `E413_INVALID_MATCH_SUBJECT`,
 `E416_MATCH_BRANCH_TYPE`.
 List annotation arity is `E417_INVALID_LIST_TYPE`; an uncontextual `[]` is
 `E418_AMBIGUOUS_EMPTY_LIST`; differing element types are
-`E419_LIST_ELEMENT_TYPE`.
+`E419_LIST_ELEMENT_TYPE`; a literal over 1,024 items is `E420_LIST_ITEM_LIMIT`.
 
 ### 15.5 Capability checking
 
