@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from kiwi.dsl.types import BuiltinType, FunctionType, NamedType, OptionType, render_type
+from kiwi.dsl.types import BuiltinType, FunctionType, ListType, NamedType, OptionType, render_type
 
 
 def test_type_renderer_uses_canonical_function_associativity() -> None:
@@ -10,6 +10,8 @@ def test_type_renderer_uses_canonical_function_associativity() -> None:
     assert render_type(NamedType("Observation")) == "Observation"
     assert render_type(OptionType(BuiltinType.INT)) == "Option<Int>"
     assert render_type(OptionType(OptionType(BuiltinType.INT))) == "Option<Option<Int>>"
+    assert render_type(ListType(BuiltinType.INT)) == "List<Int>"
+    assert render_type(ListType(OptionType(BuiltinType.INT))) == "List<Option<Int>>"
     assert render_type(FunctionType((), BuiltinType.INT)) == "() -> Int"
     assert render_type(FunctionType((BuiltinType.INT,), BuiltinType.BOOL)) == "Int -> Bool"
     assert (
@@ -39,3 +41,5 @@ def test_type_algebra_rejects_invalid_shapes() -> None:
         FunctionType((BuiltinType.INT,), "Int")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="option element"):
         OptionType("Int")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="list element"):
+        ListType("Int")  # type: ignore[arg-type]

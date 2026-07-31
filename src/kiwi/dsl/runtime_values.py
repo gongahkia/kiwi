@@ -9,6 +9,7 @@ from kiwi.domain.quantities import Quantity
 from kiwi.dsl.ids import FunctionId
 
 MAX_RUNTIME_STRING_BYTES = 65_536
+MAX_RUNTIME_LIST_ITEMS = 1_024
 
 
 class RuntimeValueKind(StrEnum):
@@ -21,6 +22,7 @@ class RuntimeValueKind(StrEnum):
     QUANTITY = "quantity"
     OPTION_SOME = "option_some"
     OPTION_NONE = "option_none"
+    LIST = "list"
     RECORD = "record"
     FUNCTION = "function"
 
@@ -102,6 +104,20 @@ class OptionNoneValue:
 
 
 @dataclass(frozen=True, slots=True)
+class ListValue:
+    """An immutable bounded sequence with source-preserved element order."""
+
+    values: tuple[RuntimeValue, ...]
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.LIST, init=False)
+
+    def __post_init__(self) -> None:
+        if len(self.values) > MAX_RUNTIME_LIST_ITEMS:
+            raise ValueError("list value exceeds the configured item limit")
+        if any(not _is_runtime_value(value) for value in self.values):
+            raise ValueError("list values must be runtime values")
+
+
+@dataclass(frozen=True, slots=True)
 class RecordValue:
     """An immutable nominal record with lexically ordered field names."""
 
@@ -152,6 +168,7 @@ type RuntimeValue = (
     | QuantityValue
     | OptionSomeValue
     | OptionNoneValue
+    | ListValue
     | RecordValue
     | FunctionValue
 )
@@ -168,6 +185,7 @@ def _is_runtime_value(value: object) -> bool:
             QuantityValue,
             OptionSomeValue,
             OptionNoneValue,
+            ListValue,
             RecordValue,
             FunctionValue,
         ),

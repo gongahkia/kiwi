@@ -115,6 +115,19 @@ def test_lexer_recognises_closed_option_match_keywords_and_arm_marker() -> None:
     )
 
 
+def test_lexer_recognises_immutable_list_delimiters() -> None:
+    result = lex(SourceFile(SourceFileId("lists.dtr"), "[1, 2]"))
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.LEFT_BRACKET,
+        TokenKind.INTEGER,
+        TokenKind.COMMA,
+        TokenKind.INTEGER,
+        TokenKind.RIGHT_BRACKET,
+        TokenKind.EOF,
+    )
+
+
 def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     digits = "1" * (MAX_INTEGER_DIGITS + 1)
     source = SourceFile(SourceFileId("policy.dtr"), f"{digits} true")

@@ -59,6 +59,8 @@ _SINGLE_CHARACTER_TOKENS = {
     ")": TokenKind.RIGHT_PAREN,
     "{": TokenKind.LEFT_BRACE,
     "}": TokenKind.RIGHT_BRACE,
+    "[": TokenKind.LEFT_BRACKET,
+    "]": TokenKind.RIGHT_BRACKET,
     ".": TokenKind.DOT,
     "|": TokenKind.BAR,
     "<": TokenKind.LEFT_ANGLE,

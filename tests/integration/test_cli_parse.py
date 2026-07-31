@@ -247,3 +247,14 @@ def test_run_policy_command_executes_exhaustive_option_matches(tmp_path: Path) -
     assert result.returncode == 0
     assert result.stdout == "value: Integer(1)\n"
     assert result.stderr == ""
+
+
+def test_run_policy_command_returns_immutable_list_values(tmp_path: Path) -> None:
+    path = tmp_path / "lists.dtr"
+    path.write_text("policy values() -> List<Int> = [1, 2]", encoding="utf-8")
+
+    result = run_cli_arguments("run-policy", str(path), "values")
+
+    assert result.returncode == 0
+    assert result.stdout == "value: List([Integer(1), Integer(2)])\n"
+    assert result.stderr == ""

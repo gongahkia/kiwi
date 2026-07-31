@@ -169,7 +169,7 @@ def test_bytecode_codec_returns_structured_malformed_input_failures() -> None:
     )
 
 
-@pytest.mark.parametrize("opcode", (b"\x0b", b"\x0d", b"\x0e", b"\x0f", b"\x10", b"\x11"))
+@pytest.mark.parametrize("opcode", (b"\x0b", b"\x0d", b"\x0e", b"\x0f", b"\x10", b"\x11", b"\x12"))
 def test_bytecode_codec_rejects_version_two_data_opcodes_in_legacy_modules(
     opcode: bytes,
 ) -> None:

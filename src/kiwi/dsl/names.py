@@ -18,6 +18,7 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    ListExpression,
     MatchExpression,
     NameExpression,
     NegateExpression,
@@ -255,6 +256,18 @@ def _resolve_expression(
             references,
             diagnostics,
         )
+    if isinstance(expression, ListExpression):
+        for element in expression.elements:
+            next_symbol_value = _resolve_expression(
+                element,
+                environment,
+                definition_id,
+                next_symbol_value,
+                bindings,
+                references,
+                diagnostics,
+            )
+        return next_symbol_value
     if isinstance(expression, MatchExpression):
         next_symbol_value = _resolve_expression(
             expression.subject,

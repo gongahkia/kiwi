@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.dsl.bytecode import (
+    BuildList,
     BuildRecord,
     BuildSome,
     BytecodeFunction,
@@ -42,6 +43,7 @@ from kiwi.dsl.core_ir import (
     CoreIf,
     CoreInteger,
     CoreLet,
+    CoreList,
     CoreMatch,
     CoreMatchNoneArm,
     CoreMatchSomeArm,
@@ -160,6 +162,11 @@ class _FunctionCompiler:
             return
         if isinstance(expression, CoreNone):
             self._emit(PushNone(), expression)
+            return
+        if isinstance(expression, CoreList):
+            for element in expression.elements:
+                self._compile_expression(element)
+            self._emit(BuildList(len(expression.elements)), expression)
             return
         if isinstance(expression, CoreMatch):
             some_arm, none_arm = _option_match_arms(expression)

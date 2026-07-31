@@ -83,6 +83,15 @@ class TypedNoneExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class TypedListExpression:
+    """A checked immutable list literal with one element type."""
+
+    elements: tuple[TypedExpression, ...]
+    type_: DslType
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
 class TypedMatchSomeArm:
     """The payload-binding arm of a checked `Option` match."""
 
@@ -209,6 +218,7 @@ type TypedExpression = (
     | TypedQuantityLiteral
     | TypedSomeExpression
     | TypedNoneExpression
+    | TypedListExpression
     | TypedMatchExpression
     | TypedRecordExpression
     | TypedNameExpression

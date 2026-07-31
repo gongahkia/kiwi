@@ -21,6 +21,7 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    ListExpression,
     MatchArm,
     MatchExpression,
     NameExpression,
@@ -402,6 +403,15 @@ class _Parser:
         elif token.kind is TokenKind.NONE:
             self.advance()
             return NoneExpression(token.span)
+        elif token.kind is TokenKind.LEFT_BRACKET:
+            opening = self.advance()
+            elements = self.parse_list_elements()
+            if elements is None:
+                return None
+            closing = self.expect(TokenKind.RIGHT_BRACKET, "']'")
+            if closing is None:
+                return None
+            return ListExpression(elements, _join_spans(opening.span, closing.span))
         elif token.kind is TokenKind.IDENTIFIER:
             name = self.parse_identifier()
             if name is not None:
@@ -443,6 +453,19 @@ class _Parser:
         if closing is None:
             return None
         return RecordExpression(type_name, tuple(fields), _join_spans(type_name.span, closing.span))
+
+    def parse_list_elements(self) -> tuple[Expression, ...] | None:
+        """Parse a comma-separated list literal without its delimiters."""
+        elements: list[Expression] = []
+        if self.current.kind is TokenKind.RIGHT_BRACKET:
+            return ()
+        while True:
+            element = self.parse_expression()
+            if element is None:
+                return None
+            elements.append(element)
+            if not self.match(TokenKind.COMMA):
+                return tuple(elements)
 
     def parse_identifier(self) -> Identifier | None:
         """Parse one identifier in value or type position."""

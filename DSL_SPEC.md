@@ -289,6 +289,17 @@ The MVP may instead require explicit constructors if update syntax complicates i
 
 Lists are immutable and bounded by runtime allocation limits.
 
+The current list literal is source ordered:
+
+```text
+[first, second]
+```
+
+All elements must have one type. A nonempty literal infers `List<T>` from its
+first element; `[]` requires an expected `List<T>` type. Runtime lists contain
+at most 1,024 values. Constructing a list charges one allocation unit per
+element plus one for its immutable container.
+
 ## 8. Declarations
 
 ### 8.1 Type aliases
@@ -382,6 +393,9 @@ Distance + Duration -> type error
 The implemented `Option<T>` is a closed one-argument type constructor. Its only
 values are `Some(value)` and contextually typed `None`; it has no null value or
 implicit conversion.
+
+The implemented `List<T>` is a closed one-argument immutable sequence type.
+Only list literals construct it until bounded collection intrinsics are added.
 
 ### 9.5 Function types
 
@@ -633,10 +647,11 @@ match_pattern := "Some" "(" identifier ")" | "None"
 application := unary (("(" arguments? ")") | ("." identifier))*
 arguments   := expression ("," expression)*
 unary       := "-" unary | primary
-primary     := integer | boolean | string | quantity | record | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
+primary     := integer | boolean | string | quantity | record | list | "Some" "(" expression ")" | "None" | identifier | "(" expression ")"
 record      := identifier "{" record_fields? "}"
 record_fields := record_field ("," record_field)*
 record_field := identifier "=" expression
+list        := "[" arguments? "]"
 ```
 
 Parser output is immutable surface AST. Error recovery should support multiple diagnostics per compile without fabricating misleading trees.
@@ -700,6 +715,9 @@ all expected option values use `E401_TYPE_MISMATCH` when their types differ.
 Option match failures are `E413_INVALID_MATCH_SUBJECT`,
 `E414_DUPLICATE_MATCH_ARM`, `E415_INCOMPLETE_MATCH`, and
 `E416_MATCH_BRANCH_TYPE`.
+List annotation arity is `E417_INVALID_LIST_TYPE`; an uncontextual `[]` is
+`E418_AMBIGUOUS_EMPTY_LIST`; differing element types are
+`E419_LIST_ELEMENT_TYPE`.
 
 ### 15.5 Capability checking
 
@@ -714,7 +732,7 @@ Static analysis estimates obvious collection and call costs. Runtime budgets rem
 Lower surface conveniences into a minimal core with stable expression IDs and source maps.
 
 Core retains integer, boolean, string, quantity, record construction, `Some`,
-and `None` literals, source-ordered exhaustive `Option` matches, resolved
+`None`, and list literals, source-ordered exhaustive `Option` matches, resolved
 references, field access, negation, calls, `let`, and `if`.
 Expression IDs start at zero and follow definition source order then expression
 pre-order. Each ID has one `SourceMapEntry` containing its enclosing
@@ -767,6 +785,7 @@ PUSH_NONE
 JUMP_IF_NONE target
 UNWRAP_SOME
 POP
+BUILD_LIST element_count
 JUMP target
 JUMP_IF_FALSE target
 RETURN
@@ -784,6 +803,10 @@ discard it. `STORE_LOCAL` consumes its value; conditional branches consume a
 boolean. The validator defines stack, local-slot, and in-range jump rules
 before execution. The exact set should remain small. Instructions must not
 contain Python callables or mutable arbitrary objects.
+
+`BUILD_LIST` consumes source-ordered element values and pushes one immutable
+list in that same order. It is rejected when the encoded count exceeds the
+runtime list bound.
 
 The bytecode validator returns ordered structured errors instead of executing
 corrupt modules. Version 1 uses `B001_FUNCTION_TABLE_MISMATCH` through
@@ -858,6 +881,7 @@ records, and closed `Option` values to the integer, boolean, unit, and
 `FunctionId` reference value algebra. Record fields are stored by lexical field
 name, never in a host dictionary. A function value is only an index into the
 module function table; it never contains a Python callable or code object.
+Lists store a tuple in source order and reject more than 1,024 values.
 
 ## 18. VM budgets
 
@@ -878,6 +902,9 @@ constants and frame slots do not. Exhaustion is checked before the operation
 that would exceed its limit.
 
 Option-match control instructions do not allocate values.
+
+`BUILD_LIST` charges its element count plus one container allocation unit before
+creating the immutable list.
 
 Budget exhaustion yields a structured fault and deterministic fallback policy.
 
