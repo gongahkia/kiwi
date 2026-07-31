@@ -397,14 +397,14 @@ path represents an already-arrived query; otherwise adjacent waypoints must be
 distinct. Pathfinding and obstacle clearance are separate from query
 precondition validation.
 
-The MVP may use:
-
-- navigation grid;
-- waypoint graph;
-- visibility graph;
-- hybrid pathing.
-
-Path generation must use canonical tie-breaking. If A* is used, equal-cost nodes require stable ordering.
+The MVP uses a same-elevation visibility graph. Its candidates are the exact
+endpoints plus valid obstacle-corner points one millimetre beyond the operative
+disc's 350 millimetre conservative axis-aligned clearance. Segments crossing
+the closed inflated obstacle rectangles are absent. The resolver considers at
+most 64 same-layer obstacles, uses exact Manhattan edge cost, and runs Dijkstra
+with `(cost, ordered waypoint coordinates)` as its canonical tie key. It emits
+a structured blocked-endpoint, obstacle-budget, or no-route result rather than
+using host exceptions for ordinary routing outcomes.
 
 ### 12.3 Local movement
 

@@ -220,6 +220,16 @@ an already-arrived request and adjacent duplicate waypoints are invalid.
 Precondition validation reports stable structured failures before routing, and
 the selected pathfinding algorithm separately establishes obstacle clearance.
 
+### D-032: Routing uses a bounded deterministic visibility graph
+
+Milestone 7 resolves paths with Dijkstra over same-elevation start, goal, and
+obstacle-corner candidates. Obstacles are conservatively inflated to the
+operative's 350 millimetre axis-aligned clearance; candidate corners sit one
+integer millimetre beyond that boundary. Routing examines at most 64 relevant
+obstacles, uses exact Manhattan edge costs, and selects equal-cost paths by the
+lexicographic ordered waypoint coordinates. This retains deterministic integer
+behaviour without a third-party navigation dependency.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

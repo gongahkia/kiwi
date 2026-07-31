@@ -256,7 +256,7 @@ Resolve movement headlessly and display the same state through pygame-ce.
 - [x] Select and document operative footprint representation.
 - [x] Implement obstacle and map geometry.
 - [x] Implement deterministic path representation and path query.
-- [ ] Implement stable A* or selected path algorithm with canonical ties.
+- [x] Implement stable A* or selected path algorithm with canonical ties.
 - [ ] Implement movement action state and per-tick progression.
 - [ ] Implement obstacle collision and bounded operative separation.
 - [ ] Emit movement, block, and arrival events.
