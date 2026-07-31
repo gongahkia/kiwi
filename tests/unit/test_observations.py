@@ -5,8 +5,23 @@ from dataclasses import replace
 import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
-from kiwi.domain.ids import EntityId
-from kiwi.dsl.runtime_values import IntegerValue, ListValue, QuantityValue, RecordValue
+from kiwi.domain.ids import ContactId, EntityId, EventId
+from kiwi.dsl.runtime_values import (
+    IntegerValue,
+    ListValue,
+    OptionNoneValue,
+    OptionSomeValue,
+    QuantityValue,
+    RecordValue,
+)
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactStore,
+)
 from kiwi.sim.messages import (
     INBOX_OBSERVATION_RECORD_TYPE,
     InboxObservation,
@@ -16,6 +31,7 @@ from kiwi.sim.messages import (
 from kiwi.sim.observations import (
     OBSERVATION_RECORD_TYPE,
     OBSERVATION_SCHEMA_VERSION,
+    CONTACT_RECORD_TYPE,
     POSITION_RECORD_TYPE,
     SELF_OBSERVATION_RECORD_TYPE,
     RuntimeObservation,
@@ -34,14 +50,15 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 3
+    assert OBSERVATION_SCHEMA_VERSION == 4
     assert value.type_name == OBSERVATION_RECORD_TYPE
-    assert value.field_names == ("inbox", "self", "signals", "tick")
+    assert value.field_names == ("inbox", "nearest_contact", "self", "signals", "tick")
     inbox_value = value.field_value("inbox")
     assert isinstance(inbox_value, RecordValue)
     assert inbox_value.type_name == INBOX_OBSERVATION_RECORD_TYPE
     assert inbox_value.field_names == ("messages",)
     assert inbox_value.field_value("messages") == ListValue(())
+    assert value.field_value("nearest_contact") == OptionNoneValue()
     assert value.field_value("signals") == ListValue(())
     self_value = value.field_value("self")
     assert isinstance(self_value, RecordValue)
@@ -59,6 +76,65 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
         distance_from_world_subunits(WorldSubunits(500))
     )
     assert value.field_value("tick") == IntegerValue(9)
+
+
+def test_runtime_observations_project_one_owner_local_contact_with_field_evidence() -> None:
+    state, entity = add_entity(
+        MissionState(tick=7), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    contact_id, allocator = allocator.allocate_contact()
+    contact = ContactEstimate(
+        contact_id,
+        entity.entity_id,
+        WorldPosition(WorldSubunits(2_000), WorldSubunits(2_000)),
+        WorldSubunits(300),
+        ContactConfidence(7_500),
+        4,
+        ContactProvenance(
+            tuple(ContactFieldProvenance(field, (evidence_event_id,)) for field in ContactField)
+        ),
+    )
+    state = replace(
+        state,
+        contacts=ContactStore((contact,), lifecycle_tick=7),
+        id_allocator=allocator,
+    )
+
+    observation = build_runtime_observations(state)[0]
+    value = observation_runtime_value(observation)
+
+    assert observation.nearest_contact == contact
+    assert observation.nearest_contact.provenance.evidence_for(ContactField.CONFIDENCE) == (
+        evidence_event_id,
+    )
+    nearest_value = value.field_value("nearest_contact")
+    assert nearest_value == OptionSomeValue(
+        RecordValue(
+            CONTACT_RECORD_TYPE,
+            (
+                "age_ticks",
+                "confidence_basis_points",
+                "contact_id",
+                "estimated_position",
+                "uncertainty_radius",
+            ),
+            (
+                IntegerValue(3),
+                IntegerValue(7_500),
+                IntegerValue(contact_id.value),
+                RecordValue(
+                    POSITION_RECORD_TYPE,
+                    ("x", "y"),
+                    (
+                        QuantityValue(distance_from_world_subunits(WorldSubunits(2_000))),
+                        QuantityValue(distance_from_world_subunits(WorldSubunits(2_000))),
+                    ),
+                ),
+                QuantityValue(distance_from_world_subunits(WorldSubunits(300))),
+            ),
+        )
+    )
 
 
 def test_runtime_observations_snapshot_pre_evaluation_state_in_entity_id_order() -> None:
@@ -126,6 +202,26 @@ def test_runtime_observations_project_only_each_owner_delivered_messages() -> No
                 -1,
             ),
             "non-negative",
+        ),
+        (
+            lambda: RuntimeObservation(
+                SelfObservation(EntityId(1), WorldPosition(WorldSubunits(0), WorldSubunits(0))),
+                4,
+                nearest_contact=ContactEstimate(
+                    ContactId(1),
+                    EntityId(2),
+                    WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+                    WorldSubunits(0),
+                    ContactConfidence(1),
+                    4,
+                    ContactProvenance(
+                        tuple(
+                            ContactFieldProvenance(field, (EventId(1),)) for field in ContactField
+                        )
+                    ),
+                ),
+            ),
+            "belong to its entity",
         ),
         (lambda: observation_runtime_value(object()), "RuntimeObservation"),  # type: ignore[arg-type]
         (lambda: build_runtime_observations(object()), "mission state"),  # type: ignore[arg-type]

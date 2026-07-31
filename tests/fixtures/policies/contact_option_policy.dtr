@@ -1,0 +1,15 @@
+type Contact = { age_ticks: Int, confidence_basis_points: Int, contact_id: Int, estimated_position: Position, uncertainty_radius: Distance }
+type ContactReport = { age_ticks: Int, confidence_basis_points: Int, estimated_position: Position, uncertainty_radius: Distance }
+type InboxObservation = { messages: List<Message> }
+type Message = { channel: String, delivery_tick: Int, expiry_tick: Int, message_id: Int, payload: ContactReport, recipient_entity_id: Int, send_tick: Int, sender_entity_id: Int, sequence: Int }
+type SelfObservation = { entity_id: Int, position: Position }
+type Signal = { name: String, tick: Int }
+type Observation = { inbox: InboxObservation, nearest_contact: Option<Contact>, self: SelfObservation, signals: List<Signal>, tick: Int }
+type Memory = { label: String }
+type Wait = { duration: Duration }
+type Decision = { intentions: List<Wait>, memory: Memory }
+
+policy react_to_contact(observation: Observation, memory: Memory) -> Decision =
+  match observation.nearest_contact with
+  | Some(contact) -> Decision { intentions = [Wait { duration = 2s }], memory = memory }
+  | None -> Decision { intentions = [Wait { duration = 1s }], memory = memory }

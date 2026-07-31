@@ -6,16 +6,24 @@ from dataclasses import dataclass
 
 from kiwi.domain.geometry import WorldPosition, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
-from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue
+from kiwi.dsl.runtime_values import (
+    IntegerValue,
+    OptionNoneValue,
+    OptionSomeValue,
+    QuantityValue,
+    RecordValue,
+)
+from kiwi.sim.contacts import ContactEstimate, nearest_contact_for
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
 from kiwi.sim.signals import SignalObservation, signals_for, signals_runtime_value
 from kiwi.sim.state import MissionState
 
-OBSERVATION_SCHEMA_VERSION = 3
+OBSERVATION_SCHEMA_VERSION = 4
 OBSERVATION_RECORD_TYPE = "Observation"
 SELF_OBSERVATION_RECORD_TYPE = "SelfObservation"
 POSITION_RECORD_TYPE = "Position"
+CONTACT_RECORD_TYPE = "Contact"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,12 +42,13 @@ class SelfObservation:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeObservation:
-    """The complete version-3 policy input with no hidden or writable state."""
+    """The complete version-4 policy input with no hidden or writable state."""
 
     self_observation: SelfObservation
     tick: int
     inbox: InboxObservation = InboxObservation()
     signals: tuple[SignalObservation, ...] = ()
+    nearest_contact: ContactEstimate | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.self_observation, SelfObservation):
@@ -73,6 +82,12 @@ class RuntimeObservation:
             if signal.command_sequence <= previous_sequence:
                 raise ValueError("runtime observation signals must be command-sequence ordered")
             previous_sequence = signal.command_sequence
+        if self.nearest_contact is not None:
+            if not isinstance(self.nearest_contact, ContactEstimate):
+                raise ValueError("runtime observation nearest contact must be a contact estimate")
+            if self.nearest_contact.owner_entity_id != self.self_observation.entity_id:
+                raise ValueError("runtime observation nearest contact must belong to its entity")
+            self.nearest_contact.age_at(self.tick)
 
 
 def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation, ...]:
@@ -85,25 +100,18 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
             state.tick,
             inbox_for(state.messages, entity.entity_id, state.tick),
             signals_for(state.signals, entity.entity_id, state.tick),
+            nearest_contact_for(state.contacts, entity.entity_id, entity.position, state.tick),
         )
         for entity in state.entities
     )
 
 
 def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
-    """Convert one authority observation to the closed version-3 DSL record layout."""
+    """Convert one authority observation to the closed version-4 DSL record layout."""
     if not isinstance(observation, RuntimeObservation):
         raise TypeError("runtime observation value requires a RuntimeObservation")
     self_observation = observation.self_observation
-    position = self_observation.position
-    position_value = RecordValue(
-        POSITION_RECORD_TYPE,
-        ("x", "y"),
-        (
-            QuantityValue(distance_from_world_subunits(position.x)),
-            QuantityValue(distance_from_world_subunits(position.y)),
-        ),
-    )
+    position_value = _position_runtime_value(self_observation.position)
     self_value = RecordValue(
         SELF_OBSERVATION_RECORD_TYPE,
         ("entity_id", "position"),
@@ -111,11 +119,49 @@ def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
     )
     return RecordValue(
         OBSERVATION_RECORD_TYPE,
-        ("inbox", "self", "signals", "tick"),
+        ("inbox", "nearest_contact", "self", "signals", "tick"),
         (
             inbox_runtime_value(observation.inbox),
+            _nearest_contact_runtime_value(observation.nearest_contact, observation.tick),
             self_value,
             signals_runtime_value(observation.signals),
             IntegerValue(observation.tick),
+        ),
+    )
+
+
+def _nearest_contact_runtime_value(
+    contact: ContactEstimate | None, current_tick: int
+) -> OptionNoneValue | OptionSomeValue:
+    if contact is None:
+        return OptionNoneValue()
+    return OptionSomeValue(
+        RecordValue(
+            CONTACT_RECORD_TYPE,
+            (
+                "age_ticks",
+                "confidence_basis_points",
+                "contact_id",
+                "estimated_position",
+                "uncertainty_radius",
+            ),
+            (
+                IntegerValue(contact.age_at(current_tick).ticks),
+                IntegerValue(contact.confidence.basis_points),
+                IntegerValue(contact.contact_id.value),
+                _position_runtime_value(contact.estimated_position),
+                QuantityValue(distance_from_world_subunits(contact.uncertainty_radius)),
+            ),
+        )
+    )
+
+
+def _position_runtime_value(position: WorldPosition) -> RecordValue:
+    return RecordValue(
+        POSITION_RECORD_TYPE,
+        ("x", "y"),
+        (
+            QuantityValue(distance_from_world_subunits(position.x)),
+            QuantityValue(distance_from_world_subunits(position.y)),
         ),
     )
