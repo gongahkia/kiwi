@@ -24,14 +24,18 @@ Use UTF-8 source text and a human-readable structured format selected during Mil
 
 ### Canonical internal bytes
 
-Define a small deterministic binary or canonical JSON encoding for:
+Kiwi currently uses a small deterministic binary encoding for:
 
 - state hashing;
 - bytecode;
 - replay checkpoints;
 - trace chunks where size matters.
 
-The implementation may begin with canonical JSON for inspectability, then move to a versioned binary format only after profiling. Hash semantics must remain explicitly versioned.
+`KWI-STATE\0` version `1` is the canonical mission-state payload. It uses a
+fixed big-endian field order, fixed-width scalar values, and ordered bounded
+collections; it contains no Python object serialisation. BLAKE2b-256 hashes the
+exact payload. Decoders reject unsupported versions, malformed values, size
+limits, and trailing bytes rather than reinterpreting data.
 
 ## 4. Policy source
 
@@ -180,6 +184,16 @@ Snapshot fields:
 - state hash.
 
 Snapshots must contain all authority required to resume. Presentation state is excluded.
+
+The current internal canonical-state payload is distinct from the future
+`.dsnap` container: it encodes the authority state only, starting with
+`KWI-STATE\0`, 16-bit format version `1`, tick, phase, entities, type-local ID
+allocator counters, scheduled-event queue, random-algorithm version, root seed,
+and named random-stream states. Counts are 32-bit big-endian values bounded to
+65,536 items. Entity coordinates are signed 64-bit millimetres; elevation,
+sequences, stream state, and seed use unsigned 64-bit values. A snapshot
+container will add content/replay metadata around this payload without changing
+its hash semantics.
 
 ## 9. Replay package
 
