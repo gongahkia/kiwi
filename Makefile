@@ -3,14 +3,20 @@ STYLUA ?= stylua
 LOVE ?= love
 TEST_SEED ?= 20260730
 FRAMES ?= 1000
+EFFECT_FRAMES ?= 120
+WARMUP ?= 60
+SAMPLES ?= 5
 
-.PHONY: benchmark-renderer bootstrap check inspect lint run test
+.PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run test
 
 bootstrap:
 	zsh tools/bootstrap.sh
 
 benchmark-renderer:
-	$(LUAJIT) tools/benchmark_renderer.lua "$(FRAMES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean --frames "$(FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+
+benchmark-effects:
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures all --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
 
 check: lint test
 
