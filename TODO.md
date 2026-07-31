@@ -265,7 +265,7 @@ Resolve movement headlessly and display the same state through pygame-ce.
 - [x] Implement window, logical canvas, camera, and basic map rendering.
 - [x] Render operatives, obstacles, paths, and objective marker.
 - [x] Add headless-versus-graphical authority equivalence test.
-- [ ] Add basic bitmap font loading and nearest-neighbour scaling.
+- [x] Add basic bitmap font loading and nearest-neighbour scaling.
 
 ### Exit criteria
 
