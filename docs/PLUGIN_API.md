@@ -157,6 +157,14 @@ The host saves and restores graphics state around each callback; the renderer en
 
 ## 5. Sandbox command API
 
+Command input is tokenized with the byte-oriented **Stanczyk sandbox command grammar**
+(ADR-0012), not a POSIX shell parser. The dispatcher completes tokenization before
+lookup or callback invocation. Its default bounds are 65,536 input bytes, 64
+arguments, and 4,096 bytes per argument; embedding callers may tighten them. A
+tokenization failure is a `sandbox_command_error` and dispatches nothing. Delimiter-
+only input is a successful no-op. See `docs/BACKENDS.md` for the state machine,
+quoting, byte-preservation, unsupported syntax, and typed-error contract.
+
 Registration:
 
 ```lua

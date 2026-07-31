@@ -117,14 +117,45 @@ Commands receive only declared capabilities. The default context does not expose
 
 ### 6.4 Syntax
 
-The initial syntax may support:
+Sandbox input uses the byte-oriented **Stanczyk sandbox command grammar** from
+ADR-0012. It is not a POSIX shell parser or shell-compatible syntax.
 
-- whitespace-separated arguments;
-- single and double quotes;
-- backslash escaping;
-- optional simple pipelines after a dedicated design pass.
+The tokenizer consumes a bounded Lua byte string without decoding, normalising,
+validating, or case-folding UTF-8. Only ASCII space (`0x20`) and horizontal tab
+(`0x09`) delimit arguments while in the `unquoted` state; repeated, leading, and
+trailing delimiters are ignored. No other byte is whitespace. Every input byte,
+including NUL and invalid UTF-8, is otherwise opaque.
 
-It does not need shell expansion, redirection, job control, globbing, variables, command substitution, or POSIX conformance.
+The state machine is:
+
+- `unquoted`: ordinary bytes append to the active argument; backslash appends exactly
+  the next byte; a single or double quote enters its quoted state; a delimiter ends an
+  active argument.
+- `single_quoted`: every byte is literal until a single quote closes the fragment.
+  Backslash has no special meaning.
+- `double_quoted`: ordinary bytes append literally; backslash appends exactly the next
+  byte; a double quote closes the fragment.
+
+Adjacent quoted and unquoted fragments concatenate. A quote begins an argument even
+when its fragment is empty, so `""`, `''`, and `x""y` produce `""`, `""`, and `xy`
+respectively. An unquoted or double-quoted trailing backslash is an error; an
+unclosed quote is an error.
+
+Default immutable upper bounds are 65,536 input bytes, 64 arguments, and 4,096 bytes
+per argument. A caller may configure lower bounds only. Failures use
+`sandbox_command_error` with `detail.reason`, a zero-based `detail.byte_offset`, and
+`detail.state`. Stable grammar reasons are `unterminated_single_quote`,
+`unterminated_double_quote`, `trailing_escape`, `input_too_large`,
+`too_many_arguments`, and `argument_too_large`.
+
+Tokenization succeeds before registry lookup or callback dispatch. Errors return no
+partial argv and perform neither lookup nor dispatch. Delimiter-only input is a
+successful no-op; otherwise `argv[1]` is the exact command-name byte string.
+
+There is no variable, environment, command, arithmetic, tilde, pathname, brace,
+alias, comment, redirection, pipeline, separator, background-job, control-operator,
+subshell, here-document, or escape-sequence expansion. `$`, `*`, `?`, `|`, `>`, `<`,
+`;`, `&`, `#`, parentheses, and backticks are ordinary bytes unless quoted or escaped.
 
 ## 7. PTY helper backend
 

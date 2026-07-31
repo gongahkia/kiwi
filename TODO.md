@@ -206,7 +206,7 @@ Goal: make Stanczyk useful inside games and portable builds without host executi
 
 ### Sandbox backend
 
-- [ ] Implement command tokenisation with documented quoting rules.
+- [x] Implement command tokenisation with documented quoting rules.
 - [x] Implement a command registry.
 - [ ] Implement incremental command output.
 - [ ] Implement command history and completion.
