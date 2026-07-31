@@ -514,15 +514,14 @@ When multiple operatives seek the same location or cover slot, resolve using doc
 
 ## 13. Cover
 
-A cover segment includes:
-
-- endpoints or shape;
-- outward directions;
-- height class;
-- integrity;
-- material;
-- occupancy slots;
-- blocking properties.
+A cover feature is a directed same-elevation segment with lexically ordered
+distinct planar endpoints. Its canonical direction defines `left` and `right`
+sides. A segment has one `low` or `high` height class, inclusive 0–10,000
+basis-point integrity, and one through 16 contiguous-indexed slots. Each slot
+stores its same-elevation standing position and its side; slot positions are
+unique within a segment. Segments are stored by ascending `CoverId` in authority
+state. Occupancy, reservation, material, blocking, exposure, and damage rules
+remain separate phases.
 
 Exposure to a threat is computed from geometry, stance, and contact estimate. Because contacts are uncertain, policy-facing exposure may differ from ground truth. Record both where useful for explanation.
 
@@ -648,9 +647,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`11` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`12` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `10`, unsupported versions, and noncanonical values are
+versions `1` through `11`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -666,6 +665,7 @@ Include:
 - random-stream state;
 - map bounds and obstacle geometry;
 - active movement actions;
+- cover segments, slots, height, and integrity;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
 - live message ledger entries, send-event IDs, and send sequence;

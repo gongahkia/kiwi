@@ -47,7 +47,9 @@ def test_cover_store_uses_cover_id_order_without_unordered_lookup() -> None:
         ),
         (
             lambda: CoverSlot(
-                0, WorldPosition(WorldSubunits(0), WorldSubunits(0)), "left"  # type: ignore[arg-type]
+                0,
+                WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+                "left",  # type: ignore[arg-type]
             ),
             "cover side",
         ),
