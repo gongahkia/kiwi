@@ -192,6 +192,28 @@ Stable output reasons are `output_overflow`, `output_closed`, `emit_too_large`,
 `invalid_poll_limit`, `output_resource_limit`, and `cancelled`. An
 `output_resource_limit` failure leaves queue bytes unchanged.
 
+### 6.6 Session-local history
+
+Each sandbox session owns a separate in-memory FIFO history, never implicitly shared
+with another session. It stores the exact submitted Lua byte string after strict
+tokenization succeeds with at least one argument and before command lookup/dispatch.
+Delimiter-only lines and tokenizer failures are absent; valid unknown commands,
+execution failures, cancellations, duplicates, NUL, and invalid UTF-8 are retained
+unchanged when within bounds.
+
+Defaults are 128 entries, 32,768 total retained bytes, and 4,096 bytes per entry. Hosts
+may lower but not raise them. A new entry evicts the minimum number of oldest entries
+needed for entry-count and total-byte bounds. An oversized entry is not partially
+retained and creates a typed history diagnostic without blocking its valid dispatch.
+Setting both entry and total-byte capacity to zero disables history; other partial zero
+capacities are invalid.
+
+History uses one-based oldest-first `get`, bounded `list`, `length`, and idempotent
+`clear`. It is cleared on session destruction and is lost when the session ends.
+History is not terminal semantic state: it is not placed in recordings or checkpoints,
+does not alter registered commands or active output invocations, and is not reconstructed
+from recordings. See ADR-0014.
+
 ## 7. PTY helper backend
 
 ### 7.1 Boundary

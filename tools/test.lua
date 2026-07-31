@@ -66,6 +66,7 @@ local modules = {
   "unit.shell.registry_test",
   "unit.shell.tokenizer_test",
   "unit.shell.dispatcher_test",
+  "unit.shell.history_test",
   "unit.shell.output_test",
   "unit.renderer.renderer_test",
   "unit.renderer.canvas_hooks_test",
