@@ -64,6 +64,44 @@ class WorldPosition:
             raise ValueError("world position elevation must be an elevation layer")
 
 
+@dataclass(frozen=True, slots=True)
+class WorldRectangle:
+    """A non-empty closed planar axis-aligned rectangle in millimetres."""
+
+    minimum_x: WorldSubunits
+    minimum_y: WorldSubunits
+    maximum_x: WorldSubunits
+    maximum_y: WorldSubunits
+
+    def __post_init__(self) -> None:
+        coordinates = (self.minimum_x, self.minimum_y, self.maximum_x, self.maximum_y)
+        if not all(isinstance(value, WorldSubunits) for value in coordinates):
+            raise ValueError("world rectangle coordinates must be world subunits")
+        if self.minimum_x.value >= self.maximum_x.value:
+            raise ValueError("world rectangle x bounds must be ascending")
+        if self.minimum_y.value >= self.maximum_y.value:
+            raise ValueError("world rectangle y bounds must be ascending")
+
+    def contains_position(self, position: WorldPosition) -> bool:
+        """Return whether a planar position lies within the closed rectangle."""
+        _require_world_position(position, "rectangle position")
+        return (
+            self.minimum_x.value <= position.x.value <= self.maximum_x.value
+            and self.minimum_y.value <= position.y.value <= self.maximum_y.value
+        )
+
+    def contains_rectangle(self, rectangle: WorldRectangle) -> bool:
+        """Return whether another closed rectangle lies wholly within this rectangle."""
+        if not isinstance(rectangle, WorldRectangle):
+            raise ValueError("contained rectangle must be a world rectangle")
+        return (
+            self.minimum_x.value <= rectangle.minimum_x.value
+            and self.minimum_y.value <= rectangle.minimum_y.value
+            and rectangle.maximum_x.value <= self.maximum_x.value
+            and rectangle.maximum_y.value <= self.maximum_y.value
+        )
+
+
 def round_nearest_ties_away_from_zero(numerator: int, denominator: int) -> int:
     """Divide with nearest rounding and deterministic away-from-zero ties."""
     if not isinstance(numerator, int) or isinstance(numerator, bool):

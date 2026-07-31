@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.geometry import WorldPosition
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
@@ -45,6 +46,7 @@ class MissionState:
     tick: int = 0
     phase: MissionPhase = MissionPhase.PREPARED
     entities: tuple[EntityState, ...] = ()
+    map_geometry: MapGeometry | None = None
     id_allocator: IdAllocator = field(default_factory=IdAllocator)
     policy_memory: PolicyMemoryStore = field(default_factory=PolicyMemoryStore)
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
@@ -60,6 +62,8 @@ class MissionState:
             raise ValueError("mission phase must be a MissionPhase")
         if not isinstance(self.entities, tuple):
             raise ValueError("mission entities must be an immutable tuple")
+        if self.map_geometry is not None and not isinstance(self.map_geometry, MapGeometry):
+            raise ValueError("mission map geometry must be map geometry or absent")
         if not isinstance(self.id_allocator, IdAllocator):
             raise ValueError("mission state requires an ID allocator")
         if not isinstance(self.policy_memory, PolicyMemoryStore):
@@ -80,6 +84,16 @@ class MissionState:
         next_entity_id = self.id_allocator.next_ids[int(IdKind.ENTITY)]
         if previous_id >= next_entity_id:
             raise ValueError("mission entity IDs must be allocated by the current ID allocator")
+        if self.map_geometry is not None:
+            next_obstacle_id = self.id_allocator.next_ids[int(IdKind.OBSTACLE)]
+            if self.map_geometry.obstacles and (
+                self.map_geometry.obstacles[-1].obstacle_id.value >= next_obstacle_id
+            ):
+                raise ValueError("map obstacle IDs must be allocated by the current ID allocator")
+            if any(
+                not self.map_geometry.contains_position(entity.position) for entity in self.entities
+            ):
+                raise ValueError("mission entity positions must lie within map bounds")
         entity_ids = tuple(entity.entity_id for entity in self.entities)
         if any(entry.entity_id not in entity_ids for entry in self.policy_memory.entries):
             raise ValueError("policy memory entries must belong to mission entities")
@@ -100,6 +114,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             tick=state.tick,
             phase=state.phase,
             entities=state.entities + (entity,),
+            map_geometry=state.map_geometry,
             id_allocator=id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,

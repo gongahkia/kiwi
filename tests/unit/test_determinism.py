@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.determinism import (
@@ -12,6 +12,7 @@ from kiwi.sim.determinism import (
     first_canonical_state_difference,
     run_determinism_harness,
 )
+from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.snapshot import capture_authority_snapshot
@@ -71,6 +72,27 @@ def test_differential_report_includes_policy_memory_in_canonical_order() -> None
 
     assert difference is not None
     assert difference.path == "policy_memory/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_map_geometry_in_canonical_order() -> None:
+    expected = MissionState(
+        map_geometry=MapGeometry(
+            WorldRectangle(WorldSubunits(0), WorldSubunits(0), WorldSubunits(10), WorldSubunits(10))
+        )
+    )
+    actual = replace(
+        expected,
+        map_geometry=MapGeometry(
+            WorldRectangle(WorldSubunits(1), WorldSubunits(0), WorldSubunits(10), WorldSubunits(10))
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "map_geometry/bounds/minimum_x"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

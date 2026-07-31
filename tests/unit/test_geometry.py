@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from kiwi.domain.geometry import (
@@ -7,6 +9,7 @@ from kiwi.domain.geometry import (
     MIN_WORLD_SUBUNITS,
     ElevationLayer,
     WorldPosition,
+    WorldRectangle,
     WorldSubunits,
     WorldVector,
     add_vectors,
@@ -35,6 +38,19 @@ def test_exact_distances_convert_to_signed_64_bit_millimetres() -> None:
 
 def test_world_distance_round_trip_is_exact_in_metres() -> None:
     assert distance_from_world_subunits(WorldSubunits(-1_250)) == distance(-5, 4)
+
+
+def test_world_rectangles_are_nonempty_and_include_their_boundaries() -> None:
+    bounds = WorldRectangle(
+        WorldSubunits(-10), WorldSubunits(-20), WorldSubunits(30), WorldSubunits(40)
+    )
+    nested = WorldRectangle(
+        WorldSubunits(-10), WorldSubunits(-20), WorldSubunits(30), WorldSubunits(40)
+    )
+
+    assert bounds.contains_position(WorldPosition(WorldSubunits(-10), WorldSubunits(40)))
+    assert not bounds.contains_position(WorldPosition(WorldSubunits(31), WorldSubunits(40)))
+    assert bounds.contains_rectangle(nested)
 
 
 @pytest.mark.parametrize(
@@ -66,6 +82,27 @@ def test_rounding_is_nearest_with_away_from_zero_ties(
         (lambda: world_subunits_from_distance(quantity_from_literal(1, "s")), "Distance"),
         (lambda: world_subunits_from_distance(distance(MAX_WORLD_SUBUNITS + 1, 1_000)), "signed"),
         (lambda: round_nearest_ties_away_from_zero(1, 0), "positive"),
+        (
+            lambda: WorldRectangle(
+                WorldSubunits(1), WorldSubunits(0), WorldSubunits(1), WorldSubunits(2)
+            ),
+            "x bounds",
+        ),
+        (
+            lambda: WorldRectangle(
+                WorldSubunits(0), WorldSubunits(2), WorldSubunits(1), WorldSubunits(1)
+            ),
+            "y bounds",
+        ),
+        (
+            lambda: WorldRectangle(
+                WorldSubunits(0),
+                WorldSubunits(0),
+                cast(WorldSubunits, 1),
+                WorldSubunits(2),
+            ),
+            "coordinates",
+        ),
     ),
 )
 def test_canonical_geometry_rejects_invalid_or_out_of_range_values(

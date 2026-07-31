@@ -346,13 +346,14 @@ Recommended state style:
 - explicit reducer or phase functions;
 - local mutable builders permitted inside a tick only if output semantics are deterministic and not exposed.
 
-The initial kernel materialises a non-negative signed 64-bit mission tick, a
-strictly entity-ID-ordered tuple of minimal entity states, immutable ID
-allocator state, an entity-ID-ordered sparse store of data-only policy-memory
-records, an entity-ID-ordered sparse store of BLAKE2b deployed-policy versions,
-and a `(tick, sequence)` scheduled-event queue. State components are added only
-with the task that defines their invariants; canonical encoding follows this
-explicit state-field order.
+The initial kernel materialises a non-negative signed 64-bit mission tick and
+phase, a strictly entity-ID-ordered tuple of minimal entity states, an optional
+immutable bounded map with `ObstacleId`-ordered axis-aligned obstacles, an
+entity-ID-ordered sparse store of data-only policy-memory records, an
+entity-ID-ordered sparse store of BLAKE2b deployed-policy versions, immutable
+ID allocator state, and a `(tick, sequence)` scheduled-event queue. State
+components are added only with the task that defines their invariants; canonical
+encoding follows this explicit state-field order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor

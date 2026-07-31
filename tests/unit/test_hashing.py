@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import IdAllocator
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
@@ -26,11 +26,27 @@ from kiwi.sim.hashing import (
     encode_canonical_state,
     hash_canonical_state,
 )
+from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.state import MissionPhase, MissionState, add_entity
+
+
+def _map_geometry() -> tuple[MapGeometry, IdAllocator]:
+    obstacle_id, allocator = IdAllocator().allocate_obstacle()
+    bounds = WorldRectangle(
+        WorldSubunits(-1_000), WorldSubunits(-2_000), WorldSubunits(3_000), WorldSubunits(4_000)
+    )
+    obstacle = MapObstacle(
+        obstacle_id,
+        WorldRectangle(
+            WorldSubunits(-500), WorldSubunits(-500), WorldSubunits(500), WorldSubunits(500)
+        ),
+        ElevationLayer(2),
+    )
+    return MapGeometry(bounds, (obstacle,)), allocator
 
 
 def test_canonical_state_codec_round_trips_and_reencodes_identically() -> None:
@@ -61,7 +77,27 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "830cc3409114b572fdf59beafe33847f1e44c8aed6051669661382a707e357c7"
+    assert first.hex == "1316a6eb8ea7c0727e61271faaa5e116b4276debdbb05d3f5e7d893f2ff26210"
+
+
+def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
+    map_geometry, id_allocator = _map_geometry()
+    state = MissionState(map_geometry=map_geometry, id_allocator=id_allocator)
+
+    encoded = encode_canonical_state(state)
+    decoded = decode_canonical_state(encoded)
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert hash_canonical_state(state) != hash_canonical_state(
+        MissionState(id_allocator=id_allocator)
+    )
+
+    map_presence_offset = len(CANONICAL_STATE_MAGIC) + 2 + 8 + 1 + 4
+    malformed = encoded[:map_presence_offset] + b"\x02" + encoded[map_presence_offset + 1 :]
+    invalid = decode_canonical_state(malformed)
+    assert isinstance(invalid, StateDecodeFailure)
+    assert invalid.code is StateDecodeCode.INVALID_VALUE
 
 
 def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
@@ -133,6 +169,7 @@ def test_canonical_state_codec_round_trips_policy_versions_and_hashes_them() -> 
         (b"", StateDecodeCode.INVALID_MAGIC),
         (CANONICAL_STATE_MAGIC + b"\x00\x01", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x02", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x03", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

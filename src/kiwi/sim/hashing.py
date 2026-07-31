@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import blake2b
 
-from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import EntityId, IdAllocator, IdKind
+from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
+from kiwi.domain.ids import EntityId, IdAllocator, IdKind, ObstacleId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_STRING_BYTES,
@@ -22,6 +22,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
+from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import (
     MAX_POLICY_MEMORY_DEPTH,
     EntityPolicyMemory,
@@ -44,7 +45,7 @@ from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEven
 from kiwi.sim.state import EntityState, MissionPhase, MissionState
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 3
+CANONICAL_STATE_VERSION = 4
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -53,7 +54,7 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
-_RANDOM_STREAM_COUNT_V3 = 4
+_RANDOM_STREAM_COUNT_V4 = 4
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -115,7 +116,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 3 form."""
+    """Encode one validated mission state in canonical binary version 4 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -129,6 +130,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
         writer.i64(entity.position.x.value, "entity x")
         writer.i64(entity.position.y.value, "entity y")
         writer.u64(entity.position.elevation.value, "entity elevation")
+    _encode_map_geometry(writer, state.map_geometry)
     _encode_policy_memory(writer, state.policy_memory)
     _encode_policy_versions(writer, state.policy_versions)
     for next_id in state.id_allocator.next_ids:
@@ -206,8 +208,8 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
-    if len(streams.states) != _RANDOM_STREAM_COUNT_V3:
-        raise ValueError("state format version 3 requires exactly four random streams")
+    if len(streams.states) != _RANDOM_STREAM_COUNT_V4:
+        raise ValueError("state format version 4 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -220,6 +222,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     phase = _decode_phase(reader.u8(), reader.offset - 1)
     entity_count = reader.items("entity count")
     entities = tuple(_decode_entity(reader) for _ in range(entity_count))
+    map_geometry = _decode_map_geometry(reader)
     policy_memory = _decode_policy_memory(reader)
     policy_versions = _decode_policy_versions(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
@@ -229,6 +232,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         tick=tick,
         phase=phase,
         entities=entities,
+        map_geometry=map_geometry,
         id_allocator=id_allocator,
         policy_memory=policy_memory,
         policy_versions=policy_versions,
@@ -245,6 +249,58 @@ def _decode_entity(reader: _Reader) -> EntityState:
             y=WorldSubunits(reader.i64()),
             elevation=ElevationLayer(reader.u64()),
         ),
+    )
+
+
+def _encode_map_geometry(writer: _Writer, geometry: MapGeometry | None) -> None:
+    if geometry is None:
+        writer.u8(0, "map geometry presence")
+        return
+    writer.u8(1, "map geometry presence")
+    _encode_rectangle(writer, geometry.bounds, "map bounds")
+    writer.items(len(geometry.obstacles), "map obstacle count")
+    for obstacle in geometry.obstacles:
+        writer.i64(obstacle.obstacle_id.value, "map obstacle ID")
+        writer.u64(obstacle.elevation.value, "map obstacle elevation")
+        _encode_rectangle(writer, obstacle.bounds, "map obstacle bounds")
+
+
+def _decode_map_geometry(reader: _Reader) -> MapGeometry | None:
+    presence_offset = reader.offset
+    presence = reader.u8()
+    if presence == 0:
+        return None
+    if presence != 1:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            presence_offset,
+            f"invalid map geometry presence tag {presence}",
+        )
+    bounds = _decode_rectangle(reader)
+    obstacles = tuple(
+        MapObstacle(
+            obstacle_id=ObstacleId(reader.i64()),
+            elevation=ElevationLayer(reader.u64()),
+            bounds=_decode_rectangle(reader),
+        )
+        for _ in range(reader.items("map obstacle count"))
+    )
+    return MapGeometry(bounds, obstacles)
+
+
+def _encode_rectangle(writer: _Writer, rectangle: WorldRectangle, name: str) -> None:
+    writer.i64(rectangle.minimum_x.value, f"{name} minimum x")
+    writer.i64(rectangle.minimum_y.value, f"{name} minimum y")
+    writer.i64(rectangle.maximum_x.value, f"{name} maximum x")
+    writer.i64(rectangle.maximum_y.value, f"{name} maximum y")
+
+
+def _decode_rectangle(reader: _Reader) -> WorldRectangle:
+    return WorldRectangle(
+        minimum_x=WorldSubunits(reader.i64()),
+        minimum_y=WorldSubunits(reader.i64()),
+        maximum_x=WorldSubunits(reader.i64()),
+        maximum_y=WorldSubunits(reader.i64()),
     )
 
 
@@ -443,7 +499,7 @@ def _decode_random_streams(reader: _Reader) -> RandomStreams:
         )
     seed = MissionSeed(reader.u64())
     states = tuple(
-        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V3)
+        RandomStreamState(reader.u64(), reader.u64()) for _ in range(_RANDOM_STREAM_COUNT_V4)
     )
     return RandomStreams(seed=seed, states=states)
 

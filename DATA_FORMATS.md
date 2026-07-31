@@ -31,10 +31,10 @@ Kiwi currently uses a small deterministic binary encoding for:
 - replay checkpoints;
 - trace chunks where size matters.
 
-`KWI-STATE\0` version `3` is the canonical mission-state payload. It uses a
+`KWI-STATE\0` version `4` is the canonical mission-state payload. It uses a
 fixed big-endian field order, fixed-width scalar values, and ordered bounded
 collections; it contains no Python object serialisation. BLAKE2b-256 hashes the
-exact payload. Decoders reject versions `1` and `2`, unsupported versions, malformed
+exact payload. Decoders reject versions `1`, `2`, and `3`, unsupported versions, malformed
 values, size limits, and trailing bytes rather than reinterpreting data.
 
 ## 4. Policy source
@@ -198,8 +198,9 @@ Snapshots must contain all authority required to resume. Presentation state is e
 
 The current internal canonical-state payload is distinct from the future
 `.dsnap` container: it encodes the authority state only, starting with
-`KWI-STATE\0`, 16-bit format version `3`, tick, phase, entities, entity-ID
-ordered policy-memory records, entity-ID ordered policy-version records,
+`KWI-STATE\0`, 16-bit format version `4`, tick, phase, entities, optional map
+geometry, entity-ID ordered policy-memory records,
+entity-ID ordered policy-version records,
 type-local ID allocator counters, scheduled-event queue, random-algorithm
 version, root seed, and named random-stream states.
 Counts are 32-bit big-endian values bounded to 65,536 items. Memory values are
@@ -208,12 +209,18 @@ quantities, options, lists, and lexically ordered records; callable values are
 rejected. Entity coordinates are signed 64-bit millimetres; elevation,
 sequences, stream state, and seed use unsigned 64-bit values. A policy-version
 record contains an entity ID and a 32-byte BLAKE2b digest of canonical `KWI-BC`
-bytes plus its selected entry function ID. Versions `1` and `2` are intentionally
-unsupported. A snapshot container will add content/replay metadata around this
-payload without changing its hash semantics. Milestone 5's in-memory
+bytes plus its selected entry function ID. Versions `1`, `2`, and `3` are
+intentionally unsupported. A snapshot container will add content/replay metadata
+around this payload without changing its hash semantics. Milestone 5's in-memory
 `AuthoritySnapshot` carries that payload with a redundant tick and BLAKE2b-256
 state hash; restore rejects invalid payloads and tick or hash mismatches. It is
 not a `.dsnap` container yet.
+
+When present, map geometry encodes a one-byte presence tag, map bounds as
+signed 64-bit minimum x, minimum y, maximum x, and maximum y, an obstacle
+count, then each ascending obstacle's signed 64-bit ID, unsigned 64-bit
+elevation, and bounds in the same order. Rectangles are non-empty and closed;
+every obstacle rectangle is wholly within map bounds.
 
 ## 9. Replay package
 

@@ -14,6 +14,7 @@ from kiwi.domain.ids import (
     IntentionId,
     MessageId,
     ObjectiveId,
+    ObstacleId,
     OperativeId,
     PolicyInvocationId,
     ProjectileId,
@@ -88,6 +89,7 @@ def test_id_allocator_exposes_one_typed_entry_point_per_authority_family() -> No
         allocator.allocate_trace_node()[0],
         allocator.allocate_objective()[0],
         allocator.allocate_message()[0],
+        allocator.allocate_obstacle()[0],
     )
 
     assert tuple(type(value) for value in allocated) == (
@@ -102,6 +104,7 @@ def test_id_allocator_exposes_one_typed_entry_point_per_authority_family() -> No
         TraceNodeId,
         ObjectiveId,
         MessageId,
+        ObstacleId,
     )
     assert all(canonical_id_value(value) == FIRST_DYNAMIC_ID for value in allocated)
 
