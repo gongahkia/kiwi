@@ -132,6 +132,7 @@ MissionState {
   obstacles
   cover
   projectiles
+  contacts
   objectives
   messages_in_flight
   scheduled_events
@@ -216,7 +217,18 @@ supplied current tick. It deliberately contains no hidden target entity ID,
 true state, evidence, classification, or velocity before their respective
 models are defined.
 
-When visibility is lost, the contact may persist and decay according to documented rules.
+`ContactStore` is an immutable tuple ordered by `(owner entity ID, contact ID)`
+and a lifecycle tick. A visibility-associated `ContactSighting` creates a new
+allocated contact when its ID is absent, or replaces the specified existing
+owner-local contact. Sighting input is canonically sorted before allocation; no
+target entity ID is retained or used for automatic association. A sighting with
+zero confidence removes an existing contact and does not allocate a new one.
+
+On each active reducer tick, contacts advance through the current tick before
+policy evaluation. Each elapsed tick subtracts 100 basis points of confidence
+and adds 100 millimetres of uncertainty. A contact is lost and removed exactly
+when its confidence reaches zero. Its last observation tick remains unchanged
+while it decays, so reported age remains exact.
 
 ### 8.3 Provenance
 

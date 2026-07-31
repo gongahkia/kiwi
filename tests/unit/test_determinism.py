@@ -7,6 +7,7 @@ import pytest
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.contacts import ContactConfidence, ContactSighting, apply_contact_sightings
 from kiwi.sim.determinism import (
     compare_headless_runs,
     first_canonical_state_difference,
@@ -73,6 +74,33 @@ def test_differential_report_includes_policy_memory_in_canonical_order() -> None
 
     assert difference is not None
     assert difference.path == "policy_memory/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_contacts_in_canonical_order() -> None:
+    expected, owner = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    contacts, allocator = apply_contact_sightings(
+        expected.contacts,
+        expected.id_allocator,
+        expected.tick,
+        (
+            ContactSighting(
+                owner.entity_id,
+                WorldPosition(WorldSubunits(2_000), WorldSubunits(3_000)),
+                WorldSubunits(250),
+                ContactConfidence(7_500),
+            ),
+        ),
+    )
+    actual = replace(expected, contacts=contacts, id_allocator=allocator)
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "contacts/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

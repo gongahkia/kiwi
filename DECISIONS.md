@@ -318,6 +318,19 @@ exact non-negative difference from a supplied current tick. Contacts contain no
 hidden target entity ID, true state, evidence IDs, classification, or velocity;
 those require their later lifecycle and provenance models.
 
+### D-041: Contact lifecycle is explicit, deterministic, and identity-blind
+
+Contacts are stored canonically by `(owner entity ID, contact ID)` with the
+latest lifecycle tick. Visibility-associated sightings create contacts in
+canonical sighting order or replace an explicit existing owner-local contact;
+no true target entity ID is retained for automatic association. Active reducer
+ticks apply a fixed 100 basis-point confidence loss and 100 millimetre
+uncertainty growth per elapsed tick. Contacts are removed at zero confidence,
+including an explicit zero-confidence update. `KWI-STATE\0` therefore uses
+version `7`, which serialises this store and lifecycle tick. Versions `1`
+through `6` are rejected with no migration because development state remains
+disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
