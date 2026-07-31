@@ -96,6 +96,16 @@ def test_canonical_state_codec_round_trips_persisted_policy_memory() -> None:
         replace(state, policy_memory=PolicyMemoryStore())
     )
 
+    noncanonical_quantity = encoded.replace(
+        b"\x05\x02\x00\x00\x01\x03\x00\x01\x02",
+        b"\x05\x02\x00\x00\x01\x02\x00\x01\x02",
+        1,
+    )
+    assert noncanonical_quantity != encoded
+    malformed = decode_canonical_state(noncanonical_quantity)
+    assert isinstance(malformed, StateDecodeFailure)
+    assert malformed.code is StateDecodeCode.INVALID_VALUE
+
 
 @pytest.mark.parametrize(
     ("data", "code"),

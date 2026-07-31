@@ -10,6 +10,7 @@ from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
 from kiwi.domain.ids import EntityId, IdAllocator, IdKind
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_STRING_BYTES,
     BooleanValue,
     IntegerValue,
     ListValue,
@@ -60,8 +61,9 @@ _MEMORY_DURATION = 1
 _MEMORY_DISTANCE = 2
 _MEMORY_ANGLE = 3
 _MEMORY_PROBABILITY = 4
-_MAX_MEMORY_TEXT_BYTES = 65_536
+_MAX_MEMORY_TEXT_BYTES = MAX_RUNTIME_STRING_BYTES
 _MAX_MEMORY_INTEGER_BYTES = 512
+_MAX_MEMORY_UNSIGNED_INTEGER = (1 << (_MAX_MEMORY_INTEGER_BYTES * 8)) - 1
 
 
 class StateDecodeCode(StrEnum):
@@ -380,13 +382,16 @@ def _decode_memory_quantity(reader: _Reader) -> Quantity:
             offset,
             "invalid policy memory quantity dimension",
         )
-    return Quantity(
-        dimension,
-        ExactRational(
-            reader.integer("policy memory quantity numerator"),
-            reader.natural("policy memory quantity denominator"),
-        ),
-    )
+    numerator = reader.integer("policy memory quantity numerator")
+    denominator = reader.natural("policy memory quantity denominator")
+    rational = ExactRational(numerator, denominator)
+    if rational.numerator != numerator or rational.denominator != denominator:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            offset,
+            "policy memory quantity must use a reduced rational",
+        )
+    return Quantity(dimension, rational)
 
 
 def _decode_scheduled_events(reader: _Reader) -> ScheduledEventQueue:
@@ -491,7 +496,12 @@ class _Writer:
         self.write(encoded)
 
     def integer(self, value: int, name: str) -> None:
-        value = self._bounded(value, -(1 << 4_096), (1 << 4_096) - 1, name)
+        value = self._bounded(
+            value,
+            -_MAX_MEMORY_UNSIGNED_INTEGER,
+            _MAX_MEMORY_UNSIGNED_INTEGER,
+            name,
+        )
         magnitude = abs(value)
         count = (magnitude.bit_length() + 7) // 8
         if count > _MAX_MEMORY_INTEGER_BYTES:
@@ -502,7 +512,7 @@ class _Writer:
             self.write(magnitude.to_bytes(count, "big"))
 
     def natural(self, value: int, name: str) -> None:
-        value = self._bounded(value, 1, (1 << 4_096) - 1, name)
+        value = self._bounded(value, 1, _MAX_MEMORY_UNSIGNED_INTEGER, name)
         count = (value.bit_length() + 7) // 8
         if count > _MAX_MEMORY_INTEGER_BYTES:
             raise ValueError(f"{name} exceeds the configured byte limit")
