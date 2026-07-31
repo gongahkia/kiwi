@@ -10,6 +10,7 @@ from kiwi.dsl.core_ir import (
     CoreFieldAccess,
     CoreInteger,
     CoreLet,
+    CoreMatch,
     CoreModule,
     CoreNegate,
     CoreNone,
@@ -116,6 +117,17 @@ def _format_expression(expression: CoreExpression, depth: int) -> list[str]:
         lines.extend(_format_expression(expression.value, depth + 2))
         lines.append(f"{prefix}  body:")
         lines.extend(_format_expression(expression.body, depth + 2))
+        return lines
+    if isinstance(expression, CoreMatch):
+        lines = [f"{prefix}MatchOption {metadata}", f"{prefix}  subject:"]
+        lines.extend(_format_expression(expression.subject, depth + 2))
+        lines.append(
+            f"{prefix}  Some symbol={expression.some_arm.symbol_id.value} "
+            f"span={format_span(expression.some_arm.span)}:"
+        )
+        lines.extend(_format_expression(expression.some_arm.body, depth + 2))
+        lines.append(f"{prefix}  None span={format_span(expression.none_arm.span)}:")
+        lines.extend(_format_expression(expression.none_arm.body, depth + 2))
         return lines
     lines = [f"{prefix}If {metadata}", f"{prefix}  condition:"]
     lines.extend(_format_expression(expression.condition, depth + 2))

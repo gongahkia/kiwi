@@ -27,6 +27,7 @@ class CoreExpressionKind(StrEnum):
     QUANTITY = "quantity"
     OPTION_SOME = "option_some"
     OPTION_NONE = "option_none"
+    MATCH_OPTION = "match_option"
     RECORD = "record"
     REFERENCE = "reference"
     NEGATE = "negate"
@@ -99,6 +100,36 @@ class CoreNone:
     type_: DslType
     span: SourceSpan
     kind: CoreExpressionKind = CoreExpressionKind.OPTION_NONE
+
+
+@dataclass(frozen=True, slots=True)
+class CoreMatchSomeArm:
+    """The payload-binding arm of a canonical `Option` match."""
+
+    symbol_id: SymbolId
+    body: CoreExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class CoreMatchNoneArm:
+    """The payload-free arm of a canonical `Option` match."""
+
+    body: CoreExpression
+    span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class CoreMatch:
+    """An exhaustive `Option` match with canonical Some then None arms."""
+
+    expression_id: ExpressionId
+    subject: CoreExpression
+    some_arm: CoreMatchSomeArm
+    none_arm: CoreMatchNoneArm
+    type_: DslType
+    span: SourceSpan
+    kind: CoreExpressionKind = CoreExpressionKind.MATCH_OPTION
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +232,7 @@ type CoreExpression = (
     | CoreQuantity
     | CoreSome
     | CoreNone
+    | CoreMatch
     | CoreRecord
     | CoreReference
     | CoreNegate

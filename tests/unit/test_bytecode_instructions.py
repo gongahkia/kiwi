@@ -12,17 +12,20 @@ from kiwi.dsl.bytecode import (
     InstructionIndex,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
     Opcode,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
     TraceExpression,
+    UnwrapSome,
 )
 from kiwi.dsl.ids import ExpressionId, FunctionId
 
@@ -43,6 +46,9 @@ def test_initial_instruction_set_uses_stable_numeric_opcodes() -> None:
         LoadField("x"),
         BuildSome(),
         PushNone(),
+        JumpIfNone(InstructionIndex(7)),
+        UnwrapSome(),
+        Pop(),
     )
 
     assert tuple(instruction.opcode for instruction in instructions) == tuple(Opcode)

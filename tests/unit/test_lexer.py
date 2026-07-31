@@ -95,6 +95,26 @@ def test_lexer_recognises_function_and_let_scope_keywords() -> None:
     )
 
 
+def test_lexer_recognises_closed_option_match_keywords_and_arm_marker() -> None:
+    source = SourceFile(SourceFileId("matching.dtr"), "match value with | Some(item) -> item")
+
+    result = lex(source)
+
+    assert tuple(token.kind for token in result.tokens) == (
+        TokenKind.MATCH,
+        TokenKind.IDENTIFIER,
+        TokenKind.WITH,
+        TokenKind.BAR,
+        TokenKind.SOME,
+        TokenKind.LEFT_PAREN,
+        TokenKind.IDENTIFIER,
+        TokenKind.RIGHT_PAREN,
+        TokenKind.ARROW,
+        TokenKind.IDENTIFIER,
+        TokenKind.EOF,
+    )
+
+
 def test_lexer_recovers_after_an_oversized_integer_literal() -> None:
     digits = "1" * (MAX_INTEGER_DIGITS + 1)
     source = SourceFile(SourceFileId("policy.dtr"), f"{digits} true")

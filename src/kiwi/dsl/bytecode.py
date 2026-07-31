@@ -87,6 +87,9 @@ class Opcode(IntEnum):
     LOAD_FIELD = 12
     BUILD_SOME = 13
     PUSH_NONE = 14
+    JUMP_IF_NONE = 15
+    UNWRAP_SOME = 16
+    POP = 17
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +191,28 @@ class PushNone:
 
 
 @dataclass(frozen=True, slots=True)
+class JumpIfNone:
+    """Branch when the top stack value is `None` without consuming it."""
+
+    target: InstructionIndex
+    opcode: ClassVar[Opcode] = Opcode.JUMP_IF_NONE
+
+
+@dataclass(frozen=True, slots=True)
+class UnwrapSome:
+    """Replace a payload-bearing `Option` with its value."""
+
+    opcode: ClassVar[Opcode] = Opcode.UNWRAP_SOME
+
+
+@dataclass(frozen=True, slots=True)
+class Pop:
+    """Discard the top stack value."""
+
+    opcode: ClassVar[Opcode] = Opcode.POP
+
+
+@dataclass(frozen=True, slots=True)
 class Jump:
     """Transfer control unconditionally to an instruction index."""
 
@@ -229,6 +254,9 @@ type BytecodeInstruction = (
     | LoadField
     | BuildSome
     | PushNone
+    | JumpIfNone
+    | UnwrapSome
+    | Pop
     | Jump
     | JumpIfFalse
     | Return
@@ -406,7 +434,10 @@ class BytecodeModule:
             any(isinstance(value, (StringValue, QuantityValue)) for value in self.constants.values)
             or any(_uses_version_two_type(function.return_type) for function in self.functions)
             or any(
-                isinstance(instruction, (BuildRecord, LoadField, BuildSome, PushNone))
+                isinstance(
+                    instruction,
+                    (BuildRecord, LoadField, BuildSome, PushNone, JumpIfNone, UnwrapSome, Pop),
+                )
                 for function in self.functions
                 for instruction in function.instructions
             )

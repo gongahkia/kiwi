@@ -16,6 +16,7 @@ from kiwi.dsl.syntax import (
     Identifier,
     IntegerLiteral,
     LetExpression,
+    MatchExpression,
     NameExpression,
     NegateExpression,
     NoneExpression,
@@ -25,6 +26,7 @@ from kiwi.dsl.syntax import (
     RecordExpression,
     RecordTypeField,
     SomeExpression,
+    SomePattern,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -207,6 +209,22 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
         lines.extend(_format_expression(expression.value, depth + 2))
         lines.append(f"{prefix}  body:")
         lines.extend(_format_expression(expression.body, depth + 2))
+        return lines
+    if isinstance(expression, MatchExpression):
+        lines = [
+            f"{prefix}MatchExpression span={format_span(expression.span)}",
+            f"{prefix}  subject:",
+        ]
+        lines.extend(_format_expression(expression.subject, depth + 2))
+        lines.append(f"{prefix}  arms:")
+        for arm in expression.arms:
+            if isinstance(arm.pattern, SomePattern):
+                lines.append(f"{prefix}    SomePattern span={format_span(arm.pattern.span)}")
+                lines.extend(_format_identifier(arm.pattern.binding, depth + 3))
+            else:
+                lines.append(f"{prefix}    NonePattern span={format_span(arm.pattern.span)}")
+            lines.append(f"{prefix}      body:")
+            lines.extend(_format_expression(arm.body, depth + 3))
         return lines
     lines = [f"{prefix}IfExpression span={format_span(expression.span)}", f"{prefix}  condition:"]
     lines.extend(_format_expression(expression.condition, depth + 2))

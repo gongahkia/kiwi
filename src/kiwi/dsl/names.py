@@ -18,14 +18,17 @@ from kiwi.dsl.syntax import (
     IfExpression,
     IntegerLiteral,
     LetExpression,
+    MatchExpression,
     NameExpression,
     NegateExpression,
     NoneExpression,
+    NonePattern,
     Parameter,
     PolicyDeclaration,
     QuantityLiteral,
     RecordExpression,
     SomeExpression,
+    SomePattern,
     StringLiteral,
     SurfaceModule,
     ValueDeclaration,
@@ -38,6 +41,7 @@ class SymbolKind(StrEnum):
     DEFINITION = "definition"
     PARAMETER = "parameter"
     LOCAL = "local"
+    MATCH_BINDING = "match_binding"
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,6 +255,44 @@ def _resolve_expression(
             references,
             diagnostics,
         )
+    if isinstance(expression, MatchExpression):
+        next_symbol_value = _resolve_expression(
+            expression.subject,
+            environment,
+            definition_id,
+            next_symbol_value,
+            bindings,
+            references,
+            diagnostics,
+        )
+        for arm in expression.arms:
+            arm_environment = environment
+            if isinstance(arm.pattern, SomePattern):
+                pattern_binding = ResolvedBinding(
+                    SymbolId(next_symbol_value),
+                    arm.pattern.binding,
+                    SymbolKind.MATCH_BINDING,
+                    definition_id,
+                )
+                next_symbol_value += 1
+                bindings.append(pattern_binding)
+                shadowed = environment.lookup(arm.pattern.binding.text)
+                if shadowed is not None:
+                    diagnostics.append(_shadowing_diagnostic(arm.pattern.binding, shadowed))
+                else:
+                    arm_environment = environment.extend((pattern_binding,))
+            elif not isinstance(arm.pattern, NonePattern):
+                raise AssertionError("parser produced an unsupported match pattern")
+            next_symbol_value = _resolve_expression(
+                arm.body,
+                arm_environment,
+                definition_id,
+                next_symbol_value,
+                bindings,
+                references,
+                diagnostics,
+            )
+        return next_symbol_value
     if isinstance(expression, RecordExpression):
         for field in expression.fields:
             next_symbol_value = _resolve_expression(

@@ -24,17 +24,20 @@ from kiwi.dsl.bytecode import (
     InstructionSourceMapEntry,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     LocalSlot,
     Negate,
     Opcode,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
     TraceExpression,
+    UnwrapSome,
 )
 from kiwi.dsl.ids import DefinitionId, ExpressionId, FunctionId
 from kiwi.dsl.runtime_values import (
@@ -320,7 +323,7 @@ def _encode_instruction(writer: _Writer, instruction: BytecodeInstruction) -> No
             writer.text(field_name)
     elif isinstance(instruction, LoadField):
         writer.text(instruction.field_name)
-    elif isinstance(instruction, (Jump, JumpIfFalse)):
+    elif isinstance(instruction, (Jump, JumpIfFalse, JumpIfNone)):
         writer.u32(instruction.target.value, "jump target")
     elif isinstance(instruction, TraceExpression):
         writer.u32(instruction.expression_id.value, "expression ID")
@@ -534,6 +537,9 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         Opcode.LOAD_FIELD,
         Opcode.BUILD_SOME,
         Opcode.PUSH_NONE,
+        Opcode.JUMP_IF_NONE,
+        Opcode.UNWRAP_SOME,
+        Opcode.POP,
     }:
         raise _DecodeError(
             BytecodeDecodeCode.INVALID_OPCODE,
@@ -565,6 +571,12 @@ def _decode_instruction(reader: _Reader, bytecode_version: int) -> BytecodeInstr
         return BuildSome()
     if opcode is Opcode.PUSH_NONE:
         return PushNone()
+    if opcode is Opcode.JUMP_IF_NONE:
+        return JumpIfNone(InstructionIndex(reader.u32()))
+    if opcode is Opcode.UNWRAP_SOME:
+        return UnwrapSome()
+    if opcode is Opcode.POP:
+        return Pop()
     if opcode is Opcode.JUMP:
         return Jump(InstructionIndex(reader.u32()))
     if opcode is Opcode.JUMP_IF_FALSE:

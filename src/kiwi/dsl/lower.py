@@ -14,6 +14,9 @@ from kiwi.dsl.core_ir import (
     CoreIf,
     CoreInteger,
     CoreLet,
+    CoreMatch,
+    CoreMatchNoneArm,
+    CoreMatchSomeArm,
     CoreModule,
     CoreNegate,
     CoreNone,
@@ -38,6 +41,7 @@ from kiwi.dsl.typed_ir import (
     TypedIfExpression,
     TypedIntegerLiteral,
     TypedLetExpression,
+    TypedMatchExpression,
     TypedModule,
     TypedNameExpression,
     TypedNegateExpression,
@@ -143,6 +147,22 @@ class _Lowerer:
             )
         if isinstance(expression, TypedNoneExpression):
             return CoreNone(expression_id, expression.type_, expression.span)
+        if isinstance(expression, TypedMatchExpression):
+            return CoreMatch(
+                expression_id,
+                self.lower_expression(expression.subject, definition_id),
+                CoreMatchSomeArm(
+                    expression.some_arm.symbol_id,
+                    self.lower_expression(expression.some_arm.body, definition_id),
+                    expression.some_arm.span,
+                ),
+                CoreMatchNoneArm(
+                    self.lower_expression(expression.none_arm.body, definition_id),
+                    expression.none_arm.span,
+                ),
+                expression.type_,
+                expression.span,
+            )
         if isinstance(expression, TypedRecordExpression):
             return CoreRecord(
                 expression_id,

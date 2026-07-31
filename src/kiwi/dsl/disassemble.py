@@ -10,14 +10,17 @@ from kiwi.dsl.bytecode import (
     Call,
     Jump,
     JumpIfFalse,
+    JumpIfNone,
     LoadField,
     LoadLocal,
     Negate,
+    Pop,
     PushConstant,
     PushFunction,
     PushNone,
     Return,
     StoreLocal,
+    UnwrapSome,
 )
 from kiwi.dsl.runtime_values import (
     BooleanValue,
@@ -98,6 +101,12 @@ def _format_instruction(instruction: BytecodeInstruction) -> str:
         return "BUILD_SOME"
     if isinstance(instruction, PushNone):
         return "PUSH_NONE"
+    if isinstance(instruction, JumpIfNone):
+        return f"JUMP_IF_NONE {instruction.target.value}"
+    if isinstance(instruction, UnwrapSome):
+        return "UNWRAP_SOME"
+    if isinstance(instruction, Pop):
+        return "POP"
     if isinstance(instruction, Jump):
         return f"JUMP {instruction.target.value}"
     if isinstance(instruction, JumpIfFalse):
