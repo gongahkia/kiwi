@@ -221,6 +221,11 @@ supported builds.
 
 ## 7. Fixed-step runtime
 
+Each mission selects one immutable `FixedTickClock` rate from 20, 30, or 60 Hz.
+The selected rate is configuration, not renderer state; it exposes an exact
+rational tick duration and advances authoritative state exactly once. Fixture
+and replay metadata record the selected rate when those formats are added.
+
 The graphical loop may run at arbitrary frame rate, but simulation advances through fixed ticks.
 
 ```python

@@ -21,7 +21,10 @@ The MVP must support:
 
 ### 2.1 Tick
 
-Authority advances in integer ticks. Select the tick frequency through profiling and record it in replay metadata. Candidate values are 20, 30, or 60 ticks per second.
+Authority advances in integer ticks. Each mission selects one immutable tick
+frequency through profiling and records it in replay metadata. Candidate values
+are 20, 30, or 60 ticks per second. The initial kernel represents one tick as
+an exact rational duration and advances mission state one tick at a time.
 
 All authoritative durations are integer ticks or exactly converted into ticks during content validation.
 
