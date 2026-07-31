@@ -28,10 +28,10 @@ lint:
 	$(STYLUA) --check main.lua conf.lua src tests tools
 
 run:
+	$(LOVE) .
+
 screenshot-scenarios:
 	$(LUAJIT) tools/validate_screenshot_scenarios.lua
-
-	$(LOVE) .
 
 inspect:
 	$(LUAJIT) tools/inspect_recording.lua "$(RECORDING)"
