@@ -19,6 +19,7 @@ class RuntimeValueKind(StrEnum):
     UNIT = "unit"
     STRING = "string"
     QUANTITY = "quantity"
+    RECORD = "record"
     FUNCTION = "function"
 
 
@@ -80,6 +81,37 @@ class QuantityValue:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordValue:
+    """An immutable nominal record with lexically ordered field names."""
+
+    type_name: str
+    field_names: tuple[str, ...]
+    values: tuple[RuntimeValue, ...]
+    kind: RuntimeValueKind = field(default=RuntimeValueKind.RECORD, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.type_name, str) or not self.type_name:
+            raise ValueError("record type name must be a non-empty string")
+        if len(self.field_names) != len(self.values):
+            raise ValueError("record field names and values must have equal length")
+        if any(not isinstance(name, str) or not name for name in self.field_names):
+            raise ValueError("record field names must be non-empty strings")
+        if self.field_names != tuple(sorted(self.field_names)) or len(set(self.field_names)) != len(
+            self.field_names
+        ):
+            raise ValueError("record field names must be unique and lexically ordered")
+        if any(not _is_runtime_value(value) for value in self.values):
+            raise ValueError("record values must be runtime values")
+
+    def field_value(self, name: str) -> RuntimeValue | None:
+        """Return one statically named field without dictionary iteration."""
+        for field_name, value in zip(self.field_names, self.values, strict=True):
+            if field_name == name:
+                return value
+        return None
+
+
+@dataclass(frozen=True, slots=True)
 class FunctionValue:
     """A callable reference into the immutable bytecode function table."""
 
@@ -92,5 +124,18 @@ class FunctionValue:
 
 
 type RuntimeValue = (
-    IntegerValue | BooleanValue | UnitValue | StringValue | QuantityValue | FunctionValue
+    IntegerValue
+    | BooleanValue
+    | UnitValue
+    | StringValue
+    | QuantityValue
+    | RecordValue
+    | FunctionValue
 )
+
+
+def _is_runtime_value(value: object) -> bool:
+    return isinstance(
+        value,
+        (IntegerValue, BooleanValue, UnitValue, StringValue, QuantityValue, RecordValue, FunctionValue),
+    )

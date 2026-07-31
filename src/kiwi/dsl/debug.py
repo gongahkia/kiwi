@@ -10,6 +10,7 @@ from kiwi.dsl.syntax import (
     CallExpression,
     Declaration,
     Expression,
+    FieldAccessExpression,
     FunctionDeclaration,
     GroupExpression,
     Identifier,
@@ -18,7 +19,11 @@ from kiwi.dsl.syntax import (
     NameExpression,
     NegateExpression,
     Parameter,
+    PolicyDeclaration,
     QuantityLiteral,
+    RecordExpression,
+    RecordTypeDeclaration,
+    RecordTypeField,
     StringLiteral,
     SurfaceModule,
     TypeReference,
@@ -58,8 +63,18 @@ def _format_declaration(declaration: Declaration, depth: int) -> list[str]:
     prefix = "  " * depth
     if isinstance(declaration, FunctionDeclaration):
         name = "FunctionDeclaration"
-    else:
+    elif isinstance(declaration, PolicyDeclaration):
         name = "PolicyDeclaration"
+    else:
+        lines = [
+            f"{prefix}RecordTypeDeclaration span={format_span(declaration.span)}",
+            f"{prefix}  name:",
+        ]
+        lines.extend(_format_identifier(declaration.name, depth + 2))
+        lines.append(f"{prefix}  fields:")
+        for field in declaration.fields:
+            lines.extend(_format_record_type_field(field, depth + 2))
+        return lines
     lines = [f"{prefix}{name} span={format_span(declaration.span)}", f"{prefix}  name:"]
     lines.extend(_format_identifier(declaration.name, depth + 2))
     lines.append(f"{prefix}  parameters:")
@@ -78,6 +93,15 @@ def _format_parameter(parameter: Parameter, depth: int) -> list[str]:
     lines.extend(_format_identifier(parameter.name, depth + 2))
     lines.append(f"{prefix}  annotation:")
     lines.extend(_format_type_reference(parameter.annotation, depth + 2))
+    return lines
+
+
+def _format_record_type_field(field: RecordTypeField, depth: int) -> list[str]:
+    prefix = "  " * depth
+    lines = [f"{prefix}RecordTypeField span={format_span(field.span)}", f"{prefix}  name:"]
+    lines.extend(_format_identifier(field.name, depth + 2))
+    lines.append(f"{prefix}  annotation:")
+    lines.extend(_format_type_reference(field.annotation, depth + 2))
     return lines
 
 
@@ -114,6 +138,20 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
             f"value={quantity.value.numerator}/{quantity.value.denominator} "
             f"span={format_span(expression.span)}"
         ]
+    if isinstance(expression, RecordExpression):
+        lines = [
+            f"{prefix}RecordExpression span={format_span(expression.span)}",
+            f"{prefix}  type_name:",
+        ]
+        lines.extend(_format_identifier(expression.type_name, depth + 2))
+        lines.append(f"{prefix}  fields:")
+        for field in expression.fields:
+            lines.append(f"{prefix}    RecordField span={format_span(field.span)}")
+            lines.append(f"{prefix}      name:")
+            lines.extend(_format_identifier(field.name, depth + 4))
+            lines.append(f"{prefix}      value:")
+            lines.extend(_format_expression(field.value, depth + 4))
+        return lines
     if isinstance(expression, NameExpression):
         lines = [f"{prefix}NameExpression span={format_span(expression.span)}", f"{prefix}  name:"]
         lines.extend(_format_identifier(expression.name, depth + 2))
@@ -141,6 +179,15 @@ def _format_expression(expression: Expression, depth: int) -> list[str]:
         lines.append(f"{prefix}  arguments:")
         for argument in expression.arguments:
             lines.extend(_format_expression(argument, depth + 2))
+        return lines
+    if isinstance(expression, FieldAccessExpression):
+        lines = [
+            f"{prefix}FieldAccessExpression span={format_span(expression.span)}",
+            f"{prefix}  record:",
+        ]
+        lines.extend(_format_expression(expression.record, depth + 2))
+        lines.append(f"{prefix}  field:")
+        lines.extend(_format_identifier(expression.field, depth + 2))
         return lines
     if isinstance(expression, LetExpression):
         lines = [f"{prefix}LetExpression span={format_span(expression.span)}", f"{prefix}  name:"]

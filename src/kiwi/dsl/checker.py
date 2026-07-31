@@ -23,8 +23,8 @@ from kiwi.dsl.syntax import (
     QuantityLiteral,
     RecordExpression,
     RecordTypeDeclaration,
-    RecordTypeField,
     StringLiteral,
+    SurfaceModule,
     TypeReference,
 )
 from kiwi.dsl.typed_ir import (
@@ -138,6 +138,7 @@ def check(resolution: ResolutionResult) -> CheckResult:
 
 def _headers(
     resolution: ResolutionResult,
+    record_schemas: tuple[_RecordSchema, ...],
     diagnostics: list[Diagnostic],
 ) -> tuple[_DefinitionHeader, ...]:
     headers: list[_DefinitionHeader] = []
@@ -145,7 +146,7 @@ def _headers(
         declaration = definition.declaration
         parameters: list[TypedParameter] = []
         for parameter in declaration.parameters:
-            parameter_type = _annotation_type(parameter.annotation, diagnostics)
+            parameter_type = _annotation_type(parameter.annotation, record_schemas, diagnostics)
             binding = _binding_for_identifier(
                 resolution.bindings,
                 parameter.name.text,
@@ -159,7 +160,11 @@ def _headers(
                         binding.symbol_id, parameter.name, parameter_type, parameter.span
                     )
                 )
-        return_type = _annotation_type(declaration.return_annotation, diagnostics)
+        return_type = _annotation_type(
+            declaration.return_annotation,
+            record_schemas,
+            diagnostics,
+        )
         if len(parameters) != len(declaration.parameters) or return_type is None:
             continue
         kind = (
@@ -180,10 +185,16 @@ def _headers(
     return tuple(headers)
 
 
-def _annotation_type(annotation: TypeReference, diagnostics: list[Diagnostic]) -> DslType | None:
+def _annotation_type(
+    annotation: TypeReference,
+    record_schemas: tuple[_RecordSchema, ...],
+    diagnostics: list[Diagnostic],
+) -> DslType | None:
     try:
         return BuiltinType(annotation.name.text)
     except ValueError:
+        if _record_schema_for(record_schemas, annotation.name.text) is not None:
+            return NamedType(annotation.name.text)
         diagnostics.append(
             Diagnostic(
                 "E400_UNKNOWN_TYPE",
@@ -196,11 +207,98 @@ def _annotation_type(annotation: TypeReference, diagnostics: list[Diagnostic]) -
         return None
 
 
+def _record_schemas(
+    module: SurfaceModule,
+    diagnostics: list[Diagnostic],
+) -> tuple[_RecordSchema, ...]:
+    declarations = tuple(
+        declaration
+        for declaration in module.declarations
+        if isinstance(declaration, RecordTypeDeclaration)
+    )
+    names: list[str] = []
+    accepted: list[RecordTypeDeclaration] = []
+    for declaration in declarations:
+        if declaration.name.text in names:
+            diagnostics.append(
+                Diagnostic(
+                    "E404_DUPLICATE_RECORD_TYPE",
+                    DiagnosticSeverity.ERROR,
+                    f"duplicate record type '{declaration.name.text}'",
+                    declaration.name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            continue
+        try:
+            BuiltinType(declaration.name.text)
+        except ValueError:
+            names.append(declaration.name.text)
+            accepted.append(declaration)
+            continue
+        diagnostics.append(
+            Diagnostic(
+                "E404_DUPLICATE_RECORD_TYPE",
+                DiagnosticSeverity.ERROR,
+                f"record type '{declaration.name.text}' conflicts with a built-in type",
+                declaration.name.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+    schemas: list[_RecordSchema] = []
+    placeholder_schemas = tuple(
+        _RecordSchema(name, (), module.span) for name in names
+    )
+    for declaration in accepted:
+        fields = _record_schema_fields(declaration, placeholder_schemas, diagnostics)
+        if fields is not None:
+            schemas.append(_RecordSchema(declaration.name.text, fields, declaration.span))
+    return tuple(schemas)
+
+
+def _record_schema_fields(
+    declaration: RecordTypeDeclaration,
+    record_schemas: tuple[_RecordSchema, ...],
+    diagnostics: list[Diagnostic],
+) -> tuple[_RecordFieldSchema, ...] | None:
+    fields: list[_RecordFieldSchema] = []
+    field_names: list[str] = []
+    for field in declaration.fields:
+        if field.name.text in field_names:
+            diagnostics.append(
+                Diagnostic(
+                    "E405_DUPLICATE_RECORD_FIELD",
+                    DiagnosticSeverity.ERROR,
+                    f"duplicate field '{field.name.text}' in record type '{declaration.name.text}'",
+                    field.name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            continue
+        type_ = _annotation_type(field.annotation, record_schemas, diagnostics)
+        if type_ is None:
+            continue
+        field_names.append(field.name.text)
+        fields.append(_RecordFieldSchema(field.name.text, type_, field.span))
+    return tuple(fields) if len(fields) == len(declaration.fields) else None
+
+
+def _record_schema_for(
+    record_schemas: tuple[_RecordSchema, ...] | list[_RecordSchema],
+    name: str,
+) -> _RecordSchema | None:
+    for schema in record_schemas:
+        if schema.name == name:
+            return schema
+    return None
+
+
 def _check_expression(
     expression: Expression,
     resolution: ResolutionResult,
     symbol_types: list[tuple[SymbolId, DslType]],
     diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
 ) -> TypedExpression | None:
     if isinstance(expression, IntegerLiteral):
         return TypedIntegerLiteral(expression.value, BuiltinType.INT, expression.span)
@@ -214,6 +312,14 @@ def _check_expression(
             BuiltinType(expression.value.dimension.value),
             expression.span,
         )
+    if isinstance(expression, RecordExpression):
+        return _check_record_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
     if isinstance(expression, NameExpression):
         binding = resolution.binding_for(expression)
         if binding is None:
@@ -222,7 +328,13 @@ def _check_expression(
             binding.symbol_id, _type_for_symbol(symbol_types, binding.symbol_id), expression.span
         )
     if isinstance(expression, NegateExpression):
-        operand = _check_expression(expression.operand, resolution, symbol_types, diagnostics)
+        operand = _check_expression(
+            expression.operand,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         if operand is None:
             return None
         if operand.type_ != BuiltinType.INT:
@@ -230,14 +342,34 @@ def _check_expression(
             return None
         return TypedNegateExpression(operand, BuiltinType.INT, expression.span)
     if isinstance(expression, GroupExpression):
-        inner = _check_expression(expression.expression, resolution, symbol_types, diagnostics)
+        inner = _check_expression(
+            expression.expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         if inner is None:
             return None
         return TypedGroupExpression(inner, inner.type_, expression.span)
+    if isinstance(expression, FieldAccessExpression):
+        return _check_field_access_expression(
+            expression,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
     if isinstance(expression, CallExpression):
-        callee = _check_expression(expression.callee, resolution, symbol_types, diagnostics)
+        callee = _check_expression(
+            expression.callee,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         arguments = tuple(
-            _check_expression(argument, resolution, symbol_types, diagnostics)
+            _check_expression(argument, resolution, symbol_types, diagnostics, record_schemas)
             for argument in expression.arguments
         )
         if callee is None or any(argument is None for argument in arguments):
@@ -277,7 +409,13 @@ def _check_expression(
             callee, typed_arguments, callee.type_.return_type, expression.span
         )
     if isinstance(expression, LetExpression):
-        value = _check_expression(expression.value, resolution, symbol_types, diagnostics)
+        value = _check_expression(
+            expression.value,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         if value is None:
             return None
         binding = _binding_for_identifier(
@@ -288,19 +426,39 @@ def _check_expression(
             None,
         )
         symbol_types.append((binding.symbol_id, value.type_))
-        body = _check_expression(expression.body, resolution, symbol_types, diagnostics)
+        body = _check_expression(
+            expression.body,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         if body is None:
             return None
         return TypedLetExpression(
             binding.symbol_id, expression.name, value, body, body.type_, expression.span
         )
     if isinstance(expression, IfExpression):
-        condition = _check_expression(expression.condition, resolution, symbol_types, diagnostics)
+        condition = _check_expression(
+            expression.condition,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
         then_branch = _check_expression(
-            expression.then_branch, resolution, symbol_types, diagnostics
+            expression.then_branch,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
         )
         else_branch = _check_expression(
-            expression.else_branch, resolution, symbol_types, diagnostics
+            expression.else_branch,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
         )
         if condition is None or then_branch is None or else_branch is None:
             return None
@@ -324,6 +482,142 @@ def _check_expression(
             condition, then_branch, else_branch, then_branch.type_, expression.span
         )
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
+
+
+def _check_record_expression(
+    expression: RecordExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    schema = _record_schema_for(record_schemas, expression.type_name.text)
+    if schema is None:
+        diagnostics.append(
+            Diagnostic(
+                "E406_UNKNOWN_RECORD_TYPE",
+                DiagnosticSeverity.ERROR,
+                f"unknown record type '{expression.type_name.text}'",
+                expression.type_name.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    typed_fields: list[TypedRecordField] = []
+    supplied_names: list[str] = []
+    is_valid = True
+    for field in expression.fields:
+        value = _check_expression(
+            field.value,
+            resolution,
+            symbol_types,
+            diagnostics,
+            record_schemas,
+        )
+        expected = _record_field_for(schema, field.name.text)
+        if field.name.text in supplied_names:
+            diagnostics.append(
+                Diagnostic(
+                    "E407_DUPLICATE_RECORD_VALUE",
+                    DiagnosticSeverity.ERROR,
+                    f"record field '{field.name.text}' is supplied more than once",
+                    field.name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            is_valid = False
+        else:
+            supplied_names.append(field.name.text)
+        if expected is None:
+            diagnostics.append(
+                Diagnostic(
+                    "E408_UNKNOWN_RECORD_FIELD",
+                    DiagnosticSeverity.ERROR,
+                    f"record type '{schema.name}' has no field '{field.name.text}'",
+                    field.name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            is_valid = False
+        elif value is not None and value.type_ != expected.type_:
+            diagnostics.append(_type_mismatch(value.span, expected.type_, value.type_))
+            is_valid = False
+        if value is None:
+            is_valid = False
+        else:
+            typed_fields.append(TypedRecordField(field.name, value, field.span))
+    for field in schema.fields:
+        if field.name not in supplied_names:
+            diagnostics.append(
+                Diagnostic(
+                    "E409_MISSING_RECORD_FIELD",
+                    DiagnosticSeverity.ERROR,
+                    f"record type '{schema.name}' requires field '{field.name}'",
+                    expression.type_name.span,
+                    DiagnosticStage.CHECKER,
+                )
+            )
+            is_valid = False
+    if not is_valid:
+        return None
+    return TypedRecordExpression(
+        schema.name,
+        tuple(typed_fields),
+        NamedType(schema.name),
+        expression.span,
+    )
+
+
+def _check_field_access_expression(
+    expression: FieldAccessExpression,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    record = _check_expression(
+        expression.record,
+        resolution,
+        symbol_types,
+        diagnostics,
+        record_schemas,
+    )
+    if record is None:
+        return None
+    if not isinstance(record.type_, NamedType):
+        diagnostics.append(
+            Diagnostic(
+                "E410_INVALID_FIELD_ACCESS",
+                DiagnosticSeverity.ERROR,
+                f"cannot access a field of type {render_type(record.type_)}",
+                expression.record.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    schema = _record_schema_for(record_schemas, record.type_.name)
+    if schema is None:
+        raise AssertionError("record type annotation has no schema")
+    field = _record_field_for(schema, expression.field.text)
+    if field is None:
+        diagnostics.append(
+            Diagnostic(
+                "E408_UNKNOWN_RECORD_FIELD",
+                DiagnosticSeverity.ERROR,
+                f"record type '{schema.name}' has no field '{expression.field.text}'",
+                expression.field.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    return TypedFieldAccessExpression(record, expression.field, field.type_, expression.span)
+
+
+def _record_field_for(schema: _RecordSchema, name: str) -> _RecordFieldSchema | None:
+    for field in schema.fields:
+        if field.name == name:
+            return field
+    return None
 
 
 def _binding_for_identifier(

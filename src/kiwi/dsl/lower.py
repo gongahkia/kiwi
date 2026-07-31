@@ -10,6 +10,7 @@ from kiwi.dsl.core_ir import (
     CoreDefinition,
     CoreDefinitionKind,
     CoreExpression,
+    CoreFieldAccess,
     CoreIf,
     CoreInteger,
     CoreLet,
@@ -17,6 +18,8 @@ from kiwi.dsl.core_ir import (
     CoreNegate,
     CoreParameter,
     CoreQuantity,
+    CoreRecord,
+    CoreRecordField,
     CoreReference,
     CoreString,
 )
@@ -28,6 +31,7 @@ from kiwi.dsl.typed_ir import (
     TypedDefinition,
     TypedDefinitionKind,
     TypedExpression,
+    TypedFieldAccessExpression,
     TypedGroupExpression,
     TypedIfExpression,
     TypedIntegerLiteral,
@@ -36,6 +40,7 @@ from kiwi.dsl.typed_ir import (
     TypedNameExpression,
     TypedNegateExpression,
     TypedQuantityLiteral,
+    TypedRecordExpression,
     TypedStringLiteral,
 )
 
@@ -125,6 +130,21 @@ class _Lowerer:
             return CoreString(expression_id, expression.value, expression.type_, expression.span)
         if isinstance(expression, TypedQuantityLiteral):
             return CoreQuantity(expression_id, expression.value, expression.type_, expression.span)
+        if isinstance(expression, TypedRecordExpression):
+            return CoreRecord(
+                expression_id,
+                expression.type_name,
+                tuple(
+                    CoreRecordField(
+                        field.name.text,
+                        self.lower_expression(field.value, definition_id),
+                        field.span,
+                    )
+                    for field in expression.fields
+                ),
+                expression.type_,
+                expression.span,
+            )
         if isinstance(expression, TypedNameExpression):
             return CoreReference(
                 expression_id, expression.symbol_id, expression.type_, expression.span
@@ -144,6 +164,14 @@ class _Lowerer:
                     self.lower_expression(argument, definition_id)
                     for argument in expression.arguments
                 ),
+                expression.type_,
+                expression.span,
+            )
+        if isinstance(expression, TypedFieldAccessExpression):
+            return CoreFieldAccess(
+                expression_id,
+                self.lower_expression(expression.record, definition_id),
+                expression.field.text,
                 expression.type_,
                 expression.span,
             )
