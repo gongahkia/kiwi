@@ -3,8 +3,8 @@ STYLUA ?= stylua
 LOVE ?= love
 TEST_SEED ?= 20260730
 FRAMES ?= 1000
-EFFECT_FRAMES ?= 1
-WARMUP ?= 20
+EFFECT_FRAMES ?= 30
+WARMUP ?= 60
 SAMPLES ?= 3
 
 .PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run test
@@ -16,7 +16,11 @@ benchmark-renderer:
 	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean --frames "$(FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
 
 benchmark-effects:
-	$(LUAJIT) tools/benchmark_renderer.lua --fixtures all --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,crt --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,kinetic --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,combined --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,effects_disabled --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,quarantined --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
 
 check: lint test
 
