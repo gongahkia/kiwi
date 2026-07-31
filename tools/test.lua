@@ -71,6 +71,7 @@ local modules = {
   "unit.shell.completion_test",
   "unit.shell.output_test",
   "unit.shell.vfs_path_test",
+  "unit.shell.virtual_fs_test",
   "unit.renderer.renderer_test",
   "unit.renderer.canvas_hooks_test",
   "unit.renderer.benchmark_policy_test",

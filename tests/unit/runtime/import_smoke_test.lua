@@ -31,6 +31,7 @@ return {
         "shell.registry",
         "shell.session",
         "shell.vfs_path",
+        "shell.virtual_fs",
         "shell.tokenizer",
         "effects.effect",
         "effects.clean",
