@@ -30,11 +30,18 @@ from kiwi.trace.model import (
     TraceResolutionStatus,
     WorldEventTrace,
 )
+from kiwi.trace.retention import (
+    DEFAULT_TRACE_RETENTION_POLICY,
+    TraceRetentionPolicy,
+    build_retained_trace,
+)
 
 
 def capture_policy_lifecycle_trace(
     phase: PolicyEventPhase,
     state_hash: StateHash,
+    *,
+    retention_policy: TraceRetentionPolicy = DEFAULT_TRACE_RETENTION_POLICY,
 ) -> CausalTrace:
     """Capture source-linked intention resolutions from one canonical policy event phase."""
     if not isinstance(phase, PolicyEventPhase):
@@ -43,14 +50,14 @@ def capture_policy_lifecycle_trace(
         raise TypeError("policy lifecycle trace capture requires a canonical state hash")
     if hash_canonical_state(phase.state) != state_hash:
         raise ValueError("policy lifecycle trace hash must match the event phase state")
-    return _capture_policy_lifecycle_events(phase.events, state_hash)
+    records, edges = _capture_policy_lifecycle_records(phase.events)
+    return build_retained_trace(state_hash.digest, records, edges, retention_policy)
 
 
-def _capture_policy_lifecycle_events(
+def _capture_policy_lifecycle_records(
     events: tuple[CanonicalEvent, ...],
-    state_hash: StateHash,
-) -> CausalTrace:
-    """Project one policy-only canonical event sequence into a decision trace."""
+) -> tuple[tuple[TraceRecord, ...], tuple[TraceEdge, ...]]:
+    """Project one policy-only canonical event sequence into unretained trace values."""
 
     policy_events: list[PolicyEvaluated] = []
     emitted_events: list[IntentionEmitted] = []
@@ -124,10 +131,15 @@ def _capture_policy_lifecycle_events(
                 target_node_id,
                 TraceEdgeKind.SELECTED_OVER,
             )
-    return CausalTrace(state_hash.digest, TraceLevel.DECISION, tuple(records), tuple(edges))
+    return tuple(records), tuple(edges)
 
 
-def capture_run_trace(run: HeadlessRun, state_hash: StateHash) -> CausalTrace:
+def capture_run_trace(
+    run: HeadlessRun,
+    state_hash: StateHash,
+    *,
+    retention_policy: TraceRetentionPolicy = DEFAULT_TRACE_RETENTION_POLICY,
+) -> CausalTrace:
     """Capture canonical world-event and current injury-consequence records for one run."""
     if not isinstance(run, HeadlessRun):
         raise TypeError("run trace capture requires a headless run")
@@ -136,7 +148,7 @@ def capture_run_trace(run: HeadlessRun, state_hash: StateHash) -> CausalTrace:
     if hash_canonical_state(run.state) != state_hash:
         raise ValueError("run trace hash must match the headless run state")
 
-    policy_trace = _capture_policy_lifecycle_events(
+    policy_records, policy_edges = _capture_policy_lifecycle_records(
         tuple(
             event
             for event in run.events
@@ -144,10 +156,9 @@ def capture_run_trace(run: HeadlessRun, state_hash: StateHash) -> CausalTrace:
                 event,
                 (PolicyEvaluated, IntentionEmitted, IntentionSelected, IntentionRejected),
             )
-        ),
-        state_hash,
+        )
     )
-    records: list[TraceRecord] = list(policy_trace.records)
+    records: list[TraceRecord] = list(policy_records)
     world_nodes: list[tuple[EventId, TraceNodeId]] = []
     injury_nodes: list[tuple[InjuryChanged, TraceNodeId]] = []
     for event in run.events:
@@ -183,13 +194,13 @@ def capture_run_trace(run: HeadlessRun, state_hash: StateHash) -> CausalTrace:
         )
         consequence_nodes.append((world_node_id, consequence_node_id))
 
-    edges = list(policy_trace.edges)
-    _append_policy_resolution_event_edges(edges, policy_trace.records, world_nodes)
+    edges = list(policy_edges)
+    _append_policy_resolution_event_edges(edges, policy_records, world_nodes)
     _append_world_parent_edges(edges, run.events, world_nodes)
-    _append_projectile_origin_edges(edges, run.events, policy_trace.records, world_nodes)
+    _append_projectile_origin_edges(edges, run.events, policy_records, world_nodes)
     for world_node_id, consequence_node_id in consequence_nodes:
         _append_edge(edges, world_node_id, consequence_node_id, TraceEdgeKind.CONTRIBUTED_TO)
-    return CausalTrace(state_hash.digest, TraceLevel.DECISION, tuple(records), tuple(edges))
+    return build_retained_trace(state_hash.digest, tuple(records), tuple(edges), retention_policy)
 
 
 def _require_unique_intention_ids(events: tuple[IntentionEmitted, ...]) -> None:

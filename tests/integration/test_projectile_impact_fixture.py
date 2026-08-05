@@ -22,6 +22,7 @@ from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.conditions import InjurySeverity, OperativeCondition, OperativeConditionStore
 from kiwi.sim.events import (
     DamageApplied,
+    EventKind,
     FireFired,
     InjuryChanged,
     IntentionSelected,
@@ -42,8 +43,10 @@ from kiwi.trace.model import (
     IntentionTrace,
     TraceConsequenceKind,
     TraceEdgeKind,
+    TraceLevel,
     WorldEventTrace,
 )
+from kiwi.trace.retention import TraceRetentionPolicy
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "policies" / "projectile_impact_policy.dtr"
@@ -63,6 +66,11 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
     injury = _only_event(first, InjuryChanged)
     suppression = tuple(event for event in first.events if isinstance(event, SuppressionChanged))
     trace = capture_run_trace(first, hash_canonical_state(first.state))
+    summary_trace = capture_run_trace(
+        first,
+        hash_canonical_state(first.state),
+        retention_policy=TraceRetentionPolicy(TraceLevel.SUMMARY),
+    )
     fire_text = "Fire { target = Position { x = 10m, y = 0m }, weapon_id = 1 }"
     fire_start = source.text.index(fire_text)
 
@@ -104,6 +112,14 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
     assert tuple(
         record.event_id for record in trace.records if isinstance(record, WorldEventTrace)
     ) == tuple(event.header.event_id for event in first.events)
+    assert trace.level is TraceLevel.DECISION
+    assert summary_trace.level is TraceLevel.SUMMARY
+    assert EventKind.PROJECTILE_ADVANCED not in tuple(
+        record.event_kind for record in summary_trace.records if isinstance(record, WorldEventTrace)
+    )
+    assert EventKind.INJURY_CHANGED in tuple(
+        record.event_kind for record in summary_trace.records if isinstance(record, WorldEventTrace)
+    )
     consequences = tuple(record for record in trace.records if isinstance(record, ConsequenceTrace))
     assert tuple(
         (record.kind, record.subject_entity_ids, record.event_id, record.summary)
