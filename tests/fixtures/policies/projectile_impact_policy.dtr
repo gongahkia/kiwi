@@ -1,0 +1,13 @@
+type Observation = { tick: Int }
+type Memory = { fired: Bool }
+type Fire = { target: Position, weapon_id: Int }
+type Decision = { intentions: List<Fire>, memory: Memory }
+
+policy decide(observation: Observation, memory: Memory) -> Decision =
+  if memory.fired then
+    Decision { intentions = [], memory = memory }
+  else
+    Decision {
+      intentions = [Fire { target = Position { x = 10m, y = 0m }, weapon_id = 1 }],
+      memory = Memory { fired = true }
+    }
